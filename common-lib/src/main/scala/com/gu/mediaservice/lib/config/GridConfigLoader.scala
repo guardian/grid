@@ -34,7 +34,15 @@ object GridConfigLoader extends StrictLogging {
         // when in test mode never load any files
         Configuration.empty
       } else if (stageIdentifier.isDev) {
-        loadConfiguration(developerConfigFiles)
+        val overrides = Configuration(ConfigFactory.defaultOverrides())
+
+        val extraConfigFilepath = overrides.getOptional[String]("extraConfigDir")
+          .toList
+          .map(_ + s"/$appName.conf")
+
+        overrides.withFallback(
+          loadConfiguration(developerConfigFiles ++ extraConfigFilepath)
+        )
       } else {
         loadConfiguration(deployedConfigFiles)
       }

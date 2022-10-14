@@ -68,6 +68,7 @@ lazy val root = project("grid", path = Some("."))
   )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
+addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
