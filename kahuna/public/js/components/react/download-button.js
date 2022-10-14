@@ -1,26 +1,36 @@
 import React, {useState} from "react";
 import PropTypes from 'prop-types';
 import {determineDownloadableContent} from "./downloadable-content-resolver";
+import DownloadLink from "./components/download-link";
+import Button from "./components/button";
 
-export const Button = ({downloading, onClick}) => (<button
-  type="button"
-  title="Download images"
-  aria-label="Download images"
-  disabled={downloading}
-  onClick={onClick}>
-  {downloading ? 'Downloading...' : 'Download'}
-</button>);
+const getDownloadLink = ({ links }) => links.find(({ rel }) => rel === 'download').href;
 
-export const DownloadLink = ({downloadUri}) => (<a
-  href={downloadUri}
-  rel="noopener noreferrer"
-  target="_blank"
-  aria-label="Download image">
-  Download
-</a>);
+
+// gr-downloader .download {
+//   display: block;
+// }
+//
+// button .download:hover {
+//   color: white;
+// }
+//
+// .download-warning {
+//   color: yellow;
+//   padding-left: 5px;
+//   margin-left: -6px;
+// }
+//
+// gr-icon-label.download-icon-label {
+//   padding: 0 5px 0 0;
+// }
+//
+// .download-button {
+//   height: 36px;
+// }
+
 
 export const DownloadButton = ({images, imageDownloadsService}) => {
-
     const {canDownloadCrop, restrictDownload} = window._clientConfig;
     const [downloading, setDownloading] = useState(false);
 
@@ -49,8 +59,8 @@ export const DownloadButton = ({images, imageDownloadsService}) => {
     };
 
     return (
-      <span className="download side-padded">
-      {shouldShowDownloadLink && <DownloadLink downloadUri={downloadableImagesArray[0].data.downloadUri}/>}
+      <span>
+      {shouldShowDownloadLink && <DownloadLink downloadUri={getDownloadLink(downloadableImagesArray[0])}/>}
         {shouldShowDownloadButton && <Button downloading={downloading} onClick={() => downloadImage()}/>}
         {notAllSelectedImagesDownloadable > 0 && " danger !"}
         {!(shouldShowDownloadButton || shouldShowDownloadLink) &&
@@ -62,13 +72,4 @@ export const DownloadButton = ({images, imageDownloadsService}) => {
 DownloadButton.propTypes = {
   images: PropTypes.oneOfType([PropTypes.array, PropTypes.object]).isRequired,
   imageDownloadsService: PropTypes.object.isRequired
-};
-
-DownloadLink.propTypes = {
-  downloadUri: PropTypes.string.isRequired
-};
-
-Button.propTypes = {
-  downloading: PropTypes.bool.isRequired,
-  onClick: PropTypes.func.isRequired
 };
