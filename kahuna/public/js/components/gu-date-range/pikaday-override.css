@@ -8,10 +8,15 @@
     HACK When February has 28 days the height of the pikaday element shrinks, creating a jumpy UI.
     Forcing it to 100% fixes this, however it means its parent needs to have a fixed height of 228px.
     */
+    font-family: "Open Sans", sans-serif;
     height: 100%;
 }
 
-.gu-date-range .pika-button:hover {
+.gu-date .pika-single {
+    font-family: "Open Sans", sans-serif;
+}
+
+gu-date-range .pika-button:hover {
     /*
     Pikaday uses background-colour: #ff8000. Override this rule to match the theme of The Grid.
     */
