@@ -16,16 +16,13 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
             ctrl.isOverridden = ctrl.showInvalidReasons && image.data.valid;
             ctrl.isStrongWarning = ctrl.isDeleted || !ctrl.isOverridden || image.data.cost === "pay";
 
-            ctrl.warningTextPrefix = "This image can be used, but has warnings:";
             const hasUsageRights = Object.keys(image.data.usageRights).length > 0;
-            const hasCustomWarningText = $window._clientConfig.warningTextPrefixNoRights.trim() !== "";
-            if (!hasUsageRights && hasCustomWarningText) {
-              ctrl.warningTextPrefix = $window._clientConfig.warningTextPrefixNoRights;
-            } else if (hasUsageRights && hasCustomWarningText) {
-              ctrl.warningTextPrefix = $window._clientConfig.warningTextPrefix;
+            if (!hasUsageRights) {
+              ctrl.warningTextHeader = $window._clientConfig.warningTextHeaderNoRights;
+            } else {
+              ctrl.warningTextHeader = $window._clientConfig.warningTextHeader;
             }
-            const customUnusableText = $window._clientConfig.unusableTextPrefix;
-            ctrl.unusableTextPrefix = customUnusableText.trim() !== "" ? customUnusableText : "Unusable image";
+            ctrl.unusableTextHeader = $window._clientConfig.unusableTextHeader;
         });
     }
 
