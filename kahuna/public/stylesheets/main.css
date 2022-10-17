@@ -2402,6 +2402,10 @@ FIXME: what to do with touch devices
     color: #ffffff;
 }
 
+.radio-list--selected .radio-list__label-value {
+    background-color:#666;
+}
+
 .radio-list--selected .radio-list__selection-state {
     background: #00adee;
 }
