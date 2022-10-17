@@ -693,8 +693,16 @@ textarea.ng-invalid {
 
 @media screen and (max-width: 1350px) {
     .search__modifier-toggle {
-        display: inherit;
-        margin-left: 15px
+        display: flex;
+        flex-direction: row;
+        align-items:center;
+        margin-left: 15px;
+    }
+    .search__modifier-toggle:hover {
+        filter: brightness(200%);
+    }
+    .search__modifier-container:last-of-type .search__modifier-toggle {
+        margin-right: 15px;
     }
     .search__modifier-toggle__icon {
         display: inline;
