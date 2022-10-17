@@ -38,24 +38,43 @@ object ImageExtras {
 
   def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
-  def validityMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+  private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
 
     val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
 
     def createCheck(validCheck: Boolean, overrideable: Boolean = true) =
       ValidityCheck(validCheck, overrideable, shouldOverride)
 
-    Map(
-      "paid_image"           -> createCheck(cost.isPay(image.usageRights)),
-      "conditional_paid"     -> createCheck(cost.isConditional(image.usageRights)),
-      "no_rights"            -> createCheck(!hasRights(image.usageRights)),
-      "missing_credit"       -> createCheck(!hasCredit(image.metadata), overrideable = false),
-      "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
-      "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
-      "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights)),
-      "tass_agency_image"    -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") | image.originalMetadata.byline.exists(_ == "ITAR-TASS News Agency"), overrideable = true, shouldOverride = true)
+    val baseValidationMap = Map(
+      "paid_image" -> createCheck(cost.isPay(image.usageRights)),
+      "conditional_paid" -> createCheck(cost.isConditional(image.usageRights)),
+      "no_rights" -> createCheck(!hasRights(image.usageRights)),
+      "current_deny_lease" -> createCheck(hasCurrentDenyLease(image.leases)),
+      "over_quota" -> createCheck(quotas.isOverQuota(image.usageRights)),
+      "tass_agency_image" -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") | image.originalMetadata.byline.exists(_ == "ITAR-TASS News Agency"), overrideable = true, shouldOverride = true)
     )
+    if (isImageValidation) {
+      baseValidationMap ++ Map(
+        "missing_credit" -> createCheck(!hasCredit(image.metadata), overrideable = false),
+        "missing_description" -> createCheck(!hasDescription(image.metadata), overrideable = false),
+      )
+    } else {
+      baseValidationMap
+    }
+  }
+
+  def validityMap(image: Image, withWritePermission: Boolean)(
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
+    validationMap(image, withWritePermission, isImageValidation = true)
+  }
+
+  def downloadableMap(image: Image, withWritePermission: Boolean)(
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
+    validationMap(image, withWritePermission, isImageValidation = false)
   }
 
   def invalidReasons(validityMap: ValidMap, customValidityDesc: Map[String, String] = Map.empty) = validityMap

@@ -68,4 +68,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   //BBC custom validity description messages
   val customValidityDescription: Map[String, String] =
     configuration.getOptional[Map[String, String]]("warningText.validityDescription").getOrElse(Map.empty)
+
+  val restrictDownload: Boolean = boolean("restrictDownload")
+
 }

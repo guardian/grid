@@ -55,6 +55,9 @@ const oidc = new Provider(issuer, {
     openid: [ "sub", "email", "email_verified", "given_name", "family_name", "name" ]
   },
   proxy: true,
+  pkce: {
+    required: () => false
+  },
   findAccount
 });
 
