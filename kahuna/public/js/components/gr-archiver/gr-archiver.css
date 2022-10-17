@@ -6,6 +6,10 @@
     fill: #ccc; /* svg icons */
 }
 
+.batch-archive__button .icon-label {
+    vertical-align: middle;
+}
+
 .batch-archive__button:hover {
     color: white;
     fill: white; /* svg icons */
