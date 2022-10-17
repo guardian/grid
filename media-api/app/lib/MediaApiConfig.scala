@@ -1,8 +1,10 @@
 package lib
 
+import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import org.joda.time.DateTime
 
+import java.security.PrivateKey
 import scala.util.Try
 
 case class StoreConfig(
@@ -23,14 +25,10 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val imageBucket: String = string("s3.image.bucket")
   val thumbBucket: String = string("s3.thumb.bucket")
 
-  val cloudFrontPrivateKeyLocations: Seq[String] = Seq(
-    "/etc/grid/ssl/private/cloudfront.pem",
-    "/etc/gu/ssl/private/cloudfront.pem" // TODO - remove once migrated away from
-  )
-
-  val cloudFrontDomainImageBucket: Option[String] = stringOpt("cloudfront.domain.imagebucket")
-  val cloudFrontDomainThumbBucket: Option[String] = stringOpt("cloudfront.domain.thumbbucket")
-  val cloudFrontKeyPairId: Option[String]         = stringOpt("cloudfront.keypair.id")
+  val cloudFrontDomainThumbBucket: Option[String]   = stringOpt("cloudfront.domain.thumbbucket")
+  val cloudFrontPrivateKeyBucket: Option[String]    = stringOpt("cloudfront.private-key.bucket")
+  val cloudFrontPrivateKeyBucketKey: Option[String] = stringOpt("cloudfront.private-key.key")
+  val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 
  lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
 

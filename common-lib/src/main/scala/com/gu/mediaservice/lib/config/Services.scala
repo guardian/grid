@@ -38,19 +38,19 @@ object ServiceHosts {
   }
 }
 
-class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String]) {
+class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String], domainRootOverride: Option[String] = None) {
   val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
   val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
-  val loaderHost: String      = s"${hosts.loaderPrefix}$domainRoot"
-  val cropperHost: String     = s"${hosts.cropperPrefix}$domainRoot"
-  val metadataHost: String    = s"${hosts.metadataPrefix}$domainRoot"
-  val imgopsHost: String      = s"${hosts.imgopsPrefix}$domainRoot"
-  val usageHost: String       = s"${hosts.usagePrefix}$domainRoot"
-  val collectionsHost: String = s"${hosts.collectionsPrefix}$domainRoot"
-  val leasesHost: String      = s"${hosts.leasesPrefix}$domainRoot"
+  val loaderHost: String      = s"${hosts.loaderPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val cropperHost: String     = s"${hosts.cropperPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val metadataHost: String    = s"${hosts.metadataPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val imgopsHost: String      = s"${hosts.imgopsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val usageHost: String       = s"${hosts.usagePrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val collectionsHost: String = s"${hosts.collectionsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val leasesHost: String      = s"${hosts.leasesPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val authHost: String        = s"${hosts.authPrefix}$domainRoot"
-  val adminToolsHost: String  = s"${hosts.adminToolsPrefix}$domainRoot"
-  val projectionHost: String  = s"${hosts.projectionPrefix}$domainRoot"
+  val adminToolsHost: String  = s"${hosts.adminToolsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val projectionHost: String  = s"${hosts.projectionPrefix}${domainRootOverride.getOrElse(domainRoot)}"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
