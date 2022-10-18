@@ -7,3 +7,7 @@
 .crop-button a {
     display: inline-flex;
 }
+
+.crop-dimensions {
+    gap: 2px;
+}
