@@ -4,6 +4,7 @@ import moment from 'moment';
 
 import '../services/scroll-position';
 import '../services/panel';
+import '../services/images';
 import '../util/async';
 import '../util/rx';
 import '../util/seq';
@@ -22,6 +23,7 @@ import '../components/gr-toggle-button/gr-toggle-button';
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
     'kahuna.services.panel',
+    'kahuna.services.images',
     'util.async',
     'util.rx',
     'util.seq',
@@ -43,15 +45,6 @@ function compact(array) {
     return array.filter(angular.isDefined);
 }
 
-// Global session-level state to remember the uploadTime of the first
-// result in the last search.  This allows to always paginate the same
-// set of results, as well as recovering the same set of results if
-// navigating back to the same search.
-// Note: I tried to do this using non-URL $stateParams and it was a
-// rabbit-hole that doesn't seem to have any end. Hence this slightly
-// horrid global state.
-let lastSearchFirstResultTime;
-
 results.controller('SearchResultsCtrl', [
     '$rootScope',
     '$scope',
@@ -65,11 +58,11 @@ results.controller('SearchResultsCtrl', [
     'delay',
     'onNextEvent',
     'scrollPosition',
-    'mediaApi',
     'selection',
     'selectedImages$',
     'results',
     'panels',
+    'imagesService',
     'isReloadingPreviousSearch',
 
     function($rootScope,
@@ -84,11 +77,11 @@ results.controller('SearchResultsCtrl', [
              delay,
              onNextEvent,
              scrollPosition,
-             mediaApi,
              selection,
              selectedImages$,
              results,
              panels,
+             imagesService,
              isReloadingPreviousSearch) {
 
         const ctrl = this;
@@ -120,17 +113,11 @@ results.controller('SearchResultsCtrl', [
         // large limit, but still a limit to ensure users don't reach unusable levels of performance
         ctrl.maxResults = 100000;
 
-        // If not reloading a previous search, discard any previous
-        // state related to the last search
-        if (! isReloadingPreviousSearch) {
-            lastSearchFirstResultTime = undefined;
-        }
-
         // Initial search to find upper `until` boundary of result set
         // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
+        ctrl.searched = imagesService.search($stateParams, {length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
             ctrl.hasQuery = !!$stateParams.query;
@@ -163,7 +150,8 @@ results.controller('SearchResultsCtrl', [
             const latestTime = until || moment().toISOString();
 
             if (latestTime && ! isReloadingPreviousSearch) {
-                lastSearchFirstResultTime = latestTime;
+                // TODO would like to eliminate
+                imagesService.setLastSearchFirstResultTime(latestTime);
             }
 
             return images;
@@ -176,7 +164,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
-            search({offset: start, length: length, countAll: false}).then(images => {
+            imagesService.search($stateParams, {offset: start, length: length}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     const position = index + start;
@@ -229,9 +217,9 @@ results.controller('SearchResultsCtrl', [
             $timeout(() => {
                 // Use explicit `until`, or blank it to find new images
                 const until = $stateParams.until || null;
-                const latestTime = lastSearchFirstResultTime;
+                const latestTime = imagesService.getLastSearchFirstResultTime();
 
-                search({since: latestTime, length: 0, until}).then(resp => {
+                imagesService.search($stateParams, {since: latestTime, length: 0, until}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
@@ -289,60 +277,6 @@ results.controller('SearchResultsCtrl', [
 
         function getQueryKey() {
             return $stateParams.query || '*';
-        }
-
-        function search({until, since, offset, length, orderBy, countAll} = {}) {
-            // FIXME: Think of a way to not have to add a param in a million places to add it
-
-            /*
-             * @param `until` can have three values:
-             *
-             * - `null`      => Don't send over a date, which will default to `now()` on the server.
-             *                  Used in `checkForNewImages` with no until in `stateParams` to search
-             *                  for the new image count
-             *
-             * - `string`    => Override the use of `stateParams` or `lastSearchFirstResultTime`.
-             *                  Used in `checkForNewImages` when a `stateParams.until` is set.
-             *
-             * - `undefined` => Default. We then use the `lastSearchFirstResultTime` if available to
-             *                  make sure we aren't loading any new images into the result set and
-             *                  `checkForNewImages` deals with that. If it's the first search, we
-             *                  will use `stateParams.until` if available.
-             */
-            if (angular.isUndefined(until)) {
-                until = lastSearchFirstResultTime || $stateParams.until;
-            }
-            if (angular.isUndefined(since)) {
-                since = $stateParams.since;
-            }
-            if (angular.isUndefined(orderBy)) {
-                orderBy = $stateParams.orderBy;
-            }
-            if (angular.isUndefined(countAll)) {
-              countAll = true;
-            }
-
-            return mediaApi.search($stateParams.query, angular.extend({
-                ids:        $stateParams.ids,
-                archived:   $stateParams.archived,
-                free:       $stateParams.nonFree === 'true' ? undefined : true,
-                // Disabled while paytype filter unavailable
-                //payType:    $stateParams.payType || 'free',
-                uploadedBy: $stateParams.uploadedBy,
-                takenSince: $stateParams.takenSince,
-                takenUntil: $stateParams.takenUntil,
-                modifiedSince: $stateParams.modifiedSince,
-                modifiedUntil: $stateParams.modifiedUntil,
-                until:      until,
-                since:      since,
-                offset:     offset,
-                length:     length,
-                orderBy:    orderBy,
-                hasRightsAcquired: $stateParams.hasRightsAcquired,
-                hasCrops: $stateParams.hasCrops,
-                syndicationStatus: $stateParams.syndicationStatus,
-                countAll
-            }));
         }
 
         ctrl.clearSelection = () => {

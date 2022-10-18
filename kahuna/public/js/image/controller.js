@@ -76,6 +76,7 @@ image.controller('ImageCtrl', [
   'editsService',
   'keyboardShortcut',
   'cropSettings',
+  'imagesService',
 
   function ($rootScope,
             $scope,
@@ -95,9 +96,12 @@ image.controller('ImageCtrl', [
             imageUsagesService,
             editsService,
             keyboardShortcut,
-            cropSettings) {
+            cropSettings,
+            imagesService) {
 
     let ctrl = this;
+
+    ctrl.images = imagesService.getImages();
 
     keyboardShortcut.bindTo($scope)
       .add({
