@@ -16,7 +16,22 @@ imagesService.factory('imagesService', [
         let total = 0;
         let images = [];
 
+        function getImageOffset(id, offset) {
+            return images[images.findIndex(i => i.data.id === id) + offset];
+        }
+        function checkForNewImages($stateParams, {until, since, offset, length, orderBy} = {}) {
+            return internalSearch($stateParams, {until, since, offset, length, orderBy} );
+        }
+
         function search($stateParams, {until, since, offset, length, orderBy} = {}) {
+            return internalSearch($stateParams, {until, since, offset, length, orderBy} ).then(i => {
+                images = i.data;
+                total = i.total;
+                return i; 
+            });
+        }
+
+        function internalSearch($stateParams, {until, since, offset, length, orderBy} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -43,7 +58,6 @@ imagesService.factory('imagesService', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
-            console.log("do da conga!");
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
@@ -64,15 +78,13 @@ imagesService.factory('imagesService', [
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus
-            })).then(i => {
-                images = i.data;
-                total = i.total;
-                return i; 
-            });
-        };
+            }));
+                };
 
         return {
+            checkForNewImages,
             search,
+            getImageOffset,
             getImages: () => images,
             getTotal: () => total,
             getLastSearchFirstResultTime: () => lastSearchFirstResultTime,

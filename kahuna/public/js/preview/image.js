@@ -7,6 +7,7 @@ import '../util/storage';
 
 import template from './image.html';
 import templateLarge from './image-large.html';
+import templateFilmstrip from './image-filmstrip.html';
 
 import '../image/service';
 import '../imgops/service';
@@ -160,6 +161,20 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
         };
 }]);
 
+image.directive('uiPreviewImageFilmstrip', function() {
+    return {
+        restrict: 'E',
+        scope: {
+            image: '=',
+        },
+        // extra actions can be transcluded in
+        transclude: true,
+        template: templateFilmstrip,
+        controller: 'uiPreviewImageCtrl',
+        controllerAs: 'ctrl',
+        bindToController: true
+    };
+});
 image.directive('grStopPropagation', function() {
     return {
         restrict: 'A',

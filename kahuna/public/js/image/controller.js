@@ -103,43 +103,6 @@ image.controller('ImageCtrl', [
 
     ctrl.images = imagesService.getImages();
 
-    keyboardShortcut.bindTo($scope)
-      .add({
-        combo: 'c',
-        description: 'Crop image',
-        callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
-      })
-      .add({
-        combo: 'f',
-        description: 'Enter fullscreen',
-        callback: () => {
-          const imageEl = $element[0].querySelector('.easel__image');
-
-          // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
-          const fullscreenElement = (
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement
-          );
-
-          const exitFullscreen = (
-            document.exitFullscreen ||
-            document.webkitExitFullscreen ||
-            document.mozCancelFullScreen
-          );
-
-          const requestFullscreen = (
-            imageEl.requestFullscreen ||
-            imageEl.webkitRequestFullscreen ||
-            imageEl.mozRequestFullScreen
-          );
-
-          // `.call` to ensure `this` is bound correctly.
-          return fullscreenElement
-            ? exitFullscreen.call(document)
-            : requestFullscreen.call(imageEl);
-        }
-      });
 
     ctrl.tabs = [
       {key: 'metadata', value: 'Metadata'},
@@ -312,7 +275,67 @@ image.controller('ImageCtrl', [
       }
     });
 
-    $scope.$on('$destroy', function () {
+    keyboardShortcut.bindTo($scope)
+      .add({
+        combo: 'left',
+        description: "Previous image",
+        callback: () => {
+          const prevImage = imagesService.getImageOffset(ctrl.image.data.id, -1);
+
+          if (prevImage) {
+            return $state.go('image', {imageId: prevImage.data.id, crop: undefined});
+          }
+        }
+      })
+      .add({
+        combo: 'right',
+        description: "Next image",
+        callback: () => {
+          const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
+
+          if (nextImage) {
+            return $state.go('image', {imageId: nextImage.data.id, crop: undefined});
+          }
+        }
+      })
+      .add({
+        combo: 'c',
+        description: 'Crop image',
+        callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+      })
+      .add({
+        combo: 'f',
+        description: 'Enter fullscreen',
+        callback: () => {
+          const imageEl = $element[0].querySelector('.easel__image');
+
+          // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
+          const fullscreenElement = (
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement
+          );
+
+          const exitFullscreen = (
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.mozCancelFullScreen
+          );
+
+          const requestFullscreen = (
+            imageEl.requestFullscreen ||
+            imageEl.webkitRequestFullscreen ||
+            imageEl.mozRequestFullScreen
+          );
+
+          // `.call` to ensure `this` is bound correctly.
+          return fullscreenElement
+            ? exitFullscreen.call(document)
+            : requestFullscreen.call(imageEl);
+        }
+      });
+
+    $scope.$on('$destroy', function() {
       freeImagesUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();

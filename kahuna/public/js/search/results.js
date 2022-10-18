@@ -219,7 +219,7 @@ results.controller('SearchResultsCtrl', [
                 const until = $stateParams.until || null;
                 const latestTime = imagesService.getLastSearchFirstResultTime();
 
-                imagesService.search($stateParams, {since: latestTime, length: 0, until}).then(resp => {
+                imagesService.checkForNewImages($stateParams, {since: latestTime, length: 0, until}).then(resp => {
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
@@ -230,7 +230,7 @@ results.controller('SearchResultsCtrl', [
 
                     ctrl.lastestTimeMoment = moment(latestTime).from(moment());
 
-                    if (! scopeGone) {
+                    if (!scopeGone) {
                         checkForNewImages();
                     }
                 });

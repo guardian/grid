@@ -27,7 +27,6 @@
 
 
     <div class="image-main">
-
         <div class="image-details image-details--crop">
             <div class="image-info">
                 <div class="image-info__group">
@@ -137,17 +136,6 @@
                     gr-on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
         </div>
 
-        <div class="image-details image-details--full-image">
-        <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
-        <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
-        <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
-
-        <div class="image-details image-details--scroll">
-            <gr-image-metadata gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
-            <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
-        </div>
-        </div>
-
         <div class="image-holder">
             <div class="easel">
                 <div class="easel__canvas"
@@ -180,14 +168,24 @@
                 </div>
             </div>
         </div>
+        <div class="image-details image-details--full-image">
+        <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
+        <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
+        <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
+
+        <div class="image-details">
+            <gr-image-metadata gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
+            <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
+        </div>
+        </div>
     </div> <!-- end of image main -->
 
-    <ul class="image-carosel">
-        <li ng-repeat='image in ctrl.images track by image.data.id'>
-            <ui-preview-image image="image"
-                selection-mode="ctrl.inSelectionMode"
-                ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
-                ng-click="ctrl.onImageClick(image, $event)"/>
+    <ul ng-if='ctrl.images.length > 0' class="image-carosel">
+                                    
+        <li 
+            ng-class="{'image-crop--selected': image.data.id == ctrl.image.data.id}"
+            ng-repeat='image in ctrl.images track by image.data.id'>
+            <ui-preview-image-filmstrip image="image"/>
         </li>
     </ul class="image-carosel">
 </div>
