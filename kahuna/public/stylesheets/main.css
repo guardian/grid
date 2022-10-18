@@ -521,7 +521,7 @@ textarea.ng-invalid {
         padding: 0
     }
 
-    .top-bar-item .file-uploader gr-icon {
+    .top-bar-item button gr-icon {
         margin-right: 0;
     }
 
@@ -868,14 +868,6 @@ textarea.ng-invalid {
 
 .search__overlay__title {
     font-weight: bold;
-}
-
-/* ==========================================================================
-   Crop
-   ========================================================================== */
-
-.crop__action {
-    margin-top: 12px;
 }
 
 /* ==========================================================================
