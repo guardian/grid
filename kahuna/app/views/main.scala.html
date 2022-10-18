@@ -14,7 +14,7 @@
 )
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -59,30 +59,33 @@
           additionalNavigationLinks: @Html(additionalNavigationLinks),
           costFilterLabel: "@Html(costFilterLabel)",
           costFilterChargeable: @costFilterChargeable,
-          restrictDownload: @kahunaConfig.restrictDownload.getOrElse(false)
+          restrictDownload: @kahunaConfig.restrictDownload.getOrElse(false),
+          warningTextHeader: "@Html(kahunaConfig.warningTextHeader)",
+          warningTextHeaderNoRights: "@Html(kahunaConfig.warningTextHeaderNoRights)",
+          unusableTextHeader: "@Html(kahunaConfig.unusableTextHeader)"
         }
     </script>
 
-  </head>
-  <body>
-    <p class="loader" ng-hide="true">Loading @kahunaConfig.systemName…</p>
+</head>
+<body>
+<p class="loader" ng-hide="true">Loading @kahunaConfig.systemName…</p>
 
-    <div ui-view></div>
+<div ui-view></div>
 
-    <ui-global-errors></ui-global-errors>
+<ui-global-errors></ui-global-errors>
 
     @kahunaConfig.googleTrackingId.map { id =>
       <script>
         window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
       </script>
-      <script async src='https://www.google-analytics.com/analytics.js'></script>
-    }
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+}
 
-    <script src="@routes.Assets.versioned("dist/build.js")"></script>
+<script src="@routes.Assets.versioned("dist/build.js")"></script>
 
-    @scriptsToLoad.map { scriptDetail =>
-      <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
-    }
+@scriptsToLoad.map { scriptDetail =>
+<script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
+}
 
-  </body>
+</body>
 </html>

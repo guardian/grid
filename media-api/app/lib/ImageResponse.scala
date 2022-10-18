@@ -83,7 +83,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val validityMap = ImageExtras.validityMap(image, withWritePermission)
     val valid = ImageExtras.isValid(validityMap)
-    val invalidReasons = ImageExtras.invalidReasons(validityMap)
+    val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
 
     val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
     val isDownloadable = ImageExtras.isValid(downloadableMap)
