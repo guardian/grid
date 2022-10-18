@@ -219,10 +219,10 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.additionalMetadata = Object.fromEntries(
         Object.entries(ctrl.singleImage.data.aliases)
-          .map(([key, val]) => {
+          .map(([key, value]) => {
             let fieldAlias = ctrl.fieldAliases.find(_ => _.alias === key);
             if (fieldAlias && fieldAlias.displayInAdditionalMetadata === true) {
-              return [fieldAlias.label, val];
+              return [fieldAlias.label, { value, alias: fieldAlias.alias}];
             }
           })
           .filter(_ => _ !== undefined));

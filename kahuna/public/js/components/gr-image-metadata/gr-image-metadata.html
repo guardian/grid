@@ -67,27 +67,40 @@
                                   'image-info__editor--saving': titleEditForm.$waiting,
                                   'text-input': true}">
 
-                    <div ng-if="ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                    <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title) && ctrl.userCanEdit">
+                        <dd class="image-info__title">
                             Multiple titles (click ✎ to edit <strong>all</strong>)
                         </dd>
+                    </div>
 
+                    <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title) && !ctrl.userCanEdit">
+                        <dd class="image-info__title">
+                            Multiple titles
+                        </dd>
+                    </div>
+
+                    <div ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title) && !ctrl.metadata.title" class="editable-empty"">
+                        <dd ng-if="ctrl.userCanEdit">
+                            Unknown (click ✎ to add)
+                        </dd>
+                        <dd ng-if="!ctrl.userCanEdit">
+                        Unknown
+                        </dd>
+                    </div>
+
+                    <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
+                            <a ui-sref="search.results({query: (ctrl.metadata.title | queryFilter:'title'), nonFree: ctrl.srefNonfree()})"
+                            aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title}}</a>
                         </dd>
                     </div>
 
                     <div ng-if="!ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            Multiple titles
-                        </dd>
-
                         <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown"}}
+                            <a ui-sref="search.results({query: (ctrl.metadata.title | queryFilter:'title'), nonFree: ctrl.srefNonfree()})"
+                               aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title}}</a>
                         </dd>
                     </div>
                 </div>
@@ -100,7 +113,7 @@
                         ng-hide="descriptionEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Description</dt>
                 <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
-                  <div ng-hide="descriptionEditForm.$visible">
+                  <div ng-hide="descriptionEditForm.$visible" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}">
                     <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__description"
                             ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
@@ -129,7 +142,6 @@
                 </div>
                 <div
                     class="metadata-line__info"
-                    ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                      editable-textarea="ctrl.metadata.description"
                      ng-hide="descriptionEditForm.$visible"
                      e:msd-elastic
@@ -220,6 +232,7 @@
                 >✎</button>
 
                 <span editable-datetime-local="ctrl.metadata.dateTaken"
+                      ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.dateTaken)}"
                       ng-hide="takenEditForm.$visible"
                       onbeforesave="ctrl.updateMetadataField('dateTaken', $data)"
                       e:form="takenEditForm"
@@ -241,6 +254,7 @@
                         </span>
 
                         <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+                        <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && !ctrl.userCanEdit">Unknown</span>
                     </span>
                 </span>
             </dd>
@@ -333,14 +347,21 @@
                             </span>
 
                             <span class="editable-empty" ng-if="!ctrl.metadata.credit && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+                            <span class="editable-empty" ng-if="!ctrl.metadata.credit && !ctrl.userCanEdit">Unknown</span>
                         </span>
                     </span>
                 </span>
 
             </dd>
 
-            <dt ng-hide="locationEditForm.$visible" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Location</dt>
-            <dd class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="(ctrl.hasLocationInformation() || ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.city) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.state) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.country)) || ctrl.userCanEdit" ng-hide="locationEditForm.$visible" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Location</dt>
+            <dd ng-if="(ctrl.hasLocationInformation() || ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.city) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.state) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.country))  || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-loc-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
@@ -523,8 +544,8 @@
                 </span>
             </dd>
 
-            <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
-            <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)" class="metadata-line metadata-line__info image-info__group--dl__value image-info__group--dl__value--panel">
+            <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename) && ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
+            <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename) && ctrl.extraInfo.filename" class="metadata-line metadata-line__info image-info__group--dl__value image-info__group--dl__value--panel">
                 <span
                     class="metadata-line__info select-all-wrap"
                     title="{{ctrl.extraInfo.filename}}">{{ctrl.extraInfo.filename}}</span>
@@ -546,8 +567,8 @@
                 </span>
             </dd>
 
-            <dt ng-if="(ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
-            <dd ng-if="(ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit)" class="image-info__people image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="ctrl.rawMetadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
+            <dd ng-if="ctrl.rawMetadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__people image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-people-button"
                         class="metadata-people__button"
                         ng-class="{'small': ctrl.grSmall}"
@@ -597,12 +618,18 @@
         <div ng-if="!ctrl.isMetadataSectionHidden('additionalMetadata')" class="metadata metadata-line image-info__group--dl">
             <dl ng-repeat="(key, value) in ctrl.metadata" ng-if="ctrl.isUsefulMetadata(key)" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
+                <a ui-sref="search.results({query: (value | queryFilter:'{{key}}'), nonFree: ctrl.srefNonfree()})"
+                aria-label="Search images with {{key}} '{{value}}'">{{value}}</a>
+                </dd>
             </dl>
 
-            <dl ng-repeat="(key, value) in ctrl.additionalMetadata" class="metadata__body image-info__group--dl">
+            <dl ng-repeat="(key, metadata) in ctrl.additionalMetadata" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
+                <a ui-sref="search.results({query: (metadata.value | queryFilter:'{{metadata.alias}}'), nonFree: ctrl.srefNonfree()})"
+                aria-label="Search images with {{key}} '{{metadata.value}}'">{{metadata.value}}</a>
+                </dd>
             </dl>
 
             <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
