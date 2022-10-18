@@ -375,7 +375,8 @@ button[disabled],
 
 .inner-clickable {
     height: 100%;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
 }
 
 .inner-clickable--disabled {
@@ -454,7 +455,9 @@ textarea.ng-invalid {
     margin-left: -4px;
     vertical-align: middle;
     line-height: 50px;
-    display: inline-block;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     border-left: 2px solid #565656;
     height: 50px;
 }
@@ -513,6 +516,13 @@ textarea.ng-invalid {
 @media screen and (max-width: 950px) {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
+    }
+    .results-toolbar-item .gr-confirm-delete gr-icon-label {
+        padding: 0
+    }
+
+    .top-bar-item .file-uploader gr-icon {
+        margin-right: 0;
     }
 
     /* only use this class if you want it to hide */
@@ -877,7 +887,6 @@ textarea.ng-invalid {
 }
 
 .file-uploader__select-files {
-    margin-top: 12px;
     padding: 5px 10px;
 }
 
@@ -1069,7 +1078,6 @@ textarea.ng-invalid {
 
 .results-toolbar__right {
     margin-left: auto;
-    line-height: 35px;
 }
 
 .results-toolbar-item {
@@ -1078,8 +1086,9 @@ textarea.ng-invalid {
     border-color: #565656;
     border-style: solid;
     position: relative;
-    height: 35px;
-    line-height: 35px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     white-space: nowrap;
 }
 
@@ -1090,6 +1099,10 @@ textarea.ng-invalid {
 .results-toolbar-item--static,
 .results-toolbar-item gr-icon-label {
     padding: 0 10px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
 }
 
 .results-toolbar-item--inline {

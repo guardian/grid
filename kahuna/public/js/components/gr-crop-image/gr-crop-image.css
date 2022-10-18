@@ -1,0 +1,9 @@
+.crop-button {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+}
+
+.crop-button a {
+    display: inline-flex;
+}

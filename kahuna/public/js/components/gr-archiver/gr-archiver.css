@@ -6,8 +6,11 @@
     fill: #ccc; /* svg icons */
 }
 
-.batch-archive__button .icon-label {
-    vertical-align: middle;
+.batch-archive, .batch-archive__button.side-padded {
+    height: 100%;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
 }
 
 .batch-archive__button:hover {
