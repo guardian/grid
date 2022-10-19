@@ -517,12 +517,17 @@ textarea.ng-invalid {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
     }
+
     .results-toolbar-item .gr-confirm-delete gr-icon-label {
         padding: 0
     }
 
     .top-bar-item button gr-icon {
         margin-right: 0;
+    }
+
+    .top-bar-item .download a {
+        padding-right: 0;
     }
 
     /* only use this class if you want it to hide */
