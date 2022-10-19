@@ -102,6 +102,7 @@ image.controller('ImageCtrl', [
             imagesService) {
 
     let ctrl = this;
+    ctrl.images = imagesService.getImages();
 
     ctrl.tabs = [
       {key: 'metadata', value: 'Metadata'},
