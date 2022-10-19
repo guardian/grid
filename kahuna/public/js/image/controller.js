@@ -103,8 +103,6 @@ image.controller('ImageCtrl', [
 
     let ctrl = this;
 
-    ctrl.images = imagesService.getImages();
-
     ctrl.tabs = [
       {key: 'metadata', value: 'Metadata'},
       {key: 'usages', value: `Usages`, disabled: true}
@@ -114,7 +112,7 @@ image.controller('ImageCtrl', [
     ctrl.toggleShowFilmstrip = () => {
       console.log('toggle');
       ctrl.showFilmstrip = !ctrl.showFilmstrip;
-    }
+    };
 
     ctrl.selectedTab = 'metadata';
 
@@ -289,7 +287,7 @@ image.controller('ImageCtrl', [
       if (prevImage) {
         $state.go('image', {imageId: prevImage.data.id, crop: undefined});
       }
-    }
+    };
 
     ctrl.nextImage = function () {
       const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
@@ -297,7 +295,7 @@ image.controller('ImageCtrl', [
       if (nextImage) {
         $state.go('image', {imageId: nextImage.data.id, crop: undefined});
       }
-    }
+    };
 
     keyboardShortcut.bindTo($scope)
       .add({
@@ -348,9 +346,9 @@ image.controller('ImageCtrl', [
       });
 
     angular.element(document).ready(function () {
-      const currentFilmstripItem = $document[0].querySelector('[data-filmstrip-selected]')
+      const currentFilmstripItem = $document[0].querySelector('[data-filmstrip-selected]');
       if (currentFilmstripItem)  {
-        currentFilmstripItem.scrollIntoView({inline: 'center'})
+        currentFilmstripItem.scrollIntoView({inline: 'center'});
       }
     });
 

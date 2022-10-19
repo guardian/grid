@@ -13,11 +13,8 @@ imagesService.factory('imagesService', [
         // rabbit-hole that doesn't seem to have any end. Hence this slightly
         // horrid global state.
         let lastSearchFirstResultTime;
-        
         let total = 0;
         let images = [];
-        let lastViewedImage = undefined;
-        let hasLoadedImages = false;
 
         function getImageOffset(id, offset) {
             return images[images.findIndex(i => i.data.id === id) + offset];
@@ -30,7 +27,7 @@ imagesService.factory('imagesService', [
             return internalSearch($stateParams, {until, since, offset, length, orderBy} ).then(i => {
                 images = i.data;
                 total = i.total;
-                return i; 
+                return i;
             });
         }
 
@@ -62,9 +59,6 @@ imagesService.factory('imagesService', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
-
-            // We want to track if the user has loaded images so we know not to reload the results page
-            hasLoadedImages = true;
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,

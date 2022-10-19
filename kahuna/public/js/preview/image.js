@@ -165,7 +165,7 @@ image.directive('uiPreviewImageFilmstrip', function() {
     return {
         restrict: 'E',
         scope: {
-            image: '=',
+            image: '='
         },
         // extra actions can be transcluded in
         transclude: true,
