@@ -31,14 +31,15 @@ image.config(['$stateProvider',
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
             cropKey: ['$stateParams', $stateParams => $stateParams.crop],
             image: ['$state', '$q', 'mediaApi', 'imageId',
-                ($state, $q, mediaApi, imageId) => {
-                    return mediaApi.find(imageId).catch(error => {
-                        if (error && error.status === 404) {
-                            $state.go('image-error', {message: 'Image not found'});
-                        } else {
-                            return $q.reject(error);
-                        }
-                    });
+                    ($state, $q, mediaApi, imageId) => {
+
+                return mediaApi.find(imageId).catch(error => {
+                    if (error && error.status === 404) {
+                        $state.go('image-error', {message: 'Image not found'});
+                    } else {
+                        return $q.reject(error);
+                    }
+                });
             }],
 
             optimisedImageUri: ['image', 'imgops',

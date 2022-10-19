@@ -42,7 +42,6 @@ listEditor.controller('ListEditorCtrl', [
                 ctrl.images[index] = updatedImage;
             }
         });
-
         ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
         ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
     };
