@@ -18,6 +18,7 @@ import rx.lang.scala.subjects.PublishSubject
 import java.util.{UUID, List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 trait ContentContainer extends GridLogging {
   val content: Content
@@ -75,10 +76,12 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
-    records.asScala.map { record =>
-
+    records.asScala.foreach { record =>
       val buffer: Array[Byte] = record.getData.array()
-      ThriftDeserializer.deserialize(buffer).map(processEvent)
+      val deserialization: Try[Unit] = ThriftDeserializer.deserialize(buffer).map(processEvent)
+      deserialization.failed.foreach { e: Throwable =>
+        logger.error("Failed to deserialize crier event", e)
+      }
     }
 
     checkpointer.checkpoint(records.asScala.last)
