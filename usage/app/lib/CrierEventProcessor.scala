@@ -78,7 +78,8 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
     records.asScala.foreach { record =>
       val buffer: Array[Byte] = record.getData.array()
-      val deserialization: Try[Unit] = ThriftDeserializer.deserialize(buffer).map(processEvent)
+      val deserialization: Try[Event] = ThriftDeserializer.deserialize(buffer)
+      deserialization.foreach(processEvent)
       deserialization.failed.foreach { e: Throwable =>
         logger.error("Failed to deserialize crier event", e)
       }
@@ -102,42 +103,49 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
       "requestId" -> UUID.randomUUID().toString
     )
 
-    val dateTime: DateTime = new DateTime(event.dateTime)
+    Try {
+      val dateTime: DateTime = new DateTime(event.dateTime)
 
-    event.eventType match {
-      case EventType.Update =>
+      event.eventType match {
+        case EventType.Update =>
 
-        event.payload match {
-          case Some(content: EventPayload.Content) =>
-            getContentItem(content.content, dateTime)
-              .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
-          case _ =>
-            logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
-        }
-      case EventType.Delete =>
+          event.payload match {
+            case Some(content: EventPayload.Content) =>
+              getContentItem(content.content, dateTime)
+                .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
+            case _ =>
+              logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+          }
+        case EventType.Delete =>
         //TODO: how do we deal with a piece of content that has been deleted?
-      case EventType.RetrievableUpdate =>
+        case EventType.RetrievableUpdate =>
 
-        event.payload match {
-          case Some(retrievableContent: EventPayload.RetrievableContent) =>
-            val capiUrl = retrievableContent.retrievableContent.capiUrl
+          event.payload match {
+            case Some(retrievableContent: EventPayload.RetrievableContent) =>
+              val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-            val query = ItemQuery(capiUrl, Map())
+              val query = ItemQuery(capiUrl, Map())
 
-            liveCapi.getResponse(query).map(response => {
+              liveCapi.getResponse(query).map(response => {
+                  response.content match {
+                    case Some(content) =>
+                      LiveContentItem(content, dateTime)
+                        .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
+                    case _ =>
+                      logger.debug(
+                        logMarker,
+                        s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
+                      )
+                  }
+                }
+              )
+            case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+          }
 
-              response.content match {
-                case Some(content) =>
-                  LiveContentItem(content, dateTime)
-                    .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
-                case _ =>
-                  logger.debug(logMarker, s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
-              }
-            })
-          case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
-        }
-
-      case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
+        case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
+      }
+    }.recover {
+      case e => logger.error(logMarker, s"Failed to process event ${event.payloadId}", e)
     }
   }
 }
