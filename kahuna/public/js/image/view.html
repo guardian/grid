@@ -180,7 +180,7 @@
         </div>
     </div> <!-- end of image main -->
 
-    <div ng-if='ctrl.images.length > 0' class="image-filmstrip__container">
+    <div ng-if="ctrl.images.length > 0" class="image-filmstrip__container">
         <div class="image-filmstrip__margin">
             <button class="image-filmstrip__toggle" ng-click="ctrl.toggleShowFilmstrip()">
                 {{ctrl.showFilmstrip ? "Hide" : "Show"}}
@@ -188,14 +188,14 @@
             <button ng-if="ctrl.showFilmstrip" class="image-filmstrip__nextprev" ng-click="ctrl.previousImage()">
             ⬅
             </button>
-            <div ng-if='ctrl.showFilmstrip' ></div>
+            <div ng-if="ctrl.showFilmstrip" ></div>
         </div>
 
-        <ul ng-if='ctrl.showFilmstrip' class="image-filmstrip">
-            <li 
+        <ul ng-if="ctrl.showFilmstrip" class="image-filmstrip">
+            <li
                 ng-attr-data-filmstrip-selected="{{image.data.id == ctrl.image.data.id ? true : undefined}}"
-                ng-repeat='image in ctrl.images track by image.data.id'>
-                <ui-preview-image-filmstrip image="image"/>
+                ng-repeat="image in ctrl.images track by image.data.id">
+                <ui-preview-image-filmstrip image="image"></ui-preview-image-filmstrip>
             </li>
         </ul>
 
