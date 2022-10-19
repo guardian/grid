@@ -15,8 +15,9 @@ button .download:hover {
 
 .top-bar-item .download a {
   margin-left: -10px;
+  margin-right: -10px;
   padding-left: 10px;
-  padding-right: 10px;
+  padding-right: 20px;
   display: inline-flex;
 }
 
@@ -30,7 +31,7 @@ button .download:hover {
     margin-left: 0px;
 }
 
-.results-toolbar .download a {
+.results-toolbar .download a, .results-toolbar .download span {
   display: inline-flex;
 }
 
