@@ -68,6 +68,7 @@ lazy val root = project("grid", path = Some("."))
   )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
+addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
@@ -91,7 +92,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.14",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "1.0.6",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,

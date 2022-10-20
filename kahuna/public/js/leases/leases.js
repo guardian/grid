@@ -182,15 +182,14 @@ leases.controller('LeasesCtrl', [
         };
 
         ctrl.toolTip = (lease) => {
-            const  leasedBy = Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
-            return leasedBy;
+          return Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
         };
 
         ctrl.inactiveLeases = (leases) => {
-            leases.leases.filter((l) => !ctrl.isCurrent(l)).length;
+          leases ? leases.leases.filter((l) => !ctrl.isCurrent(l)).length : 0;
         };
         ctrl.activeLeases = (leases) => {
-            leases.leases.filter((l) => ctrl.isCurrent(l)).length;
+          leases ? leases.leases.filter((l) => ctrl.isCurrent(l)).length : 0;
         };
 
         ctrl.resetLeaseForm = () => {
@@ -229,6 +228,11 @@ leases.controller('LeasesCtrl', [
         };
 
         ctrl.isCurrent = (lease) => lease.active && lease.access.match(/-use/i);
+
+        ctrl.leaseClass = (lease) => {
+          const names = [...lease.access.split('-'), lease.active ? 'active' : 'inactive'];
+          return names.map(name => `lease__${name}`).join(' ');
+        };
 
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';

@@ -28,7 +28,7 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
             cost,
             hasCrops: image.data.exports && image.data.exports.length > 0,
             hasRights,
-            costState: hasRights ? cost : "no_rights",
+            costState: hasRights && image.data.valid ? cost : "no_rights",
             isValid: image.data.valid,
             canDelete: imageLogic.canBeDeleted(image),
             canArchive: imageLogic.canBeArchived(image),

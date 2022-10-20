@@ -103,8 +103,9 @@
 
 <div class="easel" role="main" aria-label="Image cropper">
     <div class="easel__canvas">
-        <div class="easel__image-container">
+        <div class="easel__image-container" oncontextmenu="return false;">
             <img class="easel__image easel__image--cropper"
+                 oncontextmenu="return false;"
                  alt="original image to crop"
                  ng-src="{{ctrl.optimisedImageUri}}"
                  ui-crop-box="ctrl.coords"

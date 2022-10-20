@@ -1,8 +1,21 @@
-gr-downloader:hover {
-    color: white;
-}
-
 gr-downloader .download {
     display: block;
-    height: 100%;
+}
+
+button .download:hover {
+  color: white;
+}
+
+.download-warning {
+  color: yellow;
+  padding-left: 5px;
+  margin-left: -6px;
+}
+
+gr-icon-label.download-icon-label {
+  padding: 0 5px 0 0;
+}
+
+.download-button {
+  height: 36px;
 }

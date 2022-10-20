@@ -98,10 +98,17 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def AllowedNestedFieldName = rule {
     "status" | "platform" | "section" | "publication" | "orderedBy" | "reference"
   }
+
+  // BEWARE! Ordering of this list matters.
+  // If a word is a prefix of another, it must come last.
+  // e.g foo must come _after_ food.
+  // This might be an issue with the parboiled library.
+  // TODO: fix this!
   def AllowedFieldName = rule {
     "illustrator" |
     "uploader" |
     "location" | "city" | "state" | "country" | "in" |
+    "bylineTitle" |
     "byline" | "by" | "photographer" |
     "description" |
     "credit" |
@@ -109,7 +116,9 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "source" |
     "category" |
     "subject" |
+    "suppliersReference" |
     "supplier" |
+    "specialInstructions" |
     "collection" |
     "keyword" |
     "label" |

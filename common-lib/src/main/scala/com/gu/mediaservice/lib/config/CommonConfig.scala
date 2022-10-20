@@ -24,7 +24,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   override val awsRegion: String = stringDefault("aws.region", "eu-west-1")
 
-  override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint") else None
+  override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint").filter(_.nonEmpty) else None
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
@@ -44,6 +44,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
+  val domainRootOverride: Option[String] = stringOpt("domain.root-override")
   val rootAppName: String = stringDefault("app.name.root", "media")
   val serviceHosts = ServiceHosts(
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
@@ -62,7 +63,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
-  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins, domainRootOverride)
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

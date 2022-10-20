@@ -24,6 +24,7 @@ crop.controller('ImageCropCtrl', [
   'cropSettings',
   'square',
   'freeform',
+  'pollUntilCropCreated',
   function(
     $scope,
     $rootScope,
@@ -37,7 +38,8 @@ crop.controller('ImageCropCtrl', [
     defaultCrop,
     cropSettings,
     square,
-    freeform) {
+    freeform,
+    pollUntilCropCreated) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
@@ -146,18 +148,22 @@ crop.controller('ImageCropCtrl', [
 
         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratioString).then(crop => {
-          // Global notification of action
-          $rootScope.$emit('events:crop-created', {
-            image: ctrl.image,
-            crop: crop
-          });
-
-          $state.go('image', {
-            imageId: imageId,
-            crop: crop.data.id
-          });
-        }).finally(() => {
+        mediaCropper.createCrop(ctrl.image, coords, ratioString)
+        .then(crop => {
+           // Global notification of action
+           $rootScope.$emit('events:crop-created', {
+             image: ctrl.image,
+             crop: crop
+           });
+           return crop.data.id;
+        })
+        .then(cropId => pollUntilCropCreated(ctrl.image, cropId).then(() => {
+            $state.go('image', {
+                imageId: imageId,
+                crop: cropId
+            });
+        }))
+        .finally(() => {
           ctrl.cropping = false;
         });
       }

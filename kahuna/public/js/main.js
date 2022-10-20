@@ -433,9 +433,8 @@ kahuna.filter('getInitials', function() {
 });
 
 kahuna.filter('spaceWords', function() {
-    return str => str.replace( /([A-Z]+)/g, $1 => ' ' + $1.toLowerCase() );
+    return str => str.charAt(0).toUpperCase() + str.replace( /([A-Z]+)/g, " $1").slice(1)
 });
-
 
 kahuna.directive('uiDragData', function() {
     return {

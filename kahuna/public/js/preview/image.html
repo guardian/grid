@@ -140,16 +140,18 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                 </div>
 
                 <div ng-switch-when="overquota"
-                     class="cost cost--overquota"
-                     title="Quota for images from this supplier has been exceeded!">
+                     class="cost"
+                     ng-class="{'cost--overquota': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
+                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Quota for images from this supplier has been exceeded!">
 
                     <!-- material icons doesn't have a £ icon -->
                     <gr-icon>trending_up</gr-icon>
                 </div>
 
                 <div ng-switch-when="pay"
-                     class="cost cost--pay"
-                     title="Pay to use">
+                     class="cost"
+                     ng-class="{'cost--pay': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
+                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Pay to use">
 
                     <!-- material icons doesn't have a £ icon -->
                     <span>£</span>
@@ -157,8 +159,9 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
 
 
                 <div ng-switch-when="conditional"
-                     class="cost cost--conditional"
-                     title="{{ctrl.image.data.usageRights.restrictions}}">
+                     class="cost"
+                     ng-class="{'cost--conditional': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
+                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Restrictions: {{ctrl.image.data.usageRights.restrictions}}">
                      <!-- As `conditional` can only be set with usageRights, let's
                      just assume it's here. We might need to revisit this. -->
                     <gr-icon>flag</gr-icon>

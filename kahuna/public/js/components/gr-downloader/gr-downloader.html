@@ -1,62 +1,81 @@
-<span class="download"
+<span class="download side-padded"
       ng-if="!ctrl.isDeleted">
     <button type="button"
+            class="download-button"
             title="Download images"
             ng-disabled="ctrl.downloading"
-            ng-if="ctrl.imageCount() > 1"
+            ng-if="ctrl.multipleSelectedAllValid"
             ng-click="ctrl.download('downloadUri')">
-        <gr-icon-label gr-icon="file_download">
+        <gr-icon-label gr-icon="file_download" class="download-icon-label">
             Download<span ng-show="ctrl.downloading">ing</span>
         </gr-icon-label>
     </button>
-
-    <a ng-if="ctrl.imageCount() == 1"
+    <button type="button"
+            class="download-button"
+            aria-label="Download images"
+            ng-disabled="ctrl.downloading"
+            gr-tooltip="Not all selected images are available to download"
+            ng-if="ctrl.multipleSelectedSomeValid"
+            ng-click="ctrl.download('downloadUri')">
+        <gr-icon-label gr-icon="file_download" class="download-icon-label">
+            Download<span ng-show="ctrl.downloading">ing</span>
+        </gr-icon-label>
+        <span class="download-warning"><gr-icon>warning</gr-icon></span>
+    </button>
+    <a ng-if="ctrl.singleImageSelected"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image">
-        <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
+        <gr-icon-label gr-icon="file_download" class="download-icon-label">
+            Download
+        </gr-icon-label>
     </a>
-
-    <button ng-if="ctrl.imageCount() == 1 && !ctrl.canDownloadCrop"
-            class="drop-menu clickable inner-clickable side-padded button-right-side"
+    <button ng-if="ctrl.singleImageSelected && !ctrl.canDownloadCrop"
+            class="drop-menu clickable inner-clickable button-right-side"
             aria-label="Download low resolution image"
             ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
         <a ng-if="showExpandedDownload"
-            ng-href="{{:: ctrl.firstImageUris.uris.lowResDownloadUri }}"
-            class="drop-menu__items drop-menu__items--nopad"
-            download
-            rel="noopener"
-            target="_blank"
-            aria-label="Download low resolution image">
+           ng-href="{{ ctrl.firstImageUris.uris.lowResDownloadUri }}"
+           class="drop-menu__items drop-menu__items--nopad"
+           download
+           rel="noopener"
+           target="_blank"
+           aria-label="Download low resolution image">
             <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
         </a>
     </button>
-
-
-    <button ng-if="ctrl.imageCount() == 1 && ctrl.crop && ctrl.canDownloadCrop"
-            class="drop-menu clickable inner-clickable side-padded button-right-side"
+    <button ng-if="ctrl.singleImageSelected && ctrl.crop && ctrl.canDownloadCrop"
+            class="drop-menu clickable inner-clickable button-right-side"
             aria-label="Download selected crop"
             ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
         <a ng-if="showExpandedDownload"
-            class="drop-menu__items drop-menu__items--nopad"
-            href="{{ ctrl.crop.downloadLink }}" download rel="noopener" target="_blank"
-            aria-label="Download selected crop">
+           class="drop-menu__items drop-menu__items--nopad"
+           href="{{ ctrl.crop.downloadLink }}" download rel="noopener" target="_blank"
+           aria-label="Download selected crop">
             <gr-icon-label gr-icon="file_download">Download selected crop</gr-icon-label>
         </a>
     </button>
-
-    <button ng-if="ctrl.imageCount() > 1"
-            class="drop-menu clickable inner-clickable side-padded button-right-side"
+    <button ng-if="ctrl.multipleSelectedAllValid || ctrl.multipleSelectedSomeValid"
+            class="drop-menu clickable inner-clickable button-right-side"
             aria-label="Download low resolution"
             ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
         <a ng-if="showExpandedDownload"
-            ng-click="ctrl.download('lowResDownloadUri')"
-            class="drop-menu__items drop-menu__items--nopad"
-            aria-label="Download low resolution">
+           ng-click="ctrl.download('lowResDownloadUri')"
+           class="drop-menu__items drop-menu__items--nopad"
+           aria-label="Download low resolution">
             <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
         </a>
     </button>
-
+    <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
+          aria-label="Cannot download">
+        <gr-icon-label
+            gr-icon="file_download"
+            class="download-icon-label"
+            gr-tooltip="Downloading non-free images requires a lease"
+        >
+            Cannot download
+        </gr-icon-label>
+    </span>
 </span>

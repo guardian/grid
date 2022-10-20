@@ -147,11 +147,7 @@
         class="lease__item"
         gr-tooltip-position="bottom">
 
-        <div class="lease__current" ng-class="ctrl.leaseStatus(lease).current" ng-if="ctrl.leaseStatus(lease).current"></div>
-
-        <div class="lease__access" ng-class="ctrl.leaseStatus(lease).access"></div>
-
-        <div class="lease__wrapper" ng-class="ctrl.leaseStatus(lease).current">
+        <div class="lease__wrapper" ng-class="ctrl.leaseClass(lease)">
           <div class="lease">
             <div class="lease__text">
               <div>{{ctrl.leaseName(lease)}}</div>

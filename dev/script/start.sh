@@ -27,6 +27,14 @@ for arg in "$@"; do
     LOCAL_AUTH=true
     shift
   fi
+  if [ "$arg" == "--no-auth" ]; then
+    LOCAL_AUTH=true
+    shift
+  fi
+  if [ "$arg" == "--use-TEST" ]; then
+    USE_TEST=true
+    shift
+  fi
 done
 
 isInstalled() {
@@ -80,7 +88,26 @@ checkRequirements() {
 }
 
 startDockerContainers() {
-  docker-compose up -d
+  EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
+  if [[ $USE_TEST == true ]]; then
+    docker-compose down
+    if [[ -n $EXISTING_TUNNELS ]]; then
+      echo "RE-USING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
+    else
+      TUNNEL_OPTS="-o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
+      SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,grid-elasticsearch,TEST --newest --raw)
+      eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200
+      echo "TUNNEL ESTABLISHED TO TEST ELASTICSEARCH (on port 9200)"
+    fi
+  else
+    if [[ $EXISTING_TUNNELS ]]; then
+      echo "KILLING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
+      # shellcheck disable=SC2046
+      kill $(echo $EXISTING_TUNNELS | awk '{print $2}')
+    fi
+    docker-compose up -d
+  fi
+
 }
 
 buildJs() {
@@ -97,9 +124,21 @@ startPlayApps() {
   echo "========================================================="
   pushd "$ROOT_DIR"
   if [ "$IS_DEBUG" == true ] ; then
-    sbt -jvm-debug 5005 runAll
+    SBT_OPTS="-jvm-debug 5005"
+  fi
+  if [[ $USE_TEST == true ]]; then
+
+    EXTRA_CONFIG_DIR=/tmp/grid-config-TEST
+    mkdir -p $EXTRA_CONFIG_DIR
+
+    aws s3 cp s3://grid-conf/TEST/media-api/media-api.conf $EXTRA_CONFIG_DIR/ --profile media-service
+    aws s3 cp s3://grid-conf/TEST/kahuna/kahuna.conf $EXTRA_CONFIG_DIR/ --profile media-service
+
+    SBT_OPTS="$SBT_OPTS -J-Daws.local.endpoint= -J-DextraConfigDir=$EXTRA_CONFIG_DIR -J-Ddomain.root-override=test.dev-gutools.co.uk"
+
+    sbt $SBT_OPTS runMinimal
   else
-    sbt runAll
+    sbt $SBT_OPTS runAll
   fi
   popd
 }

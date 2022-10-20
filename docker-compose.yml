@@ -2,12 +2,13 @@ version: '3.7'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
+    environment:
+      ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
     volumes:
       - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
       - "9200:9200"
   imgops:
-    platform: 'linux/x86_64'
     build:
       context: ./dev/imgops
     ports:
