@@ -124,6 +124,8 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
             case Some(retrievableContent: EventPayload.RetrievableContent) =>
               val capiUrl = retrievableContent.retrievableContent.capiUrl
 
+              logger.info(logMarker, s"retrieving content event at $capiUrl")
+
               val query = ItemQuery(capiUrl, Map())
 
               liveCapi.getResponse(query).map(response => {
