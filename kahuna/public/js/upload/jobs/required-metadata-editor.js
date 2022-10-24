@@ -60,7 +60,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     };
 
     $scope.$on('events:metadata-template:template-selected', (e, { metadata } ) => {
-      if (ctrl.userCanEdit) {
+      if (ctrl.userCanEdit && angular.isDefined(metadata)) {
         ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.originalMetadata[key] !== metadata[key]);
         ctrl.metadata = metadata;
       }

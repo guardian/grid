@@ -123,8 +123,26 @@
     {{ctrl.activeLeases(ctrl.leases)}} current leases + {{ctrl.inactiveLeases(ctrl.leases)}} inactive leases
   </div>
 
-  <ul ng-if="ctrl.totalImages === 1">
-    <li ng-repeat="lease in ctrl.leases.leases"
+  <ul ng-if="ctrl.totalImages === 1" ng-switch="ctrl.leasesUpdatedByTemplate">
+    <li ng-switch-when="true"
+        ng-repeat="lease in ctrl.updatedLeases"
+        class="lease__item"
+        ng-class="{'lease__item-preview' : lease.fromTemplate}">
+        <div class="lease__current" ng-class="ctrl.leaseStatus(lease).current" ng-if="ctrl.leaseStatus(lease).current"></div>
+        <div class="lease__access" ng-class="ctrl.leaseStatus(lease).access"></div>
+        <div class="lease__wrapper"  ng-class="ctrl.leaseStatus(lease).current">
+            <div class="lease">
+                <div class="lease__text">
+                    <div>{{ctrl.leaseName(lease)}}</div>
+                    <p>{{::ctrl.formatStartTimestamp(lease.startDate)}}</p>
+                    <p>{{::ctrl.formatEndTimestamp(lease.endDate)}}</p>
+                    <div>{{lease.notes}}</div>
+                </div>
+            </div>
+        </div>
+    </li>
+    <li ng-switch-default
+        ng-repeat="lease in ctrl.leases.leases"
         gr-tooltip="{{ctrl.toolTip(lease)}}"
         class="lease__item"
         gr-tooltip-position="bottom">

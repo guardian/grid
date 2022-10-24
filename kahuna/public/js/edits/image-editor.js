@@ -133,10 +133,18 @@ imageEditor.controller('ImageEditorCtrl', [
         offUsageRightsUpdateError();
     });
 
+    ctrl.onMetadataTemplateApplying = (lease) => {
+      if (angular.isDefined(lease)) {
+        ctrl.leasesUpdatingByTemplate = true;
+      }
+    };
+
     ctrl.onMetadataTemplateApplied = () => {
       $scope.$broadcast('events:metadata-template:template-applied', {});
 
       ctrl.collectionUpdatedByTemplate = false;
+      ctrl.leasesUpdatedByTemplate = false;
+      ctrl.leasesUpdatingByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
@@ -145,18 +153,28 @@ imageEditor.controller('ImageEditorCtrl', [
       $scope.$broadcast('events:metadata-template:template-cancelled', { metadata });
 
       ctrl.collectionUpdatedByTemplate = false;
+      ctrl.leasesUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, lease) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
       ctrl.collectionUpdatedByTemplate = false;
+      ctrl.leasesUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
+
+      if (angular.isDefined(lease)) {
+        ctrl.updatedLeases = [
+          {...lease, fromTemplate: true},
+          ...ctrl.image.data.leases.data.leases
+        ];
+        ctrl.leasesUpdatedByTemplate = true;
+      }
 
       if (angular.isDefined(collection)) {
         if (ctrl.image.data.collections.filter(r => r.data.path.toString() === collection.data.fullPath.toString()).length === 0) {
