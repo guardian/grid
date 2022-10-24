@@ -3,15 +3,15 @@
     class="image-notice image-info__group validity validity--invalid validity--point-up"
     ng-class="{'validity--invalid': ctrl.isStrongWarning, 'validity--warning': !ctrl.isStrongWarning}"
 >
-    <strong ng-if="!ctrl.isOverridden && !ctrl.isDeleted">Unusable Image
+    <strong ng-if="!ctrl.isOverridden && !ctrl.isDeleted">{{ctrl.unusableTextHeader}}
         <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
     </strong>
     <strong ng-if="ctrl.isOverridden && !ctrl.isDeleted">
-        This image can be used, but has warnings:
+        {{ctrl.warningTextHeader}}
         <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
     </strong>
     <strong ng-if="ctrl.isDeleted">
-        Unusable Image
+        {{ctrl.unusableTextHeader}}
         <gr-icon title="This image cannot normally be used in content - image has been deleted">help</gr-icon>
     </strong>
     <ul ng-if="!ctrl.isDeleted">
