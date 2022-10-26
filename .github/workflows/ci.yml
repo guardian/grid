@@ -2,7 +2,7 @@ name: Grid CI
 on: [pull_request]
 jobs:
   JSBuild:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         node-version: [12.16.1]
@@ -33,7 +33,7 @@ jobs:
           npm install
           npm run riffraff-artefact
   ScalaBuild:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     services:
       elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
