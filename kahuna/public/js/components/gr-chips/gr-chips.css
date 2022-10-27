@@ -55,7 +55,7 @@ gr-filter-chooser-chip button {
 .gr-filter-chip__value,
 .gr-static-filter-chip__value,
 .gr-filter-chooser-chip__value {
-    padding: 4px 2px;
+    padding: 2px 1px;
 }
 
 .gr-filter-chip__key,
