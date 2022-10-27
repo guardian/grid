@@ -128,5 +128,6 @@ deployments:
   media-service-fluentbit:
     type: aws-s3
     parameters:
+      bucket: media-service-dist
       cacheControl: private
       publicReadAcl: false
