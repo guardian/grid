@@ -1,7 +1,7 @@
-<span class="download side-padded"
+<span class="download"
       ng-if="!ctrl.isDeleted">
     <button type="button"
-            class="download-button"
+            class="download-button side-padded"
             title="Download images"
             ng-disabled="ctrl.downloading"
             ng-if="ctrl.multipleSelectedAllValid"
@@ -11,7 +11,7 @@
         </gr-icon-label>
     </button>
     <button type="button"
-            class="download-button"
+            class="download-button side-padded"
             aria-label="Download images"
             ng-disabled="ctrl.downloading"
             gr-tooltip="Not all selected images are available to download"
@@ -24,28 +24,15 @@
     </button>
     <a ng-if="ctrl.singleImageSelected"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
-       aria-label="Download image">
+       aria-label="Download image"
+       class="side-padded"
+    >
         <gr-icon-label gr-icon="file_download" class="download-icon-label">
             Download
         </gr-icon-label>
     </a>
-    <button ng-if="ctrl.singleImageSelected && !ctrl.canDownloadCrop"
-            class="drop-menu clickable inner-clickable button-right-side"
-            aria-label="Download low resolution image"
-            ng-click="showExpandedDownload = !showExpandedDownload">
-        <span>▾</span>
-        <a ng-if="showExpandedDownload"
-           ng-href="{{ ctrl.firstImageUris.uris.lowResDownloadUri }}"
-           class="drop-menu__items drop-menu__items--nopad"
-           download
-           rel="noopener"
-           target="_blank"
-           aria-label="Download low resolution image">
-            <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
-        </a>
-    </button>
     <button ng-if="ctrl.singleImageSelected && ctrl.crop && ctrl.canDownloadCrop"
-            class="drop-menu clickable inner-clickable button-right-side"
+            class="drop-menu clickable inner-clickable button-right-side side-padded"
             aria-label="Download selected crop"
             ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
@@ -54,18 +41,6 @@
            href="{{ ctrl.crop.downloadLink }}" download rel="noopener" target="_blank"
            aria-label="Download selected crop">
             <gr-icon-label gr-icon="file_download">Download selected crop</gr-icon-label>
-        </a>
-    </button>
-    <button ng-if="ctrl.multipleSelectedAllValid || ctrl.multipleSelectedSomeValid"
-            class="drop-menu clickable inner-clickable button-right-side"
-            aria-label="Download low resolution"
-            ng-click="showExpandedDownload = !showExpandedDownload">
-        <span>▾</span>
-        <a ng-if="showExpandedDownload"
-           ng-click="ctrl.download('lowResDownloadUri')"
-           class="drop-menu__items drop-menu__items--nopad"
-           aria-label="Download low resolution">
-            <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
         </a>
     </button>
     <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
