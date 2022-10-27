@@ -43,6 +43,7 @@ gr-chips .datalist__options {
     margin-right: 3px;
     font-size: 150%;
     font-weight: bold;
+    line-height: 1;
     color: #888;
 }
 .gr-filter-chip__remove,
@@ -50,6 +51,7 @@ gr-chips .datalist__options {
     border-left: 1px solid #444;
     padding: 3px;
     color: #888;
+    line-height: 1;
 }
 
 gr-filter-chip,

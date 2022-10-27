@@ -18,6 +18,7 @@ gr-chips {
 
 .gr-chips__chip-wrapper {
     display: inline-flex;
+    margin: 0 2px;
 }
 
 .gr-chips__chip-wrapper.text-chip {
@@ -83,7 +84,7 @@ gr-filter-chooser-chip input:focus {
 
 gr-static-filter-chip,
 gr-filter-chip {
-    margin-right: 5px;
+
 }
 
 gr-text-chip input::placeholder {
