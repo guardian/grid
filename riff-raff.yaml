@@ -12,7 +12,6 @@ templates:
   autoscaling:
     type: autoscaling
     parameters:
-      bucket: media-service-dist
     dependencies:
       - app-ami-update
       - media-service-fluentbit
@@ -22,7 +21,6 @@ templates:
     app: usage
     contentDirectory: usage
     parameters:
-      bucket: media-service-dist
     dependencies:
       - app-ami-update
       - media-service-fluentbit
@@ -119,7 +117,6 @@ deployments:
   s3watcher:
     type: aws-lambda
     parameters:
-      bucket: media-service-dist
       functions:
         TEST:
           filename: s3watcher.zip
