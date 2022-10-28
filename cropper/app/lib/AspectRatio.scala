@@ -5,12 +5,14 @@ import scala.annotation.tailrec
 object AspectRatio {
   case class Ratio(friendly: String, width: Int, height: Int)
 
-  val knownRatios = List(
+  val knownRatios: List[Ratio] = List(
     Ratio("5:3", 5, 3),
     Ratio("2:3", 2, 3),
     Ratio("16:9", 16, 9),
     Ratio("1:1", 1, 1)
   )
+
+  val knownRatioStrings: List[String] = knownRatios.map(_.friendly)
 
   def clean(aspect: String): Option[Float] = knownRatios
     .find(_.friendly == aspect)

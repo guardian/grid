@@ -75,10 +75,11 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
   def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
 
-  def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
+  def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] =
+    if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
-    config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
+      config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
   def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
     val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
@@ -87,6 +88,18 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
                        (bounds.y + bounds.height <= dimensions.height)
 
     positiveCoords && strictlyPositiveSize && withinBounds
+  }
+
+  private val aspectRatioR = """(\d)+:(\d+)""".r
+  // If a user has specified a custom aspect ratio for the crop (using the ?customRatio=name,width,height query param)
+  // then output an additional crop at the specified width,height
+  // (Yes, aspect ratios aren't dimensions. Yes, this is a hack. But it's useful!)
+  private def extraDimension(crop: Crop): Option[Dimensions] = {
+    crop.specification.aspectRatio.flatMap {
+      case ratio@aspectRatioR(width, height) if !AspectRatio.knownRatioStrings.contains(ratio) =>
+        Try { Dimensions(width.toInt, height.toInt) }.toOption
+      case _ => None
+    }
   }
 
   def export(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
@@ -103,7 +116,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
         masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
 
-        outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
+        outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) ++ extraDimension(crop) :+ masterCrop.dimensions
 
         sizes <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
         masterSize <- masterCrop.sizing
