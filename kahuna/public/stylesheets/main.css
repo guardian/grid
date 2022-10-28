@@ -1732,6 +1732,18 @@ FIXME: what to do with touch devices
     float: left;
 }
 
+.image-info__heading--lease-preview {
+  float: none;
+}
+
+.image-info--editor__input-preview,
+.image-info__description-preview,
+.image-info__title-preview,
+.image-info__special-instructions-preview{
+  border: 1px solid #ffbc01;
+  padding-left: 5px;
+}
+
 .image-info__keyword li {
     display: inline-block;
     background-color: #222;

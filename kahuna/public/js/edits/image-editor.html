@@ -112,7 +112,8 @@
                    image="ctrl.image"
                    metadata="ctrl.image.data.metadata"
                    usage-rights="ctrl.image.data.usageRights"
-                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection)"
+                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection, lease)"
+                   gr-on-metadata-template-applying="ctrl.onMetadataTemplateApplying(lease)"
                    gr-on-metadata-template-applied="ctrl.onMetadataTemplateApplied()"
                    gr-on-metadata-template-cancelled="ctrl.onMetadataTemplateCancelled(metadata, usageRights)"
                    class="metadata-templates-flex">
@@ -176,6 +177,9 @@
                 </span>
                 <div class="result-editor__field-container__leases flex-spacer">
                     <gr-leases gr-images="[ctrl.image]"
+                        gr-leases-updated-by-template="ctrl.leasesUpdatedByTemplate"
+                        gr-leases-updating-by-template="ctrl.leasesUpdatingByTemplate"
+                        gr-updated-leases="ctrl.updatedLeases"
                         with-batch="ctrl.withBatch"
                         class="leases-flex"
                         gr-user-can-edit="true">

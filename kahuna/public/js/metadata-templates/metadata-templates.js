@@ -1,4 +1,5 @@
 import angular from 'angular';
+import moment from 'moment';
 import template from './metadata-templates.html';
 
 import '../util/rx';
@@ -7,6 +8,7 @@ import './metadata-templates.css';
 
 import '../edits/service';
 import {collectionsApi} from '../services/api/collections-api';
+import '../services/api/leases';
 
 export const metadataTemplates = angular.module('kahuna.edits.metadataTemplates', [
   'kahuna.edits.service',
@@ -15,11 +17,13 @@ export const metadataTemplates = angular.module('kahuna.edits.metadataTemplates'
 ]);
 
 metadataTemplates.controller('MetadataTemplatesCtrl', [
+  '$filter',
   '$scope',
   '$window',
   'editsService',
   'collections',
-  function ($scope, $window, editsService, collections) {
+  'leaseService',
+  function ($filter, $scope, $window, editsService, collections, leaseService) {
 
   let ctrl = this;
 
@@ -28,31 +32,54 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   const filterNonEmpty = (list) => list.filter(s => (typeof s === 'string' && s !== "" && s !== " "));
 
-  function resolve(strategy, originalValue, changeToApply) {
-    if (strategy === 'replace') {
-      return changeToApply;
-    } else if (strategy === 'append') {
-      return filterNonEmpty([originalValue, changeToApply]).join(' ');
-    } else if (strategy === 'prepend') {
-      return filterNonEmpty([changeToApply, originalValue]).join(' ');
-    } else {
-      return originalValue;
-    }
+  function resolvePlaceholders(str) {
+    const placeHolderValues = {
+      uploadDate: $filter('date')(ctrl.image.data.uploadTime, 'd MMM yyyy'),
+      uploadTime: $filter('date')(ctrl.image.data.uploadTime, 'd MMM yyyy, HH:mm'),
+      uploadedBy: ctrl.image.data.uploadedBy
+    };
+
+    return str.replace(/{\s*(\w+?)\s*}/g, (_, key) => placeHolderValues[key]);
   }
 
-  ctrl.selectTemplate = () => {
-    if (ctrl.metadataTemplate) {
-      collections.getCollections().then(existingCollections => {
-        const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
-        const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
-        const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
+  function resolve(strategy, originalValue, changeToApply) {
+    let resolvedValue = originalValue;
 
-        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection});
-      });
-    } else {
-      ctrl.cancel();
+    if (strategy === 'replace') {
+      resolvedValue = changeToApply;
+    } else if (strategy === 'append') {
+      resolvedValue = filterNonEmpty([originalValue, changeToApply]).join(' ');
+    } else if (strategy === 'prepend') {
+      resolvedValue = filterNonEmpty([changeToApply, originalValue]).join(' ');
     }
-  };
+
+    return resolvePlaceholders(resolvedValue);
+  }
+
+  function toLease(templateLease) {
+    const lease = {
+      createdAt: new Date(),
+      access: templateLease.leaseType,
+      notes: resolvePlaceholders(templateLease.notes)
+    };
+
+    if (templateLease.durationInMillis !== undefined) {
+      const leaseDuration = moment.duration(templateLease.durationInMillis);
+
+      lease.startDate = new Date();
+      lease.endDate = moment(lease.startDate).add(leaseDuration).toDate();
+    }
+
+    if (ctrl.access === 'allow-syndication') {
+      lease.endDate = null;
+    }
+
+    if (lease.access === 'deny-syndication') {
+      lease.startDate = null;
+    }
+
+    return lease;
+  }
 
   function verifyTemplateCollection(collectionNode, templateCollection) {
     if (templateCollection.every(node => collectionNode.data.fullPath.includes(node))) {
@@ -70,22 +97,42 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   function applyTemplateToMetadata(templateMetadataFields) {
     if (templateMetadataFields && templateMetadataFields.length > 0) {
-      ctrl.metadata = angular.copy(ctrl.originalMetadata);
+      const metadata = angular.copy(ctrl.originalMetadata);
       templateMetadataFields.forEach(field => {
-        ctrl.metadata[field.name] = resolve(field.resolveStrategy, ctrl.metadata[field.name], field.value);
+        metadata[field.name] = resolve(field.resolveStrategy, metadata[field.name], field.value);
       });
 
-      return ctrl.metadata;
+      return metadata;
     }
   }
 
   function applyTemplateToUsageRights(templateUsageRights) {
     if (templateUsageRights && templateUsageRights.hasOwnProperty('category')) {
-      return templateUsageRights;
+      return {
+        ...templateUsageRights,
+        creator: templateUsageRights.creator ? resolvePlaceholders(templateUsageRights.creator) : undefined,
+        photographer: templateUsageRights.photographer ? resolvePlaceholders(templateUsageRights.photographer) : undefined,
+        restrictions: templateUsageRights.restrictions ? resolvePlaceholders(templateUsageRights.restrictions) : undefined
+      };
     } else {
       return ctrl.originalUsageRights;
     }
   }
+
+  ctrl.selectTemplate = () => {
+    if (ctrl.metadataTemplate) {
+      collections.getCollections().then(existingCollections => {
+        const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
+        const lease = ctrl.metadataTemplate.lease ? toLease(ctrl.metadataTemplate.lease) : undefined;
+        const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
+        const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
+
+        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, lease});
+      });
+    } else {
+      ctrl.cancel();
+    }
+  };
 
   ctrl.cancel = () => {
     ctrl.metadataTemplate = null;
@@ -95,27 +142,42 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   ctrl.applyTemplate = () => {
     ctrl.saving = true;
+    ctrl.onMetadataTemplateApplying({lease: ctrl.metadataTemplate.lease});
 
-    editsService
-      .update(ctrl.image.data.userMetadata.data.metadata, ctrl.metadata, ctrl.image)
-      .then(resource => ctrl.resource = resource)
-      .then(() => {
-        if (ctrl.metadataTemplate.collectionFullPath) {
-          collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
+    let promise = Promise.resolve();
+
+    promise.then(() => {
+      if (ctrl.metadataTemplate.metadataFields.length > 0) {
+        return editsService
+          .update(ctrl.image.data.userMetadata.data.metadata, applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields), ctrl.image);
         }
       })
-      .then(() => {
-        if (ctrl.metadataTemplate.usageRights) {
-          editsService
-            .update(ctrl.image.data.userMetadata.data.usageRights, ctrl.metadataTemplate.usageRights, ctrl.image)
-            .then(() => editsService.updateMetadataFromUsageRights(ctrl.image, false));
-        }
-      })
-      .finally(() => {
-        ctrl.metadataTemplate = null;
-        ctrl.saving = false;
-        ctrl.onMetadataTemplateApplied();
-      });
+    .then(() => {
+      if (ctrl.metadataTemplate.collectionFullPath) {
+        return collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
+      }
+    })
+    .then(() => {
+      if (ctrl.metadataTemplate.usageRights) {
+        return editsService
+          .update(ctrl.image.data.userMetadata.data.usageRights, applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights), ctrl.image)
+          .then(() => editsService.updateMetadataFromUsageRights(ctrl.image, false));
+      }
+    })
+    .then(() => {
+      if (ctrl.metadataTemplate.lease) {
+        const lease = toLease(ctrl.metadataTemplate.lease);
+        return leaseService.batchAdd(lease, [ctrl.image]);
+      }
+    })
+    .catch((e) => {
+      console.error(e);
+    })
+    .finally(() => {
+      ctrl.metadataTemplate = null;
+      ctrl.saving = false;
+      ctrl.onMetadataTemplateApplied();
+    });
   };
 
   $scope.$watch('ctrl.originalMetadata', (originalMetadata) => {
@@ -137,6 +199,7 @@ metadataTemplates.directive('grMetadataTemplates', [function() {
       originalMetadata: '=metadata',
       originalUsageRights: '=usageRights',
       onMetadataTemplateCancelled: '&?grOnMetadataTemplateCancelled',
+      onMetadataTemplateApplying: '&?grOnMetadataTemplateApplying',
       onMetadataTemplateApplied: '&?grOnMetadataTemplateApplied',
       onMetadataTemplateSelected: '&?grOnMetadataTemplateSelected'
     }
