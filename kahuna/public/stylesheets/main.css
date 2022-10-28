@@ -1169,7 +1169,7 @@ textarea.ng-invalid {
 .preview__link,
 .preview__no-link {
     display: block;
-    height: 200px;
+    height: 190px;
 }
 
 .preview__link--large, .preview__no-link--large {
@@ -1181,7 +1181,7 @@ textarea.ng-invalid {
 .preview__image {
     display: block;
     max-width: 100%;
-    max-height: 100%;
+    max-height: 98%;
     margin: 0 auto;
     pointer-events: none;
 }
@@ -1194,7 +1194,7 @@ textarea.ng-invalid {
 .preview__info {
     font-size: 1.3rem;
     padding-left: 10px;
-    margin: 10px 0;
+    margin: 5px 0px 0px 0px;
 }
 .preview__bottom-icons {
     font-size: 1.3rem;
@@ -1296,7 +1296,7 @@ FIXME: what to do with touch devices
 
 .preview__bottom-bar {
     font-size: 1.4rem;
-    margin-top: 5px;
+    margin-top: 0px;
 }
 
 .preview__bottom-bar--large {
