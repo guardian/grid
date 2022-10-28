@@ -10,6 +10,7 @@
     <a ui-sref="search.results({query: (element.data | {{ctrl.queryFilter}}), nonFree: ctrl.srefNonfree()})" class="element__value"
        aria-label="Search images by {{element.data}} {{ctrl.elementName}}">{{element.data}}</a>
     <button class="element__remove"
+            ng-if="ctrl.isEditable"
             title="Remove {{ctrl.elementName}}{{element.count > 1 ? ' from all' : ''}}"
             ng-click="ctrl.removeElement(element.data)" aria-label="Remove {{ctrl.elementName}}">
         <gr-icon>close</gr-icon>

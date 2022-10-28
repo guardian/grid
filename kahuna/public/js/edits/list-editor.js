@@ -177,6 +177,7 @@ listEditor.directive('uiListEditorInfoPanel', [function() {
             addToImages: '<',
             removeFromImages: '<',
             accessor: '<',
+            isEditable: '<',
             queryFilter: '@',
             elementName: '@'
         },
