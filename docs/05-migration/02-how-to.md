@@ -16,14 +16,25 @@ reuse your primary pool of image-loader instances by setting the
 doing so may cause slowdown or disruption to users uploading images. Take care
 to scale whichever pool of image-loader instances to an appropriate size.
 
-<!-- TODO offer a config option to tune Thrall's parallelism of projection
-requests? Currently hardcoded to 50, we used 6x m5.large in first migration -->
+The throughput of the migration process is determined by how many image-loader 
+instances are in the projection pool (and the CPU/RAM/resources available to each
+instance), but also how many parallel projection requests Thrall is allows to 
+make. This parallelism is controlled by the configuration setting 
+`thrall.projection.parallelism`, which defaults to *1*. (In other words, you
+almost certainly will want to increase this value to a level that makes good use
+of the available image-loader projection instances)
 
 You will also experience an increased usage of your DynamoDB tables and
 Elasticsearch cluster, so make sure to watch their performance and scale both to
 match their usage. We recommend
 [enabling autoscaling on all DynamoDB tables and indices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/AutoScaling.html)
 where possible.
+
+### For Guardian users
+
+The size of the image projection ASGs are dictated by Cloudformation parameters, `ProjectionServiceAutoscalingMinSize` and `ProjectionServiceAutoscalingMaxSize` – alter these to scale the service.
+
+As a baseline for running a migration, 4 Elasticsearch nodes and 7 `loader-projection` instances was a good place to start for our configuration on 18/05/22, with an index of ~40,000,000 images.
 
 ## Starting
 
