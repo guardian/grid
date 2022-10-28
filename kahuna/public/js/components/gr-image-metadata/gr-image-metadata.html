@@ -58,10 +58,7 @@
     <div class="image-info__group" role="region" aria-label="Title">
         <dl>
             <div class="image-info__wrap">
-                <button class="image-info__edit"
-                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                        ng-click="titleEditForm.$show()"
-                        ng-hide="titleEditForm.$visible">✎</button>
+
                 <dt class="metadata-line metadata-line__key">Title</dt>
                 <span ng-if="ctrl.metadataUpdatedByTemplate.includes('title')">
                     <div class="metadata-line__info">
@@ -69,6 +66,10 @@
                     </div>
                 </span>
                 <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('title')">
+                    <button class="image-info__edit"
+                            ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                            ng-click="titleEditForm.$show()"
+                            ng-hide="titleEditForm.$visible">✎</button>
                     <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
                          editable-text="ctrl.metadata.title"
                          ng-hide="titleEditForm.$visible"
@@ -118,11 +119,7 @@
                 </span>
             </div>
             <div data-cy="metadata-description" class="image-info__wrap">
-                <button data-cy="it-edit-description-button"
-                        class="image-info__edit"
-                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                        ng-click="descriptionEditForm.$show()"
-                        ng-hide="descriptionEditForm.$visible">✎</button>
+
                 <dt class="metadata-line metadata-line__key">Description</dt>
                 <span ng-if="ctrl.metadataUpdatedByTemplate.includes('description')">
                     <div class="metadata-line__info">
@@ -130,6 +127,11 @@
                     </div>
                 </span>
                 <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('description')">
+                    <button data-cy="it-edit-description-button"
+                            class="image-info__edit"
+                            ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                            ng-click="descriptionEditForm.$show()"
+                            ng-hide="descriptionEditForm.$visible">✎</button>
                     <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
                         <div ng-hide="descriptionEditForm.$visible" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}">
                             <div ng-if="ctrl.userCanEdit">
@@ -196,10 +198,6 @@
 
     <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions" role="region" aria-label="Special instructions">
         <dl class="image-info__wrap">
-            <button class="image-info__edit"
-                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                    ng-click="specialInstructionsEditForm.$show()"
-                    ng-hide="specialInstructionsEditForm.$visible">✎</button>
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
             <span ng-if="ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
                 <div class="metadata-line__info">
@@ -207,6 +205,10 @@
                 </div>
             </span>
             <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
+                <button class="image-info__edit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                        ng-click="specialInstructionsEditForm.$show()"
+                        ng-hide="specialInstructionsEditForm.$visible">✎</button>
                 <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
                      ng-hide="specialInstructionsEditForm.$visible"
