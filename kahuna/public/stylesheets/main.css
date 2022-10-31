@@ -526,10 +526,6 @@ textarea.ng-invalid {
         margin-right: 0;
     }
 
-    .top-bar-item .download a {
-        padding-right: 0;
-    }
-
     /* only use this class if you want it to hide */
     .icon-label {
         display: none;
