@@ -111,7 +111,7 @@ class UsageApi(
     liveContentApi.getResponse(query).map{response =>
       response.content match {
         case Some(content) =>
-          liveContentApi
+          ContentHelpers
             .getContentFirstPublished(content)
             .map(LiveContentItem(content, _))
             .map(_.copy(isReindex = true))
