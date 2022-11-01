@@ -16,7 +16,7 @@ z-index
    Common
    ========================================================================== */
 
-@font-face {
+   @font-face {
     font-family: "Guardian Agate Sans Web";
     src: url("fonts/GuardianAgateSans1Web-Regular.woff2") format("woff2"),
          url("fonts/GuardianAgateSans1Web-Regular.woff") format("woff");
@@ -742,11 +742,11 @@ textarea.ng-invalid {
 
 .advanced-search-help {
     top: 49px;
-    max-height: 95vh;
+    height: 80vh;
     overflow: auto;
     background-color: #444444;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-    max-width: 680px /*width of input box and advance button in topbar*/
+    max-width: 680px; /*width of input box and advance button in topbar*/
 }
 
 .advanced-search-help__cancel {
@@ -759,6 +759,7 @@ textarea.ng-invalid {
 }
 
 .advanced-search-help__section {
+    border-bottom: 1px solid #565656;
     margin-bottom: 10px;
     padding: 0 10px 0 10px;
     box-sizing: border-box;
@@ -788,7 +789,7 @@ textarea.ng-invalid {
 .advanced-search-example__field {
     margin-bottom: 5px;
     display: inline-flex;
-    flex-basis: 50%;
+    flex-basis: 40%;
 }
 
 .advanced-search-example__explanation {
@@ -1532,12 +1533,13 @@ FIXME: what to do with touch devices
 .easel {
     display: block;
     text-align: center;
+    height: 100%;
 }
 
 .easel__canvas {
-    height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
     overflow: hidden;
+    height: 100%;
 }
 
 .easel__image-container {
@@ -1585,30 +1587,42 @@ FIXME: what to do with touch devices
     visibility: hidden;
 }
 
+.image-view {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+}
+
+.image-main {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    overflow: hidden;
+    flex-grow: 1;
+  }
+
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 /* HACK: This is here until we start using the panelled-content here */
 .image-details--full-image {
-    float: right;
-    height: calc(100vh - 50px); /* viewport - top-bar */
+    min-width: 300px;
     width: 300px;
     border-left: 1px solid #565656;
-}
-
-.image-details--scroll {
-    height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
-    overflow-y: scroll;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .image-details--crop {
-    float: left;
-    width: 130px;
+    min-width: 130px;
     border-right: 1px solid #565656;
     border-left: none;
     position: relative;
-    height: calc(100vh - 50px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
@@ -1623,10 +1637,71 @@ FIXME: what to do with touch devices
     display:  table;
 }
 
-/*to clear the set widths of the side panels */
+.image-filmstrip {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px;
+    min-height: fit-content;
+}
+
+.image-filmstrip__container {
+    display: flex;
+    flex-direction: row;
+    border-top: 1px solid #565656;
+}
+
+.image-filmstrip__margin {
+    min-width: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    align-content: center;
+}
+
+.image-filmstrip__margin:first-child {
+    padding-right: 5px;
+    border-right: 1px solid #565656;
+}
+
+.image-filmstrip__margin:last-child {
+    padding-left: 5px;
+    border-left: 1px solid #565656;
+}
+
+.image-filmstrip__toggle {
+    padding: 5px 0;
+    width: 100%;
+}
+
+.image-filmstrip__nextprev {
+    height: 100%;
+}
+
+.image-filmstrip > li {
+    margin: 0 5px;
+    padding: 10px;
+    background: #393939;
+    display: flex;
+    align-items: center;
+}
+
+.image-filmstrip > li[data-filmstrip-selected] {
+    box-shadow: 0px 0px 0px 2px #00adee;
+}
+
+.image-filmstrip > li img {
+    display: block;
+    max-width: 150px;
+    max-height: 150px;
+    width: auto;
+    height: auto;
+}
+
 .image-holder {
-    margin-right: 300px;
-    margin-left: 130px;
+    flex-grow: 1;
 }
 
 .image-info__group {
@@ -1927,7 +2002,7 @@ FIXME: what to do with touch devices
 }
 
 .image-crop--selected {
-    border: solid 2px #00adee;
+    box-shadow: 0px 0px 0px 2px #00adee;
 }
 
 .image-crop--disabled {
@@ -2531,7 +2606,7 @@ FIXME: what to do with touch devices
     .result-placeholder {
         border: none;
     }
-
+    
     .preview__link {
         height: auto;
     }

@@ -59,6 +59,7 @@ const image = angular.module('kahuna.image.controller', [
 image.controller('ImageCtrl', [
   '$rootScope',
   '$scope',
+  '$document',
   '$element',
   '$state',
   '$stateParams',
@@ -76,9 +77,11 @@ image.controller('ImageCtrl', [
   'editsService',
   'keyboardShortcut',
   'cropSettings',
+  'imagesService',
 
   function ($rootScope,
             $scope,
+            $document,
             $element,
             $state,
             $stateParams,
@@ -95,52 +98,22 @@ image.controller('ImageCtrl', [
             imageUsagesService,
             editsService,
             keyboardShortcut,
-            cropSettings) {
+            cropSettings,
+            imagesService) {
 
     let ctrl = this;
-
-    keyboardShortcut.bindTo($scope)
-      .add({
-        combo: 'c',
-        description: 'Crop image',
-        callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
-      })
-      .add({
-        combo: 'f',
-        description: 'Enter fullscreen',
-        callback: () => {
-          const imageEl = $element[0].querySelector('.easel__image');
-
-          // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
-          const fullscreenElement = (
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement
-          );
-
-          const exitFullscreen = (
-            document.exitFullscreen ||
-            document.webkitExitFullscreen ||
-            document.mozCancelFullScreen
-          );
-
-          const requestFullscreen = (
-            imageEl.requestFullscreen ||
-            imageEl.webkitRequestFullscreen ||
-            imageEl.mozRequestFullScreen
-          );
-
-          // `.call` to ensure `this` is bound correctly.
-          return fullscreenElement
-            ? exitFullscreen.call(document)
-            : requestFullscreen.call(imageEl);
-        }
-      });
+    ctrl.images = imagesService.getImages();
 
     ctrl.tabs = [
       {key: 'metadata', value: 'Metadata'},
       {key: 'usages', value: `Usages`, disabled: true}
     ];
+
+    ctrl.showFilmstrip = true;
+    ctrl.toggleShowFilmstrip = () => {
+      console.log('toggle');
+      ctrl.showFilmstrip = !ctrl.showFilmstrip;
+    };
 
     ctrl.selectedTab = 'metadata';
 
@@ -190,6 +163,7 @@ image.controller('ImageCtrl', [
     imageService(ctrl.image).states.canDelete.then(deletable => {
       ctrl.canBeDeleted = deletable;
     });
+
 
     ctrl.allowCropSelection = (crop) => {
       if (ctrl.cropType) {
@@ -308,7 +282,78 @@ image.controller('ImageCtrl', [
       }
     });
 
-    $scope.$on('$destroy', function () {
+    ctrl.previousImage = function() {
+      const prevImage = imagesService.getImageOffset(ctrl.image.data.id, -1);
+
+      if (prevImage) {
+        $state.go('image', {imageId: prevImage.data.id, crop: undefined});
+      }
+    };
+
+    ctrl.nextImage = function () {
+      const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
+
+      if (nextImage) {
+        $state.go('image', {imageId: nextImage.data.id, crop: undefined});
+      }
+    };
+
+    keyboardShortcut.bindTo($scope)
+      .add({
+        combo: 'left',
+        description: "Previous image",
+        callback: () => ctrl.previousImage()
+      })
+      .add({
+        combo: 'right',
+        description: "Next image",
+        callback: () => ctrl.nextImage()
+      })
+      .add({
+        combo: 'c',
+        description: 'Crop image',
+        callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+      })
+      .add({
+        combo: 'f',
+        description: 'Enter fullscreen',
+        callback: () => {
+          const imageEl = $element[0].querySelector('.easel__image');
+
+          // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
+          const fullscreenElement = (
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement
+          );
+
+          const exitFullscreen = (
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.mozCancelFullScreen
+          );
+
+          const requestFullscreen = (
+            imageEl.requestFullscreen ||
+            imageEl.webkitRequestFullscreen ||
+            imageEl.mozRequestFullScreen
+          );
+
+          // `.call` to ensure `this` is bound correctly.
+          return fullscreenElement
+            ? exitFullscreen.call(document)
+            : requestFullscreen.call(imageEl);
+        }
+      });
+
+    angular.element(document).ready(function () {
+      const currentFilmstripItem = $document[0].querySelector('[data-filmstrip-selected]');
+      if (currentFilmstripItem)  {
+        currentFilmstripItem.scrollIntoView({inline: 'center'});
+      }
+    });
+
+    $scope.$on('$destroy', function() {
       freeImagesUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();

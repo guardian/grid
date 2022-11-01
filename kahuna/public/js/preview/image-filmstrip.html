@@ -1,0 +1,11 @@
+
+<a
+    ui-sref="image({imageId: ctrl.image.data.id})"
+    title="{{::ctrl.imageDescription}}">
+    <img
+        class="image-crop__image"
+        ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
+        alt="{{::ctrl.imageDescription}}"
+        gr-image-fade-on-load
+        ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"/>
+</a>
