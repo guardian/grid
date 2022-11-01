@@ -5,9 +5,8 @@ import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, PublishedUsageStatus, UsageStatus}
-import lib.{LiveContentApi, MD5, UsageConfig, UsageMetadataBuilder}
+import lib.{ContentHelpers, MD5, MediaUsageBuilder, UsageConfig, UsageMetadataBuilder}
 import org.joda.time.DateTime
-import lib.MediaUsageBuilder
 
 case class UsageGroup(
   usages: Set[MediaUsage],
@@ -16,7 +15,7 @@ case class UsageGroup(
   isReindex: Boolean = false,
   maybeStatus: Option[UsageStatus] = None
 )
-class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWrapperOps: MediaWrapperOps)
+class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
   extends GridLogging {
 
   def buildId(contentWrapper: ContentWrapper) = contentWrapper.id
@@ -139,7 +138,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
 
   private def isNewContent(content: Content, usageStatus: UsageStatus): Boolean = {
     val dateLimit = new DateTime(config.usageDateLimit)
-    val contentFirstPublished = liveContentApi.getContentFirstPublished(content)
+    val contentFirstPublished = ContentHelpers.getContentFirstPublished(content)
     usageStatus match {
       case PublishedUsageStatus => contentFirstPublished.exists(_.isAfter(dateLimit))
       case _ => true
