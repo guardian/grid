@@ -22,7 +22,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
     imageMetadata.suppliersReference should be ('empty)
     imageMetadata.source should be ('empty)
     imageMetadata.specialInstructions should be ('empty)
-    imageMetadata.keywords should be (Some(Nil))
+    imageMetadata.keywords should be (Some(Set.empty))
     imageMetadata.subLocation should be ('empty)
     imageMetadata.city should be ('empty)
     imageMetadata.state should be ('empty)
@@ -306,13 +306,13 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
   it("should populate keywords field of ImageMetadata from comma-separated list of keywords") {
     val fileMetadata = FileMetadata(Map("Keywords" -> "Foo,Bar, Baz"), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
+    imageMetadata.keywords should be(Some(Set("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from semi-colon-separated list of keywords") {
     val fileMetadata = FileMetadata(Map("Keywords" -> "Foo;Bar; Baz"), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
+    imageMetadata.keywords should be(Some(Set("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from dc-subjects") {
@@ -322,7 +322,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       exifSub = Map(),
       xmp = Map("dc:subject"-> JsArray(Seq(JsString("Foo"), JsString("Bar"), JsString("Baz")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
+    imageMetadata.keywords should be(Some(Set("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from dc-subjectsin preference to keywords") {
@@ -331,7 +331,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       exif = Map(), exifSub = Map(),
       xmp = Map("dc:subject"-> JsArray(Seq(JsString("Foo"), JsString("Bar"), JsString("Baz")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
+    imageMetadata.keywords should be(Some(Set("Foo", "Bar", "Baz")))
   }
 
   it("should leave non-dates alone") {

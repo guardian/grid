@@ -19,7 +19,7 @@ case class ImageMetadata(
   suppliersReference:  Option[String]   = None,
   source:              Option[String]   = None,
   specialInstructions: Option[String]   = None,
-  keywords:            Option[List[String]] = None,
+  keywords:            Option[Set[String]] = None,
   subLocation:         Option[String]   = None,
   city:                Option[String]   = None,
   state:               Option[String]   = None,
@@ -67,7 +67,7 @@ object ImageMetadata {
       (__ \ "suppliersReference").readNullable[String] ~
       (__ \ "source").readNullable[String] ~
       (__ \ "specialInstructions").readNullable[String] ~
-      (__ \ "keywords").readNullable[List[String]] ~
+      (__ \ "keywords").readNullable[Set[String]] ~
       (__ \ "subLocation").readNullable[String] ~
       (__ \ "city").readNullable[String] ~
       (__ \ "state").readNullable[String] ~
@@ -89,7 +89,7 @@ object ImageMetadata {
       (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
-      (__ \ "keywords").writeNullable[List[String]] ~
+      (__ \ "keywords").writeNullable[Set[String]] ~
       (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "state").writeNullable[String] ~
