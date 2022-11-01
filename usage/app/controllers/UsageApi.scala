@@ -124,7 +124,7 @@ class UsageApi(
           NotFound
       }
     }.recover { case error: Exception =>
-        logger.error(logMarker, s"UsageApi reindex for for content ($contentId) failed!", error)
+        logger.error(logMarker, s"UsageApi reindex for content ($contentId) failed!", error)
         InternalServerError
       }
   }
