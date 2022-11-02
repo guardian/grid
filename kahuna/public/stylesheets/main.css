@@ -1901,11 +1901,13 @@ FIXME: what to do with touch devices
     height: calc(100vh - 50px); /* viewport - top-bar */
     width: 300px;
     border-left: 1px solid #565656;
+    display: flex;
+    flex-direction: column;
 }
 
 .image-details--scroll {
-    height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
     overflow-y: scroll;
+    overflow-x: hidden;
 }
 
 .image-details--crop {
