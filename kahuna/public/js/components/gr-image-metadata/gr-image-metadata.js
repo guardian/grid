@@ -65,6 +65,7 @@ module.controller('grImageMetadataCtrl', [
       ctrl.metadata = displayMetadata();
       ctrl.metadata.dateTaken =  ctrl.displayDateTakenMetadata();
       ctrl.newPeopleInImage = "";
+      ctrl.newKeywords = "";
       ctrl.extraInfo = extraInfo();
       if (ctrl.singleImage) {
         updateSingleImage();
@@ -123,6 +124,10 @@ module.controller('grImageMetadataCtrl', [
         ctrl.addPersonToImages(imageArray, value);
         return;
       }
+      if (field === 'keywords') {
+        ctrl.addKeywordToImages(imageArray, value);
+        return;
+      }
       return editsService.batchUpdateMetadataField(
         imageArray,
         field,
@@ -176,35 +181,40 @@ module.controller('grImageMetadataCtrl', [
     ctrl.removeLabelFromImages = labelService.batchRemove;
     ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
 
+    const updateImages = (images, metadataFieldName, valueFn) => {
+      images.map((image) => {
+        editsService.batchUpdateMetadataField(
+          [image],
+          metadataFieldName,
+          valueFn(image),
+          ctrl.descriptionOption
+        );
+      });
+      return Promise.resolve(ctrl.selectedImages);
+    };
+    const removeXFromImages = (metadataFieldName, accessor) => (images, removedX) =>
+      updateImages(
+        images,
+        metadataFieldName,
+        (image) => accessor(image)?.filter((x) => x !== removedX) || []
+      );
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX) =>
+      updateImages(
+        images,
+        metadataFieldName,
+        (image) => {
+          const currentXInImage = accessor(image);
+          return currentXInImage ? [...currentXInImage, addedX] : [addedX];
+        }
+      );
+
     ctrl.peopleAccessor = (image) => imageAccessor.readPeopleInImage(image);
-    ctrl.removePersonFromImages = (images, removedPerson) => {
-      images.map((image) => {
-        const maybeNewPeopleInImage = ctrl.peopleAccessor(image)?.filter((person) => person !== removedPerson);
-        const newPeopleInImage = maybeNewPeopleInImage ? maybeNewPeopleInImage : [];
-        editsService.batchUpdateMetadataField(
-          [image],
-          'peopleInImage',
-          newPeopleInImage,
-          ctrl.descriptionOption
-        );
-      });
-      return Promise.resolve(ctrl.selectedImages);
-    };
-    ctrl.addPersonToImages = (images, addedPerson) => {
-      images.map((image) => {
-        const currentPeopleInImage = ctrl.peopleAccessor(image);
-        const newPeopleInImage = currentPeopleInImage ? [...currentPeopleInImage, addedPerson] : [addedPerson];
-        editsService.batchUpdateMetadataField(
-          [image],
-          'peopleInImage',
-          newPeopleInImage,
-          ctrl.descriptionOption
-        );
-      });
-      return Promise.resolve(ctrl.selectedImages);
-    };
+    ctrl.removePersonFromImages = removeXFromImages('peopleInImage', ctrl.peopleAccessor);
+    ctrl.addPersonToImages = addXToImages('peopleInImage', ctrl.peopleAccessor);
 
     ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
+    ctrl.removeKeywordFromImages = removeXFromImages('keywords', ctrl.keywordAccessor);
+    ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
 
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',

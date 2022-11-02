@@ -35,7 +35,7 @@ object MappingTest {
     suppliersReference = Some("ASDFFF"),
     source = Some("bill-withers"),
     specialInstructions = Some("This is really important."),
-    keywords = Some(List("sunset", "loveliness", "distance")),
+    keywords = Some(Set("sunset", "loveliness", "distance")),
     subLocation = Some("Downtown"),
     city = Some("LA"),
     state = Some("California"),
