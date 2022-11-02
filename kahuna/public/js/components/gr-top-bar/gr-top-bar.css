@@ -34,3 +34,12 @@ gr-top-bar-actions {
 .gr-top-bar-inner--fixed {
     position: fixed;
 }
+
+gr-top-bar gr-icon-label {
+    display: inline-flex;
+    align-items: center;
+}
+
+gr-top-bar gr-icon-label gr-icon, gr-top-bar, .search__modifier-toggle gr-icon {
+    margin-right: 4px;
+}

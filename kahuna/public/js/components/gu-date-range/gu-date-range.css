@@ -7,6 +7,11 @@
     display: block;
 }
 
+.gu-date-range__display:hover {
+    color: white;
+    border-color: white;
+}
+
 .gu-date-range__display--value {
     display: inline-block;
 }
@@ -14,6 +19,11 @@
 .gu-date-range__display__icon__toggle {
     display: inline-block;
     margin-left: 5px;
+}
+
+.gu-date-range__icon {
+    display: inline-block;
+    width: 9px;
 }
 
 .gu-date-range__overlay__title {

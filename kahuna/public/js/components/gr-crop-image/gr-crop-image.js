@@ -1,8 +1,10 @@
 import angular from 'angular';
 
+
 import template from './gr-crop-image.html';
 
 import '../../services/api/leases';
+import './gr-crop-image.css';
 
 export const cropImage = angular.module('gr.cropImage', [
 

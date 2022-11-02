@@ -1,19 +1,39 @@
 gr-downloader .download {
-    display: block;
+    display: inline-flex;
+    height: 100%;
 }
 
 button .download:hover {
   color: white;
 }
 
+.top-bar-item .download a:hover {
+  background-color: #666666;
+  color: white;
+  cursor: pointer;
+}
+
+.top-bar-item .download a {
+  display: inline-flex;
+}
+
+.top-bar-item .download .clickable {
+  padding-right: 12px;
+  padding-left: 5px;
+}
+
+.results-toolbar .download .clickable {
+    margin-left: 0px;
+}
+
+.results-toolbar .download a, .results-toolbar .download span {
+  display: inline-flex;
+}
+
 .download-warning {
   color: yellow;
   padding-left: 5px;
   margin-left: -6px;
-}
-
-gr-icon-label.download-icon-label {
-  padding: 0 5px 0 0;
 }
 
 .download-button {

@@ -375,7 +375,8 @@ button[disabled],
 
 .inner-clickable {
     height: 100%;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
 }
 
 .inner-clickable--disabled {
@@ -454,7 +455,9 @@ textarea.ng-invalid {
     margin-left: -4px;
     vertical-align: middle;
     line-height: 50px;
-    display: inline-block;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     border-left: 2px solid #565656;
     height: 50px;
 }
@@ -513,6 +516,14 @@ textarea.ng-invalid {
 @media screen and (max-width: 950px) {
     .top-bar-item .gr-confirm-delete {
         min-width: inherit;
+    }
+
+    .results-toolbar-item .gr-confirm-delete gr-icon-label {
+        padding: 0
+    }
+
+    .top-bar-item button gr-icon {
+        margin-right: 0;
     }
 
     /* only use this class if you want it to hide */
@@ -639,7 +650,7 @@ textarea.ng-invalid {
     flex-direction: row;
     justify-content: flex-start;
     margin-left: 25px;
-    align-items: baseline; /* vertical align all filters */
+    align-items: center; /* vertical align all filters */
 }
 
 .search__modifier-item {
@@ -659,6 +670,25 @@ textarea.ng-invalid {
     display: none;
 }
 
+.search__modifier-checkbox label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+}
+
+.search__modifier-checkbox label:hover {
+    cursor: pointer;
+}
+
+.search__modifier-checkbox label input[type="checkbox"] {
+    margin-right: 6px;
+}
+
+.search__modifier-checkbox label input[type="checkbox"]:hover {
+    cursor: pointer;
+}
+
+
 @media screen and (max-width: 850px) {
     .search__advanced-toggle {
         display: none;
@@ -674,8 +704,16 @@ textarea.ng-invalid {
 
 @media screen and (max-width: 1350px) {
     .search__modifier-toggle {
-        display: inherit;
-        margin-left: 15px
+        display: flex;
+        flex-direction: row;
+        align-items:center;
+        margin-left: 15px;
+    }
+    .search__modifier-toggle:hover {
+        filter: brightness(200%);
+    }
+    .search__modifier-container:last-of-type .search__modifier-toggle {
+        margin-right: 15px;
     }
     .search__modifier-toggle__icon {
         display: inline;
@@ -834,14 +872,6 @@ textarea.ng-invalid {
 }
 
 /* ==========================================================================
-   Crop
-   ========================================================================== */
-
-.crop__action {
-    margin-top: 12px;
-}
-
-/* ==========================================================================
    File uploader
    ========================================================================== */
 
@@ -850,7 +880,6 @@ textarea.ng-invalid {
 }
 
 .file-uploader__select-files {
-    margin-top: 12px;
     padding: 5px 10px;
 }
 
@@ -1042,7 +1071,10 @@ textarea.ng-invalid {
 
 .results-toolbar__right {
     margin-left: auto;
-    line-height: 35px;
+}
+
+.results-toolbar__right gr-downloader gr-icon-label, .results-toolbar__right gr-delete-image gr-icon-label {
+  padding: 0px;
 }
 
 .results-toolbar-item {
@@ -1051,8 +1083,9 @@ textarea.ng-invalid {
     border-color: #565656;
     border-style: solid;
     position: relative;
-    height: 35px;
-    line-height: 35px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     white-space: nowrap;
 }
 
@@ -1063,6 +1096,10 @@ textarea.ng-invalid {
 .results-toolbar-item--static,
 .results-toolbar-item gr-icon-label {
     padding: 0 10px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
 }
 
 .results-toolbar-item--inline {
@@ -1113,6 +1150,10 @@ textarea.ng-invalid {
     /* updated in JS to show progress */
     background: linear-gradient(90deg, #00adee 0%, transparent 0%);
     color: white;
+}
+
+.results-toolbar-item .inner-clickable {
+  display: inline-flex;
 }
 
 .image-results-count__new {
@@ -2223,6 +2264,11 @@ FIXME: what to do with touch devices
     background-color: #333;
     line-height: 1.6rem;
 }
+
+.drop-menu__button:hover i {
+    filter: brightness(200%)
+}
+
 .drop-menu__button--nopad {
     padding: 0;
 }
@@ -2386,10 +2432,12 @@ FIXME: what to do with touch devices
     border: 1px solid #565656
 }
 
+.radio-list__label:hover {
+    color: #ffffff;
+}
+
 .radio-list--selected .radio-list__label-value {
     background-color:#666;
-    border: 1px solid #777;
-    border-top: none;
 }
 
 .radio-list--selected .radio-list__selection-state {
@@ -2410,8 +2458,9 @@ FIXME: what to do with touch devices
     width: 1px;
 }
 
-.radio-list__circle:focus + .radio-list__label {
-    border: solid 3px #00adee;
+.radio-list__circle:focus-visible + .radio-list__label {
+    outline: 1px solid #5E9ED6;
+    outline: auto -webkit-focus-ring-color;
 }
 
 .radio-list__selection-state {

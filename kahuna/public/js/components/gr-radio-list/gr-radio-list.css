@@ -47,4 +47,5 @@ gr-radio-list label {
 
 gr-radio-list label:hover {
   background-color: #666;
+  color: white;
 }

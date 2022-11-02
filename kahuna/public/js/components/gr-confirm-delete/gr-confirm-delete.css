@@ -1,11 +1,15 @@
-gr-confirm-delete {
+gr-confirm-delete.gr-delete-image {
   width: inherit;
+  display: inline-flex;
+  height: 100%;
 }
 
 .gr-confirm-delete {
   line-height: inherit;
-  width: 100%
+  width: 100%;
+  height: 100%;
 }
+
 .gr-confirm-delete:hover {
   color: white;
   background-color: #666666;

@@ -1,0 +1,13 @@
+.crop-button {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+}
+
+.crop-button a {
+    display: inline-flex;
+}
+
+.crop-dimensions {
+    gap: 2px;
+}

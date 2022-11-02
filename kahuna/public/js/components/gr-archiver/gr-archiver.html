@@ -23,8 +23,8 @@
             ng-click="ctrl.unarchive()"
             ng-disabled="ctrl.archiving">
         <gr-library-remove-icon class="batch-archive__icon"></gr-library-remove-icon>
-        <span ng-if="!ctrl.archiving">Remove from Library</span>
-        <span ng-if="ctrl.archiving">Removing from Library…</span>
+        <span ng-if="!ctrl.archiving" class="icon-label">Remove from Library</span>
+        <span ng-if="ctrl.archiving" class="icon-label">Removing from Library…</span>
     </button>
 
     <button ng-if="ctrl.canArchive && !ctrl.isDeleted" ng-switch-when="unarchived"
@@ -33,8 +33,8 @@
             ng-click="ctrl.archive()"
             ng-disabled="ctrl.archiving">
         <gr-library-add-icon class="batch-archive__icon"></gr-library-add-icon>
-        <span ng-if="!ctrl.archiving">Add to Library</span>
-        <span ng-if="ctrl.archiving">Adding to Library…</span>
+        <span ng-if="!ctrl.archiving" class="icon-label">Add to Library</span>
+        <span ng-if="ctrl.archiving" class="icon-label">Adding to Library…</span>
     </button>
 
     <button ng-if="ctrl.canUndelete && ctrl.isDeleted"
