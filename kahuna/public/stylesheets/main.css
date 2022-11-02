@@ -1073,6 +1073,10 @@ textarea.ng-invalid {
     margin-left: auto;
 }
 
+.results-toolbar__right gr-downloader gr-icon-label, .results-toolbar__right gr-delete-image gr-icon-label {
+  padding: 0px;
+}
+
 .results-toolbar-item {
     vertical-align: middle;
     border-width: 0 1px;
@@ -1146,6 +1150,10 @@ textarea.ng-invalid {
     /* updated in JS to show progress */
     background: linear-gradient(90deg, #00adee 0%, transparent 0%);
     color: white;
+}
+
+.results-toolbar-item .inner-clickable {
+  display: inline-flex;
 }
 
 .image-results-count__new {
