@@ -27,3 +27,8 @@
      letter-spacing: -1px;
      margin-bottom: 3px;
 }
+
+gr-image-metadata dd {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
