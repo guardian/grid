@@ -5,12 +5,22 @@ object Parser {
   def run(input: String): List[Condition] = {
     normalise(
       parse(
-        if(input.contains("is:deleted")) input
-        else input.concat(" -is:deleted").trim
+        addDefaultFilters(input)
       )
     )
   }
+  def addDefaultFilters(input: String): String = {
+    val DeletedAndReapablePattern = "(?=is:deleted)(?=is:toBeReaped)".r
+    val ReapablePattern = "(.*is:reapable.*)".r
+    val DeletedPattern = "(.*is:deleted.*)".r
 
+    input match {
+      case DeletedAndReapablePattern(input) => input
+      case ReapablePattern(input) => input.concat(" -is:deleted").trim
+      case DeletedPattern(input) => input.concat(" -is:reapable").trim
+      case _ => input.concat(" -is:deleted -is:reapable").trim
+    }
+  }
   def parse(input: String): List[Condition] =
     new QuerySyntax(input.trim).Query.run().map(_.toList) getOrElse List()
 

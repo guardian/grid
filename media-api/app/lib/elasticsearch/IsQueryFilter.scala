@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import org.joda.time.DateTime
 import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {
@@ -15,6 +16,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case IsOwnedImage(staffPhotographerOrg) => s"$staffPhotographerOrg-owned"
     case _: IsDeleted => "deleted"
     case _: IsUnderQuota => "under-quota"
+    case _: IsReapable => "reapable"
   }
 }
 
@@ -28,6 +30,7 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
+      case "reapable" => Some(IsReapable())
       case _ => None
     }
   }
@@ -62,3 +65,13 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
     (filters.existsOrMissing("softDeletedMetadata", _))(isDeleted)
   )
 }
+
+case class IsReapable() extends IsQueryFilter {
+  val moreThanTwentyDaysOld = filters.date("uploadTime", Some(new DateTime(0)), Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
+
+  override def query: Query = filters.and(
+    moreThanTwentyDaysOld,
+    (filters.term("persisted", "false"))
+  )
+}
+
