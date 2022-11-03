@@ -185,7 +185,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "content-api-client-default" % "18.0.1",
+    "com.gu" %% "content-api-client-default" % "19.0.4",
     "io.reactivex" %% "rxscala" % "0.26.5",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
   )
