@@ -1,18 +1,10 @@
-# Guardian Webfonts
+# Open Sans Fonts
 
-Guardian Webfonts for the user interface.
+Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
 
-Read the End User License Agreement before deploying any of these fonts
-at a user-facing URL.
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available [here](OFL.txt), and is also available with a FAQ at:
+http://scripts.sil.org/OFL
 
-These fonts are the property of Commercial Type.
-
-The font files are for internal use exclusively. You may use them for
-prototyping purposes but not serve them publicly on your own domain
-unless you have a license for it.
-
-For more information, read the
-[Commercial Type End User License Agreement](./Commercial Type EULA Web-general.pdf).
-
-These files have been sourced from
-[guss-webfonts](https://github.com/guardian/guss-webfonts).
+Latest versions of these fonts, and their wider family, are available here:
+https://fonts.google.com/share?selection.family=Open%20Sans:ital,wdth,wght@0,87.5,400;0,87.5,700;1,87.5,400;1,87.5,700
