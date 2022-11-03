@@ -6,7 +6,6 @@ case class ServiceHosts(
   loaderPrefix: String,
   projectionPrefix: String,
   cropperPrefix: String,
-  adminToolsPrefix: String,
   metadataPrefix: String,
   imgopsPrefix: String,
   usagePrefix: String,
@@ -27,7 +26,6 @@ object ServiceHosts {
       loaderPrefix = s"loader.$rootAppName.",
       projectionPrefix = s"loader-projection.$rootAppName",
       cropperPrefix = s"cropper.$rootAppName.",
-      adminToolsPrefix = s"admin-tools.$rootAppName.",
       metadataPrefix = s"$rootAppName-metadata.",
       imgopsPrefix = s"$rootAppName-imgops.",
       usagePrefix = s"$rootAppName-usage.",
@@ -49,7 +47,6 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val collectionsHost: String = s"${hosts.collectionsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val leasesHost: String      = s"${hosts.leasesPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val authHost: String        = s"${hosts.authPrefix}$domainRoot"
-  val adminToolsHost: String  = s"${hosts.adminToolsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val projectionHost: String  = s"${hosts.projectionPrefix}${domainRootOverride.getOrElse(domainRoot)}"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
@@ -63,7 +60,6 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val collectionsBaseUri = baseUri(collectionsHost)
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
-  val adminToolsBaseUri  = baseUri(adminToolsHost)
 
   val allInternalUris = Seq(
     kahunaBaseUri,

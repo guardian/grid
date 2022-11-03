@@ -37,7 +37,7 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
@@ -67,7 +67,7 @@ lazy val root = project("grid", path = Some("."))
     )
   )
 
-addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
 addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
@@ -169,72 +169,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
 )
-
-lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
-  .settings(
-    excludeDependencies ++= Seq(
-      // Would not be needed if persistence-lib is created
-      ExclusionRule("org.elasticsearch"),
-      ExclusionRule("com.sksamuel.elastic4s"),
-
-      // See line 104 - only used for disk logging in dev.
-      ExclusionRule("org.codehaus.janino"),
-      ExclusionRule("org.scalaz.stream"),
-
-      // Ultimately only used by cropper and image loader
-      // Probably tiny
-      ExclusionRule("org.im4java"),
-
-      // Only used in ProcessesSpec.scala in common-lib test?
-      // Presumably should be a test dependency and then won't need excluding?
-      ExclusionRule("org.scalacheck"),
-
-      // Provides com.gu.logback.appender.kinesis.KinesisAppender
-      // used by LogConfig.scala in common-lib - probably should move into rest-lib
-      // because the lambdas and command line tools by definition won't use it.
-      ExclusionRule("com.gu", "kinesis-logback-appender")
-    ),
-    libraryDependencies ++= Seq(
-      "com.typesafe.play" %% "play-json" % "2.9.2",
-      "com.typesafe.play" %% "play-json-joda" % "2.9.2",
-      "com.typesafe.play" %% "play-functional" % "2.9.2",
-      "io.symphonia" % "lambda-logging" % "1.0.3",
-    )
-  ).dependsOn(commonLib)
-
-lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .enablePlugins(RiffRaffArtifact)
-  .settings(
-    assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs@_*) => MergeStrategy.discard
-      case "logback.xml" => MergeStrategy.first
-      case x => MergeStrategy.first
-    },
-    libraryDependencies ++= Seq(
-      "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
-      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
-    )
-  )
-  .dependsOn(adminToolsLib)
-  .settings(
-    assemblyJarName := s"${name.value}.jar",
-    riffRaffPackageType := assembly.value,
-    riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
-    riffRaffUploadManifestBucket := Some("riffraff-builds"),
-    riffRaffManifestProjectName := s"media-service::grid::admin-tools-lambda"
-  )
-
-lazy val adminToolsScripts = project("admin-tools-scripts", Some("admin-tools/scripts"))
-  .settings(
-    assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs@_*) => MergeStrategy.discard
-      case "logback.xml" => MergeStrategy.first
-      case x => MergeStrategy.first
-    }
-  ).dependsOn(adminToolsLib)
-
-lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
-  .dependsOn(adminToolsLib)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 

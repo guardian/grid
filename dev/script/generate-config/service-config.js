@@ -33,10 +33,6 @@ function getAuthConfig(config) {
         |`;
 }
 
-function getAdminToolsConfig(config) {
-  return stripMargin`${getCommonConfig(config)}`;
-}
-
 function getCollectionsConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
@@ -207,7 +203,6 @@ module.exports = {
     getCoreConfigs: (config) => {
         return {
             auth: getAuthConfig(config),
-            'admin-tools': getAdminToolsConfig(config),
             collections: getCollectionsConfig(config),
             cropper: getCropperConfig(config),
             'image-loader': getImageLoaderConfig(config),

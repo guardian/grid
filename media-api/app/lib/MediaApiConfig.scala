@@ -44,7 +44,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val authUri: String = services.authBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
   val collectionsUri: String = services.collectionsBaseUri
-  val adminToolsUri: String = services.adminToolsBaseUri
 
   val requiredMetadata = List("credit", "description", "usageRights")
 

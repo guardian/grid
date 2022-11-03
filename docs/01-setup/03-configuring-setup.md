@@ -33,7 +33,6 @@ SUBDOMAINS=(
   'media-auth'
   'media-leases'
   'es.media'
-  'admin-tools.media'
   'thrall.media'
   'localstack.media'
   'public.media'
