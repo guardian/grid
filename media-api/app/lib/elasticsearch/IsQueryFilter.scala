@@ -62,16 +62,28 @@ case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
 
 case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   override def query: Query = filters.or(
-    (filters.existsOrMissing("softDeletedMetadata", _))(isDeleted)
+    (filters.existsOrMissing("softDeletedMetadata", isDeleted))
   )
 }
 
 case class IsReapable() extends IsQueryFilter {
   val moreThanTwentyDaysOld = filters.date("uploadTime", Some(new DateTime(0)), Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
 
+  val persistedQueries = filters.or(
+    PersistedQueries.hasCrops,
+    PersistedQueries.hasLabels,
+    PersistedQueries.hasLeases,
+    PersistedQueries.usedInContent,
+    PersistedQueries.addedToLibrary,
+    PersistedQueries.addedToPhotoshoot,
+    PersistedQueries.hasAgencyCommissionedUsageRights,
+    PersistedQueries.hasIllustratorUsageRights,
+    PersistedQueries.hasUserEditsToImageMetadata,
+    PersistedQueries.hasPhotographerUsageRights
+  )
   override def query: Query = filters.and(
     moreThanTwentyDaysOld,
-    (filters.term("persisted", "false"))
+    filters.not(persistedQueries)
   )
 }
 

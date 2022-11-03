@@ -10,7 +10,7 @@ object Parser {
     )
   }
   def addDefaultFilters(input: String): String = {
-    val DeletedAndReapablePattern = "(?=is:deleted)(?=is:toBeReaped)".r
+    val DeletedAndReapablePattern = "(?=is:deleted)(?=is:reapable)".r
     val ReapablePattern = "(.*is:reapable.*)".r
     val DeletedPattern = "(.*is:deleted.*)".r
 
