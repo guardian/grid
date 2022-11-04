@@ -37,6 +37,10 @@ gr-icon .gr-icon--small {
     font-size: 1.2rem;
 }
 
+.gr-icon--large {
+    font-size: 20px;
+}
+
 gr-icon-label .icon-label {
     vertical-align: middle;
 }
