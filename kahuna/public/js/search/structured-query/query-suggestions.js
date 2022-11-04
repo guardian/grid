@@ -87,7 +87,7 @@ const isSearch = [
     `${staffPhotographerOrganisation}-owned-illustration`,
     `${staffPhotographerOrganisation}-owned`,
   'under-quota',
-  'deleted',
+  'deleted'
 ];
 
 if (window._clientConfig.useReaper === true) {
