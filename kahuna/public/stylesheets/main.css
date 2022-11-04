@@ -2856,24 +2856,16 @@ FIXME: what to do with touch devices
 
 }
 
-.result__select__overlay {
-  position: absolute;
-  display: block;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  /* above thumbnail and overlay */
-  z-index: 1;
-}
-
 .result__select__overlay.alert {
-  background-color: rgba(196, 51, 49, 0.3);
+  background-color: #C433314D;
 }
 
 .result__select__overlay.warning {
-  background-color: rgba(251, 189, 61, 0.3);
+  background-color: #7C54044D;
+}
+
+.result__select__overlay.lease_attached {
+  background-color: #0065E04D;
 }
 
 .result__select__overlay__text {
@@ -2887,9 +2879,12 @@ FIXME: what to do with touch devices
   z-index: 2;
 }
 .result__select__overlay__text.alert {
-  background-color: rgb(196, 51, 49);
+  background-color: #C43331;
 }
 .result__select__overlay__text.warning {
-  background-color: rgb(251, 189, 61);
+  background-color: #7C5404;
   color: black;
+}
+.result__select__overlay__text.lease_attached {
+  background-color: #0065E0;
 }

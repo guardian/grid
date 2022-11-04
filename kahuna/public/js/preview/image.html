@@ -2,7 +2,8 @@
 
     <div class="result__select__overlay"
          ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
-                     'warning': ctrl.showWarningOverlay(ctrl.image) }"
+                     'warning': ctrl.showWarningOverlay(ctrl.image),
+                     'lease_attached': ctrl.hasActiveAllowLease }"
          ng-if="ctrl.showOverlay(ctrl.image)">
     </div>
 
@@ -55,7 +56,8 @@
 
     <div class="result__select__overlay__text"
          ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
-                     'warning': ctrl.showWarningOverlay(ctrl.image) }"
+                     'warning': ctrl.showWarningOverlay(ctrl.image),
+                     'lease_attached': ctrl.hasActiveAllowLease }"
          ng-if="ctrl.showOverlay(ctrl.image)">
         This image has warnings attached, please check all details before use.
     </div>
