@@ -111,6 +111,18 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.showAlertOverlay = (image) => Object.keys(image.data.invalidReasons).length > 0;
     ctrl.showWarningOverlay = (image) => image.data.cost === 'conditional';
 
+    ctrl.getWarningMessage = (image) => {
+      if (ctrl.hasActiveAllowLease !== undefined) {
+        return "This image has a lease attached, read more before use.";
+      }
+      if (ctrl.showWarningOverlay(image) === true) {
+        return "This image has warnings attached. It has a restriction that requires attention.";
+      }
+      if (ctrl.showAlertOverlay(image) === true) {
+        return "This image has warnings attached. It is important you check all details before use.";
+      }
+    };
+
 }]);
 
 image.directive('uiPreviewImage', function() {

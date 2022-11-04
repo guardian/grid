@@ -59,7 +59,7 @@
                      'warning': ctrl.showWarningOverlay(ctrl.image),
                      'lease_attached': ctrl.hasActiveAllowLease }"
          ng-if="ctrl.showOverlay(ctrl.image)">
-        This image has warnings attached, please check all details before use.
+        {{ctrl.getWarningMessage(ctrl.image)}}
     </div>
 
     <div class="preview__info" ng-if="! ctrl.hideInfo && ! ctrl.showOverlay(ctrl.image)">
