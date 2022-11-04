@@ -17,11 +17,12 @@ jobs:
         run: |
           npm install
           npm test
-      - name: Image Counter Lambda
-        working-directory: ./image-counter-lambda
-        run: |
-          npm install
-          npm test
+          # TODO restore when rest of js is on node 16
+          #- name: Image Counter Lambda
+          #  working-directory: ./image-counter-lambda
+          #  run: |
+          #    npm install
+          #    npm test
       - name: S3Watcher
         working-directory: ./s3watcher/lambda
         run: |
@@ -32,6 +33,21 @@ jobs:
         run: |
           npm install
           npm run riffraff-artefact
+
+  ImageCounterBuild:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3.1.0
+      - name: Use Node.js v16
+        uses: actions/setup-node@v3.5.1
+        with:
+          node-version-file: image-counter-lambda/.nvmrc
+      - name: build
+        working-directory: ./image-counter-lambda
+        run: |
+          npm install
+          npm test
+
   ScalaBuild:
     runs-on: ubuntu-20.04
     services:
