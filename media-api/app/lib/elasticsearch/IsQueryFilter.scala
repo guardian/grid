@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import lib.MediaApiConfig
 import org.joda.time.DateTime
 import scalaz.syntax.std.list._
 
@@ -22,15 +23,15 @@ sealed trait IsQueryFilter extends Query with ImageFields {
 
 object IsQueryFilter {
   // for readability, the client capitalises gnm, so `toLowerCase` it before matching
-  def apply(value: String, overQuotaAgencies: () => List[Agency], staffPhotographerOrganisation: String): Option[IsQueryFilter] = {
-   val organisation = staffPhotographerOrganisation.toLowerCase
+  def apply(value: String, overQuotaAgencies: () => List[Agency], config: MediaApiConfig): Option[IsQueryFilter] = {
+   val organisation = config.staffPhotographerOrganisation.toLowerCase
     value.toLowerCase match {
       case s if s == s"$organisation-owned-photo" => Some(IsOwnedPhotograph(organisation))
       case s if s == s"$organisation-owned-illustration" => Some(IsOwnedIllustration(organisation))
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
-      case "reapable" => Some(IsReapable())
+      case "reapable" => Some(IsReapable(config.persistedRootCollections, config.persistenceIdentifier))
       case _ => None
     }
   }
@@ -66,20 +67,22 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   )
 }
 
-case class IsReapable() extends IsQueryFilter {
+case class IsReapable(persistedRootCollections: List[String], persistenceIdentifier: String) extends IsQueryFilter {
   val moreThanTwentyDaysOld = filters.date("uploadTime", Some(new DateTime(0)), Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
 
   val persistedQueries = filters.or(
     PersistedQueries.hasCrops,
-    PersistedQueries.hasLabels,
-    PersistedQueries.hasLeases,
     PersistedQueries.usedInContent,
     PersistedQueries.addedToLibrary,
-    PersistedQueries.addedToPhotoshoot,
-    PersistedQueries.hasAgencyCommissionedUsageRights,
-    PersistedQueries.hasIllustratorUsageRights,
     PersistedQueries.hasUserEditsToImageMetadata,
-    PersistedQueries.hasPhotographerUsageRights
+    PersistedQueries.hasPhotographerUsageRights,
+    PersistedQueries.hasIllustratorUsageRights,
+    PersistedQueries.hasAgencyCommissionedUsageRights,
+    PersistedQueries.addedToPhotoshoot,
+    PersistedQueries.hasLabels,
+    PersistedQueries.hasLeases,
+    PersistedQueries.existedPreGrid(persistenceIdentifier),
+    PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedRootCollections)
   )
   override def query: Query = filters.and(
     moreThanTwentyDaysOld,
