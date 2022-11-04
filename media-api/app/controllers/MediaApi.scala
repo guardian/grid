@@ -75,7 +75,8 @@ class MediaApi(
     "usagePlatform",
     "hasRightsAcquired",
     "syndicationStatus",
-    "countAll"
+    "countAll",
+    "persisted"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"

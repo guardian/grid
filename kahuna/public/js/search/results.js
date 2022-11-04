@@ -341,6 +341,7 @@ results.controller('SearchResultsCtrl', [
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
+                persisted: $stateParams.persisted,
                 countAll
             }));
         }
