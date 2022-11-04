@@ -68,7 +68,7 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
 }
 
 case class IsReapable(persistedRootCollections: List[String], persistenceIdentifier: String) extends IsQueryFilter {
-  val moreThanTwentyDaysOld = filters.date("uploadTime", Some(new DateTime(0)), Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
+  val moreThanTwentyDaysOld = filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
 
   val persistedQueries = filters.or(
     PersistedQueries.hasCrops,
