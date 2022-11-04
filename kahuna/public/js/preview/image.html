@@ -1,5 +1,11 @@
 <div class="preview image-actions-container">
 
+    <div class="result__select__overlay"
+         ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
+                     'warning': ctrl.showWarningOverlay(ctrl.image) }"
+         ng-if="ctrl.showOverlay(ctrl.image)">
+    </div>
+
     <ul class="image-actions">
         <li>
             <a class="image-action image-action--first"
@@ -47,7 +53,14 @@
              ui-drag-data="ctrl.image | asImageDragData"/>
     </span>
 
-    <div class="preview__info" ng-if="! ctrl.hideInfo">
+    <div class="result__select__overlay__text"
+         ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
+                     'warning': ctrl.showWarningOverlay(ctrl.image) }"
+         ng-if="ctrl.showOverlay(ctrl.image)">
+        This image has warnings attached, please check all details before use.
+    </div>
+
+    <div class="preview__info" ng-if="! ctrl.hideInfo && ! ctrl.showOverlay(ctrl.image)">
         <div class="flex-container">
             <ul class="bottom-bar__meta-item preview__collections">
                 <li class="preview__collections__collection"

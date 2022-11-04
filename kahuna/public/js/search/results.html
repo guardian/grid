@@ -145,6 +145,7 @@
                     </div>
 
                     <ui-preview-image image="image"
+                                      is-selected="ctrl.imageHasBeenSelected(image)"
                                       draggable="true"
                                       selection-mode="ctrl.inSelectionMode"
                                       ng-class="{'preview__quick-select': ctrl.inSelectionMode, 'preview__select': !ctrl.inSelectionMode}"
