@@ -90,6 +90,10 @@ const isSearch = [
   'deleted'
 ];
 
+if (window._clientConfig.useReaper === true) {
+  isSearch.push('reapable');
+}
+
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
 
     function prefixFilter(prefix) {
