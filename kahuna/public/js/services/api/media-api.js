@@ -17,7 +17,7 @@ mediaApi.factory('mediaApi',
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
-                                 syndicationStatus, countAll} = {}) {
+                                 syndicationStatus, countAll, persisted} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -38,7 +38,8 @@ mediaApi.factory('mediaApi',
             hasRightsAcquired: maybeStringToBoolean(hasRightsAcquired),
             hasExports: maybeStringToBoolean(hasCrops), // Grid API calls crops exports...
             syndicationStatus: syndicationStatus,
-            countAll
+            countAll,
+            persisted
         }).get();
     }
 

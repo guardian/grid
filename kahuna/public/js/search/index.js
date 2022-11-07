@@ -162,7 +162,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             'modifiedUntil',
             'hasRightsAcquired',
             'hasCrops',
-            'syndicationStatus'
+            'syndicationStatus',
+            'persisted'
         ].join('&'),
         // Non-URL parameters
         params: {

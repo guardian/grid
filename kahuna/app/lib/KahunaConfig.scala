@@ -37,6 +37,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val canDownloadCrop: Boolean = boolean("canDownloadCrop")
   val restrictDownload: Option[Boolean] = booleanOpt("restrictDownload")
+  val useReaper: Option[Boolean] = booleanOpt("useReaper")
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
