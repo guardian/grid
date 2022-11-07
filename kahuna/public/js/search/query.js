@@ -11,6 +11,8 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import { react2angular } from 'react2angular';
+import { DateSort } from './date-sort';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -20,7 +22,8 @@ export var query = angular.module('kahuna.search.query', [
     syntax.name,
     grStructuredQuery.name,
     'util.storage'
-]);
+])
+.component('dateSort', react2angular(DateSort, ["initialOrder", "collectionSearch", "setNgOrder"],["$stateParams", "$state"]));
 
 query.controller('SearchQueryCtrl', [
   '$rootScope',
@@ -86,6 +89,8 @@ query.controller('SearchQueryCtrl', [
         {label: 'Date taken',    name: 'taken',        value: 'taken'},
         {label: 'Last modified', name: 'modified',     value: 'modified'}
     ];
+
+    ctrl.setOrdering = (ordering) => $state.go('search.results', {orderBy: ordering});
 
     const dateFilterParams = [
         'dateField', 'since', 'until', 'takenSince', 'takenUntil',
