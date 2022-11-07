@@ -105,8 +105,9 @@ class UsageApi(
     )
 
     val query = ItemQuery(contentId)
-      .showFields("all")
-      .showElements("all")
+      .showFields("firstPublicationDate,isLive,internalComposerCode")
+      .showElements("image")
+      .showAtoms("media")
 
     liveContentApi.getResponse(query).map{response =>
       response.content match {
