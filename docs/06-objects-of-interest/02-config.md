@@ -40,31 +40,31 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>auth.useLocal<br>If true, the AWS client will be configured to be localstack aware <br>Only used in The Guardian’s PermissionsAuthorisationProvider and PandaAuthenticationProvider</td>
+    <td><code>auth.useLocal</code><br>If true, the AWS client will be configured to be localstack aware <br>Only used in The Guardian’s PermissionsAuthorisationProvider and PandaAuthenticationProvider</td>
     <td>True (not needed if using another authentication + authorisation providers)</td>
     <td>boolean</td>
     <td>false</td>
   </tr>
   <tr>
-    <td>panda.userDomain<br>Used only in The Guardian’s PandaAuthenticationProvider</td>
+    <td><code>panda.userDomain</code><br>Used only in The Guardian’s PandaAuthenticationProvider</td>
     <td>True (not needed if using another authentication provider)</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>panda.bucketName<br>The AWS S3 bucket name that contains <br>Used only in The Guardian’s PandaAuthenticationProvider.</td>
+    <td><code>panda.bucketName</code><br>The AWS S3 bucket name that contains <br>Used only in The Guardian’s PandaAuthenticationProvider.</td>
     <td>True (not needed if using another authentication provider)</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>permissions.bucket<br>The AWS S3 bucket name used in The Guardian’s PermissionsProvider</td>
+    <td><code>permissions.bucket</code><br>The AWS S3 bucket name used in The Guardian’s PermissionsProvider</td>
     <td>True (not needed if using another authorisation provider)</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>image.record.downloadWhen true any downloads are recorded as usages and usage@platform:download filter appears in the UI.</td>
+    <td><code>image.record.download</code><br>When true any downloads are recorded as usages and usage@platform:download filter appears in the UI.</td>
     <td></td>
     <td></td>
     <td></td>
