@@ -24,3 +24,50 @@ Anything that's specific to an organisation and to a stage, but is common across
 Service-specific configs. These will override all other config files.
 
 [Documentation](https://docs.google.com/document/d/1CSERbLwbu6nT_ggzzYxdUt9IHpfGUJLIYPnU_9MZbpc/edit) on the existing Grid config options 
+
+## Config documentation
+
+### Common configuration
+
+<table>
+<thead>
+  <tr>
+    <th></th>
+    <th>Optional</th>
+    <th>Type</th>
+    <th>Default</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>auth.useLocal<br>If true, the AWS client will be configured to be localstack aware <br>Only used in The Guardian’s PermissionsAuthorisationProvider and PandaAuthenticationProvider</td>
+    <td>True (not needed if using another authentication + authorisation providers)</td>
+    <td>boolean</td>
+    <td>false</td>
+  </tr>
+  <tr>
+    <td>panda.userDomain<br>Used only in The Guardian’s PandaAuthenticationProvider</td>
+    <td>True (not needed if using another authentication provider)</td>
+    <td>string</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>panda.bucketName<br>The AWS S3 bucket name that contains <br>Used only in The Guardian’s PandaAuthenticationProvider.</td>
+    <td>True (not needed if using another authentication provider)</td>
+    <td>string</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>permissions.bucket<br>The AWS S3 bucket name used in The Guardian’s PermissionsProvider</td>
+    <td>True (not needed if using another authorisation provider)</td>
+    <td>string</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>image.record.downloadWhen true any downloads are recorded as usages and usage@platform:download filter appears in the UI.</td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+</tbody>
+</table>
