@@ -31,8 +31,8 @@
 - [How to run a migration](05-migration/02-how-to.md)
 
 ## [Objects of interest](06-objects-of-interest/)
+- [Config](06-objects-of-interest/02-config.md)
 - [TIFF files](06-objects-of-interest/06.01-tiffs.md)
-- [Elasticsearch refreshes](06-objects-of-interest/06.02-elasticsearch-refreshes.md)
 
 ## [Extending](07-extending/)
 - [Extending the Grid using providers](07-extending/01-provider-interfaces.md)
