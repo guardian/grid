@@ -16,8 +16,19 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
             )
         );
 
+        const croppable = () => ctrl.images.filter(
+          image => image.data.valid && image.data.softDeletedMetadata === undefined &&
+            image.data.exports.every(
+              crop => crop.specification.type !== 'full'
+            )
+        );
+
         $scope.$watch('ctrl.images', () => {
           ctrl.allHaveFullCrops = checkForFullCrops();
+          const croppableImages = croppable();
+
+          ctrl.allCroppable = croppableImages.size === ctrl.images.size;
+          ctrl.noneCroppable = croppableImages.size === 0;
         }, true);
 
         ctrl.callBatchCrop = function() {
@@ -68,7 +79,10 @@ batchExportOriginalImages.directive('grBatchExportOriginalImages', [function() {
             images: '=',
             cropping: '=',
             needsConfirmation: '=',
-            confirmed: '='
+            confirmed: '=',
+            allCroppable: '=',
+            noneCroppable: '=',
+            allHaveFullCrops: '='
         },
         template: template
     };

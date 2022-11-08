@@ -4,27 +4,39 @@ import 'titip/dist/css/titip.css';
 export const tooltip = angular.module('grTooltip', []);
 
 tooltip.directive('grTooltip', [
-    'onValChange',
-    function (onValChange) {
-        return {
-            restrict: 'A',
-            link: function ($scope, element, attrs) {
-              if (!attrs.grTooltip) {
-                return;
-              }
+  'onValChange',
+  function (onValChange) {
+    return {
+      restrict: 'A',
+      link: function ($scope, element, attrs) {
 
-                const position = attrs.grTooltipPosition || 'bottom';
-                element.attr('data-title', attrs.grTooltip)
-                    .addClass(`titip-default`)
-                    .addClass(`titip-${position}`);
+        const position = attrs.grTooltipPosition || 'bottom';
+        if (attrs.grTooltip) {
+          element.attr('data-title', attrs.grTooltip)
+            .addClass(`titip-default`)
+            .addClass(`titip-${position}`);
+        }
 
-                const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
+        const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
 
-                if (autoUpdates) {
-                    $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
-                        element.attr('data-title', newTooltip);
-                    }));
-                }
+        if (autoUpdates) {
+          $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
+            const hasTooltip = angular.isDefined(element.attr('data-title'));
+            const shouldHaveTooltip = angular.isDefined(newTooltip) && newTooltip !== '';
+
+            if (!hasTooltip && shouldHaveTooltip) {
+              element.addClass('titip-default')
+                .addClass(`titip-${position}`)
+                .attr('data-title', newTooltip);
+            } else if (hasTooltip && !shouldHaveTooltip) {
+              element.removeAttr('data-title');
+              element.removeClass('titip-default')
+                .removeClass(`titip-${position}`);
+            } else if (hasTooltip) {
+              element.attr('data-title', newTooltip);
             }
+          }));
+        }
+      }
     };
-}]);
+  }]);
