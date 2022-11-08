@@ -324,6 +324,7 @@ z-index
 }
 
 html {
+    overflow-x: hidden;
     font: 62.5%/1.5 "Open Sans", sans-serif;
 }
 
@@ -1901,11 +1902,13 @@ FIXME: what to do with touch devices
     height: calc(100vh - 50px); /* viewport - top-bar */
     width: 300px;
     border-left: 1px solid #565656;
+    display: flex;
+    flex-direction: column;
 }
 
 .image-details--scroll {
-    height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
-    overflow-y: scroll;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .image-details--crop {
@@ -1915,11 +1918,11 @@ FIXME: what to do with touch devices
     border-left: none;
     position: relative;
     height: calc(100vh - 50px); /* viewport - top-bar */
+    display: flex;
+    flex-direction: column;
 }
 
 .image-details__delete-crops {
-    position: absolute;
-    bottom: 0;
     width: 100%;
 }
 
