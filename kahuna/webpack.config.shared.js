@@ -12,27 +12,31 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /.js$/,
+        test: /\.js$/,
         exclude: [
-          path.resolve(__dirname, 'public', 'js', 'dist'),
+          path.resolve(__dirname, 'public', 'dist'),
           /node_modules/,
         ],
         loader: 'babel-loader',
       },
       {
-        test: /.html$/,
+        test: /\.html$/,
         loader: 'html-loader',
       },
       {
-        test: /.svg$/,
-        loader: 'svg-inline-loader',
+        test: /\.svg$/,
+        type: 'asset/source',
       },
       {
-        test: /.css$/,
+        test: /\.css$/,
         use: [
           'style-loader',
           'css-loader'
         ],
+      },
+      {
+        test: /\.png$/,
+        type: 'asset/resource'
       }
     ],
   },
