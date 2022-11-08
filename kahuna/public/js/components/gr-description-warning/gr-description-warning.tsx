@@ -21,7 +21,7 @@ const GrDescriptionWarning: React.FC<GrDescriptionWarningProps> = ({ description
   return showWarning && (
     <div className={`flex-right text-small ${styles['gr-description-warning']}`}>
       <span className={`${styles.message}`}>
-        Your description is too short! Ideally, please state who, what where, when and why.
+        Your description is too short! Ideally, please state who, what, where, when and why.
       </span>
     </div>
   );
