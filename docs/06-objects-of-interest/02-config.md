@@ -91,43 +91,43 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td>url</td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
@@ -148,67 +148,67 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td>False</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.config.bucket</td>
+    <td><code>s3.config.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td>boolean</td>
     <td></td>
@@ -229,79 +229,79 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.collections.bucket</td>
+    <td><code>s3.collections.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.collections</td>
+    <td><code>dynamo.table.collections</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.imageCollections</td>
+    <td><code>dynamo.table.imageCollections</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -322,79 +322,79 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>publishing.image.bucket</td>
+    <td><code>publishing.image.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>publishing.image.host</td>
+    <td><code>publishing.image.host</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.config.bucket</td>
+    <td><code>s3.config.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -415,103 +415,103 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.image.bucket</td>
+    <td><code>s3.image.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.thumb.bucket</td>
+    <td><code>s3.thumb.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.quarantine.bucket</td>
+    <td><code>s3.quarantine.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.config.bucket</td>
+    <td><code>s3.config.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.upload.status</td>
+    <td><code>dynamo.table.upload.status</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>transcoded.mime.types</td>
+    <td><code>transcoded.mime.types</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>upload.quarantine.enabled</td>
+    <td><code>upload.quarantine.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -532,103 +532,103 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.image.bucket</td>
+    <td><code>s3.image.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.thumb.bucket</td>
+    <td><code>s3.thumb.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.quarantine.bucket</td>
+    <td><code>s3.quarantine.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.config.bucket</td>
+    <td><code>s3.config.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.upload.status</td>
+    <td><code>dynamo.table.upload.status</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>transcoded.mime.types</td>
+    <td><code>transcoded.mime.types</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>upload.quarantine.enabled</td>
+    <td><code>upload.quarantine.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -649,67 +649,67 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td<code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.tablename.leasesTable</td>
+    <td><code>dynamo.tablename.leasesTable</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -730,121 +730,121 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.image.bucket</td>
+    <td><code>s3.image.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.thumb.bucket</td>
+    <td><code>s3.thumb.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.config.bucket</td>
+    <td><code>s3.config.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.usagemail.bucket</td>
+    <td><code>s3.usagemail.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>persistence.identifier</td>
+    <td><code>persistence.identifier</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.url</td>
+    <td><code>es6.url</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.cluster</td>
+    <td><code>es6.cluster</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.shards</td>
+    <td><code>es6.shards</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.replicas</td>
+    <td><code>es6.replicas</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>quota.store.key</td>
+    <td><code>quota.store.key</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -865,91 +865,91 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.collections.bucket</td>
+    <td><code>s3.collections.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.edits</td>
+    <td><code>dynamo.table.edits</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.globalsecondaryindex.edits.photoshoots</td>
+    <td><code>dynamo.globalsecondaryindex.edits.photoshoots</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.table.syndication</td>
+    <td><code>dynamo.table.syndication</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>indexed.images.sqs.queue.url</td>
+    <td><code>indexed.images.sqs.queue.url</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -970,73 +970,73 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>loader.uri</td>
+    <td><code>loader.uri</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>auth.key.s3watcher</td>
+    <td><code>auth.key.s3watcher</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.ingest.bucket</td>
+    <td><code>s3.ingest.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.fail.bucket</td>
+    <td><code>s3.fail.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
@@ -1057,109 +1057,109 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.image.bucket</td>
+    <td><code>s3.image.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>s3.thumb.bucket</td>
+    <td><code>s3.thumb.bucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>persistence.identifier</td>
+    <td><code>persistence.identifier</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>indexed.image.sns.topic.arn</td>
+    <td><code>indexed.image.sns.topic.arn</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.url</td>
+    <td><code>es6.url</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.cluster</td>
+    <td><code>es6.cluster</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.shard</td>
+    <td><code>es6.shard</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es6.replicas</td>
+    <td><code>es6.replicas</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.projection.parallelism</td>
+    <td><code>thrall.projection.parallelism</code></td>
     <td>yes</td>
     <td>int</td>
     <td>1</td>
@@ -1180,115 +1180,115 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
-    <td>domain.root</td>
+    <td><code>domain.root</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>authentication.providers.machine.config.authKeyStoreBucket</td>
+    <td><code>authentication.providers.machine.config.authKeyStoreBucket</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.local.endpoint</td>
+    <td><code>aws.local.endpoint</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.stream.name</td>
+    <td><code>thrall.kinesis.stream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>thrall.kinesis.lowPriorityStream.name</td>
+    <td><code>thrall.kinesis.lowPriorityStream.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.current</td>
+    <td><code>es.index.aliases.current</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>es.index.aliases.migration</td>
+    <td><code>es.index.aliases.migration</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>aws.region</td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>capi.live.url</td>
+    <td><code>capi.live.url</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>capi.apiKey</td>
+    <td><code>capi.apiKey</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>dynamo.tablename.usageRecordTable</td>
+    <td><code>dynamo.tablename.usageRecordTable</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>composer.baseUrl</td>
+    <td><code>composer.baseUrl</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>crier.live.arn</td>
+    <td><code>crier.live.arn</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>crier.preview.arn</td>
+    <td><code>crier.preview.arn</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>crier.preview.name</td>
+    <td><code>crier.preview.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>crier.live.name</td>
+    <td><code>crier.live.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>app.name</td>
+    <td><code>app.name</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>security.cors.allowedOrigins</td>
+    <td><code>security.cors.allowedOrigins</code></td>
     <td></td>
     <td></td>
     <td></td>
   </tr>
   <tr>
-    <td>metrics.request.enabled</td>
+    <td><code>metrics.request.enabled</code></td>
     <td></td>
     <td></td>
     <td></td>
