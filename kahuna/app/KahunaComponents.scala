@@ -56,7 +56,7 @@ object KahunaSecurityConfig {
       "'self'"
     ).mkString(" ")}"
 
-    val fontSources = s"font-src data: 'self'"
+    val fontSources = s"font-src data: 'self' ${config.fontSources.mkString(" ")}"
 
     val scriptSources = s"script-src 'self' 'unsafe-inline' $gaHost ${config.scriptsToLoad.map(_.host).mkString(" ")}"
 
