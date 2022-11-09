@@ -4,7 +4,7 @@
     "es6": true,
     "jest": true
   },
-  "parser": "babel-eslint",
+  "parser": "@babel/eslint-parser",
   "globals": {},
   "rules": {
     "new-cap": 2,
@@ -40,5 +40,22 @@
       "never"
     ],
     "no-trailing-spaces": 2
-  }
+  },
+  "overrides": [{
+    "files": ["*.tsx", "*.ts"],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": 6,
+      "sourceType": "module",
+      "ecmaFeatures": {
+        "jsx": true
+      }
+    },
+//    "plugins": ["jest"],
+    "extends": [
+      "plugin:@typescript-eslint/recommended",
+      "plugin:react/recommended"
+    ],
+    "settings": { "react": { "version": "detect" } }
+  }]
 }
