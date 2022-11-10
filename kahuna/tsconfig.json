@@ -8,8 +8,10 @@
     "alwaysStrict": true,
     "allowJs": true,
     "sourceMap": true,
+    "moduleResolution": "node"
   },
   "include": [
+    "global.d.ts",
     "public/js/**/*"
-  ],
+  ]
 }
