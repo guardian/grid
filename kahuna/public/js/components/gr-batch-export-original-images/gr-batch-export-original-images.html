@@ -20,9 +20,17 @@
 
 <div
     ng-if="!ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.noneCroppable"
-    gr-tooltip="{{ctrl.allHaveFullCrops ? 'Selected images have full frames' : 'Selected images cannot be cropped'}}"
-    gr-tooltip-updates
+    gr-tooltip="Selected images cannot be cropped"
     class="inner-clickable inner-clickable--disabled"
 >
     <gr-icon-label gr-icon="crop">Crop full frame</gr-icon-label>
+</div>
+
+<div
+    ng-if="ctrl.allHaveFullCrops && ctrl.pageIsEmbedded"
+    ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
+    class="inner-clickable clickable"
+    gr-tooltip="Choose full frame crops for content"
+>
+    Select full frame crops
 </div>

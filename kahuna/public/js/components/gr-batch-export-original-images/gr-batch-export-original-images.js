@@ -49,12 +49,14 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
             }
         };
 
+        ctrl.pageIsEmbedded = window.parent !== window;
+
         function cropImages() {
           ctrl.cropping = true;
           ctrl.needsConfirmation = false;
 
           const cropImages = trackAll($q, $rootScope, "crop", ctrl.images, async (image) => {
-            const crop = await mediaCropper.createFullCrop(image);
+            const crop = image.data.exports.find(crop => crop.specification.type === 'full') || await mediaCropper.createFullCrop(image);
             return {
               image,
               crop
