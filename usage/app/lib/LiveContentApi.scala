@@ -8,5 +8,5 @@ class LiveContentApi(config: UsageConfig)(implicit val executor: ScheduledExecut
   extends GuardianContentClient(apiKey = config.capiApiKey) with RetryableContentApiClient
 {
   override val targetUrl: String = config.capiLiveUrl
-  override val backoffStrategy: BackoffStrategy = BackoffStrategy.exponentialStrategy(2.seconds, 15)
+  override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, 4)
 }
