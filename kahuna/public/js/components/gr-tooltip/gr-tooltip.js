@@ -24,16 +24,18 @@ tooltip.directive('grTooltip', [
             const hasTooltip = angular.isDefined(element.attr('data-title'));
             const shouldHaveTooltip = angular.isDefined(newTooltip) && newTooltip !== '';
 
+            if (shouldHaveTooltip) {
+              element.attr('data-title', newTooltip);
+            } else if (hasTooltip) {
+              element.removeAttr('data-title');
+            }
+
             if (!hasTooltip && shouldHaveTooltip) {
               element.addClass('titip-default')
-                .addClass(`titip-${position}`)
-                .attr('data-title', newTooltip);
+                .addClass(`titip-${position}`);
             } else if (hasTooltip && !shouldHaveTooltip) {
-              element.removeAttr('data-title');
               element.removeClass('titip-default')
                 .removeClass(`titip-${position}`);
-            } else if (hasTooltip) {
-              element.attr('data-title', newTooltip);
             }
           }));
         }
