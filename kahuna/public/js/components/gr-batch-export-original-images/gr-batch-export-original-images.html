@@ -9,9 +9,9 @@
      class="inner-clickable clickable"
 >
   <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}" ng-hide="ctrl.needsConfirmation">Crop full frame</gr-icon-label>
-  <span ng-if="!ctrl.allCroppable" class="download-warning"><gr-icon>warning</gr-icon></span>
 
   <gr-icon-label gr-icon="check_circle" ng-show="ctrl.needsConfirmation">Confirm full frame</gr-icon-label>
+  <span ng-if="!ctrl.allCroppable" class="download-warning"><gr-icon>warning</gr-icon></span>
 </div>
 
 <div ng-if="ctrl.cropping">
