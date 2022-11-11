@@ -665,6 +665,14 @@ Service-specific configs. These will override all other config files.
     <td><code>string[]</code></td>
     <td></td>
   </tr>
+  <tr>
+    <td><code>security.fontSources</code><br/>
+      Additional entries to be added to the <code>font-src</code> section of the <code>Content-Security-Policy</code>
+    </td>
+    <td>true</td>
+    <td><code>string[]</code></td>
+    <td></td>
+  </tr>
 </tbody>
 </table>
 
