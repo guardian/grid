@@ -28,7 +28,7 @@ while read line; do
     echo "$id" > lastQueriedId.txt
     echo "Reindexed id: $id, path: $path"
   else
-    echo "$id" >> failedIds.txt
+    echo "$id,$path" >> failedIds.txt
     echo "Failed on id: $id, path: $path"
   fi
 
