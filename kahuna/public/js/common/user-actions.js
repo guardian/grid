@@ -1,7 +1,7 @@
 import { CaptureConsole } from '@sentry/integrations';
 import angular from 'angular';
 import template from './user-actions.html';
-import './feature-switch-panel'
+import '../components/gr-feature-switch-panel/gr-feature-switch-panel'
 
 export var userActions = angular.module('kahuna.common.userActions', ['gr.featureSwitchPanel']);
 
