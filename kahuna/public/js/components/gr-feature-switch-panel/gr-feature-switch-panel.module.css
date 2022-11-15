@@ -1,0 +1,28 @@
+.closeButton {
+  fill: rgb(204,204,204);
+}
+
+.closeButton:hover {
+  fill: white;
+}
+
+.panel {
+  padding: 10px;
+  position: fixed;
+  top: 50px;
+  right: 0px;
+  display: flex;
+  /* flex-direction: column; */
+}
+
+header {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  align-content: center;
+}
+
+.panelTitle {
+  display: inline-block;
+  flex-grow: 1;
+}
