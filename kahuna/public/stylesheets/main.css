@@ -1413,8 +1413,14 @@ textarea.ng-invalid {
     margin-left: auto;
 }
 
-.results-toolbar__right gr-downloader gr-icon-label, .results-toolbar__right gr-delete-image gr-icon-label {
+.results-toolbar__right gr-downloader gr-icon-label,
+.results-toolbar__right gr-delete-image gr-icon-label,
+.results-toolbar__right gr-batch-export-original-images gr-icon-label {
   padding: 0px;
+}
+
+gr-batch-export-original-images .batch-export-original-images {
+  padding: 0 10px;
 }
 
 .results-toolbar-item {

@@ -46,6 +46,7 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
               if (!ctrl.cropping) {
                 cropImages();
               }
+
             }
         };
 
