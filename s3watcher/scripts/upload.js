@@ -1,4 +1,4 @@
-const properties = require('./properties');
+const configLoader = require('./configLoader');
 const fs = require('fs');
 const path = require('path');
 const AWS = require('aws-sdk');
@@ -9,8 +9,8 @@ if (process.argv.length < 4) {
     process.exit(1);
 }
 
-const props = properties.load('s3watcher');
-const s3IngestBucket = props['s3.ingest.bucket'];
+const config = configLoader.load('s3watcher');
+const s3IngestBucket = configLoader.get(config, 's3.ingest.bucket');
 
 const testFile = process.argv[2];
 const eventFile = process.argv[3];
@@ -40,19 +40,14 @@ const event = {
 };
 const eventJson = JSON.stringify(event, null, 2);
 
-AWS.config.update({
-    credentials: new AWS.SharedIniFileCredentials({profile: 'media-service'}),
-    region: 'eu-west-1'
-});
-
-const s3 = new AWS.S3({});
+const s3 = configLoader.s3Client('eu-west-1');
 console.log('Uploading ' + testFile + ' to s3://' +s3IngestBucket+ '/' +s3Key);
 
 s3.putObject({
     Bucket: s3IngestBucket,
     Key: s3Key,
     Body: data,
-    ContentLength: fileSize
+    ContentLength: fileSize,
 }, function(err, data) {
     if (err) {
         console.error("Failed to upload: ", err);

@@ -41,7 +41,6 @@ buildWatcher() {
   echo "##teamcity[compilationStarted compiler='ncc']"
   pushd ${SCRIPT_DIR}/../../s3watcher/lambda
 
-  nvm use ${NODE_VERSION}
   npm install
   npm test
   npm run build
