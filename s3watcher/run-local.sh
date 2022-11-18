@@ -9,7 +9,7 @@ then
 fi
 
 # Note: annoyingly package.json run-scripts don't support args, hence this script
-node scripts/upload.js "$1" event.json
+NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" node scripts/upload.js "$1" event.json
 
 cd lambda
 npm run local

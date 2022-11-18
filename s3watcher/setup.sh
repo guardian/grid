@@ -8,5 +8,5 @@ popd
 
 pushd scripts
 npm install
-node configure.js
+NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" node configure.js
 popd
