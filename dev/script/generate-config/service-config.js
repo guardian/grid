@@ -151,7 +151,7 @@ function getMetadataEditorConfig(config) {
 function getS3WatcherConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
-        |loader.uri="https://loader.${config.DOMAIN}"
+        |loader.uri="https://loader.media.${config.DOMAIN}"
         |auth.key.s3watcher="${config.s3Watcher.key}"
         |s3.ingest.bucket="${config.coreStackProps.S3WatcherIngestBucket}"
         |s3.fail.bucket="${config.coreStackProps.S3WatcherFailBucket}"

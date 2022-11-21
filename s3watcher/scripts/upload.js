@@ -40,11 +40,6 @@ const event = {
 };
 const eventJson = JSON.stringify(event, null, 2);
 
-AWS.config.update({
-    credentials: new AWS.SharedIniFileCredentials({profile: 'media-service'}),
-    region: 'eu-west-1'
-});
-
 const s3 = configLoader.s3Client('eu-west-1');
 console.log('Uploading ' + testFile + ' to s3://' +s3IngestBucket+ '/' +s3Key);
 
@@ -52,12 +47,15 @@ s3.putObject({
     Bucket: s3IngestBucket,
     Key: s3Key,
     Body: data,
-    ContentLength: fileSize
+    ContentLength: fileSize,
+    ContentType: 'image/jpeg',
 }, function(err, data) {
     if (err) {
         console.error("Failed to upload: ", err);
         process.exit(1);
     }
+
+    console.dir(data);
 
     // Write event.json file
     fs.writeFileSync(eventFile, eventJson, 'utf-8');

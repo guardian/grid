@@ -12,4 +12,4 @@ fi
 NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" node scripts/upload.js "$1" event.json
 
 cd lambda
-npm run local
+NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" npm run local

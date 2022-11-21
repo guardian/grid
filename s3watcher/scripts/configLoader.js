@@ -36,7 +36,7 @@ function get(config, field) {
 }
 
 function s3Client(region) {
-  return new AWS.S3({region, endpoint: 'https://localstack.media.local.dev-gutools.co.uk', s3ForcePathStyle: true});
+  return new AWS.S3({region, endpoint: 'https://localstack.media.local.dev-gutools.co.uk', s3ForcePathStyle: true, accessKeyId: 'test', secretAccessKey: 'test'});
 };
 
 module.exports = {
