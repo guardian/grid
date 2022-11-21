@@ -2856,6 +2856,18 @@ FIXME: what to do with touch devices
 
 }
 
+.result__select__overlay {
+  position: absolute;
+  display: block;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  /* above thumbnail and overlay */
+  z-index: 1;
+}
+
 .result__select__overlay.alert {
   background-color: #C433314D;
 }
@@ -2887,4 +2899,5 @@ FIXME: what to do with touch devices
 }
 .result__select__overlay__text.lease_attached {
   background-color: #0065E0;
+  color: white;
 }

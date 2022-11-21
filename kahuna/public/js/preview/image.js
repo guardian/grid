@@ -107,18 +107,18 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
-    ctrl.showOverlay = (image) => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay(image) || ctrl.showWarningOverlay(image));
-    ctrl.showAlertOverlay = (image) => Object.keys(image.data.invalidReasons).length > 0;
-    ctrl.showWarningOverlay = (image) => image.data.cost === 'conditional';
+    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay(ctrl.image) || ctrl.showWarningOverlay(ctrl.image));
+    ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0;
+    ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional';
 
-    ctrl.getWarningMessage = (image) => {
+    ctrl.getWarningMessage = () => {
       if (ctrl.hasActiveAllowLease !== undefined) {
         return $window._clientConfig.imagePreviewFlagLeaseAttachedCopy;
       }
-      if (ctrl.showWarningOverlay(image) === true) {
+      if (ctrl.showWarningOverlay() === true) {
         return $window._clientConfig.imagePreviewFlagWarningCopy;
       }
-      if (ctrl.showAlertOverlay(image) === true) {
+      if (ctrl.showAlertOverlay() === true) {
         return $window._clientConfig.imagePreviewFlagAlertCopy;
       }
     };

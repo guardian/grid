@@ -1,10 +1,10 @@
 <div class="preview image-actions-container">
 
     <div class="result__select__overlay"
-         ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
-                     'warning': ctrl.showWarningOverlay(ctrl.image),
+         ng-class="{ 'alert': ctrl.showAlertOverlay(),
+                     'warning': ctrl.showWarningOverlay(),
                      'lease_attached': ctrl.hasActiveAllowLease }"
-         ng-if="ctrl.showOverlay(ctrl.image)">
+         ng-if="ctrl.showOverlay()">
     </div>
 
     <ul class="image-actions">
@@ -55,14 +55,14 @@
     </span>
 
     <div class="result__select__overlay__text"
-         ng-class="{ 'alert': ctrl.showAlertOverlay(ctrl.image),
-                     'warning': ctrl.showWarningOverlay(ctrl.image),
+         ng-class="{ 'alert': ctrl.showAlertOverlay(),
+                     'warning': ctrl.showWarningOverlay(),
                      'lease_attached': ctrl.hasActiveAllowLease }"
-         ng-if="ctrl.showOverlay(ctrl.image)">
-        {{ctrl.getWarningMessage(ctrl.image)}}
+         ng-if="ctrl.showOverlay()">
+        {{ctrl.getWarningMessage()}}
     </div>
 
-    <div class="preview__info" ng-if="! ctrl.hideInfo && ! ctrl.showOverlay(ctrl.image)">
+    <div class="preview__info" ng-if="! ctrl.hideInfo && ! ctrl.showOverlay()">
         <div class="flex-container">
             <ul class="bottom-bar__meta-item preview__collections">
                 <li class="preview__collections__collection"
