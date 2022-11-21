@@ -3,14 +3,15 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.KahunaConfig
-import play.api.mvc.ControllerComponents
-import play.api.libs.json._
-
-import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
+import lib.KahunaConfig
+import play.api.libs.json.Format.GenericFormat
+import play.api.libs.json._
+import play.api.mvc.ControllerComponents
 import play.api.mvc.Security.AuthenticatedRequest
+
+import scala.concurrent.ExecutionContext
 
 class KahunaController(
   authentication: Authentication,
@@ -36,6 +37,8 @@ class KahunaController(
     }
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
+    val featureSwitches = FeatureSwitches.getClientSwitchValues(FeatureSwitches.getFeatureSwitchCookies(request))
+    val featureSwitchesJson = Json.stringify(Json.toJson(FeatureSwitches.getFeatureSwitchesToStringify(featureSwitches)))
 
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
@@ -59,7 +62,8 @@ class KahunaController(
       additionalNavigationLinks,
       costFilterLabel,
       costFilterChargeable,
-      config
+      config,
+      featureSwitchesJson
     ))
   }
 

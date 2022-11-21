@@ -1,6 +1,7 @@
 @import lib.ScriptToLoad
 
 @import lib.KahunaConfig
+@import controllers.FeatureSwitches
 @(
   reauthUri: String,
   fieldAliases: String,
@@ -10,7 +11,8 @@
   additionalNavigationLinks: String,
   costFilterLabel: String,
   costFilterChargeable: Boolean,
-  kahunaConfig: KahunaConfig
+  kahunaConfig: KahunaConfig,
+  featureSwitches: String,
 )
 <!DOCTYPE html>
 <html>
@@ -63,7 +65,8 @@
           warningTextHeader: "@Html(kahunaConfig.warningTextHeader)",
           warningTextHeaderNoRights: "@Html(kahunaConfig.warningTextHeaderNoRights)",
           unusableTextHeader: "@Html(kahunaConfig.unusableTextHeader)",
-          useReaper: @kahunaConfig.useReaper.getOrElse(false)
+          useReaper: @kahunaConfig.useReaper.getOrElse(false),
+          featureSwitches: @Html(featureSwitches)
         }
     </script>
 
