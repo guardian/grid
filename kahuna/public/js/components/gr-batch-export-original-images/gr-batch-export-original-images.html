@@ -1,4 +1,6 @@
-<span class="batch-export-original-images">
+<span class="batch-export-original-images"
+      ng-if="ctrl.cropping || ctrl.pageIsEmbedded || !ctrl.noneCroppable"
+>
   <div ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
        gr-tooltip="{{!ctrl.allCroppable ? 'Not all selected images may be cropped' : '' }}"
        gr-tooltip-updates
@@ -28,7 +30,7 @@
   </div>
 
   <div
-      ng-if="ctrl.allHaveFullCrops && ctrl.pageIsEmbedded"
+      ng-if="ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.pageIsEmbedded"
       ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
       class="inner-clickable clickable"
       gr-tooltip="Choose full frame crops for content"
