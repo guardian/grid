@@ -23,12 +23,18 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
             )
         );
 
-        $scope.$watch('ctrl.images', () => {
+        $scope.$watchGroup(['ctrl.images', 'ctrl.cropping'], () => {
           ctrl.allHaveFullCrops = checkForFullCrops();
           const croppableImages = croppable();
 
           ctrl.allCroppable = croppableImages.size === ctrl.images.size;
           ctrl.noneCroppable = croppableImages.size === 0;
+
+          const pageIsEmbedded = window.parent !== window;
+
+          ctrl.canBatchCrop = !ctrl.allHaveFullCrops && !ctrl.cropping && !ctrl.noneCroppable;
+          ctrl.cropDisabled = !ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.noneCroppable;
+          ctrl.canSelectCrops = ctrl.allHaveFullCrops && !ctrl.cropping && pageIsEmbedded;
         }, true);
 
         ctrl.callBatchCrop = function() {
@@ -50,7 +56,6 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
             }
         };
 
-        ctrl.pageIsEmbedded = window.parent !== window;
 
         function cropImages() {
           ctrl.cropping = true;

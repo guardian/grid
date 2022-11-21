@@ -1,5 +1,5 @@
 <span class="batch-export-original-images"
-      ng-if="ctrl.cropping || ctrl.pageIsEmbedded || !ctrl.noneCroppable"
+      ng-if="ctrl.cropping || ctrl.canBatchCrop || ctrl.cropDisabled || ctrl.canSelectCrops"
 >
   <div ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
        gr-tooltip="{{!ctrl.allCroppable ? 'Not all selected images may be cropped' : '' }}"
@@ -8,7 +8,7 @@
        gr-track-click="Full frame button"
        confirmed="false"
        needsConfirmation="false"
-       ng-if="!ctrl.allHaveFullCrops && !ctrl.noneCroppable && !ctrl.cropping"
+       ng-if="ctrl.canBatchCrop"
        class="inner-clickable clickable"
   >
     <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}" ng-hide="ctrl.needsConfirmation">Crop full frame</gr-icon-label>
@@ -22,7 +22,7 @@
   </div>
 
   <div
-      ng-if="!ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.noneCroppable"
+      ng-if="ctrl.cropDisabled"
       gr-tooltip="Selected images cannot be cropped"
       class="inner-clickable inner-clickable--disabled"
   >
@@ -30,7 +30,7 @@
   </div>
 
   <div
-      ng-if="ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.pageIsEmbedded"
+      ng-if="ctrl.canSelectCrops"
       ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
       class="inner-clickable clickable"
       gr-tooltip="Choose full frame crops for content"
