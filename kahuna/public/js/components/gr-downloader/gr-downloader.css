@@ -38,5 +38,6 @@ button .download:hover {
 }
 
 .download-button {
-  height: 36px;
+  display: inline-flex;
+  align-items: center;
 }
