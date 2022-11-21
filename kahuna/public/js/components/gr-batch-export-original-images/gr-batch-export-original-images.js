@@ -10,11 +10,11 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
     function($q, $scope, $rootScope, $state, mediaCropper) {
         let ctrl = this;
 
-        const checkForFullCrops = () => ctrl.images.every(
+        const checkForFullCrops = () => ctrl.images.filter(
             image => image.data.exports.some(
               crop => crop.specification.type === 'full'
             )
-        );
+        ).size;
 
         const croppable = () => ctrl.images.filter(
           image => image.data.valid && image.data.softDeletedMetadata === undefined &&
@@ -24,7 +24,9 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
         );
 
         $scope.$watchGroup(['ctrl.images', 'ctrl.cropping'], () => {
-          ctrl.allHaveFullCrops = checkForFullCrops();
+          const numberWithFullCrops = checkForFullCrops();
+          const allHaveFullCrops = numberWithFullCrops === ctrl.images.size;
+          const someHaveFullCrops = numberWithFullCrops > 0;
           const croppableImages = croppable();
 
           ctrl.allCroppable = croppableImages.size === ctrl.images.size;
@@ -32,9 +34,9 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
 
           const pageIsEmbedded = window.parent !== window;
 
-          ctrl.canBatchCrop = !ctrl.allHaveFullCrops && !ctrl.cropping && !ctrl.noneCroppable;
-          ctrl.cropDisabled = !ctrl.allHaveFullCrops && !ctrl.cropping && ctrl.noneCroppable;
-          ctrl.canSelectCrops = ctrl.allHaveFullCrops && !ctrl.cropping && pageIsEmbedded;
+          ctrl.canBatchCrop = !ctrl.cropping && !allHaveFullCrops && !ctrl.noneCroppable;
+          ctrl.canSelectCrops = !ctrl.cropping && !ctrl.canBatchCrop && someHaveFullCrops && pageIsEmbedded;
+          ctrl.cropDisabled = !ctrl.cropping && !ctrl.canBatchCrop && !ctrl.canSelectCrops && ctrl.noneCroppable && !allHaveFullCrops;
         }, true);
 
         ctrl.callBatchCrop = function() {
