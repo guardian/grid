@@ -10,12 +10,9 @@ object ExampleSwitch extends FeatureSwitch(
   default = false
 )
 
-object FeatureSwitches {
+class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
-  lazy val featureSwitches = List(
-    ExampleSwitch
-  )
 
   def getFeatureSwitchCookies(request: Request[AnyContent]): List[(FeatureSwitch, Option[Cookie])] =
     featureSwitches.map(featureSwitch => (featureSwitch, request.cookies.get(s"feature-switch-${featureSwitch.key}")))
@@ -51,3 +48,4 @@ object FeatureSwitches {
     }
   }
 }
+

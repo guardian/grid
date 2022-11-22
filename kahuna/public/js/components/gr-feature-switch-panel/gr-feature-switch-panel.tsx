@@ -115,7 +115,7 @@ const FeatureSwitchPanel = () => {
                 Feature Switches
               </span>
               <button
-                onClick={(e) => setVisible(false)}
+                onClick={() => setVisible(false)}
                 className={styles['closeButton']}
               >
                 <CloseIcon />
