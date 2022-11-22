@@ -3,15 +3,14 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import com.gu.mediaservice.lib.config.FieldAlias._
-import com.gu.mediaservice.lib.config.Services
 import lib.KahunaConfig
-import play.api.libs.json.Format.GenericFormat
-import play.api.libs.json._
 import play.api.mvc.ControllerComponents
-import play.api.mvc.Security.AuthenticatedRequest
+import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext
+import com.gu.mediaservice.lib.config.FieldAlias._
+import com.gu.mediaservice.lib.config.Services
+import play.api.mvc.Security.AuthenticatedRequest
 
 class KahunaController(
   authentication: Authentication,
