@@ -75,6 +75,12 @@ Service-specific configs. These will override all other config files.
     <td>boolean</td>
     <td></td>
   </tr>
+  <tr>
+    <td><code>restrictDownload</code><br>Restrict download of images to users with edit_metadata permission where that user is not the image uploader</td>
+    <td>True</td>
+    <td>boolean</td>
+    <td>false</td>
+  </tr>
 </tbody>
 </table>
 
@@ -731,7 +737,7 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
-    <td<code>aws.region</code></td>
+    <td><code>aws.region</code></td>
     <td></td>
     <td></td>
     <td></td>
