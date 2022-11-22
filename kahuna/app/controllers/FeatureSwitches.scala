@@ -6,11 +6,13 @@ case class FeatureSwitch(key: String, title: String, default: Boolean)
 
 object ExampleSwitch extends FeatureSwitch(
   key = "example-switch",
-  title = "An example switch to test the feature",
+  title = "An example switch. Use rounded corners for the feature switch toggle",
   default = false
 )
 
 object FeatureSwitches {
+  // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
+  // for a switch called "my-key".
   lazy val featureSwitches = List(
     ExampleSwitch
   )
@@ -37,7 +39,7 @@ object FeatureSwitches {
     }).toList
   }
 
-  def getBoolean(cookieValue: String): Boolean = {
+  private def getBoolean(cookieValue: String): Boolean = {
     cookieValue match{
       case "true" => true
       case _ => false
