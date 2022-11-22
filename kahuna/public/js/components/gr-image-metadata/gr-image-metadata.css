@@ -31,4 +31,5 @@
 gr-image-metadata dd {
     overflow: hidden;
     word-break: break-word;
+    display: inline;
 }
