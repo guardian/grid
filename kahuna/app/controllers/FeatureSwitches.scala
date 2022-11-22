@@ -39,6 +39,11 @@ object FeatureSwitches {
     }).toList
   }
 
+  def getFeatureSwitchValue(clientSwitchValues: Map[FeatureSwitch, Boolean], key: String): Boolean = {
+    val maybeSwitch = featureSwitches.find(switch => switch.key == key)
+    maybeSwitch.flatMap(switch => clientSwitchValues.get(switch)).getOrElse(false)
+  }
+
   private def getBoolean(cookieValue: String): Boolean = {
     cookieValue match{
       case "true" => true
