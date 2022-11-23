@@ -4,9 +4,9 @@ import com.gu.mediaservice.model._
 import lib.UsageQuota
 
 class CostCalculator(
-  freeSuppliers: Seq[String],
-  suppliersCollectionExcl: Map[String, Seq[String]],
-  usageQuota: UsageQuota,
+  val freeSuppliers: Seq[String],
+  val suppliersCollectionExcl: Map[String, Seq[String]],
+  val usageQuota: UsageQuota,
 ) {
   final val defaultCost: Cost = Pay
 

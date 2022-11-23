@@ -29,13 +29,20 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
   elasticSearch.ensureIndexExistsAndAliasAssigned()
 
-  val costCalculator: CostCalculator = new CostCalculator(
+  val tenantCostCalculators: Map[String, CostCalculator] = config.tenants.mapValues(tenant => new CostCalculator(
+    tenant.freeSuppliers, tenant.suppliersCollectionExcl, usageQuota
+  ))
+
+  val defaultCostCalculator: CostCalculator = new CostCalculator(
     config.usageRightsConfig.freeSuppliers,
     config.usageRightsConfig.suppliersCollectionExcl,
     usageQuota
   )
 
-  val imageResponse = new ImageResponse(config, s3Client, costCalculator)
+  val costCalculatorForTenant: Option[String] => CostCalculator =
+    _.flatMap(tenantCostCalculators.get).getOrElse(defaultCostCalculator)
+
+  val imageResponse = new ImageResponse(config, s3Client, costCalculatorForTenant)
 
   val imageStatusTable = new SoftDeletedMetadataTable(config)
 

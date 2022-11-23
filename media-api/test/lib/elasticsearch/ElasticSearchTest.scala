@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
+import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
@@ -13,7 +14,8 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib.querysyntax._
-import lib.{MediaApiConfig, MediaApiMetrics}
+import lib.usagerights.CostCalculator
+import lib.{MediaApiConfig, MediaApiMetrics, UsageQuota}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar
@@ -53,7 +55,14 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     replicas = 0
   )
 
+  private val Quota = mock[UsageQuota]
 
+  implicit val costCalculator: CostCalculator =
+    new CostCalculator(
+      GuardianUsageRightsConfig.freeSuppliers, GuardianUsageRightsConfig.suppliersCollectionExcl, Quota
+    ) {
+      override def getOverQuota(usageRights: UsageRights): Option[Nothing] = None
+    }
 
   def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.2")
     .withPorts(9200 -> Some(9200))
@@ -122,7 +131,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         persisted = Some(false)
       )
 
-      val searchResult = ES.search(searchParams)
+      val searchResult = ES.search(searchParams, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 1
 
@@ -140,7 +149,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         persisted = Some(true)
       )
 
-      val searchResult = ES.search(searchParams)
+      val searchResult = ES.search(searchParams, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 2
 
@@ -192,7 +201,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("Tiered API access") {
     it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search") {
       val searchParams = SearchParams(tier = Syndication)
-      val searchResult = ES.search(searchParams)
+      val searchResult = ES.search(searchParams, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 3
 
@@ -206,7 +215,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("ES should return all pictures for internal tier search") {
       val searchParams = SearchParams(tier = Internal)
-      val searchResult = ES.search(searchParams)
+      val searchResult = ES.search(searchParams, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe images.size
       }
@@ -214,7 +223,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("ES should return all pictures for readonly tier search") {
       val searchParams = SearchParams(tier = ReadOnly)
-      val searchResult = ES.search(searchParams)
+      val searchResult = ES.search(searchParams, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe images.size
       }
@@ -224,7 +233,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("syndicationStatus query on the Syndication tier") {
     it("should return 0 results if a Syndication tier queries for SentForSyndication images") {
       val search = SearchParams(tier = Syndication, syndicationStatus = Some(SentForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 0
       }
@@ -232,7 +241,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return 3 results if a Syndication tier queries for QueuedForSyndication images") {
       val search = SearchParams(tier = Syndication, syndicationStatus = Some(QueuedForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 3
 
@@ -246,7 +255,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return 0 results if a Syndication tier queries for BlockedForSyndication images") {
       val search = SearchParams(tier = Syndication, syndicationStatus = Some(BlockedForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 0
       }
@@ -254,7 +263,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return 0 results if a Syndication tier queries for AwaitingReviewForSyndication images") {
       val search = SearchParams(tier = Syndication, syndicationStatus = Some(AwaitingReviewForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 0
       }
@@ -264,7 +273,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("syndicationStatus query on the internal tier") {
     it("should return 1 image if an Internal tier queries for SentForSyndication images") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(SentForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 1
       }
@@ -272,7 +281,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return 3 images if an Internal tier queries for QueuedForSyndication images") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(QueuedForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 3
       }
@@ -280,7 +289,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return 3 images if an Internal tier queries for BlockedForSyndication images") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.hits.forall(h => h._2.instance.leases.leases.nonEmpty) shouldBe true
         result.hits.forall(h => h._2.instance.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
@@ -291,7 +300,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("should return 3 images if an Internal tier queries for AwaitingReviewForSyndication images") {
       // Elastic1 implementation is returning the images with reviewed and blocked syndicationStatus
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
-      val searchResult = ES.search(search)
+      val searchResult = ES.search(search, costCalculator)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 3
       }
@@ -304,12 +313,12 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val unknownFieldCondition = Match(HasField, HasValue("unknownfield"))
 
       val hasTitleSearch = SearchParams(tier = Internal, structuredQuery = List(hasTitleCondition))
-      whenReady(ES.search(hasTitleSearch), timeout, interval) { result =>
+      whenReady(ES.search(hasTitleSearch, costCalculator), timeout, interval) { result =>
         result.total shouldBe expectedNumberOfImages
       }
 
       val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(unknownFieldCondition))
-      whenReady(ES.search(hasUnknownFieldTitleSearch), timeout, interval) { result =>
+      whenReady(ES.search(hasUnknownFieldTitleSearch, costCalculator), timeout, interval) { result =>
         result.total shouldBe 0
       }
     }
@@ -317,7 +326,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
-      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+      whenReady(ES.search(hasFileMetadataSearch, costCalculator), timeout, interval) { result =>
         result.total shouldBe 1
         result.hits.head._2.instance.fileMetadata.xmp.nonEmpty shouldBe true
       }
@@ -326,7 +335,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
-      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+      whenReady(ES.search(hasFileMetadataSearch, costCalculator), timeout, interval) { result =>
         result.total shouldBe 1
         result.hits.head._2.instance.fileMetadata.xmp.get("foo") shouldBe Some(JsString("bar"))
       }
@@ -335,7 +344,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("file metadata files which are too long cannot by persisted as keywords and will not contribute to has field search results") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.toolong"))
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
-      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+      whenReady(ES.search(hasFileMetadataSearch, costCalculator), timeout, interval) { result =>
         result.total shouldBe 0
       }
     }
@@ -344,7 +353,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("is field filter") {
     it("should return no images with an invalid search") {
       val search = SearchParams(tier = Internal, structuredQuery = List(isInvalidCondition))
-      whenReady(ES.search(search), timeout, interval) { result => {
+      whenReady(ES.search(search, costCalculator), timeout, interval) { result => {
         result.total shouldBe 0
       }
       }
@@ -352,7 +361,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return owned photographs") {
       val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedPhotoCondition), length = 50)
-      whenReady(ES.search(search), timeout, interval) { result => {
+      whenReady(ES.search(search, costCalculator), timeout, interval) { result => {
         val expected = List(
           "iron-suit",
           "green-leaf",
@@ -377,7 +386,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return owned illustrations") {
       val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedIllustrationCondition))
-      whenReady(ES.search(search), timeout, interval) { result => {
+      whenReady(ES.search(search, costCalculator), timeout, interval) { result => {
         val expected = List(
           "green-giant",
           "hammer-hammer-hammer"
@@ -392,7 +401,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should return all owned images") {
       val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedImageCondition), length = 50)
-      whenReady(ES.search(search), timeout, interval) { result => {
+      whenReady(ES.search(search, costCalculator), timeout, interval) { result => {
         val expected = List(
           "iron-suit",
           "green-leaf",
@@ -420,10 +429,9 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("should return all images when no agencies are over quota") {
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition))
 
-      whenReady(ES.search(search), timeout, interval) { result => {
+      whenReady(ES.search(search, costCalculator), timeout, interval) { result => {
         result.total shouldBe images.size
-      }
-      }
+      }}
     }
 
     it("should return any image whose agency is not over quota") {
@@ -432,7 +440,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
       val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, mock[Scheduler])
 
-      whenReady(elasticsearch.search(search), timeout, interval) { result => {
+      whenReady(elasticsearch.search(search, costCalculator), timeout, interval) { result => {
         val overQuotaImages = List(
           "getty-image-1",
           "getty-image-2",

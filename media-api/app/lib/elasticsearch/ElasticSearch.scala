@@ -16,6 +16,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Phrase}
+import lib.usagerights.CostCalculator
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -113,7 +114,7 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
+  def search(params: SearchParams, costCalculator: CostCalculator)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
     implicit val logMarker = MarkerMap()
     def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id, hit.index)
 
@@ -134,11 +135,11 @@ class ElasticSearch(
     val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
+    val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter(costCalculator) else searchFilters.nonFreeFilter(costCalculator))
     val costFilter = params.payType match {
-      case Some(PayType.Free) => searchFilters.freeFilter
-      case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
-      case Some(PayType.Pay) => searchFilters.nonFreeFilter
+      case Some(PayType.Free) => searchFilters.freeFilter(costCalculator)
+      case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter(costCalculator)
+      case Some(PayType.Pay) => searchFilters.nonFreeFilter(costCalculator)
       case _ => None
     }
 

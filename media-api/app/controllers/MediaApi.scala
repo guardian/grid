@@ -412,20 +412,32 @@ class MediaApi(
 
     val include = getIncludedFromParams(request)
 
+    // TODO maybe should look up the costcalculator here and pass in directly to imageresponse?
+    val tenant = r.queryString.get("tenant").map(_.head)
+
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
       val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
+        imageResponse.create(
+          elasticId,
+          image,
+          writePermission,
+          deletePermission,
+          deleteCropsOrUsagePermission,
+          include,
+          request.user.accessor.tier,
+          tenant
+        )
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount) <- elasticSearch.search(searchParams, imageResponse.costCalculatorForTenant(tenant))
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
@@ -465,7 +477,8 @@ class MediaApi(
           deleteImagePermission,
           deleteCropsOrUsagePermission,
           include,
-          request.user.accessor.tier
+          request.user.accessor.tier,
+          r.queryString.get("tenant").map(_.head)
         )
 
         Some((source.instance, imageData, imageLinks, imageActions))

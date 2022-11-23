@@ -20,11 +20,13 @@ import java.net.URI
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, costCalculator: CostCalculator)
-  extends EditsResponse with GridLogging {
+class ImageResponse(
+  config: MediaApiConfig,
+  s3Client: S3Client,
+  val costCalculatorForTenant: Option[String] => CostCalculator,
+) extends EditsResponse with GridLogging {
 
-  implicit val usageQuotas: UsageQuota = costCalculator.usageQuota
-  implicit val costing: CostCalculator = costCalculator
+  implicit val usageQuotas: UsageQuota = costCalculatorForTenant(None).usageQuota
 
   val metadataBaseUri: String = config.services.metadataBaseUri
 
@@ -43,12 +45,15 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, costCalculator: 
   def canBeDeleted(image: Image) = image.canBeDeleted
 
   def create(
-              id: String,
-              imageWrapper: SourceWrapper[Image],
-              withWritePermission: Boolean,
-              withDeleteImagePermission: Boolean,
-              withDeleteCropsOrUsagePermission: Boolean,
-              included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
+    id: String,
+    imageWrapper: SourceWrapper[Image],
+    withWritePermission: Boolean,
+    withDeleteImagePermission: Boolean,
+    withDeleteCropsOrUsagePermission: Boolean,
+    included: List[String] = List(),
+    tier: Tier,
+    tenant: Option[String]
+  ): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
 
@@ -74,11 +79,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, costCalculator: 
       .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
       .getOrElse(s3SignedThumbUrl)
 
-    val validityMap = ImageExtras.validityMap(image, withWritePermission)
+    val costCalculator = costCalculatorForTenant(tenant)
+
+    val validityMap = ImageExtras.validityMap(image, withWritePermission)(costCalculator)
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
 
-    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
+    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)(costCalculator)
     val isDownloadable = ImageExtras.isValid(downloadableMap)
 
 
@@ -188,7 +195,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, costCalculator: 
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = costCalculator.getCost(usageRights)
+    val cost = costCalculatorForTenant(None).getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

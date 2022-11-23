@@ -1,10 +1,10 @@
 package lib
 
-import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import org.joda.time.DateTime
+import play.api.{ConfigLoader, Configuration}
 
-import java.security.PrivateKey
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 case class StoreConfig(
@@ -55,8 +55,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     case None => List(s"${staffPhotographerOrganisation} Archive")
   }
 
-  def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
-
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten
@@ -68,4 +66,19 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val restrictDownload: Boolean = boolean("restrictDownload")
 
+//  val tenants: Map[String, Tenant] = configuration.getOptional[Map[String, Tenant]]("tenants").getOrElse(Map.empty)
+
+  val tenants: Map[String, Tenant] = configuration.getOptional[Map[String, Configuration]]("tenants")
+    .map(tenantConfig => {
+      tenantConfig.map {
+        case (id, tenantData) =>
+          id -> Tenant(
+            tenantData.get[String]("name"),
+            tenantData.getOptional[Seq[String]]("freeSuppliers").getOrElse(Nil),
+            tenantData.getOptional[Map[String, Seq[String]]]("supplierCollectionExcl").getOrElse(Map.empty)
+          )
+      }
+    }).getOrElse(Map.empty)
 }
+
+case class Tenant(name: String, freeSuppliers: Seq[String], suppliersCollectionExcl: Map[String, Seq[String]])
