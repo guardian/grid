@@ -13,25 +13,19 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
 
     val Quota = mock[UsageQuota]
 
-    object Costing extends CostCalculator {
-      val quotas = Quota
-      override def getOverQuota(usageRights: UsageRights) = None
+    val costing: CostCalculator =
+      new CostCalculator(GuardianUsageRightsConfig.freeSuppliers, GuardianUsageRightsConfig.suppliersCollectionExcl, Quota) {
+        override def getOverQuota(usageRights: UsageRights): Option[Cost] = None
+      }
 
-      override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
-      override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
-    }
-
-    object OverQuotaCosting extends CostCalculator {
-      val quotas = Quota
-      override def getOverQuota(usageRights: UsageRights) = Some(Overquota)
-
-      override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
-      override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
-    }
+    val overQuotaCosting: CostCalculator =
+      new CostCalculator(GuardianUsageRightsConfig.freeSuppliers, GuardianUsageRightsConfig.suppliersCollectionExcl, Quota) {
+        override def getOverQuota(usageRights: UsageRights): Option[Cost] = Some(Overquota)
+      }
 
     it("should be free with a free category") {
       val usageRights = Obituary()
-      val cost = Costing.getCost(usageRights)
+      val cost = costing.getCost(usageRights)
 
       cost should be (Free)
     }
@@ -40,28 +34,28 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
       val usageRights = Obituary(
         restrictions = Some("Restrictions")
       )
-      val cost = Costing.getCost(usageRights)
+      val cost = costing.getCost(usageRights)
 
       cost should be (Conditional)
     }
 
     it("should be free with a free supplier") {
       val usageRights = Agency("Getty Images")
-      val cost = Costing.getCost(usageRights)
+      val cost = costing.getCost(usageRights)
 
       cost should be (Free)
     }
 
     it("should be overquota with an overquota supplier") {
       val usageRights = Agency("Getty Images")
-      val cost = OverQuotaCosting.getCost(usageRights)
+      val cost = overQuotaCosting.getCost(usageRights)
 
       cost should be (Overquota)
     }
 
     it("should not be free-to-use with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Bob Thomas Sports Photography"))
-      val cost = Costing.getCost(usageRights)
+      val cost = costing.getCost(usageRights)
 
       cost should be (Pay)
     }

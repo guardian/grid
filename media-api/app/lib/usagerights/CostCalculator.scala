@@ -1,18 +1,18 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
-trait CostCalculator {
-  val defaultCost = Pay
-  val freeSuppliers: List[String]
-  val suppliersCollectionExcl: Map[String, List[String]]
-  val quotas: UsageQuota
+class CostCalculator(
+  freeSuppliers: Seq[String],
+  suppliersCollectionExcl: Map[String, Seq[String]],
+  usageQuota: UsageQuota,
+) {
+  final val defaultCost: Cost = Pay
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
-      val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
-      if (free) Some(Free) else None
+    val free = isFreeSupplier(supplier) && !collection.exists(isExcludedColl(supplier, _))
+    if (free) Some(Free) else None
   }
 
   def isConditional(usageRights: UsageRights): Boolean =
@@ -21,27 +21,28 @@ trait CostCalculator {
   def isPay(usageRights: UsageRights): Boolean =
     getCost(usageRights) == Pay
 
-  def getOverQuota(usageRights: UsageRights) =
-    if (quotas.isOverQuota(usageRights)) {
+  def getOverQuota(usageRights: UsageRights): Option[Cost] = {
+    if (usageQuota.isOverQuota(usageRights)) {
       Some(Overquota)
     } else {
       None
     }
+  }
 
   def getCost(usageRights: UsageRights): Cost = {
-      val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
-      val categoryCost: Option[Cost] = usageRights.defaultCost
-      val overQuota: Option[Cost] = getOverQuota(usageRights)
-      val supplierCost: Option[Cost] = usageRights match {
-        case u: Agency => getCost(u.supplier, u.suppliersCollection)
-        case _ => None
-      }
+    val restricted: Option[Cost] = usageRights.restrictions.map(r => Conditional)
+    val categoryCost: Option[Cost] = usageRights.defaultCost
+    val overQuota: Option[Cost] = getOverQuota(usageRights)
+    val supplierCost: Option[Cost] = usageRights match {
+      case u: Agency => getCost(u.supplier, u.suppliersCollection)
+      case _ => None
+    }
 
-      restricted
-        .orElse(overQuota)
-        .orElse(categoryCost)
-        .orElse(supplierCost)
-        .getOrElse(defaultCost)
+    restricted
+      .orElse(overQuota)
+      .orElse(categoryCost)
+      .orElse(supplierCost)
+      .getOrElse(defaultCost)
   }
 
   private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)

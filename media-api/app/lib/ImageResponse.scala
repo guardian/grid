@@ -20,18 +20,11 @@ import java.net.URI
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
+class ImageResponse(config: MediaApiConfig, s3Client: S3Client, costCalculator: CostCalculator)
   extends EditsResponse with GridLogging {
 
-  implicit val usageQuotas = usageQuota
-
-  object Costing extends CostCalculator {
-    override val freeSuppliers: List[String] = config.usageRightsConfig.freeSuppliers
-    override val suppliersCollectionExcl: Map[String, List[String]] = config.usageRightsConfig.suppliersCollectionExcl
-    val quotas = usageQuotas
-  }
-
-  implicit val costing = Costing
+  implicit val usageQuotas: UsageQuota = costCalculator.usageQuota
+  implicit val costing: CostCalculator = costCalculator
 
   val metadataBaseUri: String = config.services.metadataBaseUri
 
@@ -195,7 +188,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = Costing.getCost(usageRights)
+    val cost = costCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

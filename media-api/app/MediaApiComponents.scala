@@ -1,10 +1,11 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, ElasticSearchHealthCheck, Management}
+import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
 import lib.elasticsearch.ElasticSearch
+import lib.usagerights.CostCalculator
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -28,7 +29,13 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
   elasticSearch.ensureIndexExistsAndAliasAssigned()
 
-  val imageResponse = new ImageResponse(config, s3Client, usageQuota)
+  val costCalculator: CostCalculator = new CostCalculator(
+    config.usageRightsConfig.freeSuppliers,
+    config.usageRightsConfig.suppliersCollectionExcl,
+    usageQuota
+  )
+
+  val imageResponse = new ImageResponse(config, s3Client, costCalculator)
 
   val imageStatusTable = new SoftDeletedMetadataTable(config)
 
