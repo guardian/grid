@@ -58,7 +58,10 @@
          ng-class="{ 'alert': ctrl.showAlertOverlay(),
                      'warning': ctrl.showWarningOverlay(),
                      'lease_attached': ctrl.hasActiveAllowLease }"
-         ng-if="ctrl.showOverlay()">
+         ng-if="ctrl.showOverlay()"
+         title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}
+      By: {{ctrl.image.data.metadata.byline || '[none]'}}
+Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
         {{ctrl.getWarningMessage()}}
     </div>
 

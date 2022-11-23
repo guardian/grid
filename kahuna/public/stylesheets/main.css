@@ -2866,6 +2866,9 @@ FIXME: what to do with touch devices
 
   /* above thumbnail and overlay */
   z-index: 1;
+
+  /* preserve original tooltip behavior */
+  pointer-events: none;
 }
 
 .result__select__overlay.alert {

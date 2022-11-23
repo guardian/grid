@@ -107,7 +107,7 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
-    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay(ctrl.image) || ctrl.showWarningOverlay(ctrl.image));
+    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay());
     ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0;
     ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional';
 
