@@ -107,12 +107,14 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
-    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay());
-    ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0;
-    ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional';
+    ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
+    ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
+    ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
+
+    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
 
     ctrl.getWarningMessage = () => {
-      if (ctrl.hasActiveAllowLease !== undefined) {
+      if (ctrl.showActiveAllowLeaseOverlay() === true) {
         return $window._clientConfig.imagePreviewFlagLeaseAttachedCopy;
       }
       if (ctrl.showWarningOverlay() === true) {

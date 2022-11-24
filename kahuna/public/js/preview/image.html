@@ -3,7 +3,7 @@
     <div class="result__select__overlay"
          ng-class="{ 'alert': ctrl.showAlertOverlay(),
                      'warning': ctrl.showWarningOverlay(),
-                     'lease_attached': ctrl.hasActiveAllowLease }"
+                     'lease_attached': ctrl.showActiveAllowLeaseOverlay() }"
          ng-if="ctrl.showOverlay()">
     </div>
 
@@ -57,7 +57,7 @@
     <div class="result__select__overlay__text"
          ng-class="{ 'alert': ctrl.showAlertOverlay(),
                      'warning': ctrl.showWarningOverlay(),
-                     'lease_attached': ctrl.hasActiveAllowLease }"
+                     'lease_attached': ctrl.showActiveAllowLeaseOverlay() }"
          ng-if="ctrl.showOverlay()"
          title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}
       By: {{ctrl.image.data.metadata.byline || '[none]'}}
