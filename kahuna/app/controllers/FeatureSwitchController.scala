@@ -1,6 +1,6 @@
 package controllers
 
-import play.api.mvc.{AnyContent, Cookie, Request}
+import play.api.mvc.Cookie
 
 case class FeatureSwitch(key: String, title: String, default: Boolean)
 
@@ -14,8 +14,8 @@ class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
 
-  def getFeatureSwitchCookies(request: Request[AnyContent]): List[(FeatureSwitch, Option[Cookie])] =
-    featureSwitches.map(featureSwitch => (featureSwitch, request.cookies.get(s"feature-switch-${featureSwitch.key}")))
+  def getFeatureSwitchCookies(cookieGetter: String => Option[Cookie]): List[(FeatureSwitch, Option[Cookie])] =
+    featureSwitches.map(featureSwitch => (featureSwitch, cookieGetter(s"feature-switch-${featureSwitch.key}")))
 
   def getClientSwitchValues(featureSwitchesWithCookies: List[(FeatureSwitch, Option[Cookie])]): Map[FeatureSwitch, Boolean] = {
     featureSwitchesWithCookies

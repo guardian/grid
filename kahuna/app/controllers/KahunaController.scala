@@ -36,8 +36,11 @@ class KahunaController(
     }
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
-    val featureSwitches = FeatureSwitches.getClientSwitchValues(FeatureSwitches.getFeatureSwitchCookies(request))
-    val featureSwitchesJson = Json.stringify(Json.toJson(FeatureSwitches.getFeatureSwitchesToStringify(featureSwitches)))
+    val featureSwitchController = new FeatureSwitchController(
+      List(ExampleSwitch)
+    )
+    val featureSwitches = featureSwitchController.getClientSwitchValues(featureSwitchController.getFeatureSwitchCookies(request.cookies.get))
+    val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitchController.getFeatureSwitchesToStringify(featureSwitches)))
 
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
