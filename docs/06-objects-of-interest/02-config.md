@@ -679,6 +679,57 @@ Service-specific configs. These will override all other config files.
     <td><code>string[]</code></td>
     <td></td>
   </tr>
+  <tr>
+    <td><code>warningText</code><br/>
+      Customize warning and restriction text messages in UI
+    </td>
+    <td>true</td>
+    <td>
+      <code>object[]</code><br/>
+      object properties <ul>
+        <li><code>prefix</code></li> (optional)
+        <li><code>prefixNoRights</code></li> (optional)
+        <li><code>unusablePrefix</code></li> (optional)
+        <li><code>validityDescription</code></li> (optional)
+        <li><code>imagePreviewFlag</code></li> (optional)
+      </ul>
+    </td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><code>warningText.validityDescription</code><br/>
+      Override the validity description in ImageExtras
+    </td>
+    <td>true</td>
+    <td>
+      <code>object[]</code><br/>
+      object properties <ul>
+        <li><code>no_rights</code></li> (optional)
+        <li><code>missing_credit</code></li> (optional)
+        <li><code>missing_description</code></li> (optional)
+        <li><code>paid_image</code></li> (optional)
+        <li><code>over_quota</code></li> (optional)
+        <li><code>conditional_paid</code></li> (optional)
+        <li><code>current_deny_lease</code></li> (optional)
+      </ul>
+    </td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><code>warningText.imagePreviewFlag</code><br/>
+      Set the message text for the warnings and restrictions overlay
+    </td>
+    <td>true</td>
+    <td>
+      <code>object[]</code><br/>
+      object properties <ul>
+        <li><code>alertCopy</code></li> (optional)
+        <li><code>warningCopy</code></li> (optional)
+        <li><code>leaseAttachedCopy</code></li> (optional)
+      </ul>
+    </td>
+    <td></td>
+  </tr>
 </tbody>
 </table>
 
