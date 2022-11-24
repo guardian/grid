@@ -133,14 +133,8 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        ctrl.tenantOptions = [
-          {
-            id: 'pa', name: 'PA Enabled'
-          },
-          {
-            id: 'getty', name: 'Getty Enabled'
-          }
-        ];
+        ctrl.tenantOptions = [];
+        mediaApi.knownTenants().then(options => { ctrl.tenantOptions = options; });
 
         // Initial search to find upper `until` boundary of result set
         // (i.e. the uploadTime of the newest result in the set)

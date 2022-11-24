@@ -93,8 +93,9 @@ class MediaApi(
 
   private def indexResponse(user: Principal) = {
     val indexData = Json.obj(
-      "description" -> "This is the Media API"
+      "description" -> "This is the Media API",
       // ^ Flatten None away
+      "tenants" -> config.tenants.map(tenant => Json.obj("id" -> tenant._1, "name" -> tenant._2.name))
     )
 
     val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)

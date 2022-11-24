@@ -103,6 +103,10 @@ mediaApi.factory('mediaApi',
         return root.getLink('archive').then(() => true, () => false);
     }
 
+    function knownTenants() {
+      return root.getData().then(tenantData => tenantData.tenants);
+    }
+
     return {
         root,
         search,
@@ -114,6 +118,7 @@ mediaApi.factory('mediaApi',
         delete: delete_,
         canUserUpload,
         canUserArchive,
-        undelete
+        undelete,
+        knownTenants
     };
 }]);

@@ -6,6 +6,8 @@
         </a>
     </gr-top-bar-nav>
 
+    <gr-tenant-switcher tenant-options="ctrl.tenantOptions"></gr-tenant-switcher>
+
     <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"

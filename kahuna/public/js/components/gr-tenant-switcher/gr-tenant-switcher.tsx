@@ -8,8 +8,6 @@ type Tenant = {
   name: string;
 };
 
-
-
 type GrTenantSwitcherProps = {
   tenantOptions: Tenant[];
   tenancy: any;
