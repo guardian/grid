@@ -37,6 +37,7 @@ class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
   }
 
   def getFeatureSwitchValue(clientSwitchValues: Map[FeatureSwitch, Boolean], key: String): Boolean = {
+    // A getter to use the client-controlled feature switches within this Scala backend
     val maybeSwitch = featureSwitches.find(switch => switch.key == key)
     maybeSwitch.flatMap(switch => clientSwitchValues.get(switch)).getOrElse(false)
   }

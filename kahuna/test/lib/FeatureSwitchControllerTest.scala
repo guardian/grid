@@ -43,4 +43,36 @@ class FeatureSwitchControllerTest extends AnyFreeSpec with Matchers{
       )
     }
   }
+
+  "getFeatureSwitchesToStringify" - {
+    "should return a map of key, value and title to string for each switch" in {
+      val matches = featureSwitchController.getFeatureSwitchCookies(mockCookieRetriever)
+      val clientSwitchValues = featureSwitchController.getClientSwitchValues(matches)
+      val stringifiable = featureSwitchController.getFeatureSwitchesToStringify(clientSwitchValues)
+
+      stringifiable shouldBe List(
+        Map(
+          "key" -> "example-switch",
+          "title" -> "An example switch. Use rounded corners for the feature switch toggle",
+          "value" -> "true"
+        ),
+        Map(
+          "key" -> "no-cookie-switch",
+          "title" -> "A switch with no matching cookie",
+          "value" -> "false"
+        )
+      )
+    }
+
+    "getFeatureSwitchValue" - {
+      "should return the value of a feature switch" - {
+        val matches = featureSwitchController.getFeatureSwitchCookies(mockCookieRetriever)
+        val clientSwitchValues = featureSwitchController.getClientSwitchValues(matches)
+        val exampleValue1 = featureSwitchController.getFeatureSwitchValue(clientSwitchValues, "example-switch")
+        val exampleValue2 = featureSwitchController.getFeatureSwitchValue(clientSwitchValues, "no-cookie-switch")
+        exampleValue1 shouldBe(true)
+        exampleValue2 shouldBe(false)
+      }
+    }
+  }
 }
