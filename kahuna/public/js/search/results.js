@@ -7,6 +7,7 @@ import '../services/panel';
 import '../util/async';
 import '../util/rx';
 import '../util/seq';
+import '../util/tenancy';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../components/gu-lazy-preview/gu-lazy-preview';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
@@ -25,6 +26,7 @@ export var results = angular.module('kahuna.search.results', [
     'util.async',
     'util.rx',
     'util.seq',
+    'util.tenancy',
     'gu.lazyTable',
     'gu.lazyTableShortcuts',
     'gu.lazyPreview',
@@ -71,6 +73,7 @@ results.controller('SearchResultsCtrl', [
     'results',
     'panels',
     'isReloadingPreviousSearch',
+    'tenancy',
 
     function($rootScope,
              $scope,
@@ -89,7 +92,9 @@ results.controller('SearchResultsCtrl', [
              selectedImages$,
              results,
              panels,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             tenancy
+    ) {
 
         const ctrl = this;
 
@@ -342,7 +347,8 @@ results.controller('SearchResultsCtrl', [
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
                 persisted: $stateParams.persisted,
-                countAll
+                countAll,
+              tenant: tenancy.get()
             }));
         }
 

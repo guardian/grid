@@ -17,7 +17,7 @@ mediaApi.factory('mediaApi',
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
-                                 syndicationStatus, countAll, persisted} = {}) {
+                                 syndicationStatus, countAll, persisted, tenant} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -39,7 +39,8 @@ mediaApi.factory('mediaApi',
             hasExports: maybeStringToBoolean(hasCrops), // Grid API calls crops exports...
             syndicationStatus: syndicationStatus,
             countAll,
-            persisted
+            persisted,
+            tenant
         }).get();
     }
 
@@ -63,9 +64,9 @@ mediaApi.factory('mediaApi',
         }
     }
 
-    function find(id) {
+    function find(id, tenant) {
         // FIXME: or use lazy resource?
-        return root.follow('image', {id: id}).get();
+        return root.follow('image', {id: id, tenant}).get();
     }
 
     function getSession() {

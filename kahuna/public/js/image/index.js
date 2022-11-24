@@ -5,6 +5,7 @@ import '../search/query-filter';
 import '../imgops/service';
 import '../forms/gr-xeditable/gr-xeditable';
 import '../components/gr-top-bar/gr-top-bar';
+import '../util/tenancy';
 
 import imageTemplate from './view.html';
 import imageErrorTemplate from './image-error.html';
@@ -15,7 +16,8 @@ export var image = angular.module('kahuna.image', [
     'kahuna.search.filters.query',
     'kahuna.imgops',
     'gr.topBar',
-    'grXeditable'
+    'grXeditable',
+    'util.tenancy'
 ]);
 
 
@@ -30,10 +32,12 @@ image.config(['$stateProvider',
         resolve: {
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
             cropKey: ['$stateParams', $stateParams => $stateParams.crop],
-            image: ['$state', '$q', 'mediaApi', 'imageId',
-                    ($state, $q, mediaApi, imageId) => {
+            image: ['$state', '$q', 'mediaApi', 'imageId', 'tenancy',
+                    ($state, $q, mediaApi, imageId, tenancy) => {
 
-                return mediaApi.find(imageId).catch(error => {
+                const tenant = tenancy.get();
+
+                return mediaApi.find(imageId, tenant).catch(error => {
                     if (error && error.status === 404) {
                         $state.go('image-error', {message: 'Image not found'});
                     } else {

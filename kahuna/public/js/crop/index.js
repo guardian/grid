@@ -26,10 +26,12 @@ crop.config(['$stateProvider',
             // TODO: abstract these resolvers out as we use them on the image
             // view too
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
-            image: ['$state', '$q', 'mediaApi', 'mediaCropper', 'imageId',
-                    ($state, $q, mediaApi, mediaCropper, imageId) => {
+            image: ['$state', '$q', 'mediaApi', 'mediaCropper', 'imageId', 'tenancy',
+                    ($state, $q, mediaApi, mediaCropper, imageId, tenancy) => {
 
-                return mediaApi.find(imageId).then(image => {
+                const tenant = tenancy.get();
+
+                return mediaApi.find(imageId, tenant).then(image => {
                     return mediaCropper.canBeCropped(image).then(croppable => {
                         if (croppable) {
                             return image;

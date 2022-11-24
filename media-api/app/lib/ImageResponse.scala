@@ -52,7 +52,7 @@ class ImageResponse(
     withDeleteCropsOrUsagePermission: Boolean,
     included: List[String] = List(),
     tier: Tier,
-    tenant: Option[String]
+    costCalculator: CostCalculator
   ): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
@@ -79,8 +79,6 @@ class ImageResponse(
       .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
       .getOrElse(s3SignedThumbUrl)
 
-    val costCalculator = costCalculatorForTenant(tenant)
-
     val validityMap = ImageExtras.validityMap(image, withWritePermission)(costCalculator)
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
@@ -104,7 +102,7 @@ class ImageResponse(
       ))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
-      .flatMap(_.transform(addUsageCost(source)))
+      .flatMap(_.transform(addUsageCost(source, costCalculator)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
@@ -186,7 +184,7 @@ class ImageResponse(
       .map { case (action, active) => action }
   }
 
-  def addUsageCost(source: JsValue): Reads[JsObject] = {
+  def addUsageCost(source: JsValue, costCalculator: CostCalculator): Reads[JsObject] = {
     // We do the merge here as some records haven't had the user override applied
     // to the root level `usageRights`
     // TODO: Solve with reindex
@@ -195,7 +193,7 @@ class ImageResponse(
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = costCalculatorForTenant(None).getCost(usageRights)
+    val cost = costCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

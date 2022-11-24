@@ -20,13 +20,14 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+
 import java.net.URI
 import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.syntax.MessageSubjects
+import lib.usagerights.CostCalculator
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -43,7 +44,8 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
-                authorisation: Authorisation
+                authorisation: Authorisation,
+                costCalculatorForTenant: Option[String] => CostCalculator
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
@@ -76,7 +78,8 @@ class MediaApi(
     "hasRightsAcquired",
     "syndicationStatus",
     "countAll",
-    "persisted"
+    "persisted",
+    "tenant"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -101,7 +104,7 @@ class MediaApi(
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
     val indexLinks = List(
       searchLink,
-      Link("image",           s"${config.rootUri}/images/{id}"),
+      Link("image",           s"${config.rootUri}/images/{id}{?tenant}"),
       // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
@@ -414,6 +417,7 @@ class MediaApi(
 
     // TODO maybe should look up the costcalculator here and pass in directly to imageresponse?
     val tenant = r.queryString.get("tenant").map(_.head)
+    val costCalculator = costCalculatorForTenant(tenant)
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
@@ -429,7 +433,7 @@ class MediaApi(
           deleteCropsOrUsagePermission,
           include,
           request.user.accessor.tier,
-          tenant
+          costCalculator
         )
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
@@ -478,7 +482,7 @@ class MediaApi(
           deleteCropsOrUsagePermission,
           include,
           request.user.accessor.tier,
-          r.queryString.get("tenant").map(_.head)
+          costCalculatorForTenant(r.queryString.get("tenant").map(_.head))
         )
 
         Some((source.instance, imageData, imageLinks, imageActions))
