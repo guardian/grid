@@ -19,6 +19,7 @@ import '../components/gr-downloader/gr-downloader';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
+import '../components/gr-tenant-switcher/gr-tenant-switcher';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -37,7 +38,8 @@ export var results = angular.module('kahuna.search.results', [
     'gr.deleteImage',
     'gr.undeleteImage',
     'gr.panelButton',
-    'gr.toggleButton'
+    'gr.toggleButton',
+    'gr.tenantSwitcher'
 ]);
 
 
@@ -130,6 +132,15 @@ results.controller('SearchResultsCtrl', [
         if (! isReloadingPreviousSearch) {
             lastSearchFirstResultTime = undefined;
         }
+
+        ctrl.tenantOptions = [
+          {
+            id: 'pa', name: 'PA Enabled'
+          },
+          {
+            id: 'getty', name: 'Getty Enabled'
+          }
+        ];
 
         // Initial search to find upper `until` boundary of result set
         // (i.e. the uploadTime of the newest result in the set)
