@@ -127,12 +127,12 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should return user when valid" in {
       val request = FakeRequest().withCookies(makeCookie())
       val authStatus = auth.authenticationStatus(request)
-      authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
+      authStatus.right.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return user when expired but in grace period" in {
       val request = FakeRequest().withCookies(makeCookie(expired = true))
       val authStatus = auth.authenticationStatus(request)
-      authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
+      authStatus.right.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return 419 when expired" in {
       val request = FakeRequest().withCookies(makeCookie(veryExpired = true))
@@ -153,7 +153,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should authenticate with an API key" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "key-client")
       val authStatus = auth.authenticationStatus(request)
-      authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
+      authStatus.right.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
     "should return unauthorised when the API key is garbage" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "garbage")
@@ -174,7 +174,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should prioritise machine authentication over user authentication" in {
       val request = FakeRequest().withCookies(makeCookie()).withHeaders(HEADER_NAME -> "key-client")
       val authStatus = auth.authenticationStatus(request)
-      authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
+      authStatus.right.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
   }
 
