@@ -401,18 +401,10 @@
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
                             ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop]), nonFree: ctrl.srefNonfree()})"
                             aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}"
-                        >
-                            {{ctrl.metadata[prop]}}
-                        </a>
-                        <span
+                        >{{ctrl.metadata[prop]}}</a><span
                             ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
                             ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}"
-                        >
-                            {{'(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')'}}
-                        </span>
-                        <span ng-if="! $last">
-                            ,
-                        </span>
+                        >{{'(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')'}}</span>{{$last ? '' : ', '}}
                     </span>
                 </span>
 
