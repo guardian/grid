@@ -578,24 +578,23 @@
                     title="{{ctrl.extraInfo.filename}}">{{ctrl.extraInfo.filename}}</span>
             </dd>
 
-            <dt ng-if="ctrl.metadata.subjects.length > 0"
+            <dt ng-if="((ctrl.metadata.subjects.length > 0) || ctrl.hasMultipleValues(ctrl.rawMetadata.subjects))"
                 class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">
                 Subjects
             </dt>
-            <dd ng-if="ctrl.metadata.subjects.length > 0"
-                class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
-                <span class="metadata-line__info">
-                    <span ng-repeat="subject in ctrl.metadata.subjects">
-                        <a ui-sref="search.results({query: (subject | queryFilter:'subject'), nonFree: ctrl.srefNonfree()})"
-                           aria-label="Search images by {{subject}} subject">
-                            {{subject}}
-                        </a>
-                    </span>
-                </span>
+            <dd ng-if="((ctrl.metadata.subjects.length > 0) || ctrl.hasMultipleValues(ctrl.rawMetadata.subjects))"
+                class="image-info__pills image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                <ui-list-editor-info-panel
+                   is-editable="false"
+                   images="ctrl.selectedImages"
+                   accessor="ctrl.subjectsAccessor"
+                   query-filter="queryFilter:'subject'"
+                   element-name="subject">
+                </ui-list-editor-info-panel>
             </dd>
 
             <dt class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
-            <dd class="image-info__people image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dd class="image-info__pills image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-people-button"
                         class="metadata-plus__button"
                         ng-class="{'small': ctrl.grSmall}"
@@ -921,7 +920,7 @@
                 </span>
             </button>
         </dt>
-        <dd class="image-info__keywords">
+        <dd class="image-info__pills">
             <span ng-class="{'image-info--multiple': ctrl.selectedImages.size > 0}"
                   editable-text="ctrl.newKeywords"
                   ng-hide="keywordsEditForm.$visible"
