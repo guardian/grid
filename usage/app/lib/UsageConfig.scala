@@ -19,13 +19,14 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val loginUriTemplate: String = services.loginUriTemplate
 
   val defaultPageSize = 100
-  val defaultMaxRetries = 6
+  val defaultMaxRetries = 4
   val defaultMaxPrintRequestSizeInKb = 500
   val defaultDateLimit = "2016-01-01T00:00:00+00:00"
 
   val maxPrintRequestLengthInKb: Int = intDefault("api.setPrint.maxLength", defaultMaxPrintRequestSizeInKb)
 
   val capiLiveUrl = string("capi.live.url")
+  val capiPreviewUrl = string("capi.preview.url")
   val capiApiKey = string("capi.apiKey")
   val capiPageSize: Int = intDefault("capi.page.size", defaultPageSize)
   val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)

@@ -3,8 +3,7 @@ package lib
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
-import com.gu.contentapi.client.{GuardianContentClient, ScheduledExecutor}
-import com.gu.contentapi.client.model.ItemQuery
+import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
@@ -15,7 +14,6 @@ import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
-import java.net.URL
 import java.util.{UUID, List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -69,7 +67,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   implicit val codec = Event
 
-  val liveCapi: LiveContentApi
+  val contentApiClient: UsageContentApiClient
 
   override def initialize(shardId: String): Unit = {
     logger.debug(s"Initialized an event processor for shard $shardId")
@@ -125,11 +123,11 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
             case Some(retrievableContent: EventPayload.RetrievableContent) =>
               val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-              val query = liveCapi.usageQuery(retrievableContent.retrievableContent.id)
+              val query = contentApiClient.usageQuery(retrievableContent.retrievableContent.id)
 
               logger.info(logMarker, s"retrieving content event at $capiUrl parsed to id ${query.toString}")
 
-              liveCapi.getResponse(query).map(response => {
+              contentApiClient.getResponse(query).map(response => {
                 response.content match {
                   case Some(content) =>
                     LiveContentItem(content, dateTime)
@@ -156,13 +154,12 @@ private class CrierLiveEventProcessor(config: UsageConfig, usageGroupOps: UsageG
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = LiveContentItem(content, date)
 
-  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
+  override val contentApiClient: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
 }
 
 private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends CrierEventProcessor(config, usageGroupOps) {
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = PreviewContentItem(content, date)
 
-  // FIXME - we should presumably be fetching from preview CAPI if the event came from preview Crier...
-  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
+  override val contentApiClient: PreviewContentApi = new PreviewContentApi(config)(ScheduledExecutor())
 }
