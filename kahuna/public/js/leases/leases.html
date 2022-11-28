@@ -100,6 +100,11 @@
          ng-model="ctrl.newLease.notes"
          placeholder="Notes..."/>
 
+  <input type="text"
+         ng-if="ctrl.access.endsWith('-use')"
+         ng-model = "ctrl.newLease.affectedTenants"
+         placeholder="Allowed tenants" />
+
   <div class="lease__form__buttons">
     <button class="lease__form__buttons__button-cancel button-cancel" type="button" ng-click="ctrl.cancel()" title="Close">
         <gr-icon-label gr-icon="close"><span ng-hide="ctrl.grSmall">Cancel</span></gr-icon-label>

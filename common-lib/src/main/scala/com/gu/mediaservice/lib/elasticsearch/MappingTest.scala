@@ -194,7 +194,8 @@ object MappingTest {
         access = DenyUseLease,
         notes = Some("this prevents use of this test image and should hide it from the default view"),
         mediaId = "an id for leaseA",
-        createdAt = imageTaken
+        createdAt = imageTaken,
+        affectedTenants = Some(List("tenantA"))
       )
     )),
     collections = List(

@@ -43,7 +43,8 @@ case class MediaLease(
   access: MediaLeaseType = AllowUseLease,
   notes: Option[String],
   mediaId: String,
-  createdAt: DateTime = new DateTime()
+  createdAt: DateTime = new DateTime(),
+  affectedTenants: Option[List[String]] = None
 ) {
   private def afterStart = startDate.forall(start => new DateTime().isAfter(start))
   private def beforeEnd  = endDate.forall(end => new DateTime().isBefore(end))
@@ -66,11 +67,18 @@ case class MediaLease(
     .withValidStartDateField
     .withValidEndDateField
 
-  def active = afterStart && beforeEnd
+  def active: Boolean = afterStart && beforeEnd
 
-  def isSyndication = access == AllowSyndicationLease || access == DenySyndicationLease
+  def isSyndication: Boolean = access == AllowSyndicationLease || access == DenySyndicationLease
 
-  def isUse = access == AllowUseLease || access == DenyUseLease
+  def isUse: Boolean = access == AllowUseLease || access == DenyUseLease
+
+  // lease without an assigned tenant applies for ALL tenants including default
+  def appliesToAllTenants: Boolean = affectedTenants match {
+    case Some(tenantList) => tenantList.isEmpty
+    case None => true
+  }
+  def appliesToTenant(tenantId: String): Boolean = affectedTenants.exists(_.contains(tenantId))
 }
 
 object MediaLease {

@@ -286,16 +286,18 @@ object Mappings {
     downloadUsageMetadata("downloadUsageMetadata")
   ))
 
-  def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
+  def leaseMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
     keywordField("id"),
     keywordField("leasedBy"),
     dateField("startDate"),
     dateField("endDate"),
     keywordField("access"),
     keywordField("active"), //TODO should probably not be stored in ES, as its a snapshot in time rather than a calculated field
+                                   // could be a runtime field if we'd be happy storing the logic in ES...
     sStemmerAnalysed("notes"),
     keywordField("mediaId"),
-    dateField("createdAt")
+    dateField("createdAt"),
+    keywordField("affectedTenants")
   ))
 
   def leasesMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(

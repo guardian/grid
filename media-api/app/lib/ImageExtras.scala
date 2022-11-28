@@ -23,8 +23,8 @@ object ImageExtras {
     "tass_agency_image"           -> "Warning: TASS is Russian state-owned agency, information may not be accurate, including geographical names."
   )
 
-  def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(
-    "current_allow_lease" -> hasCurrentAllowLease(image.leases),
+  def validityOverrides(image: Image, withWritePermission: Boolean)(tenantId: Option[String]): Map[String, Boolean] = Map(
+    "current_allow_lease" -> hasCurrentAllowLease(image.leases, tenantId = tenantId),
     "has_write_permission" -> withWritePermission
   )
 
@@ -34,15 +34,27 @@ object ImageExtras {
 
   private def isCurrent(lease: MediaLease): Boolean = lease.active && lease.isUse
 
-  def hasCurrentAllowLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == AllowUseLease && isCurrent(lease))
+  def hasCurrentAllowLease(leases: LeasesByMedia, tenantId: Option[String]): Boolean = {
+    tenantId match {
+      case Some(tenantId) => leases.leases.exists(lease => lease.active && lease.access == AllowUseLease && (lease.appliesToAllTenants || lease.appliesToTenant(tenantId)))
+      case None => leases.leases.exists(lease => lease.active && lease.access == AllowUseLease && lease.appliesToAllTenants)
+    }
+  }
 
-  def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
+  def hasCurrentDenyLease(leases: LeasesByMedia, tenantId: Option[String]): Boolean = {
+    tenantId match {
+      case Some(tenantId) =>
+        leases.leases.exists(lease => lease.active && lease.access == DenyUseLease && lease.appliesToTenant(tenantId))
+      case None =>
+        leases.leases.exists(lease => lease.active && lease.access == DenyUseLease && lease.appliesToAllTenants)
+    }
+  }
 
   private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
     implicit cost: CostCalculator
   ): ValidMap = {
 
-    val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
+    val shouldOverride = validityOverrides(image, withWritePermission)(cost.tenantId).exists(_._2 == true)
 
     def createCheck(validCheck: Boolean, overrideable: Boolean = true) =
       ValidityCheck(validCheck, overrideable, shouldOverride)
@@ -51,7 +63,7 @@ object ImageExtras {
       "paid_image" -> createCheck(cost.isPay(image.usageRights)),
       "conditional_paid" -> createCheck(cost.isConditional(image.usageRights)),
       "no_rights" -> createCheck(!hasRights(image.usageRights)),
-      "current_deny_lease" -> createCheck(hasCurrentDenyLease(image.leases)),
+      "current_deny_lease" -> createCheck(hasCurrentDenyLease(image.leases, cost.tenantId)),
       "over_quota" -> createCheck(cost.usageQuota.isOverQuota(image.usageRights)),
       "tass_agency_image" -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") || image.originalMetadata.byline.contains(
         "ITAR-TASS News Agency"

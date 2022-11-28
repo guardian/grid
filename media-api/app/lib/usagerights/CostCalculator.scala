@@ -7,6 +7,7 @@ class CostCalculator(
   val freeSuppliers: Seq[String],
   val suppliersCollectionExcl: Map[String, Seq[String]],
   val usageQuota: UsageQuota,
+  val tenantId: Option[String] = None
 ) {
   final val defaultCost: Cost = Pay
 

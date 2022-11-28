@@ -29,9 +29,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
   elasticSearch.ensureIndexExistsAndAliasAssigned()
 
-  val tenantCostCalculators: Map[String, CostCalculator] = config.tenants.mapValues(tenant => new CostCalculator(
-    tenant.freeSuppliers, tenant.suppliersCollectionExcl, usageQuota
-  ))
+  val tenantCostCalculators: Map[String, CostCalculator] = config.tenants.map { case (tenantId, tenant) =>
+    (tenantId, new CostCalculator(tenant.freeSuppliers, tenant.suppliersCollectionExcl, usageQuota, Some(tenantId)))
+  }
 
   val defaultCostCalculator: CostCalculator = new CostCalculator(
     config.usageRightsConfig.freeSuppliers,
