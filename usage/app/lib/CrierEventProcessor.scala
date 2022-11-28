@@ -15,6 +15,7 @@ import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
+import java.net.URL
 import java.util.{UUID, List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -124,23 +125,25 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
             case Some(retrievableContent: EventPayload.RetrievableContent) =>
               val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-              logger.info(logMarker, s"retrieving content event at $capiUrl")
+              val query = ItemQuery(retrievableContent.retrievableContent.id)
+                .showFields("firstPublicationDate,isLive,internalComposerCode")
+                .showElements("image")
+                .showAtoms("media")
 
-              val query = ItemQuery(capiUrl, Map())
+              logger.info(logMarker, s"retrieving content event at $capiUrl parsed to id ${query.toString}")
 
               liveCapi.getResponse(query).map(response => {
-                  response.content match {
-                    case Some(content) =>
-                      LiveContentItem(content, dateTime)
-                        .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
-                    case _ =>
-                      logger.debug(
-                        logMarker,
-                        s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
-                      )
-                  }
+                response.content match {
+                  case Some(content) =>
+                    LiveContentItem(content, dateTime)
+                      .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
+                  case _ =>
+                    logger.debug(
+                      logMarker,
+                      s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
+                    )
                 }
-              )
+              })
             case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
           }
 
