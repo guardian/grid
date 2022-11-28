@@ -69,7 +69,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   implicit val codec = Event
 
-  val liveCapi: GuardianContentClient
+  val liveCapi: LiveContentApi
 
   override def initialize(shardId: String): Unit = {
     logger.debug(s"Initialized an event processor for shard $shardId")
@@ -125,10 +125,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
             case Some(retrievableContent: EventPayload.RetrievableContent) =>
               val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-              val query = ItemQuery(retrievableContent.retrievableContent.id)
-                .showFields("firstPublicationDate,isLive,internalComposerCode")
-                .showElements("image")
-                .showAtoms("media")
+              val query = liveCapi.usageQuery(retrievableContent.retrievableContent.id)
 
               logger.info(logMarker, s"retrieving content event at $capiUrl parsed to id ${query.toString}")
 
@@ -159,7 +156,7 @@ private class CrierLiveEventProcessor(config: UsageConfig, usageGroupOps: UsageG
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = LiveContentItem(content, date)
 
-  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
+  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
 }
 
 private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends CrierEventProcessor(config, usageGroupOps) {
@@ -167,5 +164,5 @@ private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: Usa
   def getContentItem(content: Content, date: DateTime): ContentContainer = PreviewContentItem(content, date)
 
   // FIXME - we should presumably be fetching from preview CAPI if the event came from preview Crier...
-  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
+  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
 }
