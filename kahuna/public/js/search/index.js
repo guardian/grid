@@ -92,16 +92,22 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             cropSettings.set($stateParams);
 
-            ctrl.onLogoClick = () => {
+            ctrl.onLogoClick = (event) => {
+              const result = confirm("Any on-going batch process to update the rights, metadata, or collections will be interrupted when you leave this page. It cannot be resumed later. Are you sure?");
+              if (!result) {
+                event.preventDefault();
+                return false;
+              } else {
                 mediaApi.getSession().then(session => {
-                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-                const defaultNonFreeFilter = {
-                  isDefault: true,
-                  isNonFree: showPaid ? showPaid : false
-                };
-                storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
-                $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
-              });
+                  const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+                  const defaultNonFreeFilter = {
+                    isDefault: true,
+                    isNonFree: showPaid ? showPaid : false
+                  };
+                  storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+                  $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
+                });
+              }
             };
 
             if ($state.current.name === 'search') {

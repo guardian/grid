@@ -20,4 +20,12 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function(uploadMan
 
     // TODO: Show multiple jobs?
     ctrl.latestJob = uploadManager.getLatestRunningJob();
+
+    ctrl.displayWarning = (event) => {
+      const result = confirm("Any on-going batch process to update the rights, metadata, or collections will be interrupted when you leave this page. It cannot be resumed later. Are you sure?");
+      if (!result) {
+        event.preventDefault();
+        return false;
+      }
+    };
 }]);
