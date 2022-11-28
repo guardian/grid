@@ -18,6 +18,10 @@ const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
   tenancy,
   $window
 }) => {
+  if (!tenantOptions.length) {
+    tenancy.clear();
+    return;
+  }
   const onSelectTenant = (ev: ChangeEvent<HTMLSelectElement>) => {
     const id = (ev.target as any).value as string;
 
@@ -32,14 +36,16 @@ const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
 
   const pickedTenant = useMemo(() => tenancy.get() || '_default', []);
 
-  return <select name="tenants" value={pickedTenant} onChange={onSelectTenant}>
-    <option value="_default">Default</option>
-    {tenantOptions.map(op => (
-      <option value={op.id} key={op.id}>
-        {op.name}
-      </option>
-    ))}
-  </select>;
+  return (
+    <select name="tenants" value={pickedTenant} onChange={onSelectTenant}>
+      <option value="_default">Default</option>
+      {tenantOptions.map(op => (
+        <option value={op.id} key={op.id}>
+          {op.name}
+        </option>
+      ))}
+    </select>
+  );
 };
 
 export const grTenantSwitcher = angular.module('gr.tenantSwitcher', [])
