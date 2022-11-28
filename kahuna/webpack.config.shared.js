@@ -40,6 +40,7 @@ module.exports = {
     mainFields: ['main', 'browser'],
     alias: {
       'rx': 'rx/dist/rx.all',
+      react: path.resolve('./node_modules/react')
     },
   },
   devtool: "source-map",

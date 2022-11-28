@@ -1,34 +1,10 @@
 import React, {useState} from "react";
 import PropTypes from 'prop-types';
-import {determineDownloadableContent} from "./downloadable-content-resolver";
+import { determineDownloadableContent } from "./downloadable-content-resolver";
 import DownloadLink from "./components/download-link";
-import Button from "./components/button";
+import { Button, ToolTip } from "component-lib"
 
-const getDownloadLink = ({ links }) => links.find(({ rel }) => rel === 'download').href;
-
-
-// gr-downloader .download {
-//   display: block;
-// }
-//
-// button .download:hover {
-//   color: white;
-// }
-//
-// .download-warning {
-//   color: yellow;
-//   padding-left: 5px;
-//   margin-left: -6px;
-// }
-//
-// gr-icon-label.download-icon-label {
-//   padding: 0 5px 0 0;
-// }
-//
-// .download-button {
-//   height: 36px;
-// }
-
+const getDownloadLink = ({links}) => links.find(({rel}) => rel === 'download').href;
 
 export const DownloadButton = ({images, imageDownloadsService}) => {
     const {canDownloadCrop, restrictDownload} = window._clientConfig;
@@ -57,14 +33,22 @@ export const DownloadButton = ({images, imageDownloadsService}) => {
         });
       });
     };
-
     return (
       <span>
       {shouldShowDownloadLink && <DownloadLink downloadUri={getDownloadLink(downloadableImagesArray[0])}/>}
-        {shouldShowDownloadButton && <Button downloading={downloading} onClick={() => downloadImage()}/>}
-        {notAllSelectedImagesDownloadable > 0 && " danger !"}
+        {shouldShowDownloadButton && <ToolTip
+          showToolTip={!!notAllSelectedImagesDownloadable}
+          text="not all selected images are downloadable"
+        >
+          <Button
+            onClick={() => downloadImage()}
+            label={`Download${downloading ? 'ing...' : ''}`}
+            showWarning={!!notAllSelectedImagesDownloadable}
+            isDisabled={downloading}
+          />
+        </ToolTip>}
         {!(shouldShowDownloadButton || shouldShowDownloadLink) &&
-          <span className="download__count">cannot download (sad-face)</span>}
+          <span className="download__count">cannot download</span>}
     </span>);
   }
 ;
