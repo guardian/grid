@@ -24,7 +24,7 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
                              ['querySuggestions',
                               function(querySuggestions) {
     const ctrl = this;
-    
+
     const structuredQueryUpdates$ = Rx.Observable.create(observer => {
         ctrl.structuredQueryChanged = function(structuredQuery) {
             observer.onNext(structuredQuery);
