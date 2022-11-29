@@ -19,10 +19,10 @@ class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
 
   def getClientSwitchValues(featureSwitchesWithCookies: List[(FeatureSwitch, Option[Cookie])]): Map[FeatureSwitch, Boolean] = {
     featureSwitchesWithCookies
-      .map(featureSwitchWithCookie => featureSwitchWithCookie match{
+      .map {
         case (featureSwitch, Some(cookie)) => (featureSwitch, getBoolean(cookie.value))
         case (featureSwitch, None) => (featureSwitch, featureSwitch.default)
-      })
+      }
       .toMap
   }
 
