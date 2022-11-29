@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@babel/polyfill": "^7.8.7",
+    "@guardian/user-telemetry-client": "^1.1.0",
     "@sentry/browser": "^6.10.0",
     "@sentry/integrations": "^6.10.0",
     "angular": "1.6.10",

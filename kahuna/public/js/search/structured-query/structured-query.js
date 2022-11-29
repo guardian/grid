@@ -9,6 +9,9 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
+import { search } from '..';
+import { sendTelemetryEvent } from '../../services/telemetry';
+import { setTags } from '@sentry/browser';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
@@ -21,7 +24,6 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
                              ['querySuggestions',
                               function(querySuggestions) {
     const ctrl = this;
-
     const structuredQueryUpdates$ = Rx.Observable.create(observer => {
         ctrl.structuredQueryChanged = function(structuredQuery) {
             observer.onNext(structuredQuery);
@@ -42,6 +44,7 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
         // Watch out for `false`, but we know it's a string here..
         return str ? str : undefined;
     }
+
 }]);
 
 
@@ -67,6 +70,22 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
 
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
+                const structuredQuery = structureQuery(query);
+                structuredQuery.forEach(queryComponent => {
+                    // e.g. filter or search:
+                    // search > {type: 'text', value: 'my search'}
+                    // filter > {type: 'filter', filterType: 'inclusion', key: 'is', value: 'cool'}
+                    const { type } = queryComponent;
+                    const formattedType = (type) => {
+                        if (type === 'text') return 'GRID_SEARCH'
+                        if (type === 'filter') return 'GRID_FILTER'
+                        return `GRID_${type.toUpperCase()}`
+                    }
+                    if (queryComponent.value){
+                        // In case search is empty, as with a search containing only filters
+                        sendTelemetryEvent(formattedType(type), queryComponent, 1);
+                    }
+                })
             });
         }
     };
