@@ -9,4 +9,10 @@ object ContentHelpers {
     firstPublicationDate <- fields.firstPublicationDate
     date = new DateTime(firstPublicationDate.iso8601, DateTimeZone.UTC)
   } yield date
+
+  def getContentLastModified(content: Content): Option[DateTime] = for {
+    fields <- content.fields
+    lastModified <- fields.lastModified
+    date = new DateTime(lastModified.iso8601, DateTimeZone.UTC)
+  } yield date
 }

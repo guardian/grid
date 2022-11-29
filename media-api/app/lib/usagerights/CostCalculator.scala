@@ -1,6 +1,5 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 

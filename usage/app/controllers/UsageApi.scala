@@ -105,7 +105,7 @@ class UsageApi(
     )
 
     val query = ItemQuery(contentId)
-      .showFields("firstPublicationDate,isLive,internalComposerCode")
+      .showFields("firstPublicationDate,isLive,internalComposerCode,lastModified")
       .showElements("image")
       .showAtoms("media")
 
@@ -113,7 +113,7 @@ class UsageApi(
       response.content match {
         case Some(content) =>
           ContentHelpers
-            .getContentFirstPublished(content)
+            .getContentLastModified(content)
             .map(LiveContentItem(content, _))
             .map(_.copy(isReindex = true))
             .foreach(_.emitAsUsageGroup(
@@ -125,9 +125,9 @@ class UsageApi(
           NotFound
       }
     }.recover { case error: Exception =>
-        logger.error(logMarker, s"UsageApi reindex for content ($contentId) failed!", error)
-        InternalServerError
-      }
+      logger.error(logMarker, s"UsageApi reindex for content ($contentId) failed!", error)
+      InternalServerError
+    }
   }
 
   def forMedia(mediaId: String) = auth.async { req =>
