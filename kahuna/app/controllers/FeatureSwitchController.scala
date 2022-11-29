@@ -27,13 +27,13 @@ class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
   }
 
   def getFeatureSwitchesToStringify(clientSwitchValues: Map[FeatureSwitch, Boolean]): List[Map[String, String]] = {
-    clientSwitchValues.map(clientSwitch => clientSwitch match {
+    clientSwitchValues.map {
       case (featureSwitch, value) => Map(
         "key" -> featureSwitch.key,
         "title" -> featureSwitch.title,
         "value" -> value.toString
       )
-    }).toList
+    }.toList
   }
 
   def getFeatureSwitchValue(clientSwitchValues: Map[FeatureSwitch, Boolean], key: String): Boolean = {
