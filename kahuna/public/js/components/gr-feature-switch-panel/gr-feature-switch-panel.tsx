@@ -94,7 +94,7 @@ const FeatureSwitchPanel = () => {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.shiftKey  &&  event.code === "F11") {
+      if (event.shiftKey  &&  event.code === "F12") {
         setVisible(!visible);
       }
     };
