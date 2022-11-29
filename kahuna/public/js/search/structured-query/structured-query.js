@@ -9,9 +9,7 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
-import { search } from '..';
 import { sendTelemetryEvent } from '../../services/telemetry';
-import { setTags } from '@sentry/browser';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
@@ -77,15 +75,15 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                     // filter > {type: 'filter', filterType: 'inclusion', key: 'is', value: 'cool'}
                     const { type } = queryComponent;
                     const formattedType = (type) => {
-                        if (type === 'text') return 'GRID_SEARCH'
-                        if (type === 'filter') return 'GRID_FILTER'
-                        return `GRID_${type.toUpperCase()}`
-                    }
+                        if (type === 'text') { return 'GRID_SEARCH'; }
+                        if (type === 'filter') { return 'GRID_FILTER'; }
+                        return `GRID_${type.toUpperCase()}`;
+                    };
                     if (queryComponent.value){
                         // In case search is empty, as with a search containing only filters
                         sendTelemetryEvent(formattedType(type), queryComponent, 1);
-                    }
-                })
+                    };
+                });
             });
         }
     };
