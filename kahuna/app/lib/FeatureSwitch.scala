@@ -1,4 +1,4 @@
-package controllers
+package lib
 
 import play.api.mvc.Cookie
 
@@ -10,7 +10,7 @@ object ExampleSwitch extends FeatureSwitch(
   default = false
 )
 
-class FeatureSwitchController(featureSwitches: List[FeatureSwitch]){
+class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
 

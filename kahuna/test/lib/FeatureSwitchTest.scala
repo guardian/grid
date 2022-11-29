@@ -1,6 +1,5 @@
 package lib
 
-import controllers.{ExampleSwitch, FeatureSwitch, FeatureSwitchController}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.mvc.Cookie
@@ -11,8 +10,8 @@ object NoCookieSwitch extends FeatureSwitch(
   default = false
 )
 
-class FeatureSwitchControllerTest extends AnyFreeSpec with Matchers{
-  val featureSwitchController = new FeatureSwitchController(List(ExampleSwitch, NoCookieSwitch))
+class FeatureSwitchesTest extends AnyFreeSpec with Matchers{
+  val featureSwitchController = new FeatureSwitches(List(ExampleSwitch, NoCookieSwitch))
   val exampleSwitchCookie = new Cookie("example-switch", "true");
 
   val mockCookieRetriever = (key: String) => {
