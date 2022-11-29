@@ -113,7 +113,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
               getContentItem(content.content, dateTime)
                 .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
             case _ =>
-              logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+              logger.warn(logMarker, s"Received crier update for ${event.payloadId} without payload")
           }
         case EventType.Delete =>
         //TODO: how do we deal with a piece of content that has been deleted?
@@ -138,11 +138,13 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
                       s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
                     )
                 }
-              })
-            case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+              }).recover {
+                case e => logger.error(logMarker, s"Failed to fetch or process content update for ${event.payloadId}", e)
+              }
+            case _ => logger.warn(logMarker, s"Received crier update for ${event.payloadId} without payload")
           }
 
-        case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
+        case _ => logger.warn(logMarker, s"Unsupported event type $EventType")
       }
     }.recover {
       case e => logger.error(logMarker, s"Failed to process event ${event.payloadId}", e)
