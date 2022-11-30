@@ -1,7 +1,8 @@
 import angular from 'angular';
 import template from './user-actions.html';
+import '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
-export var userActions = angular.module('kahuna.common.userActions', []);
+export var userActions = angular.module('kahuna.common.userActions', ['gr.featureSwitchPanel']);
 
 userActions.controller('userActionCtrl',
     [
