@@ -421,7 +421,6 @@ object PhotographerRenamer extends MetadataCleaner {
     "Pawel Wodzynski" -> "Paweł Wodzyński",
     "Pedro Fiuza" -> "Pedro Fiúza",
     "Petar Kujundzic" -> "Petar Kujundžić",
-    "Peter Dejong" -> "Peter de Jong",
     "Peter Komka" -> "Péter Komka",
     "Peter Lazar" -> "Peter Lázár",
     "Petras Malukas" -> "Petras Malūkas",

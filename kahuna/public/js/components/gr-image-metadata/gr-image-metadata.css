@@ -27,3 +27,9 @@
      letter-spacing: -1px;
      margin-bottom: 3px;
 }
+
+gr-image-metadata dd {
+    overflow: hidden;
+    word-break: break-word;
+    display: inline;
+}

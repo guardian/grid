@@ -90,7 +90,9 @@ checkRequirements() {
 startDockerContainers() {
   EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
   if [[ $USE_TEST == true ]]; then
-    docker-compose down
+    if (docker stats --no-stream &> /dev/null); then
+      docker-compose down
+    fi
     if [[ -n $EXISTING_TUNNELS ]]; then
       echo "RE-USING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
     else

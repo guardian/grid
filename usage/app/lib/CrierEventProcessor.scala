@@ -3,7 +3,7 @@ package lib
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
-import com.gu.contentapi.client.GuardianContentClient
+import com.gu.contentapi.client.{GuardianContentClient, ScheduledExecutor}
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
@@ -27,7 +27,9 @@ trait ContentContainer extends GridLogging {
   private lazy val isEntirePieceTakenDown =
     content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))
 
-  def emitAsUsageGroup(publishSubject: Subject[WithLogMarker[UsageGroup]], usageGroupOps: UsageGroupOps)(implicit logMarker: LogMarker) = {
+  def emitAsUsageGroup(
+    publishSubject: Subject[WithLogMarker[UsageGroup]], usageGroupOps: UsageGroupOps
+  )(implicit logMarker: LogMarker): Unit = {
     usageGroupOps.build(
       content,
       status = this match {
@@ -65,7 +67,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   implicit val codec = Event
 
-
+  val liveCapi: GuardianContentClient
 
   override def initialize(shardId: String): Unit = {
     logger.debug(s"Initialized an event processor for shard $shardId")
@@ -117,11 +119,9 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
           case Some(retrievableContent: EventPayload.RetrievableContent) =>
             val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-            val capi: GuardianContentClient = new LiveContentApi(config)
-
             val query = ItemQuery(capiUrl, Map())
 
-            capi.getResponse(query).map(response => {
+            liveCapi.getResponse(query).map(response => {
 
               response.content match {
                 case Some(content) =>
@@ -143,9 +143,13 @@ private class CrierLiveEventProcessor(config: UsageConfig, usageGroupOps: UsageG
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = LiveContentItem(content, date)
 
+  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
 }
 
 private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends CrierEventProcessor(config, usageGroupOps) {
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = PreviewContentItem(content, date)
+
+  // FIXME - we should presumably be fetching from preview CAPI if the event came from preview Crier...
+  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
 }

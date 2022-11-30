@@ -10,7 +10,8 @@
   additionalNavigationLinks: String,
   costFilterLabel: String,
   costFilterChargeable: Boolean,
-  kahunaConfig: KahunaConfig
+  kahunaConfig: KahunaConfig,
+  featureSwitches: String,
 )
 <!DOCTYPE html>
 <html>
@@ -67,7 +68,8 @@
           imagePreviewFlagAlertCopy: "@Html(kahunaConfig.imagePreviewFlagAlertCopy)",
           imagePreviewFlagWarningCopy: "@Html(kahunaConfig.imagePreviewFlagWarningCopy)",
           imagePreviewFlagLeaseAttachedCopy: "@Html(kahunaConfig.imagePreviewFlagLeaseAttachedCopy)",
-          useReaper: @kahunaConfig.useReaper.getOrElse(false)
+          useReaper: @kahunaConfig.useReaper.getOrElse(false),
+          featureSwitches: @Html(featureSwitches)
         }
     </script>
 

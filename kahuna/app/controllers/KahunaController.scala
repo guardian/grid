@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.KahunaConfig
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig}
 import play.api.mvc.ControllerComponents
 import play.api.libs.json._
 
@@ -36,6 +36,11 @@ class KahunaController(
     }
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
+    val featureSwitches = new FeatureSwitches(
+      List(ExampleSwitch)
+    )
+    val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
+    val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
 
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
@@ -59,7 +64,8 @@ class KahunaController(
       additionalNavigationLinks,
       costFilterLabel,
       costFilterChargeable,
-      config
+      config,
+      featureSwitchesJson
     ))
   }
 

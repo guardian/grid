@@ -1,0 +1,7 @@
+.gr-description-warning {
+  color: orange;
+}
+
+.gr-description-warning .message {
+  margin-bottom: 5px;
+}

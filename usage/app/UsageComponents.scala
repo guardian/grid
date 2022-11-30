@@ -1,3 +1,4 @@
+import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi
@@ -14,7 +15,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
 
   val usageMetadataBuilder = new UsageMetadataBuilder(config)
   val mediaWrapper = new MediaWrapperOps(usageMetadataBuilder)
-  val liveContentApi = new LiveContentApi(config)
+  val liveContentApi = new LiveContentApi(config)(ScheduledExecutor())
   val usageGroupOps = new UsageGroupOps(config, mediaWrapper)
   val usageTable = new UsageTable(config)
   val usageMetrics = new UsageMetrics(config)
