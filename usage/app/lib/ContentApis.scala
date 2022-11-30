@@ -1,19 +1,17 @@
 package lib
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider, AWSCredentialsProviderChain, STSAssumeRoleSessionCredentialsProvider}
+import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, STSAssumeRoleSessionCredentialsProvider}
 import com.amazonaws.services.securitytoken.{AWSSecurityTokenService, AWSSecurityTokenServiceClientBuilder}
-import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
 import com.gu.contentapi.client._
-import org.joda.time.DateTime
+import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
 
 import java.net.URI
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor: ScheduledExecutor)
-  extends GuardianContentClient(apiKey = config.capiApiKey) with RetryableContentApiClient
+abstract class UsageContentApiClient(config: UsageConfig)
+  (implicit val executor: ScheduledExecutor) extends GuardianContentClient(apiKey = config.capiApiKey)
 {
   def usageQuery(contentId: String): ItemQuery = {
     ItemQuery(contentId)
@@ -23,30 +21,41 @@ abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor:
   }
 }
 
-class LiveContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor) extends UsageContentApiClient(config) {
+class LiveContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
+  extends UsageContentApiClient(config) with RetryableContentApiClient
+{
   override val targetUrl: String = config.capiLiveUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 }
 
-class PreviewContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor) extends UsageContentApiClient(config) {
+class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: ScheduledExecutor)
+  // ensure IAMAuthContentApiClient is the first trait in this list!
+  extends UsageContentApiClient(config)  with RetryableContentApiClient with IAMAuthContentApiClient
+{
   override val targetUrl: String = config.capiPreviewUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
+}
+
+trait IAMAuthContentApiClient extends ContentApiClient {
+  protected val config: UsageConfig
 
   lazy val sts: AWSSecurityTokenService = AWSSecurityTokenServiceClientBuilder.standard()
     .withCredentials(config.awsCredentials)
     .withRegion(config.awsRegionName)
     .build()
 
-  lazy val capiCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(List(
-    Some(new ProfileCredentialsProvider("capi")),
-    config.capiPreviewRole.map(
-      new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
-        .withStsClient(sts)
-        .build()
-    )
-  ).flatten:_*)
+  lazy val capiCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    List(
+      Some(new ProfileCredentialsProvider("capi")),
+      config.capiPreviewRole.map(
+        new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
+          .withStsClient(sts)
+          .build()
+      )
+    ).flatten: _*
+  )
 
-  override def get(
+  abstract override def get(
     url: String,
     headers: Map[String, String]
   )(implicit context: ExecutionContext): Future[HttpResponse] = {
