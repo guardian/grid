@@ -33,7 +33,7 @@ class PreviewContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 
   lazy val capiCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(List(
-//    Some(new ProfileCredentialsProvider("capi")),
+    Some(new ProfileCredentialsProvider("capi")),
     config.capiPreviewRole.map( new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi").build() )
   ).flatten:_*)
 
