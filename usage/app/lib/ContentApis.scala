@@ -52,6 +52,6 @@ class PreviewContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
 
     val withIamHeaders = signer.addIAMHeaders(headers, encodedUri)
 
-    super.get(url, withIamHeaders)
+    super.get(encodedUri.toString, withIamHeaders)
   }
 }
