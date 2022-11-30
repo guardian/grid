@@ -4,6 +4,7 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.gu.contentapi.client.ScheduledExecutor
+import com.gu.contentapi.client.model.ContentApiError
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
@@ -139,7 +140,10 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
                     )
                 }
               }).recover {
-                case e => logger.error(logMarker, s"Failed to fetch or process content update for ${event.payloadId}", e)
+                case e: ContentApiError =>
+                  logger.error(logMarker, s"CAPI error when fetching content update for ${event.payloadId}: ${e.httpStatus} ${e.httpMessage} ${e.errorResponse}", e)
+                case e =>
+                  logger.error(logMarker, s"Failed to fetch or process content update for ${event.payloadId}", e)
               }
             case _ => logger.warn(logMarker, s"Received crier update for ${event.payloadId} without payload")
           }
