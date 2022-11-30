@@ -2,7 +2,7 @@ package lib
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider, AWSCredentialsProviderChain, STSAssumeRoleSessionCredentialsProvider}
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
+import com.amazonaws.services.securitytoken.{AWSSecurityTokenService, AWSSecurityTokenServiceClientBuilder}
 import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
 import com.gu.contentapi.client._
 import org.joda.time.DateTime
@@ -32,9 +32,18 @@ class PreviewContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
   override val targetUrl: String = config.capiPreviewUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 
+  lazy val sts: AWSSecurityTokenService = AWSSecurityTokenServiceClientBuilder.standard()
+    .withCredentials(config.awsCredentials)
+    .withRegion(config.awsRegionName)
+    .build()
+
   lazy val capiCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(List(
     Some(new ProfileCredentialsProvider("capi")),
-    config.capiPreviewRole.map( new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi").build() )
+    config.capiPreviewRole.map(
+      new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
+        .withStsClient(sts)
+        .build()
+    )
   ).flatten:_*)
 
   override def get(
