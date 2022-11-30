@@ -93,6 +93,7 @@ th {
 }
 
 .infoPane {
+  box-sizing: border-box;
   border-bottom: 1px solid #565656;
   width: 100%;
   display: flex;
