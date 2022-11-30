@@ -61,5 +61,12 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     .getOrElse("This image can be used, but has warnings:")
   val unusableTextHeader: String = configuration.getOptional[String]("warningText.unusableHeader")
     .getOrElse("Unusable image")
+  val enableWarningFlags: Boolean = configuration.getOptional[Map[String, String]]("warningText.imagePreviewFlag").isDefined
+  val imagePreviewFlagAlertCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.alertCopy")
+    .getOrElse("Not configured")
+  val imagePreviewFlagWarningCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.warningCopy")
+    .getOrElse("Not configured")
+  val imagePreviewFlagLeaseAttachedCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.leaseAttachedCopy")
+    .getOrElse("Not configured")
 }
 
