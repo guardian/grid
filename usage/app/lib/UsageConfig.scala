@@ -27,6 +27,7 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
 
   val capiLiveUrl = string("capi.live.url")
   val capiPreviewUrl = string("capi.preview.url")
+  val capiPreviewRole = stringOpt("capi.preview.role")
   val capiApiKey = string("capi.apiKey")
   val capiPageSize: Int = intDefault("capi.page.size", defaultPageSize)
   val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
