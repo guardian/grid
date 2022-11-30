@@ -2864,7 +2864,7 @@ FIXME: what to do with touch devices
   right: 0;
   bottom: 0;
 
-  /* above thumbnail and overlay */
+  /* above thumbnail */
   z-index: 1;
 
   /* preserve original tooltip behavior */
@@ -2887,6 +2887,7 @@ FIXME: what to do with touch devices
 }
 
 .result__select__overlay__text {
+  position: relative; /* z-index will not work with default position static */
   font-size: 1.3rem;
   font-weight: bold;
   color: white;
