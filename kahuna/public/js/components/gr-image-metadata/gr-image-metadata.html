@@ -578,11 +578,11 @@
                     title="{{ctrl.extraInfo.filename}}">{{ctrl.extraInfo.filename}}</span>
             </dd>
 
-            <dt ng-if="((ctrl.metadata.subjects.length > 0) || ctrl.hasMultipleValues(ctrl.rawMetadata.subjects))"
+            <dt ng-if="ctrl.selectedImagesHasAny(ctrl.subjectsAccessor)"
                 class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">
                 Subjects
             </dt>
-            <dd ng-if="((ctrl.metadata.subjects.length > 0) || ctrl.hasMultipleValues(ctrl.rawMetadata.subjects))"
+            <dd ng-if="ctrl.selectedImagesHasAny(ctrl.subjectsAccessor)"
                 class="image-info__pills image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <ui-list-editor-info-panel
                    is-editable="false"
@@ -592,9 +592,10 @@
                    element-name="subject">
                 </ui-list-editor-info-panel>
             </dd>
-
-            <dt class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
-            <dd class="image-info__pills image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="ctrl.userCanEdit || ctrl.selectedImagesHasAny(ctrl.peopleAccessor)"
+                class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
+            <dd ng-if="ctrl.userCanEdit || ctrl.selectedImagesHasAny(ctrl.peopleAccessor)"
+                class="image-info__pills image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-people-button"
                         class="metadata-plus__button"
                         ng-class="{'small': ctrl.grSmall}"
@@ -617,7 +618,7 @@
                       e:form="peopleInImageEditForm"
                       e:ng-class="{'image-info__editor--error': $error,
                                    'image-info__editor--saving': peopleInImageEditForm.$waiting,
-                                   'text-input': true}">
+                                   'text-input': true}"></span>
 
                     <ui-list-editor-info-panel
                         is-editable="ctrl.userCanEdit"
@@ -900,7 +901,8 @@
     </div>
 </div>
 
-<div class="image-info" role="region" aria-label="Keywords">
+<div ng-if="ctrl.userCanEdit || ctrl.selectedImagesHasAny(ctrl.keywordAccessor)"
+     class="image-info" role="region" aria-label="Keywords" >
     <dl class="image-info__group image-info__wrap">
         <dt class="image-info__heading image-info__wrap">
             Keywords
