@@ -30,12 +30,20 @@ class LiveContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
 
 class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: ScheduledExecutor)
   // ensure IAMAuthContentApiClient is the first trait in this list!
-  extends UsageContentApiClient(config)  with RetryableContentApiClient with IAMAuthContentApiClient
+  extends UsageContentApiClient(config) with RetryableContentApiClient with IAMAuthContentApiClient
 {
   override val targetUrl: String = config.capiPreviewUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 }
 
+// order of mixing is important. Some client traits (notably RetryableContentApiClient!)
+// also override get, adding header(s) (and could potentially edit the uri too) before calling super.get(). Those
+// traits must be executed BEFORE this trait, so that the get override in this trait
+// receives the headers that will actually be sent over the wire.
+// so any class mixing this in should have it first in the list of traits, eg.
+//   class MyCapiClient extends GuardianContentApiClient(apiKey)
+//     with IAMAuthContentApiClient with RetryableContentApiClient with MyOtherClientTraits
+// (ie. the super calls will travel "from right to left" along the trait list)
 trait IAMAuthContentApiClient extends ContentApiClient {
   protected val config: UsageConfig
 
