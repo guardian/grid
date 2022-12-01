@@ -80,10 +80,8 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                         if (type === 'filter') { return 'GRID_FILTER'; }
                         return `GRID_${type.toUpperCase()}`;
                     };
-                    if (queryComponent.value){
-                        // In case search is empty, as with a search containing only filters
-                        sendTelemetryEvent(formattedType(type), {...queryComponent, searchId: searchId}, 1);
-                    };
+                    // In case search is empty, as with a search containing only filters
+                    sendTelemetryEvent(formattedType(type), {...queryComponent, searchId: searchId}, 1);
                 });
             });
         }
