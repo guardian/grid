@@ -114,8 +114,7 @@ class UsageApi(
         case Some(content) =>
           ContentHelpers
             .getContentLastModified(content)
-            .map(LiveContentItem(content, _))
-            .map(_.copy(isReindex = true))
+            .map(LiveContentItem(content, _, isReindex = true))
             .foreach(_.emitAsUsageGroup(
               usageApiSubject,
               usageGroupOps
