@@ -8,6 +8,23 @@ declare global {
     }
 }
 
+export const generateId = () => (Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+
+const getStoredId = (storage: Storage, key: string) => {
+    const maybeId = storage.getItem(key);
+    if (maybeId) {
+        return Number(maybeId);
+    } else {
+        const id = generateId();
+        storage.setItem(key, id.toString());
+        return id;
+    }
+};
+
+const getBrowserId = () => getStoredId(localStorage, 'browserId');
+
+const getSessionId = () => getStoredId(localStorage, 'sessionId');
+
 const getEnv = () => {
     const url = window.location.hostname;
     if (url.includes("local.dev-gutools.co.uk")) {return "LOCAL";}
@@ -26,6 +43,6 @@ export const sendTelemetryEvent = (type: string, tags?: IUserTelemetryEvent["tag
         eventTime: new Date().toISOString(),
         type,
         value,
-        tags
+        tags: {...tags, browserId: getBrowserId(), sessionId: getSessionId()}
     });
 };

@@ -9,7 +9,7 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
-import { sendTelemetryEvent } from '../../services/telemetry';
+import { generateId, sendTelemetryEvent } from '../../services/telemetry';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
@@ -69,6 +69,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
                 const structuredQuery = structureQuery(query);
+                const searchId = generateId();
                 structuredQuery.forEach(queryComponent => {
                     // e.g. filter or search:
                     // search > {type: 'text', value: 'my search'}
@@ -81,7 +82,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                     };
                     if (queryComponent.value){
                         // In case search is empty, as with a search containing only filters
-                        sendTelemetryEvent(formattedType(type), queryComponent, 1);
+                        sendTelemetryEvent(formattedType(type), {...queryComponent, searchId: searchId}, 1);
                     };
                 });
             });
