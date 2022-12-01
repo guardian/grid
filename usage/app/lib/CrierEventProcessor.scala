@@ -131,7 +131,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
               contentApiClient.getResponse(query).map(response => {
                 response.content match {
                   case Some(content) =>
-                    LiveContentItem(content, dateTime)
+                    getContentItem(content, dateTime)
                       .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
                   case _ =>
                     logger.debug(

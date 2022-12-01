@@ -103,8 +103,8 @@ class UsageRecorder(
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
       val createOps = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
-          .flatMap(streamUsageMap.get)
-          .map(performAndLogDBOperation(usageTable.create, "create"))
+        .flatMap(streamUsageMap.get)
+        .map(performAndLogDBOperation(usageTable.create, "create"))
 
       val updateOps = (if (usageGroup.isReindex) Set() else streamUsageKeys.intersect(dbUsageKeys))
         .flatMap(streamUsageMap.get)
