@@ -1189,8 +1189,8 @@ textarea.ng-invalid {
     position: absolute;
     display: none;
 
-    /* above thumbnail */
-    z-index: 1;
+    /* above thumbnail and overlay */
+    z-index: 2;
 }
 
 .result__select--no-pointer-events {
@@ -2857,4 +2857,57 @@ FIXME: what to do with touch devices
         max-height: 150px;
     }
 
+}
+
+.result__select__overlay {
+  position: absolute;
+  display: block;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  /* above thumbnail */
+  z-index: 1;
+
+  /* preserve original tooltip behavior */
+  pointer-events: none;
+}
+
+.result__select__overlay.alert {
+  background-color: red;
+  opacity: 0.3;
+}
+
+.result__select__overlay.warning {
+  background-color: orange;
+  opacity: 0.3;
+}
+
+.result__select__overlay.lease_attached {
+  background-color: teal;
+  opacity: 0.3;
+}
+
+.result__select__overlay__text {
+  position: relative; /* z-index will not work with default position static */
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: white;
+  padding: 5px 10px;
+  text-align: left;
+
+  /* above thumbnail and overlay */
+  z-index: 2;
+}
+.result__select__overlay__text.alert {
+  background-color: red;
+}
+.result__select__overlay__text.warning {
+  background-color: orange;
+  color: black;
+}
+.result__select__overlay__text.lease_attached {
+  background-color: teal;
+  color: white;
 }
