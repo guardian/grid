@@ -1,13 +1,5 @@
 import {UserTelemetryEventSender, IUserTelemetryEvent} from '@guardian/user-telemetry-client';
 
-declare global {
-    interface Window {
-        _clientConfig: {
-            telemetryUri: string | undefined
-        }
-    }
-}
-
 export const generateId = () => (Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 
 const getStoredId = (storage: Storage, key: string) => {
