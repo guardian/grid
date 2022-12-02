@@ -286,7 +286,8 @@ object Mappings {
     downloadUsageMetadata("downloadUsageMetadata")
   ))
 
-  def leaseMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
+  // TODO convert to nested mapping to allow including leases in free search
+  def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("id"),
     keywordField("leasedBy"),
     dateField("startDate"),
