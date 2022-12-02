@@ -10,9 +10,9 @@ import java.net.URI
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class UsageContentApiClient(config: UsageConfig)
-  (implicit val executor: ScheduledExecutor) extends GuardianContentClient(apiKey = config.capiApiKey)
-{
+abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor: ScheduledExecutor)
+    extends GuardianContentClient(apiKey = config.capiApiKey) {
+
   def usageQuery(contentId: String): ItemQuery = {
     ItemQuery(contentId)
       .showFields("firstPublicationDate,isLive,internalComposerCode")
@@ -22,16 +22,16 @@ abstract class UsageContentApiClient(config: UsageConfig)
 }
 
 class LiveContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
-  extends UsageContentApiClient(config) with RetryableContentApiClient
-{
+    extends UsageContentApiClient(config) with RetryableContentApiClient {
+
   override val targetUrl: String = config.capiLiveUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 }
 
 class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: ScheduledExecutor)
   // ensure IAMAuthContentApiClient is the first trait in this list!
-  extends UsageContentApiClient(config) with RetryableContentApiClient with IAMAuthContentApiClient
-{
+    extends UsageContentApiClient(config) with IAMAuthContentApiClient with RetryableContentApiClient {
+
   override val targetUrl: String = config.capiPreviewUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 }
@@ -43,25 +43,20 @@ class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: Sche
 // so any class mixing this in should have it first in the list of traits, eg.
 //   class MyCapiClient extends GuardianContentApiClient(apiKey)
 //     with IAMAuthContentApiClient with RetryableContentApiClient with MyOtherClientTraits
-// (ie. the super calls will travel "from right to left" along the trait list)
+// ie. the super calls will travel "from right to left" along the trait list, and this trait can sign the accumulated headers
 trait IAMAuthContentApiClient extends ContentApiClient {
   protected val config: UsageConfig
 
   lazy val sts: AWSSecurityTokenService = AWSSecurityTokenServiceClientBuilder.standard()
-    .withCredentials(config.awsCredentials)
     .withRegion(config.awsRegionName)
     .build()
 
-  lazy val capiCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
-    List(
-      Some(new ProfileCredentialsProvider("capi")),
-      config.capiPreviewRole.map(
-        new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
-          .withStsClient(sts)
-          .build()
-      )
-    ).flatten: _*
-  )
+  lazy val capiCredentials: AWSCredentialsProvider =
+    config.capiPreviewRole.map(
+      new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
+        .withStsClient(sts)
+        .build()
+    ).getOrElse(new ProfileCredentialsProvider("capi")) // will be used if stream is ever run locally (unusual)
 
   abstract override def get(
     url: String,
