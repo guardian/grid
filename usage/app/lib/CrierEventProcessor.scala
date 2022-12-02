@@ -15,9 +15,11 @@ import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
+import java.net.URL
 import java.util.{UUID, List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 trait ContentContainer extends GridLogging {
   val content: Content
@@ -67,7 +69,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   implicit val codec = Event
 
-  val liveCapi: GuardianContentClient
+  val liveCapi: LiveContentApi
 
   override def initialize(shardId: String): Unit = {
     logger.debug(s"Initialized an event processor for shard $shardId")
@@ -75,10 +77,13 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
 
-    records.asScala.map { record =>
-
+    records.asScala.foreach { record =>
       val buffer: Array[Byte] = record.getData.array()
-      ThriftDeserializer.deserialize(buffer).map(processEvent)
+      val deserialization: Try[Event] = ThriftDeserializer.deserialize(buffer)
+      deserialization.foreach(processEvent)
+      deserialization.failed.foreach { e: Throwable =>
+        logger.error("Failed to deserialize crier event", e)
+      }
     }
 
     checkpointer.checkpoint(records.asScala.last)
@@ -99,42 +104,50 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
       "requestId" -> UUID.randomUUID().toString
     )
 
-    val dateTime: DateTime = new DateTime(event.dateTime)
+    Try {
+      val dateTime: DateTime = new DateTime(event.dateTime)
 
-    event.eventType match {
-      case EventType.Update =>
+      event.eventType match {
+        case EventType.Update =>
 
-        event.payload match {
-          case Some(content: EventPayload.Content) =>
-            getContentItem(content.content, dateTime)
-              .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
-          case _ =>
-            logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
-        }
-      case EventType.Delete =>
+          event.payload match {
+            case Some(content: EventPayload.Content) =>
+              getContentItem(content.content, dateTime)
+                .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
+            case _ =>
+              logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+          }
+        case EventType.Delete =>
         //TODO: how do we deal with a piece of content that has been deleted?
-      case EventType.RetrievableUpdate =>
+        case EventType.RetrievableUpdate =>
 
-        event.payload match {
-          case Some(retrievableContent: EventPayload.RetrievableContent) =>
-            val capiUrl = retrievableContent.retrievableContent.capiUrl
+          event.payload match {
+            case Some(retrievableContent: EventPayload.RetrievableContent) =>
+              val capiUrl = retrievableContent.retrievableContent.capiUrl
 
-            val query = ItemQuery(capiUrl, Map())
+              val query = liveCapi.usageQuery(retrievableContent.retrievableContent.id)
 
-            liveCapi.getResponse(query).map(response => {
+              logger.info(logMarker, s"retrieving content event at $capiUrl parsed to id ${query.toString}")
 
-              response.content match {
-                case Some(content) =>
-                  LiveContentItem(content, dateTime)
-                    .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
-                case _ =>
-                  logger.debug(logMarker, s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
-              }
-            })
-          case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
-        }
+              liveCapi.getResponse(query).map(response => {
+                response.content match {
+                  case Some(content) =>
+                    LiveContentItem(content, dateTime)
+                      .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
+                  case _ =>
+                    logger.debug(
+                      logMarker,
+                      s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
+                    )
+                }
+              })
+            case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
+          }
 
-      case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
+        case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
+      }
+    }.recover {
+      case e => logger.error(logMarker, s"Failed to process event ${event.payloadId}", e)
     }
   }
 }
@@ -143,7 +156,7 @@ private class CrierLiveEventProcessor(config: UsageConfig, usageGroupOps: UsageG
 
   def getContentItem(content: Content, date: DateTime): ContentContainer = LiveContentItem(content, date)
 
-  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
+  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
 }
 
 private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends CrierEventProcessor(config, usageGroupOps) {
@@ -151,5 +164,5 @@ private class CrierPreviewEventProcessor(config: UsageConfig, usageGroupOps: Usa
   def getContentItem(content: Content, date: DateTime): ContentContainer = PreviewContentItem(content, date)
 
   // FIXME - we should presumably be fetching from preview CAPI if the event came from preview Crier...
-  override val liveCapi: GuardianContentClient = new LiveContentApi(config)(ScheduledExecutor())
+  override val liveCapi: LiveContentApi = new LiveContentApi(config)(ScheduledExecutor())
 }
