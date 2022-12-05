@@ -71,6 +71,7 @@ results.controller('SearchResultsCtrl', [
     'results',
     'panels',
     'isReloadingPreviousSearch',
+    'globalErrors',
 
     function($rootScope,
              $scope,
@@ -89,7 +90,8 @@ results.controller('SearchResultsCtrl', [
              selectedImages$,
              results,
              panels,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             globalErrors) {
 
         const ctrl = this;
 
@@ -348,6 +350,19 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.clearSelection = () => {
             selection.clear();
+        };
+
+        ctrl.shareSelection = async () => {
+            Promise.all(
+              ctrl.selectedImages.map(image => {
+                return image.getLink('ui:image').then(link => link.href);
+              })
+            ).then(sharedImagesUrl =>{
+              navigator.clipboard.writeText(sharedImagesUrl.join(',')).then(
+                () => globalErrors.trigger('clipboard'),
+                (error) => console.log(error)
+              );
+            });
         };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);

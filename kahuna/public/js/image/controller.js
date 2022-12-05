@@ -28,6 +28,7 @@ import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
 
 
+
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'kahuna.edits.service',
@@ -76,6 +77,8 @@ image.controller('ImageCtrl', [
   'editsService',
   'keyboardShortcut',
   'cropSettings',
+  'globalErrors',
+
 
   function ($rootScope,
             $scope,
@@ -95,7 +98,8 @@ image.controller('ImageCtrl', [
             imageUsagesService,
             editsService,
             keyboardShortcut,
-            cropSettings) {
+            cropSettings,
+            globalErrors) {
 
     let ctrl = this;
 
@@ -200,6 +204,12 @@ image.controller('ImageCtrl', [
       return true;
     };
 
+    ctrl.shareImage = async () => {
+       ctrl.image.getLink('ui:image').then(link => {
+           navigator.clipboard.writeText(link.href);
+           globalErrors.trigger('clipboard');
+       });
+    };
     ctrl.onCropsDeleted = () => {
       // a bit nasty - but it updates the state of the page better than trying to do that in
       // the client.

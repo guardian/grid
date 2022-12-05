@@ -42,6 +42,14 @@
                  ng-click="ctrl.dismiss('unknown')">close</gr-icon>
     </div>
 
+    <div class="global-error warning" ng-message="clipboard">
+        A link to your images has been copied to your clipboard.
+
+        <gr-icon class="global-error__close"
+                 title="Close"
+                 ng-click="ctrl.dismiss('clipboard')">close</gr-icon>
+    </div>
+
     <div class="global-error error" ng-message="server">
         A server error has occurred; {{ctrl.systemName}} may not be fully functional at this time.
         If the problem persists please <a href="{{ctrl.supportEmailLink}}" class="coloured-link">email {{ctrl.systemName}} team</a>.
