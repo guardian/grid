@@ -26,6 +26,8 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
+import {notificationBanner} from '../components/gr-notification-banner/gr-notification-banner';
+
 
 
 
@@ -207,7 +209,7 @@ image.controller('ImageCtrl', [
     ctrl.shareImage = async () => {
        ctrl.image.getLink('ui:image').then(link => {
            navigator.clipboard.writeText(link.href);
-           globalErrors.trigger('clipboard');
+           ctrl.notificationMsg = "A link to your images has been copied to your clipboard.";
        });
     };
     ctrl.onCropsDeleted = () => {

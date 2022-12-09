@@ -359,7 +359,7 @@ results.controller('SearchResultsCtrl', [
               })
             ).then(sharedImagesUrl =>{
               navigator.clipboard.writeText(sharedImagesUrl.join(',')).then(
-                () => globalErrors.trigger('clipboard'),
+                () => ctrl.notificationMsg = "A link to your images has been copied to your clipboard.",
                 (error) => console.log(error)
               );
             });
