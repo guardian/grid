@@ -1,6 +1,9 @@
 {
   "dependencies": {
     "@babel/polyfill": "^7.8.7",
+    "@bbc/igm-btn": "^7.4.3",
+    "@bbc/igm-gel-icon": "^6.1.1",
+    "@bbc/igm-notification": "^4.0.0",
     "@sentry/browser": "^6.10.0",
     "@sentry/integrations": "^6.10.0",
     "angular": "1.6.10",
