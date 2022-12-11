@@ -54,6 +54,7 @@ const image = angular.module('kahuna.image.controller', [
   'gr.keyboardShortcut',
   'gr.metadataValidity',
   'gr.displayCrops',
+  'gr.notificationBanner',
   'gu.date',
   radioList.name,
   cropUtil.name
