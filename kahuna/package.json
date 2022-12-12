@@ -1,9 +1,6 @@
 {
   "dependencies": {
     "@babel/polyfill": "^7.8.7",
-    "@bbc/igm-btn": "^7.4.3",
-    "@bbc/igm-gel-icon": "^6.1.1",
-    "@bbc/igm-notification": "^4.0.0",
     "@sentry/browser": "^6.10.0",
     "@sentry/integrations": "^6.10.0",
     "angular": "1.6.10",
@@ -38,6 +35,11 @@
     "titip": "https://github.com/guardian/titip/tarball/1.1.0",
     "ui-router-extras": "^0.1.3",
     "uri-templates": "0.1.5"
+  },
+  "optionalDependencies":{
+    "@bbc/igm-btn": "^7.4.3",
+    "@bbc/igm-gel-icon": "^6.1.1",
+    "@bbc/igm-notification": "^4.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.9.0",
