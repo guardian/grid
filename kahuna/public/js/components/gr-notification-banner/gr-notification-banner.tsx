@@ -2,7 +2,7 @@
 import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 const Button = require("@bbc/igm-btn");
 const GELicon = require("@bbc/igm-gel-icon");

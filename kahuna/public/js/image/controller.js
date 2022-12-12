@@ -26,7 +26,7 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
-import {notificationBanner} from '../components/gr-notification-banner/gr-notification-banner';
+import '../components/gr-notification-banner/gr-notification-banner';
 
 
 
@@ -80,7 +80,6 @@ image.controller('ImageCtrl', [
   'editsService',
   'keyboardShortcut',
   'cropSettings',
-  'globalErrors',
 
 
   function ($rootScope,
@@ -101,8 +100,7 @@ image.controller('ImageCtrl', [
             imageUsagesService,
             editsService,
             keyboardShortcut,
-            cropSettings,
-            globalErrors) {
+            cropSettings) {
 
     let ctrl = this;
 
