@@ -113,10 +113,11 @@ startDockerContainers() {
 }
 
 buildJs() {
-  pushd "$ROOT_DIR/kahuna"
-  npm install
-  npm run build-dev
-  popd
+#  pushd "$ROOT_DIR/kahuna"
+#  npm install
+#  npm run build-dev
+#  popd
+echo "skipping build"
 }
 
 startPlayApps() {

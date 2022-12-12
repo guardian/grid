@@ -2,24 +2,33 @@ import angular from 'angular';
 import './gr-downloader.css';
 import template from './gr-downloader.html';
 import '../../services/image/downloads';
+import { react2angular } from "react2angular";
+import {DownloadButton} from "../react/download-button";
 
 export const downloader = angular.module('gr.downloader', [
   'gr.image-downloads.service'
-]);
+]).component('downloadButton',
+  react2angular(DownloadButton,
+    ["images"],
+    ['imageDownloadsService']
+  )
+);
 
 downloader.controller('DownloaderCtrl', [
   '$window',
   '$q',
   '$scope',
+  '$rootScope',
   'inject$',
   'imageDownloadsService',
 
-  function Controller($window, $q, $scope, inject$, imageDownloadsService) {
+  function Controller($window, $q, $scope, $rootScope, inject$, imageDownloadsService) {
 
     let ctrl = this;
 
     ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
     const restrictDownload = $window._clientConfig.restrictDownload;
+
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
       ctrl.images : Array.from(ctrl.images.values());
@@ -107,4 +116,5 @@ downloader.directive('grDownloader', function () {
     template: template
   };
 });
+
 
