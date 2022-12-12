@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import { v4 } from 'uuid';
 
 import './structured-query.css';
 
@@ -69,7 +70,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
                 const structuredQuery = structureQuery(query);
-                const searchId = generateId();
+                const searchUuid = v4();
                 structuredQuery.forEach(queryComponent => {
                     // e.g. filter or search:
                     // search > {type: 'text', value: 'my search'}
@@ -81,7 +82,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
                         return `GRID_${type.toUpperCase()}`;
                     };
                     // In case search is empty, as with a search containing only filters
-                    sendTelemetryEvent(formattedType(type), {...queryComponent, searchId: searchId}, 1);
+                    sendTelemetryEvent(formattedType(type), {...queryComponent, searchUuid: searchUuid}, 1);
                 });
             });
         }

@@ -1,21 +1,20 @@
 import {UserTelemetryEventSender, IUserTelemetryEvent} from '@guardian/user-telemetry-client';
-
-export const generateId = () => (Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+import { v4 } from 'uuid';
 
 const getStoredId = (storage: Storage, key: string) => {
     const maybeId = storage.getItem(key);
     if (maybeId) {
         return Number(maybeId);
     } else {
-        const id = generateId();
+        const id = v4();
         storage.setItem(key, id.toString());
         return id;
     }
 };
 
-const getBrowserId = () => getStoredId(localStorage, 'browserId');
+const getBrowserId = () => getStoredId(localStorage, 'browserUuid');
 
-const getSessionId = () => getStoredId(localStorage, 'sessionId');
+const getSessionId = () => getStoredId(localStorage, 'sessionUuid');
 
 const getEnv = () => {
     const url = window.location.hostname;
