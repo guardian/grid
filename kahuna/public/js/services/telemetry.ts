@@ -1,10 +1,10 @@
 import {UserTelemetryEventSender, IUserTelemetryEvent} from '@guardian/user-telemetry-client';
 import { v4 } from 'uuid';
 
-const getStoredId = (storage: Storage, key: string) => {
+const getStoredId = (storage: Storage, key: string): string => {
     const maybeId = storage.getItem(key);
     if (maybeId) {
-        return Number(maybeId);
+        return maybeId;
     } else {
         const id = v4();
         storage.setItem(key, id.toString());
@@ -34,6 +34,6 @@ export const sendTelemetryEvent = (type: string, tags?: IUserTelemetryEvent["tag
         eventTime: new Date().toISOString(),
         type,
         value,
-        tags: {...tags, browserId: getBrowserId(), sessionId: getSessionId()}
+        tags: {...tags, browserUuid: getBrowserId(), sessionUuid: getSessionId()}
     });
 };
