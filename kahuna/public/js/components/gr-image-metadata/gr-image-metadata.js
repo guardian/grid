@@ -216,6 +216,12 @@ module.controller('grImageMetadataCtrl', [
     ctrl.removeKeywordFromImages = removeXFromImages('keywords', ctrl.keywordAccessor);
     ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
 
+    ctrl.subjectsAccessor = (image) => imageAccessor.readMetadata(image).subjects;
+
+    ctrl.selectedImagesHasAny = (accessor) => ctrl.selectedImages.find(
+      (image) => Object.keys(accessor(image)).length > 0
+    );
+
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',
       'credit', 'subLocation', 'city', 'state', 'country',
