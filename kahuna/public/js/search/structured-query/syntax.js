@@ -8,9 +8,10 @@ const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^'
 const falsyValuesToEmptyString = (value) => {
     if (!value){
         return '';
+    } else {
+        return value.toString();
     }
-    else return value.toString();
-}
+};
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
 export function structureQuery(query) {

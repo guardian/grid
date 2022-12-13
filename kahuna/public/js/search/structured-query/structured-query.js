@@ -10,7 +10,7 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
-import { generateId, sendTelemetryEvent } from '../../services/telemetry';
+import { sendTelemetryEvent } from '../../services/telemetry';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
