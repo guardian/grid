@@ -5,6 +5,13 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 /*eslint-disable max-len */
 const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
 /*eslint-enable max-len */
+const falsyValuesToEmptyString = (value) => {
+    if (!value){
+        return '';
+    } else {
+        return value.toString();
+    }
+};
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
 export function structureQuery(query) {
@@ -37,7 +44,7 @@ export function structureQuery(query) {
 
             struct.push({
                 type: 'text',
-                value: prepend + text
+                value: prepend + falsyValuesToEmptyString(text)
             });
         }
     }

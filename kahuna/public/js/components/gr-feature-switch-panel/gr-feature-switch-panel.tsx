@@ -7,19 +7,11 @@ import styles from "./gr-feature-switch-panel.module.css";
 
 type KeydownHandler = (e: KeyboardEvent) => void
 
-type FeatureSwitchData = {
+export type FeatureSwitchData = {
   key: string,
   title: string,
   value: 'true' | 'false'
  }
-
-declare global {
-  interface Window {
-    _clientConfig: {
-      featureSwitches: Array<FeatureSwitchData>
-    }
-  }
-}
 
 export const getFeatureSwitchActive = (key: string): boolean => {
   const match = document.cookie.match(new RegExp("(^| )" + "feature-switch-" + key + "=([^;]+)"));

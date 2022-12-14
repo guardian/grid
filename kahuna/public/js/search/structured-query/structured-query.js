@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
+import { v4 } from 'uuid';
 
 import './structured-query.css';
 
@@ -9,6 +10,7 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
+import { sendTelemetryEvent } from '../../services/telemetry';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
@@ -67,6 +69,21 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
 
             subscribe$(scope, ctrl.newQuery$, query => {
                 ngModelCtrl.$setViewValue(query);
+                const structuredQuery = structureQuery(query);
+                const searchUuid = v4();
+                structuredQuery.forEach(queryComponent => {
+                    // e.g. filter or search:
+                    // search > {type: 'text', value: 'my search'}
+                    // filter > {type: 'filter', filterType: 'inclusion', key: 'is', value: 'cool'}
+                    const { type } = queryComponent;
+                    const formattedType = (type) => {
+                        if (type === 'text') { return 'GRID_SEARCH'; }
+                        if (type === 'filter') { return 'GRID_FILTER'; }
+                        return `GRID_${type.toUpperCase()}`;
+                    };
+                    // In case search is empty, as with a search containing only filters
+                    sendTelemetryEvent(formattedType(type), {...queryComponent, searchUuid: searchUuid}, 1);
+                });
             });
         }
     };
