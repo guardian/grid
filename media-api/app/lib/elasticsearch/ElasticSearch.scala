@@ -1,7 +1,7 @@
 package lib.elasticsearch
 
 import akka.actor.Scheduler
-import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.{ImageFields, elasticsearch}
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
@@ -119,21 +119,21 @@ class ElasticSearch(
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
-    val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
-    val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
+    val uploadTimeFilter = elasticsearch.filters.date("uploadTime", params.since, params.until)
+    val lastModTimeFilter = elasticsearch.filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
+    val takenTimeFilter = elasticsearch.filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
     // we only inject filters if there are actual date parameters
     val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
+    val dateFilter = dateFilterList.map(dateFilters => elasticsearch.filters.and(dateFilters.list: _*))
 
-    val idsFilter = params.ids.map(filters.ids)
-    val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+    val idsFilter = params.ids.map(elasticsearch.filters.ids)
+    val labelFilter = params.labels.toNel.map(elasticsearch.filters.terms("labels", _))
+    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(elasticsearch.filters.exists)
+    val archivedFilter = params.archived.map(elasticsearch.filters.existsOrMissing(editsField("archived"), _))
+    val hasExports = params.hasExports.map(elasticsearch.filters.existsOrMissing("exports", _))
+    val hasIdentifier = params.hasIdentifier.map(idName => elasticsearch.filters.exists(NonEmptyList(identifierField(idName))))
+    val missingIdentifier = params.missingIdentifier.map(idName => elasticsearch.filters.missing(NonEmptyList(identifierField(idName))))
+    val uploadedByFilter = params.uploadedBy.map(uploadedBy => elasticsearch.filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
     val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
     val costFilter = params.payType match {
       case Some(PayType.Free) => searchFilters.freeFilter
@@ -152,8 +152,8 @@ class ElasticSearch(
     }
 
     val usageFilter =
-      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
-        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
+      params.usageStatus.toNel.map(status => elasticsearch.filters.terms("usagesStatus", status.map(_.toString))) ++
+        params.usagePlatform.toNel.map(elasticsearch.filters.terms("usagesPlatform", _))
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
@@ -193,7 +193,7 @@ class ElasticSearch(
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
-      ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
+      ).toNel.map(filter => filter.list.reduceLeft(elasticsearch.filters.and(_, _)))
 
     val withFilter = filterOpt.map { f =>
       boolQuery must (query) filter f
@@ -328,7 +328,7 @@ class ElasticSearch(
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
-      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
+      case running: Running => elasticsearch.filters.and(query, elasticsearch.filters.mustNot(elasticsearch.filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery

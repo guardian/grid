@@ -1,14 +1,14 @@
-package lib.elasticsearch
+package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.searches.queries.{NestedQuery, Query}
+import com.sksamuel.elastic4s.ElasticDsl.{existsQuery, idsQuery, must, rangeQuery, should, termQuery, termsQuery}
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.queries.{NestedQuery, Query}
 import com.sksamuel.elastic4s.requests.searches.term.TermQuery
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
-import scalaz.syntax.foldable1._
+import scalaz.Scalaz.ToFoldable1Ops
 
 object filters {
 
