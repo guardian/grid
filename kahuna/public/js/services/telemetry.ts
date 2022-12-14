@@ -14,7 +14,7 @@ const getStoredId = (storage: Storage, key: string): string => {
 
 const getBrowserId = () => getStoredId(localStorage, 'browserUuid');
 
-const getSessionId = () => getStoredId(localStorage, 'sessionUuid');
+const getSessionId = () => getStoredId(sessionStorage, 'sessionUuid');
 
 const getEnv = () => {
     const url = window.location.hostname;
