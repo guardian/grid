@@ -1,15 +1,16 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationNotRunningError, MigrationStatusProvider, NotRunning, Paused, Running}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationNotRunningError, MigrationStatusProvider, NotRunning, Paused, PersistedQueries, Running, filters}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl.{addAlias, aliases, removeAlias, _}
+import com.sksamuel.elastic4s.ElasticDsl.{addAlias, aliases, removeAlias, filters => _, _}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.Terms
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.metrics.TopHits
-import lib.{FailedMigrationDetails, FailedMigrationSummary, FailedMigrationsGrouping, FailedMigrationsOverview}
+import lib.{FailedMigrationDetails, FailedMigrationSummary, FailedMigrationsGrouping, FailedMigrationsOverview, ThrallConfig}
+import org.joda.time.DateTime
 import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,12 +25,18 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   private val scrollKeepAlive = 5.minutes
 
-  def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+  def startScrollingImageIdsToMigrate(migrationIndexName: String, config: ThrallConfig)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
-    val query = search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive).size(100) query not(
-      matchQuery("esInfo.migration.migratedTo", migrationIndexName),
-      existsQuery(s"esInfo.migration.failures.$migrationIndexName")
-    )
+    val query = search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive).size(100) query (
+      must(not(
+        matchQuery("esInfo.migration.migratedTo", migrationIndexName),
+        existsQuery(s"esInfo.migration.failures.$migrationIndexName")
+      ),
+      should(
+        PersistedQueries.persistedFilter(config.persistedRootCollections, config.persistenceIdentifier),
+        filters.date("uploadTime", None, Some(DateTime.parse("2022-12-01"))).get // TODO not .get
+      )
+    ))
     executeAndLog(query, "retrieving next batch of image ids to migrate").map { response =>
       ScrolledSearchResults(response.result.hits.hits.toList, response.result.scrollId)
     }

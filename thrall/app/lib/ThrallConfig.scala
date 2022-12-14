@@ -33,6 +33,12 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
 
+  val persistenceIdentifier = string("persistence.identifier")
+
+  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
+    case Some(collections) => collections.split(',').toList
+    case None => List(s"${staffPhotographerOrganisation} Archive")
+  }
 
   val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
 

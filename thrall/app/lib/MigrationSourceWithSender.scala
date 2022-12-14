@@ -29,6 +29,7 @@ object MigrationSourceWithSender extends GridLogging {
     es: ElasticSearch,
     gridClient: GridClient,
     projectionParallelism: Int,
+    config: ThrallConfig
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
     // scroll through elasticsearch, finding image ids and versions to migrate
@@ -65,7 +66,7 @@ object MigrationSourceWithSender extends GridLogging {
             val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
               case (Paused(_), _) => Future.successful(List.empty)
               case (InProgress(migrationIndexName), None) =>
-                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
+                es.startScrollingImageIdsToMigrate(migrationIndexName, config).map(handleScrollResponse)
               case (InProgress(_), Some(scrollId)) =>
                 es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
               case _ => Future.successful(List.empty)
