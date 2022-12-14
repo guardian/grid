@@ -11,6 +11,11 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import { v4 } from 'uuid';
+import { sendTelemetryEvent } from '../services/telemetry';
+import {structureQuery} from './structured-query/syntax';
+import { search } from '.';
+
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -179,6 +184,31 @@ query.controller('SearchQueryCtrl', [
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
+        const structuredQuery = structureQuery(ctrl.filter.query);
+        const searchUuid = v4();
+        structuredQuery.forEach(queryComponent => {
+            // e.g. filter or search:
+            // search > {type: 'text', value: 'my search'}
+            // filter > {type: 'filter', filterType: 'inclusion', key: 'is', value: 'cool'}
+            const { type } = queryComponent;
+            const formattedType = (type) => {
+                if (type === 'text') { return 'GRID_SEARCH'; }
+                if (type === 'filter') { return 'GRID_FILTER'; }
+                return `GRID_${type.toUpperCase()}`;
+            };
+            const { nonFree, uploadedByMe } = ctrl.filter;
+            // nonFree is unfortunately either a boolean, stringified boolean, or undefined
+            const freeToUseOnly = (!(nonFree === 'true' || nonFree === true)).toString();
+            const uploadedByMeOnly = (uploadedByMe).toString();
+
+            // In case search is empty, as with a search containing only filters
+            sendTelemetryEvent(formattedType(type), {
+                ...queryComponent, 
+                searchUuid: searchUuid,
+                freeToUseOnly,
+                uploadedByMe: uploadedByMeOnly
+            }, 1);
+        });
 
         $state.go('search.results', filter);
     }));
