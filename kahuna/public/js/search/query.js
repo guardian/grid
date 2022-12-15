@@ -186,6 +186,27 @@ query.controller('SearchQueryCtrl', [
         }
         const structuredQuery = structureQuery(ctrl.filter.query);
         const searchUuid = v4();
+        const { nonFree, uploadedByMe } = ctrl.filter;
+        // nonFree is unfortunately either a boolean, stringified boolean, or undefined
+        const freeToUseOnly = (!(nonFree === 'true' || nonFree === true));
+        const uploadedByMeOnly = (uploadedByMe);
+
+        const sendFilterTelemetryEvent = (key, value) => {
+            sendTelemetryEvent('GRID_FILTER', {
+                type: 'filter', 
+                filterType: 'inclusion',
+                key: key, 
+                value: value,
+                searchUuid
+            }, 1)
+        }
+        if (freeToUseOnly) {  
+            sendFilterTelemetryEvent('freeToUseOnly', 'true')
+        }
+        if (uploadedByMeOnly) {  
+            sendFilterTelemetryEvent('uploadedByMeOnly', 'true')
+        }
+
         structuredQuery.forEach(queryComponent => {
             // e.g. filter or search:
             // search > {type: 'text', value: 'my search'}
@@ -195,20 +216,16 @@ query.controller('SearchQueryCtrl', [
                 if (type === 'text') { return 'GRID_SEARCH'; }
                 if (type === 'filter') { return 'GRID_FILTER'; }
                 return `GRID_${type.toUpperCase()}`;
-            };
-            const { nonFree, uploadedByMe } = ctrl.filter;
-            // nonFree is unfortunately either a boolean, stringified boolean, or undefined
-            const freeToUseOnly = (!(nonFree === 'true' || nonFree === true)).toString();
-            const uploadedByMeOnly = (uploadedByMe).toString();
+            }
 
             // In case search is empty, as with a search containing only filters
             sendTelemetryEvent(formattedType(type), {
                 ...queryComponent, 
                 searchUuid: searchUuid,
-                freeToUseOnly,
-                uploadedByMe: uploadedByMeOnly
             }, 1);
         });
+
+        
 
         $state.go('search.results', filter);
     }));
