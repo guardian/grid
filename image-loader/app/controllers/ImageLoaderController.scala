@@ -62,12 +62,13 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
+    val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
 
     val initialContext = MarkerMap(
         "requestType" -> "load-image",
         "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
         "identifiers" -> identifiers.getOrElse(FALLBACK),
-        "uploadTime" -> uploadTime.getOrElse(FALLBACK),
+        "uploadTime" -> uploadTimeToRecord.toString,
         "filename" -> filename.getOrElse(FALLBACK)
     )
     logger.info(initialContext, "loadImage request start")
@@ -78,13 +79,11 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
-      val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
         initialContext ++ Map(
           "uploadedBy" -> uploadedByToRecord,
-          "uploadTime" -> uploadTimeToRecord.toString,
           "requestId" -> RequestLoggingFilter.getRequestId(req)
         )
 
