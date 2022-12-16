@@ -2,6 +2,7 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 import {ChangeEvent, useMemo} from "react";
+import {getFeatureSwitchActive} from "../gr-feature-switch-panel/gr-feature-switch-panel";
 
 type Tenant = {
   id: string;
@@ -10,7 +11,7 @@ type Tenant = {
 
 type GrTenantSwitcherProps = {
   tenantOptions: Tenant[];
-  tenancy: any;
+  tenancy: any; // TODO improve!
   $window: angular.IWindowService;
 }
 const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
@@ -18,9 +19,9 @@ const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
   tenancy,
   $window
 }) => {
-  if (!tenantOptions.length) {
-    tenancy.clear();
-    return;
+  if (!getFeatureSwitchActive('multitenancy') || !tenantOptions.length) {
+    // tenancy.clear();
+    return null;
   }
   const onSelectTenant = (ev: ChangeEvent<HTMLSelectElement>) => {
     const id = (ev.target as any).value as string;
