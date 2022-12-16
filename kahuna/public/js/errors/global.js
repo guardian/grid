@@ -14,8 +14,8 @@ export var globalErrors = angular.module(
 globalErrors.factory('globalErrors', [function() {
     var errors = {};
 
-    function trigger(key) {
-        errors[key] = true;
+    function trigger(key, optMsg) {
+        errors[key] = optMsg || true;
     }
 
     function destroy(key) {

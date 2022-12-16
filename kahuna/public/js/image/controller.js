@@ -80,6 +80,7 @@ image.controller('ImageCtrl', [
   'editsService',
   'keyboardShortcut',
   'cropSettings',
+  'globalErrors',
 
 
   function ($rootScope,
@@ -100,7 +101,8 @@ image.controller('ImageCtrl', [
             imageUsagesService,
             editsService,
             keyboardShortcut,
-            cropSettings) {
+            cropSettings,
+            globalErrors) {
 
     let ctrl = this;
 
@@ -208,7 +210,7 @@ image.controller('ImageCtrl', [
     ctrl.shareImage = async () => {
        ctrl.image.getLink('ui:image').then(link => {
            navigator.clipboard.writeText(link.href);
-           ctrl.notificationMsg = "A link to your images has been copied to your clipboard.";
+           globalErrors.trigger('clipboard', link.href);
        });
     };
     ctrl.onCropsDeleted = () => {

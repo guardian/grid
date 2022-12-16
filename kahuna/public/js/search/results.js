@@ -353,16 +353,12 @@ results.controller('SearchResultsCtrl', [
         };
 
         ctrl.shareSelection = async () => {
-            Promise.all(
-              ctrl.selectedImages.map(image => {
-                return image.getLink('ui:image').then(link => link.href);
-              })
-            ).then(sharedImagesUrl =>{
-              navigator.clipboard.writeText(sharedImagesUrl.join(',')).then(
-                () => ctrl.notificationMsg = "A link to your images has been copied to your clipboard.",
-                (error) => console.log(error)
-              );
-            });
+              $q.all(ctrl.selectedImages.map(image => { return image.data.id }).toArray()).
+              then(sharedImagesIds => {
+                const sharedUrl = $window._clientConfig.rootUri + "/search?ids=" + sharedImagesIds.join(',');
+                navigator.clipboard.writeText(sharedUrl)
+                globalErrors.trigger('clipboard', sharedUrl)
+              });
         };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);

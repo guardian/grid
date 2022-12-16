@@ -42,8 +42,10 @@
                  ng-click="ctrl.dismiss('unknown')">close</gr-icon>
     </div>
 
-    <div class="global-error warning" ng-message="clipboard">
-        A link to your images has been copied to your clipboard.
+    <div class="global-error warning" id="clipboard" ng-message="clipboard">
+        <gr-icon >done</gr-icon>
+        A link to your images has been copied to your clipboard. Preview the URL
+        <a href="{{ctrl.errors['clipboard']}}"  class="coloured-link">here</a>.
 
         <gr-icon class="global-error__close"
                  title="Close"
