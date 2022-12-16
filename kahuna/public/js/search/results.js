@@ -353,11 +353,11 @@ results.controller('SearchResultsCtrl', [
         };
 
         ctrl.shareSelection = async () => {
-              $q.all(ctrl.selectedImages.map(image => { return image.data.id }).toArray()).
+              $q.all(ctrl.selectedImages.map(image => { return image.data.id; }).toArray()).
               then(sharedImagesIds => {
                 const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + sharedImagesIds.join(',');
-                navigator.clipboard.writeText(sharedUrl)
-                globalErrors.trigger('clipboard', sharedUrl)
+                navigator.clipboard.writeText(sharedUrl);
+                globalErrors.trigger('clipboard', sharedUrl);
               });
         };
 
