@@ -26,11 +26,6 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
-import '../components/gr-notification-banner/gr-notification-banner';
-
-
-
-
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'kahuna.edits.service',
@@ -54,7 +49,6 @@ const image = angular.module('kahuna.image.controller', [
   'gr.keyboardShortcut',
   'gr.metadataValidity',
   'gr.displayCrops',
-  'gr.notificationBanner',
   'gu.date',
   radioList.name,
   cropUtil.name

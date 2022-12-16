@@ -36,11 +36,6 @@
     "ui-router-extras": "^0.1.3",
     "uri-templates": "0.1.5"
   },
-  "optionalDependencies":{
-    "@bbc/igm-btn": "^7.4.3",
-    "@bbc/igm-gel-icon": "^6.1.1",
-    "@bbc/igm-notification": "^4.0.0"
-  },
   "devDependencies": {
     "@babel/core": "^7.9.0",
     "@babel/eslint-parser": "^7.16.5",
