@@ -11,11 +11,7 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
-import { v4 } from 'uuid';
-import { sendTelemetryEvent, sendTelemetryForQuery } from '../services/telemetry';
-import {structureQuery} from './structured-query/syntax';
-import { search } from '.';
-
+import { sendTelemetryForQuery } from '../services/telemetry';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -64,7 +60,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.resetQuery = resetQuery;
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe)
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
 
     // Note that this correctly uses local datetime and returns
     // midnight for the local user
@@ -187,9 +183,9 @@ query.controller('SearchQueryCtrl', [
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
+
         const { nonFree, uploadedByMe } = ctrl.filter;
-        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe)
-        
+        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
 
         $state.go('search.results', filter);
     }));
