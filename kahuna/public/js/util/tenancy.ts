@@ -1,10 +1,15 @@
 import * as angular from 'angular';
+import { getFeatureSwitchActive } from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export const tenancy = angular.module('util.tenancy', []);
 
 tenancy.factory('tenancy', ['$window', function tenancy($window: angular.IWindowService) {
   function get() {
-    return $window.localStorage.getItem('tenant');
+    if (getFeatureSwitchActive('multitenancy')) {
+      return $window.localStorage.getItem('tenant');
+    } else {
+      return null;
+    }
   }
   function set(tenantId: string) {
     return $window.localStorage.setItem('tenant', tenantId);
