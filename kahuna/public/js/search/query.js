@@ -59,9 +59,6 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.resetQuery = resetQuery;
 
-    const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-
     // Note that this correctly uses local datetime and returns
     // midnight for the local user
     const lastMidnight  = moment().startOf('day').toISOString();
@@ -236,6 +233,9 @@ query.controller('SearchQueryCtrl', [
     function resetQuery() {
         ctrl.filter.query = undefined;
     }
+
+    const { nonFree, uploadedByMe } = ctrl.filter;
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
 }]);
 
 query.directive('searchQuery', [function() {
