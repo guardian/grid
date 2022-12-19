@@ -1,7 +1,7 @@
 {
   // An API key used to ingest images from the s3watcher.
   s3Watcher: {
-    key: ''
+    key: 'dev-'
   },
 
   es6: {
