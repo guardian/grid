@@ -36,10 +36,10 @@ th {
   fill: white;
 }
 
-.panel {
+:global(.gr-panel__content).panel {
   position: fixed;
   top: 50px;
-  right: 0px;
+  right: 0;
   width: 400px;
   background-color: #333;
   box-shadow: 2px 2px 10px rgba(0,0,0, 0.8);
