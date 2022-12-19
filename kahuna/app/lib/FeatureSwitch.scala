@@ -11,7 +11,7 @@ object ExampleSwitch extends FeatureSwitch(
 )
 object MultitenancySwitch extends FeatureSwitch(
   key = "multitenancy",
-  title = """Multi-tenanct behaviour for the grid. Requires setting up the "tenants" config options!""",
+  title = """Multi-tenant behaviour for the grid. Requires setting up the "tenants" config options!""",
   default = false
 )
 
