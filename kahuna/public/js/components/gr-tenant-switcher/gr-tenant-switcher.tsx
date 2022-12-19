@@ -1,8 +1,8 @@
 import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
-import {ChangeEvent, useMemo} from "react";
-import {getFeatureSwitchActive} from "../gr-feature-switch-panel/gr-feature-switch-panel";
+import { ChangeEvent, useMemo } from "react";
+import { getFeatureSwitchActive } from "../gr-feature-switch-panel/gr-feature-switch-panel";
 
 type Tenant = {
   id: string;
@@ -12,12 +12,12 @@ type Tenant = {
 type GrTenantSwitcherProps = {
   tenantOptions: Tenant[];
   tenancy: any; // TODO improve!
-  $window: angular.IWindowService;
+  $state: any;
 }
 const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
   tenantOptions,
   tenancy,
-  $window
+  $state
 }) => {
   if (!getFeatureSwitchActive('multitenancy') || !tenantOptions.length) {
     // tenancy.clear();
@@ -32,7 +32,7 @@ const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
       tenancy.set(id);
     }
 
-    $window.location.reload();
+    $state.reload();
   };
 
   const pickedTenant = useMemo(() => tenancy.get() || '_default', []);
@@ -50,4 +50,4 @@ const GrTenantSwitcher: React.FC<GrTenantSwitcherProps> = ({
 };
 
 export const grTenantSwitcher = angular.module('gr.tenantSwitcher', [])
-  .component('grTenantSwitcher', react2angular(GrTenantSwitcher, ['tenantOptions'], ['tenancy', '$window']));
+  .component('grTenantSwitcher', react2angular(GrTenantSwitcher, ['tenantOptions'], ['tenancy', '$state']));
