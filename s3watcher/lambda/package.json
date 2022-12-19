@@ -24,7 +24,7 @@
     "@vercel/ncc": "^0.24.0"
   },
   "scripts": {
-    "local": "npm run build && node-lambda run -h index.handler -j ../event.json",
+    "local": "npm run build && node-lambda run -H target/index.handler -j ../event.json -x ../context.json",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint index.ts lib",

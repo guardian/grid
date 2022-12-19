@@ -1,9 +1,9 @@
-const configLoader = require('./properties');
+const configLoader = require('./configLoader');
 const AWS = require('aws-sdk');
 
 AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: 'media-service'});
 
-const configObject = configLoader.load('s3watcher');
+const configObject = configLoader.load('s3Watcher');
 
 const s3IngestBucket = configLoader.get(configObject, 's3.ingest.bucket');
 
@@ -17,7 +17,7 @@ const config = {
 };
 const configJson = JSON.stringify(config, null, 2);
 
-const s3 = new AWS.S3({});
+const s3 = configLoader.s3Client(config.region);
 console.log('Writing to s3://' +s3IngestBucket+ '/config.json');
 
 s3.putObject({

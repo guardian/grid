@@ -13,10 +13,9 @@ function pingle() {
   COLLECTIONS="https://media-collections.local.dev-gutools.co.uk/management/healthcheck"
   AUTH="https://media-auth.local.dev-gutools.co.uk/management/healthcheck"
   LEASES="https://media-leases.local.dev-gutools.co.uk/management/healthcheck"
-  INNER_SERVICE_STATUS="https://thrall.media.local.dev-gutools.co.uk/management/innerServiceStatusCheck?depth=2"
 
 
-  lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $INNER_SERVICE_STATUS $KAHUNA $API $USAGE $AUTH $LEASES"
+  lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES"
 
   echo "      \033[35mPingling!\033[m"
   for URL in $lu
