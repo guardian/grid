@@ -12,6 +12,7 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import { sendTelemetryForQuery } from '../services/telemetry';
+import { renderQuery, structureQuery } from './structured-query/syntax';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -38,6 +39,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
+    ctrl.orgOwnedLabel = window._clientConfig.orgOwnedLabel;
+    ctrl.orgOwnedValue = window._clientConfig.orgOwnedValue;
 
     ctrl.canUpload = false;
 
@@ -169,6 +172,26 @@ query.controller('SearchQueryCtrl', [
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
+        if (filter.orgOwned){
+            const structuredQuery = structureQuery(ctrl.filter.query);
+            if (!structuredQuery.find(item => item.value === ctrl.orgOwnedValue)){
+                structuredQuery.push({
+                    filterType: "inclusion",
+                    key : "is",
+                    type: "filter",
+                    value: ctrl.orgOwnedValue
+                });
+            }
+
+            ctrl.filter.query = renderQuery(structuredQuery);
+        } else {
+            const structuredQuery = structureQuery(ctrl.filter.query);
+            const indexToDelete = structuredQuery.findIndex(item => item.value === ctrl.orgOwnedValue);
+            if (indexToDelete >= 0){
+                structuredQuery.splice(indexToDelete, 1);
+                ctrl.filter.query = renderQuery(structuredQuery);
+            }
+        }
 
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
@@ -177,13 +200,13 @@ query.controller('SearchQueryCtrl', [
                 storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
                 storage.setJs("isUploadedByMe", false, true);
                 storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+                storage.setJS("orgOwned", filter.orgOwned);
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
         const { nonFree, uploadedByMe } = ctrl.filter;
         sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-
         $state.go('search.results', filter);
     }));
 
@@ -209,6 +232,7 @@ query.controller('SearchQueryCtrl', [
     mediaApi.getSession().then(session => {
         const isNonFree = storage.getJs("isNonFree", true);
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
+        const orgOwned = storage.getJs("orgOwned", true);
 
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
@@ -227,6 +251,13 @@ query.controller('SearchQueryCtrl', [
             ctrl.filter.nonFree = "true";
         } else {
           ctrl.filter.nonFree = undefined;
+        }
+
+        if (orgOwned === null) {
+            storage.setJs("orgOwned",ctrl.filter.orgOwned);
+        }
+        else {
+            ctrl.filter.orgOwned =  orgOwned;
         }
     });
 

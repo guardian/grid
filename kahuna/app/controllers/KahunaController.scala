@@ -55,6 +55,9 @@ class KahunaController(
     val returnUri = config.rootUri + okPath
     val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
+    val orgOwnedLabel = config.orgOwnedLabel.getOrElse("Owned by us")
+    val orgOwnedValue = config.orgOwnedValue.getOrElse("")
+
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
       fieldAliases,
@@ -64,6 +67,8 @@ class KahunaController(
       additionalNavigationLinks,
       costFilterLabel,
       costFilterChargeable,
+      orgOwnedLabel,
+      orgOwnedValue,
       config,
       featureSwitchesJson
     ))
