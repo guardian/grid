@@ -11,6 +11,7 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import { sendTelemetryForQuery } from '../services/telemetry';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -180,6 +181,9 @@ query.controller('SearchQueryCtrl', [
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
+        const { nonFree, uploadedByMe } = ctrl.filter;
+        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+
         $state.go('search.results', filter);
     }));
 
@@ -229,6 +233,9 @@ query.controller('SearchQueryCtrl', [
     function resetQuery() {
         ctrl.filter.query = undefined;
     }
+
+    const { nonFree, uploadedByMe } = ctrl.filter;
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
 }]);
 
 query.directive('searchQuery', [function() {
