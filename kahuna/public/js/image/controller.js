@@ -202,10 +202,9 @@ image.controller('ImageCtrl', [
     };
 
     ctrl.shareImage = async () => {
-       ctrl.image.getLink('ui:image').then(link => {
-           navigator.clipboard.writeText(link.href);
-           globalErrors.trigger('clipboard', link.href);
-       });
+       const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + ctrl.image.data.id;
+       navigator.clipboard.writeText(sharedUrl);
+       globalErrors.trigger('clipboard', sharedUrl);
     };
     ctrl.onCropsDeleted = () => {
       // a bit nasty - but it updates the state of the page better than trying to do that in
