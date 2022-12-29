@@ -36,9 +36,14 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
         Map(
           "templateName" -> "C",
           "usageRights" -> Map(
-            "category" -> "original-source"
+            "category" -> "composite",
+            "creator" -> "Creator A",
+            "photographer" -> "Photographer A",
+            "publication" -> "Publication A",
+            "suppliers" -> "Supplier A",
+            "restrictions" -> "Sample composite restriction",
           ),
-        ),
+        )
       )
     ))
 
@@ -90,8 +95,12 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
       template.usageRights shouldBe defined
 
       val usageRights = template.usageRights.get
-      usageRights.category shouldBe "original-source"
-      usageRights.restrictions shouldBe None
+      usageRights.category shouldBe "composite"
+      usageRights.creator shouldBe Some("Creator A")
+      usageRights.photographer shouldBe Some("Photographer A")
+      usageRights.publication shouldBe Some("Publication A")
+      usageRights.restrictions shouldBe Some("Sample composite restriction")
+      usageRights.suppliers shouldBe Some("Supplier A")
     }
   }
 
