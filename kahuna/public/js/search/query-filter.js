@@ -4,8 +4,8 @@ import {getCollection} from '../search-query/query-syntax';
 
 export var queryFilters = angular.module('kahuna.search.filters.query', []);
 
-var containsSpace = s => / /.test(s);
-var stripDoubleQuotes = s => s.replace(/"/g, '');
+const containsSpace = s => / /.test(s);
+const stripDoubleQuotes = s => s && s.replace(/"/g, '');
 
 export function maybeQuoted(value) {
     if (containsSpace(value)) {
