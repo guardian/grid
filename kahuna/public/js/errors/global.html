@@ -50,7 +50,14 @@
         <gr-icon class="global-error__close"
                  title="Close"
                  ng-click="ctrl.dismiss('clipboard')">close</gr-icon>
+    </div>
+    <div class="global-error warning" id="clipboard-max-warn" ng-message="clipboard-max-warn" tabindex="0" ng-blur="ctrl.dismiss('clipboard')"  >
+        <gr-icon >warning</gr-icon>
+        You can only share a maximum of 44 images!
 
+        <gr-icon class="global-error__close"
+                 title="Close"
+                 ng-click="ctrl.dismiss('clipboard-max-warn')">close</gr-icon>
     </div>
 
     <div class="global-error error" ng-message="server">

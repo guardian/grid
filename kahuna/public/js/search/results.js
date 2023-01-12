@@ -353,12 +353,17 @@ results.controller('SearchResultsCtrl', [
         };
 
         ctrl.shareSelection = async () => {
+            if (ctrl.selectionCount >= 45){
+              globalErrors.trigger('clipboard-max-warn');
+            }
+            else {
               $q.all(ctrl.selectedImages.map(image => { return image.data.id; }).toArray()).
               then(sharedImagesIds => {
                 const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + sharedImagesIds.join(',');
                 navigator.clipboard.writeText(sharedUrl);
                 globalErrors.trigger('clipboard', sharedUrl);
               });
+            }
         };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
@@ -400,6 +405,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode) {
+
                 // TODO: prevent text selection?
                 if ($event.shiftKey) {
                     var lastSelectedUri = ctrl.selectedItems.last();
