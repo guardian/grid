@@ -33,7 +33,8 @@ case class MetadataTemplateUsageRights(category: String,
                                        photographer: Option[String] = None,
                                        publication: Option[String] = None,
                                        restrictions: Option[String] = None,
-                                       source: Option[String] = None)
+                                       source: Option[String] = None,
+                                       suppliers: Option[String] = None)
 
 object MetadataTemplateUsageRights {
   implicit val writes: Writes[MetadataTemplateUsageRights] = Json.writes[MetadataTemplateUsageRights]
@@ -97,7 +98,9 @@ object MetadataTemplate {
             restrictions = if (usageRightConfig.hasPath("restrictions"))
               Some(usageRightConfig.getString("restrictions")) else None,
             source = if (usageRightConfig.hasPath("source"))
-              Some(usageRightConfig.getString("source")) else None
+              Some(usageRightConfig.getString("source")) else None,
+            suppliers = if (usageRightConfig.hasPath("suppliers"))
+              Some(usageRightConfig.getString("suppliers")) else None
           ))
         } else None
 
