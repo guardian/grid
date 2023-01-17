@@ -63,7 +63,7 @@
 
                 <a class="results-toolbar-item results-toolbar-item--right"
                    ng-class="{'batch-archive__button--disabled': ctrl.selectionCount >= 45}"
-                   title="{{ctrl.selectionCount >= 45 ? 'Maximum 44 images please!' : ''}}"
+                   title="{{ctrl.selectionCount >= 45 ? 'You can only share a maximum of 44 images!' : ''}}"
                    ng-click="ctrl.selectionCount < 45 && ctrl.shareSelection()"
                    ng-if="ctrl.selectionCount > 0">
                     <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
