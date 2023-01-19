@@ -51,19 +51,19 @@ globalErrors.controller('GlobalErrorsCtrl',
             ctrl.dismiss = (error) => globalErrors.destroy(error);
 
             ctrl.setFocus = () => {
-                const autoHideErrorDivs = document.getElementsByClassName('autoHide')
+                const autoHideErrorDivs = document.getElementsByClassName('autoHide');
                 if (autoHideErrorDivs.length > 0) {
                     for (let errorDiv of autoHideErrorDivs) {
                         errorDiv.focus();
-                        errorDiv.addEventListener("keyup", (event) => {
+                        errorDiv.addEventListener("keydown", (event) => {
                             if (event.key == "Escape") {
-                                ctrl.dismiss(errorDiv.id)
+                                ctrl.dismiss(errorDiv.id);
                                 ctrl.errors = globalErrors.getErrors();
                             }
                         });
                     }
                 }
-            }
+            };
 
             $scope.$watchCollection(() => ctrl.errors, () => {
                 setTimeout(() => {
