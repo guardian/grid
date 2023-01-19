@@ -45,13 +45,13 @@
     <div class="global-error warning autoHide" id="clipboard" ng-message="clipboard" tabindex="0" ng-blur="ctrl.dismiss('clipboard')">
         <gr-icon >done</gr-icon>
         A link to your images has been copied to your clipboard. Preview the URL
-        <a ng-blur="ctrl.dismiss('clipboard')" href="{{ctrl.errors['clipboard']}}"  rel="noopener" target="_blank" class="coloured-link">here</a>.
+        <a href="{{ctrl.errors['clipboard']}}"  rel="noopener" target="_blank" class="coloured-link">here</a>.
 
         <gr-icon class="global-error__close"
                  title="Close"
                  ng-click="ctrl.dismiss('clipboard')">close</gr-icon>
     </div>
-    <div class="global-error warning autoHide" id="clipboard-max-warn" ng-message="clipboard-max-warn" tabindex="0" ng-blur="ctrl.dismiss('clipboard-max-warn')">
+    <div class="global-error error autoHide" id="clipboard-max-warn" ng-message="clipboard-max-warn" tabindex="0" ng-blur="ctrl.dismiss('clipboard-max-warn')">
         <gr-icon >warning</gr-icon>
         You can only share a maximum of 44 images, please reduce the number of images in order to share your selection.
         <gr-icon class="global-error__close"
