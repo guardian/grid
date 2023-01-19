@@ -35,8 +35,8 @@ globalErrors.factory('globalErrors', [function() {
 
 
 globalErrors.controller('GlobalErrorsCtrl',
-    ['$location', 'globalErrors', '$scope',
-        function ($location, globalErrors, $scope) {
+    ['$location', 'globalErrors',
+        function ($location, globalErrors) {
 
             var ctrl = this;
             ctrl.errors = globalErrors.getErrors();
@@ -68,7 +68,7 @@ globalErrors.controller('GlobalErrorsCtrl',
                             ctrl.dismiss(errorDiv.id);
                             ctrl.errors = globalErrors.getErrors();
                         }
-                    }  
+                    }
                 }
             });
         }]);
