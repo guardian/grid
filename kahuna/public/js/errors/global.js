@@ -35,21 +35,42 @@ globalErrors.factory('globalErrors', [function() {
 
 
 globalErrors.controller('GlobalErrorsCtrl',
-                  ['$location', 'globalErrors',
-                   function($location, globalErrors) {
+    ['$location', 'globalErrors', '$scope',
+        function ($location, globalErrors, $scope) {
 
-    var ctrl = this;
-    ctrl.errors = globalErrors.getErrors();
+            var ctrl = this;
+            ctrl.errors = globalErrors.getErrors();
 
-    ctrl.invalidSessionHelpLink = window._clientConfig.invalidSessionHelpLink;
-    ctrl.supportEmailLink = window._clientConfig.supportEmail;
-    ctrl.systemName = window._clientConfig.systemName;
+            ctrl.invalidSessionHelpLink = window._clientConfig.invalidSessionHelpLink;
+            ctrl.supportEmailLink = window._clientConfig.supportEmail;
+            ctrl.systemName = window._clientConfig.systemName;
 
-    // handy as these can happen anywhere
-    ctrl.getCurrentLocation = () => $location.url();
+            // handy as these can happen anywhere
+            ctrl.getCurrentLocation = () => $location.url();
 
-    ctrl.dismiss = (error) => globalErrors.destroy(error);
-}]);
+            ctrl.dismiss = (error) => globalErrors.destroy(error);
+
+            ctrl.setFocus = () => {
+                const autoHideErrorDivs = document.getElementsByClassName('autoHide')
+                if (autoHideErrorDivs.length > 0) {
+                    for (let errorDiv of autoHideErrorDivs) {
+                        errorDiv.focus();
+                        errorDiv.addEventListener("keyup", (event) => {
+                            if (event.key == "Escape") {
+                                ctrl.dismiss(errorDiv.id)
+                                ctrl.errors = globalErrors.getErrors();
+                            }
+                        });
+                    }
+                }
+            }
+
+            $scope.$watchCollection(() => ctrl.errors, () => {
+                setTimeout(() => {
+                    ctrl.setFocus();
+                }, 1);
+            });
+        }]);
 
 
 globalErrors.directive('uiGlobalErrors', [function() {
