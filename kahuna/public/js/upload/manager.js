@@ -61,10 +61,15 @@ upload.factory('uploadManager',
         return jobs.values().next().value;
     }
 
+    function getJobs() {
+        return jobs;
+    }
+
     return {
         upload,
         uploadUri,
-        getLatestRunningJob
+        getLatestRunningJob,
+        getJobs
     };
 }]);
 
