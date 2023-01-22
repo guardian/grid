@@ -25,10 +25,9 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function (uploadMa
     // TODO: Show multiple jobs?
     ctrl.latestJob = uploadManager.getLatestRunningJob();
 
-    ctrl.displayWarning = (event) => {
+    ctrl.displayWarning = () => {
       if (uploadManager.getJobs().size > 0) {
-        event.returnValue = "Any on-going batch process to update the rights, metadata, or collections will be interrupted when you leave this page. It cannot be resumed later. Are you sure?";
-        return "Any on-going batch process to update the rights, metadata, or collections will be interrupted when you leave this page. It cannot be resumed later. Are you sure?";
+        return "";
       }
     };
 }]);
