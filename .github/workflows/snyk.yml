@@ -14,5 +14,6 @@ jobs:
       ORG: guardian
       SKIP_NODE: false
       SKIP_PYTHON: false
+      PIP_REQUIREMENTS_FILES: quarantine-status/lambda/requirements.txt
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
