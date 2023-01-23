@@ -13,5 +13,6 @@ jobs:
       DEBUG: true
       ORG: guardian
       SKIP_NODE: false
+      EXCLUDE: quarantine-status
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
