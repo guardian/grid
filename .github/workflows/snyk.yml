@@ -15,6 +15,6 @@ jobs:
       SKIP_NODE: false
       SKIP_PYTHON: false
       PIP_REQUIREMENTS_FILES: quarantine-status/lambda/requirements.txt
-      PYTHON_VERSION: 3.6
+      PYTHON_VERSION: 3.6.7
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
