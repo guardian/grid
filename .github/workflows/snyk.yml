@@ -13,5 +13,6 @@ jobs:
       DEBUG: true
       ORG: guardian
       SKIP_NODE: false
+      SKIP_PYTHON: false
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
