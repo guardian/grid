@@ -10,8 +10,11 @@ jobs:
   security:
     uses: guardian/.github/.github/workflows/sbt-node-snyk.yml@main
     with:
-      DEBUG: true
+      DEBUG: false
       ORG: guardian
       SKIP_NODE: false
+      SKIP_PYTHON: false
+      PIP_REQUIREMENTS_FILES: quarantine-status/lambda/requirements.txt
+      PYTHON_VERSION: 3.7.13
     secrets:
        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
