@@ -8,7 +8,7 @@ on:
 
 jobs:
   security:
-    uses: guardian/.github/.github/workflows/sbt-node-snyk.yml@nt/fix-python
+    uses: guardian/.github/.github/workflows/sbt-node-snyk.yml@main
     with:
       DEBUG: false
       ORG: guardian
