@@ -852,6 +852,12 @@ textarea.ng-invalid {
     font-size: 3rem;
 }
 
+.success {
+    background: #D5E5CF;
+    color: black;
+    padding: 20px 40px;
+    text-align: center;
+}
 .status {
     color: white;
     background-color: orange;
