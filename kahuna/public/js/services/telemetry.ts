@@ -50,7 +50,7 @@ const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string
 };
 
 export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean ) => {
-    const structuredQuery = structureQuery(query);
+    const structuredQuery = structureQuery(query || "");
     const searchUuid = v4();
     // nonFree is unfortunately either a boolean, stringified boolean, or undefined
     const freeToUseOnly = (!(nonFree === 'true' || nonFree === true));
