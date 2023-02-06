@@ -8,12 +8,20 @@ var upload = angular.module('kahuna.upload.controller', [
     'kahuna.upload.recent'
 ]);
 
-upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function (uploadManager, mediaApi) {
+upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function (uploadManager, mediaApi, $scope) {
     var ctrl = this;
 
-    window.onbeforeunload = function (e) {
-      ctrl.displayWarning(e);
-    };
+    $scope.$on("$locationChangeStart", function(event, _, current) {
+      // handle route changes
+      if (current.indexOf("/upload") > -1) {
+          ctrl.displayWarning(event);
+      }
+    });
+
+  window.onbeforeunload = function (e) {
+    ctrl.displayWarning(e);
+  };
+
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
     ctrl.systemName = window._clientConfig.systemName;
@@ -25,8 +33,11 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function (uploadMa
     // TODO: Show multiple jobs?
     ctrl.latestJob = uploadManager.getLatestRunningJob();
 
-    ctrl.displayWarning = () => {
+    ctrl.displayWarning = (e) => {
       if (uploadManager.getJobs().size > 0) {
+        if (confirm("You have uploads in progress. Are you sure you want to leave this page?") === false) {
+          e.preventDefault();
+        }
         return "";
       }
     };
