@@ -8,6 +8,8 @@ import { ImportAction, IngestConfig } from "./Lambda"
 import { S3, CloudWatch } from "aws-sdk"
 import { Logger } from "./Logging"
 
+const COPY_TO_LOWER_ENV_PROBABILITY = 0.01
+
 type ImportCall = (
   logger: Logger,
   req: GridImportRequest
@@ -51,6 +53,26 @@ export const transfer = async function (
     })
 
   if (uploadResult.succeeded) {
+
+    // ALSO copy a percentage sample of images to lower environment
+    const lowerEnvironmentIngestBucket = process.env.LOWER_ENVIRONMENT_INGEST_BUCKET
+    const isProd = config.stage.toLowerCase() === "prod"
+    if(isProd && lowerEnvironmentIngestBucket && lowerEnvironmentIngestBucket !== event.bucket && Math.random() < COPY_TO_LOWER_ENV_PROBABILITY){
+      const loggingFields = { filename: event.filename }
+      logger.info(`Also copying image to lower environment's ingest bucket (based on ${COPY_TO_LOWER_ENV_PROBABILITY} probability/sampling)...`, loggingFields)
+      await s3.copyObject({
+        CopySource: `/${s3ObjectRequest.Bucket}/${s3ObjectRequest.Key}`,
+        Bucket: lowerEnvironmentIngestBucket,
+        Key: s3ObjectRequest.Key,
+      }).promise()
+        .then(() => {
+          logger.info("Successfully copied image to lower environment's ingest bucket.", loggingFields)
+        })
+        .catch((err) => {
+          logger.error(`Error whilst copying ingested image to lower environment: ${err}`, loggingFields)
+        })
+    }
+
     logger.info(
       `Deleting from ingest bucket ${JSON.stringify(s3ObjectRequest)}`
     )
