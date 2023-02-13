@@ -60,7 +60,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     const lease = {
       createdAt: new Date(),
       access: templateLease.leaseType,
-      notes: resolvePlaceholders(templateLease.notes)
+      notes: templateLease.notes ? resolvePlaceholders(templateLease.notes) : undefined
     };
 
     if (templateLease.durationInMillis !== undefined) {
@@ -123,11 +123,11 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     if (ctrl.metadataTemplate) {
       collections.getCollections().then(existingCollections => {
         const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
-        const lease = ctrl.metadataTemplate.lease ? toLease(ctrl.metadataTemplate.lease) : undefined;
+        const leases = ctrl.metadataTemplate.leases.map(templateLease => toLease(templateLease));
         const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
         const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
 
-        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, lease});
+        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, leases});
       });
     } else {
       ctrl.cancel();
@@ -150,8 +150,8 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       if (ctrl.metadataTemplate.metadataFields.length > 0) {
         return editsService
           .update(ctrl.image.data.userMetadata.data.metadata, applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields), ctrl.image);
-        }
-      })
+      }
+    })
     .then(() => {
       if (ctrl.metadataTemplate.collectionFullPath) {
         return collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
@@ -165,9 +165,9 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       }
     })
     .then(() => {
-      if (ctrl.metadataTemplate.lease) {
-        const lease = toLease(ctrl.metadataTemplate.lease);
-        return leaseService.batchAdd(lease, [ctrl.image]);
+      if (ctrl.metadataTemplate.leases) {
+        const leases = ctrl.metadataTemplate.leases.map(lease => toLease(lease));
+        return leaseService.replace(ctrl.image, leases);
       }
     })
     .catch((e) => {

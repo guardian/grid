@@ -159,7 +159,7 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
     };
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, lease) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leases) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
       ctrl.collectionUpdatedByTemplate = false;
@@ -168,9 +168,13 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
 
-      if (angular.isDefined(lease)) {
+      if (angular.isDefined(leases)) {
+        const leasesFromTemplate = leases.map(lease => {
+          return {...lease, fromTemplate: true};
+        });
+
         ctrl.updatedLeases = [
-          {...lease, fromTemplate: true},
+          ...leasesFromTemplate,
           ...ctrl.image.data.leases.data.leases
         ];
         ctrl.leasesUpdatedByTemplate = true;

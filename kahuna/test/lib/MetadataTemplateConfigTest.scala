@@ -21,6 +21,16 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
               "value" -> "Sample byline from template",
               "resolveStrategy" -> "replace"
             )
+          ),
+          "leases" -> List(
+            Map(
+              "leaseType" -> "allow-use",
+              "notes" -> "Sample allow cropping lease note"
+            ),
+            Map(
+              "leaseType" -> "deny-syndication",
+              "notes" -> "Sample deny syndication lease note"
+            )
           )
         ),
         Map(
@@ -55,11 +65,14 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
       metadataTemplates.length shouldBe 3
     }
 
-    "should return a template with usage rights and metadata fields" in {
+    "should return a template with leases, usage rights and metadata fields" in {
       metadataTemplates.headOption.nonEmpty shouldBe true
       val template = metadataTemplates.head
       template.templateName shouldBe "A"
       template.usageRights shouldBe defined
+
+      val leases = template.leases
+      leases.nonEmpty shouldBe true
 
       val usageRights = template.usageRights.get
       usageRights.category shouldBe "social-media"

@@ -44,7 +44,7 @@ case class MetadataTemplate(
    templateName: String,
    metadataFields: Seq[MetadataTemplateField] = Nil,
    collectionFullPath: CollectionFullPath = Nil,
-   lease: Option[MetadataTemplateLease] = None,
+   leases: Seq[MetadataTemplateLease] = Nil,
    usageRights: Option[MetadataTemplateUsageRights] = None)
 
 object MetadataTemplate {
@@ -72,17 +72,17 @@ object MetadataTemplate {
           config.getStringList("collectionFullPath").asScala.seq
         } else Nil
 
-        val lease = if (config.hasPath("lease")) {
-          val leaseConfig = config.getConfig("lease")
-
-          Some(MetadataTemplateLease(
-            leaseType = leaseConfig.getString("leaseType"),
-            durationInMillis = if (leaseConfig.hasPath("duration"))
-              Some(leaseConfig.getDuration("duration").toMillis) else None,
-            notes = if (leaseConfig.hasPath("notes"))
-              Some(leaseConfig.getString("notes")) else None
-          ))
-        } else None
+        val leases = if (config.hasPath("leases")) {
+          config.getConfigList("leases").asScala.map(leaseConfig => {
+            MetadataTemplateLease(
+              leaseType = leaseConfig.getString("leaseType"),
+              durationInMillis = if (leaseConfig.hasPath("duration"))
+                Some(leaseConfig.getDuration("duration").toMillis) else None,
+              notes = if (leaseConfig.hasPath("notes"))
+                Some(leaseConfig.getString("notes")) else None
+            )
+          })
+        } else Nil
 
         val usageRights = if (config.hasPath("usageRights")) {
           val usageRightConfig = config.getConfig("usageRights")
@@ -104,6 +104,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, lease, usageRights)
+        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, leases, usageRights)
       }))
 }
