@@ -61,17 +61,17 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     SyndicationUsage.toString
   )
 
-  private val leaseHasStarted: Query = filters.or(
+  private def leaseHasStarted: Query = filters.or(
     filters.existsOrMissing("leases.leases.startDate", exists = false),
     filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
   )
 
-  private val leaseHasNotExpired: Query = filters.or(
+  private def leaseHasNotExpired: Query = filters.or(
     filters.existsOrMissing("leases.leases.endDate", exists = false),
     filters.date("leases.leases.endDate", Some(DateTime.now), None).get
   )
 
-  private val syndicationRightsPublished: Query = filters.or(
+  private def syndicationRightsPublished: Query = filters.or(
     filters.existsOrMissing("syndicationRights.published", exists = false),
     filters.date("syndicationRights.published", None, Some(DateTime.now)).get
   )
