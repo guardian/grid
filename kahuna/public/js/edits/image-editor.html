@@ -212,13 +212,13 @@
                    gr-collection-updated-by-template="ctrl.collectionUpdatedByTemplate"
                ></gr-collection-overlay>
                <span class="preview__collections__collection__apply-all" ng-if="ctrl.withBatch">
-                    <button ng-if="! ctrl.confirmDelete"
+                    <button ng-if="! ctrl.confirmDelete && !ctrl.collectionUpdatedByTemplate"
                             title="Apply these collections to all your current uploads"
                             ng-click="ctrl.batchApplyCollections()"
                     >⇔</button>
                     <button title="Remove ALL collections"
                             class="button button--confirm-delete"
-                            ng-if="ctrl.confirmDelete"
+                            ng-if="ctrl.confirmDelete && !ctrl.collectionUpdatedByTemplate"
                             ng-click="ctrl.batchRemoveCollections()">
                         <gr-icon>warning</gr-icon>Remove ALL collections in job?
                     </button>

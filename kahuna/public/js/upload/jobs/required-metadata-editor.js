@@ -33,6 +33,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
     // We do this check to ensure the copyright field doesn't disappear
     // if we set it to "".
     ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
+    ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.save = function() {
         ctrl.saving = true;
