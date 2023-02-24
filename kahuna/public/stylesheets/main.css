@@ -704,6 +704,9 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
+#share-with-url {
+    display: flex;
+}
 .top-bar-item__label {
     padding-left: 5px;
 }
@@ -871,6 +874,20 @@ textarea.ng-invalid {
     background-color: red;
 }
 
+#clipboard a {
+    position: relative;
+    top: 2px;
+    left: 1px;
+    color: black;
+}
+
+#clipboard span {
+    position: relative;
+    bottom: 3px;
+    border-bottom-color: black;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+}
 /* ==========================================================================
    Search
    ========================================================================== */

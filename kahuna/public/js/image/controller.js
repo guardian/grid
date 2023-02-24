@@ -202,7 +202,7 @@ image.controller('ImageCtrl', [
     };
 
     ctrl.shareImage = async () => {
-       const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + ctrl.image.data.id;
+       const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
        navigator.clipboard.writeText(sharedUrl);
        globalErrors.trigger('clipboard', sharedUrl);
     };

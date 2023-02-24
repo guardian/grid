@@ -45,7 +45,9 @@
     <div class="global-error success autoHide" id="clipboard" ng-message="clipboard" tabindex="0" ng-blur="ctrl.dismiss('clipboard')">
         <gr-icon >done</gr-icon>
         A link to your images has been copied to your clipboard. Preview the URL
-        <a href="{{ctrl.errors['clipboard']}}"  rel="noopener" target="_blank" class="coloured-link">here</a>.
+        <span>
+            <a href="{{ctrl.errors['clipboard']}}"  rel="noopener" target="_blank" class="coloured-link">here</a>
+        </span>
 
         <gr-icon class="global-error__close"
                  title="Close"
