@@ -61,9 +61,9 @@
                     <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
                 </a>
 
-                <a class="results-toolbar-item results-toolbar-item--right"
+                <a id="share-with-url" class="results-toolbar-item results-toolbar-item--right"
                    ng-class="{'batch-archive__button--disabled': ctrl.selectionCount >= 45}"
-                   gr-tooltip="{{ctrl.selectionCount >= 0 ? 'You can only share a maximum of 44 images!' : ''}}"
+                   gr-tooltip="{{ctrl.selectionCount >= 45 ? 'You can only share a maximum of 44 images!' : ''}}"
                    gr-tooltip-position="bottom"
                    ng-click="ctrl.selectionCount < 45 && ctrl.shareSelection()"
                    ng-if="ctrl.selectionCount > 0">
