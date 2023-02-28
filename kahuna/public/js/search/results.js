@@ -430,9 +430,6 @@ results.controller('SearchResultsCtrl', [
                     $window.getSelection().removeAllRanges();
                     toggleSelection(image);
                 }
-                if (ctrl.selectionCount >= 45){
-                    globalErrors.trigger('clipboard-max-warn');
-                }
             }
         };
 

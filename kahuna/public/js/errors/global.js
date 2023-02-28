@@ -35,8 +35,8 @@ globalErrors.factory('globalErrors', [function() {
 
 
 globalErrors.controller('GlobalErrorsCtrl',
-    ['$location', 'globalErrors',
-        function ($location, globalErrors) {
+    ['$location', 'globalErrors','$scope',
+        function ($location, globalErrors, $scope) {
 
             var ctrl = this;
             ctrl.errors = globalErrors.getErrors();
@@ -50,13 +50,23 @@ globalErrors.controller('GlobalErrorsCtrl',
 
             ctrl.dismiss = (error) => globalErrors.destroy(error);
 
-            document.addEventListener("mousedown", () => {
+            document.addEventListener("mouseup", (e) => {
+                const autoHideErrorDivs = document.getElementsByClassName('autoHide');
+                if (autoHideErrorDivs.length > 0) {
+                    for (let errorDiv of autoHideErrorDivs) {
+                        if(!errorDiv.contains(document.activeElement)) ctrl.dismiss(errorDiv.id);
+                    }
+                    $scope.$digest();
+                }
+            });
+
+            document.addEventListener("scroll", (e) => {
                 const autoHideErrorDivs = document.getElementsByClassName('autoHide');
                 if (autoHideErrorDivs.length > 0) {
                     for (let errorDiv of autoHideErrorDivs) {
                         ctrl.dismiss(errorDiv.id);
-                        ctrl.errors = globalErrors.getErrors();
                     }
+                    $scope.$digest();
                 }
             });
 
@@ -66,12 +76,13 @@ globalErrors.controller('GlobalErrorsCtrl',
                     if (event.key == "Escape") {
                         for (let errorDiv of autoHideErrorDivs) {
                             ctrl.dismiss(errorDiv.id);
-                            ctrl.errors = globalErrors.getErrors();
                         }
+                        $scope.$digest();
                     }
                 }
             });
         }]);
+        
 
 
 globalErrors.directive('uiGlobalErrors', [function() {
