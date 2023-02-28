@@ -878,15 +878,14 @@ textarea.ng-invalid {
 #clipboard a {
     position: relative;
     top: 2px;
-    left: 1px;
     color: black;
 }
 
 #clipboard span {
     position: relative;
-    bottom: 3px;
+    bottom: 2px;
     border-bottom-color: black;
-    border-bottom-width: 1px;
+    border-bottom-width: 2px;
     border-bottom-style: solid;
 }
 /* ==========================================================================
