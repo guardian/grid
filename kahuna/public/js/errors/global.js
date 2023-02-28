@@ -50,17 +50,19 @@ globalErrors.controller('GlobalErrorsCtrl',
 
             ctrl.dismiss = (error) => globalErrors.destroy(error);
 
-            document.addEventListener("mouseup", (e) => {
+            document.addEventListener("mouseup", () => {
                 const autoHideErrorDivs = document.getElementsByClassName('autoHide');
                 if (autoHideErrorDivs.length > 0) {
                     for (let errorDiv of autoHideErrorDivs) {
-                        if(!errorDiv.contains(document.activeElement)) ctrl.dismiss(errorDiv.id);
+                        if (!errorDiv.contains(document.activeElement)) {
+                            ctrl.dismiss(errorDiv.id);
+                        }
                     }
                     $scope.$digest();
                 }
             });
 
-            document.addEventListener("scroll", (e) => {
+            document.addEventListener("scroll", () => {
                 const autoHideErrorDivs = document.getElementsByClassName('autoHide');
                 if (autoHideErrorDivs.length > 0) {
                     for (let errorDiv of autoHideErrorDivs) {
@@ -82,7 +84,6 @@ globalErrors.controller('GlobalErrorsCtrl',
                 }
             });
         }]);
-        
 
 
 globalErrors.directive('uiGlobalErrors', [function() {
