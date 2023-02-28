@@ -65,8 +65,8 @@
                    ng-class="{'batch-archive__button--disabled': ctrl.selectionCount >= 45}"
                    ng-click="ctrl.selectionCount < 45 && ctrl.shareSelection()"
                    ng-if="ctrl.selectionCount > 0"
-                   aria-label="{{ctrl.selectionCount >= 45 ? 'You can\'t share all these images at once, please reduce to 44 or less' : 'Share Selected Images'}}"
-                   gr-tooltip="{{ctrl.selectionCount >= 45 ? 'You can\'t share all these images at once, please reduce to 44 or less' : 'Share Selected Images'}}"
+                   aria-label="{{ctrl.selectionCount >= 45 ? 'You can’t share all these images at once, please reduce to 44 or less' : 'Share Selected Images'}}"
+                   gr-tooltip="{{ctrl.selectionCount >= 45 ? 'You can’t share all these images at once, please reduce to 44 or less' : 'Share Selected Images'}}"
                    gr-tooltip-position="bottom"
                    gr-tooltip-updates>
                     <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
