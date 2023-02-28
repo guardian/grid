@@ -813,6 +813,7 @@ textarea.ng-invalid {
     top: 5px;
     z-index: 40;
     text-align: center;
+    max-width: fit-content;
 }
 
 .global-error {
