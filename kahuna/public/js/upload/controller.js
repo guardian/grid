@@ -19,8 +19,9 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
     });
 
   window.onbeforeunload = function (e) {
-    ctrl.displayWarning(e);
-    return "";
+    if (uploadManager.getJobs().size > 0) {
+      return "";
+    }
   };
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
