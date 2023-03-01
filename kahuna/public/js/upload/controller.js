@@ -18,7 +18,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
       }
     });
 
-  window.onbeforeunload = function (e) {
+  window.onbeforeunload = function () {
     if (uploadManager.getJobs().size > 0) {
       return "";
     }
