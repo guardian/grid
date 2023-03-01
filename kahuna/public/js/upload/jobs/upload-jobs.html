@@ -1,6 +1,6 @@
 <div class="flex-container section-heading current-uploads">
     <h2 class="flex-spacer">Your current uploads <em ng-if="ctrl.remaining">({{ctrl.remaining}} remaining)</em></h2>
-    <a ng-controller="SessionCtrl" class="coloured-link" ng-href="/search?uploadedBy={{ctrl.user.email}}&nonFree=true"
+    <a ng-controller="SessionCtrl" class="coloured-link" ng-href="/search?uploadedBy={{user.email}}&nonFree=true"
        aria-label="View all your uploads">View all your uploads</a>
 </div>
 <ul>
