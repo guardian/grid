@@ -20,8 +20,8 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
 
   window.onbeforeunload = function (e) {
     ctrl.displayWarning(e);
+    return "";
   };
-
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
     ctrl.systemName = window._clientConfig.systemName;
