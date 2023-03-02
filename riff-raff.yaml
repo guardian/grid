@@ -99,7 +99,7 @@ deployments:
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imgops-bionic
+          Recipe: grid-imgops-focal
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
