@@ -112,7 +112,7 @@ deployments:
         ElasticSearchAMI:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-elasticsearch-bionic
+          Recipe: grid-elasticsearch-focal
 
   s3watcher:
     type: aws-lambda
