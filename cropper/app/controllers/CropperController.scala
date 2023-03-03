@@ -58,7 +58,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       val user = httpRequest.user
       val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
-      executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
+      val useVips = httpRequest.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+
+      executeRequest(exportRequest, user, onBehalfOfPrincipal, useVips).map { case (imageId, export) =>
 
         val cropJson = Json.toJson(export).as[JsObject]
         val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)))
@@ -159,7 +161,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def executeRequest(
-    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal
+    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
+    useVips: Boolean = false
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
 
     for {
@@ -176,7 +179,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         specification = cropSpec
       )
       markersWithCropDetails = logMarker ++ Map("imageId" -> apiImage.id, "cropId" -> Crop.getCropId(cropSpec.bounds))
-      ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop)(markersWithCropDetails)
+      ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop, useVips)(markersWithCropDetails)
       finalCrop = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
   }

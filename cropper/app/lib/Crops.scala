@@ -3,7 +3,7 @@ package lib
 import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
-import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.imaging.{ExportResult, MagickImageOperations, VipsImageOperations}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 
@@ -17,7 +17,7 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations)(implicit ec: ExecutionContext) extends GridLogging {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: MagickImageOperations, vipsImageOperations: VipsImageOperations)(implicit ec: ExecutionContext) extends GridLogging {
   import Files._
 
   private val cropQuality = 75d
@@ -34,6 +34,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     crop: Crop,
     mediaType: MimeType,
     colourModel: Option[String],
+    useVips: Boolean = false
   )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
     val source   = crop.specification
@@ -43,7 +44,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     logger.info(logMarker, s"creating master crop for ${apiImage.id}")
 
     for {
-      strip <- imageOperations.cropImage(
+      strip <- (if (useVips) vipsImageOperations else imageOperations).cropImage(
         sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
         iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
       )
@@ -57,12 +58,20 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
+  def createCrops(
+    sourceFile: File,
+    dimensionList: List[Dimensions],
+    apiImage: SourceImage,
+    crop: Crop,
+    cropType: MimeType,
+    useVips: Boolean = false,
+  )(implicit logMarker: LogMarker): Future[List[Asset]] = {
     logger.info(logMarker, s"creating crops for ${apiImage.id}")
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
+      val scale = dimensions.width.toDouble / apiImage.source.dimensions.get.width.toDouble
       for {
-        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
+        file          <- (if (useVips) vipsImageOperations else imageOperations).resizeImage(sourceFile, apiImage.source.mimeType, dimensions, scale, cropQuality, config.tempDir, cropType)
         optimisedFile = imageOperations.optimiseImage(file, cropType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
         sizing        <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
@@ -89,7 +98,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
+  def export(apiImage: SourceImage, crop: Crop, useVips: Boolean = false)(implicit logMarker: LogMarker): Future[ExportResult] = {
     val source    = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
@@ -100,12 +109,12 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-        colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
-        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
+        colourModel <- MagickImageOperations.identifyColourModel(sourceFile, mimeType)
+        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, useVips)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
-        sizes <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
+        sizes <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType, useVips)
         masterSize <- masterCrop.sizing
 
         _ <- Future.sequence(List(masterCrop.file, sourceFile).map(delete))

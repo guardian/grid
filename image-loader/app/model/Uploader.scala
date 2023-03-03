@@ -15,8 +15,8 @@ import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, Storabl
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
+import com.gu.mediaservice.lib.imaging.MagickImageOperations
+import com.gu.mediaservice.lib.imaging.MagickImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
@@ -74,7 +74,7 @@ case class ImageUploadOpsCfg(
 
 case class ImageUploadOpsDependencies(
   config: ImageUploadOpsCfg,
-  imageOps: ImageOperations,
+  imageOps: MagickImageOperations,
   storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
   storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
@@ -141,7 +141,7 @@ object Uploader extends GridLogging {
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
+    val colourModelFuture = MagickImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
 
     val storableOriginalImage = StorableOriginalImage(
@@ -320,7 +320,7 @@ object Uploader extends GridLogging {
 
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
-               val imageOps: ImageOperations,
+               val imageOps: MagickImageOperations,
                val notifications: Notifications,
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {

@@ -58,6 +58,8 @@ val awsSdkVersion = "1.12.470"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
+val jnaVersion = (if (System.getProperty("os.name").contains("Mac OS X")) "5.14.0-SNAPSHOT" else "5.13.0")
+
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
 //BBC specific project, it only gets compiled when bbcBuildProcess is true
@@ -66,8 +68,8 @@ lazy val bbcProject = project("bbc").dependsOn(restLib % "compile->compile;test-
 val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
 
 lazy val commonLib = project("common-lib").settings(
+  ThisBuild / resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
-    // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.14",
     "com.gu" %% "pan-domain-auth-play_2-8" % "1.3.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
@@ -81,6 +83,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "net.java.dev.jna" % "jna" % jnaVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
@@ -252,3 +255,4 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
   //Add the BBC library dependency if defined
   maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
 }
+
