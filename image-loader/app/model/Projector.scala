@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, Storab
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
-import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.MagickImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
@@ -31,7 +31,7 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
+  def apply(config: ImageLoaderConfig, imageOps: MagickImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
   = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
 }
 
@@ -83,7 +83,7 @@ object S3FileExtractedMetadata {
 
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
-                imageOps: ImageOperations,
+                imageOps: MagickImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication) extends GridLogging {
 
@@ -157,7 +157,7 @@ class Projector(config: ImageUploadOpsCfg,
 }
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
-                               imageOps: ImageOperations,
+                               imageOps: MagickImageOperations,
                                processor: ImageProcessor,
                                s3: AmazonS3
 ) extends GridLogging {

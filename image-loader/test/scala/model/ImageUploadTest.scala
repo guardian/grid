@@ -7,7 +7,7 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
-import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.MagickImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
 import lib.imaging.MimeTypeDetection
@@ -39,7 +39,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     *        what arcane magic System.getProperty relies upon, and exactly
     *        _how_ it will break in CI, I do not know
     */
-  val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
+  val imageOps: MagickImageOperations = new MagickImageOperations(System.getProperty("user.dir"))
 
   private def imageUpload(
                    fileName: String,

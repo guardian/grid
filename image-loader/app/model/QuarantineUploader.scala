@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.MagickImageOperations
 import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch, addLogMarkers}
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.resource.FutureResources._
