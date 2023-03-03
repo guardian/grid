@@ -9,6 +9,11 @@ object ExampleSwitch extends FeatureSwitch(
   title = "An example switch. Use rounded corners for the feature switch toggle",
   default = false
 )
+object VipsImagingSwitch extends FeatureSwitch(
+  key = "vips-beta",
+  title = "Enable the VIPS upload pipeline, where implemented",
+  default = false
+)
 
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
