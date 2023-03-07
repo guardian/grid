@@ -20,18 +20,13 @@ import java.net.URI
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
-  extends EditsResponse with GridLogging {
+class ImageResponse(
+  config: MediaApiConfig,
+  s3Client: S3Client,
+  val costCalculatorForTenant: Option[String] => CostCalculator,
+) extends EditsResponse with GridLogging {
 
-  implicit val usageQuotas = usageQuota
-
-  object Costing extends CostCalculator {
-    override val freeSuppliers: List[String] = config.usageRightsConfig.freeSuppliers
-    override val suppliersCollectionExcl: Map[String, List[String]] = config.usageRightsConfig.suppliersCollectionExcl
-    val quotas = usageQuotas
-  }
-
-  implicit val costing = Costing
+  implicit val usageQuotas: UsageQuota = costCalculatorForTenant(None).usageQuota
 
   val metadataBaseUri: String = config.services.metadataBaseUri
 
@@ -50,12 +45,15 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def canBeDeleted(image: Image) = image.canBeDeleted
 
   def create(
-              id: String,
-              imageWrapper: SourceWrapper[Image],
-              withWritePermission: Boolean,
-              withDeleteImagePermission: Boolean,
-              withDeleteCropsOrUsagePermission: Boolean,
-              included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
+    id: String,
+    imageWrapper: SourceWrapper[Image],
+    withWritePermission: Boolean,
+    withDeleteImagePermission: Boolean,
+    withDeleteCropsOrUsagePermission: Boolean,
+    included: List[String] = List(),
+    tier: Tier,
+    costCalculator: CostCalculator
+  ): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
 
@@ -81,11 +79,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
       .getOrElse(s3SignedThumbUrl)
 
-    val validityMap = ImageExtras.validityMap(image, withWritePermission)
+    val validityMap = ImageExtras.validityMap(image, withWritePermission)(costCalculator)
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
 
-    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
+    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)(costCalculator)
     val isDownloadable = ImageExtras.isValid(downloadableMap)
 
 
@@ -104,7 +102,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       ))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
-      .flatMap(_.transform(addUsageCost(source)))
+      .flatMap(_.transform(addUsageCost(source, costCalculator)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
@@ -186,7 +184,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .map { case (action, active) => action }
   }
 
-  def addUsageCost(source: JsValue): Reads[JsObject] = {
+  def addUsageCost(source: JsValue, costCalculator: CostCalculator): Reads[JsObject] = {
     // We do the merge here as some records haven't had the user override applied
     // to the root level `usageRights`
     // TODO: Solve with reindex
@@ -195,7 +193,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = Costing.getCost(usageRights)
+    val cost = costCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

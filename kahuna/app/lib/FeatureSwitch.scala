@@ -9,6 +9,11 @@ object ExampleSwitch extends FeatureSwitch(
   title = "An example switch. Use rounded corners for the feature switch toggle",
   default = false
 )
+object MultitenancySwitch extends FeatureSwitch(
+  key = "multitenancy",
+  title = """Multi-tenant behaviour for the grid. Requires setting up the "tenants" config options!""",
+  default = false
+)
 
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"

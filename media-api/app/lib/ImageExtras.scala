@@ -39,7 +39,7 @@ object ImageExtras {
   def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
   private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota
+    implicit cost: CostCalculator
   ): ValidMap = {
 
     val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
@@ -52,8 +52,10 @@ object ImageExtras {
       "conditional_paid" -> createCheck(cost.isConditional(image.usageRights)),
       "no_rights" -> createCheck(!hasRights(image.usageRights)),
       "current_deny_lease" -> createCheck(hasCurrentDenyLease(image.leases)),
-      "over_quota" -> createCheck(quotas.isOverQuota(image.usageRights)),
-      "tass_agency_image" -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") | image.originalMetadata.byline.exists(_ == "ITAR-TASS News Agency"), overrideable = true, shouldOverride = true)
+      "over_quota" -> createCheck(cost.usageQuota.isOverQuota(image.usageRights)),
+      "tass_agency_image" -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") || image.originalMetadata.byline.contains(
+        "ITAR-TASS News Agency"
+      ), overrideable = true, shouldOverride = true)
     )
     if (isImageValidation) {
       baseValidationMap ++ Map(
@@ -65,15 +67,11 @@ object ImageExtras {
     }
   }
 
-  def validityMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota
-  ): ValidMap = {
+  def validityMap(image: Image, withWritePermission: Boolean)(implicit cost: CostCalculator): ValidMap = {
     validationMap(image, withWritePermission, isImageValidation = true)
   }
 
-  def downloadableMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota
-  ): ValidMap = {
+  def downloadableMap(image: Image, withWritePermission: Boolean)(implicit cost: CostCalculator): ValidMap = {
     validationMap(image, withWritePermission, isImageValidation = false)
   }
 

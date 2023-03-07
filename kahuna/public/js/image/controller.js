@@ -280,6 +280,9 @@ image.controller('ImageCtrl', [
       }
     });
 
+    ctrl.tenantOptions = [];
+    mediaApi.knownTenants().then(options => { ctrl.tenantOptions = options; });
+
     function cropSelected(crop) {
       $rootScope.$emit('events:crop-selected', {
         image: ctrl.image,
