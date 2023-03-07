@@ -179,7 +179,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         specification = cropSpec
       )
       markersWithCropDetails = logMarker ++ Map("imageId" -> apiImage.id, "cropId" -> Crop.getCropId(cropSpec.bounds))
-      ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop, useVips)(markersWithCropDetails)
+      ExportResult(id, masterSizing, sizings) <- crops.exportWithImageMagick(apiImage, crop)(markersWithCropDetails)
       finalCrop = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
   }
