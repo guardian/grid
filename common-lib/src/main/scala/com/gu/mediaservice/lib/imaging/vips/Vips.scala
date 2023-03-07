@@ -37,7 +37,7 @@ object Vips {
   }
 
   private def saveJpeg(image: VipsImage, outputFile: File, quality: Int): Try[Unit] = Try {
-    if (LibVips.INSTANCE.vips_jpegsave(image, outputFile.getAbsolutePath, "Q", quality.asInstanceOf[AnyRef], "strip", true.asInstanceOf[AnyRef]) != 0) {
+    if (LibVips.INSTANCE.vips_jpegsave(image, outputFile.getAbsolutePath, "Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) != 0) {
       throw new Error(s"Failed to save file to Jpeg - libvips returned error ${getErrors()}")
     }
   }
