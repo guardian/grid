@@ -71,6 +71,7 @@ results.controller('SearchResultsCtrl', [
     'results',
     'panels',
     'isReloadingPreviousSearch',
+    'globalErrors',
 
     function($rootScope,
              $scope,
@@ -89,7 +90,8 @@ results.controller('SearchResultsCtrl', [
              selectedImages$,
              results,
              panels,
-             isReloadingPreviousSearch) {
+             isReloadingPreviousSearch,
+             globalErrors) {
 
         const ctrl = this;
 
@@ -350,6 +352,13 @@ results.controller('SearchResultsCtrl', [
             selection.clear();
         };
 
+        ctrl.shareSelection = () => {
+            const sharedImagesIds = ctrl.selectedImages.map(image => image.data.id);
+            const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + sharedImagesIds.join(',');
+            navigator.clipboard.writeText(sharedUrl);
+            globalErrors.trigger('clipboard', sharedUrl);
+        };
+
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
         inject$($scope, inSelectionMode$, ctrl, 'inSelectionMode');
         inject$($scope, selection.count$, ctrl, 'selectionCount');
@@ -389,6 +398,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.onImageClick = function (image, $event) {
             if (ctrl.inSelectionMode) {
+
                 // TODO: prevent text selection?
                 if ($event.shiftKey) {
                     var lastSelectedUri = ctrl.selectedItems.last();

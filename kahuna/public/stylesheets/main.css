@@ -704,6 +704,9 @@ textarea.ng-invalid {
    Top bar
    ========================================================================== */
 
+#share-with-url {
+    display: flex;
+}
 .top-bar-item__label {
     padding-left: 5px;
 }
@@ -810,6 +813,7 @@ textarea.ng-invalid {
     top: 5px;
     z-index: 40;
     text-align: center;
+    max-width: fit-content;
 }
 
 .global-error {
@@ -852,6 +856,12 @@ textarea.ng-invalid {
     font-size: 3rem;
 }
 
+.success {
+    background: #D5E5CF;
+    color: black;
+    padding: 20px 40px;
+    text-align: center;
+}
 .status {
     color: white;
     background-color: orange;
@@ -865,6 +875,22 @@ textarea.ng-invalid {
     background-color: red;
 }
 
+#clipboard a {
+    position: relative;
+    top: 2px;
+    right: 1px;
+    color: black;
+}
+
+#clipboard span {
+    position: relative;
+    display: inherit;
+    bottom: 2px;
+    border-bottom-color: black;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+    width: 28px;
+}
 /* ==========================================================================
    Search
    ========================================================================== */

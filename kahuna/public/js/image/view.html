@@ -7,6 +7,12 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
+
+        <a class="results-toolbar-item top-bar-item results-toolbar-item--right"
+           ng-click="ctrl.shareImage()">
+            <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
+        </a>
+
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
