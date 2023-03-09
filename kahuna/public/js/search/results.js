@@ -352,13 +352,11 @@ results.controller('SearchResultsCtrl', [
             selection.clear();
         };
 
-        ctrl.shareSelection = async () => {
-            $q.all(ctrl.selectedImages.map(image => { return image.data.id; }).toArray()).
-            then(sharedImagesIds => {
-              const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + sharedImagesIds.join(',');
-              navigator.clipboard.writeText(sharedUrl);
-              globalErrors.trigger('clipboard', sharedUrl);
-            });
+        ctrl.shareSelection = () => {
+            const sharedImagesIds = ctrl.selectedImages.map(image => image.data.id);
+            const sharedUrl = $window._clientConfig.rootUri + "/search?nonFree=true&ids=" + sharedImagesIds.join(',');
+            navigator.clipboard.writeText(sharedUrl);
+            globalErrors.trigger('clipboard', sharedUrl);
         };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);

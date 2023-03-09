@@ -201,7 +201,7 @@ image.controller('ImageCtrl', [
       return true;
     };
 
-    ctrl.shareImage = async () => {
+    ctrl.shareImage = () => {
        const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
        navigator.clipboard.writeText(sharedUrl);
        globalErrors.trigger('clipboard', sharedUrl);
