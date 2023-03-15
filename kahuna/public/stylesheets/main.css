@@ -775,6 +775,10 @@ textarea.ng-invalid {
         min-width: inherit;
     }
 
+    gr-top-bar-actions {
+      min-width: 128px;
+    }
+
     .results-toolbar-item .gr-confirm-delete gr-icon-label {
         padding: 0
     }
@@ -965,6 +969,7 @@ textarea.ng-invalid {
         flex-direction: row;
         align-items:center;
         margin-left: 15px;
+
     }
     .search__modifier-toggle:hover {
         filter: brightness(200%);
