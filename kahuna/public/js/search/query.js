@@ -169,6 +169,7 @@ query.controller('SearchQueryCtrl', [
             filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         }
         storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
+        storage.setJs("orgOwned", ctrl.filter.orgOwned, true);
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
@@ -200,7 +201,7 @@ query.controller('SearchQueryCtrl', [
                 storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
                 storage.setJs("isUploadedByMe", false, true);
                 storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-                storage.setJS("orgOwned", filter.orgOwned);
+                storage.setJS("orgOwned", filter.orgOwned, true);
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
@@ -252,9 +253,8 @@ query.controller('SearchQueryCtrl', [
         } else {
           ctrl.filter.nonFree = undefined;
         }
-
         if (orgOwned === null) {
-            storage.setJs("orgOwned",ctrl.filter.orgOwned);
+            storage.setJs("orgOwned", ctrl.filter.orgOwned, true);
         }
         else {
             ctrl.filter.orgOwned = orgOwned;
