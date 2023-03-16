@@ -257,12 +257,13 @@ query.controller('SearchQueryCtrl', [
             storage.setJs("orgOwned",ctrl.filter.orgOwned);
         }
         else {
-            ctrl.filter.orgOwned =  orgOwned;
+            ctrl.filter.orgOwned = orgOwned;
         }
     });
 
     function resetQuery() {
         ctrl.filter.query = undefined;
+        ctrl.filter.orgOwned = false;
     }
 
     const { nonFree, uploadedByMe } = ctrl.filter;
