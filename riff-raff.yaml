@@ -91,7 +91,7 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-focal-java8
+          Recipe: editorial-tools-focal-java8-ARM
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
@@ -99,7 +99,7 @@ deployments:
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imgops-focal
+          Recipe: grid-imgops-focal-ARM
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
