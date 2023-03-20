@@ -7,7 +7,7 @@ jobs:
       matrix:
         node-version: [12.22.9]
     steps:
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.4.0
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3.5.1
         with:
@@ -37,7 +37,7 @@ jobs:
   ImageCounterBuild:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.4.0
       - name: Use Node.js v16
         uses: actions/setup-node@v3.5.1
         with:
@@ -72,7 +72,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-    - uses: actions/checkout@v3.2.0
+    - uses: actions/checkout@v3.4.0
     - name: SBT
       uses: ./.github/actions/sbt
       env:
