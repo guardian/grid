@@ -49,6 +49,8 @@ object filters {
     termsQuery(field, terms.list)
   }
 
+  def wildcard(field: String, value: String): Query = wildcardQuery(field, value)
+
   def existsOrMissing(field: String, exists: Boolean): Query = if (exists) {
     existsQuery(field)
   } else {

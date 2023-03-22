@@ -39,6 +39,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
+      case Words(value) if field == "uploadedBy" && value.contains("*") => wildcardQuery(resolveFieldPath(field), value)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) => matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
       case Phrase(value) => matchPhraseQuery(resolveFieldPath(field), value)
