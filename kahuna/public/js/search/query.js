@@ -169,7 +169,6 @@ query.controller('SearchQueryCtrl', [
             filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         }
         storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
-        storage.setJs("orgOwned", ctrl.filter.orgOwned, true);
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
@@ -201,7 +200,6 @@ query.controller('SearchQueryCtrl', [
                 storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
                 storage.setJs("isUploadedByMe", false, true);
                 storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-                storage.setJS("orgOwned", filter.orgOwned, true);
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
@@ -233,8 +231,8 @@ query.controller('SearchQueryCtrl', [
     mediaApi.getSession().then(session => {
         const isNonFree = storage.getJs("isNonFree", true);
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
-        const orgOwned = storage.getJs("orgOwned", true);
-
+        const structuredQuery = structureQuery(ctrl.filter.query);
+        const orgOwned = (structuredQuery.some(item => item.value === ctrl.orgOwnedValue))
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
               ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
@@ -253,12 +251,7 @@ query.controller('SearchQueryCtrl', [
         } else {
           ctrl.filter.nonFree = undefined;
         }
-        if (orgOwned === null) {
-            storage.setJs("orgOwned", ctrl.filter.orgOwned, true);
-        }
-        else {
-            ctrl.filter.orgOwned = orgOwned;
-        }
+        ctrl.filter.orgOwned = orgOwned;
     });
 
     function resetQuery() {
