@@ -30,7 +30,7 @@ You'll need to be sure `local-elk` is running beforehand to sure port `5000` is 
 #### `--with-local-auth` or `--no-auth`
 If you previously ran `setup.sh` using this flag, you'll also need to use it in `start.sh`.
 
-#### `--use-TEST`
+#### (Guardian ONLY) `--use-TEST`
 Connect to TEST for ElasticSearch and all the other micro-services (except auth, which we want to run locally too) - so that the Grid is pre-populated with images. This is useful for UI changes involving the search interface.
 
 ## `the_pingler.sh`
