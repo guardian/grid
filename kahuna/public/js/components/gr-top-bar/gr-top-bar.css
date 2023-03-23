@@ -16,6 +16,7 @@ gr-top-bar-actions {
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
+    min-width: 278px;
 }
 
 
