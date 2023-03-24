@@ -232,7 +232,7 @@ query.controller('SearchQueryCtrl', [
         const isNonFree = storage.getJs("isNonFree", true);
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
         const structuredQuery = structureQuery(ctrl.filter.query);
-        const orgOwned = (structuredQuery.some(item => item.value === ctrl.orgOwnedValue))
+        const orgOwned = (structuredQuery.some(item => item.value === ctrl.orgOwnedValue));
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
               ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
