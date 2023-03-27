@@ -173,6 +173,7 @@ query.controller('SearchQueryCtrl', [
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
         if (filter.orgOwned){
+            // If the checkbox is ticked, add the chip to the serach bar
             const structuredQuery = structureQuery(ctrl.filter.query);
             if (!structuredQuery.find(item => item.value === ctrl.orgOwnedValue)){
                 structuredQuery.push({
@@ -185,6 +186,7 @@ query.controller('SearchQueryCtrl', [
 
             ctrl.filter.query = renderQuery(structuredQuery);
         } else {
+            // If the checkbox is unticked, remove the chip from the serach bar
             const structuredQuery = structureQuery(ctrl.filter.query);
             const indexToDelete = structuredQuery.findIndex(item => item.value === ctrl.orgOwnedValue);
             if (indexToDelete >= 0){
