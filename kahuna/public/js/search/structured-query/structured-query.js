@@ -18,12 +18,18 @@ export const grStructuredQuery = angular.module('gr.structuredQuery', [
 
 
 grStructuredQuery.controller('grStructuredQueryCtrl',
-                             ['querySuggestions',
-                              function(querySuggestions) {
+                             ['querySuggestions', '$scope',
+                              function(querySuggestions, $scope) {
     const ctrl = this;
+    ctrl.orgOwnedValue = window._clientConfig.orgOwnedValue;
 
     const structuredQueryUpdates$ = Rx.Observable.create(observer => {
         ctrl.structuredQueryChanged = function(structuredQuery) {
+            if (ctrl.orgOwnedValue && structuredQuery.find(item => item.value === ctrl.orgOwnedValue)){
+                $scope.searchQuery.filter.orgOwned = true;
+            } else {
+                $scope.searchQuery.filter.orgOwned = false;
+            }
             observer.onNext(structuredQuery);
         };
     });

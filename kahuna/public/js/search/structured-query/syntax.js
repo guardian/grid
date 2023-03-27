@@ -15,15 +15,18 @@ const falsyValuesToEmptyString = (value) => {
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
 export function structureQuery(query) {
+
     const struct = [];
     let m;
+    if (query === undefined) {
+        return struct;
+    }
     while ((m = parserRe.exec(query)) !== null) {
         const sign  = m[1];
         const field = m[2];
         const symbol  = m[3] || m[4];
         const value = m[5] || m[6] || m[7];
         const text  = m[8] || m[9] || m[10];
-
         const key = {
             '#': 'label',
             '~': 'collection'
@@ -41,7 +44,6 @@ export function structureQuery(query) {
         } else {
             // Maintain negatable "any" search as text
             const prepend = (sign === '-' ? '-' : '');
-
             struct.push({
                 type: 'text',
                 value: prepend + falsyValuesToEmptyString(text)

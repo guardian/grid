@@ -27,6 +27,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val costFilterLabel: Option[String] = stringOpt("costFilter.label")
   val costFilterChargeable: Option[Boolean] = booleanOpt("costFilter.chargeable")
+  val orgOwnedLabel: Option[String] = stringOpt("orgOwned.label")
+  val orgOwnedValue: Option[String] = stringOpt("orgOwned.value")
   val additionalLinks: Seq[AdditionalLink] = configuration.getOptional[Seq[AdditionalLink]]("links.additional").getOrElse(Seq.empty)
   val feedbackFormLink: Option[String]= stringOpt("links.feedbackForm").filterNot(_.isEmpty)
   val usageRightsHelpLink: Option[String]= stringOpt("links.usageRightsHelp").filterNot(_.isEmpty)

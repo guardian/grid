@@ -12,6 +12,7 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import { sendTelemetryForQuery } from '../services/telemetry';
+import { renderQuery, structureQuery } from './structured-query/syntax';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -38,6 +39,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
+    ctrl.orgOwnedLabel = window._clientConfig.orgOwnedLabel;
+    ctrl.orgOwnedValue = window._clientConfig.orgOwnedValue;
 
     ctrl.canUpload = false;
 
@@ -169,21 +172,43 @@ query.controller('SearchQueryCtrl', [
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
-
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
           let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
           if (newNonFree !== filter.nonFree){
-                storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-                storage.setJs("isUploadedByMe", false, true);
-                storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+            storage.setJs("isUploadedByMe", false, true);
+            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+            ctrl.filter.orgOwned = false;
           }
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
+        if (filter.orgOwned){
+            // If the checkbox is ticked, add the chip to the serach bar
+            const structuredQuery = structureQuery(ctrl.filter.query);
+            if (!structuredQuery.find(item => item.value === ctrl.orgOwnedValue)){
+                structuredQuery.push({
+                    filterType: "inclusion",
+                    key : "is",
+                    type: "filter",
+                    value: ctrl.orgOwnedValue
+                });
+            }
+
+            ctrl.filter.query = renderQuery(structuredQuery);
+        } else {
+            // If the checkbox is unticked, remove the chip from the serach bar
+            const structuredQuery = structureQuery(ctrl.filter.query);
+            const indexToDelete = structuredQuery.findIndex(item => item.value === ctrl.orgOwnedValue);
+            if (indexToDelete >= 0){
+                structuredQuery.splice(indexToDelete, 1);
+                ctrl.filter.query = renderQuery(structuredQuery);
+            }
+        }
+
         const { nonFree, uploadedByMe } = ctrl.filter;
         sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-
         $state.go('search.results', filter);
     }));
 
@@ -209,7 +234,8 @@ query.controller('SearchQueryCtrl', [
     mediaApi.getSession().then(session => {
         const isNonFree = storage.getJs("isNonFree", true);
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
-
+        const structuredQuery = structureQuery(ctrl.filter.query);
+        const orgOwned = (structuredQuery.some(item => item.value === ctrl.orgOwnedValue));
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
               ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
@@ -228,10 +254,12 @@ query.controller('SearchQueryCtrl', [
         } else {
           ctrl.filter.nonFree = undefined;
         }
+        ctrl.filter.orgOwned = orgOwned;
     });
 
     function resetQuery() {
         ctrl.filter.query = undefined;
+        ctrl.filter.orgOwned = false;
     }
 
     const { nonFree, uploadedByMe } = ctrl.filter;

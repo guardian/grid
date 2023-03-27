@@ -61,6 +61,15 @@
                 </label>
             </li>
 
+            <li ng-if="searchQuery.orgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
+                <label>
+                    <input type="checkbox"
+                        ng-model="searchQuery.filter.orgOwned" />
+                    {{ searchQuery.orgOwnedLabel }}
+                </label>
+            </li>
+
+
             <li class="search__modifier-item">
                 <gu-date-range class="search__date"
                                gu:start-date="searchQuery.dateFilter.since"

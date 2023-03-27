@@ -10,6 +10,8 @@
   additionalNavigationLinks: String,
   costFilterLabel: String,
   costFilterChargeable: Boolean,
+  orgOwnedLabel: String,
+  orgOwnedValue: String,
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
 )
@@ -61,6 +63,8 @@
           additionalNavigationLinks: @Html(additionalNavigationLinks),
           costFilterLabel: "@Html(costFilterLabel)",
           costFilterChargeable: @costFilterChargeable,
+          orgOwnedLabel: "@orgOwnedLabel",
+          orgOwnedValue: "@orgOwnedValue",
           restrictDownload: @kahunaConfig.restrictDownload.getOrElse(false),
           warningTextHeader: "@Html(kahunaConfig.warningTextHeader)",
           warningTextHeaderNoRights: "@Html(kahunaConfig.warningTextHeaderNoRights)",
