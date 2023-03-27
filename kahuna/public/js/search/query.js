@@ -172,6 +172,18 @@ query.controller('SearchQueryCtrl', [
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
+        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
+          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
+          if (newNonFree !== filter.nonFree){
+            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+            storage.setJs("isUploadedByMe", false, true);
+            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+            ctrl.filter.orgOwned = false;
+          }
+          Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+        }
+
         if (filter.orgOwned){
             // If the checkbox is ticked, add the chip to the serach bar
             const structuredQuery = structureQuery(ctrl.filter.query);
@@ -193,17 +205,6 @@ query.controller('SearchQueryCtrl', [
                 structuredQuery.splice(indexToDelete, 1);
                 ctrl.filter.query = renderQuery(structuredQuery);
             }
-        }
-
-        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-          if (newNonFree !== filter.nonFree){
-                storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-                storage.setJs("isUploadedByMe", false, true);
-                storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-          }
-          Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
         const { nonFree, uploadedByMe } = ctrl.filter;
