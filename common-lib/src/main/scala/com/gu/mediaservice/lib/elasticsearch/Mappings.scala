@@ -50,7 +50,7 @@ object Mappings {
       properties = List(
         keywordField("id"),
         metadataMapping("metadata"),
-        metadataMapping("originalMetadata"),
+        originalMetadataMapping("originalMetadata"),
         usageRightsMapping("usageRights"),
         syndicationRightsMapping("syndicationRights"),
         usageRightsMapping("originalUsageRights"),
@@ -112,6 +112,28 @@ object Mappings {
     standardAnalysed("country").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     nonAnalysedList("peopleInImage").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     sStemmerAnalysed("englishAnalysedCatchAll"),
+    dynamicObj("domainMetadata")
+  ))
+
+  def originalMetadataMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
+    dateField("dateTaken"),
+    sStemmerAnalysed("description"),
+    standardAnalysed("byline"),
+    standardAnalysed("bylineTitle"),
+    sStemmerAnalysed("title"),
+    keywordField("credit"),
+    keywordField("creditUri"),
+    standardAnalysed("copyright"),
+    standardAnalysed("suppliersReference"),
+    keywordField("source"),
+    nonAnalysedList("keywords"),
+    nonAnalysedList("subjects"),
+    standardAnalysed("specialInstructions"),
+    standardAnalysed("subLocation"),
+    standardAnalysed("city"),
+    standardAnalysed("state"),
+    standardAnalysed("country"),
+    nonAnalysedList("peopleInImage"),
     dynamicObj("domainMetadata")
   ))
 
