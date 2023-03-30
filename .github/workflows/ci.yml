@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.0
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3.5.1
+        uses: actions/setup-node@v3.6.0
         with:
           node-version: ${{ matrix.node-version }}
       - name: Kahuna
@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.0
       - name: Use Node.js v16
-        uses: actions/setup-node@v3.5.1
+        uses: actions/setup-node@v3.6.0
         with:
           node-version-file: image-counter-lambda/.nvmrc
       - name: build
