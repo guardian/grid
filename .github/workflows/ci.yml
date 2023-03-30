@@ -28,11 +28,11 @@ jobs:
         run: |
           npm install
           npm run build
-      - name: Reaper
-        working-directory: ./reaper
-        run: |
-          npm install
-          npm run riffraff-artefact
+      #- name: Reaper
+      #  working-directory: ./reaper
+      #  run: |
+      #    npm install
+      #    npm run riffraff-artefact
 
   ImageCounterBuild:
     runs-on: ubuntu-20.04
