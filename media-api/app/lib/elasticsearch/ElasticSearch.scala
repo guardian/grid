@@ -15,7 +15,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.querysyntax.{HierarchyField, Match, Phrase}
+import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -217,6 +217,10 @@ class ElasticSearch(
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
+      .aggregations(filterAgg(
+        "org-owned",
+        queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
+      ))
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -227,7 +231,11 @@ class ElasticSearch(
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       // setting trackTotalHits to false means we don't get any hit count at all.
       // Requester has explicitly opted into not caring about the total hits, so give them what they want (nothing).
-      SearchResults(hits = imageHits, total = if (trackTotalHits) r.result.totalHits else 0)
+      SearchResults(
+        hits = imageHits,
+        total = if (trackTotalHits) r.result.totalHits else 0,
+        orgOwnedCount = r.result.aggregations.filter("org-owned").docCount
+      )
     }
   }
 

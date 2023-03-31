@@ -103,6 +103,8 @@ results.controller('SearchResultsCtrl', [
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
         ctrl.newImagesCount = 0;
 
+        ctrl.orgOwnedLabel = `${window._clientConfig.staffPhotographerOrganisation}-owned`;
+
         // Preview control
         ctrl.previewView = false;
 
@@ -115,6 +117,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.loading = true;
 
         ctrl.revealNewImages = revealNewImages;
+        ctrl.applyOrgOwnedFilter = applyOrgOwnedFilter;
 
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
@@ -134,6 +137,8 @@ results.controller('SearchResultsCtrl', [
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
+          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+            ctrl.orgOwnedCount = images.$response?.$$state?.value?.actions;
 
             ctrl.hasQuery = !!$stateParams.query;
             ctrl.initialSearchUri = images.uri;
@@ -237,6 +242,8 @@ results.controller('SearchResultsCtrl', [
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
+                    // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+                    ctrl.newOrgOwnedCount = resp.$response?.$$state?.value?.actions;
 
                     if (ctrl.newImagesCount > 0) {
                         $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
@@ -261,6 +268,23 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
+        function applyOrgOwnedFilter() {
+          $window.scrollTo(0,0);
+          const isOrgOwnedClause = `is:${window._clientConfig.staffPhotographerOrganisation}-owned`;
+          const toParams = $stateParams.query?.includes(isOrgOwnedClause)
+              ? $stateParams
+              : {
+                  ...$stateParams,
+                  query: $stateParams.query
+                    ? `${$stateParams.query} ${isOrgOwnedClause}`
+                    : isOrgOwnedClause
+              };
+          $state.transitionTo(
+            $state.current,
+            toParams,
+            { reload: true, inherit: false, notify: true }
+          );
+        }
 
         var seenSince;
         const lastSeenKey = 'search.seenFrom';

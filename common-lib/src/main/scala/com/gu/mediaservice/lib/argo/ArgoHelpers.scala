@@ -26,7 +26,7 @@ trait ArgoHelpers extends Results with GridLogging {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None,
+  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, orgOwnedCount: Option[Long] = None,
                            links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionResponse(
@@ -35,7 +35,8 @@ trait ArgoHelpers extends Results with GridLogging {
       length = Some(data.size),
       total  = total,
       data   = data,
-      links  = links
+      links  = links,
+      actions = orgOwnedCount
     )
 
     serializeAndWrap(response, Ok)

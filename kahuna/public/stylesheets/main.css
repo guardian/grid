@@ -1453,6 +1453,16 @@ textarea.ng-invalid {
     margin-left: 5px;
 }
 
+.image-results-count__org-owned {
+    font-family: inherit;
+    background-color: #005689;
+    color: white;
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 2px;
+    margin-left: 5px;
+}
+
 .image-results-count {
     border-left: 0;
     line-height: 35px;
