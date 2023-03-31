@@ -177,6 +177,7 @@ function getUsageConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |capi.live.url="${config.guardian.capi.live.url}"
+        |capi.preview.url="${config.guardian.capi.preview.url}"
         |capi.apiKey="${config.guardian.capi.live.key}"
         |dynamo.tablename.usageRecordTable="UsageRecordTable"
         |composer.baseUrl="composer.${config.DOMAIN}"
