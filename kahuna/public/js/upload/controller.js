@@ -11,6 +11,11 @@ var upload = angular.module('kahuna.upload.controller', [
 upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function (uploadManager, mediaApi, $scope) {
     var ctrl = this;
 
+    const isOngoingUploadJobs = () => {
+      const flattenUploadsArray = [].concat.apply([], Array.from(uploadManager.getCompletedJobs()));
+      const isOngoingUploads = flattenUploadsArray.some(jobItem => jobItem.status !== "uploaded");
+      return isOngoingUploads;
+    };
     $scope.$on("$locationChangeStart", function(event, _, current) {
       // handle route changes
       if (current.indexOf("/upload") > -1) {
@@ -19,7 +24,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
     });
 
   window.onbeforeunload = function () {
-    if (uploadManager.getJobs().size > 0) {
+    if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
       return "";
     }
   };
@@ -35,7 +40,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
     ctrl.latestJob = uploadManager.getLatestRunningJob();
 
     ctrl.displayWarning = (e) => {
-      if (uploadManager.getJobs().size > 0) {
+      if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
         if (confirm("You have uploads in progress. Are you sure you want to leave this page?") === false) {
           e.preventDefault();
         }

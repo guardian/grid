@@ -7,6 +7,7 @@ upload.factory('uploadManager',
                 function($q, $window, fileUploader) {
 
     var jobs = new Set();
+    var completedJobs = new Set();
 
     function createJobItem(file) {
         var request = fileUploader.upload(file);
@@ -38,6 +39,7 @@ upload.factory('uploadManager',
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
         $q.all(promises).finally(() => {
+          completedJobs.add(job);
           jobs.delete(job);
           job.map(jobItem => {
             $window.URL.revokeObjectURL(jobItem.dataUrl);
@@ -65,11 +67,16 @@ upload.factory('uploadManager',
         return jobs;
     }
 
+    function getCompletedJobs() {
+        return completedJobs;
+    }
+
     return {
         upload,
         uploadUri,
         getLatestRunningJob,
-        getJobs
+        getJobs,
+        getCompletedJobs
     };
 }]);
 
