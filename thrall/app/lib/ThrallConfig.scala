@@ -43,6 +43,8 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
 
   val projectionParallelism: Int = intDefault("thrall.projection.parallelism", 1)
 
+  val maybePersistenceIdentifier = stringOpt("persistence.identifier")
+
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 }

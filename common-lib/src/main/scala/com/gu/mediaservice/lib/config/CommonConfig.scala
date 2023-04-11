@@ -42,6 +42,11 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
+  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
+    case Some(collections) => collections.split(',').toList
+    case None => List(s"$staffPhotographerOrganisation Archive")
+  }
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")
