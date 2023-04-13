@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        node-version: [12.22.9]
+        node-version: [16.20.0]
     steps:
       - uses: actions/checkout@v3.5.0
       - name: Use Node.js ${{ matrix.node-version }}
@@ -15,38 +15,23 @@ jobs:
       - name: Kahuna
         working-directory: ./kahuna
         run: |
-          npm install
+          npm ci
           npm test
-          # TODO restore when rest of js is on node 16
-          #- name: Image Counter Lambda
-          #  working-directory: ./image-counter-lambda
-          #  run: |
-          #    npm install
-          #    npm test
+      - name: Image Counter Lambda
+        working-directory: ./image-counter-lambda
+        run: |
+          npm ci
+          npm test
       - name: S3Watcher
         working-directory: ./s3watcher/lambda
         run: |
-          npm install
+          npm ci
           npm run build
-      - name: Reaper
-        working-directory: ./reaper
-        run: |
-          npm install
-          npm run riffraff-artefact
-
-  ImageCounterBuild:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3.5.0
-      - name: Use Node.js v16
-        uses: actions/setup-node@v3.6.0
-        with:
-          node-version-file: image-counter-lambda/.nvmrc
-      - name: build
-        working-directory: ./image-counter-lambda
-        run: |
-          npm install
-          npm test
+      #- name: Reaper
+      #  working-directory: ./reaper
+      #  run: |
+      #    npm install
+      #    npm run riffraff-artefact
 
   ScalaBuild:
     runs-on: ubuntu-20.04
