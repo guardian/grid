@@ -324,7 +324,7 @@ class ElasticSearch(
 
   private def prepareSearch(query: Query): SearchRequest = {
     val indexes = migrationStatus match {
-      case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
+      case running: Running => List(running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
