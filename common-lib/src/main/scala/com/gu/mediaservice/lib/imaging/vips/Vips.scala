@@ -43,22 +43,9 @@ object Vips {
     }
   }
 
-  def extractArea(sourceFile: File, outputFile: File, bounds: Bounds, qual: Double): Try[Unit] = {
-    for {
-      image <- openFile(sourceFile)
-      croppedImage <- extractArea(image, bounds)
-      // TODO support other output filetypes
-      _ <- saveJpeg(croppedImage, outputFile, qual.toInt)
-    } yield ()
+  def savePng(image: VipsImage, outputFile: File, quality: Int): Try[Unit] = Try {
+    if (LibVips.INSTANCE.vips_pngsave(image, outputFile.getAbsolutePath, "Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) != 0) {
+      throw new Error(s"Failed to save file to Png - libvips returned error ${getErrors()}")
+    }
   }
-
-  def resize(sourceFile: File, outputFile: File, scale: Double, qual: Double): Try[Unit] = {
-    for {
-      image <- openFile(sourceFile)
-      resizedImage <- resize(image, scale)
-      // TODO support other output filetypes
-      _ <- saveJpeg(resizedImage, outputFile, qual.toInt)
-    } yield ()
-  }
-
 }
