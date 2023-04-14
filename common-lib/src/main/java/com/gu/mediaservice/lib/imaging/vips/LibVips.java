@@ -4,7 +4,7 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 
 public interface LibVips extends Library {
-  LibVips INSTANCE = Native.load("vips", LibVips.class);
+  LibVips INSTANCE = Native.load("vips-cpp", LibVips.class);
 
   int vips_init(String argv0);
   String vips_error_buffer_copy();
