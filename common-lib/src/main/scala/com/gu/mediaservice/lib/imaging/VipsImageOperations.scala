@@ -3,11 +3,11 @@ package com.gu.mediaservice.lib.imaging
 import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.imaging.vips.{Vips, VipsImage}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{Bounds, Dimensions}
+import com.gu.mediaservice.model.{Bounds, Jpeg, MimeType, Png}
 
 import java.io.File
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 
 
@@ -33,17 +33,17 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     futureFromTry { Vips.resize(image, scale) }
   }
 
-  def resizeImages(source: VipsImage, sourceDimensions: Dimensions, targetDimensions: Seq[Dimensions]): Future[Seq[VipsImage]] = {
-    Future.sequence(targetDimensions.map { dimension =>
-      resizeImage(source, dimension.width / sourceDimensions.width)
-    })
-  }
 
-  def saveImage(image: VipsImage, tempDir: File, quality: Int): Future[File] = {
-    // TODO more filetypes
+  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType): Future[File] = {
     for {
-      outputFile <- createTempFile("crop-", "jpeg", tempDir)
-      _ <- futureFromTry { Vips.saveJpeg(image, outputFile, quality) }
+      outputFile <- createTempFile("crop-", mimeType.fileExtension, tempDir)
+      _ <- futureFromTry {
+        mimeType match {
+          case Jpeg => Vips.saveJpeg(image, outputFile, quality)
+          case Png => Vips.savePng(image, outputFile, quality)
+          case unsupported => Failure(new UnsupportedCropOutputTypeException(unsupported))
+        }
+      }
     } yield outputFile
   }
 

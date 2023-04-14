@@ -15,7 +15,7 @@ import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
-class UnsupportedCropOutputTypeException extends Exception
+class UnsupportedCropOutputTypeException(mimeType: MimeType) extends Exception(s"Cannot save crops as ${mimeType.name}")
 
 
 
@@ -131,7 +131,7 @@ class MagickImageOperations(val playPath: String) extends GridLogging with Image
     //  and a source can legally be a `Tiff`. It's not a small change...
     case Tiff =>
       logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
-      throw new UnsupportedCropOutputTypeException
+      throw new UnsupportedCropOutputTypeException(Tiff)
   }
 
   val thumbUnsharpRadius = 0.5d
