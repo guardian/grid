@@ -34,6 +34,8 @@ class ThrallController(
   gridClient: GridClient
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging {
 
+  private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
+
   def index = withLoginRedirectAsync {
     val countDocsInIndex = OptionalFutureRunner.run(es.countImages) _
     for {
@@ -47,8 +49,8 @@ class ThrallController(
 
       historicalIndex <- es.getIndexForAlias(es.imagesHistoricalAlias)
 
-      currentIndexCountFormatted = currentIndexCount.map(_.catCount.toString).getOrElse("!")
-      migrationIndexCountFormatted = migrationIndexCount.map(_.catCount.toString).getOrElse("-")
+      currentIndexCountFormatted = currentIndexCount.map(_.catCount).map(numberFormatter).getOrElse("!")
+      migrationIndexCountFormatted = migrationIndexCount.map(_.catCount).map(numberFormatter).getOrElse("-")
     } yield {
       Ok(views.html.index(
         currentAlias = es.imagesCurrentAlias,
@@ -159,7 +161,7 @@ class ThrallController(
     }
   }
 
-  def completeMigration: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+  def completeMigration(): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
 
     if(Form(single("complete-confirmation" -> text)).bindFromRequest.get != "complete"){
       Future.successful(BadRequest("you did not enter 'complete' in the text box"))
@@ -190,17 +192,15 @@ class ThrallController(
     }
   }
 
-  def pauseMigration = withLoginRedirect {
-    es.pauseMigration
+  private def adjustMigration(action: () => Unit) = withLoginRedirect {
+    action()
     es.refreshAndRetrieveMigrationStatus()
     Redirect(routes.ThrallController.index)
   }
-
-  def resumeMigration = withLoginRedirect {
-    es.resumeMigration
-    es.refreshAndRetrieveMigrationStatus()
-    Redirect(routes.ThrallController.index)
-  }
+  def pauseMigration = adjustMigration(es.pauseMigration _)
+  def resumeMigration = adjustMigration(es.resumeMigration _)
+  def previewMigrationCompletion = adjustMigration(es.previewMigrationCompletion _)
+  def unPreviewMigrationCompletion = adjustMigration(es.unPreviewMigrationCompletion _)
 
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest.get.id

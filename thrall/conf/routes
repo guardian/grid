@@ -18,6 +18,10 @@ POST    /resumeMigration                              controllers.ThrallControll
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
 +nocsrf
 POST    /completeMigration                            controllers.ThrallController.completeMigration
++nocsrf
+POST    /previewMigrationCompletion                   controllers.ThrallController.previewMigrationCompletion
++nocsrf
+POST    /unPreviewMigrationCompletion                 controllers.ThrallController.unPreviewMigrationCompletion
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

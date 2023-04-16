@@ -3,7 +3,7 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
@@ -324,6 +324,7 @@ class ElasticSearch(
 
   private def prepareSearch(query: Query): SearchRequest = {
     val indexes = migrationStatus match {
+      case completionPreview: CompletionPreview => List(completionPreview.migrationIndexName)
       case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }
