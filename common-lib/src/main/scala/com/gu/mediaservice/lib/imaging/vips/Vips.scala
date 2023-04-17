@@ -37,14 +37,18 @@ object Vips {
     resizeOutput.getValue
   }
 
-  def saveJpeg(image: VipsImage, outputFile: File, quality: Int): Try[Unit] = Try {
-    if (LibVips.INSTANCE.vips_jpegsave(image, outputFile.getAbsolutePath, "Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) != 0) {
+  def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: Option[String]): Try[Unit] = Try {
+    val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) ++ profile.map(Seq("profile", _)).getOrElse(Seq.empty)
+
+    if (LibVips.INSTANCE.vips_jpegsave(image, outputFile.getAbsolutePath, args:_*) != 0) {
       throw new Error(s"Failed to save file to Jpeg - libvips returned error ${getErrors()}")
     }
   }
 
-  def savePng(image: VipsImage, outputFile: File, quality: Int): Try[Unit] = Try {
-    if (LibVips.INSTANCE.vips_pngsave(image, outputFile.getAbsolutePath, "Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) != 0) {
+  def savePng(image: VipsImage, outputFile: File, quality: Int, profile: Option[String]): Try[Unit] = Try {
+    val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer]) ++ profile.map(Seq("profile", _)).getOrElse(Seq.empty)
+
+    if (LibVips.INSTANCE.vips_pngsave(image, outputFile.getAbsolutePath, args:_*) != 0) {
       throw new Error(s"Failed to save file to Png - libvips returned error ${getErrors()}")
     }
   }

@@ -48,7 +48,7 @@ class Crops(config: CropperConfig, store: CropStore, magickImageOperations: Magi
 
     for {
       img <- vipsImageOperations.cropImage(sourceImage, source.bounds)
-      imageFile <- vipsImageOperations.saveImage(img, config.tempDir, masterCropQuality.toInt, mediaType)
+      imageFile <- vipsImageOperations.saveImage(img, config.tempDir, masterCropQuality.toInt, mediaType, colourModel)
       addedMetadata <- magickImageOperations.appendMetadata(imageFile, metadata)
       dimensions = Dimensions(source.bounds.width, source.bounds.height)
       filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
@@ -101,7 +101,7 @@ class Crops(config: CropperConfig, store: CropStore, magickImageOperations: Magi
       val scale = dimensions.width.toDouble / apiImage.source.dimensions.get.width.toDouble
       for {
         resizedImage <- vipsImageOperations.resizeImage(sourceImage, scale) //apiImage.source.mimeType, dimensions, scale, cropQuality, config.tempDir, cropType)
-        file <- vipsImageOperations.saveImage(resizedImage, config.tempDir, cropQuality.toInt, cropType)
+        file <- vipsImageOperations.saveImage(resizedImage, config.tempDir, cropQuality.toInt, cropType, None)
         optimisedFile = magickImageOperations.optimiseImage(file, cropType)
         filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
         sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)

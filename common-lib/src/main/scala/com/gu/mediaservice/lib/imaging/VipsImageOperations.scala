@@ -34,13 +34,14 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
   }
 
 
-  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType): Future[File] = {
+  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType, colourModel: Option[String]): Future[File] = {
+    val profile = colourModel.map(profileLocations)
     for {
       outputFile <- createTempFile("crop-", mimeType.fileExtension, tempDir)
       _ <- futureFromTry {
         mimeType match {
-          case Jpeg => Vips.saveJpeg(image, outputFile, quality)
-          case Png => Vips.savePng(image, outputFile, quality)
+          case Jpeg => Vips.saveJpeg(image, outputFile, quality, profile)
+          case Png => Vips.savePng(image, outputFile, quality, profile)
           case unsupported => Failure(new UnsupportedCropOutputTypeException(unsupported))
         }
       }
