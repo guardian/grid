@@ -18,6 +18,7 @@ function getCommonConfig(config) {
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
+        |persistence.identifier="picdarUrn"
         |image.record.download=false
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
@@ -122,7 +123,6 @@ function getMediaApiConfig(config) {
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |s3.usagemail.bucket="${config.coreStackProps.UsageMailBucket}"
-        |persistence.identifier="picdarUrn"
         |es6.url="${config.es6.url}"
         |es6.cluster="${config.es6.cluster}"
         |es6.shards=${config.es6.shards}
@@ -163,7 +163,6 @@ function getThrallConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
-        |persistence.identifier="picdarUrn"
         |indexed.image.sns.topic.arn="${config.coreStackProps.IndexedImageTopic}"
         |es6.url="${config.es6.url}"
         |es6.cluster="${config.es6.cluster}"

@@ -9,6 +9,7 @@ import com.sksamuel.elastic4s.ElasticDsl.{addAlias, aliases, removeAlias, _}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.Terms
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.metrics.TopHits
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.{FailedMigrationDetails, FailedMigrationSummary, FailedMigrationsGrouping, FailedMigrationsOverview}
 import play.api.libs.json.{JsObject, Json}
 
@@ -24,10 +25,11 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   private val scrollKeepAlive = 5.minutes
 
-  def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+  def startScrollingImageIdsToMigrate(migrationIndexName: String, isReapableQuery: Query)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
     val query = search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive).size(100) query not(
       matchQuery("esInfo.migration.migratedTo", migrationIndexName),
+      isReapableQuery,
       existsQuery(s"esInfo.migration.failures.$migrationIndexName")
     )
     executeAndLog(query, "retrieving next batch of image ids to migrate").map { response =>

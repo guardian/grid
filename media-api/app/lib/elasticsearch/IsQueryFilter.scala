@@ -31,7 +31,7 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
-      case "reapable" => Some(IsReapable(config.persistedRootCollections, config.persistenceIdentifier))
+      case "reapable" => Some(IsReapable(config.persistedRootCollections, Some(config.persistenceIdentifier)))
       case _ => None
     }
   }
@@ -67,25 +67,6 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   )
 }
 
-case class IsReapable(persistedRootCollections: List[String], persistenceIdentifier: String) extends IsQueryFilter {
-  val moreThanTwentyDaysOld = filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
-
-  val persistedQueries = filters.or(
-    PersistedQueries.hasCrops,
-    PersistedQueries.usedInContent,
-    PersistedQueries.addedToLibrary,
-    PersistedQueries.hasUserEditsToImageMetadata,
-    PersistedQueries.hasPhotographerUsageRights,
-    PersistedQueries.hasIllustratorUsageRights,
-    PersistedQueries.hasAgencyCommissionedUsageRights,
-    PersistedQueries.addedToPhotoshoot,
-    PersistedQueries.hasLabels,
-    PersistedQueries.hasLeases,
-    PersistedQueries.existedPreGrid(persistenceIdentifier),
-    PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedRootCollections)
-  )
-  override def query: Query = filters.and(
-    moreThanTwentyDaysOld,
-    filters.not(persistedQueries)
-  )
+case class IsReapable(persistedRootCollections: List[String], maybePersistenceIdentifier: Option[String])
+  extends IsQueryFilter with ReapableEligibility {
 }
