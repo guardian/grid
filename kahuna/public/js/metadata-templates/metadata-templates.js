@@ -119,15 +119,22 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     }
   }
 
+  function applyTemplateToLeases(templateLeases) {
+    if (templateLeases && templateLeases.leases.length > 0) {
+      return templateLeases.leases.map(templateLease => toLease(templateLease));
+    }
+  }
+
   ctrl.selectTemplate = () => {
     if (ctrl.metadataTemplate) {
       collections.getCollections().then(existingCollections => {
         const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
-        const leases = ctrl.metadataTemplate.leases.map(templateLease => toLease(templateLease));
+        const leases = applyTemplateToLeases(ctrl.metadataTemplate.templateLeases);
         const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
         const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
 
-        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, leases});
+        const leasesWithConfig = leases ? {replace: ctrl.metadataTemplate.templateLeases.replace, leases: leases} : undefined;
+        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, leasesWithConfig});
       });
     } else {
       ctrl.cancel();
@@ -153,7 +160,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       }
     })
     .then(() => {
-      if (ctrl.metadataTemplate.collectionFullPath) {
+      if (ctrl.metadataTemplate.collectionFullPath.length > 0) {
         return collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
       }
     })
@@ -165,9 +172,15 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       }
     })
     .then(() => {
-      if (ctrl.metadataTemplate.leases) {
-        const leases = ctrl.metadataTemplate.leases.map(lease => toLease(lease));
-        return leaseService.replace(ctrl.image, leases);
+      if (ctrl.metadataTemplate.templateLeases) {
+        const leases = ctrl.metadataTemplate.templateLeases.leases.map(lease => toLease(lease));
+
+        if (ctrl.metadataTemplate.templateLeases.replace){
+          return leaseService.replace(ctrl.image, leases);
+        }
+        else {
+          return leaseService.addLeases(ctrl.image, leases);
+        }
       }
     })
     .catch((e) => {

@@ -426,7 +426,7 @@ module.controller('grImageMetadataCtrl', [
         freeUpdateListener();
     });
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leases) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {
       ctrl.collectionUpdatedByTemplate = false;
       ctrl.leasesUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
@@ -438,15 +438,11 @@ module.controller('grImageMetadataCtrl', [
         ctrl.metadata = metadata;
       }
 
-      if (angular.isDefined(leases)) {
-        const leasesFromTemplate = leases.map(lease => {
+      if (angular.isDefined(leasesWithConfig)) {
+        const leasesFromTemplate = leasesWithConfig.leases.map(lease => {
           return {...lease, fromTemplate: true};
         });
-
-        ctrl.updatedLeases = [
-          ...leasesFromTemplate,
-          ...ctrl.singleImage.data.leases.data.leases
-        ];
+        ctrl.updatedLeases = [...leasesFromTemplate, ...(leasesWithConfig.replace ? [] : ctrl.singleImage.data.leases.data.leases)];
         ctrl.leasesUpdatedByTemplate = true;
       }
 

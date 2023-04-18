@@ -82,6 +82,18 @@ leaseService.factory('leaseService', [
             return image.perform('add-lease', { body: newLease });
         }
 
+        function addLeases(image, leases) {
+          const updatedLeases = leases.map((lease) => {
+            let newLease = angular.copy(lease);
+            newLease.mediaId = image.data.id;
+            return newLease;
+          });
+
+          return image
+            .perform('add-leases', { body: updatedLeases })
+            .then(() => pollLeasesAndUpdateUI([image]));
+        }
+
         function batchAdd(lease, images) {
 
           // search page has fancy image list
@@ -196,6 +208,7 @@ leaseService.factory('leaseService', [
     }
 
     return {
+        addLeases,
         batchAdd,
         getLeases,
         canUserEdit,

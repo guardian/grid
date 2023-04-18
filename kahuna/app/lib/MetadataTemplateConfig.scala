@@ -28,6 +28,11 @@ object MetadataTemplateLease {
   implicit val writes: Writes[MetadataTemplateLease] = Json.writes[MetadataTemplateLease]
 }
 
+case class TemplateLeases(replace: Boolean = false, leases: Seq[MetadataTemplateLease] = Nil)
+object TemplateLeases {
+  implicit val writes: Writes[TemplateLeases] = Json.writes[TemplateLeases]
+}
+
 case class MetadataTemplateUsageRights(category: String,
                                        creator: Option[String] = None,
                                        photographer: Option[String] = None,
@@ -44,7 +49,7 @@ case class MetadataTemplate(
    templateName: String,
    metadataFields: Seq[MetadataTemplateField] = Nil,
    collectionFullPath: CollectionFullPath = Nil,
-   leases: Seq[MetadataTemplateLease] = Nil,
+   templateLeases: Option[TemplateLeases] = None,
    usageRights: Option[MetadataTemplateUsageRights] = None)
 
 object MetadataTemplate {
@@ -72,8 +77,10 @@ object MetadataTemplate {
           config.getStringList("collectionFullPath").asScala.seq
         } else Nil
 
-        val leases = if (config.hasPath("leases")) {
-          config.getConfigList("leases").asScala.map(leaseConfig => {
+        val templateLeases = if (config.hasPath("templateLeases")) {
+          val templateLeasesConfig = config.getConfig("templateLeases")
+
+          val leases = templateLeasesConfig.getConfigList("leases").asScala.map(leaseConfig => {
             MetadataTemplateLease(
               leaseType = leaseConfig.getString("leaseType"),
               durationInMillis = if (leaseConfig.hasPath("duration"))
@@ -82,7 +89,12 @@ object MetadataTemplate {
                 Some(leaseConfig.getString("notes")) else None
             )
           })
-        } else Nil
+
+          Some(TemplateLeases(
+            replace = templateLeasesConfig.getBoolean("replace"),
+            leases = leases
+          ))
+        } else None
 
         val usageRights = if (config.hasPath("usageRights")) {
           val usageRightConfig = config.getConfig("usageRights")
@@ -104,6 +116,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, leases, usageRights)
+        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, templateLeases, usageRights)
       }))
 }

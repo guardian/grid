@@ -158,7 +158,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val imageUri = URI.create(s"${config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
     val addCollectionUri = URI.create(s"${config.collectionsUri}/images/$id")
-    val addLeasesUri = URI.create(s"${config.leasesUri}/leases")
+    val addLeaseUri = URI.create(s"${config.leasesUri}/leases")
+    val addLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val replaceLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteUsagesUri = URI.create(s"${config.usageUri}/usages/media/$id")
@@ -168,14 +169,16 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
 
-    val addLeasesAction = Action("add-lease", addLeasesUri, "POST")
-    val replaceLeasesAction = Action("replace-leases", replaceLeasesUri, "POST")
+    val addLeaseAction = Action("add-lease", addLeaseUri, "POST")
+    val addLeasesAction = Action("add-leases", addLeasesUri, "POST")
+    val replaceLeasesAction = Action("replace-leases", replaceLeasesUri, "PUT")
     val deleteLeasesAction = Action("delete-leases", deleteLeasesUri, "DELETE")
     val deleteUsagesAction = Action("delete-usages", deleteUsagesUri, "DELETE")
 
     List(
       deleteAction -> isDeletable,
       reindexAction -> withWritePermission,
+      addLeaseAction -> withWritePermission,
       addLeasesAction -> withWritePermission,
       replaceLeasesAction -> withWritePermission,
       deleteLeasesAction -> withWritePermission,

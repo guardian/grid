@@ -3,7 +3,8 @@ GET     /                                             controllers.MediaLeaseCont
 # Leases by Media
 GET     /leases/media/:id                             controllers.MediaLeaseController.getLeasesForMedia(id: String)
 DELETE  /leases/media/:id                             controllers.MediaLeaseController.deleteLeasesForMedia(id: String)
-POST    /leases/media/:id                             controllers.MediaLeaseController.replaceLeasesForMedia(id: String)
+PUT     /leases/media/:id                             controllers.MediaLeaseController.replaceLeasesForMedia(id: String)
+POST    /leases/media/:id                             controllers.MediaLeaseController.addLeasesForMedia(id: String)
 
 # Leases
 GET     /leases/reindex                               controllers.MediaLeaseController.reindex
