@@ -61,11 +61,11 @@
                 </label>
             </li>
 
-            <li ng-if="searchQuery.orgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
+            <li ng-if="searchQuery.maybeOrgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
                         ng-model="searchQuery.filter.orgOwned" />
-                    {{ searchQuery.orgOwnedLabel }}
+                    {{ searchQuery.maybeOrgOwnedValue }}
                 </label>
             </li>
 

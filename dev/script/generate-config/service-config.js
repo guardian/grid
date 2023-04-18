@@ -19,6 +19,7 @@ function getCommonConfig(config) {
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
         |image.record.download=false
+        |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
         |`;

@@ -103,8 +103,6 @@ results.controller('SearchResultsCtrl', [
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
         ctrl.newImagesCount = 0;
 
-        ctrl.orgOwnedLabel = `${window._clientConfig.staffPhotographerOrganisation}-owned`;
-
         // Preview control
         ctrl.previewView = false;
 
@@ -268,9 +266,10 @@ results.controller('SearchResultsCtrl', [
             });
         }
 
+        ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
+        const isOrgOwnedClause = `is:${ctrl.maybeOrgOwnedValue}`;
         function applyOrgOwnedFilter() {
           $window.scrollTo(0,0);
-          const isOrgOwnedClause = `is:${window._clientConfig.staffPhotographerOrganisation}-owned`;
           const toParams = $stateParams.query?.includes(isOrgOwnedClause)
               ? $stateParams
               : {

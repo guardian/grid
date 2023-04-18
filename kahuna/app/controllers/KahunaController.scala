@@ -11,6 +11,7 @@ import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
 import play.api.mvc.Security.AuthenticatedRequest
+import play.twirl.api.Html
 
 class KahunaController(
   authentication: Authentication,
@@ -55,8 +56,11 @@ class KahunaController(
     val returnUri = config.rootUri + okPath
     val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
-    val orgOwnedLabel = config.orgOwnedLabel.getOrElse("Owned by us")
-    val orgOwnedValue = config.orgOwnedValue.getOrElse("")
+    val maybeOrgOwnedValue =
+      if(config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+        Html(s""""${config.staffPhotographerOrganisation}-owned"""")
+      else
+        Html("undefined")
 
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
@@ -67,8 +71,7 @@ class KahunaController(
       additionalNavigationLinks,
       costFilterLabel,
       costFilterChargeable,
-      orgOwnedLabel,
-      orgOwnedValue,
+      maybeOrgOwnedValue,
       config,
       featureSwitchesJson
     ))

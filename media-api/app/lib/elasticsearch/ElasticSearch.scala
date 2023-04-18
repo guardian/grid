@@ -36,6 +36,8 @@ class ElasticSearch(
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
+  private val orgOwnedAggName = "org-owned"
+
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
   lazy val url = elasticConfig.url
@@ -217,10 +219,10 @@ class ElasticSearch(
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
-      .aggregations(filterAgg(
-        "org-owned",
+      .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
+        orgOwnedAggName,
         queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
-      ))
+      )) else Nil)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -234,7 +236,11 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        orgOwnedCount = r.result.aggregations.filter("org-owned").docCount
+        maybeOrgOwnedCount =
+          if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+            Some(r.result.aggregations.filter(orgOwnedAggName).docCount)
+          else
+            None
       )
     }
   }

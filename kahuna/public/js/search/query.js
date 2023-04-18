@@ -39,8 +39,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
-    ctrl.orgOwnedLabel = window._clientConfig.orgOwnedLabel;
-    ctrl.orgOwnedValue = window._clientConfig.orgOwnedValue;
+    ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
 
     ctrl.canUpload = false;
 
@@ -184,27 +183,25 @@ query.controller('SearchQueryCtrl', [
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
-        if (filter.orgOwned){
-            // If the checkbox is ticked, add the chip to the serach bar
-            const structuredQuery = structureQuery(ctrl.filter.query);
-            if (!structuredQuery.find(item => item.value === ctrl.orgOwnedValue)){
-                structuredQuery.push({
+      const structuredQuery = structureQuery(filter.query);
+      if (filter.orgOwned){
+            // If the checkbox is ticked, add the chip to the search bar
+            if (!structuredQuery.find(item => item.value === ctrl.maybeOrgOwnedValue)){
+                filter.query = renderQuery([
+                  ...structuredQuery,
+                  {
+                    type: "filter",
                     filterType: "inclusion",
                     key : "is",
-                    type: "filter",
-                    value: ctrl.orgOwnedValue
-                });
+                    value: ctrl.maybeOrgOwnedValue
+                  }
+                ]);
             }
-
-            ctrl.filter.query = renderQuery(structuredQuery);
         } else {
-            // If the checkbox is unticked, remove the chip from the serach bar
-            const structuredQuery = structureQuery(ctrl.filter.query);
-            const indexToDelete = structuredQuery.findIndex(item => item.value === ctrl.orgOwnedValue);
-            if (indexToDelete >= 0){
-                structuredQuery.splice(indexToDelete, 1);
-                ctrl.filter.query = renderQuery(structuredQuery);
-            }
+            // If the checkbox is unticked, remove the chip from the search bar
+            filter.query = renderQuery(
+              structuredQuery.filter(item => item.value !== ctrl.maybeOrgOwnedValue)
+            );
         }
 
         const { nonFree, uploadedByMe } = ctrl.filter;
@@ -235,7 +232,7 @@ query.controller('SearchQueryCtrl', [
         const isNonFree = storage.getJs("isNonFree", true);
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
         const structuredQuery = structureQuery(ctrl.filter.query);
-        const orgOwned = (structuredQuery.some(item => item.value === ctrl.orgOwnedValue));
+        const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
               ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;

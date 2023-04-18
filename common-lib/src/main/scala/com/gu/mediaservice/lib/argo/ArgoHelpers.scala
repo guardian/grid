@@ -26,7 +26,7 @@ trait ArgoHelpers extends Results with GridLogging {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, orgOwnedCount: Option[Long] = None,
+  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, maybeOrgOwnedCount: Option[Long] = None,
                            links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionResponse(
@@ -36,7 +36,8 @@ trait ArgoHelpers extends Results with GridLogging {
       total  = total,
       data   = data,
       links  = links,
-      actions = orgOwnedCount
+      //FIXME using actions below is a hack to get the org owned count into the response (until such time as we move theseus into the grid, so client can safely parse the response)
+      actions = maybeOrgOwnedCount
     )
 
     serializeAndWrap(response, Ok)
