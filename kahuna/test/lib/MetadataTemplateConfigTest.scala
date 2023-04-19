@@ -22,16 +22,19 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
               "resolveStrategy" -> "replace"
             )
           ),
-          "leases" -> List(
-            Map(
-              "leaseType" -> "allow-use",
-              "notes" -> "Sample allow cropping lease note"
-            ),
-            Map(
-              "leaseType" -> "deny-syndication",
-              "notes" -> "Sample deny syndication lease note"
+          "templateLeases" -> Map(
+            "replace" -> false,
+            "leases" -> List(
+              Map(
+                "leaseType" -> "allow-use",
+                "notes" -> "Sample allow cropping lease note"
+              ),
+              Map(
+                "leaseType" -> "deny-syndication",
+                "notes" -> "Sample deny syndication lease note"
+              )
             )
-          )
+          ),
         ),
         Map(
           "templateName" -> "B",
@@ -71,7 +74,10 @@ class MetadataTemplateConfigTest extends AnyFreeSpec with Matchers {
       template.templateName shouldBe "A"
       template.usageRights shouldBe defined
 
-      val leases = template.leases
+      val templateLeases = template.templateLeases
+      templateLeases shouldBe defined
+      templateLeases.get.replace shouldBe false
+      val leases = templateLeases.get.leases
       leases.nonEmpty shouldBe true
 
       val usageRights = template.usageRights.get
