@@ -16,6 +16,7 @@ sealed trait Running extends MigrationStatus {
 }
 case class InProgress(migrationIndexName: String) extends Running
 case class Paused(migrationIndexName: String) extends Running
+case class CompletionPreview(migrationIndexName: String) extends Running
 case class StatusRefreshError(cause: Throwable, preErrorStatus: MigrationStatus) extends MigrationStatus
 object StatusRefreshError {
   // custom constructor to unwrap when previousStatus is also Error - prevents nested Errors!
@@ -29,6 +30,7 @@ object StatusRefreshError {
 
 object MigrationStatusProvider {
   val PAUSED_ALIAS = "MIGRATION_PAUSED"
+  val COMPLETION_PREVIEW_ALIAS = "MIGRATION_COMPLETION_PREVIEW"
 }
 
 trait MigrationStatusProvider {
@@ -41,6 +43,7 @@ trait MigrationStatusProvider {
   private def fetchMigrationStatus(bubbleErrors: Boolean): MigrationStatus = {
     val statusFuture = getIndexForAlias(imagesMigrationAlias)
       .map {
+        case Some(index) if index.aliases.contains(MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS) => CompletionPreview(index.name)
         case Some(index) if index.aliases.contains(MigrationStatusProvider.PAUSED_ALIAS) => Paused(index.name)
         case Some(index) => InProgress(index.name)
         case None => NotRunning

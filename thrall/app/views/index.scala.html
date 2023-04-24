@@ -5,6 +5,7 @@
 @import com.gu.mediaservice.lib.elasticsearch.InProgress
 @import com.gu.mediaservice.lib.elasticsearch.Paused
 @import com.gu.mediaservice.lib.elasticsearch.NotRunning
+@import com.gu.mediaservice.lib.elasticsearch.CompletionPreview
 @(currentAlias: String,
   currentIndex: String,
   currentIndexCount: String,
@@ -60,6 +61,7 @@
             <td>
                 @migrationIndexCount
                 @migrationStatus match {
+                    case CompletionPreview(_) => {}
                     case Paused(_) => {
                         @form(routes.ThrallController.resumeMigration) {
                             PAUSED
@@ -96,10 +98,25 @@
         <p>
             If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
             and we're happy that all images in failure can become inaccessible).
-            @form(routes.ThrallController.completeMigration) {
-                <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
-                <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
+            @if(migrationStatus.isInstanceOf[CompletionPreview]) {
+                @form(routes.ThrallController.unPreviewMigrationCompletion) {
+                    <input type="submit" value="UnPreview Completion"> (this will make grid search both indexes again)
+                }
+                @form(routes.ThrallController.completeMigration) {
+                    or fully complete the migration:
+                    <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
+                    <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
+                }
+            } else {
+                @form(routes.ThrallController.previewMigrationCompletion) {
+                    <input type="submit" value="Preview Completion">
+                    <div>
+                        This will make grid only search the migration index (both indexes will continue to be populated
+                        and reads/writes of images will continue to use both indexes).
+                    </div>
+                }
             }
+
         </p>
     }
 
