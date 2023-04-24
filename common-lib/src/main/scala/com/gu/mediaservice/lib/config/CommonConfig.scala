@@ -40,6 +40,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
 
+  val shouldDisplayOrgOwnedCountAndFilterCheckbox: Boolean = boolean("filters.shouldDisplayOrgOwnedCountAndFilterCheckbox")
+
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
   val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {

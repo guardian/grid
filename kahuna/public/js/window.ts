@@ -5,6 +5,7 @@ declare global {
       _clientConfig: {
         telemetryUri: string;
         featureSwitches: Array<FeatureSwitchData>
+        maybeOrgOwnedValue: string | undefined;
       }
     }
   }

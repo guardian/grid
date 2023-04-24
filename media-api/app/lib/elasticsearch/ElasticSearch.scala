@@ -15,7 +15,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.querysyntax.{HierarchyField, Match, Phrase}
+import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -35,6 +35,8 @@ class ElasticSearch(
   overQuotaAgencies: () => List[Agency],
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
+
+  private val orgOwnedAggName = "org-owned"
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -217,6 +219,10 @@ class ElasticSearch(
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
+      .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
+        orgOwnedAggName,
+        queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
+      )) else Nil)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -227,7 +233,15 @@ class ElasticSearch(
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       // setting trackTotalHits to false means we don't get any hit count at all.
       // Requester has explicitly opted into not caring about the total hits, so give them what they want (nothing).
-      SearchResults(hits = imageHits, total = if (trackTotalHits) r.result.totalHits else 0)
+      SearchResults(
+        hits = imageHits,
+        total = if (trackTotalHits) r.result.totalHits else 0,
+        maybeOrgOwnedCount =
+          if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+            Some(r.result.aggregations.filter(orgOwnedAggName).docCount)
+          else
+            None
+      )
     }
   }
 

@@ -30,6 +30,14 @@
                         gr-tooltip-updates>
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
+                <button ng-if="ctrl.orgOwnedCount !== undefined && ctrl.orgOwnedCount !== ctrl.totalResults"
+                        ng-click="ctrl.applyOrgOwnedFilter()"
+                        class="image-results-count__org-owned"
+                        gr-tooltip="{{ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)}} {{ctrl.maybeOrgOwnedValue}} images as of {{ctrl.lastestTimeMoment || 'just now'}}"
+                        gr-tooltip-position="right"
+                        gr-tooltip-updates>
+                    {{(ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)) | toLocaleString}} {{ctrl.maybeOrgOwnedValue}}
+                </button>
             </div>
 
             <div class="results-toolbar-item--inline" ng-if="ctrl.hasQuery">

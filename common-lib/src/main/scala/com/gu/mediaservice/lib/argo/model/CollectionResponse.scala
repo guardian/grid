@@ -14,7 +14,9 @@ case class CollectionResponse[T](
   length: Option[Long],
   total: Option[Long] = None,
   data: Seq[T],
-  links: List[Link] = List()
+  links: List[Link] = List(),
+  // FIXME: the 'theseus' library used on the client mandates a strict set of top level keys, so crow-barring something else into 'actions' here (https://github.com/argo-rest/theseus [last updated 2015] needs to move into grid repo, so we can update it for this use-case and others)
+  actions: Option[Long] = None
 )
 
 object CollectionResponse extends WriteHelpers {
@@ -25,7 +27,8 @@ object CollectionResponse extends WriteHelpers {
       (__ \ "length").writeNullable[Long] ~
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
-      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
+      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
+      (__ \ "actions").writeNullable[Long]
     )(unlift(CollectionResponse.unapply[T]))
 
 }
