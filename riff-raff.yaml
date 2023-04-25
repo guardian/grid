@@ -14,7 +14,6 @@ templates:
     parameters:
     dependencies:
       - app-ami-update
-      - media-service-fluentbit
 
   usage-autoscaling:
     type: autoscaling
@@ -23,7 +22,6 @@ templates:
     parameters:
     dependencies:
       - app-ami-update
-      - media-service-fluentbit
 
   usage-deploy:
     template: usage-autoscaling
@@ -91,7 +89,7 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-focal-java8-ARM
+          Recipe: editorial-tools-focal-java8-ARM-WITH-cdk-base
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
@@ -124,9 +122,3 @@ deployments:
         PROD:
           filename: s3watcher.zip
           name: media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O
-
-  media-service-fluentbit:
-    type: aws-s3
-    parameters:
-      cacheControl: private
-      publicReadAcl: false

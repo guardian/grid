@@ -62,8 +62,6 @@ lazy val root = project("grid", path = Some("."))
       // pull in s3watcher build
       file("s3watcher/lambda/target/s3watcher.zip") -> "s3watcher/s3watcher.zip",
       file("riff-raff.yaml") -> "riff-raff.yaml",
-      file("fluentbit/td-agent-bit.conf") -> "media-service-fluentbit/td-agent-bit.conf",
-      file("fluentbit/parsers.conf") -> "media-service-fluentbit/parsers.conf"
     )
   )
 
