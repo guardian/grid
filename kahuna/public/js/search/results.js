@@ -248,6 +248,7 @@ results.controller('SearchResultsCtrl', [
                     }
 
                     ctrl.lastestTimeMoment = moment(latestTime).from(moment());
+                    ctrl.lastCheckedMoment = moment();
 
                     if (! scopeGone) {
                         checkForNewImages();
