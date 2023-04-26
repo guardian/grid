@@ -26,7 +26,7 @@
                         ng-click="ctrl.revealNewImages()"
                         class="image-results-count__new"
                         gr-tooltip="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}"
-                        gr-tooltip-position="right"
+                        gr-tooltip-position="bottom"
                         gr-tooltip-updates>
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
@@ -34,7 +34,7 @@
                         ng-click="ctrl.applyOrgOwnedFilter()"
                         class="image-results-count__org-owned"
                         gr-tooltip="{{ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)}} {{ctrl.maybeOrgOwnedValue}} images as of {{ctrl.lastestTimeMoment || 'just now'}}"
-                        gr-tooltip-position="right"
+                        gr-tooltip-position="bottom"
                         gr-tooltip-updates>
                     {{(ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)) | toLocaleString}} {{ctrl.maybeOrgOwnedValue}}
                 </button>
