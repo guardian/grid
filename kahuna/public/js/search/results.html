@@ -33,7 +33,7 @@
                 <button ng-if="ctrl.orgOwnedCount !== undefined && ctrl.orgOwnedCount !== ctrl.totalResults"
                         ng-click="ctrl.applyOrgOwnedFilter()"
                         class="image-results-count__org-owned"
-                        gr-tooltip="last updated {{(ctrl.lastCheckedMoment || moment()).from(moment())}}"
+                        gr-tooltip="last updated {{ctrl.lastCheckedMoment?.from(moment()) || 'just now'}}"
                         gr-tooltip-position="bottom"
                         gr-tooltip-updates>
                     {{(ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)) | toLocaleString}} {{ctrl.maybeOrgOwnedValue}}
