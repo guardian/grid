@@ -153,6 +153,7 @@ query.controller('SearchQueryCtrl', [
     });
 
 
+    // eslint-disable-next-line complexity
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
 
@@ -183,30 +184,30 @@ query.controller('SearchQueryCtrl', [
           Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         }
 
-      const structuredQuery = structureQuery(filter.query);
-      if (filter.orgOwned){
-            // If the checkbox is ticked, add the chip to the search bar
-            if (!structuredQuery.find(item => item.value === ctrl.maybeOrgOwnedValue)){
-                filter.query = renderQuery([
-                  ...structuredQuery,
-                  {
-                    type: "filter",
-                    filterType: "inclusion",
-                    key : "is",
-                    value: ctrl.maybeOrgOwnedValue
-                  }
-                ]);
-            }
-        } else {
-            // If the checkbox is unticked, remove the chip from the search bar
-            filter.query = renderQuery(
-              structuredQuery.filter(item => item.value !== ctrl.maybeOrgOwnedValue)
-            );
-        }
+      const structuredQuery = structureQuery(filter.query) || [];
+      const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
+      const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
+      if (filter.orgOwned && !queryHasOrgOwned){
+        // If the checkbox is ticked, ensure the chip is part of the search bar
+        const orgOwnedChip = {
+          type: "filter",
+          filterType: "inclusion",
+          key : "is",
+          value: ctrl.maybeOrgOwnedValue
+        };
+        ctrl.filter.query = renderQuery([
+          ...structuredQuery,
+          orgOwnedChip
+        ]);
+      } else if (!filter.orgOwned && queryHasOrgOwned) {
+        // If the checkbox is unticked, ensure chip is no longer in the search bar
+        structuredQuery.splice(orgOwnedIndexInQuery, 1);
+        ctrl.filter.query = renderQuery(structuredQuery);
+      }
 
-        const { nonFree, uploadedByMe } = ctrl.filter;
-        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-        $state.go('search.results', filter);
+      const { nonFree, uploadedByMe } = ctrl.filter;
+      sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+      $state.go('search.results', filter);
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
