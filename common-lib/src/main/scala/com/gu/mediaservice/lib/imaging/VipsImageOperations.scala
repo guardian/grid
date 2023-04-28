@@ -34,8 +34,8 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
   }
 
 
-  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType, colourModel: Option[String]): Future[File] = {
-    val profile = colourModel.map(profileLocations)
+  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType): Future[File] = {
+    val profile = rgbProfileLocation(false)
     for {
       outputFile <- createTempFile("crop-", mimeType.fileExtension, tempDir)
       _ <- futureFromTry {
