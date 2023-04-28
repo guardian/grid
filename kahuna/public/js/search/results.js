@@ -102,6 +102,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.images = [];
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
         ctrl.newImagesCount = 0;
+        ctrl.newImagesLastCheckedMoment = moment();
 
         // Preview control
         ctrl.previewView = false;
@@ -247,8 +248,8 @@ results.controller('SearchResultsCtrl', [
                         $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
                     }
 
-                    ctrl.lastestTimeMoment = moment(latestTime).from(moment());
-                    ctrl.lastCheckedMoment = moment();
+                    ctrl.lastestTimeMoment = moment(latestTime);
+                    ctrl.newImagesLastCheckedMoment = moment();
 
                     if (! scopeGone) {
                         checkForNewImages();
