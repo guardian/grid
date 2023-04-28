@@ -55,6 +55,15 @@ jobs:
           sudo apt-get -y install graphicsmagick
           sudo apt-get -y install graphicsmagick-imagemagick-compat
           sudo apt-get -y install exiftool
+      - name: prepare libvips
+        run: |
+          mydir="$(mktemp -d)"
+          curl -fLso- 'https://github.com/kleisauke/libvips-packaging/releases/download/v8.12.2/libvips-8.12.2-linux-arm64.tar.gz' | tar xzC $mydir
+          mkdir -p cropper/conf/linux-aarch64
+          cp $mydir/lib/libvips.so.42 cropper/conf/linux-aarch64/libvips.so
+          mkdir -p image-loader/conf/linux-aarch64
+          cp $mydir/lib/libvips.so.42 image-loader/conf/linux-aarch64/libvips.so
+          rm -rf $mydir
       - name: Setup Java
         uses: guardian/setup-scala@v1
       - name: SBT
@@ -108,5 +117,4 @@ jobs:
 
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
-
 
