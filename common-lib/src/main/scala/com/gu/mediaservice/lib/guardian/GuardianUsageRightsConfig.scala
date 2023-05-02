@@ -312,6 +312,8 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "ESTADÃO CONTEÚDO",
     "Everyday Projects",
     "Eye Ubiquitous RR",
+    "EyeEm",
+    "EyeEm Premium",
     "EyeEm RM",
     "Eyewire",
     "EyeWire Other",
