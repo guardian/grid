@@ -32,7 +32,6 @@
 
     <appender name="ASYNCSTDOUT" class="ch.qos.logback.classic.AsyncAppender">
       <appender-ref ref="STDOUT" />
-      <appender-ref ref="ASYNCSTDOUT"/>
     </appender>
 
     <logger name="play" level="INFO" />
