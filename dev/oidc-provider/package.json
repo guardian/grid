@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "oidc-provider": "^7.14.1"
+    "oidc-provider": "^8.2.1"
   }
 }
