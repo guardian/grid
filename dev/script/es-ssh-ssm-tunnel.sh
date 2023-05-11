@@ -42,7 +42,7 @@ fi
 
 echo "🛰 fetching connection details from ssm"
 
-SSM_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,grid-elasticsearch,$STAGE --newest --ssm-tunnel --raw)
+SSM_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,$STAGE --newest --ssm-tunnel --raw)
 
 echo "📠 ESTABLISHING CONNECTION"
 
