@@ -5,6 +5,10 @@ import com.gu.mediaservice.model.Bounds
 import java.io.File
 import scala.util.Try
 
+final case class VipsPngsaveQuantise(
+  quality: Int,
+  dither: Double,
+)
 
 object Vips {
   // this should only be run once per process - please keep it inside a singleton `object`!
@@ -54,7 +58,13 @@ object Vips {
     }
   }
 
-  def savePng(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = Try {
+  def savePng(
+    image: VipsImage,
+    outputFile: File,
+    profile: String,
+    quantisation: Option[VipsPngsaveQuantise] = None,
+    bitdepth: Option[Int] = None
+  ): Try[Unit] = Try {
     val profileTransformed = new VipsImageByReference()
     if (LibVips.INSTANCE.vips_icc_transform(image, profileTransformed, profile,
       "embedded", 1.asInstanceOf[Integer],
@@ -63,10 +73,23 @@ object Vips {
       throw new Error(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
     }
 
-    val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer], "profile", profile)
+    val args = Seq("strip", 1.asInstanceOf[Integer], "profile", profile) ++
+      quantisation.toSeq.flatMap(qargs => Seq("Q", qargs.quality.asInstanceOf[Integer], "dither", qargs.dither.asInstanceOf[java.lang.Double])) ++
+      bitdepth.toSeq.flatMap(bd => Seq("bitdepth", bd.asInstanceOf[Integer]))
 
     if (LibVips.INSTANCE.vips_pngsave(profileTransformed.getValue, outputFile.getAbsolutePath, args:_*) != 0) {
       throw new Error(s"Failed to save file to Png - libvips returned error ${getErrors()}")
     }
+  }
+
+  def thumbnail(file: File, width: Int): Try[VipsImage] = Try {
+    val output = new VipsImageByReference()
+    if (LibVips.INSTANCE.vips_thumbnail(file.getAbsolutePath, output, width.asInstanceOf[Integer],
+    "no_rotate", 1.asInstanceOf[Integer], "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
+    ) != 0) {
+      throw new Error(s"Failed to create thumbnail - ${getErrors()}")
+    }
+
+    output.getValue
   }
 }

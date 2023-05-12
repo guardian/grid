@@ -57,6 +57,8 @@ class ImageLoaderController(auth: Authentication,
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
 
+  private val useVips = false
+
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
   val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
@@ -202,7 +204,8 @@ class ImageLoaderController(auth: Authentication,
         uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = Some(s3IngestObject.filename)
+        filename = Some(s3IngestObject.filename),
+        useVips
     )
 
     // under all circumstances, remove the temp files
@@ -278,13 +281,18 @@ class ImageLoaderController(auth: Authentication,
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
       val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
+
+      val useVips = req.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+
+      println("in controller userVips = " + useVips)
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
           uploadedByToRecord,
           identifiers,
           uploadTimeToRecord,
-          filename.flatMap(_.trim.nonEmptyOpt)
+          filename.flatMap(_.trim.nonEmptyOpt),
+          useVips = useVips
         )
         _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
@@ -320,8 +328,10 @@ class ImageLoaderController(auth: Authentication,
       implicit val context: LogMarker = initialContext ++ Map(
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
+      val useVips = req.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
-      val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn)
+      val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn, useVips)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -365,12 +375,15 @@ class ImageLoaderController(auth: Authentication,
         digestedFile <- downloader.download(validUri, tempFile)
       } yield digestedFile
 
+      val useVips = request.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+
       val uploadResultFuture = uploadDigestedFileToStore(
-          digestedFileFuture,
-          uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
-          identifiers,
-          uploadTime,
-          filename
+        digestedFileFuture,
+        uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
+        identifiers,
+        uploadTime,
+        filename,
+        useVips
       )
 
       // under all circumstances, remove the temp files
@@ -397,7 +410,8 @@ class ImageLoaderController(auth: Authentication,
     uploadedBy: String,
     identifiers: Option[String],
     uploadTime: Option[String],
-    filename: Option[String]
+    filename: Option[String],
+    useVips: Boolean,
   )(implicit logMarker:LogMarker): Future[UploadStatusUri] = {
 
     for {
@@ -410,6 +424,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
           uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
+          useVips
         )
         result <- uploader.storeFile(uploadRequest)
       } yield {
@@ -549,7 +564,8 @@ class ImageLoaderController(auth: Authentication,
               metadata.uploadTime,
               metadata.uploadedBy,
               metadata.identifiers,
-              UploadInfo(metadata.uploadFileName)
+              UploadInfo(metadata.uploadFileName),
+              useVips
             ),
             gridClient,
             auth.getOnBehalfOfPrincipal(request.user)
