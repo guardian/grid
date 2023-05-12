@@ -78,7 +78,8 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       DateTime.now(),
       "uploadedBy",
       Map(),
-      ul
+      ul,
+      false
     )
 
     val futureImage = Uploader.uploadAndStoreImage(

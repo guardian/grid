@@ -157,7 +157,7 @@ class MagickImageOperations(val playPath: String) extends GridLogging with Image
                       qual: Double = 100d,
                       outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String]
+                      colourModel: Option[String], hasAlpha: Boolean
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 

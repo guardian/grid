@@ -15,7 +15,7 @@ import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, Storabl
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.lib.imaging.MagickImageOperations
+import com.gu.mediaservice.lib.imaging.{ImageOperations, MagickImageOperations, VipsImageOperations}
 import com.gu.mediaservice.lib.imaging.MagickImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
@@ -74,7 +74,7 @@ case class ImageUploadOpsCfg(
 
 case class ImageUploadOpsDependencies(
   config: ImageUploadOpsCfg,
-  imageOps: MagickImageOperations,
+  imageOps: ImageOperations,
   storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
   storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
@@ -262,6 +262,7 @@ object Uploader extends GridLogging {
           tempFile,
           iccColourSpace,
           colourModel,
+          fileMetadata.colourModelInformation.get("hasAlpha").contains("true")
         )
       } yield thumbData
     }
@@ -320,14 +321,16 @@ object Uploader extends GridLogging {
 
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
-               val imageOps: MagickImageOperations,
+               val magickImageOps: MagickImageOperations,
+  val vipsImageOps: VipsImageOperations,
                val notifications: Notifications,
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
-    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
+    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config),
+      if (uploadRequest.useVips) vipsImageOps else magickImageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
@@ -346,7 +349,7 @@ class Uploader(val store: ImageLoaderStore,
                uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
-               filename: Option[String])
+               filename: Option[String], useVips: Boolean)
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
@@ -370,7 +373,8 @@ class Uploader(val store: ImageLoaderStore,
           uploadTime = uploadTime,
           uploadedBy = uploadedBy,
           identifiers = identifiersMap,
-          uploadInfo = UploadInfo(filename)
+          uploadInfo = UploadInfo(filename),
+          useVips
         )
     }
   }

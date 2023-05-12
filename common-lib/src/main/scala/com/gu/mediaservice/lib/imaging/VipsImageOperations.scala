@@ -1,8 +1,10 @@
 package com.gu.mediaservice.lib.imaging
 
+import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.Files.createTempFile
+import com.gu.mediaservice.lib.imaging.MagickImageOperations.optimisedMimeType
 import com.gu.mediaservice.lib.imaging.vips.{Vips, VipsImage}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Bounds, Jpeg, MimeType, Png}
 
 import java.io.File
@@ -41,14 +43,46 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
       _ <- futureFromTry {
         mimeType match {
           case Jpeg => Vips.saveJpeg(image, outputFile, quality, profile)
-          case Png => Vips.savePng(image, outputFile, quality, profile)
+          case Png => Vips.savePng(image, outputFile, profile)
           case unsupported => Failure(new UnsupportedCropOutputTypeException(unsupported))
         }
       }
     } yield outputFile
   }
 
-//  override def cropImage(
+  override def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)
+    (implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    println("transforming image with VIPSSS")
+    val profile = rgbProfileLocation(optimised = true)
+
+    for {
+      outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
+      img <- futureFromTry { Vips.openFile(sourceFile) }
+      _ <- futureFromTry { Vips.savePng(img, outputFile, profile, bitdepth = Some(8))}
+    } yield outputFile -> optimisedMimeType
+  }
+
+  override def createThumbnail(
+    browserViewableImage: BrowserViewableImage,
+    width: Int,
+    qual: Double,
+    outputFile: File,
+    iccColourSpace: Option[String],
+    colourModel: Option[String], hasAlpha: Boolean
+  )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    val profile = rgbProfileLocation(false)
+    println("making thumbnail with VIPSSS")
+    for {
+      thumb <- futureFromTry { Vips.thumbnail(browserViewableImage.file, width) }
+      _ <- futureFromTry {
+        if (hasAlpha) Vips.savePng(thumb, outputFile, profile)
+        else Vips.saveJpeg(thumb, outputFile, qual.toInt, profile)
+      }
+    } yield (outputFile, Jpeg)
+  }
+
+
+  //  override def cropImage(
 //    sourceFile: File,
 //    sourceMimeType: Option[MimeType],
 //    bounds: Bounds,
@@ -81,4 +115,5 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
 //      _ <- futureFromTry { Vips.resize(sourceFile, outputFile, scale, qual)}
 //    } yield outputFile
 //  }
+
 }
