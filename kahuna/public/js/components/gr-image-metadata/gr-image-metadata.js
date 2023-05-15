@@ -81,6 +81,19 @@ module.controller('grImageMetadataCtrl', [
     };
 
     ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
+    ctrl.hasMultipleDomainMetadataEmptyValues = (specName, specField) => {
+      const res = ctrl.rawMetadata.domainMetadata && ctrl.rawMetadata.domainMetadata.map((domainMetadata) => {
+        if (domainMetadata && domainMetadata[specName])
+        {
+          return domainMetadata[specName][specField];
+        }
+        else
+        {
+          return undefined;
+        }
+      });
+      return res.every((val) => val === undefined);
+    };
 
     ctrl.displayDateTakenMetadata = function() {
       let dateTaken = ctrl.metadata.dateTaken ? new Date(ctrl.metadata.dateTaken) : undefined;
@@ -136,8 +149,8 @@ module.controller('grImageMetadataCtrl', [
       );
     };
 
-    ctrl.updateDomainMetadataField = function(name, field, value) {
-      return editsService.updateDomainMetadataField(ctrl.singleImage, name, field, value)
+    const updateDomainMetadataField = (image, name, field, value) => {
+      return editsService.updateDomainMetadataField(image, name, field, value)
         .then((updatedImage) => {
           if (updatedImage) {
             ctrl.singleImage = updatedImage;
@@ -175,6 +188,19 @@ module.controller('grImageMetadataCtrl', [
            */
           return 'failed to save (press esc to cancel)';
         });
+
+    };
+    ctrl.updateDomainMetadataField = function (name, field, value) {
+      if (ctrl.singleImage){
+        return updateDomainMetadataField(ctrl.singleImage, name, field, value);
+      }
+      else {
+        var imageArray = Array.from(ctrl.selectedImages);
+        const updateResult = imageArray.map((image) => {
+          return updateDomainMetadataField(image, name, field, value);
+        });
+        return updateResult[0];
+      }
     };
 
     ctrl.addLabelToImages = labelService.batchAdd;

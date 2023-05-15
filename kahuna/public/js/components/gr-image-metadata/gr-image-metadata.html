@@ -658,7 +658,7 @@
         </div>
     </div>
 
-    <div ng-if="(ctrl.singleImage && ctrl.userCanEdit) || (ctrl.singleImage && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+    <div ng-if="(ctrl.userCanEdit) || (ctrl.singleImage && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
          role="region" aria-label="Domain metadata">
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
                 aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
@@ -691,12 +691,21 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="ctrl.singleImage && specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="ctrl.singleImage && !specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
+
+                                <span class="editable-empty" ng-if="!ctrl.singleImage && ctrl.hasMultipleDomainMetadataEmptyValues(spec.name, specField.name) && ctrl.userCanEdit">
+                                    Unknown (click ✎ to edit <strong>all</strong>)
+                                </span>
+
+                                <span class="editable-empty" ng-if="!ctrl.singleImage && !ctrl.hasMultipleDomainMetadataEmptyValues(spec.name, specField.name) && ctrl.userCanEdit">
+                                    Multiple {{specField.label}} (click ✎ to edit <strong>all</strong>)
+                                </span>
+
                             </span>
                         </span>
 
