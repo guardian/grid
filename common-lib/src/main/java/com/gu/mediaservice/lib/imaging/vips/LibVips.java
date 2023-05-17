@@ -14,6 +14,9 @@ public interface LibVips extends Library {
   int vips_thumbnail(String filename, VipsImageByReference out, int width, Object... args);
 
   int vips_icc_transform(VipsImage in, VipsImageByReference out, String output_profile_path, Object... args);
+  int vips_colourspace(VipsImage in, VipsImageByReference out, int space);
+
+  int vips_image_guess_interpretation(VipsImage in);
 
   int vips_resize(VipsImage in, VipsImageByReference out, double scale, Object... args);
   int vips_extract_area(VipsImage in, VipsImageByReference out, int left, int top, int width, int height, Object... args);

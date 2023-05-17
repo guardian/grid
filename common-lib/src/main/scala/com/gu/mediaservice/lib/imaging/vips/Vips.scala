@@ -42,20 +42,41 @@ object Vips {
   }
 
   def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = Try {
-    val profileTransformed = new VipsImageByReference()
-    if (LibVips.INSTANCE.vips_icc_transform(image, profileTransformed, profile,
-      "embedded", 1.asInstanceOf[Integer],
-      "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
-      "black_point_compensation", 1.asInstanceOf[Integer]) != 0)
-    {
-      throw new Error(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
+    reinterpret(image).map { srgbed =>
+      val profileTransformed = new VipsImageByReference()
+      if (LibVips.INSTANCE.vips_icc_transform(image, profileTransformed, profile,
+        "embedded", 1.asInstanceOf[Integer],
+        "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
+        "black_point_compensation", 1.asInstanceOf[Integer]) != 0) {
+        throw new Error(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
+      }
+
+      val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer], "profile", profile)
+
+      if (LibVips.INSTANCE.vips_jpegsave(profileTransformed.getValue, outputFile.getAbsolutePath, args: _*) != 0) {
+        throw new Error(s"Failed to save file to Jpeg - libvips returned error ${getErrors()}")
+      }
+    }
+  }
+
+  /**
+   * Check Libvips' interpretation of the image: if black/white, send to SRGB colourspace, otherwise return unchanged
+   * @param image
+   * @return
+   */
+  private def reinterpret(image: VipsImage): Try[VipsImage] = Try {
+    val interpretation = VipsInterpretation.fromValue(LibVips.INSTANCE.vips_image_guess_interpretation(image))
+
+    if (interpretation == VipsInterpretation.VIPS_INTERPRETATION_B_W) {
+      val reinterpreted = new VipsImageByReference()
+      if (LibVips.INSTANCE.vips_colourspace(image, reinterpreted, VipsInterpretation.VIPS_INTERPRETATION_sRGB.value) != 0) {
+        throw new Error(s"Failed to move from B/W colourspace to sRGB - ${getErrors()}")
+      }
+      reinterpreted.getValue
+    } else {
+      image
     }
 
-    val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer], "profile", profile)
-
-    if (LibVips.INSTANCE.vips_jpegsave(profileTransformed.getValue, outputFile.getAbsolutePath, args:_*) != 0) {
-      throw new Error(s"Failed to save file to Jpeg - libvips returned error ${getErrors()}")
-    }
   }
 
   def savePng(
@@ -65,20 +86,26 @@ object Vips {
     quantisation: Option[VipsPngsaveQuantise] = None,
     bitdepth: Option[Int] = None
   ): Try[Unit] = Try {
-    val profileTransformed = new VipsImageByReference()
-    if (LibVips.INSTANCE.vips_icc_transform(image, profileTransformed, profile,
-      "embedded", 1.asInstanceOf[Integer],
-      "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
-      "black_point_compensation", 1.asInstanceOf[Integer]) != 0) {
-      throw new Error(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
-    }
+    reinterpret(image).map { srgbed =>
+      val profileTransformed = new VipsImageByReference()
+      if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
+        "embedded", 1.asInstanceOf[Integer],
+        "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
+        "black_point_compensation", 1.asInstanceOf[Integer]) != 0) {
+        throw new Error(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
+      }
 
-    val args = Seq("strip", 1.asInstanceOf[Integer], "profile", profile) ++
-      quantisation.toSeq.flatMap(qargs => Seq("Q", qargs.quality.asInstanceOf[Integer], "dither", qargs.dither.asInstanceOf[java.lang.Double])) ++
-      bitdepth.toSeq.flatMap(bd => Seq("bitdepth", bd.asInstanceOf[Integer]))
+      val args = Seq("strip", 1.asInstanceOf[Integer], "profile", profile) ++
+        quantisation.toSeq
+          .flatMap(qargs => Seq("Q",
+            qargs.quality.asInstanceOf[Integer],
+            "dither",
+            qargs.dither.asInstanceOf[java.lang.Double])) ++
+        bitdepth.toSeq.flatMap(bd => Seq("bitdepth", bd.asInstanceOf[Integer]))
 
-    if (LibVips.INSTANCE.vips_pngsave(profileTransformed.getValue, outputFile.getAbsolutePath, args:_*) != 0) {
-      throw new Error(s"Failed to save file to Png - libvips returned error ${getErrors()}")
+      if (LibVips.INSTANCE.vips_pngsave(profileTransformed.getValue, outputFile.getAbsolutePath, args: _*) != 0) {
+        throw new Error(s"Failed to save file to Png - libvips returned error ${getErrors()}")
+      }
     }
   }
 
