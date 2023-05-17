@@ -43,7 +43,6 @@ object Vips {
 
   def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = Try {
     reinterpret(image).map { srgbed =>
-      println("up top")
       val profileTransformed = new VipsImageByReference()
       if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
         "embedded", 1.asInstanceOf[Integer],
