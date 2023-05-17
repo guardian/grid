@@ -45,6 +45,14 @@ public interface LibVips extends Library {
    * This table is inexhaustive, you may need to consult
    * https://github.com/java-native-access/jna/blob/master/www/Mappings.md
    * for more help
+   *
+   * Callers of these methods must pass java objects into the varargs.
+   * eg. If you want to pass in an int, you must pass either a primitive int, or a java.lang.Integer
+   * A scala.Int will compile, and look like it will be converted into a java int as works in almost
+   * any other context. But because varargs here are declared as Object..., the conversion will not
+   * happen, and odd errors will ensue.
+   * Instead, pass as eg. `1.asInstanceOf[java.lang.Integer]` (or, make a wrapping function in Java,
+   * passing the int in as a primitive `int`).
    */
 
   VipsImage vips_image_new_from_file(String filename, Object... args);
