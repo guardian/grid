@@ -41,7 +41,7 @@ object Vips {
     resizeOutput.getValue
   }
 
-  def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = Try {
+  def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = {
     reinterpret(image).map { srgbed =>
       val profileTransformed = new VipsImageByReference()
       if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
@@ -85,7 +85,7 @@ object Vips {
     profile: String,
     quantisation: Option[VipsPngsaveQuantise] = None,
     bitdepth: Option[Int] = None
-  ): Try[Unit] = Try {
+  ): Try[Unit] = {
     reinterpret(image).map { srgbed =>
       val profileTransformed = new VipsImageByReference()
       if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
