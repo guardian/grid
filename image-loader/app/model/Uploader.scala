@@ -1,38 +1,32 @@
 package model
 
+import play.api.libs.json.Json
+import play.api.libs.ws.WSRequest
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
-
-import java.io.File
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-import java.util.UUID
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.lib.imaging.{ImageOperations, MagickImageOperations, VipsImageOperations}
 import com.gu.mediaservice.lib.imaging.MagickImageOperations.{optimisedMimeType, thumbMimeType}
+import com.gu.mediaservice.lib.imaging.{ImageOperations, MagickImageOperations, VipsImageOperations}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.lib._
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
-import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
-import play.api.libs.ws.WSRequest
 
+import java.io.File
+import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
-import scala.sys.process.{Process, ProcessBuilder}
+import scala.sys.process.Process
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
@@ -271,6 +265,8 @@ object Uploader extends GridLogging {
       } yield thumbData
     }
 
+    val thumbMimeType = if (fileMetadata.colourModelInformation.get("hasAlpha").contains("true")) Png else Jpeg
+
     for {
       tempFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       maybeThumbFile <- deps.tryFetchThumbFile(browserViewableImage.id, tempFile)
@@ -414,4 +410,3 @@ class Uploader(val store: ImageLoaderStore,
   } yield ()
 
 }
-

@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Bounds, Jpeg, MimeType, Png}
 
 import java.io.File
+import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
@@ -56,7 +57,7 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     val profile = rgbProfileLocation(optimised = true)
 
     for {
-      outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
+      outputFile <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       img <- futureFromTry { Vips.openFile(sourceFile) }
       _ <- futureFromTry { Vips.savePng(img, outputFile, profile, bitdepth = Some(8))}
     } yield outputFile -> optimisedMimeType
@@ -71,14 +72,14 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     colourModel: Option[String], hasAlpha: Boolean
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val profile = rgbProfileLocation(false)
-    println("making thumbnail with VIPSSS")
+    println(s"making thumbnail with VIPSSS - hasAlpha $hasAlpha")
     for {
       thumb <- futureFromTry { Vips.thumbnail(browserViewableImage.file, width) }
       _ <- futureFromTry {
         if (hasAlpha) Vips.savePng(thumb, outputFile, profile)
         else Vips.saveJpeg(thumb, outputFile, qual.toInt, profile)
       }
-    } yield (outputFile, Jpeg)
+    } yield (outputFile, if (hasAlpha) Png else Jpeg)
   }
 
 
