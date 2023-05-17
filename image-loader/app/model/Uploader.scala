@@ -32,6 +32,7 @@ import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSRequest
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.sys.process.{Process, ProcessBuilder}
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
@@ -237,6 +238,9 @@ object Uploader extends GridLogging {
   }
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[FileMetadata] = {
+    println(mimeType)
+    println(f)
+    println(Process(s"md5sum ${f.getAbsolutePath}").!)
     mimeType match {
       case Some(Png | Tiff | Jpeg) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
