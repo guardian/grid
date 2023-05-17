@@ -9,6 +9,44 @@ public interface LibVips extends Library {
   int vips_init(String argv0);
   String vips_error_buffer_copy();
 
+  /*
+   * ADDING A NEW BINDING? READ ME!
+   * ------------------------------
+   *
+   * Look up your vips binding on the API index here: https://www.libvips.org/API/current/api-index-full.html
+   *
+   * Is the function you want to use varargs? (ie. does the signature end with `...);`)
+   * If so, you _must_ declare this as varargs in this interface too!
+   * (End the declaration with `Object... args);`)
+   * Even if you don't want to use any of those optional arguments!
+   * Even if you don't want future users to use any of those optional arguments!
+   *
+   * If you don't declare the function as varargs in Java, it will not be bound correctly to C,
+   * and you will get _very, very_ weird error messages!
+   *
+   * If you were calling these varargs functions from C, you would need to pass a NULL pointer
+   * as the final argument, even if you weren't using any optional arguments. JNA is very helpful
+   * and does this for you. (Thank you JNA!)
+   *
+   * Translating types:
+   *      C       |      Java
+   * -------------|-----------------
+   * VipsImage *  | VipsImage
+   * VipsImage ** | VipsImageByReference
+   * const char * | String
+   * gchararray   | String
+   * int          | int (or Integer)
+   * gint         | int (or Integer)
+   * double       | double (or Double)
+   * gdouble      | double (or Double)
+   * gboolean     | boolean
+   * <enums>      | int (remember to check VIPS source for the correct enum values!)
+   *
+   * This table is inexhaustive, you may need to consult
+   * https://github.com/java-native-access/jna/blob/master/www/Mappings.md
+   * for more help
+   */
+
   VipsImage vips_image_new_from_file(String filename, Object... args);
 
   int vips_thumbnail(String filename, VipsImageByReference out, int width, Object... args);
