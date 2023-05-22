@@ -68,7 +68,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     }
   }
 
-  def makeQuery(conditions: List[Condition]) = conditions match {
+  def makeQuery(queries: List[List[Condition]]) = queries match {
+    case Nil => makeSubQuery(Nil)
+    case conditions :: Nil => makeSubQuery(conditions)
+    case conditionList => boolQuery().should(conditionList.map(makeSubQuery))
+
+  }
+  def makeSubQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery
     case condList => {
 

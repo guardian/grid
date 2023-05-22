@@ -163,7 +163,7 @@ class ElasticSearch(
     val dateAddedToCollectionFilter = {
       params.orderBy match {
         case Some("dateAddedToCollection") => {
-          val pathHierarchyOpt = params.structuredQuery.flatMap {
+          val pathHierarchyOpt = params.structuredQuery.flatten.flatMap {
             case Match(HierarchyField, Phrase(value)) => Some(value)
             case _ => None
           }.headOption

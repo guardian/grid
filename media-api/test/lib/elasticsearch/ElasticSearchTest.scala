@@ -303,12 +303,12 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val hasTitleCondition = Match(HasField, HasValue("title"))
       val unknownFieldCondition = Match(HasField, HasValue("unknownfield"))
 
-      val hasTitleSearch = SearchParams(tier = Internal, structuredQuery = List(hasTitleCondition))
+      val hasTitleSearch = SearchParams(tier = Internal, structuredQuery = List(List(hasTitleCondition)))
       whenReady(ES.search(hasTitleSearch), timeout, interval) { result =>
         result.total shouldBe expectedNumberOfImages
       }
 
-      val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(unknownFieldCondition))
+      val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(List(unknownFieldCondition)))
       whenReady(ES.search(hasUnknownFieldTitleSearch), timeout, interval) { result =>
         result.total shouldBe 0
       }
@@ -316,7 +316,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
-      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(List(hasFileMetadataCondition)))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
         result.hits.head._2.instance.fileMetadata.xmp.nonEmpty shouldBe true
@@ -325,7 +325,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
-      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(List(hasFileMetadataCondition)))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
         result.hits.head._2.instance.fileMetadata.xmp.get("foo") shouldBe Some(JsString("bar"))
@@ -334,7 +334,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     it("file metadata files which are too long cannot by persisted as keywords and will not contribute to has field search results") {
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.toolong"))
-      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(List(hasFileMetadataCondition)))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 0
       }
@@ -343,7 +343,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   describe("is field filter") {
     it("should return no images with an invalid search") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isInvalidCondition))
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isInvalidCondition)))
       whenReady(ES.search(search), timeout, interval) { result => {
         result.total shouldBe 0
       }
@@ -351,7 +351,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("should return owned photographs") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedPhotoCondition), length = 50)
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isOwnedPhotoCondition)), length = 50)
       whenReady(ES.search(search), timeout, interval) { result => {
         val expected = List(
           "iron-suit",
@@ -376,7 +376,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("should return owned illustrations") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedIllustrationCondition))
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isOwnedIllustrationCondition)))
       whenReady(ES.search(search), timeout, interval) { result => {
         val expected = List(
           "green-giant",
@@ -391,7 +391,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("should return all owned images") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedImageCondition), length = 50)
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isOwnedImageCondition)), length = 50)
       whenReady(ES.search(search), timeout, interval) { result => {
         val expected = List(
           "iron-suit",
@@ -418,7 +418,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("should return all images when no agencies are over quota") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition))
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isUnderQuotaCondition)))
 
       whenReady(ES.search(search), timeout, interval) { result => {
         result.total shouldBe images.size
@@ -429,7 +429,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     it("should return any image whose agency is not over quota") {
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
-      val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
+      val search = SearchParams(tier = Internal, structuredQuery = List(List(isUnderQuotaCondition)), length = 50)
       val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, mock[Scheduler])
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
