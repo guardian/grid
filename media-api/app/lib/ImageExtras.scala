@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{AllowUseLease, DenyUseLease, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{AllowUseLease, DenyUseLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import lib.usagerights.CostCalculator
 
 case class ValidityCheck(invalid: Boolean, overrideable: Boolean, shouldOverride: Boolean) {
@@ -36,7 +36,7 @@ object ImageExtras {
 
   def hasCurrentAllowLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == AllowUseLease && isCurrent(lease))
 
-  def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
+  def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => (lease.access == DenyUseLease || lease.access == DenySyndicationLease) && isCurrent(lease))
 
   private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
     implicit cost: CostCalculator, quotas: UsageQuota
