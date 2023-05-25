@@ -42,6 +42,9 @@
       live: {
         url: '',
         key: ''
+      },
+      preview: {
+        url: '',
       }
     },
     crier: {
