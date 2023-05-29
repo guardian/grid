@@ -149,7 +149,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   ctrl.applyTemplate = () => {
     ctrl.saving = true;
-    ctrl.onMetadataTemplateApplying({lease: ctrl.metadataTemplate.lease});
+    ctrl.onMetadataTemplateApplying({leases: ctrl.metadataTemplate.templateLeases.leases});
 
     let promise = Promise.resolve();
 
@@ -177,8 +177,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
         if (ctrl.metadataTemplate.templateLeases.replace){
           return leaseService.replace(ctrl.image, leases);
-        }
-        else {
+        } else {
           return leaseService.addLeases(ctrl.image, leases);
         }
       }

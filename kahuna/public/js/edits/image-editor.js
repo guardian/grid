@@ -133,8 +133,8 @@ imageEditor.controller('ImageEditorCtrl', [
         offUsageRightsUpdateError();
     });
 
-    ctrl.onMetadataTemplateApplying = (lease) => {
-      if (angular.isDefined(lease)) {
+    ctrl.onMetadataTemplateApplying = (leases) => {
+      if (angular.isDefined(leases)) {
         ctrl.leasesUpdatingByTemplate = true;
       }
     };

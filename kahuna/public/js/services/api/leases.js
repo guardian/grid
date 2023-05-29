@@ -54,7 +54,6 @@ leaseService.factory('leaseService', [
             const currentLeasesPromise = getLeases(images);
 
             return currentLeasesPromise.then((currentLeases) => {
-
                 const updatedLeases = leases.map((lease) => {
                     var newLease = angular.copy(lease);
                     newLease.mediaId = image.data.id;
@@ -68,7 +67,7 @@ leaseService.factory('leaseService', [
 
                 return image
                     .perform('replace-leases', { body: updatedLeases })
-                    .then(() => pollLeasesAndUpdateUI(images));
+                    .then(() => pollLeasesAndUpdateUI(images, updatedLeases));
             });
         }
 
@@ -138,9 +137,9 @@ leaseService.factory('leaseService', [
       return getLeasesRoot().follow('by-media-id', {id: image.data.id}).get();
     }
 
-    function pollLeasesAndUpdateUI(images) {
+    function pollLeasesAndUpdateUI(images, updatedLeases) {
       apiPoll(() => {
-        return untilLeasesChange(images);
+        return untilLeasesChange(images, updatedLeases);
       }).then(results => {
           return results.map(({ image, leases }) => {
               emitLeaseUpdate(leases);
@@ -174,13 +173,13 @@ leaseService.factory('leaseService', [
     // then the user will see this immediately returned without their update
     // And as this might return the edit on the first call
     // You must call refreshImages before you make any changes this watches for.
-    function untilLeasesChange(images) {
+    function untilLeasesChange(images, updatedLeases) {
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
-          const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage);
+          const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage, updatedLeases);
           if (apiImageAndApiLeases) {
-              image = apiImage;
+            image = apiImage;
             return apiImageAndApiLeases;
           } else {
             // returning $q.reject() will make apiPoll function to poll again

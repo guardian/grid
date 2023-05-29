@@ -2,3 +2,7 @@
   color: #ccc;
   padding: 10px 0;
 }
+.metadata-templates__bar {
+  padding: 10px 0;
+  text-align: right;
+}
