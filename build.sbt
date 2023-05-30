@@ -125,7 +125,7 @@ lazy val commonLib = project("common-lib").settings(
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9"
   ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
 )
 
 lazy val restLib = project("rest-lib").settings(
