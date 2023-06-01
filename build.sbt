@@ -123,7 +123,8 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
-    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9"
+    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
+    "org.yaml" % "snakeyaml" % "1.31"
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
 )
