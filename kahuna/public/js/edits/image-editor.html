@@ -112,8 +112,8 @@
                    image="ctrl.image"
                    metadata="ctrl.image.data.metadata"
                    usage-rights="ctrl.image.data.usageRights"
-                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection, lease)"
-                   gr-on-metadata-template-applying="ctrl.onMetadataTemplateApplying(lease)"
+                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection, leasesWithConfig)"
+                   gr-on-metadata-template-applying="ctrl.onMetadataTemplateApplying(leases)"
                    gr-on-metadata-template-applied="ctrl.onMetadataTemplateApplied()"
                    gr-on-metadata-template-cancelled="ctrl.onMetadataTemplateCancelled(metadata, usageRights)"
                    class="metadata-templates-flex">
@@ -212,13 +212,13 @@
                    gr-collection-updated-by-template="ctrl.collectionUpdatedByTemplate"
                ></gr-collection-overlay>
                <span class="preview__collections__collection__apply-all" ng-if="ctrl.withBatch">
-                    <button ng-if="! ctrl.confirmDelete"
+                    <button ng-if="! ctrl.confirmDelete && !ctrl.collectionUpdatedByTemplate"
                             title="Apply these collections to all your current uploads"
                             ng-click="ctrl.batchApplyCollections()"
                     >⇔</button>
                     <button title="Remove ALL collections"
                             class="button button--confirm-delete"
-                            ng-if="ctrl.confirmDelete"
+                            ng-if="ctrl.confirmDelete && !ctrl.collectionUpdatedByTemplate"
                             ng-click="ctrl.batchRemoveCollections()">
                         <gr-icon>warning</gr-icon>Remove ALL collections in job?
                     </button>

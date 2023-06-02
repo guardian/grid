@@ -60,7 +60,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     const lease = {
       createdAt: new Date(),
       access: templateLease.leaseType,
-      notes: resolvePlaceholders(templateLease.notes)
+      notes: templateLease.notes ? resolvePlaceholders(templateLease.notes) : undefined
     };
 
     if (templateLease.durationInMillis !== undefined) {
@@ -119,15 +119,22 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     }
   }
 
+  function applyTemplateToLeases(templateLeases) {
+    if (templateLeases && templateLeases.leases.length > 0) {
+      return templateLeases.leases.map(templateLease => toLease(templateLease));
+    }
+  }
+
   ctrl.selectTemplate = () => {
     if (ctrl.metadataTemplate) {
       collections.getCollections().then(existingCollections => {
         const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
-        const lease = ctrl.metadataTemplate.lease ? toLease(ctrl.metadataTemplate.lease) : undefined;
+        const leases = applyTemplateToLeases(ctrl.metadataTemplate.templateLeases);
         const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
         const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
 
-        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, lease});
+        const leasesWithConfig = leases ? {replace: ctrl.metadataTemplate.templateLeases.replace, leases: leases} : undefined;
+        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection, leasesWithConfig});
       });
     } else {
       ctrl.cancel();
@@ -142,7 +149,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   ctrl.applyTemplate = () => {
     ctrl.saving = true;
-    ctrl.onMetadataTemplateApplying({lease: ctrl.metadataTemplate.lease});
+    ctrl.onMetadataTemplateApplying({leases: ctrl.metadataTemplate.templateLeases.leases});
 
     let promise = Promise.resolve();
 
@@ -150,10 +157,10 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       if (ctrl.metadataTemplate.metadataFields.length > 0) {
         return editsService
           .update(ctrl.image.data.userMetadata.data.metadata, applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields), ctrl.image);
-        }
-      })
+      }
+    })
     .then(() => {
-      if (ctrl.metadataTemplate.collectionFullPath) {
+      if (ctrl.metadataTemplate.collectionFullPath.length > 0) {
         return collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
       }
     })
@@ -165,9 +172,14 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       }
     })
     .then(() => {
-      if (ctrl.metadataTemplate.lease) {
-        const lease = toLease(ctrl.metadataTemplate.lease);
-        return leaseService.batchAdd(lease, [ctrl.image]);
+      if (ctrl.metadataTemplate.templateLeases) {
+        const leases = ctrl.metadataTemplate.templateLeases.leases.map(lease => toLease(lease));
+
+        if (ctrl.metadataTemplate.templateLeases.replace){
+          return leaseService.replace(ctrl.image, leases);
+        } else {
+          return leaseService.addLeases(ctrl.image, leases);
+        }
       }
     })
     .catch((e) => {

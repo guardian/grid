@@ -13,7 +13,7 @@
        <span ng-show="ctrl.adding">Updating...</span>
     </span>
 </button>
-<span ng-if="ctrl.withBatch" class="leases__apply-all">
+<span ng-if="ctrl.withBatch && !ctrl.leasesUpdatedByTemplate" class="leases__apply-all">
     <button
         title="Apply these leases to all your current uploads"
         ng-if="!ctrl.confirmDelete"

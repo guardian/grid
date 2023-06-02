@@ -23,7 +23,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply this description to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch && ctrl.userCanEdit"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit && (ctrl.originalMetadata['description'] === ctrl.metadata['description'])"
                 ng-click="ctrl.batchApplyMetadata('description')"
             >⇔</button>
         </label>
@@ -50,7 +50,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply this byline to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch && ctrl.userCanEdit"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit && !ctrl.metadataUpdatedByTemplate.includes('byline')"
                 ng-click="ctrl.batchApplyMetadata('byline')"
             >⇔</button>
 
@@ -81,7 +81,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply this credit to all"
                 type="button"
-                ng-if="ctrl.withBatch && ctrl.userCanEdit"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit && !ctrl.metadataUpdatedByTemplate.includes('credit')"
                 ng-click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
         </div>
@@ -103,7 +103,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply this copyright to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch && ctrl.userCanEdit"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit && !ctrl.metadataUpdatedByTemplate.includes('copyright')"
                 ng-click="ctrl.batchApplyMetadata('copyright')"
             >⇔</button>
         </label>
@@ -126,7 +126,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply these instructions to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch && ctrl.userCanEdit"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit && !ctrl.metadataUpdatedByTemplate.includes('specialInstructions')"
                 ng-click="ctrl.batchApplyMetadata('specialInstructions')"
             >⇔</button>
         </label>

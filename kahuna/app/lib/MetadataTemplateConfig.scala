@@ -28,6 +28,11 @@ object MetadataTemplateLease {
   implicit val writes: Writes[MetadataTemplateLease] = Json.writes[MetadataTemplateLease]
 }
 
+case class TemplateLeases(replace: Boolean = false, leases: Seq[MetadataTemplateLease] = Nil)
+object TemplateLeases {
+  implicit val writes: Writes[TemplateLeases] = Json.writes[TemplateLeases]
+}
+
 case class MetadataTemplateUsageRights(category: String,
                                        creator: Option[String] = None,
                                        photographer: Option[String] = None,
@@ -44,7 +49,7 @@ case class MetadataTemplate(
    templateName: String,
    metadataFields: Seq[MetadataTemplateField] = Nil,
    collectionFullPath: CollectionFullPath = Nil,
-   lease: Option[MetadataTemplateLease] = None,
+   templateLeases: Option[TemplateLeases] = None,
    usageRights: Option[MetadataTemplateUsageRights] = None)
 
 object MetadataTemplate {
@@ -72,15 +77,22 @@ object MetadataTemplate {
           config.getStringList("collectionFullPath").asScala.seq
         } else Nil
 
-        val lease = if (config.hasPath("lease")) {
-          val leaseConfig = config.getConfig("lease")
+        val templateLeases = if (config.hasPath("templateLeases")) {
+          val templateLeasesConfig = config.getConfig("templateLeases")
 
-          Some(MetadataTemplateLease(
-            leaseType = leaseConfig.getString("leaseType"),
-            durationInMillis = if (leaseConfig.hasPath("duration"))
-              Some(leaseConfig.getDuration("duration").toMillis) else None,
-            notes = if (leaseConfig.hasPath("notes"))
-              Some(leaseConfig.getString("notes")) else None
+          val leases = templateLeasesConfig.getConfigList("leases").asScala.map(leaseConfig => {
+            MetadataTemplateLease(
+              leaseType = leaseConfig.getString("leaseType"),
+              durationInMillis = if (leaseConfig.hasPath("duration"))
+                Some(leaseConfig.getDuration("duration").toMillis) else None,
+              notes = if (leaseConfig.hasPath("notes"))
+                Some(leaseConfig.getString("notes")) else None
+            )
+          })
+
+          Some(TemplateLeases(
+            replace = templateLeasesConfig.getBoolean("replace"),
+            leases = leases
           ))
         } else None
 
@@ -104,6 +116,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, lease, usageRights)
+        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, templateLeases, usageRights)
       }))
 }
