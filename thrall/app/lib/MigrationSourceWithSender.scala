@@ -7,8 +7,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
-import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.elasticsearch.{ElasticSearch, ReapableEligibility, ScrolledSearchResults}
+import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import play.api.libs.ws.WSRequest
 
 import java.time.Instant
@@ -30,7 +29,6 @@ object MigrationSourceWithSender extends GridLogging {
     es: ElasticSearch,
     gridClient: GridClient,
     projectionParallelism: Int,
-    isReapableQuery: Query
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
     // scroll through elasticsearch, finding image ids and versions to migrate
@@ -67,7 +65,7 @@ object MigrationSourceWithSender extends GridLogging {
             val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
               case (Paused(_), _) => Future.successful(List.empty)
               case (InProgress(migrationIndexName), None) =>
-                es.startScrollingImageIdsToMigrate(migrationIndexName, isReapableQuery).map(handleScrollResponse)
+                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
               case (InProgress(_), Some(scrollId)) =>
                 es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
               case _ => Future.successful(List.empty)

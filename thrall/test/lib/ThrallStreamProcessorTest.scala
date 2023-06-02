@@ -10,9 +10,8 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.{MigrateImageMessage, StaffPhotographer, ThrallMessage}
-import com.sksamuel.elastic4s.ElasticApi.matchNoneQuery
 import helpers.Fixtures
-import lib.elasticsearch.{ElasticSearch, ReapableEligibility, ScrolledSearchResults}
+import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import lib.kinesis.ThrallEventConsumer
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -110,7 +109,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     lazy val mockEs = mock[ElasticSearch]
     when(mockEs.continueScrollingImageIdsToMigrate(any())(any(), any()))
       .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
-    when(mockEs.startScrollingImageIdsToMigrate(any(), any())(any(), any()))
+    when(mockEs.startScrollingImageIdsToMigrate(any())(any(), any()))
     .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
 
     val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
@@ -122,8 +121,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
       (req: WSRequest) => req,
       mockEs,
       mockGrid,
-      projectionParallelism = 1,
-      isReapableQuery = matchNoneQuery()
+      projectionParallelism = 1
     )
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
