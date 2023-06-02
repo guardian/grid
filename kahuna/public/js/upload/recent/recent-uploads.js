@@ -16,62 +16,64 @@ recentUploads.controller('RecentUploadsCtrl', [
     function ($rootScope, $scope, $window, mediaApi, imageService) {
         let ctrl = this;
 
-        let deletableImages = new Set();
+        ctrl.$onInit = () => {
+          let deletableImages = new Set();
 
-        mediaApi.getSession().then(session => {
-            const uploadedBy = session.user.email;
+          mediaApi.getSession().then(session => {
+              const uploadedBy = session.user.email;
 
-            mediaApi.search('', { uploadedBy }).then(resource => {
-                resource.data.forEach(image => {
-                    imageService(image).states.canDelete.then(deletable => {
-                        if (deletable) {
-                            deletableImages.add(image.data.id);
-                        }
-                    });
-                });
-
-                ctrl.myUploads = resource;
-
-                // TODO: we shouldn't have to do this ;_;
-                // If an image is updated (e.g. label added,
-                // archived, etc), refresh the copy we hold
-                $rootScope.$on('images-updated', (e, updatedImages) => {
-                  const images = ctrl.myUploads.data;
-                  images.forEach((originalImage, index) => {
-                    const maybeImage = updatedImages.find(updatedImage => originalImage.data.id === updatedImage.data.id);
-                      if (maybeImage) {
-                        images[index] = maybeImage;
-                    }
+              mediaApi.search('', { uploadedBy }).then(resource => {
+                  resource.data.forEach(image => {
+                      imageService(image).states.canDelete.then(deletable => {
+                          if (deletable) {
+                              deletableImages.add(image.data.id);
+                          }
+                      });
                   });
-                });
-            });
-        });
 
-        ctrl.canBeDeleted = (image) => deletableImages.has(image.data.id);
+                  ctrl.myUploads = resource;
 
-        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-            images.forEach(image => {
-                const index = ctrl.myUploads.data.findIndex(i => i.data.id === image.data.id);
+                  // TODO: we shouldn't have to do this ;_;
+                  // If an image is updated (e.g. label added,
+                  // archived, etc), refresh the copy we hold
+                  $rootScope.$on('images-updated', (e, updatedImages) => {
+                    const images = ctrl.myUploads.data;
+                    images.forEach((originalImage, index) => {
+                      const maybeImage = updatedImages.find(updatedImage => originalImage.data.id === updatedImage.data.id);
+                        if (maybeImage) {
+                          images[index] = maybeImage;
+                      }
+                    });
+                  });
+              });
+          });
 
-                if (index > -1) {
-                    ctrl.myUploads.data.splice(index, 1);
-                    deletableImages.delete(image);
-                }
-            });
-        });
+          ctrl.canBeDeleted = (image) => deletableImages.has(image.data.id);
 
-        const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
-            if (err.body && err.body.errorMessage) {
-                $window.alert(err.body.errorMessage);
-            } else {
-                $window.alert(`Failed to delete image ${image.data.id}`);
-            }
-        });
+          const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
+              images.forEach(image => {
+                  const index = ctrl.myUploads.data.findIndex(i => i.data.id === image.data.id);
 
-        $scope.$on('$destroy', () => {
-            freeImageDeleteListener();
-            freeImageDeleteFailListener();
-        });
+                  if (index > -1) {
+                      ctrl.myUploads.data.splice(index, 1);
+                      deletableImages.delete(image);
+                  }
+              });
+          });
+
+          const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+              if (err.body && err.body.errorMessage) {
+                  $window.alert(err.body.errorMessage);
+              } else {
+                  $window.alert(`Failed to delete image ${image.data.id}`);
+              }
+          });
+
+          $scope.$on('$destroy', () => {
+              freeImageDeleteListener();
+              freeImageDeleteFailListener();
+          });
+        };
     }
 ]);
 

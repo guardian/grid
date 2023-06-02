@@ -13,7 +13,9 @@ deleteCrops.controller('grDeleteCropsCtrl', ['$window', 'mediaCropper',
 
         ctrl.active = false;
 
-        mediaCropper.canDeleteCrops(ctrl.image).then(deleteCrops => {
+        ctrl.$onInit = () => {
+
+          mediaCropper.canDeleteCrops(ctrl.image).then(deleteCrops => {
             const deleteConfirmText = 'DELETE';
             if (deleteCrops) {
                 activate();
@@ -37,6 +39,7 @@ deleteCrops.controller('grDeleteCropsCtrl', ['$window', 'mediaCropper',
         function activate() {
             ctrl.active = true;
         }
+      };
     }
 ]);
 

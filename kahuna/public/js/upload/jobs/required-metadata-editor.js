@@ -23,91 +23,93 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    ctrl.institution = strings.institution;
-    editsService.canUserEdit(ctrl.image).then(editable => {
-        ctrl.userCanEdit = editable;
-    });
-    ctrl.saving = false;
-    ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.saveOnTime = 750; // ms
-    // We do this check to ensure the copyright field doesn't disappear
-    // if we set it to "".
-    ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
-    ctrl.metadataUpdatedByTemplate = [];
+    ctrl.$onInit = () => {
+      ctrl.institution = strings.institution;
+      editsService.canUserEdit(ctrl.image).then(editable => {
+          ctrl.userCanEdit = editable;
+      });
+      ctrl.saving = false;
+      ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
+      ctrl.saveOnTime = 750; // ms
+      // We do this check to ensure the copyright field doesn't disappear
+      // if we set it to "".
+      ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
+      ctrl.metadataUpdatedByTemplate = [];
 
-    ctrl.save = function() {
-        ctrl.saving = true;
+      ctrl.save = function() {
+          ctrl.saving = true;
 
-        // If there has been a change in the metadata, save it as an override
-        var cleanMetadata = {};
-        Object.keys(ctrl.metadata).forEach(key => {
-            if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
-                cleanMetadata[key] = ctrl.metadata[key] || '';
-            }
-        });
+          // If there has been a change in the metadata, save it as an override
+          var cleanMetadata = {};
+          Object.keys(ctrl.metadata).forEach(key => {
+              if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
+                  cleanMetadata[key] = ctrl.metadata[key] || '';
+              }
+          });
 
-        editsService.
-            update(ctrl.resource, cleanMetadata, ctrl.image).
-            then(resource => {
-                ctrl.resource = resource;
-            }).
-            finally(() => ctrl.saving = false);
-    };
+          editsService.
+              update(ctrl.resource, cleanMetadata, ctrl.image).
+              then(resource => {
+                  ctrl.resource = resource;
+              }).
+              finally(() => ctrl.saving = false);
+      };
 
-    ctrl.metadataSearch = (field, q) => {
-        return mediaApi.metadataSearch(field,  { q }).then(resource => {
-            return resource.data.map(d => d.key);
-        });
-    };
+      ctrl.metadataSearch = (field, q) => {
+          return mediaApi.metadataSearch(field,  { q }).then(resource => {
+              return resource.data.map(d => d.key);
+          });
+      };
 
-    $scope.$on('events:metadata-template:template-selected', (e, { metadata } ) => {
-      if (ctrl.userCanEdit && angular.isDefined(metadata)) {
-        ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.originalMetadata[key] !== metadata[key]);
+      $scope.$on('events:metadata-template:template-selected', (e, { metadata } ) => {
+        if (ctrl.userCanEdit && angular.isDefined(metadata)) {
+          ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.originalMetadata[key] !== metadata[key]);
+          ctrl.metadata = metadata;
+        } else {
+          ctrl.metadata = ctrl.originalMetadata;
+        }
+      });
+
+      $scope.$on('events:metadata-template:template-applied', () => {
+        ctrl.metadataUpdatedByTemplate = [];
+      });
+
+      $scope.$on('events:metadata-template:template-cancelled', (e, {metadata}) => {
+        ctrl.metadataUpdatedByTemplate = [];
         ctrl.metadata = metadata;
-      } else {
-        ctrl.metadata = ctrl.originalMetadata;
+      });
+
+      // As we make a copy of this, we need to watch it
+      // in case the metadata changes from above.
+      $scope.$watch(() => ctrl.originalMetadata, metadata =>
+          ctrl.metadata = metadataFromOriginal(metadata));
+
+      // TODO: Find a way to broadcast more selectively
+      const batchApplyMetadataEvent = 'events:batch-apply:metadata';
+
+      if (Boolean(ctrl.withBatch)) {
+          $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
+              if (ctrl.userCanEdit) {
+                  ctrl.metadata[field] = data;
+                  ctrl.save();
+              }
+          });
+
+          ctrl.batchApplyMetadata = field =>
+              $rootScope.$broadcast(batchApplyMetadataEvent, { field, data: ctrl.metadata[field] });
       }
-    });
 
-    $scope.$on('events:metadata-template:template-applied', () => {
-      ctrl.metadataUpdatedByTemplate = [];
-    });
-
-    $scope.$on('events:metadata-template:template-cancelled', (e, {metadata}) => {
-      ctrl.metadataUpdatedByTemplate = [];
-      ctrl.metadata = metadata;
-    });
-
-    // As we make a copy of this, we need to watch it
-    // in case the metadata changes from above.
-    $scope.$watch(() => ctrl.originalMetadata, metadata =>
-        ctrl.metadata = metadataFromOriginal(metadata));
-
-    // TODO: Find a way to broadcast more selectively
-    const batchApplyMetadataEvent = 'events:batch-apply:metadata';
-
-    if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
-            if (ctrl.userCanEdit) {
-                ctrl.metadata[field] = data;
-                ctrl.save();
-            }
-        });
-
-        ctrl.batchApplyMetadata = field =>
-            $rootScope.$broadcast(batchApplyMetadataEvent, { field, data: ctrl.metadata[field] });
-    }
-
-    function metadataFromOriginal(originalMetadata) {
-        // we only want a subset of the data
-        return {
-            byline: originalMetadata.byline,
-            credit: originalMetadata.credit,
-            copyright: originalMetadata.copyright,
-            specialInstructions: originalMetadata.specialInstructions,
-            description: originalMetadata.description,
-            domainMetadata: originalMetadata.domainMetadata
-        };
+      function metadataFromOriginal(originalMetadata) {
+          // we only want a subset of the data
+          return {
+              byline: originalMetadata.byline,
+              credit: originalMetadata.credit,
+              copyright: originalMetadata.copyright,
+              specialInstructions: originalMetadata.specialInstructions,
+              description: originalMetadata.description,
+              domainMetadata: originalMetadata.domainMetadata
+          };
+      }
     }
 }]);
 

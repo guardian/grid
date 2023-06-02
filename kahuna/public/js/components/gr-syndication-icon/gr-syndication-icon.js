@@ -12,7 +12,9 @@ export var syndicationIcon = angular.module('gr.syndicationIcon', [
 syndicationIcon.controller('SyndicationIconCtrl', ['imageService', function (imageService) {
     const ctrl = this;
 
-    ctrl.states = imageService(ctrl.image).states;
+    ctrl.$onInit = () => {
+      ctrl.states = imageService(ctrl.image).states;
+    };
 }]);
 
 syndicationIcon.directive('grSyndicationIcon', [function () {

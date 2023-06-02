@@ -26,37 +26,39 @@ module.controller('grImageUsageCtrl', [
 
     const ctrl = this;
 
-    const usages = imageUsagesService.getUsages(ctrl.image);
+    ctrl.$onInit = () => {
+      const usages = imageUsagesService.getUsages(ctrl.image);
 
-    const usages$ = usages.groupedByState$.map((u) => u.toJS());
-    const usagesCount$ = usages.count$;
+      const usages$ = usages.groupedByState$.map((u) => u.toJS());
+      const usagesCount$ = usages.count$;
 
-    // TODO match on `platform` rather than `type` as `platform` includes more detail
-    ctrl.usageTypeToName = (usageType) => {
-      switch (usageType) {
-        case 'removed':
-          return 'Taken down';
-        case 'pending':
-          return 'Pending publication';
-        case 'published':
-          return 'Published';
-        case 'downloaded':
-          return 'Downloads';
-        case 'unknown':
-          return 'Front'; // currently only fronts have an `unknown` type, see TODO above
-        default:
-          return usageType;
-      }
+      // TODO match on `platform` rather than `type` as `platform` includes more detail
+      ctrl.usageTypeToName = (usageType) => {
+        switch (usageType) {
+          case 'removed':
+            return 'Taken down';
+          case 'pending':
+            return 'Pending publication';
+          case 'published':
+            return 'Published';
+          case 'downloaded':
+            return 'Downloads';
+          case 'unknown':
+            return 'Front'; // currently only fronts have an `unknown` type, see TODO above
+          default:
+            return usageType;
+        }
+      };
+
+      ctrl.onUsagesDeleted = () => {
+        // a bit nasty - but it updates the state of the page better than trying to do that in
+        // the client.
+        $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
+      };
+
+      inject$($scope, usages$, ctrl, 'usages');
+      inject$($scope, usagesCount$, ctrl, 'usagesCount');
     };
-
-    ctrl.onUsagesDeleted = () => {
-      // a bit nasty - but it updates the state of the page better than trying to do that in
-      // the client.
-      $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
-    };
-
-    inject$($scope, usages$, ctrl, 'usages');
-    inject$($scope, usagesCount$, ctrl, 'usagesCount');
   }]);
 
 module.directive('grImageUsage', [function() {

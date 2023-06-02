@@ -8,9 +8,12 @@ userActions.controller('userActionCtrl',
     [
         function() {
             var ctrl = this;
-            ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
-            ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
-            ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
+
+            ctrl.$onInit = () => {
+              ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
+              ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
+              ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
+            };
         }]);
 
 userActions.directive('uiUserActions', [function() {

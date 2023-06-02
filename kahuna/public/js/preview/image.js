@@ -31,27 +31,28 @@ export var image = angular.module('kahuna.preview.image', [
 ]);
 
 image.controller('uiPreviewImageCtrl', [
-    '$scope',
-    'inject$',
-    '$rootScope',
-    '$window',
-    'imageService',
-    'imageUsagesService',
-    'labelService',
-    'imageAccessor',
-    'storage',
-    function (
-        $scope,
-        inject$,
-        $rootScope,
-        $window,
-        imageService,
-        imageUsagesService,
-        labelService,
-        imageAccessor,
-        storage) {
-      var ctrl = this;
+  '$scope',
+  'inject$',
+  '$rootScope',
+  '$window',
+  'imageService',
+  'imageUsagesService',
+  'labelService',
+  'imageAccessor',
+  'storage',
+  function (
+      $scope,
+      inject$,
+      $rootScope,
+      $window,
+      imageService,
+      imageUsagesService,
+      labelService,
+      imageAccessor,
+      storage) {
+    var ctrl = this;
 
+    ctrl.$onInit = () => {
       $scope.$watch(() => ctrl.image, (newImage) => {
           ctrl.imageAsArray = [newImage];
       });
@@ -61,70 +62,70 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
       ctrl.imageAsArray = [ctrl.image];
 
-    const updateImage = (updatedImage) => {
-      ctrl.states = imageService(updatedImage).states;
-      ctrl.image = updatedImage;
+      const updateImage = (updatedImage) => {
+        ctrl.states = imageService(updatedImage).states;
+        ctrl.image = updatedImage;
+        ctrl.flagState = ctrl.states.costState;
+        ctrl.imageAsArray = [updatedImage];
+      };
+
+      const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+        const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+        if (maybeUpdatedImage) {
+          updateImage(maybeUpdatedImage);
+        }
+      });
+
+      ctrl.states = imageService(ctrl.image).states;
+
+      ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
+          `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
+          ctrl.image.data.metadata.description;
+
       ctrl.flagState = ctrl.states.costState;
-      ctrl.imageAsArray = [updatedImage];
+
+      const hasPrintUsages$ =
+          imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
+
+      const hasDigitalUsages$ =
+          imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
+
+      const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
+
+      $scope.$on('$destroy', function() {
+        freeImagesUpdateListener();
+      });
+
+      inject$($scope, recentUsages$, ctrl, 'recentUsages');
+      inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
+      inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
+
+      ctrl.getCollectionStyle = collection => {
+          return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
+      };
+
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+
+      ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
+
+      ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
+      ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
+      ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
+
+      ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
+
+      ctrl.getWarningMessage = () => {
+        if (ctrl.showActiveAllowLeaseOverlay() === true) {
+          return $window._clientConfig.imagePreviewFlagLeaseAttachedCopy;
+        }
+        if (ctrl.showWarningOverlay() === true) {
+          return $window._clientConfig.imagePreviewFlagWarningCopy;
+        }
+        if (ctrl.showAlertOverlay() === true) {
+          return $window._clientConfig.imagePreviewFlagAlertCopy;
+        }
+      };
     };
-
-    const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
-      const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
-      if (maybeUpdatedImage) {
-        updateImage(maybeUpdatedImage);
-      }
-    });
-
-    ctrl.states = imageService(ctrl.image).states;
-
-    ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
-        `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
-        ctrl.image.data.metadata.description;
-
-    ctrl.flagState = ctrl.states.costState;
-
-    const hasPrintUsages$ =
-        imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
-
-    const hasDigitalUsages$ =
-        imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
-
-    const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
-
-    $scope.$on('$destroy', function() {
-      freeImagesUpdateListener();
-    });
-
-    inject$($scope, recentUsages$, ctrl, 'recentUsages');
-    inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
-    inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
-
-    ctrl.getCollectionStyle = collection => {
-        return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
-    };
-
-    ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
-
-    ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
-
-    ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
-    ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
-    ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
-
-    ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
-
-    ctrl.getWarningMessage = () => {
-      if (ctrl.showActiveAllowLeaseOverlay() === true) {
-        return $window._clientConfig.imagePreviewFlagLeaseAttachedCopy;
-      }
-      if (ctrl.showWarningOverlay() === true) {
-        return $window._clientConfig.imagePreviewFlagWarningCopy;
-      }
-      if (ctrl.showAlertOverlay() === true) {
-        return $window._clientConfig.imagePreviewFlagAlertCopy;
-      }
-    };
-
 }]);
 
 image.directive('uiPreviewImage', function() {

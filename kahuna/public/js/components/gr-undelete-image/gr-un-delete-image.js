@@ -9,7 +9,9 @@ export const undeleteImage = angular.module('gr.undeleteImage', [
 undeleteImage.controller('grUnDeleteImageCtrl', [
     '$rootScope', '$q', '$timeout', 'mediaApi', 'apiPoll',
     function ($rootScope, $q, $timeout, mediaApi, apiPoll) {
-        var ctrl = this;
+      var ctrl = this;
+
+      ctrl.$onInit = () => {
 
         function pollDeleted (image) {
             const findImage = () => mediaApi.find(image.data.id).then(
@@ -35,6 +37,7 @@ undeleteImage.controller('grUnDeleteImageCtrl', [
             return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.unDeleteImage(image)))
                 .then(() => $rootScope.$emit('images-deleted', ctrl.images));
         };
+      };
     }
 ]);
 
