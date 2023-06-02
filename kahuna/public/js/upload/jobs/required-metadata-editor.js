@@ -110,7 +110,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
               domainMetadata: originalMetadata.domainMetadata
           };
       }
-    }
+    };
 }]);
 
 jobs.directive('uiRequiredMetadataEditor', [function() {

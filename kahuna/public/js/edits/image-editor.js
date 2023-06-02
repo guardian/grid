@@ -314,7 +314,7 @@ imageEditor.controller('ImageEditorCtrl', [
     }
 
     ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
-  }
+  };
 }]);
 
 

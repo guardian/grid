@@ -198,7 +198,7 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
         ctrl.selectTemplate();
       }
     });
-  }
+  };
 }]);
 
 metadataTemplates.directive('grMetadataTemplates', [function() {

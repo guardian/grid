@@ -508,7 +508,7 @@ module.controller('grImageMetadataCtrl', [
 
         return totalAdditionalMetadataCount == 0;
       };
-    }
+    };
   }
 ]);
 
