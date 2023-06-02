@@ -8,36 +8,39 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
     '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper', 'pollUntilCropCreated',
     function($scope, $rootScope, $state, $stateParams, mediaCropper, pollUntilCropCreated) {
         let ctrl = this;
-        const imageId = $stateParams.imageId;
 
-        ctrl.callCrop = function() {
-            //prevents return key on the crop button posting crop twice
-            if (!ctrl.cropping) {
-                crop();
-            }
-        };
+        ctrl.$onInit = () => {
+          const imageId = $stateParams.imageId;
 
-        function crop() {
-            ctrl.cropping = true;
+          ctrl.callCrop = function() {
+              //prevents return key on the crop button posting crop twice
+              if (!ctrl.cropping) {
+                  crop();
+              }
+          };
 
-            mediaCropper.createFullCrop(ctrl.image).then(crop => {
-                //Global notification of action
-                $rootScope.$emit('events:crop-created', {
-                    image: ctrl.image,
-                    crop: crop
-                });
+          function crop() {
+              ctrl.cropping = true;
 
-                return pollUntilCropCreated(ctrl.image, crop.data.id)
-                  .then(() => {
-                      $state.go('image', {
-                          imageId,
-                          crop: crop.data.id
-                      });
+              mediaCropper.createFullCrop(ctrl.image).then(crop => {
+                  //Global notification of action
+                  $rootScope.$emit('events:crop-created', {
+                      image: ctrl.image,
+                      crop: crop
                   });
-            }).finally(() => {
-                ctrl.cropping = false;
-            });
-        }
+
+                  return pollUntilCropCreated(ctrl.image, crop.data.id)
+                    .then(() => {
+                        $state.go('image', {
+                            imageId,
+                            crop: crop.data.id
+                        });
+                    });
+              }).finally(() => {
+                  ctrl.cropping = false;
+              });
+          }
+        };
     }
 ]);
 

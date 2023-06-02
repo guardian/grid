@@ -31,97 +31,100 @@ listEditor.controller('ListEditorCtrl', [
             storage) {
     var ctrl = this;
 
-    const retrieveElementsWithOccurrences = (images) => imageList.getOccurrences(images.flatMap(img => ctrl.accessor(img)));
+    ctrl.$onInit = () => {
 
-    $scope.$watchCollection('ctrl.images', updatedImages => updateHandler(updatedImages));
+      const retrieveElementsWithOccurrences = (images) => imageList.getOccurrences(images.flatMap(img => ctrl.accessor(img)));
 
-    const updateHandler = (maybeUpdatedImages) => {
-        ctrl.images.forEach((img, index) => {
-            const updatedImage = maybeUpdatedImages.find(x => imageLogic.isSameImage(x, img));
-            if (updatedImage) {
-                ctrl.images[index] = updatedImage;
-            }
-        });
+      $scope.$watchCollection('ctrl.images', updatedImages => updateHandler(updatedImages));
 
-        ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
-        ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
+      const updateHandler = (maybeUpdatedImages) => {
+          ctrl.images.forEach((img, index) => {
+              const updatedImage = maybeUpdatedImages.find(x => imageLogic.isSameImage(x, img));
+              if (updatedImage) {
+                  ctrl.images[index] = updatedImage;
+              }
+          });
+
+          ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
+          ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
+      };
+
+      const updateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+          updateHandler(updatedImages);
+      });
+
+      ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
+      ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
+
+      function saveFailed(e) {
+          console.error(e);
+          $window.alert('Something went wrong when saving, please try again!');
+      }
+
+      ctrl.addElements = elements => {
+          ctrl.adding = true;
+
+          ctrl.addToImages(ctrl.images, elements)
+              .then(imgs => {
+                  updateHandler(imgs);
+              })
+              .catch(saveFailed)
+              .finally(() => {
+                  ctrl.adding = false;
+              });
+      };
+
+      ctrl.elementsBeingRemoved = new Set();
+      ctrl.removeElement = element => {
+          ctrl.elementsBeingRemoved.add(element);
+
+          ctrl.removeFromImages(ctrl.images, element)
+              .then(imgs => {
+                  updateHandler(imgs);
+              })
+              .catch(saveFailed)
+              .finally(() => {
+                  ctrl.elementsBeingRemoved.delete(element);
+              });
+      };
+
+      ctrl.removeAll = () => {
+          ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element));
+      };
+
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+
+      const batchAddEvent = 'events:batch-apply:add-all';
+      const batchRemoveEvent = 'events:batch-apply:remove-all';
+
+      if (Boolean(ctrl.withBatch)) {
+          $scope.$on(batchAddEvent, (e, elements) => ctrl.addElements(elements));
+          $scope.$on(batchRemoveEvent, () => ctrl.removeAll());
+
+          ctrl.batchApply = () => {
+              var elements = ctrl.plainList;
+
+              if (elements.length > 0) {
+                  $rootScope.$broadcast(batchAddEvent, elements);
+              } else {
+                  ctrl.confirmDelete = true;
+
+                  $timeout(() => {
+                      ctrl.confirmDelete = false;
+                  }, 5000);
+              }
+          };
+
+          ctrl.batchRemove = () => {
+              ctrl.confirmDelete = false;
+              $rootScope.$broadcast(batchRemoveEvent);
+          };
+      }
+
+      $scope.$on('$destroy', function() {
+          updateListener();
+      });
     };
-
-    const updateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
-        updateHandler(updatedImages);
-    });
-
-    ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
-    ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
-
-    function saveFailed(e) {
-        console.error(e);
-        $window.alert('Something went wrong when saving, please try again!');
-    }
-
-    ctrl.addElements = elements => {
-        ctrl.adding = true;
-
-        ctrl.addToImages(ctrl.images, elements)
-            .then(imgs => {
-                updateHandler(imgs);
-            })
-            .catch(saveFailed)
-            .finally(() => {
-                ctrl.adding = false;
-            });
-    };
-
-    ctrl.elementsBeingRemoved = new Set();
-    ctrl.removeElement = element => {
-        ctrl.elementsBeingRemoved.add(element);
-
-        ctrl.removeFromImages(ctrl.images, element)
-            .then(imgs => {
-                updateHandler(imgs);
-            })
-            .catch(saveFailed)
-            .finally(() => {
-                ctrl.elementsBeingRemoved.delete(element);
-            });
-    };
-
-    ctrl.removeAll = () => {
-        ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element));
-    };
-
-    ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
-
-    const batchAddEvent = 'events:batch-apply:add-all';
-    const batchRemoveEvent = 'events:batch-apply:remove-all';
-
-    if (Boolean(ctrl.withBatch)) {
-        $scope.$on(batchAddEvent, (e, elements) => ctrl.addElements(elements));
-        $scope.$on(batchRemoveEvent, () => ctrl.removeAll());
-
-        ctrl.batchApply = () => {
-            var elements = ctrl.plainList;
-
-            if (elements.length > 0) {
-                $rootScope.$broadcast(batchAddEvent, elements);
-            } else {
-                ctrl.confirmDelete = true;
-
-                $timeout(() => {
-                    ctrl.confirmDelete = false;
-                }, 5000);
-            }
-        };
-
-        ctrl.batchRemove = () => {
-            ctrl.confirmDelete = false;
-            $rootScope.$broadcast(batchRemoveEvent);
-        };
-    }
-
-    $scope.$on('$destroy', function() {
-        updateListener();
-    });
 }]);
 
 listEditor.directive('uiListEditorUpload', [function() {

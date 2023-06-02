@@ -23,30 +23,33 @@ deleteUsages.controller('grDeleteUsagesCtrl', [
 
     ctrl.userHasPermission = false;
 
-    imageUsagesService.canDeleteUsages(ctrl.image).then(deleteUsages => {
-      if (!deleteUsages) {
-        ctrl.userHasPermission = false;
-        return;
-      }
+    ctrl.$onInit = () => {
 
-      ctrl.userHasPermission = true;
-
-      ctrl.delete = () => {
-        const deleteConfirmText = 'DELETE';
-
-        const superSure = $window.prompt(
-          stripMargin`
-            |You’re about to delete ALL USAGE INFORMATION for this image.
-            |This will NOT remove the image from the places it has been used in, but WILL remove all details of who used it and where it was used.
-            |
-            |Enter ${deleteConfirmText} below to confirm.`
-        );
-
-        if (superSure === deleteConfirmText) {
-          deleteUsages().then(ctrl.onDelete);
+      imageUsagesService.canDeleteUsages(ctrl.image).then(deleteUsages => {
+        if (!deleteUsages) {
+          ctrl.userHasPermission = false;
+          return;
         }
-      };
-    });
+
+        ctrl.userHasPermission = true;
+
+        ctrl.delete = () => {
+          const deleteConfirmText = 'DELETE';
+
+          const superSure = $window.prompt(
+            stripMargin`
+              |You’re about to delete ALL USAGE INFORMATION for this image.
+              |This will NOT remove the image from the places it has been used in, but WILL remove all details of who used it and where it was used.
+              |
+              |Enter ${deleteConfirmText} below to confirm.`
+          );
+
+          if (superSure === deleteConfirmText) {
+            deleteUsages().then(ctrl.onDelete);
+          }
+        };
+      });
+    };
   }
 ]);
 

@@ -11,29 +11,31 @@ deleteImage.controller('grDeleteImageCtrl', [
     function ($rootScope, $q, $timeout, mediaApi, apiPoll) {
         var ctrl = this;
 
-        function pollDeleted (image) {
-            const findImage = () => mediaApi.find(image.data.id).then(
-                () => $q.reject(),
-                // resolve when image cannot be found, i.e. image has been deleted.
-                () => $q.resolve()
-            );
+        this.$onInit = () => {
+          function pollDeleted (image) {
+              const findImage = () => mediaApi.find(image.data.id).then(
+                  () => $q.reject(),
+                  // resolve when image cannot be found, i.e. image has been deleted.
+                  () => $q.resolve()
+              );
 
-            apiPoll(findImage);
-        }
+              apiPoll(findImage);
+          }
 
-        ctrl.deleteImage = function (image) {
-            return mediaApi.delete(image)
-                .then(() => pollDeleted(image))
-                .catch((err) => {
-                    $rootScope.$emit('image-delete-failure', err, image);
-                });
-        };
+          ctrl.deleteImage = function (image) {
+              return mediaApi.delete(image)
+                  .then(() => pollDeleted(image))
+                  .catch((err) => {
+                      $rootScope.$emit('image-delete-failure', err, image);
+                  });
+          };
 
-        ctrl.delete = function () {
-            // HACK to wait for thrall to process the message so that when we
-            // poll the api, it will be up to date.
-            return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.deleteImage(image)))
-                .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+          ctrl.delete = function () {
+              // HACK to wait for thrall to process the message so that when we
+              // poll the api, it will be up to date.
+              return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.deleteImage(image)))
+                  .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+          };
         };
     }
 ]);

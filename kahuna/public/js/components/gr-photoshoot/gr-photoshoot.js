@@ -16,81 +16,83 @@ export const photoshoot = angular.module('gr.photoshoot', [
 ]);
 
 photoshoot.controller('GrPhotoshootCtrl', [
-    '$rootScope',
-    '$scope',
-    'imageService',
-    'mediaApi',
-    'imageAccessor',
-    'photoshootService',
-    'storage',
+  '$rootScope',
+  '$scope',
+  'imageService',
+  'mediaApi',
+  'imageAccessor',
+  'photoshootService',
+  'storage',
 
-    function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService, storage) {
-        const ctrl = this;
+  function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService, storage) {
+    const ctrl = this;
 
-        function refreshForOne() {
-            const image = ctrl._images[0];
-            const photoshootResource = imageAccessor.getPhotoshoot(image);
-            ctrl.hasPhotoshootData = !!photoshootResource.data;
-            ctrl.hasSinglePhotoshoot = ctrl.hasPhotoshootData;
-            ctrl.photoshootData = ctrl.hasPhotoshootData && photoshootResource.data || {};
-        }
+    ctrl.$onInit = () => {
+      function refreshForOne() {
+          const image = ctrl._images[0];
+          const photoshootResource = imageAccessor.getPhotoshoot(image);
+          ctrl.hasPhotoshootData = !!photoshootResource.data;
+          ctrl.hasSinglePhotoshoot = ctrl.hasPhotoshootData;
+          ctrl.photoshootData = ctrl.hasPhotoshootData && photoshootResource.data || {};
+      }
 
-        function refreshForMany() {
-            const apiPhotoshoots = ctrl._images.map(image => imageAccessor.getPhotoshoot(image));
+      function refreshForMany() {
+          const apiPhotoshoots = ctrl._images.map(image => imageAccessor.getPhotoshoot(image));
 
-            const photoshoots = apiPhotoshoots.reduce((acc, photoshoot) => {
-                return photoshoot.data ? [...acc, photoshoot.data] : acc;
-            }, []);
+          const photoshoots = apiPhotoshoots.reduce((acc, photoshoot) => {
+              return photoshoot.data ? [...acc, photoshoot.data] : acc;
+          }, []);
 
-            ctrl.hasPhotoshootData = photoshoots.length > 0;
+          ctrl.hasPhotoshootData = photoshoots.length > 0;
 
-            if (ctrl.hasPhotoshootData) {
-                const allImagesHavePhotoshoot = photoshoots.length === ctrl._images.length;
-                const uniqueTitles = new Set(photoshoots.map(p => p.title));
+          if (ctrl.hasPhotoshootData) {
+              const allImagesHavePhotoshoot = photoshoots.length === ctrl._images.length;
+              const uniqueTitles = new Set(photoshoots.map(p => p.title));
 
-                ctrl.hasSinglePhotoshoot = uniqueTitles.size === 1 && allImagesHavePhotoshoot;
-                ctrl.photoshootData = ctrl.hasSinglePhotoshoot ? photoshoots[0] : {};
-            }
-        }
+              ctrl.hasSinglePhotoshoot = uniqueTitles.size === 1 && allImagesHavePhotoshoot;
+              ctrl.photoshootData = ctrl.hasSinglePhotoshoot ? photoshoots[0] : {};
+          }
+      }
 
-        function refresh() {
-            // `ctrl.images` is a `Set` in multi-select mode, be safe and always have an array
-            ctrl._images = Array.from(ctrl.images);
-            return ctrl._images.length === 1 ? refreshForOne() : refreshForMany();
-        }
+      function refresh() {
+          // `ctrl.images` is a `Set` in multi-select mode, be safe and always have an array
+          ctrl._images = Array.from(ctrl.images);
+          return ctrl._images.length === 1 ? refreshForOne() : refreshForMany();
+      }
 
-        ctrl.search = (q) => {
-            return mediaApi.metadataSearch('photoshoot', { q })
-                .then(resource => resource.data.map(d => d.key));
-        };
+      ctrl.search = (q) => {
+          return mediaApi.metadataSearch('photoshoot', { q })
+              .then(resource => resource.data.map(d => d.key));
+      };
 
-        ctrl.save = (title) => {
-            if (title.trim().length === 0) {
-                return ctrl.remove();
-            }
+      ctrl.save = (title) => {
+          if (title.trim().length === 0) {
+              return ctrl.remove();
+          }
 
-            return photoshootService.batchAdd({ images: ctrl.images, data: { title } });
-        };
+          return photoshootService.batchAdd({ images: ctrl.images, data: { title } });
+      };
 
-        ctrl.remove = () => {
-            return photoshootService.batchRemove({ images: ctrl.images });
-        };
+      ctrl.remove = () => {
+          return photoshootService.batchRemove({ images: ctrl.images });
+      };
 
-        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
-        if (Boolean(ctrl.withBatch)) {
-            const batchApplyEvent = 'events:batch-apply:photoshoot';
+      if (Boolean(ctrl.withBatch)) {
+          const batchApplyEvent = 'events:batch-apply:photoshoot';
 
-            $scope.$on(batchApplyEvent, (e, { title }) => {
-                ctrl.photoshootData.title = title;
-                ctrl.save(title);
-            });
+          $scope.$on(batchApplyEvent, (e, { title }) => {
+              ctrl.photoshootData.title = title;
+              ctrl.save(title);
+          });
 
-            ctrl.batchApply = (title) => $rootScope.$broadcast(batchApplyEvent, { title });
-        }
+          ctrl.batchApply = (title) => $rootScope.$broadcast(batchApplyEvent, { title });
+      }
 
-        $scope.$watchCollection(() => Array.from(ctrl.images), refresh);
-    }
+      $scope.$watchCollection(() => Array.from(ctrl.images), refresh);
+    };
+  }
 ]);
 
 photoshoot.directive('grPhotoshoot', [function() {

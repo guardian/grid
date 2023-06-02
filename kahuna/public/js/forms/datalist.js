@@ -18,40 +18,43 @@ datalist.directive('grDatalist', ['$q', function($q) {
         controllerAs: 'ctrl',
         controller: [function() {
             var ctrl = this;
-            var selectedIndex = 0;
+            ctrl.$onInit = () => {
+              var selectedIndex = 0;
 
-            ctrl.results = [];
+              ctrl.results = [];
 
-            ctrl.moveIndex = movement =>
-                selectedIndex = (selectedIndex + movement + ctrl.results.length) %
-                                ctrl.results.length;
+              ctrl.moveIndex = movement =>
+                  selectedIndex = (selectedIndex + movement + ctrl.results.length) %
+                                  ctrl.results.length;
 
-            ctrl.setIndex = key => selectedIndex = key;
+              ctrl.setIndex = key => selectedIndex = key;
 
-            ctrl.isSelected = key => key === selectedIndex;
+              ctrl.isSelected = key => key === selectedIndex;
 
-            ctrl.searchFor = (q) => {
-                return $q.when(ctrl.search({ q })).
-                    then(results => ctrl.results = results).
-                    then(() => selectedIndex = 0);
+              ctrl.searchFor = (q) => {
+                  return $q.when(ctrl.search({ q })).
+                      then(results => ctrl.results = results).
+                      then(() => selectedIndex = 0);
+              };
+
+              ctrl.setValueTo = value => {
+                  ctrl.value = value;
+                  if (ctrl.onSelect) {
+                      ctrl.onSelect({$value: value});
+                  }
+              };
+
+              ctrl.setValueFromSelectedIndex = () => {
+                  ctrl.setValueTo(ctrl.results[selectedIndex]);
+              };
+
+              ctrl.reset = () => {
+                  selectedIndex = 0;
+                  ctrl.results = [];
+              };
             };
-
-            ctrl.setValueTo = value => {
-                ctrl.value = value;
-                if (ctrl.onSelect) {
-                    ctrl.onSelect({$value: value});
-                }
-            };
-
-            ctrl.setValueFromSelectedIndex = () => {
-                ctrl.setValueTo(ctrl.results[selectedIndex]);
-            };
-
-            ctrl.reset = () => {
-                selectedIndex = 0;
-                ctrl.results = [];
-            };
-        }],
+          }
+        ],
         bindToController: true
     };
 }]);
