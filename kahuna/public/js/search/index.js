@@ -183,9 +183,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             // reloading a previous search state, or a new search
             isReloadingPreviousSearch: ['$stateParams', function($stateParams) {
                 const isDeepStateRedirect = $stateParams.isDeepStateRedirect;
-                // *Clear* that transient routing-level flag so we
-                // *don't pollute the $stateParams
-                delete $stateParams.isDeepStateRedirect;
                 return isDeepStateRedirect;
             }],
             selection: ['orderedSetFactory', function(orderedSetFactory) {
