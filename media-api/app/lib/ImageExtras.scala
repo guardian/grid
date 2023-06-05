@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{AllowUseLease, DenyUseLease, DenySyndicationLease, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{AllowUseLease, DenyUseLease, LeasesByMedia, MediaLease}
 import lib.usagerights.CostCalculator
 
 case class ValidityCheck(invalid: Boolean, overrideable: Boolean, shouldOverride: Boolean) {
