@@ -10,6 +10,12 @@
         {{ctrl.warningTextHeader}}
         <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
     </strong>
+
+    <strong ng-if="ctrl.hasDenySyndication">
+        {{ctrl.denySyndicationTextHeader}}
+        <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
+    </strong>
+
     <strong ng-if="ctrl.isDeleted">
         {{ctrl.unusableTextHeader}}
         <gr-icon title="This image cannot normally be used in content - image has been deleted">help</gr-icon>

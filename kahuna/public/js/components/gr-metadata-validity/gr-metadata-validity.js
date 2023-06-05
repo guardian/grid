@@ -10,6 +10,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
 
     function updateState() {
         ctrl.image.get().then(image => {
+            ctrl.hasDenySyndication = image.data.leases.data.leases.some(lease => lease.access === 'deny-syndication');
             ctrl.isDeleted = image.data.softDeletedMetadata !== undefined;
             ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length !== 0 || ctrl.isDeleted;
             ctrl.invalidReasons = image.data.invalidReasons;
@@ -23,6 +24,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
               ctrl.warningTextHeader = $window._clientConfig.warningTextHeader;
             }
             ctrl.unusableTextHeader = $window._clientConfig.unusableTextHeader;
+            ctrl.denySyndicationTextHeader = $window._clientConfig.denySyndicationTextHeader;
         });
     }
 

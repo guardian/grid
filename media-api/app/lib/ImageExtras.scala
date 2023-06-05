@@ -36,7 +36,7 @@ object ImageExtras {
 
   def hasCurrentAllowLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == AllowUseLease && isCurrent(lease))
 
-  def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => (lease.access == DenyUseLease || lease.access == DenySyndicationLease) && isCurrent(lease))
+  def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
   private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
     implicit cost: CostCalculator, quotas: UsageQuota

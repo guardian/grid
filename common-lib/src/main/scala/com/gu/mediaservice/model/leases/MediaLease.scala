@@ -70,7 +70,7 @@ case class MediaLease(
 
   def isSyndication = access == AllowSyndicationLease || access == DenySyndicationLease
 
-  def isUse = access == AllowUseLease || access == DenyUseLease || isSyndication
+  def isUse = access == AllowUseLease || access == DenyUseLease
 }
 
 object MediaLease {
