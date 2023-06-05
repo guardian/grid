@@ -31,13 +31,15 @@
     class="image-notice image-info__group validity validity--invalid validity--point-up"
     ng-class="{'validity--invalid': ctrl.isStrongWarning, 'validity--warning': !ctrl.isStrongWarning}"
 >
-
     <strong>
         {{ctrl.warningTextHeader}}
         <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
     </strong>
-    <li>
-        {{ctrl.denySyndicationTextHeader}}
-        <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
-    </li>
+    <ul>
+        <li>
+            {{ctrl.denySyndicationTextHeader}}
+            <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
+        </li>
+    </ul>
+    
 </div>
