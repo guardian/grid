@@ -27,8 +27,7 @@
 
 <div
     ng-if="ctrl.hasDenySyndication && !ctrl.showInvalidReasons"
-    class="image-notice image-info__group validity validity--invalid validity--point-up"
-    ng-class="{'validity--invalid': ctrl.isStrongWarning, 'validity--warning': !ctrl.isStrongWarning}"
+    class="image-notice image-info__group validity validity--warning validity--point-up"
 >
     <strong>
         {{ctrl.warningTextHeader}}
