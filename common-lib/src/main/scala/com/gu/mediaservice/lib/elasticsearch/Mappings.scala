@@ -110,7 +110,7 @@ object Mappings {
     standardAnalysed("city").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("state").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("country").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
-    nonAnalysedList("peopleInImage").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    standardAnalysed("peopleInImage").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     sStemmerAnalysed("englishAnalysedCatchAll"),
     dynamicObj("domainMetadata")
   ))
@@ -133,7 +133,7 @@ object Mappings {
     standardAnalysed("city"),
     standardAnalysed("state"),
     standardAnalysed("country"),
-    nonAnalysedList("peopleInImage"),
+    standardAnalysed("peopleInImage"),
     dynamicObj("domainMetadata")
   ))
 
