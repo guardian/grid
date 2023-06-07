@@ -40,6 +40,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val restrictDownload: Option[Boolean] = booleanOpt("restrictDownload")
   val useReaper: Option[Boolean] = booleanOpt("useReaper")
 
+  val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
+
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
   val fontSources: Set[String] = getStringSet("security.fontSources")
