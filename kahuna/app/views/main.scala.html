@@ -56,7 +56,7 @@
           homeLinkHtml: '@Html(kahunaConfig.homeLinkHtml.getOrElse(""))',
           systemName: "@Html(kahunaConfig.systemName)",
           canDownloadCrop: @kahunaConfig.canDownloadCrop,
-          showDenySyndicationWarning: @kahunaConfig.showDenySyndicationWarning,
+          showDenySyndicationWarning: @kahunaConfig.showDenySyndicationWarning.getOrElse(false),
           domainMetadataSpecs: @Html(domainMetadataSpecs),
           recordDownloadAsUsage: @kahunaConfig.recordDownloadAsUsage,
           metadataTemplates: @Html(metadataTemplates),
