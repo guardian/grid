@@ -19,7 +19,7 @@
         <li ng-repeat="(key, reason) in ctrl.invalidReasons">
             {{reason}}
         </li>
-        <li ng-if="ctrl.hasDenySyndication">
+        <li ng-if="ctrl.showDenySyndication">
             {{ctrl.denySyndicationTextHeader}}
         </li>
     </ul>
