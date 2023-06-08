@@ -60,6 +60,13 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     }
   }
 
+  private def addLeases(mediaLeases: List[MediaLease], userId: Option[String]) = {
+    val preparedMediaLeases = mediaLeases.map(prepareLeaseForSave(_, userId))
+    store.putAll(preparedMediaLeases).map { _ =>
+      preparedMediaLeases.map(notifications.sendAddLease)
+    }
+  }
+
   private def replaceLeases(mediaLeases: List[MediaLease], imageId: String, userId: Option[String]) = {
     val preparedMediaLeases = mediaLeases.map(prepareLeaseForSave(_, userId))
     for {
@@ -86,6 +93,15 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       case JsSuccess(mediaLease, _) =>
         addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
 
+      case JsError(errors) =>
+        Future.successful(badRequest(errors))
+    }
+  }
+
+  def addLeasesForMedia(id: String) = auth.async(parse.json) { implicit request =>
+    request.body.validate[List[MediaLease]] match {
+      case JsSuccess(mediaLeases, _) =>
+        addLeases(mediaLeases, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
       case JsError(errors) =>
         Future.successful(badRequest(errors))
     }

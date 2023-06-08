@@ -133,8 +133,8 @@ imageEditor.controller('ImageEditorCtrl', [
         offUsageRightsUpdateError();
     });
 
-    ctrl.onMetadataTemplateApplying = (lease) => {
-      if (angular.isDefined(lease)) {
+    ctrl.onMetadataTemplateApplying = (leases) => {
+      if (angular.isDefined(leases)) {
         ctrl.leasesUpdatingByTemplate = true;
       }
     };
@@ -159,7 +159,7 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
     };
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, lease) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
       ctrl.collectionUpdatedByTemplate = false;
@@ -168,11 +168,11 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
 
-      if (angular.isDefined(lease)) {
-        ctrl.updatedLeases = [
-          {...lease, fromTemplate: true},
-          ...ctrl.image.data.leases.data.leases
-        ];
+      if (angular.isDefined(leasesWithConfig)) {
+        const leasesFromTemplate = leasesWithConfig.leases.map(lease => {
+          return {...lease, fromTemplate: true};
+        });
+        ctrl.updatedLeases = [...leasesFromTemplate, ...(leasesWithConfig.replace ? [] : ctrl.image.data.leases.data.leases)];
         ctrl.leasesUpdatedByTemplate = true;
       }
 
