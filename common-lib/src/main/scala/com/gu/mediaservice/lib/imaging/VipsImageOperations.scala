@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.imaging
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.imaging.MagickImageOperations.optimisedMimeType
-import com.gu.mediaservice.lib.imaging.vips.{Vips, VipsImage}
+import com.gu.mediaservice.lib.imaging.vips.{Vips, VipsImage, VipsPngsaveQuantise}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Bounds, Jpeg, MimeType, Png}
 
@@ -56,10 +56,13 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     println("transforming image with VIPSSS")
     val profile = rgbProfileLocation(optimised = true)
 
+    val quantise = Some(VipsPngsaveQuantise(
+      quality = 85, effort = 1, bitdepth = 8
+    ))
     for {
       outputFile <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       img <- futureFromTry { Vips.openFile(sourceFile) }
-      _ <- futureFromTry { Vips.savePng(img, outputFile, profile, bitdepth = Some(8))}
+      _ <- futureFromTry { Vips.savePng(img, outputFile, profile, quantisation = quantise) }
     } yield outputFile -> optimisedMimeType
   }
 
