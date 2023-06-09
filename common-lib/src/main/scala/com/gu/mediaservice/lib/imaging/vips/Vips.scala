@@ -7,7 +7,8 @@ import scala.util.Try
 
 final case class VipsPngsaveQuantise(
   quality: Int,
-  dither: Double,
+  effort: Int,
+  bitdepth: Int
 )
 
 object Vips {
@@ -84,7 +85,6 @@ object Vips {
     outputFile: File,
     profile: String,
     quantisation: Option[VipsPngsaveQuantise] = None,
-    bitdepth: Option[Int] = None
   ): Try[Unit] = {
     reinterpret(image).map { srgbed =>
       val profileTransformed = new VipsImageByReference()
@@ -96,12 +96,12 @@ object Vips {
       }
 
       val args = Seq("strip", 1.asInstanceOf[Integer], "profile", profile) ++
-        quantisation.toSeq
-          .flatMap(qargs => Seq("Q",
-            qargs.quality.asInstanceOf[Integer],
-            "dither",
-            qargs.dither.asInstanceOf[java.lang.Double])) ++
-        bitdepth.toSeq.flatMap(bd => Seq("bitdepth", bd.asInstanceOf[Integer]))
+        quantisation.toSeq.flatMap(qargs => Seq(
+          "palette", 1.asInstanceOf[Integer],
+          "Q", qargs.quality.asInstanceOf[Integer],
+          "effort", qargs.effort.asInstanceOf[Integer],
+          "bitdepth", qargs.bitdepth.asInstanceOf[Integer]
+        ))
 
       if (LibVips.INSTANCE.vips_pngsave(profileTransformed.getValue, outputFile.getAbsolutePath, args: _*) != 0) {
         throw new Exception(s"Failed to save file to Png - libvips returned error ${getErrors()}")
