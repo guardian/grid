@@ -19,22 +19,31 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
 
-  def Term = rule { NestedFilter | NegatedFilter | Filter }
-
-  def NegatedFilter = rule { '-' ~ Filter ~> Negation }
+  def Term = rule { NestedFilter | Filter }
 
   def NestedFilter = rule {
-    NestedMatch ~> Nested |
+    '-' ~ NestedFilterMatch ~> (nestedMatch => nestedMatch.copy(negative = true)) | NestedFilterMatch
+  }
+
+  def NestedFilterMatch = rule {
+    NestedMatch ~> ((parent, field, value) => Nested(parent, field, value)) |
     NestedDateMatch
   }
 
   def Filter = rule {
-    HasMatch ~> Match |
-    IsMatch ~> Match |
+    '-' ~ FilterMatch ~> (theMatch => theMatch.copy(negative = true)) | FilterMatch
+  }
+
+  def FilterMatch = rule {
+    HasMatch ~> ((field, value) => Match(field, value)) |
+    IsMatch ~> ((field, value) => Match(field, value)) |
     DateConstraintMatch |
-    DateRangeMatch ~> Match | AtMatch |
-    FileTypeMatch ~> Match |
-    ScopedMatch ~> Match | HashMatch | CollectionRule |
+    DateRangeMatch ~> ((field, value) => Match(field, value)) |
+    AtMatch |
+    FileTypeMatch ~> ((field, value) => Match(field, value)) |
+    ScopedMatch ~> ((field, value) => Match(field, value)) |
+    HashMatch |
+    CollectionRule |
     AnyMatch
   }
 

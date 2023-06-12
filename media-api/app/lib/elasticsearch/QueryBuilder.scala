@@ -36,6 +36,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   }
 
   private def makeQueryBit(condition: Match): Query = condition.field match {
+    // remember to ignore condition.negative here!! it's already been accounted for in makeQuery
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
@@ -70,7 +71,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery
-    case condList => {
+    case condList =>
 
       val (nested: List[Nested], normal: List[Condition]) = (
         condList collect { case n: Nested => n },
@@ -78,29 +79,28 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       )
 
       val query = normal.foldLeft(boolQuery) {
-        case (query, Negation(cond)) => query.withNot(makeQueryBit(cond))
-        case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
+        case (query, cond@Match(_, _, true)) => query.withNot(makeQueryBit(cond))
+        case (query, cond@Match(_, _, false)) => query.withMust(makeQueryBit(cond))
         case (query, _) => query
       }
 
       val nestedQueries = nested
         .groupBy(_.parentField)
         .map {
-          case (parent: SingleField, n: List[Nested]) => {
+          case (parent: SingleField, n: List[Nested]) =>
 
             val nested = n.foldLeft(boolQuery) {
-              case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
+              case (query, Nested(_, f, v, true)) => query.withNot(makeQueryBit(Match(f, v, negative = true)))
+              case (query, Nested(_, f, v, false)) => query.withMust(makeQueryBit(Match(f, v, negative = false)))
               case (query, _) => query
             }
 
             nestedQuery(parent.name, nested)
-          }
 
           case _ => throw InvalidQuery("Can only accept SingleField for Nested Query parent")
 
         }.toList
 
       nestedQueries.foldLeft(query) { case (q, nestedQ) => q.withMust(nestedQ) }
-    }
   }
 }
