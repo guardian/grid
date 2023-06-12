@@ -7,7 +7,7 @@ jobs:
       matrix:
         node-version: [16.20.0]
     steps:
-      - uses: actions/checkout@v3.5.0
+      - uses: actions/checkout@v3.5.3
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3.6.0
         with:
@@ -57,7 +57,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-    - uses: actions/checkout@v3.5.0
+    - uses: actions/checkout@v3.5.3
     - name: SBT
       uses: ./.github/actions/sbt
       env:
