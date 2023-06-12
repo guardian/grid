@@ -32,8 +32,8 @@ export const trackAll = async ($q, $rootScope, key, input, tasks, emit) => {
     completed,
     total: input.size ? input.size : input.length
   });
-    const process = async (item, result, [fn, ...remaining]) => {
-    if (fn == undefined) {
+  const process = async (item, result, [fn, ...remaining]) => {
+    if (fn === undefined) {
       completed++;
       $rootScope.$broadcast("events:batch-operations:progress", {
         key,

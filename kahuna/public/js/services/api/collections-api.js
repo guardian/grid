@@ -2,6 +2,7 @@ import angular from 'angular';
 import {mediaApi} from './media-api';
 import {imageAccessor} from '../image-accessor';
 import {async} from '../../util/async';
+import {trackAll} from "../../util/batch-tracking";
 
 export var collectionsApi = angular.module('kahuna.services.api.collections', [
     mediaApi.name,
@@ -69,22 +70,18 @@ collectionsApi.factory('collections',
      * @param Array<string> collectionPath
      */
     function addToCollectionUsingImageIds(imageIds, path) {
-        // TODO: This isn't the most efficient way of doing this, but because we get the image data
-        // from the drop data, this was the easiest way to do it without turning the JSON string
-        // into a Resource object.
-        const promises = imageIds.map(id => mediaApi.find(id)
-            .then(image => addCollectionToImage(image, path))
-        );
+      const done = trackAll($q, $rootScope, "add-collections-with-image-ids", imageIds,
+        async (imageId) => mediaApi.find(imageId).then(image => addCollectionToImage(image, path))
+      , 'events:collections-added');
 
-        return $q.all(promises);
+      return done;
     }
 
     function addToCollectionUsingImageResources(images, path) {
-        const promises = images.map(image =>
-            addCollectionToImage(image, path)
-        ).toJS();
-
-        return $q.all(promises);
+      const done = trackAll($q, $rootScope, "add-collections-with-image-resources", images,
+        async (image) => addCollectionToImage(image, path),
+        'events:collections-added');
+      return done;
     }
 
     function addCollectionToImage(image, path) {
@@ -155,17 +152,17 @@ collectionsApi.factory('collections',
     }
 
     function batchRemove(images, collection) {
-        const promises = images.map(image => {
-            const collectionToRemove = getCollectionToRemove(image, collection);
-            if (collectionToRemove) {
-                return removeImageFromCollection(collectionToRemove, image);
-            } else {
-                //if image doesn't have the chosen collection it returns the image
-                return image;
-            }
-        }).toJS();
+      const done = trackAll($q, $rootScope, 'remove-collections', images, async (image)=> {
+          const collectionToRemove = getCollectionToRemove(image, collection);
+          if (collectionToRemove) {
+            return removeImageFromCollection(collectionToRemove, image);
+          } else {
+            //if image doesn't have the chosen collection it returns the image
+            return image;
+          }
+        }, 'events:collections-removed');
 
-        return $q.all(promises);
+        return done;
     }
 
     return {
