@@ -30,46 +30,13 @@
             <span class="search__modifier-toggle__text">Search filters</span>
         </button>
 
+        <!-- permissions filter -->
+        <permissions-filter
+            props="searchQuery.permissionsProps"
+        ></permissions-filter>
+        <!-- end permissions filter -->
+
         <ul class="search__modifier search__filter" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
-            <li class="search__modifier-item search__modifier-checkbox">
-                <label>
-                <!-- minor mindfuck logic as we want an optional flag
-                                when the option is off -->
-                    <input type="checkbox"
-                        ng-model="searchQuery.filter.nonFree"
-                        ng-true-value="{{searchQuery.costFilterTrueValue}}"
-                        ng-false-value="{{searchQuery.costFilterFalseValue}}" />
-                        {{ searchQuery.costFilterLabel }}
-
-                    <!-- TODO: Decide on correct cost filter model -->
-                    <!--
-                    <select ng-init="searchQuery.filter.payType = searchQuery.filter.payType || 'free'"
-                            ng-model="searchQuery.filter.payType"
-                            ng-options="item.value as item.label for item in searchQuery.payTypeOptions">
-
-                    </select>
-                    -->
-
-                </label>
-            </li>
-
-            <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item search__modifier-checkbox">
-                <label>
-                    <input type="checkbox"
-                        ng-model="searchQuery.filter.uploadedByMe" />
-                    My uploads
-                </label>
-            </li>
-
-            <li ng-if="searchQuery.maybeOrgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
-                <label>
-                    <input type="checkbox"
-                        ng-model="searchQuery.filter.orgOwned" />
-                    {{ searchQuery.maybeOrgOwnedValue }}
-                </label>
-            </li>
-
-
             <li class="search__modifier-item">
                 <gu-date-range class="search__date"
                                gu:start-date="searchQuery.dateFilter.since"
@@ -143,6 +110,7 @@
         </ul>
 
     </div>
+
 </form>
 
 <gr-syntax ng-if="searchInfo"></gr-syntax>

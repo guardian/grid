@@ -1351,7 +1351,8 @@ textarea.ng-invalid {
     width: 100%;
     border-bottom: 1px solid #565656;
     position: fixed;
-    z-index: 30;
+  /* amended from 30 */
+    z-index: 20;
     left: 0;
 }
 

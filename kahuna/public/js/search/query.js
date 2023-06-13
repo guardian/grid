@@ -11,8 +11,10 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import '../components/gr-permissions-filter/gr-permissions-filter';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
+import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -21,7 +23,8 @@ export var query = angular.module('kahuna.search.query', [
     guDateRange.name,
     syntax.name,
     grStructuredQuery.name,
-    'util.storage'
+    'util.storage',
+    'gr.permissionsFilter',
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -58,6 +61,34 @@ query.controller('SearchQueryCtrl', [
     ctrl.dateFilter = {
         // filled in by the watcher below
     };
+
+    //-permissions filter-
+    //-update chips based on permissions filter-
+    function updatePermissionsChips (permissionsSel) {
+      console.log("Permissions Selection: " + permissionsSel.label);
+      console.log("Current Query: " + ctrl.filter.query);
+
+      ctrl.permissionsProps.selectedOption = permissionsSel;
+      let workingQuery = ' ' + ctrl.filter.query;
+      //-all permissions-
+      if(permissionsSel.value == PermissionsConf.ALL_PERMISSIONS_OPT) {
+        workingQuery = workingQuery.replace(PermissionsConf.BBC_OWNED_QUERY, '')
+                                   .replace(PermissionsConf.CHARGEABLE_QUERY, '')
+                                   .replace(PermissionsConf.NOT_HAS_RESTRICTIONS_QUERY, '')
+                                   .replace(PermissionsConf.NOT_CHARGEABLE_QUERY, '')
+                                   .replace(PermissionsConf.NOT_PROGRAM_QUERY, '')
+                                   .replace(PermissionsConf.PROGRAM_QUERY, '');
+      }
+
+      if (workingQuery[0] == ' ') workingQuery = workingQuery.slice(1);
+      ctrl.filter.query = workingQuery;
+
+    }
+
+    let pfOpts = PermissionsConf.PermissionsOptions;
+    let pfAllPerm = pfOpts.filter(opt => opt.value == PermissionsConf.ALL_PERMISSIONS_OPT)[0];
+    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfAllPerm, onSelect: updatePermissionsChips, query: ctrl.filter.query };
+    //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;
 
@@ -171,6 +202,13 @@ query.controller('SearchQueryCtrl', [
         storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+
+        //--permissions filter event--
+        const customEvent = new CustomEvent('queryChangeEvent', {
+          detail: { query: ctrl.filter.query },
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
 
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){

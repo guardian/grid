@@ -14,6 +14,7 @@ import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
@@ -36,6 +37,7 @@ export var search = angular.module('kahuna.search', [
     'gr.topBar',
     'gr.panels',
     'gr.keyboardShortcut',
+    'gr.permissionsFilter',
     'grInfoPanel',
     'grCollectionsPanel',
     'ui.router',
@@ -109,6 +111,21 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 storage.setJs('isNonFree', session.user.permissions.showPaid, true);
               });
             }
+
+            //-permissions filter-
+            // *** will need to establish settings from config or elsewhere ***
+            let pfOpts = new Array();
+            let pfAllPerm = {label:"All Permissions", value:"allPermissions"};
+            pfOpts.push(pfAllPerm);
+            pfOpts.push({label:"Usable for all", value:"usableForAll"});
+            pfOpts.push({label:"Free for News", value:"freeForNews"});
+            pfOpts.push({label:"Chargeable", value:"chargeable"});
+            pfOpts.push({label:"For promoting a programme", value:"programme"});
+            let permSel = function(permissionsSelection) {
+              console.log("Permissions Selection : " + permissionsSelection.label);
+            }
+            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfAllPerm, onSelect: permSel };
+            //-end permissions filter-
 
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
