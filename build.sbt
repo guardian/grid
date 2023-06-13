@@ -106,7 +106,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
-    "com.gu" %% "thrift-serializer" % "4.0.0",
+    "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
@@ -123,9 +123,10 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
-    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9"
+    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
+    "org.yaml" % "snakeyaml" % "1.31"
   ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
 )
 
 lazy val restLib = project("rest-lib").settings(
@@ -161,7 +162,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
     "org.parboiled" %% "parboiled" % "2.1.5",
-    "org.http4s" %% "http4s-core" % "0.18.7",
+    "org.http4s" %% "http4s-core" % "0.23.17",
     "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
@@ -173,11 +174,12 @@ lazy val metadataEditor = playProject("metadata-editor", 9007)
 lazy val thrall = playProject("thrall", 9002).settings(
   pipelineStages := Seq(digest, gzip),
   libraryDependencies ++= Seq(
-    "org.codehaus.groovy" % "groovy-json" % "2.4.4",
+    "org.codehaus.groovy" % "groovy-json" % "3.0.7",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
+    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test,
+    "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )
 )
 
@@ -186,7 +188,8 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-default" % "19.0.4",
     "com.gu" %% "content-api-client-aws" % "0.7",
     "io.reactivex" %% "rxscala" % "0.26.5",
-    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
+    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+    "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )
 )
 
