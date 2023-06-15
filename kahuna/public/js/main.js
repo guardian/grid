@@ -95,6 +95,10 @@ angular.forEach(config, function(value, key) {
     kahuna.constant(key, value);
 });
 
+kahuna.config(['$qProvider',
+  function($qProvider) {
+    $qProvider.errorOnUnhandledRejections(false);
+  }]);
 
 kahuna.config(['$locationProvider',
                function($locationProvider) {
