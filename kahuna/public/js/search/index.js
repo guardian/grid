@@ -145,6 +145,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         }
     });
 
+    const extraQueryParamsNotUsedByGridDirectly = [
+      'expandPinboard', 'pinboardId', 'pinboardItemId'
+    ];
+
     $stateProvider.state('search.results', {
         url: [
             'search?{query:Query}',
@@ -163,7 +167,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             'hasRightsAcquired',
             'hasCrops',
             'syndicationStatus',
-            'persisted'
+            'persisted',
+            ...extraQueryParamsNotUsedByGridDirectly // otherwise router will drop them
         ].join('&'),
         // Non-URL parameters
         params: {
