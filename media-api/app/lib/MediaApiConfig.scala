@@ -48,7 +48,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val requiredMetadata = List("credit", "description", "usageRights")
 
   val persistenceIdentifier = string("persistence.identifier")
-  val queriableIdentifiers = Seq(persistenceIdentifier)
+  val originalMediaIdIdentifierKey = "original-media-id"
+  val queriableIdentifiers = Seq(persistenceIdentifier, originalMediaIdIdentifierKey)
 
   val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
     case Some(collections) => collections.split(',').toList

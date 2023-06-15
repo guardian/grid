@@ -653,7 +653,12 @@
 
             <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
+                    <a ng-if="ctrl.isSearchableIdentifier(key)"
+                       ui-sref="search.results({query: value, nonFree: true})"
+                       aria-label="Search for images with '{{value}}'">{{value}}</a>
+                    <span ng-if="!ctrl.isSearchableIdentifier(key)">{{value}}</span>
+                </dd>
             </dl>
         </div>
     </div>

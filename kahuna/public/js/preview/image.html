@@ -118,6 +118,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
         </div>
     </div>
     <div class="preview__bottom-icons">
+
         <span class="bottom-bar__meta-item preview__has-crops"
               title="this image has crops"
               ng-if="ctrl.states.hasCrops">
@@ -173,6 +174,14 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
             </div>
         </span>
 
+        <a ng-if="ctrl.image.data.identifiers['original-media-id']"
+           class="bottom-bar__action preview__has-original-media-id"
+           title="This image has an Original Media ID (it has been modified)"
+           ui-sref="search.results({query: ctrl.image.data.identifiers['original-media-id'], nonFree: true})"
+        >
+            <gr-icon>brush</gr-icon>
+        </a>
+
         <div class="bottom-bar__action preview__bottom-icons-align-right" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
             <gr-syndication-icon image="ctrl.image"></gr-syndication-icon>
         </div>
@@ -181,5 +190,6 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                             image="ctrl.image"
                             readonly="ctrl.selectionMode">
         </gr-archiver-status>
+
     </div>
 </div>
