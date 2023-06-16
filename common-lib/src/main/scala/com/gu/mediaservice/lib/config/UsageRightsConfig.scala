@@ -19,6 +19,68 @@ object PublicationPhotographers {
   )
 }
 
+sealed trait ProgrammesUsageRightsConfiguration {
+  val description: Option[String] = None
+}
+final case class ProgrammesOrganisationOwnedConfig(override val description: Option[String] = None)
+  extends ProgrammesUsageRightsConfiguration
+object ProgrammesOrganisationOwnedConfig {
+  implicit val configLoader: ConfigLoader[ProgrammesOrganisationOwnedConfig] = ConfigLoader(_.getConfig).map(
+    config => {
+      val description = if (config.hasPath("description"))
+        Some(config.getString("description"))
+      else
+        None
+      ProgrammesOrganisationOwnedConfig(description)
+    }
+  )
+}
+
+final case class IndependentType(name: String, productionsCompanies: List[String] = Nil)
+final case class ProgrammesIndependentsConfig(override val description: Option[String] = None,
+                                              independentTypes: List[IndependentType] = Nil)
+  extends ProgrammesUsageRightsConfiguration
+object ProgrammesIndependentsConfig {
+  implicit val configLoader: ConfigLoader[ProgrammesIndependentsConfig] = ConfigLoader(_.getConfig).map(
+    config => {
+
+      val description = if (config.hasPath("description")) {
+          Some(config.getString("description"))
+        } else {
+          None
+        }
+
+      val independentTypes = if (config.hasPath("independentTypes")) {
+          config.getConfigList("independentTypes").asScala
+            .map(independentTypeConfig =>
+              IndependentType(
+                independentTypeConfig.getString("name"),
+                independentTypeConfig.getStringList("productionsCompanies").asScala.toList
+              )
+            ).toList
+        } else {
+          Nil
+        }
+
+      ProgrammesIndependentsConfig(description, independentTypes)
+    }
+  )
+}
+final case class ProgrammesAcquisitionsConfig(override val description: Option[String] = None)
+  extends ProgrammesUsageRightsConfiguration
+object ProgrammesAcquisitionsConfig {
+  implicit val configLoader: ConfigLoader[ProgrammesAcquisitionsConfig] = ConfigLoader(_.getConfig).map(
+    config => {
+      val description = if (config.hasPath("description"))
+        Some(config.getString("description"))
+      else
+        None
+
+      ProgrammesAcquisitionsConfig(description)
+    }
+  )
+}
+
 trait UsageRightsConfigProvider extends Provider {
   override def initialise(): Unit = {}
   override def shutdown(): Future[Unit] = Future.successful(())
@@ -32,6 +94,9 @@ trait UsageRightsConfigProvider extends Provider {
   val creativeCommonsLicense: List[String]
   val freeSuppliers: List[String]
   val suppliersCollectionExcl: Map[String, List[String]]
+  val programmesOrganisationOwnedConfig: Option[ProgrammesOrganisationOwnedConfig] = None
+  val programmesIndependentsConfig: Option[ProgrammesIndependentsConfig] = None
+  val programmesAcquisitionsConfig: Option[ProgrammesAcquisitionsConfig] = None
 
   // this is lazy in order to ensure it is initialised after the values above are defined
   lazy val staffPhotographers: List[PublicationPhotographers] = UsageRightsConfigProvider.flattenPublicationList(
@@ -89,4 +154,7 @@ class RuntimeUsageRightsConfig(configuration: Configuration) extends UsageRights
   } else {
     Map.empty[String, List[String]]
   }
+  override val programmesOrganisationOwnedConfig: Option[ProgrammesOrganisationOwnedConfig] = configuration.getOptional[ProgrammesOrganisationOwnedConfig]("programmesOrganisationOwned")
+  override val programmesIndependentsConfig: Option[ProgrammesIndependentsConfig] = configuration.getOptional[ProgrammesIndependentsConfig]("programmesIndependents")
+  override val programmesAcquisitionsConfig: Option[ProgrammesAcquisitionsConfig] = configuration.getOptional[ProgrammesAcquisitionsConfig]("programmesAcquisitions")
 }

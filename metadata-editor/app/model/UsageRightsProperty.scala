@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, PublicationPhotographers, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.{PublicationPhotographers, IndependentType, UsageRightsConfigProvider}
 import com.gu.mediaservice.model._
 import play.api.libs.json._
 
@@ -38,6 +38,9 @@ object UsageRightsProperty {
 
   def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = Map(publications
     .map(p => p.name -> p.photographers): _*)
+
+  def independentTypeListToMap(independentTypes: List[IndependentType]): OptionsMap = Map(independentTypes
+    .map(s => s.name -> s.productionsCompanies): _*)
 
   def optionsFromPublicationList(publications: List[PublicationPhotographers]): Options = sortList(publicationListToMap(publications).keys.toList)
 
@@ -125,6 +128,20 @@ object UsageRightsProperty {
 
     case Screengrab => List(
       requiredStringField("source", "Source", examples = Some("BBC News, HBO, ITV"))
+    )
+
+    case ProgrammesIndependents =>
+      val independentTypeMap = p.programmesIndependentsConfig match {
+        case Some(config) => independentTypeListToMap(config.independentTypes)
+        case None => Map.empty[String, List[String]]
+      }
+      List(
+        UsageRightsProperty("independentType", "Independent Type", "string", required = true, Some(sortList(independentTypeMap.keys.toList))),
+        requiredStringField("productionCompany", "Production Company", optionsMap = Some(independentTypeMap), optionsMapKey = Some("independentType"))
+      )
+
+    case ProgrammesAcquisitions => List(
+      requiredStringField("productionCompany", "Production Company", examples = Some("Example production"))
     )
 
     case _ => List()

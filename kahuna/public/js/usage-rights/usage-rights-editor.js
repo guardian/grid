@@ -175,6 +175,9 @@ usageRightsEditor.controller(
 
       ctrl.cancel = () => ctrl.onCancel();
 
+      ctrl.isOtherValue = (property) =>
+        angular.isDefined(ctrl.model[property.name]) ? !(ctrl.getOptionsMapFor(property).includes(ctrl.model[property.name])) : undefined;
+
       function save(data) {
         return trackAll($q, $rootScope, "rights", ctrl.usageRights, [
           ({ image }) => {
