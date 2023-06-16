@@ -330,7 +330,11 @@ service.factory('editsService',
     function batchUpdateMetadataField(images, field, value, editOption = overwrite.key) {
         return trackAll($q, $rootScope, field, images, image => {
             const newFieldValue = getNewFieldValue(image, field, value, editOption);
-            return updateMetadataField(image, field, newFieldValue, true);
+            const updated = updateMetadataField(image, field, newFieldValue, true);
+            if (!updated) { // updateMetadataField returns false if no change
+                return image;
+            }
+            return updated;
         },'images-updated');
     }
 
