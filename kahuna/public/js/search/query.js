@@ -15,6 +15,7 @@ import '../components/gr-permissions-filter/gr-permissions-filter';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
+import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -63,30 +64,56 @@ query.controller('SearchQueryCtrl', [
     };
 
     //-permissions filter-
-    //-update chips based on permissions filter-
     function updatePermissionsChips (permissionsSel) {
-      console.log("Permissions Selection: " + permissionsSel.label);
-      console.log("Current Query: " + ctrl.filter.query);
-
       ctrl.permissionsProps.selectedOption = permissionsSel;
-      let workingQuery = ' ' + ctrl.filter.query;
-      //-all permissions-
-      if(permissionsSel.value == PermissionsConf.ALL_PERMISSIONS_OPT) {
-        workingQuery = workingQuery.replace(PermissionsConf.BBC_OWNED_QUERY, '')
-                                   .replace(PermissionsConf.CHARGEABLE_QUERY, '')
-                                   .replace(PermissionsConf.NOT_HAS_RESTRICTIONS_QUERY, '')
-                                   .replace(PermissionsConf.NOT_CHARGEABLE_QUERY, '')
-                                   .replace(PermissionsConf.NOT_PROGRAM_QUERY, '')
-                                   .replace(PermissionsConf.PROGRAM_QUERY, '');
-      }
+      ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
 
-      if (workingQuery[0] == ' ') workingQuery = workingQuery.slice(1);
-      ctrl.filter.query = workingQuery;
+      //-watch code-
+      let filter = ctrl.filter;
+        storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
+        ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
+          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
+          if (newNonFree !== filter.nonFree) {
+            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+            storage.setJs("isUploadedByMe", false, true);
+            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+            ctrl.filter.orgOwned = false;
+          }
+          Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+        }
 
+        const structuredQuery = structureQuery(filter.query) || [];
+        const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
+        const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
+        if (filter.orgOwned && !queryHasOrgOwned) {
+          // If the checkbox is ticked, ensure the chip is part of the search bar
+          const orgOwnedChip = {
+            type: "filter",
+            filterType: "inclusion",
+            key: "is",
+            value: ctrl.maybeOrgOwnedValue
+          };
+          ctrl.filter.query = renderQuery([
+            ...structuredQuery,
+            orgOwnedChip
+          ]);
+        } else if (!filter.orgOwned && queryHasOrgOwned) {
+          // If the checkbox is unticked, ensure chip is no longer in the search bar
+          structuredQuery.splice(orgOwnedIndexInQuery, 1);
+          ctrl.filter.query = renderQuery(structuredQuery);
+        }
+
+        const {nonFree, uploadedByMe} = ctrl.filter;
+        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+        $state.go('search.results', filter);
+      //-end watch code-
+      
     }
 
-    let pfOpts = PermissionsConf.PermissionsOptions;
-    let pfAllPerm = pfOpts.filter(opt => opt.value == PermissionsConf.ALL_PERMISSIONS_OPT)[0];
+    let pfOpts = PermissionsConf.PermissionsOptions();
+    let pfAllPerm = pfOpts.filter(opt => opt.value == PermissionsConf.PermissionsDefaultOpt())[0];
     ctrl.permissionsProps = { options: pfOpts, selectedOption: pfAllPerm, onSelect: updatePermissionsChips, query: ctrl.filter.query };
     //-end permissions filter-
 

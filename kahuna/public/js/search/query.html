@@ -1,17 +1,17 @@
 <form class="search">
     <span class="search-query">
-        <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
-        <gr-structured-query class="search-query__query"
-                             ng-model="searchQuery.filter.query">
-        </gr-structured-query>
-        <button class="search-query__icon search-query__clear clear-button"
-                type="button"
-                title="Clear query"
-                ng-show="searchQuery.filter.query"
-                ng-click="searchQuery.resetQuery()"
-                aria-label="Clear search">
-            <gr-icon>cancel</gr-icon>
-        </button>
+            <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
+            <gr-structured-query class="search-query__query"
+                                 ng-model="searchQuery.filter.query">
+            </gr-structured-query>
+            <button class="search-query__icon search-query__clear clear-button"
+                    type="button"
+                    title="Clear query"
+                    ng-show="searchQuery.filter.query"
+                    ng-click="searchQuery.resetQuery()"
+                    aria-label="Clear search">
+                <gr-icon>cancel</gr-icon>
+            </button>
     </span>
 
     <button class="search__advanced-toggle"
@@ -21,96 +21,6 @@
             aria-label="Display advanced search information">
         <gr-icon>info_outline</gr-icon>
     </button>
-
-    <div class="search__modifier-container">
-        <button class="search__modifier-toggle"
-                type="button"
-                ng-click="filtersShown = !filtersShown ">
-            <gr-icon class="search__modifier-toggle__icon">filter_list</gr-icon>
-            <span class="search__modifier-toggle__text">Search filters</span>
-        </button>
-
-        <!-- permissions filter -->
-        <permissions-filter
-            props="searchQuery.permissionsProps"
-        ></permissions-filter>
-        <!-- end permissions filter -->
-
-        <ul class="search__modifier search__filter" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
-            <li class="search__modifier-item">
-                <gu-date-range class="search__date"
-                               gu:start-date="searchQuery.dateFilter.since"
-                               gu:end-date="searchQuery.dateFilter.until"
-                               gu:preset-dates="searchQuery.sinceOptions"
-                               gu:selected-field="searchQuery.dateFilter.field"
-                               gu:fields="searchQuery.filterDateFieldsOptions"
-                               gu:show-extras="true"
-                               gu:first-day="1">
-                </gu-date-range>
-            </li>
-        </ul>
-    </div>
-
-    <div class="search__modifier-container">
-        <button class="search__modifier-toggle"
-                type="button"
-                ng-click="orderShown = !orderShown">
-            <gr-icon class="search__modifier-toggle__icon">sort</gr-icon>
-            <span class="search__modifier-toggle__text">Sort order</span>
-        </button>
-
-        <ul class="search__modifier order__option"
-            ng-class="orderShown ? 'order__option--show' : 'order__option--hide'">
-            <li class="search__modifier-item radio-list">
-                <div class="radio-list__item">
-                    <input type="radio"
-                           aria-hidden="false"
-                           id="sort-direction__desc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="undefined"
-                           ng-model="searchQuery.ordering.orderBy"
-                           aria-label="Order search results by newest first">
-                    <label for="sort-direction__desc" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === undefined}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Newest first</div>
-                    </label>
-                </div>
-                <div ng-if="!searchQuery.collectionSearch"
-                     class="radio-list__item">
-                    <input type="radio"
-                           aria-hidden="false"
-                           id="sort-direction__asc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="'oldest'"
-                           ng-model="searchQuery.ordering.orderBy"
-                           aria-label="Order search results by oldest first">
-                    <label for="sort-direction__asc" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === 'oldest'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Oldest first</div>
-                    </label>
-                </div>
-                <div ng-if="searchQuery.collectionSearch" class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__added-to-collection"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="'dateAddedToCollection'"
-                           ng-model="searchQuery.ordering.orderBy">
-                    <label for="sort-direction__added-to-collection" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === 'dateAddedToCollection'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Recently Added First</div>
-                    </label>
-                </div>
-            </li>
-        </ul>
-
-    </div>
-
 </form>
 
 <gr-syntax ng-if="searchInfo"></gr-syntax>

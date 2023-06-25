@@ -36,7 +36,7 @@ export interface PermissionsWrapperProps {
 // *** functional react component ***
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
-  const allPerms:PermissionsDropdownOption = options.filter(opt => opt.value == PermisionsConf.ALL_PERMISSIONS_OPT)[0];
+  const allPerms:PermissionsDropdownOption = options.filter(opt => opt.value == PermisionsConf.PermissionsDefaultOpt())[0];
   const propsRef = useRef(props);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -46,31 +46,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     let newQuery = e.detail.query ? (' ' + e.detail.query) : '';
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
-      console.log("New Query: " + newQuery);
 
-      //-chargeable-
-      if(newQuery.includes(PermisionsConf.CHARGEABLE_QUERY)) {
-        setSelection(options.filter(opt => opt.value == PermisionsConf.CHARGEABLE_OPT)[0]);
-        return;
-      }
-      //-programme promotion-
-      if(newQuery.includes(PermisionsConf.PROGRAM_QUERY)) {
-        setSelection(options.filter(opt => opt.value == PermisionsConf.PROGRAM_OPT)[0]);
-        return;
-      }
-      //-free for news-
-      if(newQuery.includes(PermisionsConf.NOT_CHARGEABLE_QUERY) && newQuery.includes(PermisionsConf.NOT_PROGRAM_QUERY)) {
-        setSelection(options.filter(opt => opt.value == PermisionsConf.FREE_FOR_NEWS_OPT)[0]);
-        return;
-      }
-      //-usable for all-
-      if(newQuery.includes(PermisionsConf.NOT_HAS_RESTRICTIONS_QUERY) && newQuery.includes(PermisionsConf.BBC_OWNED_QUERY)) {
-        setSelection(options.filter(opt => opt.value == PermisionsConf.USABLE_FOR_ALL_OPT)[0]);
-        return;
+      const permMaps = PermisionsConf.PermissionsMappings();
+      for(let i=0; i<permMaps.length; i++) {
+        if(permMaps[i].queries.length > 0 && permMaps[i].queries.filter(q => newQuery.includes(q)).length == permMaps[i].queries.length) {
+          setSelection(options.filter(opt => opt.value == permMaps[i].opt)[0]);
+          return;
+        }
       }
 
       //-default-
-      setSelection(options.filter(opt => opt.value == PermisionsConf.ALL_PERMISSIONS_OPT)[0]);
+      setSelection(options.filter(opt => opt.value == PermisionsConf.PermissionsDefaultOpt())[0]);
     }
   };
 
@@ -107,59 +93,6 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     </div>
   );
 };
-
-// *** class based React Comp ***
-/*class PermissionsFilter extends React.Component<any, any> {
-  private onSelect: Function;
-  private options: any;
-
-  constructor(props: any) {
-    super(props);
-    this.onSelect = props.options.onselect;
-    this.options = props.options.options;
-    this.state = {
-      selection: props.options.selecion,
-      isOpen : false
-    }
-  };
-
-  private toggleIsOpen() {
-    this.setState((state : any) => ({
-      isOpen : !state.isOpen
-    }));
-  };
-
-  private handleOptionClick(opt: any) {
-    this.onSelect(opt);
-    this.setState((state: any)=> ({
-      selection: opt,
-      isOpen : false
-    }));
-
-  };
-
-  render() : JSX.Element {
-    return (
-      <div style={{position:'relative', zIndex:20, height:'100px'}}>
-        <button onClick={() => this.toggleIsOpen()}>
-          {this.state.selection ? this.state.selection.label : 'Select an option'}
-        </button>
-        {this.state.isOpen && (
-          <ul style={{position:'relative', zIndex:20, height:'100px'}}>
-            {this.options.map((option: any) => (
-              <li key={option.value} onClick={() => this.handleOptionClick(option)}>
-                {option.label}
-              </li>
-            ))
-            }
-          </ul>)
-        }
-      </div>
-    )
-  }
-
-}
- */
 
 export const permissionsFilter = angular.module('gr.permissionsFilter', [])
   .component('permissionsFilter', react2angular(PermissionsFilter, ["props"]));
