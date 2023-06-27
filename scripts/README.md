@@ -58,3 +58,15 @@ __:warning: This should only EVER be run on your local version. :warning:__
     $ sbt
     > scripts/run UpdateSettings localhost
     ```
+
+### DownloadAllEsIds
+ES doesn't provide a means of downloading all the IDs, so this script does just that and writes to file - for example a CSV file for upload to AWS Athena.
+
+It relies on the [`es-ssh-ssm-tunnel.sh` script](../dev/script/es-ssh-ssm-tunnel.sh).
+
+It's most efficient to do this as a 'scan and scroll' (see [stackoverflow.com/a/30855670](https://stackoverflow.com/a/30855670)).
+
+    ```
+    $ sbt
+    > scripts/run DownloadAllEsIds http://localhost:9200 /tmp/testing
+    ```
