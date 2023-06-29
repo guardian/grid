@@ -38,164 +38,167 @@ jobs.controller('UploadJobsCtrl', [
             editsService) {
 
     var ctrl = this;
-    const presetLabels = presetLabelService.getLabels();
 
-    ctrl.remaining = ctrl.jobs.length;
+    ctrl.$onInit = () => {
+      const presetLabels = presetLabelService.getLabels();
 
-    // State machine-esque async transitions
-    const eventName = 'Image upload';
+      ctrl.remaining = ctrl.jobs.length;
 
-    function getUploadStatus(image) {
-        return image.get().then((status) => {
-            if (status.data.status === 'COMPLETED' || status.data.status === 'FAILED') {
-                return status;
-            } else {
-                return $q.reject();
-            }
-        });
-    }
-    ctrl.jobs.forEach(jobItem => {
-        jobItem.status = 'uploading';
+      // State machine-esque async transitions
+      const eventName = 'Image upload';
 
-        jobItem.resourcePromise.then(resource => {
-            jobItem.status = 'indexing';
-            jobItem.resource = resource;
+      function getUploadStatus(image) {
+          return image.get().then((status) => {
+              if (status.data.status === 'COMPLETED' || status.data.status === 'FAILED') {
+                  return status;
+              } else {
+                  return $q.reject();
+              }
+          });
+      }
+      ctrl.jobs.forEach(jobItem => {
+          jobItem.status = 'uploading';
 
-            const imageUploadStatusResource = apiPoll(() => getUploadStatus(resource));
-            imageUploadStatusResource.then(status => {
-                if (status.data.status === 'FAILED'){
-                    jobItem.status = 'upload error';
-                    jobItem.error = status.data.errorMessage;
-                    ctrl.remaining -= 1;
-                } else if (status.data.status === 'COMPLETED'){
-                    const findImage = () => status.get();
-                    const imageResource = apiPoll(findImage);
-                    imageResource.then(image => {
-                        jobItem.status = 'uploaded';
-                        jobItem.image = image;
-                        jobItem.thumbnail = image.data.thumbnail;
+          jobItem.resourcePromise.then(resource => {
+              jobItem.status = 'indexing';
+              jobItem.resource = resource;
 
-                        ctrl.remaining -= 1;
+              const imageUploadStatusResource = apiPoll(() => getUploadStatus(resource));
+              imageUploadStatusResource.then(status => {
+                  if (status.data.status === 'FAILED'){
+                      jobItem.status = 'upload error';
+                      jobItem.error = status.data.errorMessage;
+                      ctrl.remaining -= 1;
+                  } else if (status.data.status === 'COMPLETED'){
+                      const findImage = () => status.get();
+                      const imageResource = apiPoll(findImage);
+                      imageResource.then(image => {
+                          jobItem.status = 'uploaded';
+                          jobItem.image = image;
+                          jobItem.thumbnail = image.data.thumbnail;
 
-                        imageService(image).states.canDelete.then(deletable => {
-                            jobItem.canBeDeleted = deletable;
-                             if (image.data.softDeletedMetadata !== undefined) { jobItem.isDeleted = true; }
-                        });
+                          ctrl.remaining -= 1;
 
-                        // If the image is updated (e.g. label added,
-                        // archived, etc), refresh the copy we hold
-                        $rootScope.$on('images-updated', (e, updatedImages) => {
-                          const maybeUpdateImage = updatedImages.find(updatedImage => updatedImage.data.id === image.data.id);
-                            if (maybeUpdateImage !== undefined) {
-                                jobItem.image = maybeUpdateImage;
-                            }
-                        });
+                          imageService(image).states.canDelete.then(deletable => {
+                              jobItem.canBeDeleted = deletable;
+                              if (image.data.softDeletedMetadata !== undefined) { jobItem.isDeleted = true; }
+                          });
 
-                        // we use the filename of the image if the description is missing
-                        if (!jobItem.image.data.metadata.description) {
-                            const newDescription = jobItem.name
-                                .substr(0, jobItem.name.lastIndexOf('.'))
-                                .replace(/_/g, ' ');
+                          // If the image is updated (e.g. label added,
+                          // archived, etc), refresh the copy we hold
+                          $rootScope.$on('images-updated', (e, updatedImages) => {
+                            const maybeUpdateImage = updatedImages.find(updatedImage => updatedImage.data.id === image.data.id);
+                              if (maybeUpdateImage !== undefined) {
+                                  jobItem.image = maybeUpdateImage;
+                              }
+                          });
 
-                            editsService.updateMetadataField(jobItem.image, 'description', newDescription);
-                        }
+                          // we use the filename of the image if the description is missing
+                          if (!jobItem.image.data.metadata.description) {
+                              const newDescription = jobItem.name
+                                  .substr(0, jobItem.name.lastIndexOf('.'))
+                                  .replace(/_/g, ' ');
 
-                        if (presetLabels.length > 0) {
-                            labelService.add(image, presetLabels);
-                        }
+                              editsService.updateMetadataField(jobItem.image, 'description', newDescription);
+                          }
 
-                        $rootScope.$emit(
-                          'track:event',
-                          eventName,
-                          null,
-                          'Success',
-                          null,
-                          { 'Labels' : presetLabels.length}
-                        );
-                    }, error => {
-                        jobItem.status = 'upload error';
-                        jobItem.error = error.message;
+                          if (presetLabels.length > 0) {
+                              labelService.add(image, presetLabels);
+                          }
 
-                        $rootScope.$emit(
-                          'track:event',
-                          eventName,
-                          null,
-                          'Failure',
-                          null,
-                          { 'Failed on': 'index'}
-                        );
-                    });
-                }
-           }, error => {
-               jobItem.status = 'upload error';
-               jobItem.error = error.message;
+                          $rootScope.$emit(
+                            'track:event',
+                            eventName,
+                            null,
+                            'Success',
+                            null,
+                            { 'Labels' : presetLabels.length}
+                          );
+                      }, error => {
+                          jobItem.status = 'upload error';
+                          jobItem.error = error.message;
 
-               $rootScope.$emit(
-                 'track:event',
-                 eventName,
-                 null,
-                 'Failure',
-                 null,
-                 { 'Failed on': 'index'}
-               );
-           });
-        }, error => {
-            const reason = error.body && error.body.errorKey;
+                          $rootScope.$emit(
+                            'track:event',
+                            eventName,
+                            null,
+                            'Failure',
+                            null,
+                            { 'Failed on': 'index'}
+                          );
+                      });
+                  }
+            }, error => {
+                jobItem.status = 'upload error';
+                jobItem.error = error.message;
 
-            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+                $rootScope.$emit(
+                  'track:event',
+                  eventName,
+                  null,
+                  'Failure',
+                  null,
+                  { 'Failed on': 'index'}
+                );
+            });
+          }, error => {
+              const reason = error.body && error.body.errorKey;
 
-            const message = reason === 'unsupported-type' ?
-            `${capitalize(window._clientConfig.systemName)} only supports JPG, PNG and TIFF images.` +
-                ' Please convert the image and try again.' :
-                error.body && error.body.errorMessage || 'unknown';
+              const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-            jobItem.status = 'upload error';
-            jobItem.error = message;
+              const message = reason === 'unsupported-type' ?
+              `${capitalize(window._clientConfig.systemName)} only supports JPG, PNG and TIFF images.` +
+                  ' Please convert the image and try again.' :
+                  error.body && error.body.errorMessage || 'unknown';
 
-            $rootScope.$emit(
-              'track:event',
-              eventName,
-              null,
-              'Failure',
-              null,
-              { 'Failed on': 'upload'}
-            );
-        });
-    });
+              jobItem.status = 'upload error';
+              jobItem.error = message;
 
-    // this needs to be a function due to the stateful `jobItem`
-    ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
+              $rootScope.$emit(
+                'track:event',
+                eventName,
+                null,
+                'Failure',
+                null,
+                { 'Failed on': 'upload'}
+              );
+          });
+      });
 
-    ctrl.removeJob = (job) => {
-        const index = ctrl.jobs.findIndex(j => j.name === job.name);
+      // this needs to be a function due to the stateful `jobItem`
+      ctrl.jobImages = () => ctrl.jobs.map(jobItem => jobItem.image);
 
-        if (index > -1) {
-            ctrl.jobs.splice(index, 1);
-        }
+      ctrl.removeJob = (job) => {
+          const index = ctrl.jobs.findIndex(j => j.name === job.name);
+
+          if (index > -1) {
+              ctrl.jobs.splice(index, 1);
+          }
+      };
+
+      const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
+          images.forEach(image => {
+              var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
+
+              if (index > -1) {
+                  ctrl.jobs.splice(index, 1);
+              }
+          });
+      });
+
+      const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+          if (err.body && err.body.errorMessage) {
+              $window.alert(err.body.errorMessage);
+          } else {
+              $window.alert(`Failed to delete image ${image.data.id}`);
+          }
+      });
+
+      $scope.$on('$destroy', function() {
+          freeImageDeleteListener();
+          freeImageDeleteFailListener();
+      });
     };
-
-    const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-        images.forEach(image => {
-            var index = ctrl.jobs.findIndex(i => i.image.data.id === image.data.id);
-
-            if (index > -1) {
-                ctrl.jobs.splice(index, 1);
-            }
-        });
-    });
-
-    const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
-        if (err.body && err.body.errorMessage) {
-            $window.alert(err.body.errorMessage);
-        } else {
-            $window.alert(`Failed to delete image ${image.data.id}`);
-        }
-    });
-
-    $scope.$on('$destroy', function() {
-        freeImageDeleteListener();
-        freeImageDeleteFailListener();
-    });
 }]);
 
 

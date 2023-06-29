@@ -53,11 +53,12 @@ imageEditor.controller('ImageEditorCtrl', [
              mediaApi,
              storage) {
 
-    var ctrl = this;
-    ctrl.canUndelete = false;
-    ctrl.isDeleted = false;
-    ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
+  var ctrl = this;
+  ctrl.canUndelete = false;
+  ctrl.isDeleted = false;
+  ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
 
+  ctrl.$onInit = () => {
     mediaApi.getSession().then(session => {
         if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
         if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
@@ -313,7 +314,7 @@ imageEditor.controller('ImageEditorCtrl', [
     }
 
     ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
-
+  };
 }]);
 
 

@@ -8,7 +8,8 @@ export const module = angular.module('gr.metadataValidity', []);
 module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function ($rootScope, $window) {
     let ctrl = this;
 
-    function updateState() {
+    ctrl.$onInit = () => {
+      function updateState() {
         ctrl.image.get().then(image => {
             ctrl.isDeleted = image.data.softDeletedMetadata !== undefined;
             ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length !== 0 || ctrl.isDeleted;
@@ -24,13 +25,14 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
             }
             ctrl.unusableTextHeader = $window._clientConfig.unusableTextHeader;
         });
-    }
+      }
 
-    $rootScope.$on('leases-updated', () => {
-        updateState();
-    });
+      $rootScope.$on('leases-updated', () => {
+          updateState();
+      });
 
-    updateState();
+      updateState();
+    };
 }]);
 
 module.directive('grMetadataValidity', [function () {

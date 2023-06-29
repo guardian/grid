@@ -7,33 +7,36 @@ export const panelButton = angular.module('gr.panelButton', ['util.rx']);
 
 panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, inject$) {
     const ctrl = this;
-    const panel = ctrl.panel;
 
-    ctrl.trackingName = 'Panel Button';
-    ctrl.trackingData = action => ({
-        'Panel name': ctrl.name,
-        'Action': action
-    });
-    ctrl.showPanel   = () => panel.setHidden(false);
-    ctrl.lockPanel   = () => panel.setLocked(true);
-    ctrl.unlockPanel = () => panel.setLocked(false);
-    ctrl.hidePanel   = () => {
-        panel.setLocked(false);
-        panel.setHidden(true);
+    ctrl.$onInit = () => {
+      const panel = ctrl.panel;
+
+      ctrl.trackingName = 'Panel Button';
+      ctrl.trackingData = action => ({
+          'Panel name': ctrl.name,
+          'Action': action
+      });
+      ctrl.showPanel   = () => panel.setHidden(false);
+      ctrl.lockPanel   = () => panel.setLocked(true);
+      ctrl.unlockPanel = () => panel.setLocked(false);
+      ctrl.hidePanel   = () => {
+          panel.setLocked(false);
+          panel.setHidden(true);
+      };
+
+      ctrl.toolTipPosition = () => {
+          switch (ctrl.position) {
+          case 'right':
+              return 'left';
+          case 'left':
+              return 'right';
+          default:
+              return 'bottom';
+          }
+      };
+
+      inject$($scope, panel.state$, ctrl, 'state');
     };
-
-    ctrl.toolTipPosition = () => {
-        switch (ctrl.position) {
-        case 'right':
-            return 'left';
-        case 'left':
-            return 'right';
-        default:
-            return 'bottom';
-        }
-    };
-
-    inject$($scope, panel.state$, ctrl, 'state');
 }]);
 
 panelButton.directive('grPanelButton', [function() {

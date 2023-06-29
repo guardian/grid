@@ -21,33 +21,36 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
                              ['querySuggestions', '$scope',
                               function(querySuggestions, $scope) {
     const ctrl = this;
-    ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
+    ctrl.$onInit = () => {
 
-    const structuredQueryUpdates$ = Rx.Observable.create(observer => {
-        ctrl.structuredQueryChanged = function(structuredQuery) {
-            if (ctrl.maybeOrgOwnedValue && structuredQuery.find(item => item.value === ctrl.maybeOrgOwnedValue)){
-                $scope.searchQuery.filter.orgOwned = true;
-            } else {
-                $scope.searchQuery.filter.orgOwned = false;
-            }
-            observer.onNext(structuredQuery);
-        };
-    });
+      ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
 
-    ctrl.newQuery$ = structuredQueryUpdates$.
-        map(renderQuery).
-        map(valOrUndefined).
-        distinctUntilChanged().
-        debounce(500);
+      const structuredQueryUpdates$ = Rx.Observable.create(observer => {
+          ctrl.structuredQueryChanged = function(structuredQuery) {
+              if (ctrl.maybeOrgOwnedValue && structuredQuery.find(item => item.value === ctrl.maybeOrgOwnedValue)){
+                  $scope.searchQuery.filter.orgOwned = true;
+              } else {
+                  $scope.searchQuery.filter.orgOwned = false;
+              }
+              observer.onNext(structuredQuery);
+          };
+      });
 
-    ctrl.getSuggestions = querySuggestions.getChipSuggestions;
+      ctrl.newQuery$ = structuredQueryUpdates$.
+          map(renderQuery).
+          map(valOrUndefined).
+          distinctUntilChanged().
+          debounce(500);
 
-    ctrl.filterFields = filterFields;
+      ctrl.getSuggestions = querySuggestions.getChipSuggestions;
 
-    function valOrUndefined(str) {
-        // Watch out for `false`, but we know it's a string here..
-        return str ? str : undefined;
-    }
+      ctrl.filterFields = filterFields;
+
+      function valOrUndefined(str) {
+          // Watch out for `false`, but we know it's a string here..
+          return str ? str : undefined;
+      }
+    };
 }]);
 
 

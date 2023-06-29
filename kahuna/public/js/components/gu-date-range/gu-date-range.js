@@ -17,34 +17,36 @@ guDateRange.controller('GuDateRangeCtrl', [function () {
 
     const ctrl = this;
 
-    ctrl.trackingName = 'Date Picker';
+    ctrl.$onInit = () => {
+      ctrl.trackingName = 'Date Picker';
 
-    ctrl.setDateRangeForDisplay = function () {
-        ctrl.guDisplayStartDate = angular.isDefined(ctrl.guStartDate) ?
-            moment(ctrl.guStartDate).format(ctrl.guDateFormat) :
-            ctrl.guAnyTimeText;
+      ctrl.setDateRangeForDisplay = function () {
+          ctrl.guDisplayStartDate = angular.isDefined(ctrl.guStartDate) ?
+              moment(ctrl.guStartDate).format(ctrl.guDateFormat) :
+              ctrl.guAnyTimeText;
 
-        ctrl.guDisplayEndDate = angular.isDefined(ctrl.guEndDate) ?
-            moment(ctrl.guEndDate).format(ctrl.guDateFormat) :
-            undefined;
+          ctrl.guDisplayEndDate = angular.isDefined(ctrl.guEndDate) ?
+              moment(ctrl.guEndDate).format(ctrl.guDateFormat) :
+              undefined;
 
-        ctrl.guDisplayField = ctrl.guSelectedField;
-    };
+          ctrl.guDisplayField = ctrl.guSelectedField;
+      };
 
-    ctrl.setDateRange = function (start, end) {
-        ctrl.guStartDate = getDateISOString(start);
-        ctrl.guEndDate = getDateISOString(end);
-        ctrl.guSelectedField = ctrl.guDisplayField;
-    };
+      ctrl.setDateRange = function (start, end) {
+          ctrl.guStartDate = getDateISOString(start);
+          ctrl.guEndDate = getDateISOString(end);
+          ctrl.guSelectedField = ctrl.guDisplayField;
+      };
 
-    ctrl.closeOverlay = () => {
-        ctrl.showOverlay = false;
-    };
+      ctrl.closeOverlay = () => {
+          ctrl.showOverlay = false;
+      };
 
-    ctrl.save = function (start, end) {
-        ctrl.setDateRange(start, end);
-        ctrl.setDateRangeForDisplay();
-        ctrl.closeOverlay();
+      ctrl.save = function (start, end) {
+          ctrl.setDateRange(start, end);
+          ctrl.setDateRangeForDisplay();
+          ctrl.closeOverlay();
+      };
     };
 }]);
 

@@ -53,28 +53,28 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     editsService) {
 
     const ctrl = this;
+    ctrl.$onInit = () => {
+      ctrl.showUsageRights = false;
 
-    ctrl.showUsageRights = false;
+      inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
-    inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
+      const selectedCosts$ = selectedImagesList$.
+        map(imageList.getCostState).
+        map(imageList.getOccurrences);
+      inject$($scope, selectedCosts$, ctrl, 'selectedCosts');
 
-    const selectedCosts$ = selectedImagesList$.
-      map(imageList.getCostState).
-      map(imageList.getOccurrences);
-    inject$($scope, selectedCosts$, ctrl, 'selectedCosts');
+      const selectionIsEditable$ = selectedImagesList$.
+        map(list => list.map(editsService.canUserEdit).toArray()).
+        map($q.all).
+        flatMap(Rx.Observable.fromPromise).
+        map(allEditable => allEditable.every(v => v === true));
+      inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
 
-    const selectionIsEditable$ = selectedImagesList$.
-      map(list => list.map(editsService.canUserEdit).toArray()).
-      map($q.all).
-      flatMap(Rx.Observable.fromPromise).
-      map(allEditable => allEditable.every(v => v === true));
-    inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
-
-    ctrl.stylePercentageLeased = cost => {
-      const imageIsOfThisTypeAndIsLeased = (img) => img.data.cost === cost.data && img.data?.leases?.data?.leases?.some(lease => lease.access === 'allow-use' && lease.active);
-      const countLeased = ctrl.selectedImages.count(imageIsOfThisTypeAndIsLeased);
-      return `--pct-leased: ${Math.floor(100 * countLeased / cost.count)}`;
+      ctrl.stylePercentageLeased = cost => {
+        const imageIsOfThisTypeAndIsLeased = (img) => img.data.cost === cost.data && img.data?.leases?.data?.leases?.some(lease => lease.access === 'allow-use' && lease.active);
+        const countLeased = ctrl.selectedImages.count(imageIsOfThisTypeAndIsLeased);
+        return `--pct-leased: ${Math.floor(100 * countLeased / cost.count)}`;
+      };
     };
-
   }
 ]);

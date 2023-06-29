@@ -8,6 +8,7 @@ data
 .ensime*
 .tern-port
 .DS_Store
+.vscode
 *.py[cod]
 .venv
 kahuna/npm-debug.log

@@ -68,24 +68,27 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 
     const ctrl = this;
 
-    ctrl.error = false;
+    ctrl.$onInit = () => {
 
-    collections.getCollections().then(collections => {
-        ctrl.collections = collections.data.children;
-        // this will trigger the remember-scroll-top directive to return
-        // users to their previous position on the collections panel
-        // once the tree has been rendered
-        $timeout(() => {
-            $scope.$emit('gr:remember-scroll-top:apply');
-        });
-    }, () => {
-        // TODO: More informative error handling
-        // TODO: Stop error propagating to global error handler
-        ctrl.error = true;
-    }).catch(() => ctrl.error = true);
+      ctrl.error = false;
 
-    ctrl.selectedImages$ = selectedImages$;
-    ctrl.selectedCollections = selectedCollections;
+      collections.getCollections().then(collections => {
+          ctrl.collections = collections.data.children;
+          // this will trigger the remember-scroll-top directive to return
+          // users to their previous position on the collections panel
+          // once the tree has been rendered
+          $timeout(() => {
+              $scope.$emit('gr:remember-scroll-top:apply');
+          });
+      }, () => {
+          // TODO: More informative error handling
+          // TODO: Stop error propagating to global error handler
+          ctrl.error = true;
+      }).catch(() => ctrl.error = true);
+
+      ctrl.selectedImages$ = selectedImages$;
+      ctrl.selectedCollections = selectedCollections;
+    };
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
@@ -94,92 +97,95 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     const ctrl = this;
 
-    try {
-      ctrl.node.data.data.pathId;
-    } catch (e) {
-      console.info('unable to find pathId for node, tree failing to render to completion');
-      console.info(ctrl.node);
-    }
+    ctrl.$onInit = () => {
 
-    const pathId = ctrl.node.data.data.pathId;
+      try {
+        ctrl.node.data.data.pathId;
+      } catch (e) {
+        console.info('unable to find pathId for node, tree failing to render to completion');
+        console.info(ctrl.node);
+      }
 
-    //This filter remove child nodes with missing data, preventing display errors from occurring
-    ctrl.filterChildren = children => children.filter(node => !!node.data.data);
+      const pathId = ctrl.node.data.data.pathId;
 
-    ctrl.children = ctrl.filterChildren(ctrl.node.data.children);
-    $scope.$watch('ctrl.node.data.children', children => {
-      ctrl.children = ctrl.filterChildren(children);
-    });
+      //This filter remove child nodes with missing data, preventing display errors from occurring
+      ctrl.filterChildren = children => children.filter(node => !!node.data.data);
 
-    ctrl.saving = false;
-    ctrl.removing = false;
-    ctrl.deletable = false;
-    ctrl.showChildren = collectionsTreeState.getState(pathId);
-    ctrl.formError = null;
+      ctrl.children = ctrl.filterChildren(ctrl.node.data.children);
+      $scope.$watch('ctrl.node.data.children', children => {
+        ctrl.children = ctrl.filterChildren(children);
+      });
 
-    ctrl.addChild = childName => {
-        return collections.addChildTo(ctrl.node, childName).
-        then($scope.clearForm).
-        catch(e => $scope.formError = e.body && e.body.errorMessage);
-    };
+      ctrl.saving = false;
+      ctrl.removing = false;
+      ctrl.deletable = false;
+      ctrl.showChildren = collectionsTreeState.getState(pathId);
+      ctrl.formError = null;
 
-    collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
+      ctrl.addChild = childName => {
+          return collections.addChildTo(ctrl.node, childName).
+          then($scope.clearForm).
+          catch(e => $scope.formError = e.body && e.body.errorMessage);
+      };
 
-    ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
-    ctrl.getCollectionQuery = path => getCollection(path);
+      collections.isDeletable(ctrl.node).then(d => ctrl.deletable = d);
 
-    $scope.$watch('ctrl.showChildren', onValChange(show => {
-      collectionsTreeState.setState(pathId, show);
-    }));
+      ctrl.remove = () => collections.removeFromList(ctrl.node, ctrl.nodeList);
+      ctrl.getCollectionQuery = path => getCollection(path);
 
-    ctrl.init = function(grCollectionTreeCtrl) {
-        const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
-        const selectedCollections = grCollectionTreeCtrl.selectedCollections;
+      $scope.$watch('ctrl.showChildren', onValChange(show => {
+        collectionsTreeState.setState(pathId, show);
+      }));
 
-        // TODO: move this somewhere sensible, we probably don't want an observable for each node.
-        const add$ = new Rx.Subject();
-        const pathWithImages$ =
-                add$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
-        const hasImagesSelected$ = selectedImages$.map(i => i.size > 0);
+      ctrl.init = function(grCollectionTreeCtrl) {
+          const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
+          const selectedCollections = grCollectionTreeCtrl.selectedCollections;
 
-        ctrl.addImagesToCollection = () => {
-            ctrl.saving = true;
-            add$.onNext(ctrl.node.data.fullPath);
-        };
+          // TODO: move this somewhere sensible, we probably don't want an observable for each node.
+          const add$ = new Rx.Subject();
+          const pathWithImages$ =
+                  add$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
+          const hasImagesSelected$ = selectedImages$.map(i => i.size > 0);
 
-        subscribe$($scope, pathWithImages$, ({path, images}) => {
-           collections.addToCollectionUsingImageResources(images, path)
-           .then(() => ctrl.saving = false);
-        });
+          ctrl.addImagesToCollection = () => {
+              ctrl.saving = true;
+              add$.onNext(ctrl.node.data.fullPath);
+          };
 
-        const remove$ = new Rx.Subject();
-        const pathToRemoveWithImages$ =
-                remove$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
+          subscribe$($scope, pathWithImages$, ({path, images}) => {
+            collections.addToCollectionUsingImageResources(images, path)
+            .then(() => ctrl.saving = false);
+          });
 
-        ctrl.removeImagesFromCollection = () => {
-            ctrl.removing = true;
-            remove$.onNext(pathId);
-        };
+          const remove$ = new Rx.Subject();
+          const pathToRemoveWithImages$ =
+                  remove$.withLatestFrom(selectedImages$, (path, images) => ({path, images}));
 
-        subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
-            collections.batchRemove(images, path).then(() => ctrl.removing = false);
-        });
+          ctrl.removeImagesFromCollection = () => {
+              ctrl.removing = true;
+              remove$.onNext(pathId);
+          };
 
-        inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
+          subscribe$($scope, pathToRemoveWithImages$, ({path, images}) => {
+              collections.batchRemove(images, path).then(() => ctrl.removing = false);
+          });
 
-        ctrl.isSelected = selectedCollections.some(col => {
-            return angular.equals(col, pathId);
-        });
+          inject$($scope, hasImagesSelected$, ctrl, 'hasImagesSelected');
 
-        ctrl.hasCustomSelect = !! grCollectionTreeCtrl.onSelect;
+          ctrl.isSelected = selectedCollections.some(col => {
+              return angular.equals(col, pathId);
+          });
 
-        ctrl.select = () => {
-            grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
-        };
+          ctrl.hasCustomSelect = !! grCollectionTreeCtrl.onSelect;
 
-        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+          ctrl.select = () => {
+              grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
+          };
+
+          ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
 
+      };
     };
 }]);
 

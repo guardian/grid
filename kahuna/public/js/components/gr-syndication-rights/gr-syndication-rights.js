@@ -18,10 +18,12 @@ syndicationRights.controller('GrSyndicationRightsCtrl', [
     function($rootScope, $scope, imageService) {
         const ctrl = this;
 
-        const states = imageService(ctrl.image).states;
+        ctrl.$onInit = () => {
+          const states = imageService(ctrl.image).states;
 
-        ctrl.hasInformationFromRCS = states.hasSyndicationRights;
-        ctrl.hasRightsAcquired = states.hasRightsAcquiredForSyndication;
+          ctrl.hasInformationFromRCS = states.hasSyndicationRights;
+          ctrl.hasRightsAcquired = states.hasRightsAcquiredForSyndication;
+        };
     }
 ]);
 
