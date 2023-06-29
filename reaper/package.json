@@ -16,7 +16,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "node-riffraff-artefact": "^2.0.1",
-    "aws-sdk": "^2.127.0"
+    "aws-sdk": "^2.814.0"
   },
   "dependencies": {
     "node-fetch": "^2.6.1",
