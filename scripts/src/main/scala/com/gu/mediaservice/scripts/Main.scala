@@ -15,6 +15,7 @@ object Main extends App {
     case "BucketMetadata"   :: as => BucketMetadata(as)
     case "DecodeComparator" :: as => DecodeComparator(as)
     case "EnactS3Changes"   :: as => EnactS3Changes(as)
+    case "BulkDeleteS3Files":: as => BulkDeleteS3Files(as)
     case "EsMetadata"       :: as => EsImageMetadata(as)
     case "ProposeS3Changes" :: as => ProposeS3Changes(as)
     case "BackfillEditLastModified" :: as => BackfillEditLastModified(as)

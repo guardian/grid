@@ -24,7 +24,7 @@ object EnactS3Changes {
 
   private val profile = "media-service"
   private val region = Region.EU_WEST_1
-  private val credentials = DefaultCredentialsProvider.builder.profileName("media-service").build
+  private val credentials = DefaultCredentialsProvider.builder.profileName(profile).build
   private val s3: S3Client = S3Client.builder
     .region(region)
     .credentialsProvider(credentials)
