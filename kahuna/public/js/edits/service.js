@@ -331,7 +331,7 @@ service.factory('editsService',
         return trackAll($q, $rootScope, field, images, (image) => {
             const newFieldValue = getNewFieldValue(image, field, value, editOption);
             return updateMetadataField(image, field, newFieldValue, true).then(
-            	updated => updated || image; // updateMetadataField returns false if no change
+            	updated => updated || image // updateMetadataField returns false if no change
             );
         }, 'images-updated');
     }
