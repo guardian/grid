@@ -1,6 +1,6 @@
-<div style="width: 100%; display: flex; justify-content: flex-end;" ng-controller="SearchQueryCtrl as searchQuery">
+<div class="gr-search-wrapper" ng-controller="SearchQueryCtrl as searchQuery">
 
-    <permissions-filter props="searchQuery.permissionsProps"></permissions-filter>
+    <permissions-filter class="permissions-filter" props="searchQuery.permissionsProps"></permissions-filter>
 
     <div class="search__modifier-container">
         <ul class="search__modifier search__filter" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
@@ -18,7 +18,7 @@
         </ul>
     </div>
 
-    <div class="search__modifier-container" style="margin-left: 10px;position: relative;top: -10px;">
+    <div class="search__modifier-container" style="margin-left: 10px;position: relative;">
         <a ng-if="ctrl.canUpload"
            ui-sref="upload"
            gr-track-click="Your recent uploads button"

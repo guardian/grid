@@ -63,19 +63,43 @@ query.controller('SearchQueryCtrl', [
         // filled in by the watcher below
     };
 
-    //-permissions filter-
-    function updatePermissionsChips (permissionsSel) {
-      ctrl.permissionsProps.selectedOption = permissionsSel;
-      ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
+    ctrl.permissionsCallback = true;
+    ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
 
-      //-watch code-
-      let filter = ctrl.filter;
+    function watchSearchChange(filter) {
+        if(ctrl.permissionsCallback) {
+          ctrl.permissionsCallback = false;
+          return;
+        }
+
         storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
+
+        const myUploadsCheckbox = filter.uploadedByMe;
+        // Users should be able to follow URLs with uploadedBy set to another user's name, so only
+        // overwrite if:
+        //   - uploadedBy is unset, or
+        //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
+        //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
+        const shouldOverwriteUploadedBy =
+          !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
+        if (shouldOverwriteUploadedBy) {
+          filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        }
+        storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
+
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+
+        //--permissions filter event--
+        const customEvent = new CustomEvent('queryChangeEvent', {
+          detail: {query: ctrl.filter.query},
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
           let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-          if (newNonFree !== filter.nonFree) {
+          if (newNonFree !== filter.nonFree){
             storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
             storage.setJs("isUploadedByMe", false, true);
             storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
@@ -87,12 +111,12 @@ query.controller('SearchQueryCtrl', [
         const structuredQuery = structureQuery(filter.query) || [];
         const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
         const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
-        if (filter.orgOwned && !queryHasOrgOwned) {
+        if (filter.orgOwned && !queryHasOrgOwned){
           // If the checkbox is ticked, ensure the chip is part of the search bar
           const orgOwnedChip = {
             type: "filter",
             filterType: "inclusion",
-            key: "is",
+            key : "is",
             value: ctrl.maybeOrgOwnedValue
           };
           ctrl.filter.query = renderQuery([
@@ -105,11 +129,17 @@ query.controller('SearchQueryCtrl', [
           ctrl.filter.query = renderQuery(structuredQuery);
         }
 
-        const {nonFree, uploadedByMe} = ctrl.filter;
+        const { nonFree, uploadedByMe } = ctrl.filter;
         sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
         $state.go('search.results', filter);
-      //-end watch code-
-      
+    }
+
+    //-permissions filter-
+    function updatePermissionsChips (permissionsSel) {
+      ctrl.permissionsProps.selectedOption = permissionsSel;
+      ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
+      watchSearchChange(ctrl.filter);
+      ctrl.permissionsCallback = true;
     }
 
     let pfOpts = PermissionsConf.PermissionsOptions();
@@ -212,72 +242,7 @@ query.controller('SearchQueryCtrl', [
 
 
     // eslint-disable-next-line complexity
-    $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
-        storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
-
-        const myUploadsCheckbox = filter.uploadedByMe;
-        // Users should be able to follow URLs with uploadedBy set to another user's name, so only
-        // overwrite if:
-        //   - uploadedBy is unset, or
-        //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
-        //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
-        const shouldOverwriteUploadedBy =
-            !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
-        if (shouldOverwriteUploadedBy) {
-            filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-        }
-        storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
-
-        ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
-
-        //--permissions filter event--
-        const customEvent = new CustomEvent('queryChangeEvent', {
-          detail: { query: ctrl.filter.query },
-          bubbles: true
-        });
-        window.dispatchEvent(customEvent);
-
-        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-          if (newNonFree !== filter.nonFree){
-            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-            storage.setJs("isUploadedByMe", false, true);
-            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-            ctrl.filter.orgOwned = false;
-          }
-          Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
-        }
-
-      const structuredQuery = structureQuery(filter.query) || [];
-      const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
-      const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
-      if (filter.orgOwned && !queryHasOrgOwned){
-        // If the checkbox is ticked, ensure the chip is part of the search bar
-        const orgOwnedChip = {
-          type: "filter",
-          filterType: "inclusion",
-          key : "is",
-          value: ctrl.maybeOrgOwnedValue
-        };
-        ctrl.filter.query = renderQuery([
-          ...structuredQuery,
-          orgOwnedChip
-        ]);
-      } else if (!filter.orgOwned && queryHasOrgOwned) {
-        // If the checkbox is unticked, ensure chip is no longer in the search bar
-        structuredQuery.splice(orgOwnedIndexInQuery, 1);
-        ctrl.filter.query = renderQuery(structuredQuery);
-      }
-
-      const { nonFree, uploadedByMe } = ctrl.filter;
-      sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-      $state.go('search.results', filter);
-    }));
-
-    $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {orderBy: newVal});
-    }));
+    $scope.$watchCollection(() => ctrl.filter, onValChange(watchSearchChange));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params

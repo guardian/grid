@@ -1,0 +1,47 @@
+.permissions-dropdown {
+  height: 50px;
+  padding-right: 0px;
+}
+
+.permissions-selection {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  fill: #ccc;
+}
+
+.permissions-selection:hover {
+  color: white;
+  fill: #fff;
+}
+
+.permissions-selection-label {
+  font-size: larger;
+  width: 116px;
+}
+
+.permissions-selection-icon {
+  padding-top: 3px;
+  transition: fill 0.3s;
+}
+
+.permissions-dropdown-menu {
+  width: 250px;
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+  z-index: 0;
+  background-color: #333;
+}
+
+.permissions-dropdown-item {
+  border: 1px solid #ccc;
+}
+
+.permissions-dropdown-item:hover {
+  background-color: #00adee;
+  cursor: pointer;
+}
+
+.permissions-dropdown-cell {
+  border: 0px;
+}

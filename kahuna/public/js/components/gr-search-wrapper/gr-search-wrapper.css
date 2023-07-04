@@ -1,1 +1,11 @@
+.gr-search-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
 
+.permissions-filter {
+  width: 150px;
+  position: relative;
+  height: auto;
+}

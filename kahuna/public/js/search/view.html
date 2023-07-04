@@ -7,11 +7,20 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
+        <a ng-if="ctrl.canUpload && !ctrl.usePermissionsFilter"
+           ui-sref="upload"
+           gr-track-click="Your recent uploads button"
+           gr-track-click-data="{'Location': 'Search navigation'}"
+           class="top-bar-item clickable side-padded"
+           title="my recent uploads"
+           aria-label="My recent uploads">
+            <gr-icon-label gr-icon="photo_library">My recent uploads</gr-icon-label>
+        </a>
         <file-uploader ng-if="ctrl.canUpload" class="top-bar-item side-padded"></file-uploader>
     </gr-top-bar-actions>
 </gr-top-bar>
 
-<gr-top-bar fixed="true" role="banner" aria-label="Top bar" style="z-index: 28;">
+<gr-top-bar ng-if="ctrl.usePermissionsFilter" fixed="true" role="banner" aria-label="Top bar" style="z-index: 28;">
     <gr-search-wrapper></gr-search-wrapper>
 </gr-top-bar>
 

@@ -89,6 +89,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             const ctrl = this;
 
             ctrl.canUpload = false;
+            ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
 
             mediaApi.canUserUpload().then(canUpload => {
                 ctrl.canUpload = canUpload;
