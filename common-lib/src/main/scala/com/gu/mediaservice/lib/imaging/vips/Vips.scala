@@ -44,11 +44,17 @@ object Vips {
 
   def saveJpeg(image: VipsImage, outputFile: File, quality: Int, profile: String): Try[Unit] = {
     reinterpret(image).map { srgbed =>
+      val interpretation = VipsInterpretation.fromValue(LibVips.INSTANCE.vips_image_guess_interpretation(image))
+
+      val is16bit = interpretation == VipsInterpretation.VIPS_INTERPRETATION_RGB16 || interpretation == VipsInterpretation.VIPS_INTERPRETATION_GREY16
+
       val profileTransformed = new VipsImageByReference()
       if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
         "embedded", 1.asInstanceOf[Integer],
         "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
-        "black_point_compensation", 1.asInstanceOf[Integer]) != 0) {
+        "black_point_compensation", 1.asInstanceOf[Integer],
+        "depth", (if (is16bit) 16 else 8).asInstanceOf[Integer]
+      ) != 0) {
         throw new Exception(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
       }
 
@@ -87,11 +93,18 @@ object Vips {
     quantisation: Option[VipsPngsaveQuantise] = None,
   ): Try[Unit] = {
     reinterpret(image).map { srgbed =>
+      val interpretation = VipsInterpretation.fromValue(LibVips.INSTANCE.vips_image_guess_interpretation(image))
+
+      val is16bit = interpretation == VipsInterpretation.VIPS_INTERPRETATION_RGB16 || interpretation == VipsInterpretation.VIPS_INTERPRETATION_GREY16
+
       val profileTransformed = new VipsImageByReference()
+
       if (LibVips.INSTANCE.vips_icc_transform(srgbed, profileTransformed, profile,
         "embedded", 1.asInstanceOf[Integer],
         "intent", 0.asInstanceOf[Integer], // VIPS_INTENT_PERCEPTUAL
-        "black_point_compensation", 1.asInstanceOf[Integer]) != 0) {
+        "black_point_compensation", 1.asInstanceOf[Integer],
+        "depth", (if (is16bit) 16 else 8).asInstanceOf[Integer]) != 0
+      ) {
         throw new Exception(s"Failed to save file to Png - conversion to $profile failed ${getErrors()}")
       }
 
