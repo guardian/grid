@@ -111,7 +111,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "com.typesafe.play" %% "play-logback" % "2.8.11", // needed when running the scripts
+    "com.typesafe.play" %% "play-logback" % "2.8.19", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
