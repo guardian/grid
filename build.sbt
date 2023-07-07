@@ -90,7 +90,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.15",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.2",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.3",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
