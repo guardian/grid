@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage}
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, UpsertFromProjectionMessage}
 import lib.elasticsearch.ElasticSearch
 import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -62,6 +62,10 @@ class ThrallController(
         hasHistoricalIndex = historicalIndex.isDefined,
       ))
     }
+  }
+
+  def upsertProjectPage = withLoginRedirect { implicit request =>
+    Ok(views.html.upsertProject())
   }
 
   def migrationFailuresOverview(): Action[AnyContent] = withLoginRedirectAsync {
@@ -217,6 +221,25 @@ class ThrallController(
     }
   }
 
+  def upsertFromProjectionSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
+
+    for {
+      maybeImage <- gridClient.getImageLoaderProjection(imageId, auth.innerServiceCall)
+    } yield { maybeImage match {
+      case Some(projectedImage) =>
+        try {
+          messageSender.publish(UpsertFromProjectionMessage(imageId, projectedImage, DateTime.now))
+          Ok(s"upsert request for $imageId submitted")
+        } catch {
+          case t: Throwable =>
+            logger.error("Submitting upsertFromProjectionMessage failed", t)
+            throw t // rethrow to get default play error message
+        }
+      case None => NotFound("")
+    }}
+  }
+
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     Paging.withPaging(Some(page)) { paging =>
       es.migrationStatus match {
@@ -246,4 +269,3 @@ class ThrallController(
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)
   )
 }
-
