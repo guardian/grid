@@ -131,7 +131,7 @@ lazy val commonLib = project("common-lib").settings(
 lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
     "com.typesafe.play" %% "play" % "2.8.11",
-    "com.typesafe.play" %% "filters-helpers" % "2.8.11",
+    "com.typesafe.play" %% "filters-helpers" % "2.8.19",
     akkaHttpServer,
   ),
 
