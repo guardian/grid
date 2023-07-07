@@ -75,8 +75,8 @@ Global / concurrentRestrictions := Seq(
   Tags.limitAll(12)
 )
 
-val awsSdkVersion = "1.11.302"
-val elastic4sVersion = "7.16.1"
+val awsSdkVersion = "1.12.470"
+val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -90,7 +90,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.14",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.0",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.2",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -121,7 +121,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.9.2",
     "com.gu" %% "scanamo" % "1.0.0-M8",
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
     "org.yaml" % "snakeyaml" % "1.31"

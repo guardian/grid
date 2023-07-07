@@ -38,7 +38,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   def replicas: Int
 
   lazy val client = {
-    logger.info("Connecting to Elastic 7: " + url)
+    logger.info("Connecting to Elastic 8: " + url)
     val client = JavaClient(ElasticProperties(url))
     ElasticClient(client)
   }
