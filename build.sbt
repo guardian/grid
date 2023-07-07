@@ -89,7 +89,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.gu" %% "editorial-permissions-client" % "2.14",
+    "com.gu" %% "editorial-permissions-client" % "2.15",
     "com.gu" %% "pan-domain-auth-play_2-8" % "1.2.2",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
