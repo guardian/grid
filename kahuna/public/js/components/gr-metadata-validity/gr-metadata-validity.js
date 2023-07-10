@@ -11,7 +11,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
     function updateState() {
         ctrl.image.get().then(image => {
             let showDenySyndicationWarning = $window._clientConfig.showDenySyndicationWarning;
-            ctrl.showDenySyndication = image.data.leases.data.leases.some(lease => lease.access === 'deny-syndication') && showDenySyndicationWarning;
+            ctrl.showDenySyndication = image.data.leases.data.leases.some(lease => (lease.access === 'deny-syndication' && lease.active != false)) && showDenySyndicationWarning;
             ctrl.isDeleted = image.data.softDeletedMetadata !== undefined;
             ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length !== 0 || ctrl.isDeleted;
             ctrl.invalidReasons = image.data.invalidReasons;
