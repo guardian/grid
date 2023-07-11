@@ -1,0 +1,24 @@
+@import helper._
+
+@(imageId: String, diff: String)(implicit request: RequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Previewing projection of @imageId</title>
+    </head>
+    <body>
+        <h1>Upsert image via projection</h1>
+        <p>This is a JSON diff describing what will happen if you run this upsert via projection:</p>
+        <pre>@diff</pre>
+        <h2>Happy to proceed?</h2>
+        @form(routes.ThrallController.upsertFromProjectionSingleImage) {
+            @CSRF.formField
+            <input type="hidden" id="id" name="id" value="@imageId">
+            <input type="submit" value="Proceed">
+            @* button type="button" prevents the button acting as a input type="submit" 🙄 *@
+            <a href="https://www.theguardian.com/" referrerpolicy="no-referrer"><button type="button">No! Get me out of here!</button></a>
+        }
+    </body>
+</html>

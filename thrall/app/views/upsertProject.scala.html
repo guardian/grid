@@ -2,9 +2,9 @@
 @()(implicit request: RequestHeader)
 
 <!DOCTYPE html>
-
 <html lang="en">
     <head>
+        <meta charset="UTF-8">
         <title>Upsert image via projection</title>
     </head>
     <body>
@@ -16,10 +16,9 @@
         <p>This is a potentially <strong>destructive</strong> operation, so be sure to check the result of projection before running!</p>
         <p>If you're happy, then enter the media ID below and hit 'submit'...</p>
 
-        @form(routes.ThrallController.upsertFromProjectionSingleImage) {
-            @CSRF.formField
-            <label for="id">Image ID:</label>
-            <input type="text" id="id" name="id">
+        @form(routes.ThrallController.upsertProjectPage(None)) {
+            <label for="imageId">Image ID:</label>
+            <input type="text" id="imageId" name="imageId">
             <input type="submit" value="Submit">
         }
 

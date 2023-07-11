@@ -3,7 +3,7 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
-GET     /upsertProject                                controllers.ThrallController.upsertProjectPage()
+GET     /upsertProject                                controllers.ThrallController.upsertProjectPage(imageId: Option[String])
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
 +nocsrf

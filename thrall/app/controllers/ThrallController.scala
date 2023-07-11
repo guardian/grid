@@ -15,6 +15,7 @@ import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.libs.json.Json
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.duration.DurationInt
@@ -64,8 +65,15 @@ class ThrallController(
     }
   }
 
-  def upsertProjectPage = withLoginRedirect { implicit request =>
-    Ok(views.html.upsertProject())
+  def upsertProjectPage(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
+    imageId match {
+      case Some(id) =>
+        gridClient.getProjectionDiff(id, auth.innerServiceCall).map {
+          case None => NotFound("couldn't generate projection for that image!!")
+          case Some(diff) => Ok(views.html.previewUpsertProject(id, Json.prettyPrint(diff)))
+        }
+      case None => Future.successful(Ok(views.html.upsertProject()))
+    }
   }
 
   def migrationFailuresOverview(): Action[AnyContent] = withLoginRedirectAsync {
