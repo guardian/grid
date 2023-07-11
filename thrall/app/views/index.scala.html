@@ -43,82 +43,87 @@
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
-    <h1>Current elasticsearch indices</h1>
-    <table>
-        <tr>
-            <th>Alias</th>
-            <th>Index</th>
-            <th>Image count</th>
-        </tr>
-        <tr>
-            <td>@currentAlias</td>
-            <td>@currentIndex</td>
-            <td>@currentIndexCount</td>
-        </tr>
-        <tr>
-            <td>@migrationAlias</td>
-            <td>@migrationIndexCell</td>
-            <td>
-                @migrationIndexCount
-                @migrationStatus match {
-                    case CompletionPreview(_) => {}
-                    case Paused(_) => {
-                        @form(routes.ThrallController.resumeMigration) {
-                            PAUSED
-                            <input type="submit" value="Resume">
+    <nav>
+        <span><a href="/upsertProject">Upsert from projection</a></span>
+    </nav>
+    <main>
+        <h1>Current elasticsearch indices</h1>
+        <table>
+            <tr>
+                <th>Alias</th>
+                <th>Index</th>
+                <th>Image count</th>
+            </tr>
+            <tr>
+                <td>@currentAlias</td>
+                <td>@currentIndex</td>
+                <td>@currentIndexCount</td>
+            </tr>
+            <tr>
+                <td>@migrationAlias</td>
+                <td>@migrationIndexCell</td>
+                <td>
+                    @migrationIndexCount
+                    @migrationStatus match {
+                        case CompletionPreview(_) => {}
+                        case Paused(_) => {
+                            @form(routes.ThrallController.resumeMigration) {
+                                PAUSED
+                                <input type="submit" value="Resume">
+                            }
                         }
-                    }
-                    case InProgress(_) => {
-                        @form(routes.ThrallController.pauseMigration) {
-                            <input type="submit" value="Pause">
+                        case InProgress(_) => {
+                            @form(routes.ThrallController.pauseMigration) {
+                                <input type="submit" value="Pause">
+                            }
                         }
+                        case _ => {}
                     }
-                    case _ => {}
-                }
-            </td>
-        </tr>
-    </table>
+                </td>
+            </tr>
+        </table>
 
-    <h2>MigrationStatus (from the MigrationStatusProvider, a.k.a. 'migration status refresher')</h2>
-    <pre>@migrationStatus</pre>
-    <em>Note that the above represents the value at the point this page was loaded.</em>
+        <h2>MigrationStatus (from the MigrationStatusProvider, a.k.a. 'migration status refresher')</h2>
+        <pre>@migrationStatus</pre>
+        <em>Note that the above represents the value at the point this page was loaded.</em>
 
-    @if(migrationStatus.isInstanceOf[Running] || hasHistoricalIndex) {
-        <p><a href="@routes.ThrallController.migrationFailuresOverview">
-            View images that have failed to migrate @if(migrationStatus.isInstanceOf[Running]) {
-            <span>and retry.</span>
-        } else {
-            <span>in the PREVIOUS MIGRATION.</span>
-        }
-        </a></p>
-    }
-
-    @if(migrationStatus.isInstanceOf[Running]) {
-        <h3>Complete Migration?</h3>
-        <p>
-            If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
-            and we're happy that all images in failure can become inaccessible).
-            @if(migrationStatus.isInstanceOf[CompletionPreview]) {
-                @form(routes.ThrallController.unPreviewMigrationCompletion) {
-                    <input type="submit" value="UnPreview Completion"> (this will make grid search both indexes again)
-                }
-                @form(routes.ThrallController.completeMigration) {
-                    or fully complete the migration:
-                    <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
-                    <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
-                }
+        @if(migrationStatus.isInstanceOf[Running] || hasHistoricalIndex) {
+            <p><a href="@routes.ThrallController.migrationFailuresOverview">
+                View images that have failed to migrate @if(migrationStatus.isInstanceOf[Running]) {
+                <span>and retry.</span>
             } else {
-                @form(routes.ThrallController.previewMigrationCompletion) {
-                    <input type="submit" value="Preview Completion">
-                    <div>
-                        This will make grid only search the migration index (both indexes will continue to be populated
-                        and reads/writes of images will continue to use both indexes).
-                    </div>
-                }
+                <span>in the PREVIOUS MIGRATION.</span>
             }
+            </a></p>
+        }
 
-        </p>
-    }
+        @if(migrationStatus.isInstanceOf[Running]) {
+            <h3>Complete Migration?</h3>
+            <p>
+                If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
+                and we're happy that all images in failure can become inaccessible).
+                @if(migrationStatus.isInstanceOf[CompletionPreview]) {
+                    @form(routes.ThrallController.unPreviewMigrationCompletion) {
+                        <input type="submit" value="UnPreview Completion"> (this will make grid search both indexes again)
+                    }
+                    @form(routes.ThrallController.completeMigration) {
+                        or fully complete the migration:
+                        <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
+                        <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
+                    }
+                } else {
+                    @form(routes.ThrallController.previewMigrationCompletion) {
+                        <input type="submit" value="Preview Completion">
+                        <div>
+                            This will make grid only search the migration index (both indexes will continue to be populated
+                            and reads/writes of images will continue to use both indexes).
+                        </div>
+                    }
+                }
+
+            </p>
+        }
+    </main>
 
 </body>
 </html>
