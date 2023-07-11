@@ -133,6 +133,15 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
+  def getProjectionDiff(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/projection/diff")
+    makeGetRequestAsync(url, authFn, requestTimeout = Some(120.seconds)).map {
+      case Found(json, _) => Some(json)
+      case NotFound(_, _) => None
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
   def getImageLoaderProjection(mediaId: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     getImageLoaderProjection(mediaId, services.projectionBaseUri, authFn)

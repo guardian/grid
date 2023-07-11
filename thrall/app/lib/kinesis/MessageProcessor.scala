@@ -47,6 +47,7 @@ class MessageProcessor(
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
+      case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
       case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
@@ -62,6 +63,21 @@ class MessageProcessor(
 
   private def indexImage(message: ImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
+
+  private def upsertImageFromProjection(message: UpsertFromProjectionMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
+
+    // do not write into migration index, even if migration is running; let the standard
+    // images-for-migration process find and migrate it. even if it has previously
+    // been migrated, this directInsert will wipe out the esInfo marker, requeueing this image
+    // for migration.
+    es.directInsert(message.image, es.imagesCurrentAlias)
+      .recover {
+        case t: Throwable =>
+          logger.error(logMarker, s"Failed to directly upsert image ${message.image.id} from projection", t)
+          Future.successful(())
+      }
+  }
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)

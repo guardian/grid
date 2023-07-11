@@ -1,0 +1,33 @@
+@import helper._
+@()(implicit request: RequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Upsert image via projection</title>
+        <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+    </head>
+    <body>
+        <nav>
+            <span>
+                <a href="@routes.ThrallController.index">&lt; back to Thrall Dashboard</a>
+            </span>
+        </nav>
+        <main>
+            <h1>Upsert image via projection</h1>
+            <p>
+                This option will run a projection against the given media ID, and <strong>OVERWRITE</strong> any currently stored image data in Elasticsearch.
+                (ie. metadata, usage rights, leases etc. The image file itself will not be touched)
+            </p>
+            <p>This is a potentially <strong>destructive</strong> operation, so be sure to check the result of projection before running!</p>
+            <p>If you're happy, then enter the media ID below and hit 'submit'...</p>
+
+            @form(routes.ThrallController.upsertProjectPage(None)) {
+                <label for="imageId">Image ID:</label>
+                <input type="text" id="imageId" name="imageId">
+                <input type="submit" value="Submit">
+            }
+        </main>
+    </body>
+</html>

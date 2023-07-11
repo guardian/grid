@@ -36,6 +36,7 @@ object MigrateImageMessage {
   }
 }
 
+
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)
   */
@@ -81,6 +82,7 @@ object ExternalThrallMessage{
 
   implicit val createMigrationIndexMessage = Json.format[CreateMigrationIndexMessage]
   implicit val completeMigrationMessage = Json.format[CompleteMigrationMessage]
+  implicit val upsertFromProjectionMessage = Json.format[UpsertFromProjectionMessage]
 
   implicit val writes = Json.writes[ExternalThrallMessage]
   implicit val reads = Json.reads[ExternalThrallMessage]
@@ -144,6 +146,8 @@ case class CreateMigrationIndexMessage(
   val newIndexName =
     s"images_${migrationStart.toString(DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss").withZoneUTC())}_${gitHash.take(7)}"
 }
+
+case class UpsertFromProjectionMessage(id: String, image: Image, lastModified: DateTime) extends ExternalThrallMessage
 
 case class CompleteMigrationMessage(lastModified: DateTime) extends ExternalThrallMessage {
   val id: String = "N/A"
