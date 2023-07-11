@@ -236,14 +236,8 @@ class ThrallController(
       maybeImage <- gridClient.getImageLoaderProjection(imageId, auth.innerServiceCall)
     } yield { maybeImage match {
       case Some(projectedImage) =>
-        try {
-          messageSender.publish(UpsertFromProjectionMessage(imageId, projectedImage, DateTime.now))
-          Ok(s"upsert request for $imageId submitted")
-        } catch {
-          case t: Throwable =>
-            logger.error("Submitting upsertFromProjectionMessage failed", t)
-            throw t // rethrow to get default play error message
-        }
+        messageSender.publish(UpsertFromProjectionMessage(imageId, projectedImage, DateTime.now))
+        Ok(s"upsert request for $imageId submitted")
       case None => NotFound("")
     }}
   }
