@@ -20,6 +20,7 @@
         case running: Running => {
             @running.migrationIndexName
             @form(action = routes.ThrallController.migrateSingleImage){
+                @CSRF.formField
                 <label for="id">Image ID:</label>
                 <input type="text" id="id" name="id">
                 <input type="submit" value="Migrate single image">
@@ -27,6 +28,7 @@
         }
         case NotRunning => {
             @form(routes.ThrallController.startMigration) {
+                @CSRF.formField
                 <input type="text" id="start-confirmation" name="start-confirmation" placeholder="Type 'start' to confirm" required>
                 <input type="submit" value="Start migration">
             }
@@ -68,12 +70,14 @@
                         case CompletionPreview(_) => {}
                         case Paused(_) => {
                             @form(routes.ThrallController.resumeMigration) {
+                                @CSRF.formField
                                 PAUSED
                                 <input type="submit" value="Resume">
                             }
                         }
                         case InProgress(_) => {
                             @form(routes.ThrallController.pauseMigration) {
+                                @CSRF.formField
                                 <input type="submit" value="Pause">
                             }
                         }
@@ -104,15 +108,18 @@
                 and we're happy that all images in failure can become inaccessible).
                 @if(migrationStatus.isInstanceOf[CompletionPreview]) {
                     @form(routes.ThrallController.unPreviewMigrationCompletion) {
+                        @CSRF.formField
                         <input type="submit" value="UnPreview Completion"> (this will make grid search both indexes again)
                     }
                     @form(routes.ThrallController.completeMigration) {
+                        @CSRF.formField
                         or fully complete the migration:
                         <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
                         <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
                     }
                 } else {
                     @form(routes.ThrallController.previewMigrationCompletion) {
+                        @CSRF.formField
                         <input type="submit" value="Preview Completion">
                         <div>
                             This will make grid only search the migration index (both indexes will continue to be populated
