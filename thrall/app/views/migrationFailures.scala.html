@@ -1,5 +1,5 @@
 @import lib.FailedMigrationSummary
-
+@import helper._
 @import views.html.helper.form
 @(
     failures: FailedMigrationSummary,
@@ -8,7 +8,7 @@
     filter: String,
     page: Int,
     shouldAllowReattempts: Boolean,
-)
+)(implicit request: RequestHeader)
 
 @navigation = {
     @if(page > 1) {

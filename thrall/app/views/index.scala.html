@@ -13,7 +13,7 @@
   migrationIndexCount: String,
   migrationStatus: MigrationStatus,
   hasHistoricalIndex: Boolean
-)
+)(implicit request: RequestHeader)
 
 @migrationIndexCell = {
     @migrationStatus match {

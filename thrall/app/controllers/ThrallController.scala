@@ -37,7 +37,7 @@ class ThrallController(
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
 
-  def index = withLoginRedirectAsync {
+  def index = withLoginRedirectAsync { implicit request =>
     val countDocsInIndex = OptionalFutureRunner.run(es.countImages) _
     for {
       currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
@@ -99,7 +99,7 @@ class ThrallController(
     }
   }
 
-  def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+  def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     Paging.withPaging(maybePage) { paging =>
       es.migrationStatus match {
         case running: Running =>
