@@ -373,7 +373,7 @@ class ElasticSearch(
   def deleteSingleImageUsage(
     id: String, usageId: String, lastModified: DateTime
   )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    val deleteSingleUsageScript = loadUpdatingModificationPainless("ctx._source.usages.removeIf(usage -> usage.id == usageId)")
+    val deleteSingleUsageScript = loadUpdatingModificationPainless("ctx._source.usages.removeIf(usage -> usage.id == params.usageId)")
 
     val eventualUpdateResponse = migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, deleteSingleUsageScript, lastModified, "usageId" -> usageId),
