@@ -370,10 +370,28 @@ class ElasticSearch(
     }
   }
 
-  def deleteAllImageUsages(id: String,
-                           lastModified: DateTime
-                          )
-                          (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+  def deleteSingleImageUsage(
+    id: String, usageId: String, lastModified: DateTime
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val deleteSingleUsageScript = loadUpdatingModificationPainless("ctx._source.usages.removeIf(usage -> usage.id == usageId)")
+
+    val eventualUpdateResponse = migrationAwareUpdater(
+      requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, deleteSingleUsageScript, lastModified, "usageId" -> usageId),
+      logMessageFromIndexName = indexName => s"ES6 removing usage $usageId on image $id in index $indexName",
+      notFoundSuccessful = true
+    ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
+
+    List(eventualUpdateResponse.map(response => {
+      if (response.status == 404) {
+        logger.warn("Attempted to delete usage for non-existent image.")
+      }
+      ElasticSearchUpdateResponse()
+    }))
+  }
+
+  def deleteAllImageUsages(
+    id: String, lastModified: DateTime
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteUsagesScript = loadUpdatingModificationPainless("ctx._source.remove('usages');")
 
     val eventualUpdateResponse = migrationAwareUpdater(
@@ -384,7 +402,7 @@ class ElasticSearch(
 
     List(eventualUpdateResponse.map(response => {
       if(response.status == 404){
-        logger.warn("Attempted to delete usages for non-existant image.")
+        logger.warn("Attempted to delete usages for non-existent image.")
       }
       ElasticSearchUpdateResponse()
     }))

@@ -17,6 +17,7 @@ trait MessageSubjects {
   val RemoveImageLease = "remove-image-lease"
   val SetImageCollections = "set-image-collections"
   val DeleteUsages = "delete-usages"
+  val DeleteSingleUsage = "delete-single-usage"
   val UpdateImageSyndicationMetadata = "update-image-syndication-metadata"
   val UpdateImagePhotoshootMetadata = "update-image-photoshoot-metadata"
 
