@@ -6,5 +6,6 @@ case class PrintUsageFilters(
   issueDate: DateTime,
   sectionCode: Option[String],
   pageNumber: Option[Int],
-  edition: Option[Int]
+  edition: Option[Int],
+  orderedBy: Option[String]
 )

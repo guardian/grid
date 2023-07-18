@@ -131,7 +131,8 @@ object SearchParams {
         issueDate = issueDate,
         sectionCode = request.getQueryString("printUsageSectionCode"),
         pageNumber = request.getQueryString("printUsagePageNumber") flatMap parseIntFromQuery,
-        edition = request.getQueryString("printUsageEdition") flatMap parseIntFromQuery
+        edition = request.getQueryString("printUsageEdition") flatMap parseIntFromQuery,
+        orderedBy = request.getQueryString("printUsageOrderedBy")
       )
     }
 

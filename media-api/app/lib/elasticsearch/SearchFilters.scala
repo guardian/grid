@@ -100,6 +100,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     printFilters.sectionCode.map(filters.term("printUsageMetadata.sectionCode", _)),
     printFilters.pageNumber.map(filters.term("printUsageMetadata.pageNumber", _)),
     printFilters.edition.map(filters.term("printUsageMetadata.edition", _)),
+    printFilters.orderedBy.map(filters.term("printUsageMetadata.orderedBy", _)),
   ).flatten:_*))
 
   def filterOrFilter(filter: Option[Query], orFilter: Option[Query]): Option[Query] = (filter, orFilter) match {
