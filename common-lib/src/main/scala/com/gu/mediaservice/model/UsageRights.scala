@@ -23,7 +23,7 @@ sealed trait Illustrator extends UsageRights
 
 sealed trait UsageRightsSpec {
   val category: String
-  val name: String
+  def name(config: CommonConfig): String
   def description(config: CommonConfig): String
   val defaultCost: Option[Cost]
 
@@ -100,6 +100,9 @@ object UsageRights {
     case o: Composite => Composite.formats.writes(o)
     case o: PublicDomain => PublicDomain.formats.writes(o)
     case o: ProgramPromotional => ProgramPromotional.formats.writes(o)
+    case o: ProgrammesOrganisationOwned => ProgrammesOrganisationOwned.formats.writes(o)
+    case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
+    case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -135,6 +138,9 @@ object UsageRights {
         case Composite.category => json.asOpt[Composite]
         case PublicDomain.category => json.asOpt[PublicDomain]
         case ProgramPromotional.category => json.asOpt[ProgramPromotional]
+        case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
+        case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
+        case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -151,7 +157,7 @@ case object NoRights
   val category = ""
   val defaultCost = None
   val restrictions = None
-  val name = "No Rights"
+  def name(commonConfig: CommonConfig) = "No Rights"
   def description(commonConfig: CommonConfig) =
     "Images which we do not currently have the rights to use."
 
@@ -173,7 +179,7 @@ final case class Chargeable(restrictions: Option[String] = None) extends UsageRi
 object Chargeable extends UsageRightsSpec {
   val category = "chargeable"
   val defaultCost = Some(Pay)
-  val name = "Chargeable supplied / on spec"
+  def name(commonConfig: CommonConfig) = "Chargeable supplied / on spec"
   def description(commonConfig: CommonConfig) =
     s"Images acquired by or supplied to ${commonConfig.staffPhotographerOrganisation} that do not fit other categories in ${commonConfig.systemName} and " +
       "therefore fees will be payable per use. Unless negotiated otherwise, fees should be based on " +
@@ -211,7 +217,7 @@ final case class Agency(supplier: String, suppliersCollection: Option[String] = 
 object Agency extends UsageRightsSpec {
   val category = "agency"
   val defaultCost = None
-  val name = "Agency - subscription"
+  def name(commonConfig: CommonConfig) = "Agency - subscription"
   def description(commonConfig: CommonConfig) =
     "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
 
@@ -226,7 +232,7 @@ final case class CommissionedAgency(supplier: String, restrictions: Option[Strin
 object CommissionedAgency extends UsageRightsSpec {
   val category = "commissioned-agency"
   val defaultCost = Some(Free)
-  val name = "Agency - commissioned"
+  def name(commonConfig: CommonConfig) = "Agency - commissioned"
   def description(commonConfig: CommonConfig) = "Images commissioned from agencies on an ad hoc basis."
 
   implicit val formats: Format[CommissionedAgency] =
@@ -240,7 +246,7 @@ final case class PrImage(restrictions: Option[String] = None) extends UsageRight
 object PrImage extends UsageRightsSpec {
   val category = "PR Image"
   val defaultCost = Some(Conditional)
-  val name = "PR Image"
+  def name(commonConfig: CommonConfig) = "PR Image"
   def description(commonConfig: CommonConfig) =
     "Images supplied for publicity purposes such as press launches, charity events, travel, " +
       "promotional images, etc."
@@ -259,7 +265,7 @@ final case class Handout(restrictions: Option[String] = None) extends UsageRight
 object Handout extends UsageRightsSpec {
   val category = "handout"
   val defaultCost = Some(Conditional)
-  val name = "Handout"
+  def name(commonConfig: CommonConfig) = "Handout"
   def description(commonConfig: CommonConfig) =
     "Images supplied on general release to all media e.g. images provided by police for new " +
       "stories, family shots in biographical pieces, etc."
@@ -280,7 +286,7 @@ final case class Screengrab(source: Option[String], restrictions: Option[String]
 object Screengrab extends UsageRightsSpec {
   val category = "screengrab"
   val defaultCost = Some(Free)
-  val name = "Screengrab"
+  def name(commonConfig: CommonConfig) = "Screengrab"
   def description(commonConfig: CommonConfig) =
     s"Stills created by ${commonConfig.staffPhotographerOrganisation} from moving footage in television broadcasts usually in relation to " +
       "breaking news stories."
@@ -296,7 +302,7 @@ final case class GuardianWitness(restrictions: Option[String] = None) extends Us
 object GuardianWitness extends UsageRightsSpec {
   val category = "guardian-witness"
   val defaultCost = Some(Free)
-  val name = "GuardianWitness"
+  def name(commonConfig: CommonConfig) = "GuardianWitness"
   def description(commonConfig: CommonConfig) =
     "Images provided by readers in response to callouts and assignments on GuardianWitness."
 
@@ -310,7 +316,7 @@ final case class OriginalSource(restrictions: Option[String] = None) extends Usa
 object OriginalSource extends UsageRightsSpec {
   val category = "original-source"
   val defaultCost = Some(Free)
-  val name = "Original Source"
+  def name(commonConfig: CommonConfig) = "Original Source"
   def description(commonConfig: CommonConfig) =
     "Images provided by members of the public to be shared with Journalist who is out collecting material for stories"
 
@@ -325,7 +331,7 @@ final case class SocialMedia(restrictions: Option[String] = None) extends UsageR
 object SocialMedia extends UsageRightsSpec {
   val category = "social-media"
   val defaultCost = Some(Conditional)
-  val name = "Social Media"
+  def name(commonConfig: CommonConfig) = "Social Media"
   def description(commonConfig: CommonConfig) =
     "Images grabbed from social media to support breaking news where no other image is available " +
       "from usual sources."
@@ -343,7 +349,7 @@ final case class Bylines(restrictions: Option[String] = None) extends UsageRight
 object Bylines extends UsageRightsSpec {
   val category = "Bylines"
   val defaultCost = Some(Free)
-  val name = "Bylines"
+  def name(commonConfig: CommonConfig) = "Bylines"
   def description(commonConfig: CommonConfig) =
     "Images acquired from private sources, for the purposes of bylines"
 
@@ -357,7 +363,7 @@ final case class Obituary(restrictions: Option[String] = None) extends UsageRigh
 object Obituary extends UsageRightsSpec {
   val category = "obituary"
   val defaultCost = Some(Free)
-  val name = "Obituary"
+  def name(commonConfig: CommonConfig) = "Obituary"
   def description(commonConfig: CommonConfig) =
     "Images acquired from private sources, e.g. family members, for the purposes of obituaries."
 
@@ -373,7 +379,7 @@ final case class StaffPhotographer(photographer: String, publication: String,
 object StaffPhotographer extends UsageRightsSpec {
   val category = "staff-photographer"
   val defaultCost = Some(Free)
-  val name = "Photographer - staff"
+  def name(commonConfig: CommonConfig) = "Photographer - staff"
   def description(commonConfig: CommonConfig) =
     "Images from photographers who are or were members of staff."
 
@@ -389,7 +395,7 @@ final case class ContractPhotographer(photographer: String, publication: Option[
 object ContractPhotographer extends UsageRightsSpec {
   val category = "contract-photographer"
   val defaultCost = Some(Free)
-  val name = "Photographer - contract"
+  def name(commonConfig: CommonConfig) = "Photographer - contract"
   def description(commonConfig: CommonConfig) =
     "Images from freelance photographers on fixed-term contracts."
 
@@ -405,7 +411,7 @@ final case class CommissionedPhotographer(photographer: String, publication: Opt
 object CommissionedPhotographer extends UsageRightsSpec {
   val category = "commissioned-photographer"
   val defaultCost = Some(Free)
-  val name = "Photographer - commissioned"
+  def name(commonConfig: CommonConfig) = "Photographer - commissioned"
   def description(commonConfig: CommonConfig) =
     "Images commissioned from freelance photographers on an ad hoc basis."
 
@@ -420,7 +426,7 @@ final case class Pool(restrictions: Option[String] = None) extends UsageRights {
 object Pool extends UsageRightsSpec {
   val category = "pool"
   val defaultCost = Some(Conditional)
-  val name = "Pool"
+  def name(commonConfig: CommonConfig) = "Pool"
   def description(commonConfig: CommonConfig) =
     "Images issued during major national events that are free to use and shared amongst news " +
       "media organisations. Rights revert to the copyright holder when the pool is terminated."
@@ -436,7 +442,7 @@ final case class CrownCopyright(restrictions: Option[String] = None) extends Usa
 object CrownCopyright extends UsageRightsSpec {
   val category = "crown-copyright"
   val defaultCost = Some(Free)
-  val name = "Crown copyright"
+  def name(commonConfig: CommonConfig) = "Crown copyright"
   def description(commonConfig: CommonConfig) =
     "Crown copyright covers material created by Government. Material may be used subject to " +
       "acknowledgement."
@@ -452,7 +458,7 @@ final case class StaffIllustrator(creator: String, restrictions: Option[String] 
 object StaffIllustrator extends UsageRightsSpec {
   val category = "staff-illustrator"
   val defaultCost = Some(Free)
-  val name = "Illustrator - staff"
+  def name(commonConfig: CommonConfig) = "Illustrator - staff"
   def description(commonConfig: CommonConfig) =
     "Images from illustrators who are or were members of staff."
 
@@ -467,7 +473,7 @@ final case class ContractIllustrator(creator: String, publication: Option[String
 object ContractIllustrator extends UsageRightsSpec {
   val category = "contract-illustrator"
   val defaultCost = Some(Free)
-  val name = "Illustrator - contract"
+  def name(commonConfig: CommonConfig) = "Illustrator - contract"
   def description(commonConfig: CommonConfig) =
     "Illustrations from freelance illustrators on fixed-term contracts."
 
@@ -482,7 +488,7 @@ final case class CommissionedIllustrator(creator: String, publication: Option[St
 object CommissionedIllustrator extends UsageRightsSpec {
   val category = "commissioned-illustrator"
   val defaultCost = Some(Free)
-  val name = "Illustrator - commissioned"
+  def name(commonConfig: CommonConfig) = "Illustrator - commissioned"
   def description(commonConfig: CommonConfig) =
     "Illustrations commissioned from freelance illustrators on an ad hoc basis."
 
@@ -498,7 +504,7 @@ final case class CreativeCommons(licence: String, source: String, creator: Strin
 object CreativeCommons extends UsageRightsSpec {
   val category = "creative-commons"
   val defaultCost = Some(Free)
-  val name = "Creative Commons"
+  def name(commonConfig: CommonConfig) = "Creative Commons"
   def description(commonConfig: CommonConfig) =
     "Images made available by rights holders on open licence terms that grant third parties " +
       "permission to use and share copyright material for free."
@@ -516,7 +522,7 @@ final case class Composite(suppliers: String, restrictions: Option[String] = Non
 object Composite extends UsageRightsSpec {
   val category = "composite"
   val defaultCost = Some(Free)
-  val name = "Composite"
+  def name(commonConfig: CommonConfig) = "Composite"
   def description(commonConfig: CommonConfig) =
     "Any restricted images within the composite must be identified."
 
@@ -532,7 +538,7 @@ final case class PublicDomain(restrictions: Option[String] = None) extends Usage
 object PublicDomain extends UsageRightsSpec {
   val category = "public-domain"
   val defaultCost = Some(Free)
-  val name = "Public Domain"
+  def name(commonConfig: CommonConfig) = "Public Domain"
   def description(commonConfig: CommonConfig) =
     "Images out of copyright or bequeathed to the public."
 
@@ -548,10 +554,65 @@ final case class ProgramPromotional(restrictions: Option[String] = None) extends
 object ProgramPromotional extends UsageRightsSpec {
   val category = "program-promotional"
   val defaultCost = Some(Pay)
-  val name = "Program Promotional"
+  def name(commonConfig: CommonConfig) = "Program Promotional"
   def description(commonConfig: CommonConfig) =
     "Images supplied for the Promotion of Public broadcast programs"
 
   implicit val formats: Format[ProgramPromotional] =
     UsageRights.subtypeFormat(ProgramPromotional.category)(Json.format[ProgramPromotional])
+}
+
+final case class ProgrammesOrganisationOwned(restrictions: Option[String] = None) extends UsageRights {
+  override val defaultCost: Option[Cost] = ProgrammesOrganisationOwned.defaultCost
+}
+object ProgrammesOrganisationOwned extends UsageRightsSpec {
+  override val category: String = "programmes-organisation-owned"
+  override def name(commonConfig: CommonConfig): String = s"Programmes - ${commonConfig.staffPhotographerOrganisation} Owned"
+  override val defaultCost = Some(Free)
+
+  override def description(config: CommonConfig): String = config.usageRightsConfig.programmesOrganisationOwnedConfig match {
+    case Some(cfg) if cfg.description.nonEmpty => cfg.description.get
+    case _ => "Images related to a programme and the credit belongs to the organisation."
+  }
+
+  implicit val formats: Format[ProgrammesOrganisationOwned] =
+    UsageRights.subtypeFormat(ProgrammesOrganisationOwned.category)(Json.format[ProgrammesOrganisationOwned])
+}
+
+final case class ProgrammesIndependents(independentType: String,
+                                        productionCompany: String,
+                                        restrictions: Option[String] = None) extends UsageRights {
+  override val defaultCost: Option[Cost] = ProgrammesIndependents.defaultCost
+}
+object ProgrammesIndependents extends UsageRightsSpec {
+  override val category: String = "programmes-independents"
+  def name(commonConfig: CommonConfig) = "Programmes - Independents"
+
+  override def description(config: CommonConfig): String = config.usageRightsConfig.programmesIndependentsConfig match {
+    case Some(cfg) if cfg.description.nonEmpty => cfg.description.get
+    case _ => "Images related to a programme made by an independent production company."
+  }
+
+  override val defaultCost: Option[Cost] = Some(Free)
+
+  implicit val formats: Format[ProgrammesIndependents] =
+    UsageRights.subtypeFormat(ProgrammesIndependents.category)(Json.format[ProgrammesIndependents])
+}
+
+final case class ProgrammesAcquisitions(productionCompany: String,  restrictions: Option[String] = None) extends UsageRights {
+  override val defaultCost: Option[Cost] = ProgrammesAcquisitions.defaultCost
+}
+object ProgrammesAcquisitions extends UsageRightsSpec {
+  override val category: String = "programmes-acquisitions"
+  def name(commonConfig: CommonConfig) = "Programmes - Acquisitions"
+
+  override def description(config: CommonConfig): String = config.usageRightsConfig.programmesAcquisitionsConfig match {
+    case Some(cfg) if cfg.description.nonEmpty => cfg.description.get
+    case _ => "Images related to a programme that has been bought by the organisation for a period of time."
+  }
+
+  override val defaultCost: Option[Cost] = Some(Free)
+
+  implicit val formats: Format[ProgrammesAcquisitions] =
+    UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
 }
