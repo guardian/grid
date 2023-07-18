@@ -256,6 +256,26 @@ class UsageApi(
     )
   }}
 
+  def deleteSingleUsage(mediaId: String, usageId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "delete-usage",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "image-id" -> mediaId,
+      "usage-id" -> usageId,
+    )
+
+    usageTable.queryByUsageId(usageId).map {
+      case Some(mediaUsage) =>
+        usageTable.deleteRecord(mediaUsage)
+        val updateMessage = UpdateMessage(subject = DeleteSingleUsage, id = Some(mediaId), usageId = Some(usageId))
+        notifications.publish(updateMessage)
+        Ok
+      case None =>
+        NotFound
+    }
+
+  }
+
   def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages",

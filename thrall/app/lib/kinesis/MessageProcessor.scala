@@ -43,6 +43,7 @@ class MessageProcessor(
       case message: RemoveImageLeaseMessage => removeImageLease(message, logMarker)
       case message: SetImageCollectionsMessage => setImageCollections(message, logMarker)
       case message: DeleteUsagesMessage => deleteAllUsages(message, logMarker)
+      case message: DeleteSingleUsageMessage => deleteSingleUsage(message, logMarker)
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
@@ -176,6 +177,10 @@ class MessageProcessor(
 
   private def deleteAllUsages(message: DeleteUsagesMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.deleteAllImageUsages(message.id, message.lastModified)(ec, logMarker))
+
+  private def deleteSingleUsage(message: DeleteSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    Future.sequence(es.deleteSingleImageUsage(message.id, message.usageId, message.lastModified)(ec, logMarker))
+  }
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))

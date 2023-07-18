@@ -75,6 +75,7 @@ object ExternalThrallMessage{
   implicit val imageMessageFormat = Json.format[ImageMessage]
   implicit val updateImagePhotoshootMetadataMessage = Json.format[UpdateImagePhotoshootMetadataMessage]
   implicit val deleteUsagesMessage = Json.format[DeleteUsagesMessage]
+  implicit val deleteSingleUsageMessage = Json.format[DeleteSingleUsageMessage]
   implicit val updateImageUsagesMessage = Json.format[UpdateImageUsagesMessage]
   implicit val addImageLeaseMessage = Json.format[AddImageLeaseMessage]
   implicit val removeImageLeaseMessage = Json.format[RemoveImageLeaseMessage]
@@ -118,6 +119,8 @@ case class AddImageLeaseMessage(id: String, lastModified: DateTime, lease: Media
 case class RemoveImageLeaseMessage(id: String, lastModified: DateTime, leaseId: String) extends ExternalThrallMessage
 
 case class SetImageCollectionsMessage(id: String, lastModified: DateTime, collections: Seq[Collection]) extends ExternalThrallMessage
+
+case class DeleteSingleUsageMessage(id: String, lastModified: DateTime, usageId: String) extends ExternalThrallMessage
 
 case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
