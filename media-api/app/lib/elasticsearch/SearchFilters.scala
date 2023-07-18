@@ -95,6 +95,13 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     case _ => None
   }
 
+  def printUsageFilters(printFilters: PrintUsageFilters): Query = filters.nested("usages", filters.and(Seq(
+    Some(filters.date("printUsageMetadata.issueDate", from = printFilters.issueDate.minusSeconds(1), to = printFilters.issueDate.plusDays(1))),
+    printFilters.sectionCode.map(filters.term("printUsageMetadata.sectionCode", _)),
+    printFilters.pageNumber.map(filters.term("printUsageMetadata.pageNumber", _)),
+    printFilters.edition.map(filters.term("printUsageMetadata.edition", _)),
+  ).flatten:_*))
+
   def filterOrFilter(filter: Option[Query], orFilter: Option[Query]): Option[Query] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
     case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt
