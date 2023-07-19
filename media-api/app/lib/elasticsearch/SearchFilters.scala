@@ -96,6 +96,8 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   }
 
   def printUsageFilters(printFilters: PrintUsageFilters): Query = filters.nested("usages", filters.and(Seq(
+    Some(filters.term("usages.status", "published")),
+    Some(filters.term("usages.platform", "print")),
     Some(filters.date("usages.printUsageMetadata.issueDate", from = printFilters.issueDate, to = printFilters.issueDate.plusDays(1))),
     printFilters.sectionCode.map(filters.term("usages.printUsageMetadata.sectionCode", _)),
     printFilters.pageNumber.map(filters.term("usages.printUsageMetadata.pageNumber", _)),
