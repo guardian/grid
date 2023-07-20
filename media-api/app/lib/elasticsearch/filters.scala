@@ -24,18 +24,16 @@ object filters {
 
   /**
    * Range query based on dates
-   * Note that `from` is _inclusive_ in this function
    * @param field Field name to query
-   * @param from Lower bound for date (inclusive)
+   * @param from Lower bound for date (exclusive)
    * @param to Upper bound for date (exclusive)
    * @return Suitable query
    */
   def date(field: String, from: DateTime, to: DateTime): Query =
-    rangeQuery(field).gte(printDateTime(from)).lt(printDateTime(to))
+    rangeQuery(field).gt(printDateTime(from)).lt(printDateTime(to))
 
   /**
    * Range query based on dates - handles optional to and from
-   * Note that `from` is _exclusive_ in this function
    * @param field Field name to query
    * @param from Lower bound for date (exclusive)
    * @param to Upper bound for date (exclusive)
