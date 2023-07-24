@@ -12,6 +12,10 @@ GET     /images/edits/:field                                        controllers.
 GET     /images/:id/softDeletedMetadata                             controllers.MediaApi.getSoftDeletedMetadata(id: String)
 GET     /images/aggregations/date/:field                            controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
+# Reaping related
+GET     /images/nextIdsToBeSoftReaped                               controllers.MediaApi.nextIdsToBeSoftReaped(size: Int)
+GET     /images/nextIdsToBeHardReaped                               controllers.MediaApi.nextIdsToBeHardReaped(size: Int)
+
 # Images
 GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
 GET     /images/:id/_elasticsearch                                  controllers.MediaApi.getImageFromElasticSearch(id: String)

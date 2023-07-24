@@ -17,6 +17,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHisto
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import org.joda.time.DateTime
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -114,6 +115,44 @@ class ElasticSearch(
       resultTransformer = _.sourceFieldOpt("uploadedBy").collect { case s: String => s }
     )
   }
+
+  private def getNextIdsToBeReaped(size: Int, reapingType: String, query: Query)(implicit ex: ExecutionContext): Future[List[String]] = {
+    implicit val logMarker = MarkerMap()
+
+    val searchRequest = prepareSearch(query)
+      .size(size)
+      .storedFields("_id")
+      .sortByFieldAsc("uploadTime") // oldest first
+
+    executeAndLog(searchRequest, s"fetching next IDs for '$reapingType' reaping")
+      .map(_.result.hits.hits.map(_.id).toList)
+  }
+
+  def getNextIdsToBeSoftReaped(size: Int)(implicit ex: ExecutionContext): Future[List[String]] = getNextIdsToBeReaped(
+    size,
+    "soft",
+    queryBuilder.makeQuery(
+      Parser.run(
+        // Parser.run already adds `-is:deleted` by default (i.e. if `is:deleted` is not present)
+        s"is:reapable"
+      )
+    )
+  )
+
+  def getNextIdsToBeHardReaped(size: Int)(implicit ex: ExecutionContext): Future[List[String]] = getNextIdsToBeReaped(
+    size,
+    "hard",
+    filters.and(
+      queryBuilder.makeQuery(Parser.run(
+        s"is:reapable is:deleted"
+      )),
+      filters.date(
+        field = "softDeletedMetadata.deleteTime",
+        from = new DateTime(0L),
+        to = DateTime.now.minusWeeks(2),
+      )
+    )
+  )
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
     implicit val logMarker = MarkerMap()

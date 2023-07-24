@@ -20,13 +20,14 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+
 import java.net.URI
 import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.syntax.MessageSubjects
+import lib.querysyntax.Parser
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -446,6 +447,18 @@ class MediaApi(
       params => respondSuccess(params)
     )
   }
+
+  private def nextIdsToBeReaped(searchFunc: Int => Future[List[String]])(batchSize: Int) = auth.async {
+    if (batchSize > 1000) {
+      Future.successful(BadRequest("'size' param must be 1000 or less"))
+    } else {
+      searchFunc(batchSize)
+        .map(Json.toJson(_))
+        .map(Ok(_).as(JSON))
+    }
+  }
+  def nextIdsToBeSoftReaped = nextIdsToBeReaped(elasticSearch.getNextIdsToBeSoftReaped) _
+  def nextIdsToBeHardReaped = nextIdsToBeReaped(elasticSearch.getNextIdsToBeHardReaped) _
 
   private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
     implicit val r: Authentication.Request[AnyContent] = request
