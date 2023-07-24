@@ -150,7 +150,9 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
     ctrl.applyTemplate = () => {
       ctrl.saving = true;
-      ctrl.onMetadataTemplateApplying({leases: ctrl.metadataTemplate.templateLeases.leases});
+      if (ctrl.metadataTemplate.templateLeases) {
+        ctrl.onMetadataTemplateApplying({leases: ctrl.metadataTemplate.templateLeases.leases});
+      }
 
       let promise = Promise.resolve();
 
