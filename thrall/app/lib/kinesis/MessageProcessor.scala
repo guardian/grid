@@ -34,6 +34,7 @@ class MessageProcessor(
       case message: DeleteImageMessage => deleteImage(message, logMarker)
       case message: SoftDeleteImageMessage => softDeleteImage(message, logMarker)
       case message: UnSoftDeleteImageMessage => unSoftDeleteImage(message, logMarker)
+      case message: BatchDeleteMessage => batchDeleteImages(message, logMarker)
       case message: DeleteImageExportsMessage => deleteImageExports(message, logMarker)
       case message: UpdateImageExportsMessage => updateImageExports(message, logMarker)
       case message: UpdateImageUserMetadataMessage => updateImageUserMetadata(message, logMarker)
@@ -132,6 +133,14 @@ class MessageProcessor(
   private def softDeleteImage(message: SoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker))
 
+  private def batchDeleteImages(message: BatchDeleteMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = Future.sequence(
+    message.maybeSoftDeletedMetadata match {
+      case Some(softDeletedMetadata) => es.batchSoftDeleteImages(message.ids, softDeletedMetadata, message.lastModified)(ec, logMarker)
+      // NOTE unlike the deleteImage method, this one does not delete the image from S3 (that is handled in media-api)
+      case None => es.batchHardDeleteImages(message.ids)(ec, logMarker)
+    }
+  )
+
   private def unSoftDeleteImage(message: UnSoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applyUnSoftDelete(message.id, message.lastModified)(ec, logMarker))
 
@@ -171,8 +180,6 @@ class MessageProcessor(
         }
       }
     })
-
-
   }
 
   private def deleteAllUsages(message: DeleteUsagesMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =

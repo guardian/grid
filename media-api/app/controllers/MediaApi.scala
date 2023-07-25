@@ -1,6 +1,7 @@
 package controllers
 
 import akka.stream.scaladsl.StreamConverters
+import com.amazonaws.services.s3.model.{DeleteObjectsRequest, DeleteObjectsResult}
 import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
@@ -25,12 +26,15 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib.querysyntax.Parser
+import play.api.mvc
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import scala.util.Try
 
 class MediaApi(
@@ -285,29 +289,35 @@ class MediaApi(
     }
   }
 
-  def deleteImage(id: String) = auth.async { request =>
+  def softDeleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
-        if (imageCanBeDeleted){
+        if (imageCanBeDeleted) {
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
-          if(canDelete){
-            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+          if (canDelete) {
+            val deleteTime = DateTime.now(DateTimeZone.UTC)
+            val imageStatusRecord = ImageStatusRecord(
+              id,
+              deletedBy = request.user.accessor.identity,
+              deleteTime = deleteTime.toString,
+              isDeleted = true
+            )
             imageStatusTable.setStatus(imageStatusRecord)
-            .map { _ =>
-              messageSender.publish(
-                UpdateMessage(
-                  subject = SoftDeleteImage,
-                  id = Some(id),
-                  softDeletedMetadata = Some(SoftDeletedMetadata(
-                    deleteTime = DateTime.now(DateTimeZone.UTC),
-                    deletedBy = request.user.accessor.identity
-                  ))
+              .map { _ =>
+                messageSender.publish(
+                  UpdateMessage(
+                    subject = SoftDeleteImage,
+                    id = Some(id),
+                    softDeletedMetadata = Some(SoftDeletedMetadata(
+                      deleteTime,
+                      deletedBy = request.user.accessor.identity
+                    ))
+                  )
                 )
-              )
-            }
+              }
             Accepted
           } else {
             ImageDeleteForbidden
@@ -459,6 +469,79 @@ class MediaApi(
   }
   def nextIdsToBeSoftReaped = nextIdsToBeReaped(elasticSearch.getNextIdsToBeSoftReaped) _
   def nextIdsToBeHardReaped = nextIdsToBeReaped(elasticSearch.getNextIdsToBeHardReaped) _
+
+  private def batchDeleteWrapper(func: (List[String], Principal) => Future[Result]) = auth.async { request =>
+    if(authorisation.hasPermissionTo(DeleteImagePermission)(request.user)) {
+      request.body.asJson.flatMap(_.asOpt[List[String]]) match {
+        case None =>
+          Future.successful(BadRequest("Expected a JSON array of image ids in DELETE body"))
+        case Some(ids) if ids.length > 1000 =>
+          Future.successful(BadRequest("Too many ids in DELETE body. Maximum 1000."))
+        case Some(ids) =>
+          func(ids, request.user)
+      }
+    } else {
+      Future.successful(ImageDeleteForbidden)
+    }
+  }
+
+  def batchSoftDelete() = batchDeleteWrapper { (ids, user) =>
+    val deleteTime = DateTime.now(DateTimeZone.UTC)
+
+    val extraLogMarkers = Map("ids" -> ids)
+
+    logger.info(extraLogMarkers, s"Soft deleting ${ids.length} images...")
+
+    imageStatusTable.setStatuses(ids.toSet.map(
+      ImageStatusRecord(
+        _,
+        deletedBy = user.accessor.identity,
+        deleteTime = deleteTime.toString,
+        isDeleted = true
+      )
+    )).map { _ => // ignoring the result is consistent with `softDeleteImage`
+      messageSender.publish(
+        BatchSoftDeleteMessage(
+          ids,
+          deleteTime,
+          SoftDeletedMetadata(
+            deleteTime,
+            deletedBy = user.accessor.identity
+          )
+        )
+      )
+
+      logger.info(extraLogMarkers, s"Soft deleted ${ids.length} images.")
+
+      Accepted
+    }
+  }
+  def batchHardDelete() = batchDeleteWrapper { (ids, user) => Future {
+    messageSender.publish(
+      BatchHardDeleteMessage(
+        ids,
+        lastModified = DateTime.now(DateTimeZone.UTC)
+      )
+    )
+
+    val s3PathsToDelete = ids.map(ImageIngestOperations.fileKeyFromId)
+    val s3PathsOfOptimisedToDelete = ids.map(ImageIngestOperations.optimisedPngKeyFromId)
+
+    val mainImagesS3Deletions = s3Client.bulkDelete(config.imageBucket, s3PathsToDelete)
+    val thumbsS3Deletions = s3Client.bulkDelete(config.thumbBucket, s3PathsToDelete)
+    val pngsS3Deletions = s3Client.bulkDelete(config.imageBucket, s3PathsOfOptimisedToDelete)
+
+    MultiStatus(
+      Json.toJson(
+        ids.map {id => id -> Map(
+          "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+          "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id))
+          // TODO consider status from ES too (would require sep. query after a delay probably - so likely best in reaper lambda)
+        )}.toMap
+      )
+    )
+  }}
 
   private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
     implicit val r: Authentication.Request[AnyContent] = request

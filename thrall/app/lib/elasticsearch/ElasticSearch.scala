@@ -15,7 +15,6 @@ import com.sksamuel.elastic4s.requests.searches.SearchResponse
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
-import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
 import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
 import lib.ThrallMetrics
 import org.joda.time.DateTime
@@ -42,24 +41,24 @@ class ElasticSearch(
   lazy val replicas: Int = config.replicas
 
 
-  def migrationAwareUpdater(
-    requestFromIndexName: String => UpdateRequest,
+  def migrationAwareUpdater[REQUEST, RESPONSE](
+    requestFromIndexName: String => REQUEST,
     logMessageFromIndexName: String => String,
     notFoundSuccessful: Boolean = false,
   )(implicit
     ex: ExecutionContext,
     functor: Functor[Future],
     executor: Executor[Future],
-    handler: Handler[UpdateRequest, UpdateResponse],
-    manifest: Manifest[UpdateResponse],
+    handler: Handler[REQUEST, RESPONSE],
+    manifest: Manifest[RESPONSE],
     logMarkers: LogMarker
-  ): Future[Response[UpdateResponse]] = {
+  ): Future[Response[RESPONSE]] = {
     // if doc does not exist in migration index, ignore (ie. mark as successful).
     // coalesce all other errors.
-    val runForCurrentIndex: Future[Option[Response[UpdateResponse]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias), logMessageFromIndexName(imagesCurrentAlias), notFoundSuccessful).map(Some(_))
+    val runForCurrentIndex: Future[Option[Response[RESPONSE]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias), logMessageFromIndexName(imagesCurrentAlias), notFoundSuccessful).map(Some(_))
     // Update requests to the alias throw if the alias does not exist, but the exception is very generic and not cause is not obvious
     // ("index names must be all upper case")
-    val runForMigrationIndex: Future[Option[Response[UpdateResponse]]] = migrationStatus match {
+    val runForMigrationIndex: Future[Option[Response[RESPONSE]]] = migrationStatus match {
       case _: Running => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
       case _ => Future.successful(None)
     }
@@ -269,6 +268,37 @@ class ElasticSearch(
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
+  def batchSoftDeleteImages(ids: List[String], softDeletedMetadata: SoftDeletedMetadata, lastModified: DateTime)
+                           (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val applySoftDeleteScript = "ctx._source.softDeletedMetadata = params.softDeletedMetadata;"
+    val softDeletedMetadataParameter = JsDefined(Json.toJson(softDeletedMetadata)).toOption.map(asNestedMap).orNull
+
+    List(migrationAwareUpdater(
+      requestFromIndexName = indexName =>
+        updateByQuery(
+          indexName,
+          idsQuery(ids),
+        ).script(prepareScript(
+          applySoftDeleteScript,
+          lastModified,
+          ("softDeletedMetadata", softDeletedMetadataParameter)
+        )),
+      logMessageFromIndexName = indexName => s"ES7 soft delete images $ids in $indexName by ${softDeletedMetadata.deletedBy}"
+    ).map(_ => ElasticSearchUpdateResponse()))
+  }
+
+  def batchHardDeleteImages(ids: List[String])
+                           (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    List(migrationAwareUpdater(
+      requestFromIndexName = indexName =>
+        deleteByQuery(
+          indexName,
+          idsQuery(ids),
+        ),
+      logMessageFromIndexName = indexName => s"ES7 hard delete images $ids in $indexName"
+    ).map(_ => ElasticSearchUpdateResponse()))
+  }
+
   def applyUnSoftDelete(id: String, lastModified: DateTime)
                      (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val applyUnSoftDeleteScript = "ctx._source.remove(\"softDeletedMetadata\");"
@@ -280,7 +310,7 @@ class ElasticSearch(
         applyUnSoftDeleteScript,
         lastModified
       ),
-      logMessageFromIndexName = indexName => s"ES7 un soft delete image $id"
+      logMessageFromIndexName = indexName => s"ES7 un soft delete image $id in $indexName"
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 

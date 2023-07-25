@@ -57,7 +57,6 @@ sealed trait ExternalThrallMessage extends ThrallMessage {
     )
   }
 }
-
 object ExternalThrallMessage{
   implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
@@ -72,6 +71,7 @@ object ExternalThrallMessage{
   implicit val deleteImageExportsMessageFormat = Json.format[DeleteImageExportsMessage]
   implicit val softDeleteImageMessageFormat = Json.format[SoftDeleteImageMessage]
   implicit val unSoftDeleteImageMessageFormat = Json.format[UnSoftDeleteImageMessage]
+  implicit val batchDeleteImageMessageFormat = Json.format[BatchDeleteMessage]
   implicit val imageMessageFormat = Json.format[ImageMessage]
   implicit val updateImagePhotoshootMetadataMessage = Json.format[UpdateImagePhotoshootMetadataMessage]
   implicit val deleteUsagesMessage = Json.format[DeleteUsagesMessage]
@@ -98,11 +98,33 @@ case class ImageMessage(lastModified: DateTime, image: Image) extends ExternalTh
   override val id: String = image.id
 }
 
+// TODO rename to HardDeleteImageMessage
 case class DeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
 case class SoftDeleteImageMessage(id: String, lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata) extends ExternalThrallMessage
 
 case class UnSoftDeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
+
+// NOTE using the presence of softDeletedMetadata to determine whether to soft delete or hard delete isn't the nicest, but couldn't get Play json to cooperate with an extra layer of trait
+case class BatchDeleteMessage private (ids: List[String], lastModified: DateTime, maybeSoftDeletedMetadata: Option[SoftDeletedMetadata]) extends ExternalThrallMessage {
+  override val id: String = ids.head // throws if empty 👍
+  val tail: List[String] = ids.tail
+  override def markerContents: Map[String, Any] = {
+    super.markerContents ++ Map (
+      "ids" -> ids,
+      "batchDeleteType" -> maybeSoftDeletedMetadata.map(_ => "soft").getOrElse("hard")
+    )
+  }
+}
+
+object BatchSoftDeleteMessage {
+  def apply(ids: List[String], lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata): BatchDeleteMessage =
+    BatchDeleteMessage(ids, lastModified, maybeSoftDeletedMetadata = Some(softDeletedMetadata))
+}
+object BatchHardDeleteMessage {
+  def apply(ids: List[String], lastModified: DateTime): BatchDeleteMessage =
+    BatchDeleteMessage(ids, lastModified, maybeSoftDeletedMetadata = None)
+}
 
 case class DeleteImageExportsMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 

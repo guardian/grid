@@ -15,6 +15,8 @@ GET     /images/aggregations/date/:field                            controllers.
 # Reaping related
 GET     /images/nextIdsToBeSoftReaped                               controllers.MediaApi.nextIdsToBeSoftReaped(size: Int)
 GET     /images/nextIdsToBeHardReaped                               controllers.MediaApi.nextIdsToBeHardReaped(size: Int)
+DELETE  /images/batchSoftDelete                                     controllers.MediaApi.batchSoftDelete
+DELETE  /images/batchHardDelete                                     controllers.MediaApi.batchHardDelete
 
 # Images
 GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
@@ -27,7 +29,7 @@ GET     /images/:imageId/export/:exportId/asset/:width/download     controllers.
 GET     /images/:imageId/export                                     controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                                   controllers.MediaApi.downloadOriginalImage(imageId: String)
 GET     /images/:imageId/downloadOptimised                          controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
-DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
+DELETE  /images/:id                                                 controllers.MediaApi.softDeleteImage(id: String)
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
 PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
 GET     /images                                                     controllers.MediaApi.imageSearch
