@@ -473,6 +473,27 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
       }
 
+      "can delete single usage for image" in {
+        val id = UUID.randomUUID().toString
+        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage(), usage()))
+        val firstUsage = imageWithUsages.usages.head.id
+        val secondUsage = imageWithUsages.usages.last.id
+
+        Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
+
+        Await.result(Future.sequence(ES.deleteSingleImageUsage(id, secondUsage, now)), fiveSeconds)
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id)
+          .get
+          .usages
+          .size shouldBe 1)
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id)
+          .get
+          .usages
+          .head.id shouldBe firstUsage)
+      }
+
       "can update usages" in {
         val id = UUID.randomUUID().toString
         val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)

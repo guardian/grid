@@ -282,9 +282,9 @@ service.factory('editsService',
 
         var changed = getMetadataDiff(image, proposedMetadata);
 
-         if (field === 'location') {
+        if (field === 'location') {
             Object.assign(changed, value);
-          }
+        }
 
         return update(image.data.userMetadata.data.metadata, changed, image, inBatch)
           .then(() => image.get());
@@ -328,10 +328,12 @@ service.factory('editsService',
 
 
     function batchUpdateMetadataField(images, field, value, editOption = overwrite.key) {
-        return trackAll($q, $rootScope, field, images, image => {
+        return trackAll($q, $rootScope, field, images, (image) => {
             const newFieldValue = getNewFieldValue(image, field, value, editOption);
-            return updateMetadataField(image, field, newFieldValue, true);
-        },'images-updated');
+            return updateMetadataField(image, field, newFieldValue, true).then(
+            	updated => updated || image // updateMetadataField returns false if no change
+            );
+        }, 'images-updated');
     }
 
     return {

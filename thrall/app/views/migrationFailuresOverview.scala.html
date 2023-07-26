@@ -13,39 +13,46 @@
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
+    <nav>
+        <span>
+            <a href="@routes.ThrallController.index">&lt; back to Thrall Dashboard</a>
+        </span>
+    </nav>
+    <main>
     <div class="sticky headingSection">
         <h1>
             Migration Failures Overview
         </h1>
         <p>@failuresOverview.totalFailed images failed in total!</p>
     </div>
-    <table>
-        <tr>
-            <th>Failure cause</th>
-            <th>Count</th>
-            <th>Examples</th>
-        </tr>
-        @for(failureGrouping <- failuresOverview.grouped) {
+        <table>
             <tr>
-                <td>
-                    <a href="@routes.ThrallController.migrationFailures(failureGrouping.message, None)">
-                        @failureGrouping.message
-                    </a>
-                </td>
-                <td>@failureGrouping.count</td>
-                <td>
-                    <ul>
-                    @for(failureExampleID <- failureGrouping.exampleIDs) {
-                        <li>
-                            <pre class="imageId">@failureExampleID</pre>
-                            <a href="@uiBaseUrl/images/@failureExampleID" target="_blank">[Grid]</a>
-                            <a href="@apiBaseUrl/images/@failureExampleID" target="_blank">[API]</a>
-                        </li>
-                    }
-                    </ul>
-                </td>
+                <th>Failure cause</th>
+                <th>Count</th>
+                <th>Examples</th>
             </tr>
-        }
-    </table>
+            @for(failureGrouping <- failuresOverview.grouped) {
+                <tr>
+                    <td>
+                        <a href="@routes.ThrallController.migrationFailures(failureGrouping.message, None)">
+                            @failureGrouping.message
+                        </a>
+                    </td>
+                    <td>@failureGrouping.count</td>
+                    <td>
+                        <ul>
+                        @for(failureExampleID <- failureGrouping.exampleIDs) {
+                            <li>
+                                <pre class="imageId">@failureExampleID</pre>
+                                <a href="@uiBaseUrl/images/@failureExampleID" target="_blank">[Grid]</a>
+                                <a href="@apiBaseUrl/images/@failureExampleID" target="_blank">[API]</a>
+                            </li>
+                        }
+                        </ul>
+                    </td>
+                </tr>
+            }
+        </table>
+    </main>
 </body>
 </html>

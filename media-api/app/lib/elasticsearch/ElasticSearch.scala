@@ -144,6 +144,8 @@ class ElasticSearch(
       case _ => None
     }
 
+    val printUsageFilter = params.printUsageFilters.map(searchFilters.printUsageFilters)
+
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
     val validityFilter = params.valid.flatMap(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
@@ -195,6 +197,7 @@ class ElasticSearch(
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
+        ++ printUsageFilter
       ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val withFilter = filterOpt.map { f =>

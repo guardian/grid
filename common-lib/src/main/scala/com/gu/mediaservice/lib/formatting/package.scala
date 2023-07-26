@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib
 
-import scala.concurrent.duration.Duration
-import scala.util.Try
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormatter, DateTimeFormatterBuilder, ISODateTimeFormat}
+
+import scala.concurrent.duration.Duration
+import scala.util.Try
 
 package object formatting {
 
@@ -11,7 +12,8 @@ package object formatting {
     val parsers = Array(
       // Allow ISO date time with millis even though ES has no millis so they are ignored
       ISODateTimeFormat.dateTime,
-      ISODateTimeFormat.dateTimeNoMillis
+      ISODateTimeFormat.dateTimeNoMillis,
+      ISODateTimeFormat.date
     ).map(_.getParser)
     new DateTimeFormatterBuilder().
       append(null, parsers).

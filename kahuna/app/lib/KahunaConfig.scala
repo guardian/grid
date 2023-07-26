@@ -40,6 +40,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val restrictDownload: Option[Boolean] = booleanOpt("restrictDownload")
   val useReaper: Option[Boolean] = booleanOpt("useReaper")
 
+  val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
+
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
   val fontSources: Set[String] = getStringSet("security.fontSources")
@@ -62,6 +64,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     .getOrElse("This image can be used, but has warnings:")
   val unusableTextHeader: String = configuration.getOptional[String]("warningText.unusableHeader")
     .getOrElse("Unusable image")
+  val denySyndicationTextHeader: String = configuration.getOptional[String]("warningText.denySyndicationHeader")
+    .getOrElse("Syndication denied")
   val enableWarningFlags: Boolean = configuration.getOptional[Map[String, String]]("warningText.imagePreviewFlag").isDefined
   val imagePreviewFlagAlertCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.alertCopy")
     .getOrElse("Not configured")

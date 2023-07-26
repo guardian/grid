@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
-import com.gu.mediaservice.model.{Image, SyndicationStatus}
+import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
@@ -56,36 +56,37 @@ object AggregateSearchParams {
 }
 
 case class SearchParams(
-                         query: Option[String] = None,
-                         structuredQuery: List[Condition] = List.empty,
-                         ids: Option[List[String]] = None,
-                         offset: Int = 0,
-                         length: Int = 10,
-                         orderBy: Option[String] = None,
-                         since: Option[DateTime] = None,
-                         until: Option[DateTime] = None,
-                         modifiedSince: Option[DateTime] = None,
-                         modifiedUntil: Option[DateTime] = None,
-                         takenSince: Option[DateTime] = None,
-                         takenUntil: Option[DateTime] = None,
-                         archived: Option[Boolean] = None,
-                         hasExports: Option[Boolean] = None,
-                         hasIdentifier: Option[String] = None,
-                         missingIdentifier: Option[String] = None,
-                         valid: Option[Boolean] = None,
-                         free: Option[Boolean] = None,
-                         payType: Option[PayType.Value] = None,
-                         hasRightsCategory: Option[Boolean] = None,
-                         uploadedBy: Option[String] = None,
-                         labels: List[String] = List.empty,
-                         hasMetadata: List[String] = List.empty,
-                         persisted: Option[Boolean] = None,
-                         usageStatus: List[UsageStatus] = List.empty,
-                         usagePlatform: List[String] = List.empty,
-                         tier: Tier,
-                         syndicationStatus: Option[SyndicationStatus] = None,
-  countAll: Option[Boolean] = None
-                       )
+  query: Option[String] = None,
+  structuredQuery: List[Condition] = List.empty,
+  ids: Option[List[String]] = None,
+  offset: Int = 0,
+  length: Int = 10,
+  orderBy: Option[String] = None,
+  since: Option[DateTime] = None,
+  until: Option[DateTime] = None,
+  modifiedSince: Option[DateTime] = None,
+  modifiedUntil: Option[DateTime] = None,
+  takenSince: Option[DateTime] = None,
+  takenUntil: Option[DateTime] = None,
+  archived: Option[Boolean] = None,
+  hasExports: Option[Boolean] = None,
+  hasIdentifier: Option[String] = None,
+  missingIdentifier: Option[String] = None,
+  valid: Option[Boolean] = None,
+  free: Option[Boolean] = None,
+  payType: Option[PayType.Value] = None,
+  hasRightsCategory: Option[Boolean] = None,
+  uploadedBy: Option[String] = None,
+  labels: List[String] = List.empty,
+  hasMetadata: List[String] = List.empty,
+  persisted: Option[Boolean] = None,
+  usageStatus: List[UsageStatus] = List.empty,
+  usagePlatform: List[String] = List.empty,
+  tier: Tier,
+  syndicationStatus: Option[SyndicationStatus] = None,
+  countAll: Option[Boolean] = None,
+  printUsageFilters: Option[PrintUsageFilters] = None,
+)
 
 case class InvalidUriParams(message: String) extends Throwable
 object InvalidUriParams {
@@ -125,6 +126,16 @@ object SearchParams {
     val query = request.getQueryString("q")
     val structuredQuery = query.map(Parser.run) getOrElse List()
 
+    val printUsageFilters = request.getQueryString("printUsageIssueDate").flatMap(parseDateFromQuery).map { issueDate =>
+      PrintUsageFilters(
+        issueDate = issueDate,
+        sectionCode = request.getQueryString("printUsageSectionCode"),
+        pageNumber = request.getQueryString("printUsagePageNumber") flatMap parseIntFromQuery,
+        edition = request.getQueryString("printUsageEdition") flatMap parseIntFromQuery,
+        orderedBy = request.getQueryString("printUsageOrderedBy")
+      )
+    }
+
     SearchParams(
       query,
       structuredQuery,
@@ -155,6 +166,7 @@ object SearchParams {
       request.user.accessor.tier,
       request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus,
       request.getQueryString("countAll") flatMap parseBooleanFromQuery,
+      printUsageFilters,
     )
   }
 
