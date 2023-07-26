@@ -236,13 +236,13 @@ image.controller('ImageCtrl', [
       const s3Crops = cropsResource.data;
       const esCrops = image.data.exports;
 
-      const crops = s3Crops.filter( (s3Crop)=> {
-        return esCrops.find( (esCrop)=> {
-          return s3Crop.id == esCrop.id && s3Crop.assets.every( (s3CropAsset)=> {
-            return esCrop.assets.find( (esCropAsset)=> {
+      const crops = s3Crops.filter( (s3Crop) => {
+        return esCrops.find( (esCrop) => {
+          return s3Crop.id === esCrop.id && esCrop.assets.every( (esCropAsset)=> {
+            return s3Crop.assets.find( (s3CropAsset) => {
               return s3CropAsset.dimensions !== undefined &&
-              esCropAsset.dimensions !== undefined &&
-              s3CropAsset.dimensions.width == esCropAsset.dimensions.width;
+                esCropAsset.dimensions !== undefined &&
+                s3CropAsset.dimensions.width === esCropAsset.dimensions.width;
             }) !== undefined;
           });
         }) !== undefined;
