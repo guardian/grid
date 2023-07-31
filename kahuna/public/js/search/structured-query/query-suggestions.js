@@ -36,6 +36,7 @@ export const filterFields = [
     'subject',
     'supplier',
     'suppliersReference',
+    'title',
     'uploader',
     'usages@<added',
     'usages@>added',
