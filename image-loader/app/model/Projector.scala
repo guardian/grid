@@ -95,11 +95,23 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-      if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
-        throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
+      val bucket = config.maybeReplicaBucket match {
+        case Some(replicaBucket) if !s3.doesObjectExist(config.originalFileBucket, s3Key) =>
+          replicaBucket
+        case _ =>
+          config.originalFileBucket
+      }
 
-      val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket, s3Key)
+      if (config.maybeReplicaBucket.contains(bucket) && !s3.doesObjectExist(bucket, s3Key)) {
+        logger.error(
+          logMarker,
+          s"Image with id $imageId does not exist at key $s3Key in S3 bucket ${config.originalFileBucket}${config.maybeReplicaBucket.map(rb => s" NOR replica bucket $rb")}"
+        )
+        throw new NoSuchImageExistsInS3(bucket, s3Key)
+      }
+
+      val s3Source = Stopwatch(s"object exists, getting s3 object at s3://$bucket/$s3Key to perform Image projection"){
+        s3.getObject(bucket, s3Key)
       }(logMarker)
 
       try {

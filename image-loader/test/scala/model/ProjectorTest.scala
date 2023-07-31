@@ -37,7 +37,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val imageOperations = new ImageOperations(ctxPath)
 
-  private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
+  private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", None, "thumb-bucket")
 
   private val s3 = mock[AmazonS3]
   private val auth = mock[Authentication]
