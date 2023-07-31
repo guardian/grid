@@ -242,7 +242,7 @@ object S3Ops {
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true): AmazonS3 = {
+  def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true, region: String = "eu-west-1"): AmazonS3 = {
 
     val clientConfig = new ClientConfiguration()
     // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
@@ -260,6 +260,6 @@ object S3Ops {
       case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
     }
 
-    config.withAWSCredentials(builder, localstackAware).build()
+    config.withAWSCredentials(builder, localstackAware).withRegion(region).build()
   }
 }

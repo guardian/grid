@@ -39,9 +39,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", None, "thumb-bucket")
 
-  private val s3 = mock[AmazonS3]
-  private val auth = mock[Authentication]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, auth)
+  private val projector = new Projector(config, mock[AmazonS3], mock[AmazonS3], imageOperations, ImageProcessor.identity, mock[Authentication])
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources

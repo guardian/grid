@@ -32,7 +32,7 @@ object Projector {
   import Uploader.toImageUploadOpsCfg
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), S3Ops.buildS3Client(config, region = "us-west-1"), imageOps, processor, auth)
 }
 
 case class S3FileExtractedMetadata(
@@ -83,6 +83,7 @@ object S3FileExtractedMetadata {
 
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
+                replicaS3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication) extends GridLogging {
@@ -95,11 +96,11 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-      val bucket = config.maybeReplicaBucket match {
+      val (s3Client, bucket) = config.maybeReplicaBucket match {
         case _ if s3.doesObjectExist(config.originalFileBucket, s3Key) =>
-          config.originalFileBucket
-        case Some(replicaBucket) if s3.doesObjectExist(replicaBucket, s3Key) =>
-          replicaBucket
+          (s3, config.originalFileBucket)
+        case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, s3Key) =>
+          (replicaS3, replicaBucket)
         case _ =>
           logger.error(
             logMarker,
@@ -109,7 +110,7 @@ class Projector(config: ImageUploadOpsCfg,
       }
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://$bucket/$s3Key to perform Image projection"){
-        s3.getObject(bucket, s3Key)
+        s3Client.getObject(bucket, s3Key)
       }(logMarker)
 
       try {
