@@ -1,0 +1,31 @@
+@import helper._
+@(imageLoaderEndpoint:String)(implicit request: RequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Restore from replica</title>
+        <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+    </head>
+    <body>
+        <nav>
+            <span>
+                <a href="@routes.ThrallController.index">&lt; back to Thrall Dashboard</a>
+            </span>
+        </nav>
+        <main>
+            <h1>Restore from replica</h1>
+            <p>
+                This option will re-ingest an image from the replica bucket (if configured). It should fail early if the image already exists in the main image bucket.
+            </p>
+            <p>Useful if the image has been hard-deleted.</p>
+
+            @form(Call("POST", imageLoaderEndpoint)) {
+                <label for="imageId">Image ID:</label>
+                <input type="text" id="imageId" name="imageId">
+                <input type="submit" value="Submit">
+            }
+        </main>
+    </body>
+</html>
