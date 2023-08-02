@@ -9,7 +9,7 @@ import play.api.inject.ApplicationLifecycle
 
 import scala.concurrent.Future
 
-class PhotographersConfigTest extends AnyFreeSpec with Matchers {
+class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
 
   "The config loader" - {
     val configuration: Configuration = Configuration.from(Map(
@@ -34,6 +34,21 @@ class PhotographersConfigTest extends AnyFreeSpec with Matchers {
           "freeSuppliers" -> List("S1", "S2"),
           "suppliersCollectionExcl" -> Map(
             "S1" -> List("S1Coll1", "S1Coll2")
+          ),
+          "programmesOrganisationOwned" -> Map(
+            "description" -> "Organisation owned programmes"
+          ),
+          "programmesIndependents" -> Map(
+            "description" -> "Independents programmes",
+            "independentTypes" -> List(
+              Map(
+                "name" -> "A",
+                "productionsCompanies" -> List("P1", "P2")
+              ),
+            )
+          ),
+          "programmesAcquisitions" -> Map(
+            "description" -> "Acquisitions programmes"
           )
         )
       )
@@ -45,6 +60,30 @@ class PhotographersConfigTest extends AnyFreeSpec with Matchers {
     }
     val loader = UsageRightsConfigProvider.ProviderLoader.singletonConfigLoader(new Resources(), applicationLifecycle)
     val conf: UsageRightsConfigProvider = configuration.get[UsageRightsConfigProvider]("some.path")(loader)
+
+    "should load programmesOrganisationOwned configuration" in {
+      conf.programmesOrganisationOwnedConfig.nonEmpty shouldBe true
+      conf.programmesOrganisationOwnedConfig.get.description.nonEmpty shouldBe true
+      conf.programmesOrganisationOwnedConfig.get.description shouldBe Some("Organisation owned programmes")
+    }
+
+    "should load programmesIndependents configuration" in {
+      conf.programmesIndependentsConfig.nonEmpty shouldBe true
+      conf.programmesIndependentsConfig.get.description.nonEmpty shouldBe true
+      conf.programmesIndependentsConfig.get.description shouldBe Some("Independents programmes")
+      conf.programmesIndependentsConfig.get.independentTypes.nonEmpty shouldBe true
+      conf.programmesIndependentsConfig.get.independentTypes.length shouldBe 1
+
+      conf.programmesIndependentsConfig.get.independentTypes.head.name shouldBe "A"
+      conf.programmesIndependentsConfig.get.independentTypes.head.productionsCompanies.nonEmpty shouldBe true
+      conf.programmesIndependentsConfig.get.independentTypes.head.productionsCompanies shouldBe List("P1", "P2")
+    }
+
+    "should load programmesAcquisitions configuration" in {
+      conf.programmesAcquisitionsConfig.nonEmpty shouldBe true
+      conf.programmesAcquisitionsConfig.get.description.nonEmpty shouldBe true
+      conf.programmesAcquisitionsConfig.get.description shouldBe Some("Acquisitions programmes")
+    }
 
     "should load usage rights configuration" in {
       conf.externalStaffPhotographers.nonEmpty shouldBe true
