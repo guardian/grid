@@ -52,12 +52,11 @@ object BulkDeleteS3Files {
         failedDeletesLogLines = batchResult.errors().asScala.map{ error =>
           s"${error.key()}, FAILED, ${error.code()}, ${error.message()}"
         }
-        logLines = successfulDeletesLogLines ++ failedDeletesLogLines
-        unit = logLines.foreach {logLine =>
-          println(logLine)
-          auditFileWriter.println(logLine)
-        }
-      } yield unit
+        logLine <- successfulDeletesLogLines ++ failedDeletesLogLines
+      } {
+        println(logLine)
+        auditFileWriter.println(logLine)
+      }
     }
     finally {
       inputFileSource.close()
