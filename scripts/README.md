@@ -70,3 +70,17 @@ It's most efficient to do this as a 'scan and scroll' (see [stackoverflow.com/a/
     $ sbt
     > scripts/run DownloadAllEsIds http://localhost:9200 /tmp/testing
     ```
+
+### BulkDeleteS3Files
+
+    ```
+    $ sbt
+    > scripts/run BulkDeleteS3Files <bucketName> <inputFile> <auditFile>
+    ```
+
+Input file needs to be a CSV, with a heading row and a single column containing the S3 paths to delete from the specified bucket.
+
+This script groups the input IDs into 1000s so it can use the [bulk delete API](https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-multiple-objects.html) and reports the success or failure for each S3 path to both the console but also the `auditFile` path provided (CSV output).
+
+Note: bulk delete API reports 'deleted' if the path is not found, so this can be run multiple times without issue (although delete markers will be created in S3 for every execution).
+
