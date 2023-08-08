@@ -290,18 +290,22 @@ class ImageLoaderController(auth: Authentication,
           stream.close()
         }
 
-        val future =  uploader.storeFile(UploadRequest(
-          imageId,
-          tempFile, //TODO could we give it the stream directly
-          mimeType = MimeTypeDetection.guessMimeType(tempFile) match {
-            case Left(unsupported) => throw unsupported
-            case right => right.toOption
-          },
-          metadata.uploadTime,
-          metadata.uploadedBy,
-          metadata.identifiers,
-          UploadInfo(metadata.uploadFileName)
-        ))
+        val future = uploader.restoreFile(
+          UploadRequest(
+            imageId,
+            tempFile, //TODO could we give it the stream directly
+            mimeType = MimeTypeDetection.guessMimeType(tempFile) match {
+              case Left(unsupported) => throw unsupported
+              case right => right.toOption
+            },
+            metadata.uploadTime,
+            metadata.uploadedBy,
+            metadata.identifiers,
+            UploadInfo(metadata.uploadFileName)
+          ),
+          gridClient,
+          auth.getOnBehalfOfPrincipal(request.user)
+        )
 
         future.onComplete(_ => Try { deleteTempFile(tempFile) })
 
