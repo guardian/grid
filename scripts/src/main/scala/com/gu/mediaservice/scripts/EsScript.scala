@@ -366,13 +366,15 @@ object DownloadAllEsIds extends EsScript {
           prevResponse.result.hits.hits.map(_.id).foreach(writer.println)
 
           // can't be map/foreach if we want tail recursion (for efficiency)
-          if(prevResponse.result.scrollId.isDefined) {
-            processResponseAndStartNext(
-              client.execute(
-                searchScroll(prevResponse.result.scrollId.get)
-                  .keepAlive(10.seconds)
-              ).await
-            )
+          prevResponse.result.scrollId match {
+            case None => () // done
+            case Some(scrollId) =>
+              processResponseAndStartNext(
+                client.execute(
+                  searchScroll(scrollId)
+                    .keepAlive(10.seconds)
+                ).await
+              )
           }
         }
 
@@ -396,7 +398,7 @@ object DownloadAllEsIds extends EsScript {
 
 
   def usageError: Nothing = {
-    System.err.println("Usage: GetAllEsIds <ES_URL>")
+    System.err.println("Usage: GetAllEsIds <ES_URL> <output_file>")
     sys.exit(1)
   }
 }
