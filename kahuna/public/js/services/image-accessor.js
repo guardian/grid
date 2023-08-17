@@ -51,6 +51,10 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.usageRights;
     }
 
+    function readImageType(image) {
+      return image.data.imageType;
+    }
+
     function readPersistedReasons(image) {
         return image.data.persisted.reasons;
     }
@@ -94,6 +98,7 @@ imageAccessor.factory('imageAccessor', function() {
         readMetadata,
         readExtraInfo,
         readUsageRights,
+        readImageType,
         readPersistedReasons,
         readPeopleInImage,
         isPersisted,

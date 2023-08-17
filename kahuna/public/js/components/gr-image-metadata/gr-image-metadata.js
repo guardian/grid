@@ -55,6 +55,7 @@ module.controller('grImageMetadataCtrl', [
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.showImageType = false;
     ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.$onInit = () => {
@@ -63,6 +64,7 @@ module.controller('grImageMetadataCtrl', [
         ctrl.selectedLabels = selectedLabels();
         ctrl.usageRights = selectedUsageRights();
         inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
+        ctrl.imageType = selectedImageTypes();
         ctrl.rawMetadata = rawMetadata();
         ctrl.metadata = displayMetadata();
         ctrl.metadata.dateTaken =  ctrl.displayDateTakenMetadata();
@@ -360,6 +362,14 @@ module.controller('grImageMetadataCtrl', [
 
           const usageCategory = categories.find(cat => cat.value === categoryCode);
           return usageCategory ? usageCategory.name : categoryCode;
+        });
+      }
+
+      function selectedImageTypes() {
+        return ctrl.selectedImages.map(image => {
+          return imageAccessor.readImageType(image) ?? "None";
+        }).reduce((a, b) => {
+          if(a === b) return a;
         });
       }
 

@@ -37,6 +37,20 @@
                 class="image-info__edit">✎</button>
         </dl>
     </div>
+    <div class="image-info__group" role="region" aria-label="Image type">
+        <dl class="image-info__wrap metadata-line">
+            <dt class="metadata-line__key">Image type</dt>
+
+            <dd class="image-info__title" ng-if="!ctrl.showImageType">
+                {{ctrl.imageType}}
+            </dd>
+            <button
+                data-cy="it-edit-image-type-button"
+                ng-click="ctrl.showImageType = true"
+                ng-hide="!ctrl.userCanEdit || ctrl.showImageType"
+                class="image-info__edit">✎</button>
+        </dl>
+    </div>
     <div class="image-info__group" ng-if="ctrl.displayLeases()" role="region" aria-label="Leases">
         <dl class="image-info__wrap image-info__leases">
             <div class="image-info__heading image-info__heading--lease"
