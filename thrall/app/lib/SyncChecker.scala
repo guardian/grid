@@ -2,8 +2,8 @@ package lib
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.{Materializer, RestartSettings}
+import akka.stream.scaladsl.{RestartSource, Source}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.gu.mediaservice.lib.elasticsearch.InProgress
@@ -112,13 +112,21 @@ class SyncChecker(
     )
   }
 
-  private def createStream() = Source.cycle(() => prefixes.toIterator)
-    .throttle(1, per = 5.seconds)
-    .filterNot(_ => es.migrationIsInProgress)
-    .mapAsync(1) {
-      case Prefix(prefix) => checkPrefix(prefix)(MarkerMap())
-      case Other => checkUnprefixed()(MarkerMap())
-    }
+  private val restartSettings = RestartSettings(
+    minBackoff = 5.seconds,
+    maxBackoff = 30.minutes,
+    randomFactor = 0.1d
+  )
+
+  private def createStream() = RestartSource.onFailuresWithBackoff(restartSettings)(() =>
+    Source.cycle(() => prefixes.toIterator)
+      .throttle(1, per = 5.seconds)
+      .filterNot(_ => es.migrationIsInProgress)
+      .mapAsync(parallelism = 1) {
+        case Prefix(prefix) => checkPrefix(prefix)(MarkerMap())
+        case Other => checkUnprefixed()(MarkerMap())
+      }
+  )
 
   def run(): Future[Done] = {
     val stream = createStream().run()(mat)
