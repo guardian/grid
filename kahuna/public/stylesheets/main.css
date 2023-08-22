@@ -1918,6 +1918,7 @@ FIXME: what to do with touch devices
   max-width: calc(100% - 20px); /* 20px here for padding */
   max-height: calc(100vh - 68px);
   pointer-events: none;
+  image-orientation: none;
 }
 
 .easel__image:fullscreen,
