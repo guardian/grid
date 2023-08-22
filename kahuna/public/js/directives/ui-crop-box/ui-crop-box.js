@@ -57,9 +57,8 @@ cropBox.directive('uiCropBox', [
                     background: false,
                     responsive: false,
                     autoCropArea: 1,
-                    checkOrientation: false, // TODO later: reset to default true when backend can handle rotation/orientation
                     crop: update,
-                    ready: getRatio
+                    ready: onReady
                 };
 
                 cropper = new Cropper(image, options);
@@ -75,10 +74,19 @@ cropBox.directive('uiCropBox', [
                 }
             }
 
-            function getRatio() {
+            function onReady() {
                 previewImg = cropper.getCanvasData();
                 widthRatio = scope.originalWidth / previewImg.naturalWidth;
                 heightRatio = scope.originalHeight / previewImg.naturalHeight;
+
+                const data = cropper.getData();
+                // data.rotate is only non-0 on load if image has orientation metadata.
+                // unfortunately grid backend can't resolve orientation metadata, so we need to make sure to
+                // ignore it on the frontend too. so ask cropperjs if image is rotated, and if so, rotate it an equal amount
+                // in the other direction (to get to 0!)
+                if (data.rotate) {
+                    cropper.rotate(-data.rotate);
+                }
             }
 
             function update(c) {
