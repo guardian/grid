@@ -57,6 +57,7 @@ cropBox.directive('uiCropBox', [
                     background: false,
                     responsive: false,
                     autoCropArea: 1,
+                    checkOrientation: false, // TODO later: reset to default true when backend can handle rotation/orientation
                     crop: update,
                     ready: getRatio
                 };
