@@ -22,58 +22,94 @@ const FREE_FOR_NEWS_LABEL:string = "Free for News";
 const USABLE_FOR_ALL_LABEL:string = "Usable for All";
 const ALL_PERMISSIONS_LABEL:string = "All Permissions";
 
-export function PermissionsDefaultOpt():string {
-  return ALL_PERMISSIONS_OPT;
+export function PermissionsDefaultOpt():string[] {
+  if(window._clientConfig.permissionsDefaults) {
+    return window._clientConfig.permissionsDefaults.split(",");
+  } else {
+    return [
+      "archivist#" + ALL_PERMISSIONS_OPT,
+      "standard#" + FREE_FOR_NEWS_OPT
+    ];
+  }
 }
 
 export function PermissionsQueries():string[]  {
-  //-these can ultimately be derived from config file-
-  // e.g. window._clientConfig.permissionsQueries;
-
-  const queries = [
-    CHARGEABLE_QUERY,
-    NOT_CHARGEABLE_QUERY,
-    PROGRAM_QUERY,
-    NOT_PROGRAM_QUERY,
-    BBC_OWNED_QUERY,
-    NOT_HAS_RESTRICTIONS_QUERY
-  ];
-  return queries;
+  if(window._clientConfig.permissionsQueries) {
+    return window._clientConfig.permissionsQueries.split(",").map(chip => ' ' + chip);
+  } else {
+      return [
+          CHARGEABLE_QUERY,
+          NOT_CHARGEABLE_QUERY,
+          PROGRAM_QUERY,
+          NOT_PROGRAM_QUERY,
+          BBC_OWNED_QUERY,
+          NOT_HAS_RESTRICTIONS_QUERY
+      ];
+  }
 }
 
 export function PermissionsOptValues(): string[] {
-  //-will be read in from config in due course
-  const optVals = [
-    CHARGEABLE_OPT,
-    PROGRAM_OPT,
-    USABLE_FOR_ALL_OPT,
-    FREE_FOR_NEWS_OPT,
-    ALL_PERMISSIONS_OPT
-  ];
-  return optVals;
+  if(window._clientConfig.permissionsOptions) {
+    return window._clientConfig.permissionsOptions.split(",");
+  } else {
+    const optVals = [
+      CHARGEABLE_OPT,
+      PROGRAM_OPT,
+      USABLE_FOR_ALL_OPT,
+      FREE_FOR_NEWS_OPT,
+      ALL_PERMISSIONS_OPT
+    ];
+    return optVals;
+  }
 }
 
-//-options-
+//-options and labels-
 export function PermissionsOptions():{label:string, value:string}[] {
-   //--will be established from config?--
-   const permOpts:{label:string, value:string}[] = [
-    {label:ALL_PERMISSIONS_LABEL, value:ALL_PERMISSIONS_OPT},
-    {label:USABLE_FOR_ALL_LABEL, value:USABLE_FOR_ALL_OPT},
-    {label:FREE_FOR_NEWS_LABEL, value:FREE_FOR_NEWS_OPT},
-    {label:CHARGEABLE_LABEL, value:CHARGEABLE_OPT},
-    {label:PROGRAM_LABEL, value:PROGRAM_OPT}
-   ];
-   return permOpts;
-};
+   if(window._clientConfig.permissionsOptions && window._clientConfig.permissionsLabels) {
+     let dropDownOpts: {label:string, value:string}[] = [];
+     for(let i=0; i < window._clientConfig.permissionsOptions.split(",").length; i++ ) {
+       let opt = {
+         label: window._clientConfig.permissionsLabels.split(",")[i],
+         value: window._clientConfig.permissionsOptions.split(",")[i]
+       };
+       dropDownOpts.push(opt);
+     }
+     return dropDownOpts;
+   } else {
+     const permOpts: { label: string, value: string }[] = [
+       {label: ALL_PERMISSIONS_LABEL, value: ALL_PERMISSIONS_OPT},
+       {label: USABLE_FOR_ALL_LABEL, value: USABLE_FOR_ALL_OPT},
+       {label: FREE_FOR_NEWS_LABEL, value: FREE_FOR_NEWS_OPT},
+       {label: CHARGEABLE_LABEL, value: CHARGEABLE_OPT},
+       {label: PROGRAM_LABEL, value: PROGRAM_OPT}
+     ];
+     return permOpts;
+   }
+}
 
-export function PermissionsMappings():{opt:string, queries:string[]}[] {
-  const permMappings:{opt:string, queries:string[]}[] = [
-    {opt:USABLE_FOR_ALL_OPT, queries:[BBC_OWNED_QUERY, NOT_HAS_RESTRICTIONS_QUERY]},
-    {opt:FREE_FOR_NEWS_OPT, queries:[NOT_CHARGEABLE_QUERY, NOT_PROGRAM_QUERY]},
-    {opt:CHARGEABLE_OPT, queries:[CHARGEABLE_QUERY]},
-    {opt:PROGRAM_OPT, queries:[PROGRAM_QUERY]},
-    {opt:ALL_PERMISSIONS_OPT, queries:[]}
-  ]
-  return permMappings;
+export function PermissionsMappings():{opt:string, query:string[]}[] {
+  if(window._clientConfig.permissionsOptions && window._clientConfig.permissionsMappings) {
+    let mappings: {opt:string, query:string[]}[] = [];
+    let popts = window._clientConfig.permissionsOptions.split(",");
+    let pmaps = window._clientConfig.permissionsMappings.split(",");
+    for(let i=0; i < popts.length; i++ ) {
+      let qArr: string[] = pmaps[i].split("#").map(q => " " + q);
+      let query = {
+        opt: popts[i],
+        query: qArr
+      };
+      mappings.push(query);
+    }
+    return mappings;
+  } else {
+    const permMappings: { opt: string, query: string[] }[] = [
+      {opt: USABLE_FOR_ALL_OPT, query: [BBC_OWNED_QUERY, NOT_HAS_RESTRICTIONS_QUERY]},
+      {opt: FREE_FOR_NEWS_OPT, query: [NOT_CHARGEABLE_QUERY, NOT_PROGRAM_QUERY]},
+      {opt: CHARGEABLE_OPT, query: [CHARGEABLE_QUERY]},
+      {opt: PROGRAM_OPT, query: [PROGRAM_QUERY]},
+      {opt: ALL_PERMISSIONS_OPT, query: []}
+    ]
+    return permMappings;
+  }
 }
 

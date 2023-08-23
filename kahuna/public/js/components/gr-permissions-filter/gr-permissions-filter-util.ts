@@ -8,7 +8,7 @@ export function updateFilterChips(permissionsSel: PermissionsDropdownOption, que
     workingQuery = workingQuery.replace(pfQ, '');
   });
   const permMappings = PermissionsConf.PermissionsMappings().filter((opt) => permissionsSel.value == opt.opt)[0];
-  permMappings.queries.forEach((q) => {
+  permMappings.query.forEach((q) => {
     workingQuery = workingQuery + q;
   });
   if (workingQuery[0] == ' ') workingQuery = workingQuery.slice(1);

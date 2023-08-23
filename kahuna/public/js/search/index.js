@@ -26,7 +26,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
-
+import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
@@ -99,7 +99,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             ctrl.onLogoClick = () => {
                 mediaApi.getSession().then(session => {
-                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+                const showPaid = ctrl.usePermissionsFilter ? true : (session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined);
                 const defaultNonFreeFilter = {
                   isDefault: true,
                   isNonFree: showPaid ? showPaid : false
@@ -111,23 +111,20 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             if ($state.current.name === 'search') {
               mediaApi.getSession().then(session => {
-                storage.setJs('isNonFree', session.user.permissions.showPaid, true);
+                const showPaid = ctrl.usePermissionsFilter ? true : (session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined);
+                storage.setJs('isNonFree', showPaid, true);
               });
             }
 
             //-permissions filter-
-            // *** will need to establish settings from config or elsewhere ***
-            let pfOpts = new Array();
-            let pfAllPerm = {label:"All Permissions", value:"allPermissions"};
-            pfOpts.push(pfAllPerm);
-            pfOpts.push({label:"Usable for all", value:"usableForAll"});
-            pfOpts.push({label:"Free for News", value:"freeForNews"});
-            pfOpts.push({label:"Chargeable", value:"chargeable"});
-            pfOpts.push({label:"For promoting a programme", value:"programme"});
+            let pfOpts = PermissionsConf.PermissionsOptions();
+            let uType = "standard"; //<-- need to derive this from the user and session???
+            let defOptVal = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(uType))[0].split("#")[1];
+            let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
             let permSel = function(permissionsSelection) {
               console.log("Permissions Selection : " + permissionsSelection.label);
             }
-            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfAllPerm, onSelect: permSel };
+            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: permSel, query: ctrl.filter?ctrl.filter.query:"", userType: uType };
             //-end permissions filter-
 
             ctrl.collectionsPanel = panels.collectionsPanel;

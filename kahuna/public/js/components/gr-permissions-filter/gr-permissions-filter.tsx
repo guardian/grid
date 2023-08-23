@@ -31,6 +31,7 @@ export interface PermissionsDropdownProps {
   selectedOption?: PermissionsDropdownOption | null;
   onSelect: (option: PermissionsDropdownOption) => void;
   query?: string | "";
+  userType?: string | "standard";
 }
 
 export interface PermissionsWrapperProps {
@@ -40,11 +41,12 @@ export interface PermissionsWrapperProps {
 // *** functional react component ***
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
-  const allPerms:PermissionsDropdownOption = options.filter(opt => opt.value == PermisionsConf.PermissionsDefaultOpt())[0];
+  const defOptVal:string = PermisionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+  const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelection] = useState(allPerms);
+  const [selectedOption, setSelection] = useState(defPerms);
 
   const handleQueryChange = (e: any) => {
     let newQuery = e.detail.query ? (' ' + e.detail.query) : '';
@@ -53,20 +55,22 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
       const permMaps = PermisionsConf.PermissionsMappings();
       for(let i=0; i<permMaps.length; i++) {
-        if(permMaps[i].queries.length > 0 && permMaps[i].queries.filter(q => newQuery.includes(q)).length == permMaps[i].queries.length) {
+        if(permMaps[i].query.length > 0 && permMaps[i].query.filter(q => newQuery.includes(q)).length == permMaps[i].query.length) {
           setSelection(options.filter(opt => opt.value == permMaps[i].opt)[0]);
           return;
         }
       }
 
       //-default-
-      setSelection(options.filter(opt => opt.value == PermisionsConf.PermissionsDefaultOpt())[0]);
+      let lDefOptVal:string = PermisionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+      let lDefPerms:PermissionsDropdownOption = props.options.filter(opt => opt.value == lDefOptVal)[0];
+      setSelection(options.filter(opt => opt.value == lDefPerms.value)[0]);
     }
   };
 
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
-    setSelection(allPerms);
+    setSelection(defPerms);
 
     // Clean up the event listener when the component unmounts
     return () => {
@@ -90,16 +94,18 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         </button>
         {isOpen && (
           <table className="permissions-dropdown-menu">
+            <tbody>
             {options.map((option) => (
-              <tr className="permissions-dropdown-item">
-                <td className="permissions-dropdown-cell">
+              <tr className="permissions-dropdown-item" onClick={() => handleOptionClick(option)}>
+                <td className="permissions-dropdown-cell" key={option.value + "tick"}>
                   {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
                 </td>
-                <td className="permissions-dropdown-cell" key={option.value} onClick={() => handleOptionClick(option)}>
+                <td className="permissions-dropdown-cell" key={option.value}>
                   {option.label}
                 </td>
               </tr>
             ))}
+            </tbody>
           </table>
         )}
       </div>

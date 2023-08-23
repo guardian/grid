@@ -39,7 +39,13 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val restrictDownload: Option[Boolean] = booleanOpt("restrictDownload")
   val useReaper: Option[Boolean] = booleanOpt("useReaper")
 
+  // interim permissions filter configuration settings
   val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
+  val permissionsOptions: String = "chargeable,program,usableForAll,freeForNews,allPermissions"
+  val permissionsLabels: String = "Chargeable,For Promoting a Programme,Usable for All,Free for News,All Permissions"
+  val permissionsMappings: String = "category:chargeable,collection:program pictures,is:BBC-owned#-has:restrictions,-category:chargeable#-collection:program pictures,"
+  val permissionsDefaults: String = "archivist#allPermissions,standard#freeForNews"
+  val permissionsQueries: String = "category:chargeable,-category:chargeable,collection:program pictures,-collection: program pictures,is:BBC-owned,-has:restrictions"
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 
