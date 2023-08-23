@@ -3,6 +3,7 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
+GET     /upsertProject                                controllers.ThrallController.upsertProjectPage(imageId: Option[String])
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
 +nocsrf
@@ -16,6 +17,7 @@ POST    /pauseMigration                               controllers.ThrallControll
 POST    /resumeMigration                              controllers.ThrallController.resumeMigration
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
+POST    /upsertProject                                controllers.ThrallController.upsertFromProjectionSingleImage
 +nocsrf
 POST    /completeMigration                            controllers.ThrallController.completeMigration
 +nocsrf

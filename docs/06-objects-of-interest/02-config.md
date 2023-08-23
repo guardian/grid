@@ -640,6 +640,18 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
+    <td><code>showDenySyndicationWarning</code></td>
+    <td>true</td>
+    <td><code>boolean</code></td>
+    <td>false</td>
+  </tr>
+  <tr>
+    <td><code>warningText.denySyndicationHeader</code></td>
+    <td>true</td>
+    <td><code>string</code></td>
+    <td>Syndication denied</td>
+  </tr>
+  <tr>
     <td><code>scriptsToLoad</code></td>
     <td>true</td>
     <td>

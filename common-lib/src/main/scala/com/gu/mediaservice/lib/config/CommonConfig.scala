@@ -149,6 +149,29 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    *      suppliersCollectionExcl {
    *        Supplier 1 = ["Coll 1", "Coll 2"]
    *      }
+   *      programmesOrganisationOwned {
+   *        description = "This is a configurable description of the usage right." # Optional config - if not sensible default description is used
+   *      }
+   *      programmesIndependents {
+   *        description = "This is a configurable description of the usage right." # Optional config - if not sensible default description is used
+   *        independentTypes = [
+   *          {
+   *            name = "BBC Studios"
+   *            productionsCompanies = ["Studio 1", "Studio 2"]
+   *          }
+   *          {
+   *            name = "Independent"
+   *            productionsCompanies = ["A", "B", "C"]
+   *          }
+   *          {
+   *            name = "Joint Production"
+   *            productionsCompanies = ["Joint Prod 1", "Joint Prod 2"]
+   *          }
+   *        ]
+   *      }
+   *      programmesAcquisitions {
+   *        description = "This is a configurable description of the usage right." # Optional config - if not sensible default description is used
+   *      }
    *    }
    *   }
    * }}}

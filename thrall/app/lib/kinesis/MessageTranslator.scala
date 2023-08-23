@@ -2,7 +2,7 @@ package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{AddImageLeaseMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ExternalThrallMessage, ImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
+import com.gu.mediaservice.model.{Right => _, Image => _, _}
 import com.gu.mediaservice.syntax.MessageSubjects._
 
 object MessageTranslator extends GridLogging {
@@ -61,7 +61,10 @@ object MessageTranslator extends GridLogging {
         case Some(id) => Right(DeleteUsagesMessage(id, updateMessage.lastModified))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
-
+      case DeleteSingleUsage => (updateMessage.id, updateMessage.usageId) match {
+        case (Some(id), Some(usageId)) => Right(DeleteSingleUsageMessage(id, updateMessage.lastModified, usageId))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
+      }
       case UpdateImageSyndicationMetadata => (updateMessage.id, updateMessage.syndicationRights) match {
         case (Some(id), maybeSyndicationMetadata) => Right(UpdateImageSyndicationMetadataMessage(id, updateMessage.lastModified, maybeSyndicationMetadata))
         case _ => Left(MissingFieldsException(updateMessage.subject))

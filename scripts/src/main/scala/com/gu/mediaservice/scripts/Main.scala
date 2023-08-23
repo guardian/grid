@@ -6,6 +6,7 @@ object Main extends App {
   args.toList match {
     case "LoadFromS3Bucket" :: as => LoadFromS3Bucket(as)
     case "Reindex"          :: as => Reindex(as)
+    case "DownloadAllEsIds" :: as => DownloadAllEsIds(as)
     case "GetMapping"       :: as => GetMapping(as)
     case "UpdateMapping"    :: as => UpdateMapping(as)
     case "GetSettings"      :: as => GetSettings(as)
@@ -14,6 +15,7 @@ object Main extends App {
     case "BucketMetadata"   :: as => BucketMetadata(as)
     case "DecodeComparator" :: as => DecodeComparator(as)
     case "EnactS3Changes"   :: as => EnactS3Changes(as)
+    case "BulkDeleteS3Files":: as => BulkDeleteS3Files(as)
     case "EsMetadata"       :: as => EsImageMetadata(as)
     case "ProposeS3Changes" :: as => ProposeS3Changes(as)
     case "BackfillEditLastModified" :: as => BackfillEditLastModified(as)

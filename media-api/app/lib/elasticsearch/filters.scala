@@ -22,6 +22,23 @@ object filters {
 
   def boolTerm(field: String, value: Boolean): TermQuery = termQuery(field, value)
 
+  /**
+   * Range query based on dates
+   * @param field Field name to query
+   * @param from Lower bound for date (exclusive)
+   * @param to Upper bound for date (exclusive)
+   * @return Suitable query
+   */
+  def date(field: String, from: DateTime, to: DateTime): Query =
+    rangeQuery(field).gt(printDateTime(from)).lt(printDateTime(to))
+
+  /**
+   * Range query based on dates - handles optional to and from
+   * @param field Field name to query
+   * @param from Lower bound for date (exclusive)
+   * @param to Upper bound for date (exclusive)
+   * @return Suitable query if at least one of `from` and `to` is defined; otherwise nothing
+   */
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[Query] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeQuery(field)
@@ -44,6 +61,7 @@ object filters {
   def mustNot(queries: Query*): Query = ElasticDsl.not(queries)
 
   def term(field: String, term: String): Query = termQuery(field, term)
+  def term(field: String, term: Int): Query = termQuery(field, term)
 
   def terms(field: String, terms: NonEmptyList[String]): Query = {
     termsQuery(field, terms.list)

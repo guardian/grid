@@ -43,10 +43,12 @@ class MessageProcessor(
       case message: RemoveImageLeaseMessage => removeImageLease(message, logMarker)
       case message: SetImageCollectionsMessage => setImageCollections(message, logMarker)
       case message: DeleteUsagesMessage => deleteAllUsages(message, logMarker)
+      case message: DeleteSingleUsageMessage => deleteSingleUsage(message, logMarker)
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
+      case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
       case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
@@ -62,6 +64,21 @@ class MessageProcessor(
 
   private def indexImage(message: ImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
+
+  private def upsertImageFromProjection(message: UpsertFromProjectionMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
+
+    // do not write into migration index, even if migration is running; let the standard
+    // images-for-migration process find and migrate it. even if it has previously
+    // been migrated, this directInsert will wipe out the esInfo marker, requeueing this image
+    // for migration.
+    es.directInsert(message.image, es.imagesCurrentAlias)
+      .recover {
+        case t: Throwable =>
+          logger.error(logMarker, s"Failed to directly upsert image ${message.image.id} from projection", t)
+          Future.successful(())
+      }
+  }
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
@@ -145,7 +162,7 @@ class MessageProcessor(
             store.deleteOriginal(message.id)
             store.deleteThumbnail(message.id)
             store.deletePng(message.id)
-            metadataEditorNotifications.publishImageDeletion(message.id)
+//            metadataEditorNotifications.publishImageDeletion(message.id) // let's not delete from Dynamo as user edits might be useful if we restore from replica
             EsResponse(s"Image deleted: ${message.id}")
         } recoverWith {
           case ImageNotDeletable =>
@@ -160,6 +177,10 @@ class MessageProcessor(
 
   private def deleteAllUsages(message: DeleteUsagesMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.deleteAllImageUsages(message.id, message.lastModified)(ec, logMarker))
+
+  private def deleteSingleUsage(message: DeleteSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    Future.sequence(es.deleteSingleImageUsage(message.id, message.usageId, message.lastModified)(ec, logMarker))
+  }
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))

@@ -32,3 +32,9 @@ body {
 .headingRow {
   top: 190px;
 }
+
+nav {
+  padding: 12px;
+  border-bottom: 1px solid black;
+  width: 100%;
+}

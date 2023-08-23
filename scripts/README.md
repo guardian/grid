@@ -58,3 +58,29 @@ __:warning: This should only EVER be run on your local version. :warning:__
     $ sbt
     > scripts/run UpdateSettings localhost
     ```
+
+### DownloadAllEsIds
+ES doesn't provide a means of downloading all the IDs, so this script does just that and writes to file - for example a CSV file for upload to AWS Athena.
+
+It relies on the [`es-ssh-ssm-tunnel.sh` script](../dev/script/es-ssh-ssm-tunnel.sh).
+
+It's most efficient to do this as a 'scan and scroll' (see [stackoverflow.com/a/30855670](https://stackoverflow.com/a/30855670)).
+
+    ```
+    $ sbt
+    > scripts/run DownloadAllEsIds http://localhost:9200 /tmp/testing
+    ```
+
+### BulkDeleteS3Files
+
+    ```
+    $ sbt
+    > scripts/run BulkDeleteS3Files <bucketName> <inputFile> <auditFile>
+    ```
+
+Input file needs to be a CSV, with a heading row and a single column containing the S3 paths to delete from the specified bucket.
+
+This script groups the input IDs into 1000s so it can use the [bulk delete API](https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-multiple-objects.html) and reports the success or failure for each S3 path to both the console but also the `auditFile` path provided (CSV output).
+
+Note: bulk delete API reports 'deleted' if the path is not found, so this can be run multiple times without issue (although delete markers will be created in S3 for every execution).
+

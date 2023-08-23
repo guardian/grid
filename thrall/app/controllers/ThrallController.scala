@@ -9,12 +9,13 @@ import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage}
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, UpsertFromProjectionMessage}
 import lib.elasticsearch.ElasticSearch
 import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.libs.json.Json
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.duration.DurationInt
@@ -61,6 +62,17 @@ class ThrallController(
         migrationStatus = es.migrationStatus,
         hasHistoricalIndex = historicalIndex.isDefined,
       ))
+    }
+  }
+
+  def upsertProjectPage(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
+    imageId match {
+      case Some(id) =>
+        gridClient.getProjectionDiff(id, auth.innerServiceCall).map {
+          case None => NotFound("couldn't generate projection for that image!!")
+          case Some(diff) => Ok(views.html.previewUpsertProject(id, Json.prettyPrint(diff)))
+        }
+      case None => Future.successful(Ok(views.html.upsertProject()))
     }
   }
 
@@ -217,6 +229,19 @@ class ThrallController(
     }
   }
 
+  def upsertFromProjectionSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
+
+    for {
+      maybeImage <- gridClient.getImageLoaderProjection(imageId, auth.innerServiceCall)
+    } yield { maybeImage match {
+      case Some(projectedImage) =>
+        messageSender.publish(UpsertFromProjectionMessage(imageId, projectedImage, DateTime.now))
+        Ok(s"upsert request for $imageId submitted")
+      case None => NotFound("")
+    }}
+  }
+
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     Paging.withPaging(Some(page)) { paging =>
       es.migrationStatus match {
@@ -246,4 +271,3 @@ class ThrallController(
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)
   )
 }
-

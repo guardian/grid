@@ -10,9 +10,11 @@ import com.sksamuel.elastic4s.{Indexes, Response}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 
+import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration, SECONDS}
 import scala.concurrent.{Await, Future}
 
 
@@ -334,6 +336,69 @@ object GetSettings extends EsScript {
 
   def usageError: Nothing = {
     System.err.println("Usage: GetMapping <ES_URL>")
+    sys.exit(1)
+  }
+}
+object DownloadAllEsIds extends EsScript {
+
+  def run(esUrl: String, extraArgs: List[String]) {
+
+    println(s"Getting all ids from $esUrl")
+
+    object Client extends EsClient(esUrl) {
+
+      def writeAllEsIdsToFile(filename: String) = {
+
+        val file = new File(filename)
+
+        val writer = new PrintWriter(file)
+
+        @tailrec
+        def processResponseAndStartNext(prevResponse: Response[SearchResponse]): Unit = {
+          if(prevResponse.status != 200) {
+            writer.close()
+            client.close()
+            throw new Exception("Failed performing search query")
+          }
+
+          println(s"Adding ${prevResponse.result.hits.hits.length} IDs to ${file.getAbsolutePath}")
+
+          prevResponse.result.hits.hits.map(_.id).foreach(writer.println)
+
+          // can't be map/foreach if we want tail recursion (for efficiency)
+          prevResponse.result.scrollId match {
+            case None => () // done
+            case Some(scrollId) =>
+              processResponseAndStartNext(
+                client.execute(
+                  searchScroll(scrollId)
+                    .keepAlive(10.seconds)
+                ).await
+              )
+          }
+        }
+
+        processResponseAndStartNext(
+          client.execute(
+            search(currentIndex)
+              .size(1000)
+              .storedFields("_id") // ensures we only return the id field
+              .scroll(1.minute)
+          ).await
+        )
+
+        writer.close()
+      }
+
+    }
+
+    Client.writeAllEsIdsToFile(extraArgs.headOption.getOrElse(throw new Exception("No filename specified")))
+
+  }
+
+
+  def usageError: Nothing = {
+    System.err.println("Usage: GetAllEsIds <ES_URL> <output_file>")
     sys.exit(1)
   }
 }
