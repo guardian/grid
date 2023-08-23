@@ -28,7 +28,7 @@ val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.2.10.0" % Test,
-    "org.mockito" % "mockito-core" % "2.18.0" % Test,
+    "org.mockito" % "mockito-core" % "2.18.3" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
 
