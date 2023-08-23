@@ -63,7 +63,7 @@ query.controller('SearchQueryCtrl', [
         // filled in by the watcher below
     };
 
-    ctrl.permissionsCallback = true;
+    ctrl.permissionsCallback = false;
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
 
     function watchSearchChange(filter) {
@@ -72,7 +72,8 @@ query.controller('SearchQueryCtrl', [
           return;
         }
 
-        storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
+        const showPaid = ctrl.usePermissionsFilter ? true : (ctrl.filter.nonFree ? ctrl.filter.nonFree : false);
+        storage.setJs("isNonFree", showPaid, true);
 
         const myUploadsCheckbox = filter.uploadedByMe;
         // Users should be able to follow URLs with uploadedBy set to another user's name, so only
@@ -98,7 +99,7 @@ query.controller('SearchQueryCtrl', [
 
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
+          let newNonFree = ctrl.usePermissionsFilter ? "true" : (defaultNonFreeFilter.isNonFree ? "true" : undefined);
           if (newNonFree !== filter.nonFree){
             storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
             storage.setJs("isUploadedByMe", false, true);
@@ -130,7 +131,9 @@ query.controller('SearchQueryCtrl', [
         }
 
         const { nonFree, uploadedByMe } = ctrl.filter;
-        sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+        const nonFreeCheck = ctrl.usePermissionsFilter ? "true" : nonFree;
+        ctrl.filter.nonFree = nonFreeCheck;
+        sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
         $state.go('search.results', filter);
     }
 
@@ -143,8 +146,10 @@ query.controller('SearchQueryCtrl', [
     }
 
     let pfOpts = PermissionsConf.PermissionsOptions();
-    let pfAllPerm = pfOpts.filter(opt => opt.value == PermissionsConf.PermissionsDefaultOpt())[0];
-    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfAllPerm, onSelect: updatePermissionsChips, query: ctrl.filter.query };
+    let uType = "standard"; //<-- need to derive this from the user and session???
+    let defOptVal = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(uType))[0].split("#")[1];
+    let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
+    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: updatePermissionsChips, query: ctrl.filter.query, userType: uType };
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;

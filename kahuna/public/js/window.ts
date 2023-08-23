@@ -4,8 +4,14 @@ declare global {
     interface Window {
       _clientConfig: {
         telemetryUri: string;
-        featureSwitches: Array<FeatureSwitchData>
+        featureSwitches: Array<FeatureSwitchData>;
         maybeOrgOwnedValue: string | undefined;
+        usePermissionsFilter: boolean;
+        permissionsOptions?: string| undefined;
+        permissionsLabels?: string | undefined;
+        permissionsMappings?: string | undefined;
+        permissionsDefaults?: string | undefined;
+        permissionsQueries?: string | undefined;
       }
     }
   }
