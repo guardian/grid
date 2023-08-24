@@ -265,58 +265,61 @@ class ImageLoaderController(auth: Authentication,
 
     implicit val logMarker: LogMarker = MarkerMap(
       "imageId" -> imageId,
-      "requestType" -> "image-projection",
+      "requestType" -> "restore-from-replica",
       "requestId" -> RequestLoggingFilter.getRequestId(request)
     )
 
-    config.maybeImageReplicaBucket match {
-      case _ if store.doesOriginalExist(imageId) =>
-        Future.successful(Conflict("Image already exists in main bucket"))
-      case None =>
-        Future.successful(NotImplemented("No replica bucket configured"))
-      case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
-        val s3Key = fileKeyFromId(imageId)
+    Future {
+      config.maybeImageReplicaBucket match {
+        case _ if store.doesOriginalExist(imageId) =>
+          Future.successful(Conflict("Image already exists in main bucket"))
+        case None =>
+          Future.successful(NotImplemented("No replica bucket configured"))
+        case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
+          val s3Key = fileKeyFromId(imageId)
 
-        logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
+          logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
 
-        val replicaObject = replicaS3.getObject(replicaBucket, s3Key)
-        val metadata = S3FileExtractedMetadata(replicaObject.getObjectMetadata)
-        val stream = replicaObject.getObjectContent
-        val tempFile = createTempFile(s"restoringReplica-$imageId")
-        val fos = new FileOutputStream(tempFile)
-        try {
-          IOUtils.copy(stream, fos)
-        } finally {
-          stream.close()
-        }
+          val replicaObject = replicaS3.getObject(replicaBucket, s3Key)
+          val metadata = S3FileExtractedMetadata(replicaObject.getObjectMetadata)
+          val stream = replicaObject.getObjectContent
+          val tempFile = createTempFile(s"restoringReplica-$imageId")
+          val fos = new FileOutputStream(tempFile)
+          try {
+            IOUtils.copy(stream, fos)
+          } finally {
+            stream.close()
+          }
 
-        val future = uploader.restoreFile(
-          UploadRequest(
-            imageId,
-            tempFile, //TODO could we give it the stream directly
-            mimeType = MimeTypeDetection.guessMimeType(tempFile) match {
-              case Left(unsupported) => throw unsupported
-              case right => right.toOption
-            },
-            metadata.uploadTime,
-            metadata.uploadedBy,
-            metadata.identifiers,
-            UploadInfo(metadata.uploadFileName)
-          ),
-          gridClient,
-          auth.getOnBehalfOfPrincipal(request.user)
-        )
+          val future = uploader.restoreFile(
+            UploadRequest(
+              imageId,
+              tempFile, // would be nice to stream directly from S3, but followed the existing pattern of temp file
+              mimeType = MimeTypeDetection.guessMimeType(tempFile) match {
+                case Left(unsupported) => throw unsupported
+                case right => right.toOption
+              },
+              metadata.uploadTime,
+              metadata.uploadedBy,
+              metadata.identifiers,
+              UploadInfo(metadata.uploadFileName)
+            ),
+            gridClient,
+            auth.getOnBehalfOfPrincipal(request.user)
+          )
 
-        future.onComplete(_ => Try { deleteTempFile(tempFile) })
+          future.onComplete(_ => Try {
+            deleteTempFile(tempFile)
+          })
 
-        future.map {_ =>
-          logger.info(logMarker, s"Restored image $imageId from replica bucket $replicaBucket (key: $s3Key)")
-          Redirect(s"${config.kahunaUri}/images/$imageId")
-        }
-
-      case _ =>
-        Future.successful(NotFound("Image not found in replica bucket"))
-    }
+          future.map { _ =>
+            logger.info(logMarker, s"Restored image $imageId from replica bucket $replicaBucket (key: $s3Key)")
+            Redirect(s"${config.kahunaUri}/images/$imageId")
+          }
+        case _ =>
+          Future.successful(NotFound("Image not found in replica bucket"))
+      }
+    }.flatten
   }
 
   // Find this a better home if used more widely
