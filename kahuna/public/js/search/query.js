@@ -149,7 +149,7 @@ query.controller('SearchQueryCtrl', [
     let uType = "standard"; //<-- need to derive this from the user and session???
     let defOptVal = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(uType))[0].split("#")[1];
     let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
-    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: updatePermissionsChips, query: ctrl.filter.query, userType: uType };
+    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: updatePermissionsChips, chargeable: false, query: ctrl.filter.query, userType: uType };
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;

@@ -1,3 +1,10 @@
+.outer-permissions-filters {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  fill: #ccc;
+}
+
 .permissions-dropdown {
   height: 50px;
   padding-right: 0px;

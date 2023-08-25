@@ -1,0 +1,56 @@
+.ts-toggle-container {
+  width: 170px;
+  min-width: 170px;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  fill: #ccc;
+}
+
+.ts-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.ts-toggle-switch input {
+  display: none;
+}
+
+.ts-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 26px;
+}
+
+.ts-slider:before {
+  position: absolute;
+  content: '';
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+.ts-toggle-label {
+  padding-left: 8px;
+  padding-right: 16px;
+}
+
+input:checked + .ts-slider {
+  background-color: #00adee;
+}
+
+input:checked + .ts-slider:before {
+  transform: translateX(20px);
+}

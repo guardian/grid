@@ -2,9 +2,12 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useEffect, useRef, useState } from "react";
-import * as PermisionsConf from "./gr-permissions-filter-config";
+import * as PermissionsConf from "./gr-permissions-filter-config";
 
+import ToggleSwitch from "./gr-toggle-switch";
 import "./gr-permissions-filter.css";
+
+const SHOW_CHARGEABLE:string = "Show Chargeable";
 
 const ChevronIcon = () =>
   <svg fill="inherit" width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -30,6 +33,7 @@ export interface PermissionsDropdownProps {
   options: PermissionsDropdownOption[];
   selectedOption?: PermissionsDropdownOption | null;
   onSelect: (option: PermissionsDropdownOption) => void;
+  chargeable: boolean;
   query?: string | "";
   userType?: string | "standard";
 }
@@ -41,11 +45,12 @@ export interface PermissionsWrapperProps {
 // *** functional react component ***
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
-  const defOptVal:string = PermisionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+  const defOptVal:string = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
   const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
 
   const handleQueryChange = (e: any) => {
@@ -53,7 +58,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
 
-      const permMaps = PermisionsConf.PermissionsMappings();
+      const permMaps = PermissionsConf.PermissionsMappings();
       for(let i=0; i<permMaps.length; i++) {
         if(permMaps[i].query.length > 0 && permMaps[i].query.filter(q => newQuery.includes(q)).length == permMaps[i].query.length) {
           setSelection(options.filter(opt => opt.value == permMaps[i].opt)[0]);
@@ -62,7 +67,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
       }
 
       //-default-
-      let lDefOptVal:string = PermisionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+      let lDefOptVal:string = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
       let lDefPerms:PermissionsDropdownOption = props.options.filter(opt => opt.value == lDefOptVal)[0];
       setSelection(options.filter(opt => opt.value == lDefPerms.value)[0]);
     }
@@ -85,29 +90,32 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   return (
-      <div className="dropdown permissions-dropdown">
-        <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
-          <div className="permissions-selection">
-            <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : 'Select an option')}</div>
-            <div className="permissions-selection-icon">{ChevronIcon()}</div>
-          </div>
-        </button>
-        {isOpen && (
-          <table className="permissions-dropdown-menu">
-            <tbody>
-            {options.map((option) => (
-              <tr className="permissions-dropdown-item" onClick={() => handleOptionClick(option)}>
-                <td className="permissions-dropdown-cell" key={option.value + "tick"}>
-                  {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
-                </td>
-                <td className="permissions-dropdown-cell" key={option.value}>
-                  {option.label}
-                </td>
-              </tr>
-            ))}
-            </tbody>
-          </table>
-        )}
+      <div className="outer-permissions-filters">
+        <ToggleSwitch label={SHOW_CHARGEABLE} chargeable={isChargeable} />
+        <div className="dropdown permissions-dropdown">
+          <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
+            <div className="permissions-selection">
+              <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : 'Select an option')}</div>
+              <div className="permissions-selection-icon">{ChevronIcon()}</div>
+            </div>
+          </button>
+          {isOpen && (
+            <table className="permissions-dropdown-menu">
+              <tbody>
+              {options.map((option) => (
+                <tr className="permissions-dropdown-item" onClick={() => handleOptionClick(option)}>
+                  <td className="permissions-dropdown-cell" key={option.value + "tick"}>
+                    {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
+                  </td>
+                  <td className="permissions-dropdown-cell" key={option.value}>
+                    {option.label}
+                  </td>
+                </tr>
+              ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
   );
 };

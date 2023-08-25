@@ -124,7 +124,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             let permSel = function(permissionsSelection) {
               console.log("Permissions Selection : " + permissionsSelection.label);
             }
-            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: permSel, query: ctrl.filter?ctrl.filter.query:"", userType: uType };
+            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: permSel, chargeable: false, query: ctrl.filter?ctrl.filter.query:"", userType: uType };
             //-end permissions filter-
 
             ctrl.collectionsPanel = panels.collectionsPanel;
