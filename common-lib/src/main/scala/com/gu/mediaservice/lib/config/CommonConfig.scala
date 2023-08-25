@@ -59,7 +59,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
     stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
     stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
-    stringDefault("hosts.authPrefix", s"$rootAppName-auth.")
+    stringDefault("hosts.authPrefix", s"$rootAppName-auth."),
+    stringDefault("hosts.thrallPrefix", s"thrall.$rootAppName.")
   )
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")

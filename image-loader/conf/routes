@@ -1,12 +1,13 @@
 GET     /                                             controllers.ImageLoaderController.index
 POST    /images                                       controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 POST    /imports                                      controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
++nocsrf
+POST    /images/restore                               controllers.ImageLoaderController.restoreFromReplica
 GET     /images/project/:imageId                      controllers.ImageLoaderController.projectImageBy(imageId: String)
 
 # Upload Status
 GET     /uploadStatus/:imageId                        controllers.UploadStatusController.getUploadStatus(imageId: String)
 POST    /uploadStatus/:imageId                        controllers.UploadStatusController.updateUploadStatus(imageId: String)
-
 
 
 # Management

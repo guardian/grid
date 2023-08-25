@@ -11,7 +11,8 @@ case class ServiceHosts(
   usagePrefix: String,
   collectionsPrefix: String,
   leasesPrefix: String,
-  authPrefix: String
+  authPrefix: String,
+  thrallPrefix: String
 )
 
 object ServiceHosts {
@@ -31,7 +32,8 @@ object ServiceHosts {
       usagePrefix = s"$rootAppName-usage.",
       collectionsPrefix = s"$rootAppName-collections.",
       leasesPrefix = s"$rootAppName-leases.",
-      authPrefix = s"$rootAppName-auth."
+      authPrefix = s"$rootAppName-auth.",
+      thrallPrefix = s"thrall.$rootAppName."
     )
   }
 }
@@ -48,6 +50,8 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val leasesHost: String      = s"${hosts.leasesPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val authHost: String        = s"${hosts.authPrefix}$domainRoot"
   val projectionHost: String  = s"${hosts.projectionPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val thrallHost: String      = s"${hosts.thrallPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
@@ -60,6 +64,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val collectionsBaseUri = baseUri(collectionsHost)
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
+  val thrallBaseUri      = baseUri(thrallHost)
 
   val allInternalUris = Seq(
     kahunaBaseUri,
@@ -70,12 +75,13 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
     usageBaseUri,
     collectionsBaseUri,
     leasesBaseUri,
-    authBaseUri
+    authBaseUri,
+    thrallBaseUri
   )
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
-  val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri)
+  val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri) + kahunaBaseUri + apiBaseUri + thrallBaseUri
 
   val redirectUriParam = "redirectUri"
   val redirectUriPlaceholder = s"{?$redirectUriParam}"

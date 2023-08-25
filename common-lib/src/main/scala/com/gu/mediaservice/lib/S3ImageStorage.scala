@@ -43,4 +43,5 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
 		files.foreach(file => client.deleteObject(bucket, file.getKey))
 		logger.info(logMarker, s"Deleting images in folder $id from bucket $bucket")
 	}
+
 }

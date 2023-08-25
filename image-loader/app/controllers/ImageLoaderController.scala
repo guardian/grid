@@ -1,6 +1,9 @@
 package controllers
 
-import java.io.File
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.util.IOUtils
+
+import java.io.{File, FileOutputStream}
 import java.net.URI
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -9,23 +12,28 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
-import com.gu.mediaservice.model.UnsupportedMimeTypeException
+import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import com.gu.scanamo.error.ConditionNotMet
 import lib.FailureResponse.Response
 import lib.{FailureResponse, _}
-import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, QuarantineUploader, StatusType, UploadStatus, UploadStatusRecord, Uploader}
+import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, StatusType, UploadStatus, UploadStatusRecord, Uploader}
 import play.api.libs.json.Json
 import play.api.mvc._
 import model.upload.UploadRequest
 
 import java.time.Instant
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
+import play.api.data.Form
+import play.api.data.Forms._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -242,6 +250,76 @@ class ImageLoaderController(auth: Authentication,
         case Failure(other) => Failure(other)
       }
     }
+  }
+
+  lazy val replicaS3: AmazonS3 = S3Ops.buildS3Client(config, maybeRegionOverride = Some("us-west-1"))
+
+  private case class RestoreFromReplicaForm(imageId: String)
+  def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
+
+    val imageId = Form(
+      mapping(
+        "imageId" -> text
+      )(RestoreFromReplicaForm.apply)(RestoreFromReplicaForm.unapply)
+    ).bindFromRequest.get.imageId
+
+    implicit val logMarker: LogMarker = MarkerMap(
+      "imageId" -> imageId,
+      "requestType" -> "restore-from-replica",
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    )
+
+    Future {
+      config.maybeImageReplicaBucket match {
+        case _ if store.doesOriginalExist(imageId) =>
+          Future.successful(Conflict("Image already exists in main bucket"))
+        case None =>
+          Future.successful(NotImplemented("No replica bucket configured"))
+        case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
+          val s3Key = fileKeyFromId(imageId)
+
+          logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
+
+          val replicaObject = replicaS3.getObject(replicaBucket, s3Key)
+          val metadata = S3FileExtractedMetadata(replicaObject.getObjectMetadata)
+          val stream = replicaObject.getObjectContent
+          val tempFile = createTempFile(s"restoringReplica-$imageId")
+          val fos = new FileOutputStream(tempFile)
+          try {
+            IOUtils.copy(stream, fos)
+          } finally {
+            stream.close()
+          }
+
+          val future = uploader.restoreFile(
+            UploadRequest(
+              imageId,
+              tempFile, // would be nice to stream directly from S3, but followed the existing pattern of temp file
+              mimeType = MimeTypeDetection.guessMimeType(tempFile) match {
+                case Left(unsupported) => throw unsupported
+                case right => right.toOption
+              },
+              metadata.uploadTime,
+              metadata.uploadedBy,
+              metadata.identifiers,
+              UploadInfo(metadata.uploadFileName)
+            ),
+            gridClient,
+            auth.getOnBehalfOfPrincipal(request.user)
+          )
+
+          future.onComplete(_ => Try {
+            deleteTempFile(tempFile)
+          })
+
+          future.map { _ =>
+            logger.info(logMarker, s"Restored image $imageId from replica bucket $replicaBucket (key: $s3Key)")
+            Redirect(s"${config.kahunaUri}/images/$imageId")
+          }
+        case _ =>
+          Future.successful(NotFound("Image not found in replica bucket"))
+      }
+    }.flatten
   }
 
   // Find this a better home if used more widely
