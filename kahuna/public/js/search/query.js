@@ -72,7 +72,7 @@ query.controller('SearchQueryCtrl', [
           return;
         }
 
-        const showPaid = ctrl.usePermissionsFilter ? true : (ctrl.filter.nonFree ? ctrl.filter.nonFree : false);
+        const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
         storage.setJs("isNonFree", showPaid, true);
 
         const myUploadsCheckbox = filter.uploadedByMe;
@@ -99,7 +99,7 @@ query.controller('SearchQueryCtrl', [
 
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = ctrl.usePermissionsFilter ? "true" : (defaultNonFreeFilter.isNonFree ? "true" : undefined);
+          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
           if (newNonFree !== filter.nonFree){
             storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
             storage.setJs("isUploadedByMe", false, true);
@@ -131,7 +131,7 @@ query.controller('SearchQueryCtrl', [
         }
 
         const { nonFree, uploadedByMe } = ctrl.filter;
-        const nonFreeCheck = ctrl.usePermissionsFilter ? "true" : nonFree;
+        const nonFreeCheck = nonFree;
         ctrl.filter.nonFree = nonFreeCheck;
         sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
         $state.go('search.results', filter);
@@ -145,11 +145,23 @@ query.controller('SearchQueryCtrl', [
       ctrl.permissionsCallback = true;
     }
 
+    function chargeableChange (showChargeable) {
+      ctrl.filter.nonFree = showChargeable;
+      watchSearchChange(ctrl.filter);
+      ctrl.permissionsCallback = true;
+    }
+
     let pfOpts = PermissionsConf.PermissionsOptions();
     let uType = "standard"; //<-- need to derive this from the user and session???
-    let defOptVal = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(uType))[0].split("#")[1];
+    let defOptVal = "allPermissions";
     let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
-    ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: updatePermissionsChips, chargeable: false, query: ctrl.filter.query, userType: uType };
+    ctrl.permissionsProps = { options: pfOpts,
+                              selectedOption: pfDefPerm,
+                              onSelect: updatePermissionsChips,
+                              onChargeable: chargeableChange,
+                              chargeable: false,
+                              query: ctrl.filter.query,
+                              userType: uType };
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;

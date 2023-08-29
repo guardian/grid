@@ -10,7 +10,7 @@ declare global {
         permissionsOptions?: string| undefined;
         permissionsLabels?: string | undefined;
         permissionsMappings?: string | undefined;
-        permissionsDefaults?: string | undefined;
+        permissionsDefault?: string | undefined;
         permissionsQueries?: string | undefined;
       }
     }

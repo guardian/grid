@@ -21,7 +21,7 @@ const EmptyIcon = () =>
 
 const TickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="#ccc" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    <polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="#ccc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
   </svg>
 
 export interface PermissionsDropdownOption {
@@ -33,9 +33,9 @@ export interface PermissionsDropdownProps {
   options: PermissionsDropdownOption[];
   selectedOption?: PermissionsDropdownOption | null;
   onSelect: (option: PermissionsDropdownOption) => void;
+  onChargeable: (showChargeable: boolean) => void;
   chargeable: boolean;
   query?: string | "";
-  userType?: string | "standard";
 }
 
 export interface PermissionsWrapperProps {
@@ -45,7 +45,7 @@ export interface PermissionsWrapperProps {
 // *** functional react component ***
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
-  const defOptVal:string = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+  const defOptVal:string = PermissionsConf.PermissionsDefaultOpt();
   const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
@@ -57,17 +57,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     let newQuery = e.detail.query ? (' ' + e.detail.query) : '';
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
-
       const permMaps = PermissionsConf.PermissionsMappings();
       for(let i=0; i<permMaps.length; i++) {
         if(permMaps[i].query.length > 0 && permMaps[i].query.filter(q => newQuery.includes(q)).length == permMaps[i].query.length) {
-          setSelection(options.filter(opt => opt.value == permMaps[i].opt)[0]);
+          let sel = options.filter(opt => opt.value == permMaps[i].opt)[0];
+          setSelection(sel);
           return;
         }
       }
 
       //-default-
-      let lDefOptVal:string = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(props.userType))[0].split("#")[1];
+      let lDefOptVal:string = PermissionsConf.PermissionsDefaultOpt();
       let lDefPerms:PermissionsDropdownOption = props.options.filter(opt => opt.value == lDefOptVal)[0];
       setSelection(options.filter(opt => opt.value == lDefPerms.value)[0]);
     }
@@ -89,9 +89,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     setIsOpen(false);
   };
 
+  useEffect(() => {
+    props.onChargeable(isChargeable);
+  }, [isChargeable]);
+
+  const chargeableChange = () => {
+    setIsChargeable(!isChargeable);
+  }
+
   return (
       <div className="outer-permissions-filters">
-        <ToggleSwitch label={SHOW_CHARGEABLE} chargeable={isChargeable} />
+        <ToggleSwitch label={SHOW_CHARGEABLE} chargeable={isChargeable} chargeableChange = {chargeableChange} />
         <div className="dropdown permissions-dropdown">
           <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
             <div className="permissions-selection">

@@ -22,14 +22,11 @@ const FREE_FOR_NEWS_LABEL:string = "Free for News";
 const USABLE_FOR_ALL_LABEL:string = "Usable for All";
 const ALL_PERMISSIONS_LABEL:string = "All Permissions";
 
-export function PermissionsDefaultOpt():string[] {
-  if(window._clientConfig.permissionsDefaults) {
-    return window._clientConfig.permissionsDefaults.split(",");
+export function PermissionsDefaultOpt():string{
+  if(window._clientConfig.permissionsDefault) {
+    return window._clientConfig.permissionsDefault;
   } else {
-    return [
-      "archivist#" + ALL_PERMISSIONS_OPT,
-      "standard#" + FREE_FOR_NEWS_OPT
-    ];
+    return ALL_PERMISSIONS_OPT;
   }
 }
 
@@ -93,7 +90,7 @@ export function PermissionsMappings():{opt:string, query:string[]}[] {
     let popts = window._clientConfig.permissionsOptions.split(",");
     let pmaps = window._clientConfig.permissionsMappings.split(",");
     for(let i=0; i < popts.length; i++ ) {
-      let qArr: string[] = pmaps[i].split("#").map(q => " " + q);
+      let qArr: string[] = pmaps[i].split("#").map(q => " " + q).filter(q => q.trim() != "");
       let query = {
         opt: popts[i],
         query: qArr

@@ -99,7 +99,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             ctrl.onLogoClick = () => {
                 mediaApi.getSession().then(session => {
-                const showPaid = ctrl.usePermissionsFilter ? true : (session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined);
+                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 const defaultNonFreeFilter = {
                   isDefault: true,
                   isNonFree: showPaid ? showPaid : false
@@ -111,21 +111,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             if ($state.current.name === 'search') {
               mediaApi.getSession().then(session => {
-                const showPaid = ctrl.usePermissionsFilter ? true : (session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined);
+                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 storage.setJs('isNonFree', showPaid, true);
               });
             }
-
-            //-permissions filter-
-            let pfOpts = PermissionsConf.PermissionsOptions();
-            let uType = "standard"; //<-- need to derive this from the user and session???
-            let defOptVal = PermissionsConf.PermissionsDefaultOpt().filter(ut => ut.includes(uType))[0].split("#")[1];
-            let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
-            let permSel = function(permissionsSelection) {
-              console.log("Permissions Selection : " + permissionsSelection.label);
-            }
-            ctrl.permissionsProps = { options: pfOpts, selectedOption: pfDefPerm, onSelect: permSel, chargeable: false, query: ctrl.filter?ctrl.filter.query:"", userType: uType };
-            //-end permissions filter-
 
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;

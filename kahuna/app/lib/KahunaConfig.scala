@@ -44,8 +44,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val permissionsOptions: String = "allPermissions,usableForAll,usableForNews,bbcOwned,independent"
   val permissionsLabels: String = "All Permissions,Usable for All,Usable for News,BBC Owned Programmes,Independent Programmes"
   val permissionsMappings: String = ",is:BBC-owned#-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
-  val permissionsDefaults: String = "archivist#allPermissions,standard#allPermissions"
-  val chargeableDefaults: String = "archivist#true,standard#false"
+  val permissionsDefault: String = "allPermissions"
   val permissionsQueries: String = "is:BBC-owned,-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
