@@ -75,7 +75,7 @@
           useReaper: @kahunaConfig.useReaper.getOrElse(false),
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
-          usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(true),
+          usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(false),
           permissionsOptions: '@kahunaConfig.permissionsOptions',
           permissionsLabels: '@kahunaConfig.permissionsLabels',
           permissionsMappings: '@kahunaConfig.permissionsMappings',
