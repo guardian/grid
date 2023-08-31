@@ -152,16 +152,15 @@ query.controller('SearchQueryCtrl', [
     }
 
     let pfOpts = PermissionsConf.PermissionsOptions();
-    let uType = "standard"; //<-- need to derive this from the user and session???
-    let defOptVal = "allPermissions";
+    let defOptVal = PermissionsConf.PermissionsDefaultOpt;
     let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
     ctrl.permissionsProps = { options: pfOpts,
                               selectedOption: pfDefPerm,
                               onSelect: updatePermissionsChips,
                               onChargeable: chargeableChange,
-                              chargeable: false,
-                              query: ctrl.filter.query,
-                              userType: uType };
+                              chargeable: ctrl.filter.nonFree ? ctrl.filter.nonFree : ($stateParams.nonFree == "true"),
+                              query: ctrl.filter.query
+                            };
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;

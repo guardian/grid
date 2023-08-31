@@ -1,6 +1,5 @@
 .ts-toggle-container {
-  width: 170px;
-  min-width: 170px;
+  min-width: 200px;
   display: flex;
   align-items: center;
   height: 50px;
@@ -10,7 +9,7 @@
 .ts-toggle-switch {
   position: relative;
   display: inline-block;
-  width: 44px;
+  width: 38px;
   height: 24px;
 }
 
@@ -27,24 +26,22 @@
   bottom: 0;
   background-color: #ccc;
   transition: 0.4s;
-  border-radius: 26px;
 }
 
 .ts-slider:before {
   position: absolute;
-  content: '';
+  content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L16.8995 7.10051" stroke="%23000"  stroke-width="2"/><path d="M7 7.00001L16.8995 16.8995" stroke="%23000" stroke-width="2"/></svg>');
   height: 18px;
   width: 18px;
   left: 3px;
   bottom: 3px;
   background-color: white;
   transition: 0.4s;
-  border-radius: 50%;
 }
 
 .ts-toggle-label {
   padding-left: 8px;
-  padding-right: 16px;
+  padding-right: 8px;
 }
 
 input:checked + .ts-slider {
@@ -52,5 +49,6 @@ input:checked + .ts-slider {
 }
 
 input:checked + .ts-slider:before {
-  transform: translateX(20px);
+  transform: translateX(14px);
+  content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="%23000" stroke-width="2"/></svg>');
 }

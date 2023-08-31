@@ -36,8 +36,8 @@
   width: 250px;
   border: 1px solid #ccc;
   border-collapse: collapse;
-  z-index: 0;
   background-color: #333;
+  position: absolute;
 }
 
 .permissions-dropdown-item {

@@ -94,6 +94,15 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
+    const permissionsConfig = stripMargin`
+        |usePermissionsFilter=true
+        |permissionsOptions="allPermissions,usableForAll,usableForNews,bbcOwned,independent"
+        |permissionsLabels="All Permissions,Usable for All,Usable for News,BBC Owned Programmes,Independent Programmes"
+        |permissionsMappings=",is:BBC-owned#-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
+        |permissionsDefault="allPermissions"
+        |permissionsQueries="is:BBC-owned,-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
+    `;
+
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
@@ -108,6 +117,7 @@ function getKahunaConfig(config){
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |metrics.request.enabled=false
+        |${permissionsConfig}
         |${pinboardConfig}
         |`;
 }

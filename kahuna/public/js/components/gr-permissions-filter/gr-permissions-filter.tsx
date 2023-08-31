@@ -4,10 +4,11 @@ import { react2angular } from "react2angular";
 import { useEffect, useRef, useState } from "react";
 import * as PermissionsConf from "./gr-permissions-filter-config";
 
-import ToggleSwitch from "./gr-toggle-switch";
 import "./gr-permissions-filter.css";
+import "./gr-toggle-switch.css";
 
-const SHOW_CHARGEABLE:string = "Show Chargeable";
+const SHOW_CHARGEABLE:string = "Show payable images";
+const SELECT_OPTION:string = "Select an option";
 
 const ChevronIcon = () =>
   <svg fill="inherit" width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -54,7 +55,15 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [selectedOption, setSelection] = useState(defPerms);
 
   const handleQueryChange = (e: any) => {
-    let newQuery = e.detail.query ? (' ' + e.detail.query) : '';
+    let newQuery = e.detail.query ? (" " + e.detail.query) : "";
+
+    //-check chargeable-
+    const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
+    if(logoClick.includes("logoClick")) {
+      setIsChargeable(false);
+      window.sessionStorage.setItem("logoClick", "");
+    }
+
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
       const permMaps = PermissionsConf.PermissionsMappings();
@@ -93,17 +102,16 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     props.onChargeable(isChargeable);
   }, [isChargeable]);
 
-  const chargeableChange = () => {
-    setIsChargeable(!isChargeable);
-  }
+  const handleToggle = () => {
+    setIsChargeable(prevState => !prevState);
+  };
 
   return (
       <div className="outer-permissions-filters">
-        <ToggleSwitch label={SHOW_CHARGEABLE} chargeable={isChargeable} chargeableChange = {chargeableChange} />
         <div className="dropdown permissions-dropdown">
           <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
             <div className="permissions-selection">
-              <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : 'Select an option')}</div>
+              <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
               <div className="permissions-selection-icon">{ChevronIcon()}</div>
             </div>
           </button>
@@ -111,7 +119,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
             <table className="permissions-dropdown-menu">
               <tbody>
               {options.map((option) => (
-                <tr className="permissions-dropdown-item" onClick={() => handleOptionClick(option)}>
+                <tr className="permissions-dropdown-item" key={option.value + "row"} onClick={() => handleOptionClick(option)}>
                   <td className="permissions-dropdown-cell" key={option.value + "tick"}>
                     {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
                   </td>
@@ -123,6 +131,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
               </tbody>
             </table>
           )}
+        </div>
+        <div className="ts-toggle-container">
+          <div className="ts-toggle-label">{SHOW_CHARGEABLE}</div>
+          <label className="ts-toggle-switch">
+            <input type="checkbox" checked={isChargeable} onChange={handleToggle} />
+            <span className="ts-slider"></span>
+          </label>
         </div>
       </div>
   );

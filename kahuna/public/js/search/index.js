@@ -26,7 +26,6 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
-import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
@@ -105,6 +104,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   isNonFree: showPaid ? showPaid : false
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+                storage.setJs("logoClick","logoClick", true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
               });
             };
@@ -311,6 +311,7 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
     $rootScope.$on('$stateChangeSuccess', (_, toState) => {
         if (toState.name === 'search') {
             $state.go('search.results', null, {reload: true});
+          console.log("toParams.nonFree: NOT SET");
         }
     });
     $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
