@@ -111,8 +111,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             if ($state.current.name === 'search') {
               mediaApi.getSession().then(session => {
-                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-                storage.setJs('isNonFree', showPaid, true);
+                storage.setJs('isNonFree', session.user.permissions.showPaid, true);
               });
             }
 
@@ -311,7 +310,6 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
     $rootScope.$on('$stateChangeSuccess', (_, toState) => {
         if (toState.name === 'search') {
             $state.go('search.results', null, {reload: true});
-          console.log("toParams.nonFree: NOT SET");
         }
     });
     $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
