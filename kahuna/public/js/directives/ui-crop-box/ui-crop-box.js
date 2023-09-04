@@ -83,7 +83,7 @@ cropBox.directive('uiCropBox', [
                 if (data.rotate) {
                     cropper.rotate(-data.rotate);
                 }
-              
+
                 previewImg = cropper.getCanvasData();
                 widthRatio = scope.originalWidth / previewImg.naturalWidth;
                 heightRatio = scope.originalHeight / previewImg.naturalHeight;
