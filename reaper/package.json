@@ -1,0 +1,56 @@
+{
+  "name": "reaper",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write \"./**/*.ts\"",
+    "lint": "eslint ./** --ext .ts --no-error-on-unmatched-pattern",
+    "type-check": "tsc --noEmit",
+    "bundle": "esbuild src/index.ts --bundle --minify --outfile=dist/index.js --platform=node --external:aws-sdk --external:@aws-sdk",
+    "watch": "ts-node-dev --respawn run.ts",
+    "build": "run-p --print-label type-check bundle"
+  },
+  "dependencies": {
+    "node-fetch": "3.3.2"
+  },
+  "devDependencies": {
+    "@guardian/eslint-config-typescript": "7.0.0",
+    "@guardian/prettier": "5.0.0",
+    "@types/node": "16.18.48",
+    "@types/node-fetch": "2.6.4",
+    "esbuild": "^0.19.2",
+    "eslint": "^8.48.0",
+    "prettier": "^3.0.2",
+    "source-map-support": "^0.5.20",
+    "ts-node-dev": "^1.0.0",
+    "typescript": "5.1.6",
+    "yarn-run-all": "3.1.1"
+  },
+  "prettier": "@guardian/prettier",
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true,
+      "jest": true
+    },
+    "extends": [
+      "@guardian/eslint-config-typescript"
+    ],
+    "parserOptions": {
+      "ecmaVersion": 2020,
+      "sourceType": "module"
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@typescript-eslint/no-inferrable-types": 0,
+      "import/no-namespace": 2
+    },
+    "ignorePatterns": [
+      "**/*.js",
+      "node_modules",
+      ".eslintrc.js"
+    ]
+  }
+}
