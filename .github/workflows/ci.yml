@@ -3,15 +3,16 @@ on: [pull_request]
 jobs:
   JSBuild:
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        node-version: [16.20.0]
+    permissions:
+      # Allow GitHub to request an OIDC JWT ID token, for exchange with `aws-actions/configure-aws-credentials`
+      # See https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v3.5.0
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3.6.0
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: '.nvmrc'
       - name: Kahuna
         working-directory: ./kahuna
         run: |
@@ -27,11 +28,31 @@ jobs:
         run: |
           npm ci
           npm run build
+      - name: CDK (Infra)
+        working-directory: ./cdk
+        run: |
+          yarn install
+          yarn test
+          yarn synth
       #- name: Reaper
       #  working-directory: ./reaper
       #  run: |
       #    npm install
       #    npm run riffraff-artefact
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
+          aws-region: eu-west-1
+      - name: Upload 'grid-extras' to Riff-Raff
+        uses: guardian/actions-riff-raff@v2
+        with:
+          app: editorial-wires
+          projectName: 'media-service::grid::extras'
+          configPath: cdk/cdk.out/riff-raff.yaml
+          contentDirectories: |
+            cdk.out:
+              - cdk/cdk.out
 
   ScalaBuild:
     runs-on: ubuntu-20.04

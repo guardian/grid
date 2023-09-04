@@ -1,0 +1,10 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`The GridExtras stack matches the snapshot 1`] = `
+{
+  "Metadata": {
+    "gu:cdk:constructs": [],
+    "gu:cdk:version": "TEST",
+  },
+}
+`;
