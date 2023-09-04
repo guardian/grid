@@ -39,6 +39,7 @@ jobs:
         run: |
           yarn install
           yarn build
+          zip grid-reaper.zip dist/index.js --junk-paths
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -53,7 +54,8 @@ jobs:
           contentDirectories: |
             cdk.out:
               - cdk/cdk.out
-
+            grid-reaper:
+              - reaper/grid-reaper.zip
   ScalaBuild:
     runs-on: ubuntu-20.04
     services:
