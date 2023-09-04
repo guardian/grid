@@ -11,9 +11,11 @@
     "build": "run-p --print-label type-check bundle"
   },
   "dependencies": {
-    "node-fetch": "3.3.2"
+    "node-fetch": "2.6.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.405.0",
+    "@aws-sdk/credential-providers": "^3.405.0",
     "@guardian/eslint-config-typescript": "7.0.0",
     "@guardian/prettier": "5.0.0",
     "@types/node": "16.18.48",

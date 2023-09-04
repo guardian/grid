@@ -1,45 +1,86 @@
+import type { Response } from 'node-fetch';
 import fetch from 'node-fetch';
-import {
-	ENV_VAR_BATCH_SIZE,
-	ENV_VAR_MEDIA_API_HOSTNAME,
-	ENV_VAR_MEDIA_API_KEY,
-	getEnvVarOrThrow,
-} from './envVariables';
+import { getBatchSize, getMediaApiHostname, getMediaApiKey } from './util';
+
+type HardDeletedStatuses = Record<
+	string, // media ID
+	{
+		mainImage: true;
+		thumb: true;
+		optimisedPng: true;
+	}
+>;
+
+const parseResponseAs =
+	<T>() =>
+	async (response: Response) => {
+		if (!response.ok) {
+			throw new Error(
+				`Request failed: ${response.status} ${response.statusText}`,
+			);
+		}
+		return (await response.json()) as T;
+	};
 
 export const handler = async () => {
-	const batchSize = getEnvVarOrThrow(ENV_VAR_BATCH_SIZE);
-
-	const mediaApiHostname = getEnvVarOrThrow(ENV_VAR_MEDIA_API_HOSTNAME);
-	const mediaApiImagesBaseUrl = `https://${mediaApiHostname}/images/`;
-
-	const mediaApiKey = getEnvVarOrThrow(ENV_VAR_MEDIA_API_KEY);
+	const batchSize = getBatchSize();
+	const mediaApiImagesBaseUrl = `https://${await getMediaApiHostname()}/images`;
 	const fetchOptions = {
 		headers: {
-			'X-Gu-Media-Key': mediaApiKey,
+			'Content-Type': 'application/json',
+			'X-Gu-Media-Key': await getMediaApiKey(),
 		},
 	};
 
 	const IDsToSoftDelete = await fetch(
-		`${mediaApiImagesBaseUrl}/nextIdsToBeSoftReaped`,
+		`${mediaApiImagesBaseUrl}/nextIdsToBeSoftReaped?size=${batchSize}`,
 		fetchOptions,
-	).then((response) => response.json() as unknown as string[]);
+	).then(parseResponseAs<string[]>());
 	console.log({
 		message: `${IDsToSoftDelete.length} images for soft deletion.`,
 		IDsToSoftDelete,
 	});
 
-	// TODO soft delete media items
+	const softDeleteResponse = await fetch(
+		`${mediaApiImagesBaseUrl}/batchSoftDelete`,
+		{
+			...fetchOptions,
+			method: 'DELETE',
+			body: JSON.stringify(IDsToSoftDelete),
+		},
+	);
+	if (!softDeleteResponse.ok) {
+		throw new Error(
+			`Soft delete failed: ${softDeleteResponse.status} ${softDeleteResponse.statusText}`,
+		);
+	}
+	console.log({ message: 'Soft delete succeeded.', IDsToSoftDelete });
+	// TODO after delay consider ES check of all the IDs to ensure they're soft deleted
 	// TODO log IDs to permanent location
 
 	const IDsToHardDelete: string[] = await fetch(
-		`${mediaApiImagesBaseUrl}/nextIdsToBeHardReaped`,
+		`${mediaApiImagesBaseUrl}/nextIdsToBeHardReaped?size=${batchSize}`,
 		fetchOptions,
-	).then((response) => response.json() as unknown as string[]);
+	).then(parseResponseAs<string[]>());
 	console.log({
 		message: `${IDsToHardDelete.length} images for hard deletion:`,
 		IDsToHardDelete,
 	});
 
-	// TODO hard delete media items
+	const hardDeletedStatuses = await fetch(
+		`${mediaApiImagesBaseUrl}/batchHardDelete`,
+		{
+			...fetchOptions,
+			method: 'DELETE',
+			body: JSON.stringify(IDsToHardDelete),
+		},
+	).then(parseResponseAs<HardDeletedStatuses>());
+	// TODO check for false values in the response
+	console.log({
+		message: 'Hard delete succeeded.',
+		IDsToHardDelete,
+		hardDeletedStatuses,
+	});
+	// TODO after delay consider ES check of all the IDs to ensure they're hard deleted
 	// TODO log IDs to permanent location
 };

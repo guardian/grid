@@ -1,15 +1,9 @@
 import { GuScheduledLambda } from '@guardian/cdk';
 import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
-import {
-	GuStack,
-} from '@guardian/cdk/lib/constructs/core';
+import { GuStack } from '@guardian/cdk/lib/constructs/core';
 import type { App } from 'aws-cdk-lib';
-import {aws_events, aws_lambda, aws_ssm, Duration, SecretValue} from 'aws-cdk-lib';
-import {
-	ENV_VAR_BATCH_SIZE,
-	ENV_VAR_MEDIA_API_HOSTNAME,
-	ENV_VAR_MEDIA_API_KEY,
-} from '../../reaper/src/envVariables';
+import { aws_events, aws_lambda, Duration } from 'aws-cdk-lib';
+import { ENV_VAR_BATCH_SIZE, REAPER_APP_NAME } from '../bin/constants';
 
 const ALARM_SNS_TOPIC_NAME = 'Cloudwatch-Alerts';
 
@@ -20,22 +14,14 @@ export class GridExtras extends GuStack {
 	constructor(scope: App, id: string, props: GridExtrasProps) {
 		super(scope, id, props);
 
-		const reaperApp = 'grid-reaper';
+		const reaperAppName = REAPER_APP_NAME as string;
 		new GuScheduledLambda(this, 'ReaperLambda', {
-			app: reaperApp,
-			functionName: `grid-reaper-lambda-${this.stage}`,
+			app: reaperAppName,
+			functionName: `${reaperAppName}-lambda-${this.stage}`,
 			runtime: aws_lambda.Runtime.NODEJS_16_X, // upgrade when .nvmrc is updated
 			handler: 'index.handler',
 			environment: {
 				[ENV_VAR_BATCH_SIZE]: props.batchSize.toString(),
-				[ENV_VAR_MEDIA_API_HOSTNAME]: aws_ssm.StringParameter.valueForStringParameter(
-          this,
-          `/${this.stage}/${props.stack}/${reaperApp}/mediaApiHostname`
-        ),
-				[ENV_VAR_MEDIA_API_KEY]: SecretValue.ssmSecure(
-          `/${this.stage}/${props.stack}/${reaperApp}/mediaApiKey`,
-
-        ).toString()
 			},
 			monitoringConfiguration: {
 				toleratedErrorPercentage: 0,

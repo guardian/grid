@@ -16,10 +16,6 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
-    "SsmParameterValueTESTmediaservicegridreapermediaApiHostnameC96584B6F00A464EAD1953AFF4B05118Parameter": {
-      "Default": "/TEST/media-service/grid-reaper/mediaApiHostname",
-      "Type": "AWS::SSM::Parameter::Value<String>",
-    },
   },
   "Resources": {
     "ReaperLambda78A3B842": {
@@ -38,10 +34,6 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
           "Variables": {
             "APP": "grid-reaper",
             "BATCH_SIZE": "99",
-            "MEDIA_API_HOSTNAME": {
-              "Ref": "SsmParameterValueTESTmediaservicegridreapermediaApiHostnameC96584B6F00A464EAD1953AFF4B05118Parameter",
-            },
-            "MEDIA_API_KEY": "{{resolve:ssm-secure:/TEST/media-service/grid-reaper/mediaApiKey}}",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
