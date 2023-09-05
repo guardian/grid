@@ -4,6 +4,7 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
 {
   "Metadata": {
     "gu:cdk:constructs": [
+      "GuS3Bucket",
       "GuDistributionBucketParameter",
       "GuScheduledLambda",
       "GuLambdaErrorPercentageAlarm",
@@ -47,7 +48,7 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
             "Arn",
           ],
         },
-        "Runtime": "nodejs16.x",
+        "Runtime": "nodejs18.x",
         "Tags": [
           {
             "Key": "App",
@@ -379,6 +380,43 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
                 ],
               },
             },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ReaperRecordsBucketGridreaper72871029",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ReaperRecordsBucketGridreaper72871029",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
           ],
           "Version": "2012-10-17",
         },
@@ -390,6 +428,45 @@ exports[`The GridExtras stack matches the snapshot 1`] = `
         ],
       },
       "Type": "AWS::IAM::Policy",
+    },
+    "ReaperRecordsBucketGridreaper72871029": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketName": "grid-reaper-records-test",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "grid-reaper",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VersioningConfiguration": {
+          "Status": "Enabled",
+        },
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
     },
   },
 }

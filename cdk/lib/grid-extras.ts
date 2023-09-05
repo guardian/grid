@@ -1,9 +1,14 @@
 import { GuScheduledLambda } from '@guardian/cdk';
 import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
 import { GuStack } from '@guardian/cdk/lib/constructs/core';
+import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
 import { aws_events, aws_lambda, Duration } from 'aws-cdk-lib';
-import { ENV_VAR_BATCH_SIZE, REAPER_APP_NAME } from '../bin/constants';
+import {
+	buildRecordsBucketName,
+	ENV_VAR_BATCH_SIZE,
+	REAPER_APP_NAME,
+} from '../bin/constants';
 
 const ALARM_SNS_TOPIC_NAME = 'Cloudwatch-Alerts';
 
@@ -15,10 +20,15 @@ export class GridExtras extends GuStack {
 		super(scope, id, props);
 
 		const reaperAppName = REAPER_APP_NAME as string;
-		new GuScheduledLambda(this, 'ReaperLambda', {
+		const reaperRecordsBucket = new GuS3Bucket(this, 'ReaperRecordsBucket', {
+			app: reaperAppName,
+			bucketName: buildRecordsBucketName(this.stage),
+			versioned: true,
+		});
+		const reaperLambda = new GuScheduledLambda(this, 'ReaperLambda', {
 			app: reaperAppName,
 			functionName: `${reaperAppName}-lambda-${this.stage}`,
-			runtime: aws_lambda.Runtime.NODEJS_16_X, // upgrade when .nvmrc is updated
+			runtime: aws_lambda.Runtime.NODEJS_18_X,
 			handler: 'index.handler',
 			environment: {
 				[ENV_VAR_BATCH_SIZE]: props.batchSize.toString(),
@@ -38,5 +48,6 @@ export class GridExtras extends GuStack {
 				},
 			],
 		});
+		reaperRecordsBucket.grantReadWrite(reaperLambda);
 	}
 }

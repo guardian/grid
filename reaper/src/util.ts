@@ -1,7 +1,9 @@
+import { S3 } from '@aws-sdk/client-s3';
 import { SSM } from '@aws-sdk/client-ssm';
 import { fromIni, fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
 	AWS_REGION,
+	buildRecordsBucketName,
 	ENV_VAR_BATCH_SIZE,
 	REAPER_APP_NAME,
 	STACK,
@@ -34,9 +36,9 @@ const ssm = new SSM(standardAwsConfig);
 
 const paramStorePromiseGetter =
 	(WithDecryption: boolean) => (nameSuffix: string) => {
-		const Name = `/${stage}/${
-			STACK as string
-		}/${REAPER_APP_NAME}/${nameSuffix}`;
+		const Name = `/${stage}/${STACK as string}/${
+			REAPER_APP_NAME as string
+		}/${nameSuffix}`;
 		return ssm
 			.getParameter({
 				Name,
@@ -56,3 +58,12 @@ export const getMediaApiHostname = () =>
 
 export const getMediaApiKey = () =>
 	paramStorePromiseGetter(true)('mediaApiKey');
+
+const s3 = new S3(standardAwsConfig);
+export const storeRecord = (recordDate: Date, data: object) =>
+	s3.putObject({
+		// eslint-disable-next-line -- bug in type system
+		Bucket: buildRecordsBucketName(stage),
+		Key: `${recordDate.getFullYear()}/${recordDate.getMonth()}/${recordDate.toISOString()}.json`,
+		Body: JSON.stringify(data),
+	});
