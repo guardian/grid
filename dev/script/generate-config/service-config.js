@@ -97,7 +97,7 @@ function getKahunaConfig(config){
     const permissionsConfig = stripMargin`
         |usePermissionsFilter=true
         |permissionsOptions="allPermissions,usableForAll,usableForNews,bbcOwned,independent"
-        |permissionsLabels="All Permissions,Usable for All,Usable for News,BBC Owned Programmes,Independent Programmes"
+        |permissionsLabels="All permissions,Usable for all,Usable for News,BBC owned programmes,Independent programmes"
         |permissionsMappings=",is:BBC-owned#-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
         |permissionsDefault="allPermissions"
         |permissionsQueries="is:BBC-owned,-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"

@@ -1,9 +1,8 @@
 .ts-toggle-container {
-  min-width: 200px;
   display: flex;
   align-items: center;
   height: 50px;
-  fill: #ccc;
+  fill: #666;
 }
 
 .ts-toggle-switch {
@@ -24,7 +23,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #666;
   transition: 0.4s;
 }
 
@@ -45,7 +44,7 @@
 }
 
 input:checked + .ts-slider {
-  background-color: #00adee;
+  background-color: #4eaae8;
 }
 
 input:checked + .ts-slider:before {

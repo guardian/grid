@@ -17,12 +17,12 @@ const ChevronIcon = () =>
 
 const EmptyIcon = () =>
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <rect width="100%" height="100%" fill="none" />
+    <rect width="100%" height="100%" fill="none" stroke="none" />
   </svg>
 
 const TickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="#ccc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+    <polyline fill="none" stroke="inherit" points="3.7 14.3 9.6 19 20.3 5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
   </svg>
 
 export interface PermissionsDropdownOption {
@@ -120,7 +120,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
               <tbody>
               {options.map((option) => (
                 <tr className="permissions-dropdown-item" key={option.value + "row"} onClick={() => handleOptionClick(option)}>
-                  <td className="permissions-dropdown-cell" key={option.value + "tick"}>
+                  <td className="permissions-dropdown-cell-tick" key={option.value + "tick"}>
                     {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
                   </td>
                   <td className="permissions-dropdown-cell" key={option.value}>

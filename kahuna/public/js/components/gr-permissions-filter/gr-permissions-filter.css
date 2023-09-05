@@ -24,7 +24,6 @@
 
 .permissions-selection-label {
   font-size: larger;
-  width: 116px;
 }
 
 .permissions-selection-icon {
@@ -45,10 +44,22 @@
 }
 
 .permissions-dropdown-item:hover {
-  background-color: #00adee;
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
   cursor: pointer;
 }
 
 .permissions-dropdown-cell {
   border: 0px;
+}
+
+.permissions-dropdown-cell-tick {
+  border: 0px;
+  stroke: #ccc;
+  transition: stroke 0.3ms;
+}
+
+.permissions-dropdown-cell-tick:hover {
+  stroke: #fff;
 }
