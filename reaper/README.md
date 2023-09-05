@@ -1,18 +1,17 @@
 # Reaper Lambda
 
-This is a service responsible for deleting old images from the Grid. It is run by the aws lambda `reaper-lambda-function-{stage}` in the media-service account which runs on a scheduled basis.
-The CredentialsConfig module fetches the config settings from the s3 bucket {stage}/reaper/conf.json in media-service.
+This is a service responsible for deleting old images from the Grid and is designed to run on a [frequent] schedule and each invocation...
+- soft delete a batch of images which are `is:reapable` (see https://github.com/guardian/grid/pull/3926)
+- hard delete a batch of images which are `is:reapable` AND have been 'soft deleted' for 2 weeks or more
+...logging the above and storing a permanent record to dedicated (& stage specific) S3 bucket.
 
-The number of pictures to delete and the span of time are set as query params in `index.js`. The frequency of exectution is set in the aws console.
+### Infra (CDK)
 
-### Cloudformation
-
-See [this PR](https://github.com/guardian/grid-infra/pull/306) for the template changes needed to add the lambda to the cloudformation. If changes to the template are made, the new template will need to be uploaded manually to aws for both TEST and PROD environments.
+This lambda (and its bucket) forms part of `grid-extras` stack defined in the [`cdk`](../cdk) directory.
 
 ### Deploying the service
 
-This needs to be deployed as a standalone service in Riff Raff, by selecting the project `media-service::grid::reaper-lambda` and the appropriate stage.
-The package `node-riffraff-artefact` is responsible for building the Riff Raff artifact.
+This lambda is part of the `grid-extras` collection of things and can be deployed via riff-raff under `media-service::grid::extras` and the appropriate stage.
 
 ### Logs
 
