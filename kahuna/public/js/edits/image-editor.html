@@ -279,6 +279,29 @@
             </div>
 
             <div class="result-editor__field-container flex-container flex-center">
+                <span class="result-editor__field-label  flex-no-shrink text-small">
+                    Keywords
+                </span>
+                <div class="result-editor__field-container__keywords" ng-class="{'result-editor__field-container__keywords--hidden' : ctrl.inputtingKeyword}">
+                    <gr-add-label
+                        images="[ctrl.image]"
+                        active="ctrl.inputtingKeyword"
+                        class="result-editor__field-container__add-button">
+                    </gr-add-label>
+                    <ui-list-editor-upload
+                        images="ctrl.imageAsArray"
+                        with-batch="ctrl.withBatch"
+                        add-to-images="ctrl.addKeywordToImages"
+                        remove-from-images="ctrl.removeKeywordFromImages"
+                        accessor="ctrl.keywordAccessor"
+                        query-filter="queryKeywordFilter"
+                        element-name="keyword"
+                        element-name-plural="keywords">
+                    </ui-list-editor-upload>
+                </div>
+            </div>
+
+            <div class="result-editor__field-container flex-container flex-center">
                 <span class="result-editor__field-label flex-no-shrink text-small">
                     Photoshoot
                 </span>

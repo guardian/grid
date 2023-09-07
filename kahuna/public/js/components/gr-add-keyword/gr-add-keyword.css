@@ -1,0 +1,29 @@
+gr-add-keyword{
+  display: flex;
+  height: 25px;
+}
+
+gr-add-keyword:hover {
+  color: white;
+}
+
+gr-add-keyword .small {
+  border: none;
+  padding: 0;
+}
+
+.gr-add-keyword__form {
+  display: flex;
+}
+
+.gr-add-keyword__form__input {
+  width: 150px;
+}
+
+.gr-add-keyword__form__buttons {
+  display: flex;
+}
+
+.gr-add-keyword__form__buttons__button-cancel, .gr-add-keyword__form__buttons__button-save{
+  margin-left: 5px;
+}

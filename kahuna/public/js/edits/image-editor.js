@@ -88,6 +88,11 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.removeLabelFromImages = labelService.batchRemove;
     ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
 
+    //-keywords - TODO - author keyword service and readKeywords
+    ctrl.addKeywordToImages = labelService.batchAdd;
+    ctrl.removeKeywordFromImages = labelService.batchRemove;
+    ctrl.keywordAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
+
     //TODO put collections in their own directive
     ctrl.addCollection = false;
     ctrl.addToCollection = addToCollection;
