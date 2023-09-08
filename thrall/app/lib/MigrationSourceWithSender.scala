@@ -90,16 +90,16 @@ object MigrationSourceWithSender extends GridLogging {
         .filter(_ => es.migrationIsInProgress)
 
     // receive MigrationRequests to migrate from a manual source (failures retry page, single image migration form, etc.)
-    val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000, OverflowStrategy.dropNew)
+    val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000)
     val (manualIdsSourceMat, manualIdsSource) = manualIdsSourceDeclaration.preMaterialize()(materializer)
 
     def submitIdForMigration(request: MigrationRequest) =
-      manualIdsSourceMat.offer(request).map {
+      Future (manualIdsSourceMat.offer(request) match {
         case QueueOfferResult.Enqueued => true
         case _ =>
           logger.warn(s"Failed to add migration message to migration queue: $request")
           false
-      }.recover {
+      }).recover {
         case error: Throwable =>
           logger.error(s"Failed to add migration message to migration queue: $request", error)
           false
@@ -107,7 +107,7 @@ object MigrationSourceWithSender extends GridLogging {
 
     // merge both sources of MigrationRequest
     // priority = true prefers manualIdsSource
-    val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, priority = true)
+    val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, preferred =  true)
 
     // project image from MigrationRequest, produce the MigrateImageMessage
     val projectedImageSource: Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
