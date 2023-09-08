@@ -69,32 +69,32 @@ class ProviderLoaderTest extends AnyFreeSpec with Matchers with EitherValues {
 
     "should successfully load a no arg TestProvider instance" in {
       val instance = TestProviderLoader.loadProvider(classOf[NoArgTestProvider].getCanonicalName, providerResources)
-      instance.right.value.info shouldBe "no-arg-test-provider"
+      instance.value.info shouldBe "no-arg-test-provider"
     }
 
     "should successfully load a companion object TestProvider" in {
       val instance = TestProviderLoader.loadProvider(ObjectTestProvider.getClass.getCanonicalName, providerResources)
-      instance.right.value.info shouldBe s"object-test-provider"
+      instance.value.info shouldBe s"object-test-provider"
     }
 
     "should successfully load a config arg TestProvider instance" in {
       val instance = TestProviderLoader.loadProvider(classOf[ConfigTestProvider].getCanonicalName, providerResources)
-      instance.right.value.info shouldBe s"config-test-provider ${emptyConfig.hashCode}"
+      instance.value.info shouldBe s"config-test-provider ${emptyConfig.hashCode}"
     }
 
     "should successfully load a resource arg TestProvider instance" in {
       val instance = TestProviderLoader.loadProvider(classOf[ResourceTestProvider].getCanonicalName, providerResources)
-      instance.right.value.info shouldBe s"resource-test-provider sausages"
+      instance.value.info shouldBe s"resource-test-provider sausages"
     }
 
     "should successfully load a config, resource arg TestProvider instance" in {
       val instance = TestProviderLoader.loadProvider(classOf[ConfigResourceTestProvider].getCanonicalName, providerResources)
-      instance.right.value.info shouldBe s"config-resource-test-provider ${emptyConfig.hashCode} sausages"
+      instance.value.info shouldBe s"config-resource-test-provider ${emptyConfig.hashCode} sausages"
     }
 
     "should successfully load a resource, config arg TestProvider instance" in {
       val instance = TestProviderLoader.loadProvider(classOf[ResourceConfigTestProvider].getCanonicalName, providerResources)
-      instance.right.value.info shouldBe s"resource-config-test-provider sausages ${emptyConfig.hashCode}"
+      instance.value.info shouldBe s"resource-config-test-provider sausages ${emptyConfig.hashCode}"
     }
 
     "should fail to load something that isn't an TestProvider" in {
