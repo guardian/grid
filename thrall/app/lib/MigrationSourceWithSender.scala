@@ -94,12 +94,12 @@ object MigrationSourceWithSender extends GridLogging {
     val (manualIdsSourceMat, manualIdsSource) = manualIdsSourceDeclaration.preMaterialize()(materializer)
 
     def submitIdForMigration(request: MigrationRequest) =
-      Future (manualIdsSourceMat.offer(request) match {
+      Future (manualIdsSourceMat.offer(request)).map {
         case QueueOfferResult.Enqueued => true
         case _ =>
           logger.warn(s"Failed to add migration message to migration queue: $request")
           false
-      }).recover {
+      }.recover {
         case error: Throwable =>
           logger.error(s"Failed to add migration message to migration queue: $request", error)
           false
