@@ -1,49 +1,86 @@
 import angular from 'angular';
 
-import '../../services/label';
+import '../../services/image-accessor';
+import '../../edits/service';
 import '../../forms/datalist';
 
 import './gr-add-keyword.css';
 import template from './gr-add-keyword.html';
 
 import '../../directives/gr-auto-focus';
+import {overwrite} from "../../util/constants/editOptions";
 
-export var addLabel = angular.module('gr.addLabel', [
-  'kahuna.services.label',
+export var addKeyword = angular.module('gr.addKeyword', [
+  'gr.image.service',
+  'kahuna.edits.service',
   'gr.autoFocus',
   'kahuna.forms.datalist'
 ]);
 
-addLabel.controller('GrAddLabelCtrl', [
-  '$window', '$q', 'labelService', 'mediaApi',
-  function ($window, $q, labelService,  mediaApi) {
+addKeyword.controller('GrAddKeywordCtrl', [
+  '$window', '$scope', '$q', 'imageAccessor', 'editsService',
+  function ($window, $scope, $q, imageAccessor, editsService) {
 
     let ctrl = this;
-
     ctrl.active = false;
+    ctrl.descriptionOption = overwrite.key;
+
+    const updateImages = (images, metadataFieldName, valueFn) => {
+      let uptodateImages = [];
+      images.map((image) => {
+        editsService.batchUpdateMetadataField(
+            [image],
+            metadataFieldName,
+            valueFn(image),
+            ctrl.descriptionOption
+        );
+
+        //-ensure metadata in image is up-to-date-
+        let tmpImages = $scope.$parent.ctrl.imageAsArray.filter(img => img.uri == image.uri);
+        if(tmpImages.length > 0) {
+          let uptodateImage = tmpImages[0];
+          uptodateImage.data.metadata.keywords = valueFn(image);
+          uptodateImages.push(uptodateImage);
+        }
+      });
+
+      return Promise.resolve(uptodateImages);
+    };
+
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX) => {
+      return updateImages(
+        images,
+        metadataFieldName,
+        (image) => {
+          const currentXInImage = accessor(image);
+          return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+        }
+      );
+    }
+
+    ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
+    ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
 
     ctrl.save = () => {
-      let labelList = ctrl.newLabel.split(',').map(e => e.trim());
-      let imageArray = Array.from(ctrl.images);
+      let keywordList = ctrl.newKeyword.split(',').map(e => e.trim());
+      let imageArray = $scope.$parent.ctrl.imageAsArray;
 
-      if (labelList) {
-        save(labelList, imageArray);
+      if (keywordList) {
+        save(keywordList, imageArray);
       }
     };
 
     ctrl.cancel = reset;
 
-    function save(label, imageArray) {
+    function save(keyword, imageArray) {
       ctrl.adding = true;
       ctrl.active = false;
-
-      labelService.batchAdd(imageArray, label)
+      ctrl.addKeywordToImages(imageArray, keyword)
         .then(() => {
           reset();
         })
         .catch(saveFailed)
         .finally(() => ctrl.adding = false);
-
     }
 
     function saveFailed(e) {
@@ -53,43 +90,36 @@ addLabel.controller('GrAddLabelCtrl', [
     }
 
     function reset() {
-      ctrl.newLabel = '';
+      ctrl.newKeyword = '';
       ctrl.active = false;
     }
 
-    ctrl.labelSearch = (q) => {
-      if (! q) {
-        return $q.resolve([]);
-      } else {
-        return mediaApi.labelSearch({q}).then(resource => {
-          return resource.data.map(d => d.key);
-        });
-      }
+    ctrl.keywordSearch = (q) => {
+      return $q.resolve([]);
     };
 
-    ctrl.labelAppend = (currentVal, selectedVal) => {
+    ctrl.keywordAppend = (currentVal, selectedVal) => {
       const beforeLastComma = currentVal.split(/, ?/).slice(0, -1);
       const fullText = beforeLastComma.concat(selectedVal);
       return fullText.join(', ');
     };
 
-    ctrl.selectLastLabel = (value) => {
+    ctrl.selectLastKeyword = (value) => {
       const afterComma = value.split(',').slice(-1)[0].trim();
       return afterComma;
     };
 
   }
-]);
+  ]);
 
-addLabel.directive('grAddLabel', [function () {
+addKeyword.directive('grAddKeyword', [function () {
   return {
     restrict: 'E',
     scope: {
       grSmall: '=?',
-      active: '=?',
-      images: '='
+      active: '=?'
     },
-    controller: 'GrAddLabelCtrl',
+    controller: 'GrAddKeywordCtrl',
     controllerAs: 'ctrl',
     bindToController: true,
     template: template

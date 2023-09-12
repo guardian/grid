@@ -282,22 +282,24 @@
                 <span class="result-editor__field-label  flex-no-shrink text-small">
                     Keywords
                 </span>
-                <div class="result-editor__field-container__keywords" ng-class="{'result-editor__field-container__keywords--hidden' : ctrl.inputtingKeyword}">
-                    <gr-add-label
+                <div class="result-editor__field-container__labels" ng-class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingKeyword}">
+                    <gr-add-keyword
                         images="[ctrl.image]"
                         active="ctrl.inputtingKeyword"
                         class="result-editor__field-container__add-button">
-                    </gr-add-label>
-                    <ui-list-editor-upload
-                        images="ctrl.imageAsArray"
-                        with-batch="ctrl.withBatch"
-                        add-to-images="ctrl.addKeywordToImages"
-                        remove-from-images="ctrl.removeKeywordFromImages"
-                        accessor="ctrl.keywordAccessor"
-                        query-filter="queryKeywordFilter"
-                        element-name="keyword"
-                        element-name-plural="keywords">
-                    </ui-list-editor-upload>
+                    </gr-add-keyword>
+                    <dd class="image-info__pills">
+                        <ui-list-editor-upload
+                            images="ctrl.imageAsArray"
+                            with-batch="ctrl.withBatch"
+                            add-to-images="ctrl.addKeywordToImages"
+                            remove-from-images="ctrl.removeKeywordFromImages"
+                            accessor="ctrl.keywordAccessor"
+                            query-filter="queryKeywordFilter"
+                            element-name="keyword"
+                            element-name-plural="keywords">
+                        </ui-list-editor-upload>
+                    </dd>
                 </div>
             </div>
 

@@ -41,11 +41,18 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
           // If there has been a change in the metadata, save it as an override
           var cleanMetadata = {};
+          let hasKeywords = false;
           Object.keys(ctrl.metadata).forEach(key => {
               if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
                   cleanMetadata[key] = ctrl.metadata[key] || '';
               }
+              if(key === 'keywords') hasKeywords = true;
           });
+
+          //-keep keywords if present and not being updated-
+          if(ctrl.resource.data.keywords && !hasKeywords) {
+              cleanMetadata['keywords'] = ctrl.resource.data.keywords;
+          }
 
           editsService.
               update(ctrl.resource, cleanMetadata, ctrl.image).
@@ -59,6 +66,16 @@ jobs.controller('RequiredMetadataEditorCtrl',
           return mediaApi.metadataSearch(field,  { q }).then(resource => {
               return resource.data.map(d => d.key);
           });
+      };
+
+      ctrl.currentMetadata = () => {
+        let cleanMetadata = {};
+        Object.keys(ctrl.metadata).forEach(key => {
+          if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
+            cleanMetadata[key] = ctrl.metadata[key] || '';
+          }
+        });
+       return cleanMetadata;
       };
 
       $scope.$on('events:metadata-template:template-selected', (e, { metadata } ) => {

@@ -3,9 +3,9 @@
         ng-click="ctrl.active = true"
         ng-disabled="ctrl.adding"
         ng-if="!ctrl.active"
-        gr-tooltip="Add keyword"
+        gr-tooltip="Add keywords"
         gr-tooltip-position="left"
-        aria-label="Add keyword to image">
+        aria-label="Add keywords to image">
 
     <gr-icon ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
@@ -17,7 +17,7 @@
       ng-submit="ctrl.save()">
     <gr-datalist
         class="job-info--editor__input"
-        gr-search="ctrl.labelSearch(q)">
+        gr-search="ctrl.keywordSearch(q)">
 
         <input data-cy="keyword-input"
                type="text"
@@ -25,23 +25,23 @@
                placeholder="keyword1, keyword2, keyword3…"
                gr-datalist-input
                gr-datalist-input-on-cancel="ctrl.cancel()"
-               gr-datalist-input-selector="ctrl.selectLastLabel($value)"
-               gr-datalist-input-updater="ctrl.labelAppend($currentValue, $selectedValue)"
+               gr-datalist-input-selector="ctrl.selectLastKeyword($value)"
+               gr-datalist-input-updater="ctrl.keywordAppend($currentValue, $selectedValue)"
                gr-auto-focus
                required
-               ng-model="ctrl.newLabel"
+               ng-model="ctrl.newKeyword"
                ng-disabled="ctrl.adding" />
     </gr-datalist>
 
-    <span class="gr-add-label__form__buttons">
-        <button class="gr-add-label__form__buttons__button-cancel button-cancel" type="button" ng-click="ctrl.cancel()" title="Close">
+    <span class="gr-add-keyword__form__buttons">
+        <button class="gr-add-keyword__form__buttons__button-cancel button-cancel" type="button" ng-click="ctrl.cancel()" title="Close">
             <gr-icon-label gr-icon="close"><span ng-hide="ctrl.grSmall">Cancel</span></gr-icon-label>
         </button>
         <button
-            data-cy="save-new-label-button"
-            class="gr-add-label__form__buttons__button-save button-save"
+            data-cy="save-new-keyword-button"
+            class="gr-add-keyword__form__buttons__button-save button-save"
             type="submit"
-            title="Save new label"
+            title="Save new keyword"
             ng-disabled="ctrl.adding">
             <gr-icon-label gr-icon="check">
                 <span ng-hide="ctrl.grSmall">Save</span>
@@ -49,4 +49,3 @@
         </button>
     </span>
 </form>
-

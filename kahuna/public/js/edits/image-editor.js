@@ -13,6 +13,7 @@ import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 import '../util/storage';
+import {overwrite} from "../util/constants/editOptions";
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
@@ -56,6 +57,7 @@ imageEditor.controller('ImageEditorCtrl', [
   var ctrl = this;
   ctrl.canUndelete = false;
   ctrl.isDeleted = false;
+
   ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
 
   ctrl.$onInit = () => {
@@ -79,6 +81,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.usageRights = imageService(ctrl.image).usageRights;
     ctrl.invalidReasons = ctrl.image.data.invalidReasons;
     ctrl.systemName = window._clientConfig.systemName;
+    ctrl.descriptionOption = overwrite.key;
 
     ctrl.undelete = undelete;
 
@@ -88,10 +91,41 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.removeLabelFromImages = labelService.batchRemove;
     ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
 
-    //-keywords - TODO - author keyword service and readKeywords
-    ctrl.addKeywordToImages = labelService.batchAdd;
-    ctrl.removeKeywordFromImages = labelService.batchRemove;
-    ctrl.keywordAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
+    const updateImages = (images, metadataFieldName, valueFn) => {
+      images.map((image) => {
+          editsService.batchUpdateMetadataField(
+              [image],
+              metadataFieldName,
+              valueFn(image),
+              ctrl.descriptionOption
+          );
+      });
+      return Promise.resolve(ctrl.imageAsArray);
+    };
+
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX) => {
+      return updateImages(
+          images,
+          metadataFieldName,
+          (image) => {
+              const currentXInImage = accessor(image);
+              return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+          }
+      );
+    }
+
+    const removeXFromImages = (metadataFieldName, accessor) => (images, removedX) => {
+      return updateImages(
+          images,
+          metadataFieldName,
+          (image) => accessor(image)?.filter((x) => x !== removedX) || []
+      );
+    }
+
+    //-keywords -
+    ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
+    ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
+    ctrl.removeKeywordFromImages = removeXFromImages('keywords', ctrl.keywordAccessor);
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;

@@ -1,6 +1,7 @@
 gr-add-keyword{
   display: flex;
   height: 25px;
+  margin-bottom: 2px;
 }
 
 gr-add-keyword:hover {
@@ -17,7 +18,7 @@ gr-add-keyword .small {
 }
 
 .gr-add-keyword__form__input {
-  width: 150px;
+  width: 370px;
 }
 
 .gr-add-keyword__form__buttons {
