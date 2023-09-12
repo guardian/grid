@@ -112,7 +112,7 @@ imageEditor.controller('ImageEditorCtrl', [
               return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
           }
       );
-    }
+    };
 
     const removeXFromImages = (metadataFieldName, accessor) => (images, removedX) => {
       return updateImages(
@@ -120,7 +120,7 @@ imageEditor.controller('ImageEditorCtrl', [
           metadataFieldName,
           (image) => accessor(image)?.filter((x) => x !== removedX) || []
       );
-    }
+    };
 
     //-keywords -
     ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;

@@ -37,7 +37,7 @@ addKeyword.controller('GrAddKeywordCtrl', [
 
         //-ensure metadata in image is up-to-date-
         let tmpImages = $scope.$parent.ctrl.imageAsArray.filter(img => img.uri == image.uri);
-        if(tmpImages.length > 0) {
+        if (tmpImages.length > 0) {
           let uptodateImage = tmpImages[0];
           uptodateImage.data.metadata.keywords = valueFn(image);
           uptodateImages.push(uptodateImage);
@@ -56,7 +56,7 @@ addKeyword.controller('GrAddKeywordCtrl', [
           return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
         }
       );
-    }
+    };
 
     ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
     ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
@@ -95,7 +95,9 @@ addKeyword.controller('GrAddKeywordCtrl', [
     }
 
     ctrl.keywordSearch = (q) => {
-      return $q.resolve([]);
+      //-current search always resolves to empty but retained as possible extension point-
+      let a = q ? [] : [];
+      return $q.resolve(a);
     };
 
     ctrl.keywordAppend = (currentVal, selectedVal) => {
