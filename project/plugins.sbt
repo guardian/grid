@@ -2,7 +2,7 @@ resolvers += "Typesafe repository" at "https://repo.typesafe.com/typesafe/releas
 
 libraryDependencies += "org.vafer" % "jdeb" % "1.3" artifacts (Artifact("jdeb", "jar", "jar"))
 
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.11")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.20")
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 
