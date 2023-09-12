@@ -46,7 +46,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
               if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
                   cleanMetadata[key] = ctrl.metadata[key] || '';
               }
-              if (key === 'keywords') { hasKeywords = true };
+              if (key === 'keywords') { hasKeywords = true; }
           });
 
           //-keep keywords if present and not being updated-
