@@ -270,6 +270,7 @@
                         with-batch="ctrl.withBatch"
                         add-to-images="ctrl.addLabelToImages"
                         remove-from-images="ctrl.removeLabelFromImages"
+                        remove-as-array="false"
                         accessor="ctrl.labelAccessor"
                         query-filter="queryLabelFilter"
                         element-name="label"
@@ -294,8 +295,9 @@
                             with-batch="ctrl.withBatch"
                             add-to-images="ctrl.addKeywordToImages"
                             remove-from-images="ctrl.removeKeywordFromImages"
+                            remove-as-array="true"
                             accessor="ctrl.keywordAccessor"
-                            query-filter="queryKeywordFilter"
+                            query-filter="queryFilter:'keyword'"
                             element-name="keyword"
                             element-name-plural="keywords">
                         </ui-list-editor-upload>

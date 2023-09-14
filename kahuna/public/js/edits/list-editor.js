@@ -61,10 +61,10 @@ listEditor.controller('ListEditorCtrl', [
           $window.alert('Something went wrong when saving, please try again!');
       }
 
-      ctrl.addElements = elements => {
+      ctrl.addElements = (elements, elementName) => {
           ctrl.adding = true;
 
-          ctrl.addToImages(ctrl.images, elements)
+          ctrl.addToImages(ctrl.images, elements, elementName)
               .then(imgs => {
                   updateHandler(imgs);
               })
@@ -78,7 +78,7 @@ listEditor.controller('ListEditorCtrl', [
       ctrl.removeElement = element => {
           ctrl.elementsBeingRemoved.add(element);
 
-          ctrl.removeFromImages(ctrl.images, element)
+          ctrl.removeFromImages(ctrl.images, element, "")
               .then(imgs => {
                   updateHandler(imgs);
               })
@@ -88,8 +88,13 @@ listEditor.controller('ListEditorCtrl', [
               });
       };
 
-      ctrl.removeAll = () => {
-          ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element));
+      ctrl.removeAll = (elementName) => {
+          if (ctrl.removeAsArray || ctrl.removeAsArray === "true") {
+            if (ctrl.plainList.length > 0)
+              ctrl.removeFromImages(ctrl.images, ctrl.plainList, elementName);
+          } else {
+            ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element, elementName));
+          }
       };
 
       ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
@@ -98,14 +103,14 @@ listEditor.controller('ListEditorCtrl', [
       const batchRemoveEvent = 'events:batch-apply:remove-all';
 
       if (Boolean(ctrl.withBatch)) {
-          $scope.$on(batchAddEvent, (e, elements) => ctrl.addElements(elements));
-          $scope.$on(batchRemoveEvent, () => ctrl.removeAll());
+          $scope.$on(batchAddEvent, (e, elements, elementName) => ctrl.addElements(elements, elementName));
+          $scope.$on(batchRemoveEvent, (e, elementName) => ctrl.removeAll(elementName));
 
-          ctrl.batchApply = () => {
+          ctrl.batchApply = (elementName = '') => {
               var elements = ctrl.plainList;
 
               if (elements.length > 0) {
-                  $rootScope.$broadcast(batchAddEvent, elements);
+                  $rootScope.$broadcast(batchAddEvent, elements, elementName);
               } else {
                   ctrl.confirmDelete = true;
 
@@ -115,9 +120,9 @@ listEditor.controller('ListEditorCtrl', [
               }
           };
 
-          ctrl.batchRemove = () => {
+          ctrl.batchRemove = (elementName = '') => {
               ctrl.confirmDelete = false;
-              $rootScope.$broadcast(batchRemoveEvent);
+              $rootScope.$broadcast(batchRemoveEvent, elementName);
           };
       }
 
@@ -137,6 +142,7 @@ listEditor.directive('uiListEditorUpload', [function() {
             withBatch: '=?',
             addToImages: '=',
             removeFromImages: '=',
+            removeAsArray: '=',
             accessor: '=',
             queryFilter: '@',
             elementName: '@',

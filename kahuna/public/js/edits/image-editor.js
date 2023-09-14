@@ -87,42 +87,66 @@ imageEditor.controller('ImageEditorCtrl', [
 
     ctrl.imageAsArray = [ctrl.image];
 
-    ctrl.addLabelToImages = labelService.batchAdd;
-    ctrl.removeLabelFromImages = labelService.batchRemove;
-    ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
-
     const updateImages = (images, metadataFieldName, valueFn) => {
       images.map((image) => {
-          editsService.batchUpdateMetadataField(
-              [image],
-              metadataFieldName,
-              valueFn(image),
-              ctrl.descriptionOption
-          );
+        editsService.batchUpdateMetadataField(
+          [image],
+          metadataFieldName,
+          valueFn(image),
+          ctrl.descriptionOption
+        );
       });
       return Promise.resolve(ctrl.imageAsArray);
     };
 
-    const addXToImages = (metadataFieldName, accessor) => (images, addedX) => {
+    const removeXFromImages = (metadataFieldName, accessor) => (images, removedX, fieldName) => {
+      if (fieldName && fieldName !== metadataFieldName) {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+
+      var removedArr = Array.isArray(removedX) ? removedX : [removedX];
       return updateImages(
-          images,
-          metadataFieldName,
-          (image) => {
-              const currentXInImage = accessor(image);
-              return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
-          }
+        images,
+        metadataFieldName,
+        (image) => accessor(image)?.filter((x) => !removedArr.includes(x)) || []
       );
     };
 
-    const removeXFromImages = (metadataFieldName, accessor) => (images, removedX) => {
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX, fieldName) => {
+      if (fieldName && fieldName !== metadataFieldName) {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+
       return updateImages(
-          images,
-          metadataFieldName,
-          (image) => accessor(image)?.filter((x) => x !== removedX) || []
+        images,
+        metadataFieldName,
+        (image) => {
+          const currentXInImage = accessor(image);
+          return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+        }
       );
     };
 
-    //-keywords -
+    //-labels-
+    function addLabelToImagesFn(images, addedX, fieldName) {
+      if (fieldName && fieldName !== "labels") {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+      return labelService.batchAdd(images, addedX);
+    }
+
+    function  removeLabelFromImagesFn(images, removedX, fieldName) {
+      if (fieldName && fieldName !== "labels") {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+      return labelService.batchRemove(images, removedX);
+    }
+
+    ctrl.addLabelToImages = addLabelToImagesFn;
+    ctrl.removeLabelFromImages = removeLabelFromImagesFn;
+    ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
+
+    //-keywords-
     ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
     ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
     ctrl.removeKeywordFromImages = removeXFromImages('keywords', ctrl.keywordAccessor);
