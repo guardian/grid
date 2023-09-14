@@ -90,8 +90,9 @@ listEditor.controller('ListEditorCtrl', [
 
       ctrl.removeAll = (elementName) => {
           if (ctrl.removeAsArray || ctrl.removeAsArray === "true") {
-            if (ctrl.plainList.length > 0)
+            if (ctrl.plainList.length > 0) {
               ctrl.removeFromImages(ctrl.images, ctrl.plainList, elementName);
+            }
           } else {
             ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element, elementName));
           }
