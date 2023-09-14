@@ -8,8 +8,6 @@
     final -->
     <!-- We use $parent.editing here as ng-if creates it's own child scope -->
     <div class="flex-container collections-panel-heading text-small" ng-if="! ctrl.error">
-        <div class="flex-spacer">Collections</div>
-
         <button data-cy="edit-collections-button"
                 ng-class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
                 ng-click="$parent.editing = !$parent.editing"
