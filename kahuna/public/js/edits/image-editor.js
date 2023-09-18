@@ -112,7 +112,7 @@ imageEditor.controller('ImageEditorCtrl', [
       );
     };
 
-    const addXToImages = (metadataFieldName, accessor) => (images, addedX, fieldName) => {
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX, fieldName, removedElements = []) => {
       if (fieldName && fieldName !== metadataFieldName) {
         return Promise.resolve(ctrl.imageAsArray);
       }
@@ -122,15 +122,21 @@ imageEditor.controller('ImageEditorCtrl', [
         metadataFieldName,
         (image) => {
           const currentXInImage = accessor(image);
-          return currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+          let tempElements = currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+          tempElements = tempElements.filter(e => !removedElements.includes(e));
+          return tempElements;
         }
       );
     };
 
     //-labels-
-    function addLabelToImagesFn(images, addedX, fieldName) {
+    function addLabelToImagesFn(images, addedX, fieldName, removedElements = []) {
       if (fieldName && fieldName !== "labels") {
         return Promise.resolve(ctrl.imageAsArray);
+      }
+
+      if (removedElements.length > 0) {
+          removedElements.forEach(element => labelService.batchRemove(images, element));
       }
       return labelService.batchAdd(images, addedX);
     }

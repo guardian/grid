@@ -55,16 +55,27 @@ listEditor.controller('ListEditorCtrl', [
 
       ctrl.listWithOccurrences = retrieveElementsWithOccurrences(ctrl.images);
       ctrl.plainList = ctrl.listWithOccurrences.map(x => x.data);
+      ctrl.imageRemovedElements = [];
 
       function saveFailed(e) {
           console.error(e);
           $window.alert('Something went wrong when saving, please try again!');
       }
 
-      ctrl.addElements = (elements, elementName) => {
+      ctrl.addElements = (elements, elementName, removedElements, originatingImage) => {
           ctrl.adding = true;
 
-          ctrl.addToImages(ctrl.images, elements, elementName)
+          //-clear removed list-
+          let ctrlElementName = ctrl.elementNamePlural ? ctrl.elementNamePlural : ctrl.elementName;
+          if (removedElements.length > 0 && ctrlElementName === elementName) {
+            ctrl.images.forEach(img => {
+              if (img.uri === originatingImage) {
+                ctrl.imageRemovedElements = [];
+              }
+            });
+          }
+
+          ctrl.addToImages(ctrl.images, elements, elementName, removedElements)
               .then(imgs => {
                   updateHandler(imgs);
               })
@@ -77,6 +88,9 @@ listEditor.controller('ListEditorCtrl', [
       ctrl.elementsBeingRemoved = new Set();
       ctrl.removeElement = element => {
           ctrl.elementsBeingRemoved.add(element);
+
+          //-track removed elements from list-
+          ctrl.imageRemovedElements.push(element);
 
           ctrl.removeFromImages(ctrl.images, element, "")
               .then(imgs => {
@@ -104,14 +118,17 @@ listEditor.controller('ListEditorCtrl', [
       const batchRemoveEvent = 'events:batch-apply:remove-all';
 
       if (Boolean(ctrl.withBatch)) {
-          $scope.$on(batchAddEvent, (e, elements, elementName) => ctrl.addElements(elements, elementName));
+          $scope.$on(batchAddEvent, (e, elements, elementName, removedElements, originatingImage) =>
+            ctrl.addElements(elements, elementName, removedElements, originatingImage));
           $scope.$on(batchRemoveEvent, (e, elementName) => ctrl.removeAll(elementName));
 
           ctrl.batchApply = (elementName = '') => {
               var elements = ctrl.plainList;
+              var removedElements = ctrl.imageRemovedElements;
+              var imageUri = ctrl.images[0].uri;
 
               if (elements.length > 0) {
-                  $rootScope.$broadcast(batchAddEvent, elements, elementName);
+                  $rootScope.$broadcast(batchAddEvent, elements, elementName, removedElements, imageUri);
               } else {
                   ctrl.confirmDelete = true;
 
