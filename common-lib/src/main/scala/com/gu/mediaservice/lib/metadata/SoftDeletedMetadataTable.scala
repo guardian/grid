@@ -19,6 +19,10 @@ class SoftDeletedMetadataTable(config: CommonConfig) extends DynamoDB[ImageStatu
     ScanamoAsync.exec(client)(softDeletedMetadataTable.put(imageStatus))
   }
 
+  def setStatuses(imageStatuses: Set[ImageStatusRecord])(implicit ex: ExecutionContext) = {
+    ScanamoAsync.exec(client)(softDeletedMetadataTable.putAll(imageStatuses))
+  }
+
   def updateStatus(imageId: String, isDeleted: Boolean)(implicit ex: ExecutionContext) = {
     val updateExpression = set('isDeleted -> isDeleted)
     ScanamoAsync.exec(client)(

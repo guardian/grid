@@ -26,6 +26,10 @@ POST    /previewMigrationCompletion                   controllers.ThrallControll
 +nocsrf
 POST    /unPreviewMigrationCompletion                 controllers.ThrallController.unPreviewMigrationCompletion
 
+# reaper
+DELETE /doBatchSoftReap                               controllers.ReaperController.doBatchSoftReap(count: Int)
+DELETE /doBatchHardReap                               controllers.ReaperController.doBatchHardReap(count: Int)
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest

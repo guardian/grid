@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib
 
+import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteException}
+
 import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
@@ -8,6 +10,8 @@ import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
 
 import scala.concurrent.Future
+
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
 object ImageIngestOperations {
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
@@ -42,9 +46,29 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
       overwrite = true)
 
+  private def bulkDelete(bucket: String, keys: Seq[String]): Future[Map[String, Boolean]] = Future {
+    try {
+      client.deleteObjects(
+        new DeleteObjectsRequest(bucket).withKeys(keys: _*)
+      )
+      keys.map { key =>
+        key -> true
+      }.toMap
+    } catch {
+      case partialFailure: MultiObjectDeleteException =>
+        // FIXME log partial failure
+        keys.map { key =>
+          key -> partialFailure.getErrors.asScala.map(_.getKey).toList.contains(key)
+        }.toMap
+    }
+  }
+
   def deleteOriginal(id: String)(implicit logMarker: LogMarker): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
+  def deleteOriginals(ids: Set[String]) = bulkDelete(imageBucket, ids.map(fileKeyFromId).toSeq)
   def deleteThumbnail(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
-  def deletePng(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
+  def deleteThumbnails(ids: Set[String]) = bulkDelete(thumbnailBucket, ids.map(fileKeyFromId).toSeq)
+  def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
+  def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toSeq)
 
   def doesOriginalExist(id: String): Boolean =
     client.doesObjectExist(imageBucket, fileKeyFromId(id))
