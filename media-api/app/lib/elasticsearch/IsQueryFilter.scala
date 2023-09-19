@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.{ReapableEligibility, filters}
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -67,25 +68,6 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   )
 }
 
-case class IsReapable(persistedRootCollections: List[String], persistenceIdentifier: String) extends IsQueryFilter {
-  val moreThanTwentyDaysOld = filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
-
-  val persistedQueries = filters.or(
-    PersistedQueries.hasCrops,
-    PersistedQueries.usedInContent,
-    PersistedQueries.addedToLibrary,
-    PersistedQueries.hasUserEditsToImageMetadata,
-    PersistedQueries.hasPhotographerUsageRights,
-    PersistedQueries.hasIllustratorUsageRights,
-    PersistedQueries.hasAgencyCommissionedUsageRights,
-    PersistedQueries.addedToPhotoshoot,
-    PersistedQueries.hasLabels,
-    PersistedQueries.hasLeases,
-    PersistedQueries.existedPreGrid(persistenceIdentifier),
-    PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedRootCollections)
-  )
-  override def query: Query = filters.and(
-    moreThanTwentyDaysOld,
-    filters.not(persistedQueries)
-  )
+case class IsReapable(persistedRootCollections: List[String], persistenceIdentifier: String)
+  extends IsQueryFilter with ReapableEligibility {
 }

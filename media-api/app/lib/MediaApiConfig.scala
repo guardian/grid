@@ -47,16 +47,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val requiredMetadata = List("credit", "description", "usageRights")
 
-  val persistenceIdentifier = string("persistence.identifier")
-  val queriableIdentifiers = Seq(persistenceIdentifier)
-
-  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
-    case Some(collections) => collections.split(',').toList
-    case None => List(s"${staffPhotographerOrganisation} Archive")
-  }
-
-  def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
-
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten

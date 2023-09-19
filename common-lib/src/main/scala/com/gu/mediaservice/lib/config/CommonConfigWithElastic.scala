@@ -14,4 +14,12 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
     shards = string("es6.shards").toInt,
     replicas = string("es6.replicas").toInt
   )
+
+  val persistenceIdentifier = string("persistence.identifier")
+  val queriableIdentifiers = Seq(persistenceIdentifier)
+
+  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
+    case Some(collections) => collections.split(',').toList
+    case None => List(s"${staffPhotographerOrganisation} Archive")
+  }
 }
