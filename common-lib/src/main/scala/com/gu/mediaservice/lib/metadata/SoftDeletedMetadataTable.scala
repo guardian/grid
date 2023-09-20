@@ -1,13 +1,14 @@
-package lib
+package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.ImageStatusRecord
 import com.gu.scanamo._
 import com.gu.scanamo.syntax._
 
 import scala.concurrent.ExecutionContext
 
-class SoftDeletedMetadataTable(config: MediaApiConfig) extends DynamoDB[ImageStatusRecord](config, config.softDeletedMetadataTable) {
+class SoftDeletedMetadataTable(config: CommonConfig) extends DynamoDB[ImageStatusRecord](config, config.softDeletedMetadataTable) {
   private val softDeletedMetadataTable = Table[ImageStatusRecord](table.getTableName)
 
   def getStatus(imageId: String)(implicit ex: ExecutionContext) = {
