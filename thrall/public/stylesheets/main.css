@@ -17,6 +17,11 @@ td, th {
 
 body {
   margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  margin: 0 10px;
 }
 
 .sticky {

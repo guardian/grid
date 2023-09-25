@@ -153,4 +153,40 @@ class ReaperController(
     }.toMap).map(Json.toJson(_))
   }
 
+  private val recentRecordsToDisplay = (2.days / INTERVAL).toInt
+  def index = withLoginRedirect { config.maybeReaperBucket match {
+    case None => NotImplemented("Reaper bucket not configured")
+    case Some(reaperBucket) =>
+      val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
+      val recentSoftRecords = store.client.listObjects(reaperBucket, "soft/")
+        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
+      val recentHardRecords = store.client.listObjects(reaperBucket, "hard/")
+        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
+      val recentRecordKeys = (recentSoftRecords ++ recentHardRecords).sortBy(_.getLastModified).reverse.map(_.getKey)
+
+      Ok(views.html.reaper(isPaused, INTERVAL.toString(), recentRecordKeys))
+  }}
+
+  def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
+    case None => NotImplemented("Reaper bucket not configured")
+    case Some(reaperBucket) =>
+      Ok(
+        store.client.getObjectAsString(reaperBucket, key)
+      ).as(JSON)
+  }}
+
+  def pauseReaper = auth { config.maybeReaperBucket match {
+    case None => NotImplemented("Reaper bucket not configured")
+    case Some(reaperBucket) =>
+      store.client.putObject(reaperBucket, CONTROL_FILE_NAME, "")
+      Redirect(routes.ReaperController.index)
+  }}
+
+  def resumeReaper = auth { config.maybeReaperBucket match {
+    case None => NotImplemented("Reaper bucket not configured")
+    case Some(reaperBucket) =>
+      store.client.deleteObject(reaperBucket, CONTROL_FILE_NAME)
+      Redirect(routes.ReaperController.index)
+  }}
+
 }
