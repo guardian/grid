@@ -110,7 +110,7 @@ class ReaperController(
     (for {
       idsSoftDeletedInES: Set[String] <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy))
       if idsSoftDeletedInES.nonEmpty
-      dynamoStatuses <- softDeletedMetadataTable.setStatuses(idsSoftDeletedInES.map(
+      idsNotProcessedInDynamo <- softDeletedMetadataTable.setStatuses(idsSoftDeletedInES.map(
         ImageStatusRecord(
           _,
           deletedBy,
@@ -120,7 +120,8 @@ class ReaperController(
       ))
     } yield idsSoftDeletedInES.map { id =>
       val detail = Map(
-        "dynamo" -> !dynamoStatuses.exists(_.getUnprocessedItems.values().asScala.exists(_.asScala.exists(_.getPutRequest.getItem.get("id").getS == id))),
+        "ES" -> true,
+        "dynamo.softDelete.metadata" -> !idsNotProcessedInDynamo.contains(id)
       )
       logger.info(s"Soft deleted image $id : $detail")
       id -> detail
@@ -141,12 +142,14 @@ class ReaperController(
       mainImagesS3Deletions <- store.deleteOriginals(idsHardDeletedFromES)
       thumbsS3Deletions <- store.deleteThumbnails(idsHardDeletedFromES)
       pngsS3Deletions <- store.deletePNGs(idsHardDeletedFromES)
+      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(idsHardDeletedFromES)
     } yield idsHardDeletedFromES.map { id =>
       val detail = Map(
         "ES" -> Some(true), // since this is list of IDs deleted from ES
         "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
         "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-        "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id))
+        "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
+        "dynamo" -> Some(!idsNotProcessedInDynamo.contains(id)),
       )
       logger.info(s"Hard deleted image $id : $detail")
       id -> detail
