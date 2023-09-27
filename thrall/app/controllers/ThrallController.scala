@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, UpsertFromProjectionMessage}
 import lib.elasticsearch.ElasticSearch
-import lib.{MigrationRequest, OptionalFutureRunner, Paging}
+import lib.{MigrationRequest, OptionalFutureRunner, Paging, ThrallStore}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -26,6 +26,7 @@ case class MigrateSingleImageForm(id: String)
 
 class ThrallController(
   es: ElasticSearch,
+  store: ThrallStore,
   sendMigrationRequest: MigrationRequest => Future[Boolean],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
@@ -67,11 +68,12 @@ class ThrallController(
 
   def upsertProjectPage(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
     imageId match {
-      case Some(id) =>
+      case Some(id) if store.doesOriginalExist(id) =>
         gridClient.getProjectionDiff(id, auth.innerServiceCall).map {
           case None => NotFound("couldn't generate projection for that image!!")
           case Some(diff) => Ok(views.html.previewUpsertProject(id, Json.prettyPrint(diff)))
         }
+      case Some(_) => Future.successful(Redirect(routes.ThrallController.restoreFromReplica))
       case None => Future.successful(Ok(views.html.upsertProject()))
     }
   }
@@ -240,6 +242,10 @@ class ThrallController(
         Ok(s"upsert request for $imageId submitted")
       case None => NotFound("")
     }}
+  }
+
+  def restoreFromReplica: Action[AnyContent] = withLoginRedirect {implicit request =>
+    Ok(views.html.restoreFromReplica(s"${services.loaderBaseUri}/images/restore")) //FIXME figure out imageId bit
   }
 
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>

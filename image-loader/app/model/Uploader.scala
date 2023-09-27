@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
 
 import java.io.File
@@ -28,6 +29,7 @@ import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
 import play.api.libs.json.{JsObject, Json}
+import play.api.libs.ws.WSRequest
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -386,6 +388,21 @@ class Uploader(val store: ImageLoaderStore,
     }
 
   }
+
+  def restoreFile(uploadRequest: UploadRequest,
+                  gridClient: GridClient,
+                  onBehalfOfFn: WSRequest => WSRequest)
+                 (implicit ec: ExecutionContext,
+                  logMarker: LogMarker): Future[Unit] = for {
+    imageUpload <- fromUploadRequest(uploadRequest)
+    imageWithoutUserEdits = imageUpload.image
+    imageWithUserEditsApplied <- ImageDataMerger.aggregate(imageWithoutUserEdits, gridClient, onBehalfOfFn)
+    _ <- Future {
+      notifications.publish(
+        UpdateMessage(subject = Image, image = Some(imageWithUserEditsApplied))
+      )
+    }
+  } yield ()
 
 }
 

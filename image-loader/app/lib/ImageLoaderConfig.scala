@@ -12,6 +12,8 @@ import scala.concurrent.duration.FiniteDuration
 class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources) with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
+  val maybeImageReplicaBucket: Option[String] = stringOpt("s3.image.replicaBucket")
+
   val thumbnailBucket: String = string("s3.thumb.bucket")
   val quarantineBucket: Option[String] = stringOpt("s3.quarantine.bucket")
   val uploadToQuarantineEnabled: Boolean = boolean("upload.quarantine.enabled")
@@ -23,7 +25,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
 
   val rootUri: String = services.loaderBaseUri
   val apiUri: String = services.apiBaseUri
-  val loginUriTemplate: String = services.loginUriTemplate
+  val kahunaUri: String = services.kahunaBaseUri
 
   val transcodedMimeTypes: List[MimeType] = getStringSet("transcoded.mime.types").toList.map(MimeType(_))
   val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes

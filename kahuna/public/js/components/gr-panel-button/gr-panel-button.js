@@ -66,6 +66,7 @@ panelButton.directive('grPanelButtonSmall', [function() {
             panel: '=grPanel',
             position: '@grPosition',
             name: '@grName',
+            label: '@grLabel',
             icon: '@grIcon'
         }
     };
