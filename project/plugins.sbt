@@ -8,7 +8,7 @@ addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0")
 
 addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "1.1.18")
 
-addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3")
+addSbtPlugin("io.get-coursier" % "sbt-coursier" % "2.1.1")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.10")
 
