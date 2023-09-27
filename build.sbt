@@ -119,7 +119,7 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+    "com.typesafe.play" %% "play-json-joda" % "2.9.4",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.20",
