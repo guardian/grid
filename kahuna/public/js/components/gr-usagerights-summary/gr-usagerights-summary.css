@@ -1,0 +1,10 @@
+.usage-rights-summary-table {
+  border: 0px;
+  width: auto;
+}
+
+.usage-rights-summary-cell {
+  padding-right: 8px;
+  padding-left: 0;
+  border: 0;
+}

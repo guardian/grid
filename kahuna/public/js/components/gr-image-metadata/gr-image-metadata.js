@@ -12,13 +12,15 @@ import { editOptions, overwrite } from '../../util/constants/editOptions';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
+import '../gr-usagerights-summary/gr-usagerights-summary';
 import { List } from 'immutable';
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
     'gr.descriptionWarning',
-    'util.storage'
+    'util.storage',
+    'gr.usageRightsSummary'
 ]);
 
 module.controller('grImageMetadataCtrl', [
@@ -234,7 +236,6 @@ module.controller('grImageMetadataCtrl', [
       function updateSingleImage() {
         // Alias for convenience in view
         ctrl.identifiers = ctrl.singleImage.data.identifiers;
-        console.log(ctrl);
 
         ctrl.additionalMetadata = Object.fromEntries(
           Object.entries(ctrl.singleImage.data.aliases)
@@ -344,6 +345,13 @@ module.controller('grImageMetadataCtrl', [
       }
 
       function selectedUsageRights() {
+        //--image selection change  event--
+        const customEvent = new CustomEvent('imageSelectionChange', {
+          detail: {images: ctrl.selectedImages},
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+
         return ctrl.selectedImages.map(image => {
           return {
             image: image,

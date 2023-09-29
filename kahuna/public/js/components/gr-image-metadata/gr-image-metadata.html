@@ -28,6 +28,10 @@
 
             <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
                 {{ctrl.usageCategory || 'None'}}
+                <usage-rights-summary
+                    class="usage-rights-summary"
+                    props="ctrl.selectedImages">
+                </usage-rights-summary>
             </dd>
 
             <button
