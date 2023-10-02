@@ -27,13 +27,16 @@ const UsableForAllIcon = () =>
 
 const payableClause = (image: any) : boolean => {
   return (image.data.cost &&
-          image.data.cost.toString().toLowerCase() === "pay") ;
+          image.data.cost.toString().toLowerCase() === "pay");
 }
 
 const usableForNewsClause = (image: any) : boolean => {
-  return (image.data.usageRights &&
+  let isAgency =  (image.data.usageRights &&
           image.data.usageRights.category &&
           image.data.usageRights.category.toString().toLowerCase() === "agency");
+  let isPayable = (image.data.cost &&
+          image.data.cost.toString().toLowerCase() === "pay");
+  return (isAgency && !isPayable);
 }
 
 const usableForAllClause = (image: any) : boolean => {
