@@ -17,3 +17,40 @@ When the correct cert to send is ambiguous, NGINX simply sends the first cert it
 which is loaded from config files in alphabetical order.
 
 To resolve this problem, prefix your grid config filename with `0-`.
+
+## Domain name bucket size
+If you have multiple projects configured to use nginx to run locally, you may need to increase the [server_names_hash](http://nginx.org/en/docs/http/server_names.html) value in the nginx configuration file.
+
+If you have this issue, you should a message in this format in the terminal when running `dev-nginx restart` (and as part of the output for the start script). This does not prevent the start script from running the server, but opening https://media.local.dev-gutools.co.uk may give you a security error as nginx will fail to provide the correct cerificate for the subdomain.
+
+```bash
+nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size: 64
+```
+
+Note that the error above is telling you the **current** value not the **recommeneded** value. The sizes increase in powers of two, so you will most likely need to double the value shown in the warning (IE set to 128 is the current value is 64).
+
+The configuration file will typically be at:
+/usr/local/etc/nginx/nginx.conf
+
+If not, run `dev-nginx locate` to get the path to your nginx folder.
+
+To update the value, find the "http" section in the conf file. If there is a line specifing `server_names_hash_bucket_size`, double the current value, if not, add the following line (using the appropriate number: 128 is used below) at the top of the http block
+`server_names_hash_bucket_size 128;`
+
+
+example:
+
+```conf
+http {
+    server_names_hash_bucket_size 128; # line to add or change
+    include       mime.types;
+    default_type  application/octet-stream;
+    ...
+
+    server {
+      listen       8080;
+      server_name  localhost;
+      ...
+    }
+}
+```
