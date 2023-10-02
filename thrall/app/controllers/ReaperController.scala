@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.model.{ImageStatusRecord, SoftDeletedMetadata}
-import lib.{ThrallConfig, ThrallStore}
+import lib.{ThrallConfig, ThrallMetrics, ThrallStore}
 import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
@@ -27,6 +27,7 @@ class ReaperController(
   config: ThrallConfig,
   scheduler: Scheduler,
   softDeletedMetadataTable: SoftDeletedMetadataTable,
+  metrics: ThrallMetrics,
   override val auth: Authentication,
   override val services: Services,
   override val controllerComponents: ControllerComponents,
@@ -118,14 +119,17 @@ class ReaperController(
           isDeleted = true
         )
       ))
-    } yield idsSoftDeletedInES.map { id =>
-      val detail = Map(
-        "ES" -> true,
-        "dynamo.softDelete.metadata" -> !idsNotProcessedInDynamo.contains(id)
-      )
-      logger.info(s"Soft deleted image $id : $detail")
-      id -> detail
-    }.toMap).map(Json.toJson(_))
+    } yield {
+      metrics.softReaped.increment(n = idsSoftDeletedInES.size).run
+      idsSoftDeletedInES.map { id =>
+        val detail = Map(
+          "ES" -> true,
+          "dynamo.softDelete.metadata" -> !idsNotProcessedInDynamo.contains(id)
+        )
+        logger.info(s"Soft deleted image $id : $detail")
+        id -> detail
+      }.toMap
+    }).map(Json.toJson(_))
   }
 
 
@@ -143,17 +147,20 @@ class ReaperController(
       thumbsS3Deletions <- store.deleteThumbnails(idsHardDeletedFromES)
       pngsS3Deletions <- store.deletePNGs(idsHardDeletedFromES)
       idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(idsHardDeletedFromES)
-    } yield idsHardDeletedFromES.map { id =>
-      val detail = Map(
-        "ES" -> Some(true), // since this is list of IDs deleted from ES
-        "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-        "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-        "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
-        "dynamo" -> Some(!idsNotProcessedInDynamo.contains(id)),
-      )
-      logger.info(s"Hard deleted image $id : $detail")
-      id -> detail
-    }.toMap).map(Json.toJson(_))
+    } yield {
+      metrics.hardReaped.increment(n = idsHardDeletedFromES.size).run
+      idsHardDeletedFromES.map { id =>
+        val detail = Map(
+          "ES" -> Some(true), // since this is list of IDs deleted from ES
+          "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+          "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
+          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
+          "dynamo" -> Some(!idsNotProcessedInDynamo.contains(id)),
+        )
+        logger.info(s"Hard deleted image $id : $detail")
+        id -> detail
+      }.toMap
+    }).map(Json.toJson(_))
   }
 
   private val recentRecordsToDisplay = (2.days / INTERVAL).toInt

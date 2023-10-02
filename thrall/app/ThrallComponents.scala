@@ -86,7 +86,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
 
   val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
-  val reaperController = new ReaperController(es, store, authorisation, config, actorSystem.scheduler, softDeletedMetadataTable, auth, config.services, controllerComponents)
+  val reaperController = new ReaperController(es, store, authorisation, config, actorSystem.scheduler, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
