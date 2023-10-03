@@ -1,6 +1,6 @@
 <div class="fill-height flex-container"
      ng-class="{ 'flex-container--rtl': ctrl.position == 'right' }">
-    <button class="button-ico-square clickable"
+    <button class="button-ico-square clickable side-padded"
             type="button"
             ng-if="!ctrl.state.hidden"
             ng-click="ctrl.hidePanel()"
@@ -10,10 +10,11 @@
             gr-track-click="{{:: ctrl.trackingName}}"
             gr-track-click-data="ctrl.trackingData('Hide panel')"
             aria-label="Hide {{ctrl.name}} panel">
-        <gr-icon>{{ctrl.icon}}</gr-icon>
+        <gr-icon style="margin-bottom: 2.5px;">{{ctrl.icon}}</gr-icon>
+        <span class="icon-label">{{ctrl.label}}</span>
     </button>
 
-    <button class="button-ico-square clickable"
+    <button class="button-ico-square clickable side-padded"
             type="button"
             ng-if="ctrl.state.hidden"
             ng-click="ctrl.showPanel()"
@@ -22,11 +23,12 @@
             gr-track-click="{{:: ctrl.trackingName}}"
             gr-track-click-data="ctrl.trackingData('Show panel')"
             aria-label="Show {{ctrl.name}} panel">
-        <gr-icon>{{ctrl.icon}}</gr-icon>
+        <gr-icon style="margin-bottom: 2.5px;">{{ctrl.icon}}</gr-icon>
+        <span class="icon-label">{{ctrl.label}}</span>
     </button>
 
     <div ng-if="!ctrl.state.hidden">
-        <button class="button-ico-square clickable"
+        <button class="button-ico-square clickable side-padded"
                 type="button"
                 ng-if="!ctrl.state.locked"
                 ng-click="ctrl.lockPanel()"
@@ -35,7 +37,7 @@
                 aria-label="Lock {{ctrl.name}} panel">
             <gr-icon>lock_open</gr-icon>
         </button>
-        <button class="button-ico-square clickable"
+        <button class="button-ico-square clickable side-padded"
                 type="button"
                 ng-if="ctrl.state.locked"
                 ng-click="ctrl.unlockPanel()"
