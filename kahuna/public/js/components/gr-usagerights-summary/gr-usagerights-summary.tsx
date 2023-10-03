@@ -16,13 +16,19 @@ export interface usageRightsSummaryInt {
 //-- can be extended or modified by org--
 const usageRightsOptions: usageRightsSummaryInt[] = grUsagerightsBbc;
 
+interface UsageRightsProps {
+  images: any[];
+  category: string;
+}
+
 export interface UsageRightsWrapperProps {
-  props: any[];
+  props: UsageRightsProps;
 }
 const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
   const [options, setOptions] = useState(new Array<usageRightsSummaryInt>());
   const [mixed, setMixed] = useState(false);
-  const [images, setImages] = useState(props);
+  const [images, setImages] = useState(props.images);
+  const [category, setCategory] = useState(props.category);
 
   const handleImageChange = (e: any) => {
     setImages(e.detail.images);
@@ -84,6 +90,8 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
   }, [images]);
 
   return (<div>
+    { category || 'None'}
+    <div className="supplier-PA_AutoIngest source-PA" title="PA_AutoIngest"></div>
     {!mixed && (
       <table className="usage-rights-summary-table">
         <tbody>

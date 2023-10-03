@@ -28,9 +28,10 @@
 
             <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
                 {{ctrl.usageCategory || 'None'}}
+                <div class="supplier-PA_AutoIngest source-PA" title="PA_AutoIngest"></div>
                 <usage-rights-summary
                     class="usage-rights-summary"
-                    props="ctrl.selectedImages">
+                    props="{'images':ctrl.selectedImages, 'category':ctrl.usageCategory}">
                 </usage-rights-summary>
             </dd>
 
