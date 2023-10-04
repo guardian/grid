@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 import AWS from "aws-sdk"
 import { readConfig } from "./lib/EnvironmentConfig"
-import { getTableNameFromPrefix } from "./lib/Dynamo"
+import { getTableNameFromPrefix, scanTable } from "./lib/Dynamo"
+import { exit } from "process"
 
 const envConfig = readConfig()
 
@@ -44,6 +45,11 @@ const ddb = configureAndCreateDynamo()
 // access the test table for now -  could parameterise and/or use config to set this
 const TEST_TABLE_PREFIX = "media-service-TEST-UploadStatusDynamoTable"
 
-getTableNameFromPrefix(ddb, TEST_TABLE_PREFIX).then((r) => {
-  console.log("result", r)
-})
+const logResults = async () => {
+  const tableName = await getTableNameFromPrefix(ddb, TEST_TABLE_PREFIX)
+  const results = await scanTable(ddb, tableName, 10)
+  console.log(`items in ${TEST_TABLE_PREFIX}`)
+  console.log(results)
+}
+
+logResults().finally(exit)
