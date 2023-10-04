@@ -56,6 +56,7 @@ jobs:
         with:
           java-version: '8'
           distribution: 'corretto'
+          cache: 'sbt'
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
