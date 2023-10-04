@@ -56,9 +56,10 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
       }.toMap
     } catch {
       case partialFailure: MultiObjectDeleteException =>
-        // FIXME log partial failure
+        logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
+        val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
         keys.map { key =>
-          key -> partialFailure.getErrors.asScala.map(_.getKey).toList.contains(key)
+          key -> !errorKeys.contains(key)
         }.toMap
     }
   }
