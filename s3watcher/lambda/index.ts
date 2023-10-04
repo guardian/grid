@@ -52,6 +52,13 @@ function isFailure(item: Failure | void): item is Failure {
 const processEvent = async function(action: ImportAction): Promise<void> {
   const ingestConfigString: string = await readIngestConfig(s3, action)
   const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
+
+
+  // will the ingest queue need the id of the "queued" record on updateUpLoadStatusDynamoDB?
+  // if so, need to do that first.
+  // do we need to account for failures to write to the ingest queue?
+  // if it fails, could delete the "queued" record
+
   // TO DO - instead of transferring to the image using the fetchUrl derived from the action,
   // need to place a message on the ingest queue for the image with s3 url for the image
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
