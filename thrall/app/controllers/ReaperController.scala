@@ -40,7 +40,7 @@ class ReaperController(
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
-  private def getIsReapable = new ReapableEligibility {
+  private val isReapable = new ReapableEligibility {
     override val persistedRootCollections: List[String] = config.persistedRootCollections
     override val persistenceIdentifier: String = config.persistenceIdentifier
   }
@@ -63,18 +63,18 @@ class ReaperController(
             logger.warn(s"Reaper is reaping at maximum rate of 1000 images per $INTERVAL. If this persists, the INTERVAL will need to become more frequent.")
           }
 
-          val isReapable = getIsReapable
+          val deletedBy = "reaper"
 
           Future.sequence(Seq(
-            doBatchSoftReap(countOfImagesToReap, deletedBy = "reaper", isReapable),
-            doBatchHardReap(countOfImagesToReap, deletedBy = "reaper", isReapable)
+            doBatchSoftReap(countOfImagesToReap, deletedBy),
+            doBatchHardReap(countOfImagesToReap, deletedBy)
           ))
         }
       }
     }
   }
 
-  private def batchDeleteWrapper(count: Int)(func: (Int, String, ReapableEligibility) => Future[JsValue]) = auth.async { request =>
+  private def batchDeleteWrapper(count: Int)(func: (Int, String) => Future[JsValue]) = auth.async { request =>
     if (!authorisation.hasPermissionTo(DeleteImage)(request.user)) {
       Future.successful(Forbidden)
     }
@@ -84,8 +84,7 @@ class ReaperController(
     else {
       func(
         count,
-        request.user.accessor.identity,
-        getIsReapable
+        request.user.accessor.identity
       ).map(Ok(_))
     }
   }
@@ -102,7 +101,7 @@ class ReaperController(
 
   def doBatchSoftReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchSoftReap)
 
-  def doBatchSoftReap(count: Int, deletedBy: String, isReapable: ReapableEligibility): Future[JsValue] = persistedBatchDeleteOperation("soft"){
+  def doBatchSoftReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("soft"){
 
     logger.info(s"Soft deleting next $count images...")
 
@@ -136,7 +135,7 @@ class ReaperController(
 
   def doBatchHardReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchHardReap)
 
-  def doBatchHardReap(count: Int, deletedBy: String, isReapable: ReapableEligibility): Future[JsValue] = persistedBatchDeleteOperation("hard"){
+  def doBatchHardReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("hard"){
 
     logger.info(s"Hard deleting next $count images...")
 
