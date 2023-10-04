@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
-import controllers.{AssetsComponents, HealthCheck, ThrallController}
+import controllers.{AssetsComponents, HealthCheck, ThrallController, UploadQueueController}
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
@@ -85,6 +85,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
+  val uploadQueueController = new UploadQueueController(controllerComponents)
 
-  override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management, InnerServiceStatusCheckController, assets)
+  override lazy val router = new Routes(httpErrorHandler, thrallController, uploadQueueController, healthCheckController, management, InnerServiceStatusCheckController, assets)
 }
