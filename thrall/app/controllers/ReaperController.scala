@@ -36,7 +36,8 @@ class ReaperController(
   private val CONTROL_FILE_NAME = "PAUSED"
 
   private val INTERVAL = 15 minutes // based on max of 1000 per reap, this interval will max out at 96,000 images per day
-  private val REAPS_PER_WEEK = 7.days / INTERVAL
+  private val ONE_WEEK = 7 days
+  private val REAPS_PER_WEEK = ONE_WEEK / INTERVAL
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
@@ -53,7 +54,7 @@ class ReaperController(
       if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
         logger.info("Reaper is paused")
       } else {
-        es.countImagesIngestedInLast(7 days)(DateTime.now(DateTimeZone.UTC)).flatMap { imagesIngestedInLast7Days =>
+        es.countImagesIngestedInLast(ONE_WEEK)(DateTime.now(DateTimeZone.UTC)).flatMap { imagesIngestedInLast7Days =>
 
           val imagesIngestedPer15Mins = imagesIngestedInLast7Days / REAPS_PER_WEEK
 
