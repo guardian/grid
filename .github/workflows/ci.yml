@@ -15,6 +15,8 @@ jobs:
         # Wait for elasticsearch to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
         options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
+        ports:
+          - 9200:9200
       localstack:
         image: localstack/localstack:0.11.0
         env:
@@ -43,14 +45,21 @@ jobs:
           npm run undist
           npm test
           npm run dist
-      - name: SBT
-        uses: ./.github/actions/sbt
-        env:
-          USE_DOCKER_FOR_TESTS: false
-          ES6_TEST_URL: http://elasticsearch:9200
-          LOCALSTACK_ENDPOINT: http://localstack:4566
+      - name: install image libs needed for tests
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install graphicsmagick
+          sudo apt-get -y install graphicsmagick-imagemagick-compat
+          sudo apt-get -y install exiftool
+      - name: Setup Java
+        uses: actions/setup-java@v3
         with:
-          args: clean compile Test/compile test Debian/packageBin
+          java-version: '8'
+          distribution: 'corretto'
+      - name: SBT
+        env:
+          USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
+        run: sbt clean compile Test/compile test Debian/packageBin
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
