@@ -26,6 +26,12 @@ POST    /previewMigrationCompletion                   controllers.ThrallControll
 +nocsrf
 POST    /unPreviewMigrationCompletion                 controllers.ThrallController.unPreviewMigrationCompletion
 
+# TO DO - add route to output the status of the upload queue
+# may not be needed in production, but useful for testing
+# UploadQueue
+# GET     /upload-queue/                                            controllers.***.***
+
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
