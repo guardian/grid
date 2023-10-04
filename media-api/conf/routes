@@ -44,5 +44,10 @@ GET     /management/manifest                                        com.gu.media
 GET     /management/imageCounts                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
 GET     /management/whoAmI                                          com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
+# TO DO - add route to output the status of the upload queue
+# may not be needed in production, but useful for testing
+# UploadQueue
+# GET     /upload-queue/                                            controllers.***.***
+
 # Shoo robots away
 GET     /robots.txt                                                 com.gu.mediaservice.lib.management.Management.disallowRobots

@@ -22,7 +22,9 @@ case class UploadStatus(status: StatusType, errorMessage: Option[String])
 object UploadStatus {
   implicit val formats: Format[UploadStatus] = Json.format[UploadStatus]
 }
-
+// TO DO - will need to add a "QUEUED" status here for files added to the upload queue
+// by the s3Watcher, but not yet processed by image-loader yet.
+// Don't think we need any infastrucure changes on the DB as dynamo is NOSQL
 sealed trait StatusType { def name: String }
 object StatusType {
   case object Pending extends StatusType { val name = "PENDING" }

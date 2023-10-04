@@ -253,6 +253,12 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+# TO DO - add definition for UploadQueue - either kinesis or SQS
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
+# if SQS - do we need a deadletter queue resource for items in the queue never picked up by
+# image loader? there there woudl be a 'queued' record in UploadStatusTable, but that doesn't include
+# the url from the ingest bucket (currently)
+
 Outputs:
   ImageBucket:
     Value: !Ref 'ImageBucket'

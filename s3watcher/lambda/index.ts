@@ -33,6 +33,14 @@ AWS.config.update({
 const s3 = new AWS.S3(awsConfig)
 const cloudwatch = new AWS.CloudWatch(awsConfig)
 
+// will need a dynamo instance to access UploadStatusTable
+// const dynamoDB = new AWS.DynamoDB(awsConfig)
+
+// will need kinesis or sqs interface for the uploadQueue
+// const uploadQueue - new AWS.SQS(awsConfig)
+// const uploadQueue - new AWS.Kinesis(awsConfig)
+
+
 interface Failure {
   error: any // eslint-disable-line @typescript-eslint/no-explicit-any
   event: ImportAction
@@ -44,7 +52,16 @@ function isFailure(item: Failure | void): item is Failure {
 const processEvent = async function(action: ImportAction): Promise<void> {
   const ingestConfigString: string = await readIngestConfig(s3, action)
   const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
+  // TO DO - instead of transferring to the image using the fetchUrl derived from the action,
+  // need to place a message on the ingest queue for the image with s3 url for the image
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
+  // await addToQueue(logger, s3, uploadQueue, action, ingestConfig)
+
+  // For successful messages, also need to write a record with "queued" status to DynamoDB table
+  // wouldn't need any conditions to test if updateUpLoadStatusDynamoDB passed before running updateUpLoadStatusDynamoDB
+  // if the addToQueue function throws errors on failure
+  // await updateUpLoadStatusDynamoDB(logger, s3, dynamoDB, action, ingestConfig)
+
   logger.info("Completed processing import action")
 }
 
