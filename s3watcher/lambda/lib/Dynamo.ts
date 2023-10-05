@@ -2,13 +2,13 @@
 import { DynamoDB } from "aws-sdk"
 import { Condition } from "aws-sdk/clients/dynamodb"
 
-type UploadStatusTableRecord = DynamoDB.AttributeMap & {
+export type UploadStatusTableRecord = DynamoDB.AttributeMap & {
+  id: { S: string }
+  status: { S: "Queued" | "Pending" | "Completed" | "Failed" }
   fileName?: { S: string }
   expires?: { N: string }
   uploadedBy?: { S: string }
-  status: { S: "Queued" | "Pending" | "Completed" | "Failed" }
   uploadTime?: { S: string }
-  id: { S: string }
 }
 
 const getRecordIdString = (record: UploadStatusTableRecord): string => {

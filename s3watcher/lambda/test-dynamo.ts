@@ -2,6 +2,7 @@
 import AWS from "aws-sdk"
 import { readConfig } from "./lib/EnvironmentConfig"
 import {
+  UploadStatusTableRecord,
   createQueuedUploadRecord,
   getTableNameFromPrefix,
   insertNewRecord,
@@ -75,14 +76,7 @@ const logAllRecords = async () => {
   console.log(results)
 }
 
-const putInARecord = async () => {
-  const id = "123456789"
-
-  const recordToPut = createQueuedUploadRecord(
-    id,
-    "picture to queue.tiff",
-    new Date("2030-01-01").valueOf()
-  )
+const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
   console.log(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
   const tableName = await getTableNameFromPrefix(ddb, TABLE_PREFIX)
 
@@ -94,10 +88,15 @@ const putInARecord = async () => {
   } else {
     console.log (`failed to create record ${output.id}: ${output.error}`)
   }
-
 }
 
-putInARecord()
+const recordToPut = createQueuedUploadRecord(
+  '1234',
+  "picture to queue.tiff",
+  new Date("2030-01-01").valueOf()
+)
+
+putInARecord(recordToPut)
   .then(logAllRecords)
   .catch((err) => {
     console.log(err)
