@@ -157,7 +157,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test,
-    "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    "com.google.protobuf" % "protobuf-java" % "3.24.4"
   )
 )
 
@@ -167,7 +167,7 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-aws" % "0.7",
     "io.reactivex" %% "rxscala" % "0.26.5",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    "com.google.protobuf" % "protobuf-java" % "3.24.4"
   )
 )
 
