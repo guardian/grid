@@ -30,8 +30,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cloudFrontPrivateKeyBucketKey: Option[String] = stringOpt("cloudfront.private-key.key")
   val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 
- lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
-
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val cropperUri: String = services.cropperBaseUri
