@@ -24,7 +24,6 @@ const configureAndCreateDynamoWithLocalStackOnDev = () => {
         // code: 'NetworkingError',
         // Error: unable to verify the first certificate
         endpoint: "http://localhost:4566",
-        s3ForcePathStyle: true,
       }
     : undefined
 
@@ -77,17 +76,20 @@ const logAllRecords = async () => {
 }
 
 const putInARecord = async () => {
+  const id = "1234"
+
   const recordToPut = createQueuedUploadRecord(
-    "picture that needs to be queued.tiff",
+    id,
+    "picture to queue.tiff",
     new Date("2030-01-01").valueOf()
   )
   console.log(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
   const tableName = await getTableNameFromPrefix(ddb, TABLE_PREFIX)
 
   console.log(` >>> putting a record in  "${tableName}"...`)
-  const id = await putRecord(ddb, tableName, recordToPut)
+  const output = await putRecord(ddb, tableName, recordToPut)
 
-  console.log(`record created`, { id })
+  console.log(`record created`, { output })
 }
 
 putInARecord()

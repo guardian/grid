@@ -8,7 +8,7 @@ type UploadStatusTableRecord = DynamoDB.AttributeMap & {
   uploadedBy?: { S: string }
   status: { S: "Queued" | "Pending" | "Completed" | "Failed" }
   uploadTime?: { S: string }
-  id?: { S: string }
+  id: { S: string }
 }
 
 const getRecordIdString = (
@@ -80,6 +80,7 @@ export const scanTable = async (
 
 /** construct a record object that can be put in dynamo table */
 export const createQueuedUploadRecord = (
+  id: string,
   fileName: string,
   expires: number
 ): UploadStatusTableRecord => {
@@ -87,6 +88,7 @@ export const createQueuedUploadRecord = (
     fileName: { S: fileName },
     expires: { N: expires.toString() },
     status: { S: "Queued" },
+    id: { S: id },
   }
 }
 
@@ -95,20 +97,16 @@ export const putRecord = async (
   ddb: DynamoDB,
   tableName: string,
   record: UploadStatusTableRecord
-): Promise<string> => {
+): Promise<DynamoDB.PutItemOutput> => {
   const output = await ddb
     .putItem({
       TableName: tableName,
       Item: record,
       ReturnValues: "ALL_OLD",
+      ReturnItemCollectionMetrics: "SIZE",
+      ReturnConsumedCapacity: "",
     })
     .promise()
 
-  const id = getRecordIdString(output.Attributes)
-  if (!id) {
-    console.log("putRecord", { output })
-    throw new Error("output did not return an id")
-  }
-
-  return id
+  return output
 }
