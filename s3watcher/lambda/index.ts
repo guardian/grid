@@ -60,6 +60,7 @@ const processEvent = async function(action: ImportAction): Promise<void> {
   // QUESTION: will the ingest queue need the id of the "queued" record on updateUpLoadStatusDynamoDB?
   // how do we generate the id? (look at how this is currently done)
 
+  // common-lib/src/main/scala/com/gu/mediaservice/lib/collections/CollectionsManager.scala
 
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
 
