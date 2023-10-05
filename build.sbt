@@ -139,7 +139,7 @@ lazy val leases = playProject("leases", 9012)
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
-    "org.parboiled" %% "parboiled" % "2.1.5",
+    "org.parboiled" %% "parboiled" % "2.1.8",
     "org.http4s" %% "http4s-core" % "0.23.23",
     "com.softwaremill.quicklens" %% "quicklens" % "1.4.13",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.9" % Test,
