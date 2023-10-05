@@ -22,25 +22,43 @@ const getRecordId = (
   return record["id"]?.S
 }
 
+// get the name of the Dynamo table starting with the prefix, throws errors is there is
+// not exactly one match
 export const getTableNameFromPrefix = async (
   ddb: DynamoDB,
   tableNamePrefix: string
 ): Promise<string> => {
+  // Can only use ExclusiveStartTableName - if the prefix is the whole name,
+  // listTables would return the name AFTER it
+  const prefixWithoutLastCharacter = tableNamePrefix.substring(
+    0,
+    tableNamePrefix.length - 1
+  )
+
   const data = await ddb
     .listTables({
-      Limit: 1,
-      ExclusiveStartTableName: tableNamePrefix,
+      Limit: 56 + 10 + 1,
+      ExclusiveStartTableName: prefixWithoutLastCharacter,
     })
     .promise()
 
-  const firstName = data.LastEvaluatedTableName
-  if (!firstName) {
+  if (!data.TableNames) {
     throw new Error("no results")
   }
-  if (!firstName.startsWith(tableNamePrefix)) {
-    throw new Error("no results matching prefix")
+
+  const matches = data.TableNames.filter(name => name.startsWith(tableNamePrefix))
+
+  if (matches.length > 1) {
+    throw new Error(`got ${matches.length} possible matches: ${matches.join()}`)
   }
-  return firstName
+
+  const [firstMatch] = matches
+
+  if (!firstMatch) {
+    throw new Error("no matches")
+  }
+
+  return firstMatch
 }
 
 export const scanTable = async (
@@ -91,7 +109,7 @@ export const putRecord = async (
 
   const id = getRecordId(output.Attributes)
   if (!id) {
-    console.log('putRecord output with no id')
+    console.log("putRecord output with no id")
     console.log(output)
     throw new Error("output did not return an id")
   }
