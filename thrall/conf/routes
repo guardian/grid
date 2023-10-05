@@ -26,10 +26,6 @@ POST    /previewMigrationCompletion                   controllers.ThrallControll
 +nocsrf
 POST    /unPreviewMigrationCompletion                 controllers.ThrallController.unPreviewMigrationCompletion
 
-# UploadQueue
-GET     /upload-queue                                 controllers.UploadQueueController.reportAll
-
-
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
