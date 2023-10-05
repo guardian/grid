@@ -9,19 +9,18 @@ import {
   scanTable,
 } from "./lib/Dynamo"
 import { exit } from "process"
+import { createLogger } from "./lib/Logging"
 
 const envConfig = readConfig()
+const logger = createLogger({})
 
 const awsConfig = envConfig.isDev
   ? {
       accessKeyId: "test",
       secretAccessKey: "test",
       region: envConfig.region,
-      // running locally need to use localhost, not the proxy
-      // error using  https://localstack.media.local.dev-gutools.co.uk was:
-      // code: 'NetworkingError',
-      // Error: unable to verify the first certificate
-      endpoint: "http://localhost:4566",
+      endpoint: "https://localstack.media.local.dev-gutools.co.uk",
+      s3ForcePathStyle: true,
     }
   : undefined
 
@@ -32,6 +31,11 @@ AWS.config.update({
 const ddb = new AWS.DynamoDB({
   ...awsConfig,
   apiVersion: "2012-08-10",
+  // running locally need to use localhost, not the proxy
+  // error using  https://localstack.media.local.dev-gutools.co.uk was:
+  // code: 'NetworkingError',
+  // Error: unable to verify the first certificate
+  endpoint: envConfig.isDev ? "http://localhost:4566" : undefined,
 })
 
 // Table name is not the same formatin localstack as in AWS
@@ -42,25 +46,27 @@ const TABLE_PREFIX = envConfig.isDev
   : "media-service-TEST-UploadStatusDynamoTable"
 
 const logAllRecords = async () => {
-  console.log(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
+  logger.info(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
   const tableName = await getTableNameFromPrefix(ddb, TABLE_PREFIX)
-  console.log(` >>> scanning table ${tableName}...`)
+  logger.info(` >>> scanning table ${tableName}...`)
   const results = await scanTable(ddb, tableName, 10)
-  console.log(` >>> ${results?.length || 0} items in ${TABLE_PREFIX}:`)
+  logger.info(` >>> ${results?.length || 0} items in ${TABLE_PREFIX}:`)
   console.log(results)
 }
 
+//TO DO - put the logger in the transaction functions
+
 const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
-  console.log(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
+  logger.info(` >>> looking up table name beginning with "${TABLE_PREFIX}"...`)
   const tableName = await getTableNameFromPrefix(ddb, TABLE_PREFIX)
 
-  console.log(` >>> putting a record in  "${tableName}"...`)
+  logger.info(` >>> putting a record in  "${tableName}"...`)
   const output = await insertNewRecord(ddb, tableName, recordToPut)
 
   if (output.ok) {
-    console.log(`successfully created record ${output.id}`)
+    logger.info(`successfully created record ${output.id}`)
   } else {
-    console.log(`failed to create record ${output.id}: ${output.error}`)
+    logger.info(`failed to create record ${output.id}: ${output.error}`)
   }
 }
 
@@ -78,6 +84,6 @@ const recordToPut = createQueuedUploadRecord(
 putInARecord(recordToPut)
   .then(logAllRecords)
   .catch((err) => {
-    console.log(err)
+    console.warn(err)
   })
   .finally(exit)
