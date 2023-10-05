@@ -4,7 +4,7 @@ import { readConfig } from "./lib/EnvironmentConfig"
 import {
   createQueuedUploadRecord,
   getTableNameFromPrefix,
-  putRecord,
+  insertNewRecord,
   scanTable,
 } from "./lib/Dynamo"
 import { exit } from "process"
@@ -76,7 +76,7 @@ const logAllRecords = async () => {
 }
 
 const putInARecord = async () => {
-  const id = "1234"
+  const id = "123456789"
 
   const recordToPut = createQueuedUploadRecord(
     id,
@@ -87,9 +87,14 @@ const putInARecord = async () => {
   const tableName = await getTableNameFromPrefix(ddb, TABLE_PREFIX)
 
   console.log(` >>> putting a record in  "${tableName}"...`)
-  const output = await putRecord(ddb, tableName, recordToPut)
+  const output = await insertNewRecord(ddb, tableName, recordToPut)
 
-  console.log(`record created`, { output })
+  if (output.ok) {
+    console.log (`successfully created record ${output.id}`)
+  } else {
+    console.log (`failed to create record ${output.id}: ${output.error}`)
+  }
+
 }
 
 putInARecord()
