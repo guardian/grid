@@ -1,16 +1,16 @@
 resolvers += "Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/"
 
-libraryDependencies += "org.vafer" % "jdeb" % "1.10" artifacts (Artifact("jdeb", "jar", "jar"))
+libraryDependencies += "org.vafer" % "jdeb" % "1.3" artifacts (Artifact("jdeb", "jar", "jar"))
 
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.20")
 
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 
-addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "1.1.18")
+addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "1.1.9")
 
-addSbtPlugin("io.get-coursier" % "sbt-coursier" % "2.1.1")
+addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3")
 
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.10")
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.9")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-digest" % "1.1.4")
 
