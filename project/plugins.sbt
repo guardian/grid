@@ -4,7 +4,7 @@ libraryDependencies += "org.vafer" % "jdeb" % "1.3" artifacts (Artifact("jdeb", 
 
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.8.20")
 
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0")
 
 addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3")
 
