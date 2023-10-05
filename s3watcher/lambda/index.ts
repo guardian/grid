@@ -53,21 +53,22 @@ const processEvent = async function(action: ImportAction): Promise<void> {
   const ingestConfigString: string = await readIngestConfig(s3, action)
   const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
 
-
-  // will the ingest queue need the id of the "queued" record on updateUpLoadStatusDynamoDB?
-  // if so, need to do that first.
-  // do we need to account for failures to write to the ingest queue?
-  // if it fails, could delete the "queued" record
-
   // TO DO - instead of transferring to the image using the fetchUrl derived from the action,
   // need to place a message on the ingest queue for the image with s3 url for the image
-  await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
-  // await addToQueue(logger, s3, uploadQueue, action, ingestConfig)
+  // and add a write a record with "queued" status to updateUpLoadStatusDynamoDB
 
-  // For successful messages, also need to write a record with "queued" status to DynamoDB table
-  // wouldn't need any conditions to test if updateUpLoadStatusDynamoDB passed before running updateUpLoadStatusDynamoDB
-  // if the addToQueue function throws errors on failure
-  // await updateUpLoadStatusDynamoDB(logger, s3, dynamoDB, action, ingestConfig)
+  // QUESTION: will the ingest queue need the id of the "queued" record on updateUpLoadStatusDynamoDB?
+  // how do we generate the id? (look at how this is currently done)
+
+
+  await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
+
+  // const addedToQueue = await addToIngestQueue(logger, s3, uploadQueue, action, ingestConfig)
+  // if (addedToQueue.success) {
+  //   const addedToUpLoadStatusDynamo = await insertNewRecord (ddb, updateUpLoadStatusDynamoDBTableName, record)
+  // }
+
+  // wouldn't need any conditional if the addToIngestQueue function throws errors on failure
 
   logger.info("Completed processing import action")
 }
