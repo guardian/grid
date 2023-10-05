@@ -57,11 +57,6 @@ const processEvent = async function(action: ImportAction): Promise<void> {
   // need to place a message on the ingest queue for the image with s3 url for the image
   // and add a write a record with "queued" status to updateUpLoadStatusDynamoDB
 
-  // QUESTION: will the ingest queue need the id of the "queued" record on updateUpLoadStatusDynamoDB?
-  // how do we generate the id? (look at how this is currently done)
-
-  // common-lib/src/main/scala/com/gu/mediaservice/lib/collections/CollectionsManager.scala
-
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
 
   // const addedToQueue = await addToIngestQueue(logger, s3, uploadQueue, action, ingestConfig)

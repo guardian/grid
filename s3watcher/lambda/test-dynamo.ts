@@ -84,15 +84,15 @@ const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
   const output = await insertNewRecord(ddb, tableName, recordToPut)
 
   if (output.ok) {
-    console.log (`successfully created record ${output.id}`)
+    console.log(`successfully created record ${output.id}`)
   } else {
-    console.log (`failed to create record ${output.id}: ${output.error}`)
+    console.log(`failed to create record ${output.id}: ${output.error}`)
   }
 }
 
 const recordToPut = createQueuedUploadRecord(
-  '1234',
-  "picture to queue.tiff",
+  ["path", "to", "file", "image with encoded id.tiff?random-param=foobar&otherparam=1234567"],
+  "image with encoded id.tiff",
   new Date("2030-01-01").valueOf()
 )
 
