@@ -1,9 +1,8 @@
 /* eslint-disable no-console */
 import { DynamoDB } from "aws-sdk"
-import { ImportAction, IngestConfig } from "./Lambda"
 import { Condition } from "aws-sdk/clients/dynamodb"
 
-type UploadRecord = DynamoDB.AttributeMap & {
+type UploadStatusTableRecord = DynamoDB.AttributeMap & {
   fileName?: { S: string }
   expires?: { N: string }
   uploadedBy?: { S: string }
@@ -12,13 +11,12 @@ type UploadRecord = DynamoDB.AttributeMap & {
   id?: { S: string }
 }
 
-const getRecordId = (
+const getRecordIdString = (
   record: DynamoDB.AttributeMap | undefined
 ): string | undefined => {
   if (!record) {
     return undefined
   }
-
   return record["id"]?.S
 }
 
@@ -46,7 +44,9 @@ export const getTableNameFromPrefix = async (
     throw new Error("no results")
   }
 
-  const matches = data.TableNames.filter(name => name.startsWith(tableNamePrefix))
+  const matches = data.TableNames.filter((name) =>
+    name.startsWith(tableNamePrefix)
+  )
 
   if (matches.length > 1) {
     throw new Error(`got ${matches.length} possible matches: ${matches.join()}`)
@@ -80,16 +80,13 @@ export const scanTable = async (
 
 /** construct a record object that can be put in dynamo table */
 export const createQueuedUploadRecord = (
-  action: ImportAction,
-  config: IngestConfig
-): UploadRecord => {
+  fileName: string,
+  expires: number
+): UploadStatusTableRecord => {
   return {
-    fileName: { S: action.filename },
-    expires: { N: config.s3UrlExpiry.toString() }, // is this the right value for "expires"?
-    // uploadedBy: { S: '??.??@guardian.co.uk' }, // s3 doesn't have meta data like the user details
+    fileName: { S: fileName },
+    expires: { N: expires.toString() },
     status: { S: "Queued" },
-    // uploadTime: { S: now.toISOString() }, // not been uploaded yet
-    // id: { S: '0749db6105a15515f5c23abfc2c4ade9c6816e7c' }
   }
 }
 
@@ -97,7 +94,7 @@ export const createQueuedUploadRecord = (
 export const putRecord = async (
   ddb: DynamoDB,
   tableName: string,
-  record: UploadRecord
+  record: UploadStatusTableRecord
 ): Promise<string> => {
   const output = await ddb
     .putItem({
@@ -107,10 +104,9 @@ export const putRecord = async (
     })
     .promise()
 
-  const id = getRecordId(output.Attributes)
+  const id = getRecordIdString(output.Attributes)
   if (!id) {
-    console.log("putRecord output with no id")
-    console.log(output)
+    console.log("putRecord", { output })
     throw new Error("output did not return an id")
   }
 
