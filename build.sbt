@@ -5,6 +5,8 @@ import scala.sys.process._
 import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 
+import com.typesafe.sbt.packager.debian.JDebPackaging
+
 // We need to keep the timestamps to allow caching headers to work as expected on assets.
 // The below should work, but some problem in one of the plugins (possible the play plugin? or sbt-web?) causes
 // the option not to be passed correctly
@@ -41,29 +43,6 @@ lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, aut
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
-  .enablePlugins(RiffRaffArtifact)
-  .settings(
-    riffRaffManifestProjectName := s"media-service::grid::all",
-    riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
-    riffRaffUploadManifestBucket := Some("riffraff-builds"),
-    riffRaffArtifactResources := Seq(
-      (auth / Debian / packageBin).value -> s"${(auth / name).value}/${(auth / name).value}.deb",
-      (collections / Debian / packageBin).value -> s"${(collections / name).value}/${(collections / name).value}.deb",
-      (cropper / Debian / packageBin).value -> s"${(cropper / name).value}/${(cropper / name).value}.deb",
-      (imageLoader / Debian / packageBin).value -> s"${(imageLoader / name).value}/${(imageLoader / name).value}.deb",
-      // image-loader-projection uses the same deb as image-loader, we're running it for isolation of traffic in batch reindexing
-      (imageLoader / Debian / packageBin).value -> s"${(imageLoader / name).value}-projection/${(imageLoader / name).value}-projection.deb",
-      (leases / Debian / packageBin).value -> s"${(leases / name).value}/${(leases / name).value}.deb",
-      (thrall / Debian / packageBin).value -> s"${(thrall / name).value}/${(thrall / name).value}.deb",
-      (kahuna / Debian / packageBin).value -> s"${(kahuna / name).value}/${(kahuna / name).value}.deb",
-      (metadataEditor / Debian / packageBin).value -> s"${(metadataEditor / name).value}/${(metadataEditor / name).value}.deb",
-      (usage / Debian / packageBin).value -> s"${(usage / name).value}/${(usage / name).value}.deb",
-      (mediaApi / Debian / packageBin).value -> s"${(mediaApi / name).value}/${(mediaApi / name).value}.deb",
-      // pull in s3watcher build
-      file("s3watcher/lambda/target/s3watcher.zip") -> "s3watcher/s3watcher.zip",
-      file("riff-raff.yaml") -> "riff-raff.yaml",
-    )
-  )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
 addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
@@ -245,7 +224,15 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
 
       bashScriptEnvConfigLocation := Some("/etc/environment"),
       Debian / makeEtcDefault := None,
-
+      Debian / packageBin := {
+        val originalFileName = (Debian / packageBin).value
+        val (base, ext) = originalFileName.baseAndExt
+        val newBase = base.replace(s"_${version.value}_all","")
+        val newFileName = file(originalFileName.getParent) / s"$newBase.$ext"
+        IO.move(originalFileName, newFileName)
+        println(s"Renamed $originalFileName to $newFileName")
+        newFileName
+      },
       Universal / mappings ++= Seq(
         file("common-lib/src/main/resources/application.conf") -> "conf/application.conf",
         file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml"
