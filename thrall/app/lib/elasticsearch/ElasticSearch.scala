@@ -321,16 +321,20 @@ class ElasticSearch(
     for {
       ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
       // unfortunately 'updateByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/48624
-      _ <- migrationAwareUpdater(
+      actuallyMarkedAsSoftDeleted <- migrationAwareUpdater(
         requestFromIndexName = indexName =>
           updateByQuery(
             indexName,
             idsQuery(ids),
           ).script(softDeletedMetadataAsPainlessScript(softDeletedMetadata)),
-        logMessageFromIndexName = indexName => s"ES7 soft delete $count images in $indexName by ${softDeletedMetadata.deletedBy}"
-      )
-      // TODO check that the number of soft deleted images matches the number of ids
-    } yield ids
+        logMessageFromIndexName = indexName => s"ES7 soft delete ${ids.size} images in $indexName by ${softDeletedMetadata.deletedBy}"
+      ).map(_.result.updated)
+    } yield {
+      if (actuallyMarkedAsSoftDeleted != ids.size) {
+        throw new Exception(s"Expected to soft delete ${ids.size} images but only $actuallyMarkedAsSoftDeleted were marked as soft deleted in ES")
+      }
+      ids
+    }
   }
 
   def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
@@ -345,16 +349,20 @@ class ElasticSearch(
     for {
       ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
-      _ <- migrationAwareUpdater(
+      actuallyDeletedFromES <- migrationAwareUpdater(
         requestFromIndexName = indexName =>
           deleteByQuery(
             indexName,
             idsQuery(ids),
           ),
-        logMessageFromIndexName = indexName => s"ES7 hard delete $count images in $indexName"
-      )
-      // TODO check that the number of hard deleted images matches the number of ids
-    } yield ids
+        logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
+      ).map(_.result.left.map(_.deleted).getOrElse(0))
+    } yield {
+      if (actuallyDeletedFromES != ids.size) {
+        throw new Exception(s"Expected to hard delete ${ids.size} images but only $actuallyDeletedFromES were hard deleted from ES")
+      }
+      ids
+    }
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])
