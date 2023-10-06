@@ -1,7 +1,11 @@
 name: Grid CI
 on:
   workflow_dispatch: # Manual invocation.
+  pull_request:
   push:
+    branches:
+      - main
+      - 'pr**'
 jobs:
   CI:
     runs-on: ubuntu-latest
