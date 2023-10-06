@@ -1,6 +1,7 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, ElasticSearchHealthCheck, Management}
+import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
+import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
@@ -30,9 +31,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
-  val imageStatusTable = new SoftDeletedMetadataTable(config)
+  val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
 
-  val mediaApi = new MediaApi(auth, messageSender, imageStatusTable, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation)
+  val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)

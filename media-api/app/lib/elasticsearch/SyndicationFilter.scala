@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
 import com.gu.mediaservice.model.usage.SyndicationUsage
