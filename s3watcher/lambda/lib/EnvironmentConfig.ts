@@ -1,4 +1,4 @@
-interface EnvironmentConfig {
+export interface EnvironmentConfig {
   stack: string
   stage: string
   app: string
