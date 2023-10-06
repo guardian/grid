@@ -115,7 +115,6 @@ deployments:
   image-counter-lambda:
     type: aws-lambda
     parameters:
-      bucket: media-service-dist
       prefixStack: false
       fileName: image-counter-lambda.zip
       functionNames:
