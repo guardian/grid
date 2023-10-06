@@ -1,0 +1,44 @@
+@(
+    isPaused: Boolean,
+    interval: String,
+    recentRecordKeys: List[String],
+)
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Reaper</title>
+        <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+    </head>
+    <body>
+        <nav>
+            <span>
+                <a href="@routes.ThrallController.index">&lt; back to Thrall Dashboard</a>
+            </span>
+        </nav>
+        <main>
+            <h1>Reaper</h1>
+            <p>When active, on each execution of the 'reaper', it will both...</p>
+            <ul>
+                <li><strong>soft</strong>-delete the oldest batch of 'reapable' images</li>
+                <li><strong>hard</strong>-delete the oldest batch of 'reapable' images which have been in soft-deleted state for two weeks</li>
+            </ul>
+            @if(isPaused) {
+                <p>Reaper is currently <strong>paused</strong>.</p>
+                <form action="@routes.ReaperController.resumeReaper" method="POST">
+                    <input type="submit" value="Resume">
+                </form>
+            } else {
+                <p>Reaper is currently <strong>running<strong> (up to 1000 images every @interval)</p>
+                <form action="@routes.ReaperController.pauseReaper" method="POST">
+                    <input type="submit" value="Pause">
+                </form>
+            }
+            <h3>Recent Records</h3>
+            @recentRecordKeys.map { key =>
+                <a href="@routes.ReaperController.reaperRecord(key)">@key</a><br/>
+            }
+        </main>
+    </body>
+</html>

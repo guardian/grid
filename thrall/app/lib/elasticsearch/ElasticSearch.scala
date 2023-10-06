@@ -2,7 +2,8 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Running}
+import com.gu.mediaservice.lib.elasticsearch.filters
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, ReapableEligibility, Running}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -11,18 +12,18 @@ import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.SearchResponse
+import com.sksamuel.elastic4s.requests.searches.{SearchRequest, SearchResponse}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
-import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
-import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
+import com.sksamuel.elastic4s.requests.update.UpdateRequest
+import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
 import lib.ThrallMetrics
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, ReadableDuration}
 import play.api.libs.json._
 
 import scala.annotation.nowarn
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -42,24 +43,24 @@ class ElasticSearch(
   lazy val replicas: Int = config.replicas
 
 
-  def migrationAwareUpdater(
-    requestFromIndexName: String => UpdateRequest,
+  def migrationAwareUpdater[REQUEST, RESPONSE](
+    requestFromIndexName: String => REQUEST,
     logMessageFromIndexName: String => String,
     notFoundSuccessful: Boolean = false,
   )(implicit
     ex: ExecutionContext,
     functor: Functor[Future],
     executor: Executor[Future],
-    handler: Handler[UpdateRequest, UpdateResponse],
-    manifest: Manifest[UpdateResponse],
+    handler: Handler[REQUEST, RESPONSE],
+    manifest: Manifest[RESPONSE],
     logMarkers: LogMarker
-  ): Future[Response[UpdateResponse]] = {
+  ): Future[Response[RESPONSE]] = {
     // if doc does not exist in migration index, ignore (ie. mark as successful).
     // coalesce all other errors.
-    val runForCurrentIndex: Future[Option[Response[UpdateResponse]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias), logMessageFromIndexName(imagesCurrentAlias), notFoundSuccessful).map(Some(_))
+    val runForCurrentIndex: Future[Option[Response[RESPONSE]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias), logMessageFromIndexName(imagesCurrentAlias), notFoundSuccessful).map(Some(_))
     // Update requests to the alias throw if the alias does not exist, but the exception is very generic and not cause is not obvious
     // ("index names must be all upper case")
-    val runForMigrationIndex: Future[Option[Response[UpdateResponse]]] = migrationStatus match {
+    val runForMigrationIndex: Future[Option[Response[RESPONSE]]] = migrationStatus match {
       case _: Running => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
       case _ => Future.successful(None)
     }
@@ -252,25 +253,32 @@ class ElasticSearch(
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def applySoftDelete(id: String, softDeletedMetadata: SoftDeletedMetadata, lastModified: DateTime)
-                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+  private def softDeletedMetadataAsPainlessScript(softDeletedMetadata: SoftDeletedMetadata) = {
     val applySoftDeleteScript = "ctx._source.softDeletedMetadata = params.softDeletedMetadata;"
     val softDeletedMetadataParameter = JsDefined(Json.toJson(softDeletedMetadata)).toOption.map(asNestedMap).orNull
+
+    prepareScript(
+      applySoftDeleteScript,
+      lastModified = softDeletedMetadata.deleteTime,
+      ("softDeletedMetadata", softDeletedMetadataParameter)
+    )
+  }
+
+  def applySoftDelete(id: String, softDeletedMetadata: SoftDeletedMetadata, lastModified: DateTime)
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
     List(migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(
         indexName,
         id,
-        applySoftDeleteScript,
-        lastModified,
-        ("softDeletedMetadata", softDeletedMetadataParameter)
+        softDeletedMetadataAsPainlessScript(softDeletedMetadata),
       ),
       logMessageFromIndexName = indexName => s"ES7 soft delete image $id in $indexName by ${softDeletedMetadata.deletedBy}"
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
   def applyUnSoftDelete(id: String, lastModified: DateTime)
-                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val applyUnSoftDeleteScript = "ctx._source.remove(\"softDeletedMetadata\");"
 
     List(migrationAwareUpdater(
@@ -280,8 +288,81 @@ class ElasticSearch(
         applyUnSoftDeleteScript,
         lastModified
       ),
-      logMessageFromIndexName = indexName => s"ES7 un soft delete image $id"
+      logMessageFromIndexName = indexName => s"ES7 un soft delete image $id in $indexName"
     ).map(_ => ElasticSearchUpdateResponse()))
+  }
+
+  def countImagesIngestedInLast(duration: FiniteDuration)(now: DateTime)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = executeAndLog(
+    ElasticDsl.count(imagesCurrentAlias).query(
+      filters.date("uploadTime", from = now minusMillis duration.toMillis.toInt, to = now)
+    ),
+    s"count images in the last $duration (relative to $now)"
+  ).map(_.result.count)
+
+  private def getNextBatchOfImageIdsForDeletion(query: Query, count: Int, deletionType: String)
+                                               (implicit ex: ExecutionContext, logMarker: LogMarker) =
+    executeAndLog(
+      ElasticDsl.search(imagesCurrentAlias) // current index is sufficient for producing the list of IDs to delete
+        .query(query)
+        .storedFields("_id")
+        .sortByFieldAsc("uploadTime")
+        .size(count),
+      s"ES7 searching for oldest $count images to $deletionType delete"
+    ).map(_.result.hits.hits.map(_.id).toSet)
+
+  def softDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int, softDeletedMetadata: SoftDeletedMetadata)
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+
+    val query = must(
+      isReapable.query,
+      filters.existsOrMissing("softDeletedMetadata", exists = false) // not already soft deleted
+    )
+
+    for {
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
+      // unfortunately 'updateByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/48624
+      actuallyMarkedAsSoftDeleted <- migrationAwareUpdater(
+        requestFromIndexName = indexName =>
+          updateByQuery(
+            indexName,
+            idsQuery(ids),
+          ).script(softDeletedMetadataAsPainlessScript(softDeletedMetadata)),
+        logMessageFromIndexName = indexName => s"ES7 soft delete ${ids.size} images in $indexName by ${softDeletedMetadata.deletedBy}"
+      ).map(_.result.updated)
+    } yield {
+      if (actuallyMarkedAsSoftDeleted != ids.size) {
+        throw new Exception(s"Expected to soft delete ${ids.size} images but only $actuallyMarkedAsSoftDeleted were marked as soft deleted in ES")
+      }
+      ids
+    }
+  }
+
+  def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+
+    val query = must(
+      isReapable.query,
+      filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
+      rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusWeeks(2).toString) // soft deleted more than 2 weeks ago
+    )
+
+    for {
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
+      // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
+      actuallyDeletedFromES <- migrationAwareUpdater(
+        requestFromIndexName = indexName =>
+          deleteByQuery(
+            indexName,
+            idsQuery(ids),
+          ),
+        logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
+      ).map(_.result.left.map(_.deleted).getOrElse(0))
+    } yield {
+      if (actuallyDeletedFromES != ids.size) {
+        throw new Exception(s"Expected to hard delete ${ids.size} images but only $actuallyDeletedFromES were hard deleted from ES")
+      }
+      ids
+    }
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])
@@ -447,8 +528,11 @@ class ElasticSearch(
   private def prepareScript(scriptSource: String, lastModified: DateTime, params: (String, Object)*) =
     Script(script = scriptSource).lang("painless").param("lastModified", printDateTime(lastModified)).params(params)
 
-  private def prepareUpdateRequest(indexName: String, id: String, scriptSource: String, lastModified: DateTime, params: (String, Object)*) =
-    updateById(indexName, id).script(prepareScript(scriptSource, lastModified, params:_*))
+  private def prepareUpdateRequest(indexName: String, id: String, script: Script): UpdateRequest =
+    updateById(indexName, id).script(script)
+
+  private def prepareUpdateRequest(indexName: String, id: String, scriptSource: String, lastModified: DateTime, params: (String, Object)*): UpdateRequest =
+    prepareUpdateRequest(indexName, id, prepareScript(scriptSource, lastModified, params:_*))
 
   def addImageLease(id: String, lease: MediaLease, lastModified: DateTime)
                    (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
