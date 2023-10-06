@@ -6,7 +6,7 @@ import {
   createQueuedUploadRecord,
   getUploadStatusTableName,
   insertNewRecord,
-  scanTable
+  scanTable,
 } from "./lib/Dynamo"
 import { readConfig } from "./lib/EnvironmentConfig"
 import { createLogger } from "./lib/Logging"
@@ -30,7 +30,6 @@ AWS.config.update({
 })
 // copy of the config code from ./index [end]
 
-
 const dynamoDB = new AWS.DynamoDB({
   ...awsConfig,
   apiVersion: "2012-08-10",
@@ -40,8 +39,6 @@ const dynamoDB = new AWS.DynamoDB({
   // Error: unable to verify the first certificate
   endpoint: envConfig.isDev ? "http://localhost:4566" : undefined,
 })
-
-
 
 // TO DO - check the actual inputs from the `ImportAction`s
 // will they actually provide the context needed to create the record
@@ -59,20 +56,22 @@ const testRecord = createQueuedUploadRecord(
   new Date("2030-01-01").valueOf()
 )
 
-
 /** Test operation - log the records in the upload table */
 const logAllRecords = async () => {
-  const tableName = await getUploadStatusTableName(dynamoDB, envConfig)
-  console.log(` >>> scanning table ${tableName}...`)
-  const results = await scanTable(dynamoDB, tableName, 10)
-  console.log(` >>> ${results?.length || 0} items in ${tableName}:`)
-  console.log(results)
+  const tableName = await getUploadStatusTableName(logger, dynamoDB, envConfig)
+  const results = await scanTable(logger, dynamoDB, tableName, 10)
+  console.log(
+    {
+      tableName,
+      count: results?.length,
+    },
+    results
+  )
 }
-
 
 /** Test operation - add a record to the upload table */
 const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
-  const tableName = await getUploadStatusTableName(dynamoDB, envConfig)
+  const tableName = await getUploadStatusTableName(logger, dynamoDB, envConfig)
   await insertNewRecord(logger, dynamoDB, tableName, recordToPut)
 }
 
