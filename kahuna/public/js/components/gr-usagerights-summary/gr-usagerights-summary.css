@@ -17,15 +17,3 @@
 .usage-rights-element {
   padding-right: 8px;
 }
-
-.supplier-PA_AutoIngest::before, .source-PA.credit-PA::before, .source-PNg.credit-pa::before {
-  font-family: "bbc-images-agencies" !important;
-  content: "\e902";
-  color: #000000;
-  background-color: #feca54;
-  text-align: center;
-  width: 35px;
-  height: 20px;
-  display: block;
-  line-height: 20px;
-}
