@@ -17,8 +17,8 @@ export interface usageRightsSummaryInt {
 const usageRightsOptions: usageRightsSummaryInt[] = grUsagerightsBbc;
 
 interface UsageRightsProps {
-  images: any[];
-  category: string;
+  images: any;
+  categoryCallback: (images:any) => any;
 }
 
 export interface UsageRightsWrapperProps {
@@ -28,7 +28,11 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
   const [options, setOptions] = useState(new Array<usageRightsSummaryInt>());
   const [mixed, setMixed] = useState(false);
   const [images, setImages] = useState(props.images);
-  const [category, setCategory] = useState(props.category);
+  const [category, setCategory] = useState("");
+  const [agencyStyle, setAgencyStyle] = useState("supplier-PA_AutoIngest");
+  const [agencyTitle, setAgencyTitle] = useState("PA_AutoIngest");
+
+  const categoryCallback = props.categoryCallback;
 
   const handleImageChange = (e: any) => {
     setImages(e.detail.images);
@@ -48,7 +52,7 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
     let currentUsage: usageRightsSummaryInt[] = [];
     let localMixed = false;
     let imageCount = 0;
-    images.forEach(image => {
+    images.forEach((image: any) => {
       imageCount++;
       let imageUsage: usageRightsSummaryInt[] = [];
       usageRightsOptions.forEach(opt => {
@@ -87,11 +91,33 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
     } else {
       setOptions([]);
     }
+
+    categoryCallback(images).then((res: any) => {
+      setCategory(res);
+    });
+
+    //-agency icon details-
+    let tempUploadedBy = "";
+    let tempClasses = "";
+    if (images.length === 1 || images.size ===  1) {
+      tempUploadedBy = images[0].data.uploadedBy ? images[0].data.uploadedBy : "";
+      let source = images[0].data.metadata.source ? " source-" + images[0].data.metadata.source.replace(" ","-") : "";
+      let credit = images[0].data.metadata.credit ?  " credit-" + images[0].data.metadata.credit.replace(" ","-") : "";
+      let supplier = images[0].data.uploadedBy ? " supplier-" + images[0].data.uploadedBy.replace(" ","-") : "";
+      let agencyIcon = images[0].data.usageRights.category ? " " + images[0].data.usageRights.category.replace(" ","-") + "-icon" : "";
+      tempClasses = (supplier + source + credit + agencyIcon).trim();
+    }
+    setAgencyStyle(tempClasses);
+    setAgencyTitle(tempUploadedBy);
   }, [images]);
 
   return (<div>
-    { category || 'None'}
-    <div className="supplier-PA_AutoIngest source-PA" title="PA_AutoIngest"></div>
+    <div className="usage-rights-container">
+      <div className="usage-rights-element">{ category || 'None'}</div>
+      <div className="usage-rights-element">
+        <div className={agencyStyle} title={agencyTitle}></div>
+      </div>
+    </div>
     {!mixed && (
       <table className="usage-rights-summary-table">
         <tbody>

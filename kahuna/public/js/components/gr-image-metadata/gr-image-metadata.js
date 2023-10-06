@@ -345,7 +345,7 @@ module.controller('grImageMetadataCtrl', [
       }
 
       function selectedUsageRights() {
-        //--image selection change  event--
+        //--image selection change event--
         const customEvent = new CustomEvent('imageSelectionChange', {
           detail: {images: ctrl.selectedImages},
           bubbles: true
@@ -431,6 +431,23 @@ module.controller('grImageMetadataCtrl', [
         ctrl.removingCollection = collection;
         collections.removeImageFromCollection(collection, ctrl.singleImage)
             .then(() => ctrl.removingCollection = false);
+      };
+
+      ctrl.callbackUsageCategory = (images) => {
+          let usageRights = images.map(image => {
+              return {
+                  image: image,
+                  data: imageAccessor.readUsageRights(image)
+              };
+          });
+          const categoryCode = usageRights.reduce((m, o) => {
+              return (m == o.data.category) ? o.data.category : 'multiple categories';
+          }, usageRights && usageRights.first().data.category);
+          let categoryPromise = editsApi.getUsageRightsCategories().then(categories => {
+              const usageCategory = categories.find(cat => cat.value === categoryCode);
+              return usageCategory ? usageCategory.name : categoryCode;
+          });
+          return categoryPromise;
       };
 
       $scope.$on('$destroy', function() {

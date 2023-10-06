@@ -9,7 +9,16 @@
   border: 0;
 }
 
-.supplier-PA_AutoIngest::before, .source-PNg.credit-pa::before {
+.usage-rights-container {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.usage-rights-element {
+  padding-right: 8px;
+}
+
+.supplier-PA_AutoIngest::before, .source-PA.credit-PA::before, .source-PNg.credit-pa::before {
   font-family: "bbc-images-agencies" !important;
   content: "\e902";
   color: #000000;

@@ -27,11 +27,10 @@
             </gr-usage-rights-editor>
 
             <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
-                {{ctrl.usageCategory || 'None'}}
-                <div class="supplier-PA_AutoIngest source-PA" title="PA_AutoIngest"></div>
+                <!--{{ctrl.usageCategory || 'None'}}-->
                 <usage-rights-summary
                     class="usage-rights-summary"
-                    props="{'images':ctrl.selectedImages, 'category':ctrl.usageCategory}">
+                    props="{'images':ctrl.selectedImages, 'categoryCallback':ctrl.callbackUsageCategory}">
                 </usage-rights-summary>
             </dd>
 
