@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.duration.FiniteDuration
@@ -35,7 +36,7 @@ import scala.util.Try
 class MediaApi(
                 auth: Authentication,
                 messageSender: ThrallMessageSender,
-                imageStatusTable: SoftDeletedMetadataTable,
+                softDeletedMetadataTable: SoftDeletedMetadataTable,
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
@@ -227,7 +228,7 @@ class MediaApi(
   }
 
   def getSoftDeletedMetadata(id: String) = auth.async {
-    imageStatusTable.getStatus(id)
+    softDeletedMetadataTable.getStatus(id)
       .map {
         case Some(scala.Right(record)) => respond(record)
         case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get soft-deleted metadata ${error}")
@@ -294,7 +295,7 @@ class MediaApi(
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
             val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
-            imageStatusTable.setStatus(imageStatusRecord)
+            softDeletedMetadataTable.setStatus(imageStatusRecord)
             .map { _ =>
               messageSender.publish(
                 UpdateMessage(
@@ -324,7 +325,7 @@ class MediaApi(
       case Some(image) if hasPermission(request.user, image) =>
         val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
         if(canDelete){
-          imageStatusTable.updateStatus(id, false)
+          softDeletedMetadataTable.updateStatus(id, false)
           .map { _ =>
             messageSender.publish(
               UpdateMessage(

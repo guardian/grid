@@ -20,6 +20,7 @@ function getCommonConfig(config) {
         |es.index.aliases.migration="Images_Migration"
         |image.record.download=false
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
+        |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
         |`;
@@ -131,7 +132,6 @@ function getMediaApiConfig(config) {
         |quota.store.key="rcs-quota.json"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
-        |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         |syndication.review.useRuntimeFieldsFix=true
         |`;
 }

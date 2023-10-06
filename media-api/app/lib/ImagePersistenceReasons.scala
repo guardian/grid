@@ -1,8 +1,8 @@
 package lib
 
+import com.gu.mediaservice.lib.elasticsearch.PersistedQueries
 import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.elasticsearch.PersistedQueries
 
 
 case class ImagePersistenceReasons(persistedRootCollections: List[String], persistenceIdentifier: String) {

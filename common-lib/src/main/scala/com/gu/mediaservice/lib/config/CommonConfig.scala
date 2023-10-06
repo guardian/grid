@@ -44,6 +44,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
+  lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")
