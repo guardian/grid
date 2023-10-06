@@ -46,30 +46,33 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
       overwrite = true)
 
-  private def bulkDelete(bucket: String, keys: Seq[String]): Future[Map[String, Boolean]] = Future {
-    try {
-      client.deleteObjects(
-        new DeleteObjectsRequest(bucket).withKeys(keys: _*)
-      )
-      keys.map { key =>
-        key -> true
-      }.toMap
-    } catch {
-      case partialFailure: MultiObjectDeleteException =>
-        logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
-        val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
+  private def bulkDelete(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
+    case Nil => Future.successful(Map.empty)
+    case _ => Future {
+      try {
+        client.deleteObjects(
+          new DeleteObjectsRequest(bucket).withKeys(keys: _*)
+        )
         keys.map { key =>
-          key -> !errorKeys.contains(key)
+          key -> true
         }.toMap
+      } catch {
+        case partialFailure: MultiObjectDeleteException =>
+          logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
+          val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
+          keys.map { key =>
+            key -> !errorKeys.contains(key)
+          }.toMap
+      }
     }
   }
 
   def deleteOriginal(id: String)(implicit logMarker: LogMarker): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
-  def deleteOriginals(ids: Set[String]) = bulkDelete(imageBucket, ids.map(fileKeyFromId).toSeq)
+  def deleteOriginals(ids: Set[String]) = bulkDelete(imageBucket, ids.map(fileKeyFromId).toList)
   def deleteThumbnail(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
-  def deleteThumbnails(ids: Set[String]) = bulkDelete(thumbnailBucket, ids.map(fileKeyFromId).toSeq)
+  def deleteThumbnails(ids: Set[String]) = bulkDelete(thumbnailBucket, ids.map(fileKeyFromId).toList)
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
-  def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toSeq)
+  def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
   def doesOriginalExist(id: String): Boolean =
     client.doesObjectExist(imageBucket, fileKeyFromId(id))

@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.ImageStatusRecord
 import com.gu.scanamo._
 import com.gu.scanamo.syntax._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 
 class SoftDeletedMetadataTable(config: CommonConfig) extends DynamoDB[ImageStatusRecord](config, config.softDeletedMetadataTable) {
@@ -25,11 +25,13 @@ class SoftDeletedMetadataTable(config: CommonConfig) extends DynamoDB[ImageStatu
     results.flatMap(_.getUnprocessedItems.values().asScala.flatMap(_.asScala.map(_.getPutRequest.getItem.get("id").getS)))
 
   def setStatuses(imageStatuses: Set[ImageStatusRecord])(implicit ex: ExecutionContext) = {
-    ScanamoAsync.exec(client)(softDeletedMetadataTable.putAll(imageStatuses)).map(extractUnprocessedIds)
+    if (imageStatuses.isEmpty) Future.successful(List.empty)
+    else ScanamoAsync.exec(client)(softDeletedMetadataTable.putAll(imageStatuses)).map(extractUnprocessedIds)
   }
 
   def clearStatuses(imageIds: Set[String])(implicit ex: ExecutionContext) = {
-    ScanamoAsync.exec(client)(softDeletedMetadataTable.deleteAll('id -> imageIds)).map(extractUnprocessedIds)
+    if (imageIds.isEmpty) Future.successful(List.empty)
+    else ScanamoAsync.exec(client)(softDeletedMetadataTable.deleteAll('id -> imageIds)).map(extractUnprocessedIds)
   }
 
   def updateStatus(imageId: String, isDeleted: Boolean)(implicit ex: ExecutionContext) = {
