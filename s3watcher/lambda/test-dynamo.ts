@@ -30,6 +30,7 @@ AWS.config.update({
 })
 // copy of the config code from ./index [end]
 
+
 const dynamoDB = new AWS.DynamoDB({
   ...awsConfig,
   apiVersion: "2012-08-10",
@@ -62,26 +63,17 @@ const testRecord = createQueuedUploadRecord(
 /** Test operation - log the records in the upload table */
 const logAllRecords = async () => {
   const tableName = await getUploadStatusTableName(dynamoDB, envConfig)
-  logger.info(` >>> scanning table ${tableName}...`)
+  console.log(` >>> scanning table ${tableName}...`)
   const results = await scanTable(dynamoDB, tableName, 10)
-  logger.info(` >>> ${results?.length || 0} items in ${tableName}:`)
+  console.log(` >>> ${results?.length || 0} items in ${tableName}:`)
   console.log(results)
 }
 
-//TO DO - use the logger in the transaction functions
 
 /** Test operation - add a record to the upload table */
 const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
   const tableName = await getUploadStatusTableName(dynamoDB, envConfig)
-
-  logger.info(` >>> putting a record in  "${tableName}"...`)
-  const output = await insertNewRecord(dynamoDB, tableName, recordToPut)
-
-  if (output.ok) {
-    logger.info(`successfully created record ${output.id}`)
-  } else {
-    logger.info(`failed to create record ${output.id}: ${output.error}`)
-  }
+  await insertNewRecord(logger, dynamoDB, tableName, recordToPut)
 }
 
 putInARecord(testRecord)

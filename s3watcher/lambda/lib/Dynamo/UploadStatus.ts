@@ -1,4 +1,5 @@
 import { DynamoDB } from "aws-sdk"
+import { Logger } from "../Logging"
 
 export type UploadStatusTableRecord = DynamoDB.AttributeMap & {
   id: { S: string }
@@ -40,6 +41,7 @@ export const createQueuedUploadRecord = (
 /** Put a record in the table, return the value of the id Attribute from the output.
  * returns a failure object if a record with the same ID already exists */
 export const insertNewRecord = async (
+  logger: Logger,
   ddb: DynamoDB,
   tableName: string,
   record: UploadStatusTableRecord
@@ -54,8 +56,15 @@ export const insertNewRecord = async (
       error: string
     }
 > => {
+  logger.info("Inserting new record to UploadStatusTable", {
+    filename: record.fileName?.S ?? "",
+    expires: record.expires?.N ?? "",
+    status: record.status?.S ?? "",
+    id: record.id?.S ?? "",
+  })
+
   try {
-    await ddb
+    const putItemOutput = await ddb
       .putItem({
         TableName: tableName,
         Item: record,
@@ -66,11 +75,19 @@ export const insertNewRecord = async (
       })
       .promise()
 
+    logger.info("Insert new record finished", {
+      event: JSON.stringify({ event: JSON.stringify(putItemOutput) }),
+    })
     return { ok: true, id: getRecordIdString(record) }
   } catch (ddbErr) {
     if (ddbErr instanceof Error) {
       const castDbErr = ddbErr as Error & { code: string }
       if (castDbErr.code === "ConditionalCheckFailedException") {
+        logger.warn(
+          `Insert new record failed - id already exists: ${getRecordIdString(
+            record
+          )}`
+        )
         return {
           ok: false,
           id: getRecordIdString(record),
@@ -79,6 +96,9 @@ export const insertNewRecord = async (
       }
     }
 
+    logger.error("Error whilst insert new record", {
+      error: JSON.stringify(ddbErr),
+    })
     throw ddbErr
   }
 }
