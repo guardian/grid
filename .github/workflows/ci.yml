@@ -65,10 +65,6 @@ jobs:
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
         run: sbt clean compile Test/compile test Debian/packageBin
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
-          aws-region: eu-west-1
       - name: Image Counter Lambda
         working-directory: ./image-counter-lambda
         run: |
@@ -81,7 +77,13 @@ jobs:
           npm install-clean
           npm test
           npm run build
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: "! github.event.pull_request.head.repo.fork"
+        with:
+          role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
+          aws-region: eu-west-1
       - uses: guardian/actions-riff-raff@v2
+        if: "! github.event.pull_request.head.repo.fork"
         with:
           projectName: media-service::grid::all
           buildNumberOffset: 7565
