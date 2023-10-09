@@ -5,6 +5,7 @@ import '../services/image/usages';
 import '../image/service';
 import '../edits/service';
 
+import '../components/gr-add-keyword/gr-add-keyword';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
 import '../components/gr-syndication-rights/gr-syndication-rights';
@@ -32,6 +33,7 @@ const image = angular.module('kahuna.image.controller', [
   'gr.image.service',
   'gr.image-usages.service',
 
+  'gr.addKeyword',
   'gr.addLabel',
   'gr.photoshoot',
   'gr.syndicationRights',
