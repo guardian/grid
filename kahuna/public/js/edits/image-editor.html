@@ -270,11 +270,38 @@
                         with-batch="ctrl.withBatch"
                         add-to-images="ctrl.addLabelToImages"
                         remove-from-images="ctrl.removeLabelFromImages"
+                        remove-as-array="false"
                         accessor="ctrl.labelAccessor"
                         query-filter="queryLabelFilter"
                         element-name="label"
                         element-name-plural="labels">
                     </ui-list-editor-upload>
+                </div>
+            </div>
+
+            <div class="result-editor__field-container flex-container flex-center">
+                <span class="result-editor__field-label  flex-no-shrink text-small">
+                    Keywords
+                </span>
+                <div class="result-editor__field-container__labels" ng-class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingKeyword}">
+                    <gr-add-keyword
+                        images="[ctrl.image]"
+                        active="ctrl.inputtingKeyword"
+                        class="result-editor__field-container__add-button">
+                    </gr-add-keyword>
+                    <dd class="image-info__pills">
+                        <ui-list-editor-upload
+                            images="ctrl.imageAsArray"
+                            with-batch="ctrl.withBatch"
+                            add-to-images="ctrl.addKeywordToImages"
+                            remove-from-images="ctrl.removeKeywordFromImages"
+                            remove-as-array="true"
+                            accessor="ctrl.keywordAccessor"
+                            query-filter="queryFilter:'keyword'"
+                            element-name="keyword"
+                            element-name-plural="keywords">
+                        </ui-list-editor-upload>
+                    </dd>
                 </div>
             </div>
 

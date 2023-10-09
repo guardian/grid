@@ -36,6 +36,17 @@ queryFilters.filter('queryLabelFilter', function() {
     };
 });
 
+queryFilters.filter('queryKeywordFilter', function() {
+    return (value) => {
+        const cleanValue = stripDoubleQuotes(value);
+        if (containsSpace(cleanValue)) {
+            return `#"${cleanValue}"`;
+        } else {
+            return `#${cleanValue}`;
+        }
+    };
+});
+
 queryFilters.filter('queryCollectionFilter', function() {
     return path => getCollection(path);
 });

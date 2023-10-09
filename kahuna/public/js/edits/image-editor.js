@@ -13,6 +13,7 @@ import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 import '../util/storage';
+import {overwrite} from "../util/constants/editOptions";
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
@@ -56,6 +57,7 @@ imageEditor.controller('ImageEditorCtrl', [
   var ctrl = this;
   ctrl.canUndelete = false;
   ctrl.isDeleted = false;
+
   ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
 
   ctrl.$onInit = () => {
@@ -79,14 +81,81 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.usageRights = imageService(ctrl.image).usageRights;
     ctrl.invalidReasons = ctrl.image.data.invalidReasons;
     ctrl.systemName = window._clientConfig.systemName;
+    ctrl.descriptionOption = overwrite.key;
 
     ctrl.undelete = undelete;
 
     ctrl.imageAsArray = [ctrl.image];
 
-    ctrl.addLabelToImages = labelService.batchAdd;
-    ctrl.removeLabelFromImages = labelService.batchRemove;
+    const updateImages = (images, metadataFieldName, valueFn) => {
+      images.map((image) => {
+        editsService.batchUpdateMetadataField(
+          [image],
+          metadataFieldName,
+          valueFn(image),
+          ctrl.descriptionOption
+        );
+      });
+      return Promise.resolve(ctrl.imageAsArray);
+    };
+
+    const removeXFromImages = (metadataFieldName, accessor) => (images, removedX, fieldName) => {
+      if (fieldName && fieldName !== metadataFieldName) {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+
+      var removedArr = Array.isArray(removedX) ? removedX : [removedX];
+      return updateImages(
+        images,
+        metadataFieldName,
+        (image) => accessor(image)?.filter((x) => !removedArr.includes(x)) || []
+      );
+    };
+
+    const addXToImages = (metadataFieldName, accessor) => (images, addedX, fieldName, removedElements = []) => {
+      if (fieldName && fieldName !== metadataFieldName) {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+
+      return updateImages(
+        images,
+        metadataFieldName,
+        (image) => {
+          const currentXInImage = accessor(image);
+          let tempElements = currentXInImage ? [...currentXInImage, ...addedX] : [...addedX];
+          tempElements = tempElements.filter(e => !removedElements.includes(e));
+          return tempElements;
+        }
+      );
+    };
+
+    //-labels-
+    function addLabelToImagesFn(images, addedX, fieldName, removedElements = []) {
+      if (fieldName && fieldName !== "labels") {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+
+      if (removedElements.length > 0) {
+          removedElements.forEach(element => labelService.batchRemove(images, element));
+      }
+      return labelService.batchAdd(images, addedX);
+    }
+
+    function  removeLabelFromImagesFn(images, removedX, fieldName) {
+      if (fieldName && fieldName !== "labels") {
+        return Promise.resolve(ctrl.imageAsArray);
+      }
+      return labelService.batchRemove(images, removedX);
+    }
+
+    ctrl.addLabelToImages = addLabelToImagesFn;
+    ctrl.removeLabelFromImages = removeLabelFromImagesFn;
     ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
+
+    //-keywords-
+    ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
+    ctrl.addKeywordToImages = addXToImages('keywords', ctrl.keywordAccessor);
+    ctrl.removeKeywordFromImages = removeXFromImages('keywords', ctrl.keywordAccessor);
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;

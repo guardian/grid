@@ -3,13 +3,13 @@
         <button
             title="Apply these {{ctrl.elementNamePlural}} to all your current uploads"
             ng-if="!ctrl.confirmDelete"
-            ng-click="ctrl.batchApply()"
+            ng-click="ctrl.batchApply(ctrl.elementNamePlural)"
         >⇔</button>
 
         <button title="Remove ALL {{ctrl.elementNamePlural}}"
                 class="button button--confirm-delete"
                 ng-if="ctrl.confirmDelete"
-                ng-click="ctrl.batchRemove()">
+                ng-click="ctrl.batchRemove(ctrl.elementNamePlural)">
             <gr-icon>warning</gr-icon>Remove ALL {{ctrl.elementNamePlural}} in job?
         </button>
     </span>
