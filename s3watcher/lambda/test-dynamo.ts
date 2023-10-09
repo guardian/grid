@@ -46,13 +46,11 @@ const dynamoDB = new AWS.DynamoDB({
 // We know where the files is in the ingest bucket, but not where the
 // file is supposed to end up when uploaded
 const testRecord = createQueuedUploadRecord(
-  [
-    "path",
-    "to",
-    "file",
-    "image with encoded id.tiff?random-param=foobar&otherparam=1234567",
-  ],
-  "image with encoded id.tiff",
+  {
+    "file-name": 'image with real id.tiff',
+    "upload-image-id": '0d47e46edd20b70699429b0c9bff89b1082ba36b'
+  },
+  "image with real id.tiff",
   new Date("2030-01-01").valueOf()
 )
 

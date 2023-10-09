@@ -1,5 +1,6 @@
 import { DynamoDB } from "aws-sdk"
 import { Logger } from "../Logging"
+import type { Metadata } from "../Lambda"
 
 export type UploadStatusTableRecord = DynamoDB.AttributeMap & {
   id: { S: string }
@@ -14,27 +15,23 @@ const getRecordIdString = (record: UploadStatusTableRecord): string => {
   return record.id.S
 }
 
-const plusRegex = /"+"/g
-
-// TO DO - verify that this is replicating the behaviour of CollectionsManager to generate an id from the path provided to
-// CollectionsController.addChildToCollection
-//   see common-lib/src/main/scala/com/gu/mediaservice/lib/collections/CollectionsManager.scala
-//   def encode(uri: String): String = URLEncoder.encode(uri, "UTF-8").replace("+", "%20")
-const pathToId = (path: string[]): string => {
-  return encodeURI(path.join("/")).replace(plusRegex, "%20")
-}
-
 /** construct a record object that can be put in dynamo table */
 export const createQueuedUploadRecord = (
-  path: string[],
+  metadata: Metadata,
   fileName: string,
   expires: number
 ): UploadStatusTableRecord => {
+
+  const uploadImageId = metadata["upload-image-id"]
+  if (!uploadImageId) {
+    throw new Error('No "upload-image-id" metadata value')
+  }
+
   return {
     fileName: { S: fileName },
     expires: { N: expires.toString() },
     status: { S: "Queued" },
-    id: { S: pathToId(path) },
+    id: { S: uploadImageId},
   }
 }
 

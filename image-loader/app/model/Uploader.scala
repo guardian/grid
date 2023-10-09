@@ -221,10 +221,12 @@ object Uploader extends GridLogging {
       Future.successful(None)
   }
 
+  // TO DO - add the id as meta data before uploading to S3, so the s3-watcher can use it?
   def toMetaMap(uploadRequest: UploadRequest): Map[String, String] = {
     val baseMeta = Map(
       ImageStorageProps.uploadedByMetadataKey -> uploadRequest.uploadedBy,
-      ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime)
+      ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime),
+      ImageStorageProps.uploadImageIdMetadataKey -> uploadRequest.imageId
     ) ++
       uploadRequest.identifiersMeta ++
       uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
