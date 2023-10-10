@@ -1,6 +1,6 @@
 import { DynamoDB } from "aws-sdk"
 import { Logger } from "../Logging"
-import type { Metadata } from "../Lambda"
+import type { Metadata } from "../MetaData"
 
 export type UploadStatusTableRecord = DynamoDB.AttributeMap & {
   id: { S: string }
@@ -21,8 +21,7 @@ export const createQueuedUploadRecord = (
   fileName: string,
   expires: number
 ): UploadStatusTableRecord => {
-
-  const uploadImageId = metadata["upload-image-id"]
+  const { uploadImageId } = metadata
   if (!uploadImageId) {
     throw new Error('No "upload-image-id" metadata value')
   }
@@ -31,7 +30,7 @@ export const createQueuedUploadRecord = (
     fileName: { S: fileName },
     expires: { N: expires.toString() },
     status: { S: "Queued" },
-    id: { S: uploadImageId},
+    id: { S: uploadImageId },
   }
 }
 

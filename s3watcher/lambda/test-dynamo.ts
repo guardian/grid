@@ -52,8 +52,8 @@ const dynamoDB = new AWS.DynamoDB({
 // - image-loader/app/model/Uploader.scala : toMetaMap method
 const testRecord = createQueuedUploadRecord(
   {
-    "file-name": 'image with real id.tiff',
-    "upload-image-id": '0d47e46edd20b70699429b0c9bff89b1082ba36b'
+    fileName: 'image with real id.tiff',
+    uploadImageId: '0d47e46edd20b70699429b0c9bff89b1082ba36b'
   },
   "image with real id.tiff",
   new Date("2030-01-01").valueOf()

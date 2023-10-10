@@ -18,11 +18,6 @@ export interface IngestConfig {
   stage: string
 }
 
-export interface Metadata {
-  "file-name"?: string
-  "upload-image-id"?: string
-}
-
 export const createActionFromNotification = function (
   record: S3EventRecord
 ): ImportAction {
@@ -93,22 +88,5 @@ export const readIngestConfig = async function (
     )
   } else {
     return data
-  }
-}
-
-export const fetchAndParseMetaData = async (
-  s3Client: S3,
-  event: ImportAction
-): Promise<Metadata> => {
-  const params = {
-    Bucket: event.bucket,
-    Key: event.key,
-  }
-
-  const metaData = await s3Client.headObject(params).promise()
-
-  return {
-    "file-name": metaData.Metadata?.["file-name"],
-    "upload-image-id": metaData.Metadata?.["upload-image-id"],
   }
 }
