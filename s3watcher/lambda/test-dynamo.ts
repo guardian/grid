@@ -40,11 +40,16 @@ const dynamoDB = new AWS.DynamoDB({
   endpoint: envConfig.isDev ? "http://localhost:4566" : undefined,
 })
 
-// TO DO - check the actual inputs from the `ImportAction`s
-// will they actually provide the context needed to create the record
-// with the right expected ID?
-// We know where the files is in the ingest bucket, but not where the
-// file is supposed to end up when uploaded
+// TO DO - verify if the asset filename and the file-name meta value are the same.
+// file-name meta value may not be present as uploadRequest.uploadInfo.filename is
+// Option[String]
+// TO DO - will we need to parse the "identifier" meta data properties?
+// Think these are only relevant for elastic search, but not sure
+// there will be a set of (arbitrary?) keys prefixed with with the
+// ImageStorageProps.identifierMetadataKeyPrefix ("identifier!")
+// see :
+// - image-loader/app/model/upload/UploadRequest.scala
+// - image-loader/app/model/Uploader.scala : toMetaMap method
 const testRecord = createQueuedUploadRecord(
   {
     "file-name": 'image with real id.tiff',
