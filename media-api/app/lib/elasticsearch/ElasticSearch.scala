@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}

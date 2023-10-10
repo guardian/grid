@@ -47,12 +47,6 @@ updates:
 #
 #  # things that run in an AWS Lambda environment
 #  - package-ecosystem: 'npm'
-#    directory: '/reaper'
-#    schedule:
-#      interval: 'weekly'
-#    commit-message:
-#      prefix: "chore(deps): "
-#  - package-ecosystem: 'npm'
 #    directory: '/image-counter-lambda'
 #    schedule:
 #      interval: 'weekly'

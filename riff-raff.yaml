@@ -112,6 +112,14 @@ deployments:
           AmigoStage: PROD
           Recipe: grid-elasticsearch-focal
 
+  image-counter-lambda:
+    type: aws-lambda
+    parameters:
+      prefixStack: false
+      fileName: image-counter-lambda.zip
+      functionNames:
+        - "image-counter-lambda-function-"
+
   s3watcher:
     type: aws-lambda
     parameters:
