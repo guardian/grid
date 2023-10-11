@@ -15,7 +15,12 @@ const getRecordIdString = (record: UploadStatusTableRecord): string => {
   return record.id.S
 }
 
-/** construct a record object that can be put in dynamo table */
+/** construct a record object that can be put in dynamo table
+ *
+ * TO DO - verify if the asset filename and the file-name meta value are the same.
+ * file-name meta value may not be present as uploadRequest.uploadInfo.filename is
+ * Option[String]
+ */
 export const createQueuedUploadRecord = (
   metadata: Metadata,
   fileName: string,

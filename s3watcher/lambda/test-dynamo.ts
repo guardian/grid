@@ -33,24 +33,26 @@ AWS.config.update({
 
 const dynamoDB = makeDDBInstance(envConfig.isDev, awsConfig)
 
-// TO DO - verify if the asset filename and the file-name meta value are the same.
-// file-name meta value may not be present as uploadRequest.uploadInfo.filename is
-// Option[String]
-// TO DO - will we need to parse the "identifier" meta data properties?
-// Think these are only relevant for elastic search, but not sure
-// there will be a set of (arbitrary?) keys prefixed with with the
-// ImageStorageProps.identifierMetadataKeyPrefix ("identifier!")
-// see :
-// - image-loader/app/model/upload/UploadRequest.scala
-// - image-loader/app/model/Uploader.scala : toMetaMap method
-const testRecord = createQueuedUploadRecord(
+const recordWithExistingId = createQueuedUploadRecord(
   {
     fileName: "image with real id.tiff",
     uploadImageId: "0d47e46edd20b70699429b0c9bff89b1082ba36b",
-    uploadTime: '1970-01-01T15:48:52.628+01:00',
-    uploadedBy: 'test-program@example.com',
+    uploadTime: "1970-01-01T15:48:52.628+01:00",
+    uploadedBy: "test-program@example.com",
   },
   "image with real id.tiff",
+  new Date("2030-01-01").valueOf()
+)
+const recordWithRandomId = createQueuedUploadRecord(
+  {
+    fileName: "image with random id.jpg",
+    uploadImageId: `random-ID-${Math.random()
+      .toString()
+      .substring(3)}-${Math.random().toString().substring(3)}`,
+    uploadTime: "1970-01-01T15:48:52.628+01:00",
+    uploadedBy: "test-program@example.com",
+  },
+  "image with random id.jpg",
   new Date("2030-01-01").valueOf()
 )
 
@@ -58,22 +60,29 @@ const testRecord = createQueuedUploadRecord(
 const logAllRecords = async () => {
   const tableName = await getUploadStatusTableName(logger, dynamoDB, envConfig)
   const results = await scanTable(logger, dynamoDB, tableName, 10)
-  console.log(
-    {
-      tableName,
-      count: results?.length,
-    },
-    results
-  )
+  console.log({
+    tableName,
+    count: results?.length,
+  })
+  console.table(results)
 }
 
 /** Test operation - add a record to the upload table */
-const putInARecord = async (recordToPut: UploadStatusTableRecord) => {
+const putInARecord = (record: UploadStatusTableRecord) => async () => {
   const tableName = await getUploadStatusTableName(logger, dynamoDB, envConfig)
-  await insertNewRecord(logger, dynamoDB, tableName, recordToPut)
+  const output = await insertNewRecord(logger, dynamoDB, tableName, record)
+  if (output.ok) {
+    console.log(`\t>>>\tInsert of ${record.fileName?.S} succeeded!`)
+  } else {
+    console.log(
+      `\t>>>\tInsert of ${record.fileName?.S} failed!: ${output.error}`
+    )
+  }
 }
 
-putInARecord(testRecord)
+Promise.resolve()
+  .then(putInARecord(recordWithExistingId))
+  .then(putInARecord(recordWithRandomId))
   .then(logAllRecords)
   .catch((err) => {
     console.warn(err)

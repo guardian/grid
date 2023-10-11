@@ -3,6 +3,14 @@ import { ImportAction } from "./Lambda"
 
 // TO DO - can we make some/all these fields required? IE will the metadata always be set on
 // objects in the ingest bucket? Think yes for 'upload' route, not sure for 'import'
+
+// TO DO - will we need to parse the "identifier" meta data properties?
+// Think these are only relevant for elastic search, but not sure
+// there will be a set of (arbitrary?) keys prefixed with with the
+// ImageStorageProps.identifierMetadataKeyPrefix ("identifier!")
+// see :
+// - image-loader/app/model/upload/UploadRequest.scala
+// - image-loader/app/model/Uploader.scala : toMetaMap method
 export interface Metadata {
   fileName?: string
   uploadImageId?: string
