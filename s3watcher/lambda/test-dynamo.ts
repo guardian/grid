@@ -7,6 +7,7 @@ import {
   getUploadStatusTableName,
   insertNewRecord,
   scanTable,
+  makeDDBInstance,
 } from "./lib/Dynamo"
 import { readConfig } from "./lib/EnvironmentConfig"
 import { createLogger } from "./lib/Logging"
@@ -30,15 +31,7 @@ AWS.config.update({
 })
 // copy of the config code from ./index [end]
 
-const dynamoDB = new AWS.DynamoDB({
-  ...awsConfig,
-  apiVersion: "2012-08-10",
-  // running locally need to use localhost, not the proxy
-  // error using  https://localstack.media.local.dev-gutools.co.uk was:
-  // code: 'NetworkingError',
-  // Error: unable to verify the first certificate
-  endpoint: envConfig.isDev ? "http://localhost:4566" : undefined,
-})
+const dynamoDB = makeDDBInstance(envConfig.isDev, awsConfig)
 
 // TO DO - verify if the asset filename and the file-name meta value are the same.
 // file-name meta value may not be present as uploadRequest.uploadInfo.filename is
@@ -52,8 +45,10 @@ const dynamoDB = new AWS.DynamoDB({
 // - image-loader/app/model/Uploader.scala : toMetaMap method
 const testRecord = createQueuedUploadRecord(
   {
-    fileName: 'image with real id.tiff',
-    uploadImageId: '0d47e46edd20b70699429b0c9bff89b1082ba36b'
+    fileName: "image with real id.tiff",
+    uploadImageId: "0d47e46edd20b70699429b0c9bff89b1082ba36b",
+    uploadTime: '1970-01-01T15:48:52.628+01:00',
+    uploadedBy: 'test-program@example.com',
   },
   "image with real id.tiff",
   new Date("2030-01-01").valueOf()

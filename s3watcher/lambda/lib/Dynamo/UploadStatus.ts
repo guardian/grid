@@ -21,17 +21,26 @@ export const createQueuedUploadRecord = (
   fileName: string,
   expires: number
 ): UploadStatusTableRecord => {
-  const { uploadImageId } = metadata
+  const { uploadImageId, uploadTime, uploadedBy } = metadata
   if (!uploadImageId) {
     throw new Error('No "upload-image-id" metadata value')
   }
 
-  return {
+  const record: UploadStatusTableRecord = {
     fileName: { S: fileName },
     expires: { N: expires.toString() },
     status: { S: "Queued" },
     id: { S: uploadImageId },
   }
+
+  if (uploadTime) {
+    record.uploadTime = { S: uploadTime }
+  }
+  if (uploadedBy) {
+    record.uploadedBy = { S: uploadedBy }
+  }
+
+  return record
 }
 
 /** Put a record in the table, return the value of the id Attribute from the output.
