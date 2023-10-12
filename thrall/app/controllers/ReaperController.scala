@@ -119,9 +119,6 @@ class ReaperController(
         )
       ))
     } yield {
-      if(esIds.isEmpty){
-        logger.info(s"Although $count images were requested to be soft deleted, none were found to be soft deletable.")
-      }
       metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size).run
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
@@ -150,9 +147,6 @@ class ReaperController(
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
       idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
-      if (esIds.isEmpty) {
-        logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
-      }
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size).run
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)

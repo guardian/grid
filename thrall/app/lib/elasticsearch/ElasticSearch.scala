@@ -330,6 +330,9 @@ class ElasticSearch(
         logMessageFromIndexName = indexName => s"ES7 soft delete ${ids.size} images in $indexName by ${softDeletedMetadata.deletedBy}"
       ).map(_.result.items)
     } yield {
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be soft deleted, none were found to be soft deletable.")
+      }
       esResults.filter(_.error.isDefined).foreach(item =>
         logger.error(logMarker, s"ES7 failed to soft delete image ${item.id} : ${item.error.get}")
       )
@@ -357,6 +360,9 @@ class ElasticSearch(
         logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
       ).map(_.result.items)
     } yield {
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
+      }
       esResults.filter(_.error.isDefined).foreach(item =>
         logger.error(logMarker, s"ES7 failed to hard delete image ${item.id} : ${item.error.get}")
       )
