@@ -18,12 +18,12 @@ const logger = createLogger({})
 
 const awsConfig = envConfig.isDev
   ? {
-    accessKeyId: 'test',
-    secretAccessKey: 'test',
-    region: envConfig.region,
-    endpoint: "https://localstack.media.local.dev-gutools.co.uk",
-    s3ForcePathStyle: true
-  }
+      accessKeyId: "test",
+      secretAccessKey: "test",
+      region: envConfig.region,
+      endpoint: "https://localstack.media.local.dev-gutools.co.uk",
+      s3ForcePathStyle: true,
+    }
   : undefined
 
 AWS.config.update({
@@ -41,7 +41,7 @@ function isFailure(item: Failure | void): item is Failure {
   return item !== undefined
 }
 
-const processEvent = async function(action: ImportAction): Promise<void> {
+const processEvent = async function (action: ImportAction): Promise<void> {
   const ingestConfigString: string = await readIngestConfig(s3, action)
   const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
@@ -50,6 +50,7 @@ const processEvent = async function(action: ImportAction): Promise<void> {
 
 export const handler: Handler = async (rawEvent: S3Event): Promise<void> => {
   logger.info("Received notification from S3")
+  logger.info(JSON.stringify(rawEvent, undefined, 2))
 
   const events: ImportAction[] = rawEvent.Records.map(
     createActionFromNotification
@@ -73,7 +74,8 @@ export const handler: Handler = async (rawEvent: S3Event): Promise<void> => {
   })
 
   logger.info(
-    `Processed ${events.length - failures.length}/${events.length
+    `Processed ${events.length - failures.length}/${
+      events.length
     } events successfully`
   )
 }
