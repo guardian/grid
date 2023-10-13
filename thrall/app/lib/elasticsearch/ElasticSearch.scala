@@ -18,7 +18,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
-import lib.ThrallMetrics
+import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.{DateTime, ReadableDuration}
 import play.api.libs.json._
 
@@ -311,7 +311,7 @@ class ElasticSearch(
     ).map(_.result.hits.hits.map(_.id).toSet)
 
   def softDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int, softDeletedMetadata: SoftDeletedMetadata)
-                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[BatchDeletionIds] = {
 
     val query = must(
       isReapable.query,
@@ -319,26 +319,29 @@ class ElasticSearch(
     )
 
     for {
-      ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
       // unfortunately 'updateByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/48624
-      actuallyMarkedAsSoftDeleted <- migrationAwareUpdater(
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
+      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
-          updateByQuery(
-            indexName,
-            idsQuery(ids),
-          ).script(softDeletedMetadataAsPainlessScript(softDeletedMetadata)),
+          bulk(ids.map(
+            updateById(indexName, _)
+              .script(softDeletedMetadataAsPainlessScript(softDeletedMetadata))
+          )),
         logMessageFromIndexName = indexName => s"ES7 soft delete ${ids.size} images in $indexName by ${softDeletedMetadata.deletedBy}"
-      ).map(_.result.updated)
+      ).map(_.result.items)
     } yield {
-      if (actuallyMarkedAsSoftDeleted != ids.size) {
-        throw new Exception(s"Expected to soft delete ${ids.size} images but only $actuallyMarkedAsSoftDeleted were marked as soft deleted in ES")
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be soft deleted, none were found to be soft deletable.")
       }
-      ids
+      esResults.filter(_.error.isDefined).foreach(item =>
+        logger.error(logMarker, s"ES7 failed to soft delete image ${item.id} : ${item.error.get}")
+      )
+      BatchDeletionIds(ids, esResults.filter(_.error.isEmpty).map(_.id).toSet)
     }
   }
 
   def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
-                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[BatchDeletionIds] = {
 
     val query = must(
       isReapable.query,
@@ -347,21 +350,23 @@ class ElasticSearch(
     )
 
     for {
-      ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
-      actuallyDeletedFromES <- migrationAwareUpdater(
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
+      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
-          deleteByQuery(
-            indexName,
-            idsQuery(ids),
-          ),
+          bulk(ids.map(
+            deleteById(indexName, _)
+          )),
         logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
-      ).map(_.result.left.map(_.deleted).getOrElse(0))
+      ).map(_.result.items)
     } yield {
-      if (actuallyDeletedFromES != ids.size) {
-        throw new Exception(s"Expected to hard delete ${ids.size} images but only $actuallyDeletedFromES were hard deleted from ES")
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
       }
-      ids
+      esResults.filter(_.error.isDefined).foreach(item =>
+        logger.error(logMarker, s"ES7 failed to hard delete image ${item.id} : ${item.error.get}")
+      )
+      BatchDeletionIds(ids, esResults.filter(_.error.isEmpty).map(_.id).toSet)
     }
   }
 
