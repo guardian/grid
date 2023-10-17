@@ -50,6 +50,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Andres Kudacki" -> "Andrés Kudacki",
     "Andres Pelozo" -> "Andrés Pelozo",
     "Andrzej Iwanczuk" -> "Andrzej Iwańczuk",
+    "Anna Szilagyi" -> "Anna Szilágyi",
     "Antonio Guillem Fernandez" -> "Antonio Guillem Fernández",
     "Andres Martinez Casares" -> "Andrés Martínez Casares",
     "Angel Martinez" -> "Ángel Martínez",
