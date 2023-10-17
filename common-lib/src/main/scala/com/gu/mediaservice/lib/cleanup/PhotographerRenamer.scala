@@ -320,7 +320,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Kamil Altiparmak" -> "Kamil Altıparmak",
     "Kamil Krzaczynski" -> "Kamil Krzaczyński",
     "Karoly Matusz" -> "Károly Matusz",
-    "Kasia Strek" - "Kasia Stręk",
+    "Kasia Strek" -> "Kasia Stręk",
     "Kayhan Ozer" -> "Kayhan Özer",
     "Kc Mcginnis" -> "KC McGinnis",
     "Kerem Yucel" -> "Kerem Yücel",
