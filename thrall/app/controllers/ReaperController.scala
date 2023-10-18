@@ -90,11 +90,13 @@ class ReaperController(
     }
   }
 
+  private def s3DirNameFromDate(date: DateTime) = date.toString("YYYY-MM-dd")
+
   private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = config.maybeReaperBucket match {
     case None => Future.failed(new Exception("Reaper bucket not configured"))
     case Some(reaperBucket) => doBatchDelete.map { json =>
       val now = DateTime.now(DateTimeZone.UTC)
-      val key = s"$deleteType/${now.toString("YYYY-MM-dd")}/$deleteType-${now.toString()}.json"
+      val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
       store.client.putObject(reaperBucket, key, json.toString())
       json
     }
@@ -162,17 +164,23 @@ class ReaperController(
       }.toMap
     }).map(Json.toJson(_))
   }
-
-  private val recentRecordsToDisplay = (2.days / INTERVAL).toInt
-  def index = withLoginRedirect { config.maybeReaperBucket match {
+  def index = withLoginRedirect {
+    val now = DateTime.now(DateTimeZone.UTC)
+    config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
       val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
-      val recentSoftRecords = store.client.listObjects(reaperBucket, "soft/")
-        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
-      val recentHardRecords = store.client.listObjects(reaperBucket, "hard/")
-        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
-      val recentRecordKeys = (recentSoftRecords ++ recentHardRecords).sortBy(_.getLastModified).reverse.map(_.getKey)
+      val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
+        val s3DirName = s3DirNameFromDate(day)
+        store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
+          store.client.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
+      }
+
+      val recentRecordKeys = recentRecords
+        .filter(_.getLastModified after now.minusHours(48).toDate)
+        .sortBy(_.getLastModified)
+        .reverse
+        .map(_.getKey)
 
       Ok(views.html.reaper(isPaused, INTERVAL.toString(), recentRecordKeys))
   }}
