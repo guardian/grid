@@ -113,9 +113,10 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       "Matthew Blease",
       "Nicola Jennings",
       "Rosalind Asquith",
-      "Steve Bell",
       "Steven Appleby",
       "Ben Jennings",
+      //Past
+      "Steve Bell",
     )),
     PublicationPhotographers(ObserverPublication, List(
       "Chris Riddell",
