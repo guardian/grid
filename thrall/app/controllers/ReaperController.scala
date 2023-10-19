@@ -53,6 +53,8 @@ class ReaperController(
     ){ () =>
       if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
         logger.info("Reaper is paused")
+        es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+        es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
       } else {
         es.countImagesIngestedInLast(ONE_WEEK)(DateTime.now(DateTimeZone.UTC)).flatMap { imagesIngestedInLast7Days =>
 
@@ -106,6 +108,8 @@ class ReaperController(
 
   def doBatchSoftReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("soft"){
 
+    es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+
     logger.info(s"Soft deleting next $count images...")
 
     val deleteTime = DateTime.now(DateTimeZone.UTC)
@@ -139,6 +143,8 @@ class ReaperController(
   def doBatchHardReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchHardReap)
 
   def doBatchHardReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("hard"){
+
+    es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
 
     logger.info(s"Hard deleting next $count images...")
 
