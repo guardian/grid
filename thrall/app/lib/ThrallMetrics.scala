@@ -10,6 +10,8 @@ class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.s
 
   val softReaped = new CountMetric("SoftReaped")
   val hardReaped = new CountMetric("HardReaped")
+  val softReapable = new CountMetric("SoftReapable")
+  val hardReapable = new CountMetric("HardReapable")
 
   val failedDeletedImages = new CountMetric("FailedDeletedImages")
 
