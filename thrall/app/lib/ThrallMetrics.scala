@@ -1,8 +1,12 @@
 package lib
 
+import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
-class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.stage}/Thrall", config) {
+import scala.concurrent.ExecutionContext
+
+class ThrallMetrics(config: ThrallConfig, actorSystem: ActorSystem)(implicit ec: ExecutionContext)
+  extends CloudWatchMetrics(s"${config.stage}/Thrall", config, actorSystem) {
 
   val indexedImages = new CountMetric("IndexedImages")
 
