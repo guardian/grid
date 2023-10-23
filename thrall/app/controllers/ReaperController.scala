@@ -36,8 +36,6 @@ class ReaperController(
   private val CONTROL_FILE_NAME = "PAUSED"
 
   private val INTERVAL = 15 minutes // based on max of 1000 per reap, this interval will max out at 96,000 images per day
-  private val ONE_WEEK = 7 days
-  private val REAPS_PER_WEEK = ONE_WEEK / INTERVAL
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
@@ -46,35 +44,25 @@ class ReaperController(
     override val persistenceIdentifier: String = config.persistenceIdentifier
   }
 
-  config.maybeReaperBucket.foreach { reaperBucket =>
-    scheduler.scheduleAtFixedRate(
-      initialDelay = 0 seconds,
-      interval = INTERVAL,
-    ){ () =>
-      if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
-        logger.info("Reaper is paused")
-        es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
-        es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
-      } else {
-        es.countImagesIngestedInLast(ONE_WEEK)(DateTime.now(DateTimeZone.UTC)).flatMap { imagesIngestedInLast7Days =>
-
-          val imagesIngestedPer15Mins = imagesIngestedInLast7Days / REAPS_PER_WEEK
-
-          val countOfImagesToReap = Math.min(imagesIngestedPer15Mins, 1000).toInt
-
-          if (countOfImagesToReap == 1000) {
-            logger.warn(s"Reaper is reaping at maximum rate of 1000 images per $INTERVAL. If this persists, the INTERVAL will need to become more frequent.")
-          }
-
+  (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
+    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
+      scheduler.scheduleAtFixedRate(
+        initialDelay = 0 seconds,
+        interval = INTERVAL,
+      ){ () =>
+        if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+          logger.info("Reaper is paused")
+          es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+          es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
+        } else {
           val deletedBy = "reaper"
-
           Future.sequence(Seq(
             doBatchSoftReap(countOfImagesToReap, deletedBy),
             doBatchHardReap(countOfImagesToReap, deletedBy)
           ))
         }
       }
-    }
+    case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
   }
 
   private def batchDeleteWrapper(count: Int)(func: (Int, String) => Future[JsValue]) = auth.async { request =>
@@ -172,9 +160,10 @@ class ReaperController(
   }
   def index = withLoginRedirect {
     val now = DateTime.now(DateTimeZone.UTC)
-    config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
+    (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
+    case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
+    case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
+    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
       val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
@@ -188,7 +177,7 @@ class ReaperController(
         .reverse
         .map(_.getKey)
 
-      Ok(views.html.reaper(isPaused, INTERVAL.toString(), recentRecordKeys))
+      Ok(views.html.reaper(isPaused, INTERVAL.toString(), countOfImagesToReap, recentRecordKeys))
   }}
 
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {

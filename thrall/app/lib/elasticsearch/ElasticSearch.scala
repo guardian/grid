@@ -12,18 +12,18 @@ import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.{SearchRequest, SearchResponse}
+import com.sksamuel.elastic4s.requests.searches.SearchResponse
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
 import lib.{BatchDeletionIds, ThrallMetrics}
-import org.joda.time.{DateTime, ReadableDuration}
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.annotation.nowarn
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -291,13 +291,6 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES7 un soft delete image $id in $indexName"
     ).map(_ => ElasticSearchUpdateResponse()))
   }
-
-  def countImagesIngestedInLast(duration: FiniteDuration)(now: DateTime)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = executeAndLog(
-    ElasticDsl.count(imagesCurrentAlias).query(
-      filters.date("uploadTime", from = now minusMillis duration.toMillis.toInt, to = now)
-    ),
-    s"count images in the last $duration (relative to $now)"
-  ).map(_.result.count)
 
   private def getNextBatchOfImageIdsForDeletion(query: Query, count: Int, deletionType: String)
                                                (implicit ex: ExecutionContext, logMarker: LogMarker) =
