@@ -223,8 +223,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   final def stringOpt(key: String): Option[String] = configuration.getOptional[String](key)
 
-  final def int(key: String): Int =
-    configuration.getOptional[Int](key) getOrElse missing(key, "integer")
+  final def intOpt(key: String): Option[Int] =  configuration.getOptional[Int](key)
 
   final def intDefault(key: String, default: Int): Int =
     configuration.getOptional[Int](key) getOrElse default

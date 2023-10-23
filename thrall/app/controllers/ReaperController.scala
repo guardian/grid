@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.model.{ImageStatusRecord, SoftDeletedMetadata}
-import lib.{ThrallConfig, ThrallMetrics, ThrallStore}
+import lib.{BatchDeletionIds, ThrallConfig, ThrallMetrics, ThrallStore}
 import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
@@ -36,8 +36,6 @@ class ReaperController(
   private val CONTROL_FILE_NAME = "PAUSED"
 
   private val INTERVAL = 15 minutes // based on max of 1000 per reap, this interval will max out at 96,000 images per day
-  private val ONE_WEEK = 7 days
-  private val REAPS_PER_WEEK = ONE_WEEK / INTERVAL
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
@@ -46,33 +44,25 @@ class ReaperController(
     override val persistenceIdentifier: String = config.persistenceIdentifier
   }
 
-  config.maybeReaperBucket.foreach { reaperBucket =>
-    scheduler.scheduleAtFixedRate(
-      initialDelay = 0 seconds,
-      interval = INTERVAL,
-    ){ () =>
-      if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
-        logger.info("Reaper is paused")
-      } else {
-        es.countImagesIngestedInLast(ONE_WEEK)(DateTime.now(DateTimeZone.UTC)).flatMap { imagesIngestedInLast7Days =>
-
-          val imagesIngestedPer15Mins = imagesIngestedInLast7Days / REAPS_PER_WEEK
-
-          val countOfImagesToReap = Math.min(imagesIngestedPer15Mins, 1000).toInt
-
-          if (countOfImagesToReap == 1000) {
-            logger.warn(s"Reaper is reaping at maximum rate of 1000 images per $INTERVAL. If this persists, the INTERVAL will need to become more frequent.")
-          }
-
+  (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
+    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
+      scheduler.scheduleAtFixedRate(
+        initialDelay = 0 seconds,
+        interval = INTERVAL,
+      ){ () =>
+        if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+          logger.info("Reaper is paused")
+          es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+          es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
+        } else {
           val deletedBy = "reaper"
-
           Future.sequence(Seq(
             doBatchSoftReap(countOfImagesToReap, deletedBy),
             doBatchHardReap(countOfImagesToReap, deletedBy)
           ))
         }
       }
-    }
+    case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
   }
 
   private def batchDeleteWrapper(count: Int)(func: (Int, String) => Future[JsValue]) = auth.async { request =>
@@ -90,11 +80,13 @@ class ReaperController(
     }
   }
 
+  private def s3DirNameFromDate(date: DateTime) = date.toString("YYYY-MM-dd")
+
   private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = config.maybeReaperBucket match {
     case None => Future.failed(new Exception("Reaper bucket not configured"))
     case Some(reaperBucket) => doBatchDelete.map { json =>
       val now = DateTime.now(DateTimeZone.UTC)
-      val key = s"$deleteType/${now.toString("YYYY-MM-dd")}/$deleteType-${now.toString()}.json"
+      val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
       store.client.putObject(reaperBucket, key, json.toString())
       json
     }
@@ -104,13 +96,15 @@ class ReaperController(
 
   def doBatchSoftReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("soft"){
 
+    es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+
     logger.info(s"Soft deleting next $count images...")
 
     val deleteTime = DateTime.now(DateTimeZone.UTC)
 
     (for {
-      idsSoftDeletedInES: Set[String] <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy))
-      idsNotProcessedInDynamo <- softDeletedMetadataTable.setStatuses(idsSoftDeletedInES.map(
+      BatchDeletionIds(esIds, esIdsActuallySoftDeleted) <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy))
+      idsNotProcessedInDynamo <- softDeletedMetadataTable.setStatuses(esIdsActuallySoftDeleted.map(
         ImageStatusRecord(
           _,
           deletedBy,
@@ -119,14 +113,12 @@ class ReaperController(
         )
       ))
     } yield {
-      if(idsSoftDeletedInES.isEmpty){
-        logger.info(s"Although $count images were requested to be soft deleted, none were found to be soft deletable.")
-      }
-      metrics.softReaped.increment(n = idsSoftDeletedInES.size).run
-      idsSoftDeletedInES.map { id =>
+      metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size).run
+      esIds.map { id =>
+        val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
         val detail = Map(
-          "ES" -> true,
-          "dynamo.softDelete.metadata" -> !idsNotProcessedInDynamo.contains(id)
+          "ES" -> wasSoftDeletedInES,
+          "dynamo.table.softDelete.metadata" -> (wasSoftDeletedInES && !idsNotProcessedInDynamo.contains(id))
         )
         logger.info(s"Soft deleted image $id : $detail")
         id -> detail
@@ -140,45 +132,52 @@ class ReaperController(
 
   def doBatchHardReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("hard"){
 
+    es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
+
     logger.info(s"Hard deleting next $count images...")
 
     (for {
-      idsHardDeletedFromES: Set[String] <- es.hardDeleteNextBatchOfImages(isReapable, count)
-      mainImagesS3Deletions <- store.deleteOriginals(idsHardDeletedFromES)
-      thumbsS3Deletions <- store.deleteThumbnails(idsHardDeletedFromES)
-      pngsS3Deletions <- store.deletePNGs(idsHardDeletedFromES)
-      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(idsHardDeletedFromES)
+      BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count)
+      mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
+      thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
+      pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
+      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
-      if (idsHardDeletedFromES.isEmpty) {
-        logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
-      }
-      metrics.hardReaped.increment(n = idsHardDeletedFromES.size).run
-      idsHardDeletedFromES.map { id =>
+      metrics.hardReaped.increment(n = esIdsActuallyDeleted.size).run
+      esIds.map { id =>
+        val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
         val detail = Map(
-          "ES" -> Some(true), // since this is list of IDs deleted from ES
+          "ES" -> Some(wasHardDeletedFromES),
           "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
-          "dynamo" -> Some(!idsNotProcessedInDynamo.contains(id)),
+          "dynamo.table.softDelete.metadata" -> (if(wasHardDeletedFromES) Some(!idsNotProcessedInDynamo.contains(id)) else None)
         )
         logger.info(s"Hard deleted image $id : $detail")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))
   }
-
-  private val recentRecordsToDisplay = (2.days / INTERVAL).toInt
-  def index = withLoginRedirect { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
+  def index = withLoginRedirect {
+    val now = DateTime.now(DateTimeZone.UTC)
+    (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
+    case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
+    case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
+    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
       val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
-      val recentSoftRecords = store.client.listObjects(reaperBucket, "soft/")
-        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
-      val recentHardRecords = store.client.listObjects(reaperBucket, "hard/")
-        .getObjectSummaries.asScala.toList.reverse.take(recentRecordsToDisplay)
-      val recentRecordKeys = (recentSoftRecords ++ recentHardRecords).sortBy(_.getLastModified).reverse.map(_.getKey)
+      val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
+        val s3DirName = s3DirNameFromDate(day)
+        store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
+          store.client.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
+      }
 
-      Ok(views.html.reaper(isPaused, INTERVAL.toString(), recentRecordKeys))
+      val recentRecordKeys = recentRecords
+        .filter(_.getLastModified after now.minusHours(48).toDate)
+        .sortBy(_.getLastModified)
+        .reverse
+        .map(_.getKey)
+
+      Ok(views.html.reaper(isPaused, INTERVAL.toString(), countOfImagesToReap, recentRecordKeys))
   }}
 
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {

@@ -12,18 +12,18 @@ import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.{SearchRequest, SearchResponse}
+import com.sksamuel.elastic4s.requests.searches.SearchResponse
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
-import lib.ThrallMetrics
-import org.joda.time.{DateTime, ReadableDuration}
+import lib.{BatchDeletionIds, ThrallMetrics}
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.annotation.nowarn
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -292,13 +292,6 @@ class ElasticSearch(
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def countImagesIngestedInLast(duration: FiniteDuration)(now: DateTime)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = executeAndLog(
-    ElasticDsl.count(imagesCurrentAlias).query(
-      filters.date("uploadTime", from = now minusMillis duration.toMillis.toInt, to = now)
-    ),
-    s"count images in the last $duration (relative to $now)"
-  ).map(_.result.count)
-
   private def getNextBatchOfImageIdsForDeletion(query: Query, count: Int, deletionType: String)
                                                (implicit ex: ExecutionContext, logMarker: LogMarker) =
     executeAndLog(
@@ -310,58 +303,79 @@ class ElasticSearch(
       s"ES7 searching for oldest $count images to $deletionType delete"
     ).map(_.result.hits.hits.map(_.id).toSet)
 
-  def softDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int, softDeletedMetadata: SoftDeletedMetadata)
-                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+  private def countTotalReapable(query: Query, deletionType: String)
+                                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = executeAndLog(
+    ElasticDsl.count(imagesCurrentAlias).query(query),
+    s"counting '$deletionType' reapable images"
+  ).map(_.result.count)
 
-    val query = must(
-      isReapable.query,
-      filters.existsOrMissing("softDeletedMetadata", exists = false) // not already soft deleted
-    )
+  private def softReapableQuery(isReapable: ReapableEligibility) = must(
+    isReapable.query,
+    filters.existsOrMissing("softDeletedMetadata", exists = false) // not already soft deleted
+  )
+
+  def countTotalSoftReapable(isReapable: ReapableEligibility)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] =
+    countTotalReapable(softReapableQuery(isReapable), "soft")
+
+  def softDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int, softDeletedMetadata: SoftDeletedMetadata)
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[BatchDeletionIds] = {
+
+    val query = softReapableQuery(isReapable)
 
     for {
-      ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
       // unfortunately 'updateByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/48624
-      actuallyMarkedAsSoftDeleted <- migrationAwareUpdater(
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
+      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
-          updateByQuery(
-            indexName,
-            idsQuery(ids),
-          ).script(softDeletedMetadataAsPainlessScript(softDeletedMetadata)),
+          bulk(ids.map(
+            updateById(indexName, _)
+              .script(softDeletedMetadataAsPainlessScript(softDeletedMetadata))
+          )),
         logMessageFromIndexName = indexName => s"ES7 soft delete ${ids.size} images in $indexName by ${softDeletedMetadata.deletedBy}"
-      ).map(_.result.updated)
+      ).map(_.result.items)
     } yield {
-      if (actuallyMarkedAsSoftDeleted != ids.size) {
-        throw new Exception(s"Expected to soft delete ${ids.size} images but only $actuallyMarkedAsSoftDeleted were marked as soft deleted in ES")
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be soft deleted, none were found to be soft deletable.")
       }
-      ids
+      esResults.filter(_.error.isDefined).foreach(item =>
+        logger.error(logMarker, s"ES7 failed to soft delete image ${item.id} : ${item.error.get}")
+      )
+      BatchDeletionIds(ids, esResults.filter(_.error.isEmpty).map(_.id).toSet)
     }
   }
 
-  def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
-                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Set[String]] = {
+  private def hardReapableQuery(isReapable: ReapableEligibility) = must(
+    isReapable.query,
+    filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
+    rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusWeeks(2).toString) // soft deleted more than 2 weeks ago
+  )
 
-    val query = must(
-      isReapable.query,
-      filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
-      rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusWeeks(2).toString) // soft deleted more than 2 weeks ago
-    )
+  def countTotalHardReapable(isReapable: ReapableEligibility)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] =
+    countTotalReapable(hardReapableQuery(isReapable), "hard")
+
+  def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
+                                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[BatchDeletionIds] = {
+
+    val query = hardReapableQuery(isReapable)
 
     for {
-      ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
-      actuallyDeletedFromES <- migrationAwareUpdater(
+      ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
+      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
-          deleteByQuery(
-            indexName,
-            idsQuery(ids),
-          ),
+          bulk(ids.map(
+            deleteById(indexName, _)
+          )),
         logMessageFromIndexName = indexName => s"ES7 hard delete ${ids.size} images in $indexName"
-      ).map(_.result.left.map(_.deleted).getOrElse(0))
+      ).map(_.result.items)
     } yield {
-      if (actuallyDeletedFromES != ids.size) {
-        throw new Exception(s"Expected to hard delete ${ids.size} images but only $actuallyDeletedFromES were hard deleted from ES")
+      if (ids.isEmpty) {
+        logger.info(s"Although $count images were requested to be hard deleted, none were found to be hard deletable.")
       }
-      ids
+      esResults.filter(_.error.isDefined).foreach(item =>
+        logger.error(logMarker, s"ES7 failed to hard delete image ${item.id} : ${item.error.get}")
+      )
+      BatchDeletionIds(ids, esResults.filter(_.error.isEmpty).map(_.id).toSet)
     }
   }
 
