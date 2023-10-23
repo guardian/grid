@@ -21,6 +21,7 @@ function getCommonConfig(config) {
         |image.record.download=false
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
+        |upload.queue.stream.name="${config.coreStackProps.UploadQueueMessageStream}"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
         |`;

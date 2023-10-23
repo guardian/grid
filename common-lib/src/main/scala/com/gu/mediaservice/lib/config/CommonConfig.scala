@@ -46,6 +46,9 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
 
+  val uploadQueueStream = string("upload.queue.stream.name")
+  val uploadQueueKinesisStreamConfig = getKinesisConfigForStream(uploadQueueStream)
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")

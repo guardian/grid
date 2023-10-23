@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: Core resources for Grid in DEV
 Resources:
   ThrallMessageStream:
@@ -19,13 +19,13 @@ Resources:
     Properties:
       CorsConfiguration:
         CorsRules:
-        - AllowedMethods:
-          - GET
-          AllowedOrigins:
-          - '*'
-          ExposedHeaders:
-          - Date
-          MaxAge: '3600'
+          - AllowedMethods:
+              - GET
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - Date
+            MaxAge: "3600"
 
   ThumbBucket:
     Type: AWS::S3::Bucket
@@ -99,19 +99,19 @@ Resources:
           Projection:
             ProjectionType: KEYS_ONLY
           ProvisionedThroughput:
-            ReadCapacityUnits: '4'
-            WriteCapacityUnits: '2'
+            ReadCapacityUnits: "4"
+            WriteCapacityUnits: "2"
 
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: CollectionsTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -121,11 +121,11 @@ Resources:
     Properties:
       TableName: ImageCollectionsTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -135,32 +135,32 @@ Resources:
     Properties:
       TableName: LeasesTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
-      - AttributeName: mediaId
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: mediaId
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       GlobalSecondaryIndexes:
-      - IndexName: mediaId
-        KeySchema:
-        - AttributeName: mediaId
-          KeyType: HASH
-        Projection:
-          ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        - IndexName: mediaId
+          KeySchema:
+            - AttributeName: mediaId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
-      - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
-        Protocol: sqs
+        - Endpoint: !GetAtt "IndexedImageMetadataQueue.Arn"
+          Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
   UsageRecordTable:
@@ -168,27 +168,27 @@ Resources:
     Properties:
       TableName: UsageRecordTable
       AttributeDefinitions:
-      - AttributeName: usage_id
-        AttributeType: S
-      - AttributeName: grouping
-        AttributeType: S
-      - AttributeName: media_id
-        AttributeType: S
-      KeySchema:
-      - AttributeName: grouping
-        KeyType: HASH
-      - AttributeName: usage_id
-        KeyType: RANGE
-      GlobalSecondaryIndexes:
-      - IndexName: media_id
-        KeySchema:
+        - AttributeName: usage_id
+          AttributeType: S
+        - AttributeName: grouping
+          AttributeType: S
         - AttributeName: media_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: grouping
           KeyType: HASH
-        Projection:
-          ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        - AttributeName: usage_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: media_id
+          KeySchema:
+            - AttributeName: media_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -198,26 +198,25 @@ Resources:
     Properties:
       TableName: LiveContentPollTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
-
 
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: PreviewContentPollTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -227,11 +226,11 @@ Resources:
     Properties:
       TableName: UploadStatusTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -253,54 +252,63 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
-# TO DO - add definition for UploadQueue - either kinesis or SQS
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
-# if SQS - do we need a deadletter queue resource for items in the queue never picked up by
-# image loader? there there woudl be a 'queued' record in UploadStatusTable, but that doesn't include
-# the url from the ingest bucket (currently)
+  # TO DO - add definition for UploadQueue - either kinesis or SQS
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
+  # if SQS - do we need a deadletter queue resource for items in the queue never picked up by
+  # image loader? there there woudl be a 'queued' record in UploadStatusTable, but that doesn't include
+  # the url from the ingest bucket (currently)
+
+UploadQueueMessageStream:
+  Type: AWS::Kinesis::Stream
+  Properties:
+    Name: media-service-DEV-upload-queue
+    ShardCount: 1
+    RetentionPeriodHours: 168
 
 Outputs:
   ImageBucket:
-    Value: !Ref 'ImageBucket'
+    Value: !Ref "ImageBucket"
   ThumbBucket:
-    Value: !Ref 'ThumbBucket'
+    Value: !Ref "ThumbBucket"
   KeyBucket:
-    Value: !Ref 'KeyBucket'
+    Value: !Ref "KeyBucket"
   ImageOriginBucket:
-    Value: !Ref 'ImageOriginBucket'
+    Value: !Ref "ImageOriginBucket"
   ImageOriginWebsite:
-    Value: !GetAtt 'ImageOriginBucket.WebsiteURL'
+    Value: !GetAtt "ImageOriginBucket.WebsiteURL"
   ConfigBucket:
-    Value: !Ref 'ConfigBucket'
+    Value: !Ref "ConfigBucket"
   CollectionsBucket:
-    Value: !Ref 'CollectionsBucket'
+    Value: !Ref "CollectionsBucket"
   S3WatcherIngestBucket:
-    Value: !Ref 'S3WatcherIngestBucket'
+    Value: !Ref "S3WatcherIngestBucket"
   S3WatcherFailBucket:
-    Value: !Ref 'S3WatcherFailBucket'
+    Value: !Ref "S3WatcherFailBucket"
   UsageMailBucket:
-    Value: !Ref 'UsageMailBucket'
+    Value: !Ref "UsageMailBucket"
   SyndicationDynamoTable:
-    Value: !Ref 'SyndicationDynamoTable'
+    Value: !Ref "SyndicationDynamoTable"
   EditsDynamoTable:
-    Value: !Ref 'EditsDynamoTable'
+    Value: !Ref "EditsDynamoTable"
   CollectionsDynamoTable:
-    Value: !Ref 'CollectionsDynamoTable'
+    Value: !Ref "CollectionsDynamoTable"
   ImageCollectionsDynamoTable:
-    Value: !Ref 'ImageCollectionsDynamoTable'
+    Value: !Ref "ImageCollectionsDynamoTable"
   LeasesDynamoTable:
-    Value: !Ref 'LeasesDynamoTable'
+    Value: !Ref "LeasesDynamoTable"
   IndexedImageTopicArn:
-    Value: !Ref 'IndexedImageTopic'
+    Value: !Ref "IndexedImageTopic"
   IndexedImageMetadataQueueUrl:
-    Value: !Ref 'IndexedImageMetadataQueue'
+    Value: !Ref "IndexedImageMetadataQueue"
   UsageRecordTable:
-    Value: !Ref 'UsageRecordTable'
+    Value: !Ref "UsageRecordTable"
   LiveContentPollTable:
-    Value: !Ref 'LiveContentPollTable'
+    Value: !Ref "LiveContentPollTable"
   PreviewContentPollTable:
-    Value: !Ref 'PreviewContentPollTable'
+    Value: !Ref "PreviewContentPollTable"
   UploadStatusTable:
-    Value: !Ref 'UploadStatusTable'
+    Value: !Ref "UploadStatusTable"
   SoftDeletedMetadataTable:
-    Value: !Ref 'SoftDeletedMetadataTable'
+    Value: !Ref "SoftDeletedMetadataTable"
+  UploadQueueMessageStream:
+    Value: !Ref "UploadQueueMessageStream"
