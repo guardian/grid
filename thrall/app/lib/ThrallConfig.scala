@@ -34,6 +34,7 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
   val thumbnailBucket: String = string("s3.thumb.bucket")
 
   val maybeReaperBucket: Option[String] = stringOpt("s3.reaper.bucket")
+  val maybeReaperCountPerRun: Option[Int] = intOpt("reaper.countPerRun")
 
   val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
 
