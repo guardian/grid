@@ -160,9 +160,10 @@ class ReaperController(
   }
   def index = withLoginRedirect {
     val now = DateTime.now(DateTimeZone.UTC)
-    config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
+    (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
+    case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
+    case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
+    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
       val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
@@ -176,7 +177,7 @@ class ReaperController(
         .reverse
         .map(_.getKey)
 
-      Ok(views.html.reaper(isPaused, INTERVAL.toString(), recentRecordKeys))
+      Ok(views.html.reaper(isPaused, INTERVAL.toString(), countOfImagesToReap, recentRecordKeys))
   }}
 
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {

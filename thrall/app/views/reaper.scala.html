@@ -1,6 +1,7 @@
 @(
     isPaused: Boolean,
     interval: String,
+    count: Int,
     recentRecordKeys: List[String],
 )
 
@@ -30,7 +31,7 @@
                     <input type="submit" value="Resume">
                 </form>
             } else {
-                <p>Reaper is currently <strong>running</strong> (up to 1000 images every @interval)</p>
+                <p>Reaper is currently <strong>running</strong> (up to @count images every @interval)</p>
                 <form action="@routes.ReaperController.pauseReaper" method="POST">
                     <input type="submit" value="Pause">
                 </form>
