@@ -1,9 +1,10 @@
 /* eslint-disable no-console */
-import AWS, { Kinesis } from "aws-sdk"
+import AWS from "aws-sdk"
 import { exit } from "process"
 
 import { readConfig } from "./lib/EnvironmentConfig"
 import { createLogger } from "./lib/Logging"
+import { DEV_UPLOAD_QUEUE_STREAM_NAME, listAllStreams, listShards, makeKinesisInstance } from "./lib/Kinesis"
 
 // copy of the config code from ./index [start]
 const envConfig = readConfig()
@@ -24,20 +25,21 @@ AWS.config.update({
 })
 // copy of the config code from ./index [end]
 
-const kinesis = new Kinesis({
-  ...awsConfig,
-  endpoint: envConfig.isDev ? "http://localhost:4566" : undefined,
-})
+const kinesis = makeKinesisInstance(envConfig.isDev, awsConfig)
 
 const listAll = async () => {
-  const streams = await kinesis.listStreams({
+  const result = await listAllStreams(logger, kinesis)
+  console.log("StreamNames", result.StreamNames)
+}
 
-  }).promise()
-  console.log(streams)
+const listShardsInDevQueue =async () => {
+  const result = await listShards(logger, kinesis,DEV_UPLOAD_QUEUE_STREAM_NAME)
+  console.log("Shards", result.Shards)
 }
 
 Promise.resolve()
   .then(listAll)
+  .then(listShardsInDevQueue)
   .catch((err) => {
     console.warn(err)
   })
