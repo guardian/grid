@@ -344,19 +344,19 @@ class ElasticSearch(
     }
   }
 
-  private def hardReapableQuery(isReapable: ReapableEligibility) = must(
+  private def hardReapableQuery(isReapable: ReapableEligibility, days: Int) = must(
     isReapable.query,
     filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
-    rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusWeeks(2).toString) // soft deleted more than 2 weeks ago
+    rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusDays(days).toString) // soft deleted more than 2 weeks ago (default)
   )
 
-  def countTotalHardReapable(isReapable: ReapableEligibility)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] =
-    countTotalReapable(hardReapableQuery(isReapable), "hard")
+  def countTotalHardReapable(isReapable: ReapableEligibility, days: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] =
+    countTotalReapable(hardReapableQuery(isReapable, days), "hard")
 
-  def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int)
+  def hardDeleteNextBatchOfImages(isReapable: ReapableEligibility, count: Int, days: Int)
                                  (implicit ex: ExecutionContext, logMarker: LogMarker): Future[BatchDeletionIds] = {
 
-    val query = hardReapableQuery(isReapable)
+    val query = hardReapableQuery(isReapable, days)
 
     for {
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460

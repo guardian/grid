@@ -26,6 +26,7 @@ class ReaperController(
   authorisation: Authorisation,
   config: ThrallConfig,
   scheduler: Scheduler,
+  maybeReapable: Option[ReapableEligibility],
   softDeletedMetadataTable: SoftDeletedMetadataTable,
   metrics: ThrallMetrics,
   override val auth: Authentication,
@@ -35,13 +36,18 @@ class ReaperController(
 
   private val CONTROL_FILE_NAME = "PAUSED"
 
-  private val INTERVAL = 15 minutes // based on max of 1000 per reap, this interval will max out at 96,000 images per day
+  private val INTERVAL = config.reaperInterval minutes //default 15 minutes, based on max of 1000 per reap, this interval will max out at 96,000 images per day
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
-  private val isReapable = new ReapableEligibility {
-    override val persistedRootCollections: List[String] = config.persistedRootCollections
-    override val persistenceIdentifier: String = config.persistenceIdentifier
+  private val isReapable = maybeReapable match {
+    case Some(reapable) => reapable
+    case None =>
+      logger.info("Reaper is not configured loading default ReapableEligibility")
+      new ReapableEligibility {
+        override val persistedRootCollections: List[String] = config.persistedRootCollections
+        override val persistenceIdentifier: String = config.persistenceIdentifier
+      }
   }
 
   (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
@@ -53,7 +59,7 @@ class ReaperController(
         if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
           logger.info("Reaper is paused")
           es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
-          es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
+          es.countTotalHardReapable(isReapable, config.hardDeleteImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
         } else {
           val deletedBy = "reaper"
           Future.sequence(Seq(
@@ -132,12 +138,12 @@ class ReaperController(
 
   def doBatchHardReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("hard"){
 
-    es.countTotalHardReapable(isReapable).map(metrics.hardReapable.increment(Nil, _).run)
+    es.countTotalHardReapable(isReapable, config.hardDeleteImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
 
     logger.info(s"Hard deleting next $count images...")
 
     (for {
-      BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count)
+      BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardDeleteImagesAge)
       mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
       thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
