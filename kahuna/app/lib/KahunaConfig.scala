@@ -23,7 +23,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val fullOrigin: String = string("origin.full")
   val cropOrigin: String = string("origin.crops")
   val imageOrigin: String = string("origin.images")
-  val googleTrackingId: Option[String] = stringOpt("google.tracking.id").filterNot(_.isEmpty)
 
   val costFilterLabel: Option[String] = stringOpt("costFilter.label")
   val costFilterChargeable: Option[Boolean] = booleanOpt("costFilter.chargeable")
