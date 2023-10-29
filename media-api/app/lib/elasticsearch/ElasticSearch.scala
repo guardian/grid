@@ -238,7 +238,7 @@ class ElasticSearch(
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
-      .scriptfields(params.isPotentiallyGraphicScript.filterNot(_.isEmpty).map(script => ScriptField(
+      .scriptfields(params.isPotentiallyGraphicScript.orElse(Some(IsPotentiallyGraphic.painlessScript)).filterNot(_.isEmpty).map(script => ScriptField(
         field = isPotentiallyGraphicFieldName,
         script = Script(
           script,
