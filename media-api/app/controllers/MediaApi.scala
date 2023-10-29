@@ -20,15 +20,16 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+
 import java.net.URI
 import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.syntax.MessageSubjects
 
+import java.util.Base64
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -425,8 +426,12 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
+    val isPotentiallyGraphicScriptEnc = request.cookies.get("IS_POTENTIALLY_GRAPHIC_SCRIPT").map(_.value).map(Base64.getDecoder.decode)
+
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+        searchParams.copy(isPotentiallyGraphicScript = isPotentiallyGraphicScriptEnc.map(new String(_)))
+      )
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)

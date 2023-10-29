@@ -60,7 +60,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val image = imageWrapper.instance
 
     val source = Try {
-      Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
+      Json.toJsObject(image)(imageResponseWrites(image.id, included.contains("fileMetadata"))) ++ imageWrapper.fields
     }.recoverWith {
       case e =>
         logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
@@ -255,7 +255,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   import play.api.libs.json.JodaWrites._
 
-  def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
+  def imageResponseWrites(id: String, expandFileMetaData: Boolean): OWrites[Image] = (
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[DateTime] ~
       (__ \ "uploadedBy").write[String] ~

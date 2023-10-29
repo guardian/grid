@@ -13,6 +13,20 @@ userActions.controller('userActionCtrl',
               ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
               ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
               ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
+              ctrl.editPotentiallyGraphicScript = () => {
+                const decodedCookie = decodeURIComponent(document.cookie);
+                const cookieParts = decodedCookie.split(';');
+                const maybeExisting = atob(
+                  cookieParts.find(_ => _.trim().startsWith('IS_POTENTIALLY_GRAPHIC_SCRIPT='))?.split('=')[1] || ""
+                );
+                const newCookiePlain = window.prompt(
+                  "Enter the 'painless' script for identifying ",
+                  maybeExisting
+                );
+                const newCookieEncoded = btoa(newCookiePlain);
+                document.cookie = `IS_POTENTIALLY_GRAPHIC_SCRIPT=${newCookieEncoded};domain=.${window.location.host};path=/;max-age=31536000`;
+                window.location.reload();
+              };
             };
         }]);
 
