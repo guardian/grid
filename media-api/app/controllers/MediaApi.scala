@@ -21,7 +21,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
-import java.net.URI
+import java.net.{URI, URLDecoder}
 import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
@@ -426,11 +426,16 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
-    val isPotentiallyGraphicScriptEnc = request.cookies.get("IS_POTENTIALLY_GRAPHIC_SCRIPT").map(_.value).map(Base64.getDecoder.decode)
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true")
+    val isPotentiallyGraphicScript =
+      request.cookies.get("IS_POTENTIALLY_GRAPHIC_SCRIPT").map(_.value).map(URLDecoder.decode(_, "UTF-8"))
 
     def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
-        searchParams.copy(isPotentiallyGraphicScript = isPotentiallyGraphicScriptEnc.map(new String(_)))
+        searchParams.copy(
+          shouldFlagGraphicImages = shouldFlagGraphicImages,
+          isPotentiallyGraphicScript = isPotentiallyGraphicScript
+        )
       )
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)

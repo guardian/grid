@@ -234,17 +234,24 @@ class ElasticSearch(
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
     val trackTotalHits = params.countAll.getOrElse(true)
 
+    val graphicImagesScriptFields =
+      if (params.shouldFlagGraphicImages) {
+        params.isPotentiallyGraphicScript.orElse(Some(IsPotentiallyGraphic.painlessScript)).filterNot(_.isEmpty).map(script => ScriptField(
+          field = isPotentiallyGraphicFieldName,
+          script = Script(
+            script,
+            lang = Some("painless")
+          )
+        )).toSeq
+      } else {
+        Seq.empty
+      }
+
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
-      .scriptfields(params.isPotentiallyGraphicScript.orElse(Some(IsPotentiallyGraphic.painlessScript)).filterNot(_.isEmpty).map(script => ScriptField(
-        field = isPotentiallyGraphicFieldName,
-        script = Script(
-          script,
-          lang = Some("painless")
-        )
-      )).toSeq)
+      .scriptfields(graphicImagesScriptFields)
       .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
         orgOwnedAggName,
         queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))

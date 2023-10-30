@@ -6,6 +6,7 @@
     "@sentry/integrations": "^6.10.0",
     "angular": "1.8.3",
     "angular-animate": "1.8.3",
+    "angular-cookies": "1.8.3",
     "angular-elastic": "^2.5.1 ",
     "angular-hotkeys": "^1.7.0",
     "angular-messages": "1.8.3",

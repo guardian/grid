@@ -1,4 +1,8 @@
-<nav class="user-actions drop-menu" aria-label="Secondary">
+<nav class="user-actions drop-menu"
+     aria-label="Secondary"
+     ng-keydown="isShiftKeyDown = $event.shiftKey"
+     ng-keyup="isShiftKeyDown = $event.shiftKey"
+>
     <button class="drop-menu__button"
             type="button"
             ng-click="showUserActions = !showUserActions"
@@ -17,7 +21,10 @@
             </li>
             <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
             <li>
-                <a ng-click="ctrl.editPotentiallyGraphicScript()">
+                <div>
+                    <label>Blur &apos;Potentially Graphic&apos; images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
+                </div>
+                <a ng-if="ctrl.hasCustomPotentiallyGraphicScript || isShiftKeyDown" ng-click="ctrl.editPotentiallyGraphicScript()">
                     Adjust &apos;Potentially Graphic&apos; script
                 </a>
             </li>

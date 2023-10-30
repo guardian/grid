@@ -1,31 +1,43 @@
 import angular from 'angular';
+import 'angular-cookies';
 import template from './user-actions.html';
 import '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
-export var userActions = angular.module('kahuna.common.userActions', ['gr.featureSwitchPanel']);
+const COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES = 'SHOULD_BLUR_GRAPHIC_IMAGES';
+const COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT = 'IS_POTENTIALLY_GRAPHIC_SCRIPT';
+
+const cookieOptions = {domain: `.${window.location.host}`, path: '/'};
+
+export var userActions = angular.module('kahuna.common.userActions', ['gr.featureSwitchPanel', 'ngCookies']);
 
 userActions.controller('userActionCtrl',
     [
-        function() {
+        '$cookies', function($cookies) {
             var ctrl = this;
 
             ctrl.$onInit = () => {
               ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
               ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
               ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
-              ctrl.editPotentiallyGraphicScript = () => {
-                const decodedCookie = decodeURIComponent(document.cookie);
-                const cookieParts = decodedCookie.split(';');
-                const maybeExisting = atob(
-                  cookieParts.find(_ => _.trim().startsWith('IS_POTENTIALLY_GRAPHIC_SCRIPT='))?.split('=')[1] || ""
-                );
-                const newCookiePlain = window.prompt(
-                  "Enter the 'painless' script for identifying ",
-                  maybeExisting
-                );
-                const newCookieEncoded = btoa(newCookiePlain);
-                document.cookie = `IS_POTENTIALLY_GRAPHIC_SCRIPT=${newCookieEncoded};domain=.${window.location.host};path=/;max-age=31536000`;
+              ctrl.shouldBlurGraphicImages = $cookies.get(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES) === "true";
+              ctrl.syncShouldBlurGraphicImages = () => {
+                if (ctrl.shouldBlurGraphicImages){
+                  $cookies.put(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, "true", cookieOptions);
+                } else {
+                  $cookies.remove(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, cookieOptions);
+                }
                 window.location.reload();
+              };
+              ctrl.hasCustomPotentiallyGraphicScript = $cookies.get(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT);
+              ctrl.editPotentiallyGraphicScript = () => {
+                const newScript = window.prompt(
+                  "Enter the 'painless' script for identifying 'potentially graphic' images.",
+                  $cookies.get(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT)
+                );
+                if (newScript != null){ // user didn't cancel the prompt
+                  $cookies.put(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT, newScript, cookieOptions);
+                  window.location.reload();
+                }
               };
             };
         }]);

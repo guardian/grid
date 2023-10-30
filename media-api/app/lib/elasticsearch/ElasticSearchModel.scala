@@ -86,6 +86,7 @@ case class SearchParams(
   syndicationStatus: Option[SyndicationStatus] = None,
   countAll: Option[Boolean] = None,
   printUsageFilters: Option[PrintUsageFilters] = None,
+  shouldFlagGraphicImages: Boolean = false,
   isPotentiallyGraphicScript: Option[String] = None,
 )
 
