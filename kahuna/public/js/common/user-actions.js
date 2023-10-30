@@ -3,7 +3,7 @@ import 'angular-cookies';
 import template from './user-actions.html';
 import '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
-const COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES = 'SHOULD_BLUR_GRAPHIC_IMAGES';
+export const COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES = 'SHOULD_BLUR_GRAPHIC_IMAGES';
 const COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT = 'IS_POTENTIALLY_GRAPHIC_SCRIPT';
 
 const cookieOptions = {domain: `.${window.location.host}`, path: '/'};

@@ -236,7 +236,7 @@ class ElasticSearch(
 
     val graphicImagesScriptFields =
       if (params.shouldFlagGraphicImages) {
-        params.isPotentiallyGraphicScript.orElse(Some(IsPotentiallyGraphic.painlessScript)).filterNot(_.isEmpty).map(script => ScriptField(
+        params.isPotentiallyGraphicScript.filterNot(_.isEmpty).map(script => ScriptField(
           field = isPotentiallyGraphicFieldName,
           script = Script(
             script,
