@@ -16,6 +16,11 @@
                 </a>
             </li>
             <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
+            <li>
+                <div>
+                    <label>Blur &lsquo;Potentially Graphic&rsquo; images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
+                </div>
+            </li>
         </ul>
         <ul>
             <li><a class="drop-menu__items__logout" ng-href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>

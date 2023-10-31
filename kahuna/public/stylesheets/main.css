@@ -1523,6 +1523,28 @@ textarea.ng-invalid {
     pointer-events: none;
 }
 
+.is-potentially-graphic > img {
+  filter: blur(15px);
+  transition: filter 0.6s;
+}
+.is-potentially-graphic::after {
+  content: "POTENTIALLY GRAPHIC IMAGE \A (hover to reveal)";
+  white-space: pre;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  top: 20px;
+  width: 100%;
+  text-align: center;
+  transition: opacity 0.6s;
+}
+.is-potentially-graphic:hover > img {
+  filter: none;
+}
+.is-potentially-graphic:hover::after {
+  opacity: 0;
+}
+
 .preview__image.preview__image--staff {
     border: 10px solid #005689;
     box-sizing: border-box;

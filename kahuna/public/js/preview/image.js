@@ -82,6 +82,25 @@ image.controller('uiPreviewImageCtrl', [
           `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
           ctrl.image.data.metadata.description;
 
+      ctrl.image.isPotentiallyGraphic = $rootScope.shouldBlurGraphicImages && (ctrl.image.data.isPotentiallyGraphic || !![
+        'graphic content',
+        'depicts death',
+        'dead child',
+        'child casualty',
+        'sensitive material',
+        'injured',
+        'wounded',
+        'killed',
+        'body of',
+        'bodies of',
+        'smout'
+      ].find( searchPhrase =>
+        ctrl.image.data?.metadata?.description?.toLowerCase()?.includes(searchPhrase) ||
+        ctrl.image.data?.metadata?.title?.toLowerCase()?.includes(searchPhrase) ||
+        ctrl.image.data?.metadata?.specialInstructions?.toLowerCase()?.includes(searchPhrase) ||
+        ctrl.image.data?.metadata?.keywords?.find(keyword => keyword?.toLowerCase()?.includes(searchPhrase))
+      ));
+
       ctrl.flagState = ctrl.states.costState;
 
       const hasPrintUsages$ =

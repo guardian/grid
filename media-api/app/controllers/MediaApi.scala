@@ -20,15 +20,16 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import java.net.URI
-import java.util.concurrent.TimeUnit
 
+import java.net.{URI, URLDecoder}
+import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.syntax.MessageSubjects
 
+import java.util.Base64
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -426,7 +427,11 @@ class MediaApi(
     }
 
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+        searchParams.copy(
+          shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true"),
+        )
+      )
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)

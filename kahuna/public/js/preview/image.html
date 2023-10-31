@@ -37,7 +37,9 @@
        ui-sref="image({imageId: ctrl.image.data.id})"
        data-cy="image-preview-link"
        ui-drag-data="ctrl.image | asImageDragData"
-       title="{{::ctrl.imageDescription}}">
+       title="{{::ctrl.imageDescription}}"
+       ng-class="{'is-potentially-graphic': ctrl.image.isPotentiallyGraphic}"
+    >
        <div class="preview__fade"></div>
        <img class="preview__image"
             ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
