@@ -1,8 +1,4 @@
-<nav class="user-actions drop-menu"
-     aria-label="Secondary"
-     ng-keydown="isShiftKeyDown = $event.shiftKey"
-     ng-keyup="isShiftKeyDown = $event.shiftKey"
->
+<nav class="user-actions drop-menu" aria-label="Secondary">
     <button class="drop-menu__button"
             type="button"
             ng-click="showUserActions = !showUserActions"
@@ -24,9 +20,6 @@
                 <div>
                     <label>Blur &lsquo;Potentially Graphic&rsquo; images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
                 </div>
-                <a ng-if="ctrl.hasCustomPotentiallyGraphicScript || isShiftKeyDown" ng-click="ctrl.editPotentiallyGraphicScript()">
-                    Adjust extra &lsquo;Potentially Graphic&rsquo; script
-                </a>
             </li>
         </ul>
         <ul>

@@ -4,8 +4,6 @@ import template from './user-actions.html';
 import '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
 export const COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES = 'SHOULD_BLUR_GRAPHIC_IMAGES';
-const COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT = 'IS_POTENTIALLY_GRAPHIC_SCRIPT';
-
 const cookieOptions = {domain: `.${window.location.host}`, path: '/'};
 
 export var userActions = angular.module('kahuna.common.userActions', ['gr.featureSwitchPanel', 'ngCookies']);
@@ -27,17 +25,6 @@ userActions.controller('userActionCtrl',
                   $cookies.remove(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, cookieOptions);
                 }
                 window.location.reload();
-              };
-              ctrl.hasCustomPotentiallyGraphicScript = $cookies.get(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT);
-              ctrl.editPotentiallyGraphicScript = () => {
-                const newScript = window.prompt(
-                  "Enter the 'painless' script for identifying 'potentially graphic' images.",
-                  $cookies.get(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT)
-                );
-                if (newScript != null){ // user didn't cancel the prompt
-                  $cookies.put(COOKIE_IS_POTENTIALLY_GRAPHIC_SCRIPT, newScript, cookieOptions);
-                  window.location.reload();
-                }
               };
             };
         }]);

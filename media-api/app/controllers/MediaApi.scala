@@ -426,15 +426,10 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
-    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true")
-    val isPotentiallyGraphicScript =
-      request.cookies.get("IS_POTENTIALLY_GRAPHIC_SCRIPT").map(_.value).map(URLDecoder.decode(_, "UTF-8"))
-
     def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
         searchParams.copy(
-          shouldFlagGraphicImages = shouldFlagGraphicImages,
-          isPotentiallyGraphicScript = isPotentiallyGraphicScript
+          shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true"),
         )
       )
       imageEntities = hits map (hitToImageEntity _).tupled

@@ -87,7 +87,6 @@ case class SearchParams(
   countAll: Option[Boolean] = None,
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
-  isPotentiallyGraphicScript: Option[String] = None,
 )
 
 case class InvalidUriParams(message: String) extends Throwable

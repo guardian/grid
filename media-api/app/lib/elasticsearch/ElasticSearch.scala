@@ -236,13 +236,13 @@ class ElasticSearch(
 
     val graphicImagesScriptFields =
       if (params.shouldFlagGraphicImages) {
-        params.isPotentiallyGraphicScript.filterNot(_.isEmpty).map(script => ScriptField(
+        Seq(ScriptField(
           field = isPotentiallyGraphicFieldName,
           script = Script(
-            script,
+            script = "return false", // the bulk of the work will be done in the client in results.js
             lang = Some("painless")
           )
-        )).toSeq
+        ))
       } else {
         Seq.empty
       }
