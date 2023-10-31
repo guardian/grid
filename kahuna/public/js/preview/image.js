@@ -82,7 +82,7 @@ image.controller('uiPreviewImageCtrl', [
           `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
           ctrl.image.data.metadata.description;
 
-      ctrl.image.isPotentiallyGraphic = $rootScope.shouldBlurGraphicImages && (ctrl.image.data.isPotentiallyGraphic ?? !![
+      ctrl.image.isPotentiallyGraphic = $rootScope.shouldBlurGraphicImages && (ctrl.image.data.isPotentiallyGraphic || !![
         'graphic content',
         'depicts death',
         'dead child',

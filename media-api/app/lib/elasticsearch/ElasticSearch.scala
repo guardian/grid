@@ -238,8 +238,10 @@ class ElasticSearch(
       if (params.shouldFlagGraphicImages) {
         Seq(ScriptField(
           field = isPotentiallyGraphicFieldName,
+          // the rest of the logic is in the client (in image.js)
           script = Script(
-            script = "return false", // the bulk of the work will be done in the client in results.js
+            //language=groovy -- it's actually painless, but that's pretty similar to groovy and this provides syntax highlighting
+            script = "params['_source']?.fileMetadata?.xmp !=null && params['_source']?.fileMetadata?.xmp['pur:adultContentWarning'] != null",
             lang = Some("painless")
           )
         ))
