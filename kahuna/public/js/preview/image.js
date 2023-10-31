@@ -88,12 +88,11 @@ image.controller('uiPreviewImageCtrl', [
         'dead child',
         'child casualty',
         'sensitive material',
-        'injured',
-        'wounded',
-        'killed',
+        'dead body',
+        'dead bodies',
         'body of',
         'bodies of',
-        'smout'
+        'smout' // this is short for sensitive material out, often used in specialInstructions
       ].find( searchPhrase =>
         ctrl.image.data?.metadata?.description?.toLowerCase()?.includes(searchPhrase) ||
         ctrl.image.data?.metadata?.title?.toLowerCase()?.includes(searchPhrase) ||
