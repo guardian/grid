@@ -22,10 +22,10 @@
             <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
             <li>
                 <div>
-                    <label>Blur &apos;Potentially Graphic&apos; images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
+                    <label>Blur &lsquo;Potentially Graphic&rsquo; images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
                 </div>
                 <a ng-if="ctrl.hasCustomPotentiallyGraphicScript || isShiftKeyDown" ng-click="ctrl.editPotentiallyGraphicScript()">
-                    Adjust extra &apos;Potentially Graphic&apos; script
+                    Adjust extra &lsquo;Potentially Graphic&rsquo; script
                 </a>
             </li>
         </ul>
