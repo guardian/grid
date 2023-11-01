@@ -97,7 +97,7 @@ startDockerContainers() {
       echo "RE-USING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
     else
       TUNNEL_OPTS="-o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
-      SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,grid-elasticsearch,TEST --newest --raw)
+      SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw)
       eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200
       echo "TUNNEL ESTABLISHED TO TEST ELASTICSEARCH (on port 9200)"
     fi
