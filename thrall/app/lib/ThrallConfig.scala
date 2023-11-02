@@ -9,6 +9,8 @@ import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.inject.ApplicationLifecycle
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.postfixOps
 
 case class KinesisReceiverConfig(
   override val awsRegion: String,
@@ -48,8 +50,8 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
 
   val projectionParallelism: Int = intDefault("thrall.projection.parallelism", 1)
 
-  val reaperInterval: Int = intDefault("reaper.interval", 15)
-  val hardDeleteImagesAge: Int = intDefault("hard.delete.images.age", 14) // soft deleted images age to be hard deleted by Reaper Controller
+  val reaperInterval: FiniteDuration = intDefault("reaper.interval", 15) minutes
+  val hardReapImagesAge: Int = intDefault("reaper.hard.daysInSoftDelete", 14) // soft deleted images age to be hard deleted by Reaper Controller
 
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
