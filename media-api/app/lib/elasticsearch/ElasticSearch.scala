@@ -117,8 +117,7 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
-    implicit val logMarker = MarkerMap()
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker:MarkerMap = MarkerMap()): Future[SearchResults] = {
 
     val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
