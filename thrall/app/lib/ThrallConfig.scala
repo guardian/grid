@@ -3,9 +3,14 @@ package lib
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
 import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
-import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
+import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources, ReapableEligibilityLoader}
+import com.gu.mediaservice.lib.cleanup.ReapableEligibiltyResources
+import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import play.api.inject.ApplicationLifecycle
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.postfixOps
 
 case class KinesisReceiverConfig(
   override val awsRegion: String,
@@ -45,6 +50,14 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
 
   val projectionParallelism: Int = intDefault("thrall.projection.parallelism", 1)
 
+  val reaperInterval: FiniteDuration = intDefault("reaper.interval", 15) minutes
+  val hardReapImagesAge: Int = intDefault("reaper.hard.daysInSoftDelete", 14) // soft deleted images age to be hard deleted by Reaper Controller
+
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
+
+  def maybeReapableEligibilityClass(applicationLifecycle: ApplicationLifecycle): Option[ReapableEligibility] = {
+    val configLoader = ReapableEligibilityLoader.singletonConfigLoader(ReapableEligibiltyResources(this, resources.actorSystem), applicationLifecycle)
+    configuration.getOptional[ReapableEligibility]("reaper.provider")(configLoader)
+  }
 }

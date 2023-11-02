@@ -164,6 +164,7 @@ function getThrallConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
+        |s3.reaper.bucket="${config.coreStackProps.ReaperBucket}"
         |persistence.identifier="picdarUrn"
         |indexed.image.sns.topic.arn="${config.coreStackProps.IndexedImageTopic}"
         |es6.url="${config.es6.url}"

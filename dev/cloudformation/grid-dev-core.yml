@@ -30,6 +30,9 @@ Resources:
   ThumbBucket:
     Type: AWS::S3::Bucket
 
+  ReaperBucket:
+    Type: AWS::S3::Bucket
+
   QuarantineBucket:
     Type: AWS::S3::Bucket
 
