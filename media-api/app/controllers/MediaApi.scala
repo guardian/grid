@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.syntax.MessageSubjects
 
@@ -412,6 +413,13 @@ class MediaApi(
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true")
+
+    implicit val logMarker = MarkerMap(
+      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
+      "user" -> r.user.accessor.identity
+    )
+
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
@@ -429,7 +437,7 @@ class MediaApi(
     def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
         searchParams.copy(
-          shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true"),
+          shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
       )
       imageEntities = hits map (hitToImageEntity _).tupled
