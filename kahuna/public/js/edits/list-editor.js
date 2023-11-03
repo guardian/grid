@@ -67,7 +67,7 @@ listEditor.controller('ListEditorCtrl', [
 
           //-clear removed list-
           let ctrlElementName = ctrl.elementNamePlural ? ctrl.elementNamePlural : ctrl.elementName;
-          if (removedElements.length > 0 && ctrlElementName === elementName) {
+          if (removedElements && removedElements.length > 0 && ctrlElementName === elementName) {
             ctrl.images.forEach(img => {
               if (img.uri === originatingImage) {
                 ctrl.imageRemovedElements = [];
