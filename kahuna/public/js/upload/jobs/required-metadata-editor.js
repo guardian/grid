@@ -153,10 +153,6 @@ jobs.controller('DescriptionPlaceholderCtrl',
                 ['$scope',
                  function($scope) {
 
-    function descriptionPrompt() {
-      return 'Give some context about the image including who, what, where, when and why';
-    }
-
-    $scope.funnyDescription = descriptionPrompt();
+    $scope.funnyDescription = 'Give some context about the image including who, what, where, when and why';
 
 }]);
