@@ -3,8 +3,14 @@ package com.gu.mediaservice.lib.elasticsearch
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import org.joda.time.DateTime
+import com.gu.mediaservice.lib.config. Provider
+import scala.concurrent.Future
 
-trait ReapableEligibility {
+trait ReapableEligibility extends Provider{
+
+  def initialise(): Unit = {}
+  def shutdown(): Future[Unit] = Future.successful(())
+
 
   val persistedRootCollections: List[String] // typically from config
   val persistenceIdentifier: String // typically from config
