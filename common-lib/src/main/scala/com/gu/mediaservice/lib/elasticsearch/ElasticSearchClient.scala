@@ -12,9 +12,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-case class ElasticSearchImageCounts(catCount: Long,
-                                    searchResponseCount: Long,
-                                    indexStatsCount: Long)
+case class ElasticSearchImageCounts(
+  catCount: Long,
+  searchResponseCount: Long,
+  indexStatsCount: Long,
+  uploadedInLastFiveMinutes: Long
+)
 
 trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
@@ -83,6 +86,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     implicit val logMarker = MarkerMap()
     val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search(indexName) trackTotalHits true limit 0 // hits that match the query defined in the request
+    val uploadedInLastFiveMinutes = count(indexName) query rangeQuery("uploadTime").gte("now-5m")
     val queryStats = indexStats(indexName) // total accumulated values of an index for both primary and replica shards
     val indexForAlias = getIndexForAlias(indexName)
 
@@ -90,13 +94,17 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
       catCount <- executeAndLog(queryCatCount, "Images cat count")
       imageSearch <- executeAndLog(queryImageSearch, "Images search")
       stats <- executeAndLog(queryStats, "Stats aggregation")
+      uploadedInLastFiveMinutes <- executeAndLog(uploadedInLastFiveMinutes, "Count uploaded in last five minutes")
       maybeRealIndexName <- indexForAlias
     } yield {
       // indexName may also be an alias; do a lookup for the real name if it exists
       val realIndexName = maybeRealIndexName.map(_.name).getOrElse(indexName)
-      ElasticSearchImageCounts(catCount.result.count,
-                               imageSearch.result.hits.total.value,
-                               stats.result.indices(realIndexName).total.docs.count)
+      ElasticSearchImageCounts(
+        catCount = catCount.result.count,
+        searchResponseCount = imageSearch.result.hits.total.value,
+        indexStatsCount = stats.result.indices(realIndexName).total.docs.count,
+        uploadedInLastFiveMinutes = uploadedInLastFiveMinutes.result.count
+      )
     }
   }
 
