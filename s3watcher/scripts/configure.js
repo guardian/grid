@@ -1,5 +1,5 @@
 const configLoader = require('./configLoader');
-const { fromIni } = require("@aws-sdk/credential-providers");
+const { fromIni } = require('@aws-sdk/credential-providers');
 
 const configObject = configLoader.load('s3Watcher');
 
