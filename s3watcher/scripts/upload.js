@@ -39,7 +39,7 @@ const event = {
 };
 const eventJson = JSON.stringify(event, null, 2);
 
-const s3 = configLoader.s3Client('eu-west-1');
+const s3 = configLoader.s3Client({ region: 'eu-west-1' });
 console.log('Uploading ' + testFile + ' to s3://' +s3IngestBucket+ '/' +s3Key);
 
 s3.putObject({

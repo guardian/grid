@@ -35,15 +35,15 @@ function get(config, field) {
   }
 }
 
-function s3Client(region) {
+function s3Client(config) {
   return new S3({
     credentials: {
       accessKeyId: 'test',
       secretAccessKey: 'test'
     },
-    region,
     endpoint: 'https://localstack.media.local.dev-gutools.co.uk',
-    forcePathStyle: true
+    forcePathStyle: true,
+    ...config
   });
 };
 
