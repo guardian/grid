@@ -1,6 +1,8 @@
 const fs = require('fs');
 const parseHocon = require('hocon-parser');
-const AWS = require('aws-sdk');
+const {
+  S3
+} = require("@aws-sdk/client-s3");
 
 function load(app) {
     const homeConfigFile = process.env.HOME + `/.grid/${app}.conf`;
@@ -36,7 +38,22 @@ function get(config, field) {
 }
 
 function s3Client(region) {
-  return new AWS.S3({region, endpoint: 'https://localstack.media.local.dev-gutools.co.uk', s3ForcePathStyle: true, accessKeyId: 'test', secretAccessKey: 'test'});
+  return new S3({
+    credentials: {
+      accessKeyId: 'test',
+      secretAccessKey: 'test'
+    },
+
+    region,
+
+    // The transformation for endpoint is not implemented.
+    // Refer to UPGRADING.md on aws-sdk-js-v3 for changes needed.
+    // Please create/upvote feature request on aws-sdk-js-codemod for endpoint.
+    endpoint: 'https://localstack.media.local.dev-gutools.co.uk',
+
+    // The key s3ForcePathStyle is renamed to forcePathStyle.
+    forcePathStyle: true
+  });
 };
 
 module.exports = {

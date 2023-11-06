@@ -1,7 +1,17 @@
 const configLoader = require('./configLoader');
 const AWS = require('aws-sdk');
 
-AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: 'media-service'});
+const {
+    fromIni
+} = require("@aws-sdk/credential-providers");
+
+// JS SDK v3 does not support global configuration.
+// Codemod has attempted to pass values to each service client in this file.
+// You may need to update clients outside of this file, if they use global config.
+AWS.config.credentials = // JS SDK v3 switched credential providers from classes to functions.
+// This is the closest approximation from codemod of what your application needs.
+// Reference: https://www.npmjs.com/package/@aws-sdk/credential-providers
+fromIni({profile: 'media-service'});
 
 const configObject = configLoader.load('s3Watcher');
 
