@@ -16,6 +16,12 @@ userActions.controller('userActionCtrl',
               ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
               ctrl.shouldBlurGraphicImages = graphicImageBlurService.shouldBlurGraphicImages;
               ctrl.toggleShouldBlurGraphicImages = graphicImageBlurService.toggleShouldBlurGraphicImages;
+              ctrl.isYetToAcknowledgeBlurGraphicImages = graphicImageBlurService.isYetToAcknowledgeBlurGraphicImages;
+              ctrl.acceptDefaultOfBlurringGraphicImages = () => {
+                graphicImageBlurService.acceptDefaultOfBlurringGraphicImages();
+                ctrl.isYetToAcknowledgeBlurGraphicImages = false;
+                ctrl.showUserActions = false;
+              };
               ctrl.showUserActions = graphicImageBlurService.isYetToAcknowledgeBlurGraphicImages; // expand user actions until blurring is acknowledged
             };
         }]);

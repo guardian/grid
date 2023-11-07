@@ -1545,6 +1545,44 @@ textarea.ng-invalid {
   opacity: 0;
 }
 
+.graphic-image-blur-explainer__background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-top: 10vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.graphic-image-blur-explainer__spotlight {
+  z-index: 101;
+  position: relative;
+  outline: white solid 1px;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.graphic-image-blur-explainer__tooltip {
+  z-index: 101;
+  position: absolute;
+  width: 410px;
+  top: -4px;
+  left: -430px;
+  background: white;
+  color: black;
+  padding: 5px;
+  border-radius: 3px;
+  text-wrap: initial;
+}
+.graphic-image-blur-explainer__tooltip a {
+  color: black;
+  text-decoration: underline;
+}
+
 .preview__image.preview__image--staff {
     border: 10px solid #005689;
     box-sizing: border-box;

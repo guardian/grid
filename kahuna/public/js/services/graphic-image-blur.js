@@ -18,6 +18,8 @@ export const graphicImageBlurService = angular.module("kahuna.services.graphicIm
         $cookies.put(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, newCookieValue, cookieOptions);
         window.location.reload();
       },
+      acceptDefaultOfBlurringGraphicImages: () =>
+        $cookies.put(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, "true", cookieOptions),
       isPotentiallyGraphic: (image) => shouldBlurGraphicImages && (
         image.data.isPotentiallyGraphic || // server can flag images as potentially graphic by inspecting deep in the metadata at query time (not available to the client)
         !![
