@@ -1582,6 +1582,10 @@ textarea.ng-invalid {
   color: black;
   text-decoration: underline;
 }
+.graphic-image-blur-explainer__tooltip a:focus {
+  outline: #00adee solid 2px;
+  outline-offset: 3px;
+}
 
 .preview__image.preview__image--staff {
     border: 10px solid #005689;

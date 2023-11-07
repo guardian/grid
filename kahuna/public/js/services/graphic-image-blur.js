@@ -7,9 +7,10 @@ const cookieOptions = {domain: `.${window.location.host}`, path: '/'};
 export const graphicImageBlurService = angular.module("kahuna.services.graphicImageBlur", ['ngCookies']).factory(
   "graphicImageBlurService",
   ['$cookies', function($cookies) {
+    const defaultShouldBlurGraphicImages = window._clientConfig.defaultShouldBlurGraphicImages;
     const shouldBlurGraphicImagesCookieValue = $cookies.get(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES);
-    const isYetToAcknowledgeBlurGraphicImages = !shouldBlurGraphicImagesCookieValue; // i.e. cookie not set, one way or the other
-    const shouldBlurGraphicImages = (shouldBlurGraphicImagesCookieValue || "true") === "true"; // defaults to true
+    const isYetToAcknowledgeBlurGraphicImages = defaultShouldBlurGraphicImages && !shouldBlurGraphicImagesCookieValue; // i.e. cookie not set, one way or the other
+    const shouldBlurGraphicImages = (shouldBlurGraphicImagesCookieValue || defaultShouldBlurGraphicImages.toString()) === "true";
     return {
       shouldBlurGraphicImages,
       isYetToAcknowledgeBlurGraphicImages,
