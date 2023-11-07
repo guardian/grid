@@ -1,11 +1,11 @@
 <nav class="user-actions drop-menu" aria-label="Secondary">
     <button class="drop-menu__button"
             type="button"
-            ng-click="showUserActions = !showUserActions"
+            ng-click="ctrl.showUserActions = !ctrl.showUserActions"
             aria-label="Secondary navigation menu">
         <gr-icon>more_vert</gr-icon>
     </button>
-    <div class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">
+    <div class="drop-menu__items drop-menu__items--right" ng-if="ctrl.showUserActions">
         <ul class="drop-menu__items__separator">
             <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
             <li ng-repeat="additionalLink in ctrl.additionalLinks">
@@ -18,7 +18,12 @@
             <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
             <li>
                 <div>
-                    <label>Blur potentially graphic images <input type="checkbox" ng-model="ctrl.shouldBlurGraphicImages" ng-change="ctrl.syncShouldBlurGraphicImages()"></label>
+                    <label style="cursor: pointer">
+                        Blur potentially graphic images&nbsp;
+                        <input type="checkbox"
+                               ng-model="ctrl.shouldBlurGraphicImages"
+                               ng-change="ctrl.toggleShouldBlurGraphicImages()">
+                    </label>
                 </div>
             </li>
         </ul>

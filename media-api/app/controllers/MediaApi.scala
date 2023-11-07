@@ -413,7 +413,8 @@ class MediaApi(
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
-    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").exists(_.value == "true")
+    // defaults to true if not specified
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES").map(_.value).getOrElse("true") == "true"
 
     implicit val logMarker = MarkerMap(
       "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
