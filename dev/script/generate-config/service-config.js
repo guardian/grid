@@ -19,6 +19,7 @@ function getCommonConfig(config) {
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
         |image.record.download=false
+        |defaultShouldBlurGraphicImages=true
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}

@@ -1,5 +1,4 @@
 import angular from 'angular';
-import 'angular-cookies';
 import Rx from 'rx';
 import moment from 'moment';
 
@@ -19,7 +18,6 @@ import '../components/gr-downloader/gr-downloader';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
-import {COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES} from "../common/user-actions";
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -37,8 +35,7 @@ export var results = angular.module('kahuna.search.results', [
     'gr.deleteImage',
     'gr.undeleteImage',
     'gr.panelButton',
-    'gr.toggleButton',
-    'ngCookies'
+    'gr.toggleButton'
 ]);
 
 
@@ -64,7 +61,6 @@ results.controller('SearchResultsCtrl', [
     '$timeout',
     '$log',
     '$q',
-    '$cookies',
     'inject$',
     'delay',
     'onNextEvent',
@@ -85,7 +81,6 @@ results.controller('SearchResultsCtrl', [
              $timeout,
              $log,
              $q,
-             $cookies,
              inject$,
              delay,
              onNextEvent,
@@ -99,8 +94,6 @@ results.controller('SearchResultsCtrl', [
              globalErrors) {
 
         const ctrl = this;
-
-        $rootScope.shouldBlurGraphicImages = $cookies.get(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES) === "true";
 
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;

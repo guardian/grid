@@ -38,6 +38,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
+  val defaultShouldBlurGraphicImages: Boolean = boolean("defaultShouldBlurGraphicImages")
+
   val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
 
   val shouldDisplayOrgOwnedCountAndFilterCheckbox: Boolean = boolean("filters.shouldDisplayOrgOwnedCountAndFilterCheckbox")
