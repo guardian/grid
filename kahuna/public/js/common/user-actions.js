@@ -23,6 +23,12 @@ userActions.controller('userActionCtrl',
                 ctrl.showUserActions = false;
               };
               ctrl.showUserActions = graphicImageBlurService.isYetToAcknowledgeBlurGraphicImages; // expand user actions until blurring is acknowledged
+              if (ctrl.isYetToAcknowledgeBlurGraphicImages) {
+                setTimeout(
+                  () => document.getElementById("acknowledge-blur-graphic-images-default")?.focus(),
+                  250
+                );
+              }
             };
         }]);
 
