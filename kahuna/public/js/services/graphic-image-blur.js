@@ -2,7 +2,11 @@ import angular from "angular";
 import 'angular-cookies';
 
 const COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES = 'SHOULD_BLUR_GRAPHIC_IMAGES';
-const cookieOptions = {domain: `.${window.location.host}`, path: '/'};
+const cookieOptions = {
+  domain: `.${window.location.host}`,
+  path: '/',
+  expires: new Date(Date.now() + 34473600000) //399 days from now (max cookie expiry time)
+};
 
 export const graphicImageBlurService = angular.module("kahuna.services.graphicImageBlur", ['ngCookies']).factory(
   "graphicImageBlurService",
@@ -11,6 +15,9 @@ export const graphicImageBlurService = angular.module("kahuna.services.graphicIm
     const shouldBlurGraphicImagesCookieValue = $cookies.get(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES);
     const isYetToAcknowledgeBlurGraphicImages = defaultShouldBlurGraphicImages && !shouldBlurGraphicImagesCookieValue; // i.e. cookie not set, one way or the other
     const shouldBlurGraphicImages = (shouldBlurGraphicImagesCookieValue || defaultShouldBlurGraphicImages.toString()) === "true";
+    if (!!shouldBlurGraphicImagesCookieValue){
+      $cookies.put(COOKIE_SHOULD_BLUR_GRAPHIC_IMAGES, shouldBlurGraphicImages.toString(), cookieOptions); // extend cookie expiry
+    }
     return {
       shouldBlurGraphicImages,
       isYetToAcknowledgeBlurGraphicImages,
