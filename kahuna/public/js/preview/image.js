@@ -16,6 +16,7 @@ import '../services/image-accessor';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
 import '../components/gr-syndication-icon/gr-syndication-icon';
+import {graphicImageBlurService} from "../services/graphic-image-blur";
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
@@ -27,7 +28,8 @@ export var image = angular.module('kahuna.preview.image', [
     'gr.syndicationIcon',
     'util.rx',
     'kahuna.imgops',
-    'util.storage'
+    'util.storage',
+    graphicImageBlurService.name
 ]);
 
 image.controller('uiPreviewImageCtrl', [
@@ -40,6 +42,7 @@ image.controller('uiPreviewImageCtrl', [
   'labelService',
   'imageAccessor',
   'storage',
+  'graphicImageBlurService',
   function (
       $scope,
       inject$,
@@ -49,7 +52,8 @@ image.controller('uiPreviewImageCtrl', [
       imageUsagesService,
       labelService,
       imageAccessor,
-      storage) {
+      storage,
+      graphicImageBlurService) {
     var ctrl = this;
 
     ctrl.$onInit = () => {
@@ -81,6 +85,8 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
           `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
           ctrl.image.data.metadata.description;
+
+      ctrl.image.isPotentiallyGraphic = graphicImageBlurService.isPotentiallyGraphic(ctrl.image);
 
       ctrl.flagState = ctrl.states.costState;
 

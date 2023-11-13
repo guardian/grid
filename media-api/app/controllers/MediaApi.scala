@@ -20,15 +20,17 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import java.net.URI
-import java.util.concurrent.TimeUnit
 
+import java.net.{URI, URLDecoder}
+import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.syntax.MessageSubjects
 
+import java.util.Base64
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -411,6 +413,14 @@ class MediaApi(
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
+      .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
+
+    implicit val logMarker = MarkerMap(
+      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
+      "user" -> r.user.accessor.identity
+    )
+
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
@@ -426,7 +436,11 @@ class MediaApi(
     }
 
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+        searchParams.copy(
+          shouldFlagGraphicImages = shouldFlagGraphicImages,
+        )
+      )
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)

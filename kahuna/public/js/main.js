@@ -20,7 +20,6 @@ import {edits}  from './edits/index';
 import {async}  from './util/async';
 import {digest} from './util/digest';
 
-import wfAnalyticsServiceMod  from './analytics/analytics';
 import {sentry} from './sentry/sentry';
 
 import {userActions}        from './common/user-actions';
@@ -72,7 +71,6 @@ var kahuna = angular.module('kahuna', [
     mediaApi.name,
     async.name,
     digest.name,
-    wfAnalyticsServiceMod.name,
     sentry.name,
     crop.name,
     image.name,
@@ -202,8 +200,6 @@ kahuna.factory('httpErrorInterceptor',
     };
 }]);
 
-// set up tracking
-kahuna.run(['wfAnalyticsService', function(){}]);
 
 // global errors UI
 kahuna.run(['$rootScope', 'globalErrors',

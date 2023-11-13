@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.argo
 
 import java.net.URI
-
 import play.api.libs.json.{Json, Writes}
-import play.api.mvc.{Result, Results}
+import play.api.mvc.{Cookie, Result, Results}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.typesafe.scalalogging.Logger

@@ -19,6 +19,7 @@ function getCommonConfig(config) {
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
         |image.record.download=false
+        |defaultShouldBlurGraphicImages=true
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         |upload.queue.stream.name="${config.coreStackProps.UploadQueueMessageStream}"
@@ -165,6 +166,7 @@ function getThrallConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
+        |s3.reaper.bucket="${config.coreStackProps.ReaperBucket}"
         |persistence.identifier="picdarUrn"
         |indexed.image.sns.topic.arn="${config.coreStackProps.IndexedImageTopic}"
         |es6.url="${config.es6.url}"

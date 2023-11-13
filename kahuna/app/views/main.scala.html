@@ -46,7 +46,6 @@
         this._clientConfig = {
           rootUri: "@Html(kahunaConfig.rootUri)",
           sessionId: "@Html(kahunaConfig.sessionId)",
-          googleTrackingId: "@Html(kahunaConfig.googleTrackingId.getOrElse(""))",
           feedbackFormLink: "@Html(kahunaConfig.feedbackFormLink.getOrElse(""))",
           usageRightsHelpLink: "@Html(kahunaConfig.usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(kahunaConfig.invalidSessionHelpLink.getOrElse(""))",
@@ -75,7 +74,8 @@
           imagePreviewFlagLeaseAttachedCopy: "@Html(kahunaConfig.imagePreviewFlagLeaseAttachedCopy)",
           useReaper: @kahunaConfig.useReaper.getOrElse(false),
           featureSwitches: @Html(featureSwitches),
-          telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")'
+          telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
+          defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
         }
     </script>
 
@@ -84,15 +84,7 @@
 <p class="loader" ng-hide="true">Loading @kahunaConfig.systemName…</p>
 
 <div ui-view></div>
-
 <ui-global-errors></ui-global-errors>
-
-    @kahunaConfig.googleTrackingId.map { id =>
-      <script>
-        window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-      </script>
-<script async src='https://www.google-analytics.com/analytics.js'></script>
-}
 
 <script src="@routes.Assets.versioned("dist/build.js")"></script>
 

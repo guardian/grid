@@ -1,11 +1,11 @@
 <nav class="user-actions drop-menu" aria-label="Secondary">
     <button class="drop-menu__button"
             type="button"
-            ng-click="showUserActions = !showUserActions"
+            ng-click="ctrl.showUserActions = !ctrl.showUserActions"
             aria-label="Secondary navigation menu">
         <gr-icon>more_vert</gr-icon>
     </button>
-    <div class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">
+    <div class="drop-menu__items drop-menu__items--right" ng-if="ctrl.showUserActions" ng-class="graphic-image-blur-explainer__spotlight">
         <ul class="drop-menu__items__separator">
             <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
             <li ng-repeat="additionalLink in ctrl.additionalLinks">
@@ -16,6 +16,43 @@
                 </a>
             </li>
             <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
+            <li>
+                <div ng-if="ctrl.isYetToAcknowledgeBlurGraphicImages"
+                     class="graphic-image-blur-explainer__background">
+                </div>
+                <div ng-class="{
+                    'graphic-image-blur-explainer__spotlight': ctrl.isYetToAcknowledgeBlurGraphicImages
+                }">
+                    <label style="cursor: pointer">
+                        Blur potentially graphic images&nbsp;
+                        <input type="checkbox"
+                               ng-model="ctrl.shouldBlurGraphicImages"
+                               ng-change="ctrl.toggleShouldBlurGraphicImages()">
+                    </label>
+                    <div ng-if="ctrl.isYetToAcknowledgeBlurGraphicImages"
+                         class="graphic-image-blur-explainer__tooltip">
+                        <strong>Potentially upsetting/graphic images are now blurred in the Grid with a new setting that is switched on by default.</strong>
+                        <p>
+                            Should you need to see a blurred image, simply hover over it.<br/>
+                            You can also hover over the title beneath the blur to see the caption
+                            before deciding whether to reveal the image.<br/>
+                            This feature is now on by default, but can be turned off/on at any time via the top-right menu.<br/>
+                            Flagging relies on agency metadata, checked against a
+                            <a href="https://docs.google.com/document/d/1Ltu8fQRXfPLtbgOKRc0z9s-ErgPl1F4DWG9duiWp7wA/edit?usp=sharing">list of criteria</a>,
+                            and may not catch images that are not appropriately described. For more information, please see the
+                            <a href="https://docs.google.com/document/d/1Xxh6dfkPfFZo9_EeqRa2gmKhEy-BBQ_UVRXQwMw-WFI/edit?usp=sharing">
+                                original comms email on 1 Nov 2023
+                            </a>.
+                        </p>
+                        <button id="acknowledge-blur-graphic-images-default"
+                                class="button"
+                                ng-click="ctrl.acceptDefaultOfBlurringGraphicImages()"
+                        >
+                            Acknowledge
+                        </button>
+                    </div>
+                </div>
+            </li>
         </ul>
         <ul>
             <li><a class="drop-menu__items__logout" ng-href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>

@@ -11,6 +11,7 @@ import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
+import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
@@ -18,7 +19,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHisto
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
-import play.api.libs.json.{JsError, JsSuccess, Json}
+import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import play.mvc.Http.Status
@@ -116,9 +117,21 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
-    implicit val logMarker = MarkerMap()
-    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id, hit.index)
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker:MarkerMap = MarkerMap()): Future[SearchResults] = {
+
+    val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
+
+    def resolveHit(hit: SearchHit) = mapImageFrom(
+      hit.sourceAsString,
+      hit.id,
+      hit.index,
+      fields = hit.fields match {
+        case null => JsObject.empty
+        case _ => Json.obj(
+          isPotentiallyGraphicFieldName -> hit.fields.get(isPotentiallyGraphicFieldName).map(_.asInstanceOf[List[Boolean]].headOption)
+        )
+      }
+    )
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -220,9 +233,26 @@ class ElasticSearch(
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
     val trackTotalHits = params.countAll.getOrElse(true)
 
+    val graphicImagesScriptFields =
+      if (params.shouldFlagGraphicImages) {
+        Seq(ScriptField(
+          field = isPotentiallyGraphicFieldName,
+          // the rest of the logic is in the client (in image.js)
+          script = Script(
+            //language=groovy -- it's actually painless, but that's pretty similar to groovy and this provides syntax highlighting
+            script = "params['_source']?.fileMetadata?.xmp !=null && params['_source']?.fileMetadata?.xmp['pur:adultContentWarning'] != null",
+            lang = Some("painless")
+          )
+        ))
+      } else {
+        Seq.empty
+      }
+
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
+      .storedFields("_source") // this needs to be explicit when using script fields
+      .scriptfields(graphicImagesScriptFields)
       .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
         orgOwnedAggName,
         queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
@@ -354,10 +384,10 @@ class ElasticSearch(
     withSearchQueryTimeout(searchRequest)
   }
 
-  private def mapImageFrom(sourceAsString: String, id: String, fromIndex: String) = {
+  private def mapImageFrom(sourceAsString: String, id: String, fromIndex: String, fields: JsObject = JsObject.empty) = {
     val source = Json.parse(sourceAsString)
     source.validate[Image] match {
-      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value, fromIndex))
+      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value, fromIndex, fields))
       case e: JsError =>
         logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
