@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
+abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends SimpleSqsMessageConsumer(queueUrl, config) with ImageId {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -31,16 +31,11 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
-  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
-
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 
   @tailrec
   final def processMessages(): Unit = {
-    // Pull 1 message at a time to avoid starvation
-    // Wait for maximum duration (20s) as per doc recommendation:
-    // http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
-    for (msg <- getMessages(waitTime = 20, maxMessages = 1)) {
+    for (msg <- getNextMessage()) {
       val future = for {
         message <- Future(extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)"))
         processor = message.subject.flatMap(chooseProcessor)
@@ -66,18 +61,9 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.foreach { _ => deleteMessage(msg) }
 
-  private def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
-    client.receiveMessage(
-      new ReceiveMessageRequest(queueUrl)
-        .withWaitTimeSeconds(waitTime)
-        .withMaxNumberOfMessages(maxMessages)
-    ).getMessages.asScala.toList
-
   private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  private def deleteMessage(message: SQSMessage): Unit =
-    client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 }
 
 // TODO: improve and use this (for logging especially) else where.
