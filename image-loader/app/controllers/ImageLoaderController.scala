@@ -3,6 +3,8 @@ package controllers
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.util.IOUtils
 
+import akka.stream.scaladsl.Source
+
 import java.io.{File, FileOutputStream}
 import java.net.URI
 import com.drew.imaging.ImageProcessingException
@@ -27,7 +29,7 @@ import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
-import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import play.api.data.Form
 import play.api.data.Forms._
@@ -36,10 +38,13 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
+import akka.stream.scaladsl.Sink
+import akka.stream.Materializer
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
                             store: ImageLoaderStore,
+                            maybeIngestQueue: Option[SimpleSqsMessageConsumer],
                             uploadStatusTable: UploadStatusTable,
                             notifications: Notifications,
                             config: ImageLoaderConfig,
@@ -49,10 +54,22 @@ class ImageLoaderController(auth: Authentication,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
                             authorisation: Authorisation)
-                           (implicit val ec: ExecutionContext)
+                           (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
+
+  maybeIngestQueue.foreach{ingestQueue =>
+    Source.repeat(())
+        .throttle(1, per = 1.second)
+        .runWith(Sink.foreach{_ =>
+          ingestQueue.getNextMessage() match {
+            case None => println(s"No message ${DateTimeUtils.now()}")
+            case Some(message) => println(message)
+          }
+        })
+  }
+
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -94,6 +111,9 @@ class ImageLoaderController(auth: Authentication,
           "uploadedBy" -> uploadedByToRecord,
           "requestId" -> RequestLoggingFilter.getRequestId(req)
         )
+
+      // TODO - allow for queued status
+      store.addFileToIngestBucket(req.body)
 
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds

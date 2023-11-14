@@ -65,12 +65,14 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
         |s3.quarantine.bucket="${config.coreStackProps.QuarantineBucket}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
+        |s3.ingest.bucket="${config.coreStackProps.S3WatcherIngestBucket}"
         |dynamo.table.upload.status="UploadStatusTable"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
         |upload.quarantine.enabled=false
+        |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |`;
 }
 

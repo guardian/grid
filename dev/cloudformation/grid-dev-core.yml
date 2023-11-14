@@ -52,6 +52,10 @@ Resources:
 
   S3WatcherIngestBucket:
     Type: AWS::S3::Bucket
+    NotificationConfiguration:
+      QueueConfigurations:
+      - Queue: !GetAtt IngestSqsQueue.Arn
+        Event: "s3:ObjectCreated:*"
 
   S3WatcherFailBucket:
     Type: AWS::S3::Bucket
@@ -256,6 +260,14 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+  IngestSqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: IngestSqsQueue
+      FifoQueue: false # standard queue will suffice (Fifo not work performance penalty)
+      ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
+      VisibilityTimeout: 900 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
+
 Outputs:
   ImageBucket:
     Value: !Ref 'ImageBucket'
@@ -301,3 +313,5 @@ Outputs:
     Value: !Ref 'UploadStatusTable'
   SoftDeletedMetadataTable:
     Value: !Ref 'SoftDeletedMetadataTable'
+  IngestSqsQueueUrl:
+   Value: !Ref 'IngestSqsQueue'
