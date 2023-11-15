@@ -1576,7 +1576,8 @@ textarea.ng-invalid {
   color: black;
   padding: 5px;
   border-radius: 3px;
-  text-wrap: initial;
+  word-break: normal;
+  white-space: normal;
 }
 .graphic-image-blur-explainer__tooltip a {
   color: black;
