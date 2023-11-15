@@ -54,8 +54,8 @@ Resources:
     Type: AWS::S3::Bucket
     NotificationConfiguration:
       QueueConfigurations:
-      - Queue: !GetAtt IngestSqsQueue.Arn
-        Event: "s3:ObjectCreated:*"
+        - Event: "s3:ObjectCreated:*"
+          Queue: !GetAtt IngestSqsQueue.Arn
 
   S3WatcherFailBucket:
     Type: AWS::S3::Bucket
@@ -266,7 +266,7 @@ Resources:
       QueueName: IngestSqsQueue
       FifoQueue: false # standard queue will suffice (Fifo not work performance penalty)
       ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
-      VisibilityTimeout: 900 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
+      VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
 
 Outputs:
   ImageBucket:
