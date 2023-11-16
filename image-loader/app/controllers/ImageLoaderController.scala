@@ -2,6 +2,7 @@ package controllers
 
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.util.IOUtils
+import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 
 import akka.stream.scaladsl.Source
 
@@ -41,6 +42,7 @@ import scala.util.control.NonFatal
 import akka.stream.scaladsl.Sink
 import akka.stream.Materializer
 
+
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
                             store: ImageLoaderStore,
@@ -64,8 +66,8 @@ class ImageLoaderController(auth: Authentication,
         .throttle(1, per = 1.second)
         .runWith(Sink.foreach{_ =>
           ingestQueue.getNextMessage() match {
-            case None => println(s"No message ${DateTimeUtils.now()}")
-            case Some(message) => println(message)
+            case None => println(s"No message at ${DateTimeUtils.now()}")
+            case Some(message) => handleMessageFromIngestBucket(message)
           }
         })
   }
@@ -84,6 +86,34 @@ class ImageLoaderController(auth: Authentication,
 
   def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
+  }
+
+  def handleMessageFromIngestBucket(message:SQSMessage) {
+    println(message)
+    val approximateReceiveCount =  Try(message.getAttributes().get("ApproximateReceiveCount").toInt).toOption.getOrElse(-1)
+
+    if (approximateReceiveCount > 3) {
+      println(s"File processing has been attempted $approximateReceiveCount times.")
+      transferIngestedFileToFailBucket(message)
+    } else {
+      attemptToProgessIngestedFile(message) match {
+        case Left(exception) => {
+          println(s"Failed to process file: ${exception.toString()}")
+          transferIngestedFileToFailBucket(message)
+        }
+        case Right(digestedFile) => {
+            println(s"Succesfully processed image ${digestedFile.file.getName()}")
+        }
+      }
+    }
+  }
+
+  def transferIngestedFileToFailBucket(message:SQSMessage) {
+    println("transferIngestedFileToFailBucket - not implemented")
+  }
+
+  def attemptToProgessIngestedFile(message:SQSMessage): Either[Exception, DigestedFile] = {
+    Left.apply(new Exception)
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
