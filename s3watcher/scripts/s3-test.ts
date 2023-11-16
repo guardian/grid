@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import AWS from "aws-sdk";
+import { exit } from "process";
 import { readConfig } from "../lambda/lib/EnvironmentConfig";
 
-import { exit } from "process";
 
 const envConfig = readConfig();
 
@@ -29,7 +29,7 @@ const findWatcherBucketNames = async () => {
     .map((bucket) => bucket.Name) as string[];
 };
 
-const listObjectsInEachBucket = async (bucketNames: string[]) => {
+const listObjectsAndGetQueueConfigInEachBucket = async (bucketNames: string[]) => {
   return Promise.all(
     bucketNames.map(async (bucketName) => {
       const { Contents: contents = [] } = await s3
@@ -37,13 +37,14 @@ const listObjectsInEachBucket = async (bucketNames: string[]) => {
           Bucket: bucketName,
         })
         .promise();
-      return { bucketName, contents };
+        const {QueueConfigurations} = await s3.getBucketNotificationConfiguration({Bucket:bucketName}).promise()
+      return { bucketName, contents, QueueConfigurations };
     })
   );
 };
 
 findWatcherBucketNames()
-  .then(listObjectsInEachBucket)
+  .then(listObjectsAndGetQueueConfigInEachBucket)
   .then((results) => {
     results.forEach((bucket) => {
       if (!bucket) {
@@ -51,6 +52,7 @@ findWatcherBucketNames()
       }
       console.log(bucket.bucketName);
       console.table(bucket.contents, ["Key", "Size"]);
+      console.log(bucket.QueueConfigurations)
     });
   })
   .then(() => {
