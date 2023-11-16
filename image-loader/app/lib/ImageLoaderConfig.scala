@@ -36,6 +36,8 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val ingestBucket: String = string("s3.ingest.bucket")
   val ingestSqsQueueUrl: Option[String] = stringOpt("sqs.ingest.queue.url")
 
+  val failBucket: String = string("s3.fail.bucket")
+
   /**
     * Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.
