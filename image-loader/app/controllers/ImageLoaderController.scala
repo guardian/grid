@@ -11,6 +11,7 @@ import java.net.URI
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.aws.SqsHelpers
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
@@ -57,7 +58,7 @@ class ImageLoaderController(auth: Authentication,
                             gridClient: GridClient,
                             authorisation: Authorisation)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with SqsHelpers {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
@@ -90,7 +91,8 @@ class ImageLoaderController(auth: Authentication,
 
   def handleMessageFromIngestBucket(message:SQSMessage) {
     println(message)
-    val approximateReceiveCount =  Try(message.getAttributes().get("ApproximateReceiveCount").toInt).toOption.getOrElse(-1)
+
+    val approximateReceiveCount = getApproximateReceiveCount(message)
 
     if (approximateReceiveCount > 3) {
       println(s"File processing has been attempted $approximateReceiveCount times.")
