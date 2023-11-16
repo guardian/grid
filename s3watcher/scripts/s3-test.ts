@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
-import AWS from "aws-sdk"
-import { readConfig } from "../lambda/lib/EnvironmentConfig"
+import AWS from "aws-sdk";
+import { readConfig } from "../lambda/lib/EnvironmentConfig";
 
-import { exit } from "process"
+import { exit } from "process";
 
-const envConfig = readConfig()
+const envConfig = readConfig();
 
 const awsConfig = envConfig.isDev
   ? {
@@ -14,34 +14,45 @@ const awsConfig = envConfig.isDev
       endpoint: "http://localhost:4566",
       s3ForcePathStyle: true,
     }
-  : undefined
+  : undefined;
 
 AWS.config.update({
   region: envConfig.region,
-})
+});
 
-const s3 = new AWS.S3(awsConfig)
+const s3 = new AWS.S3(awsConfig);
 
-const findBucketName = async () => {
-  const result = await s3.listBuckets().promise()
-  const ingestBucket = result.Buckets?.find(bucket => bucket.Name?.includes('s3watcheringestbucket'))
-  return ingestBucket?.Name
-}
+const findWatcherBucketNames = async () => {
+  const { Buckets: buckets = [] } = await s3.listBuckets().promise();
+  return buckets
+    .filter((bucket) => bucket.Name?.includes("s3watcheringestbucket"))
+    .map((bucket) => bucket.Name) as string[];
+};
 
-const listObjects = async (bucketName?:string) => {
-  console.log({bucketName})
-  if (!bucketName) {
-    return
-  }
-  const result = await s3.listObjects({
-    Bucket:bucketName
-  }).promise()
-  console.table(result.Contents, ['Key', 'Size','LastModified'])
-}
+const listObjectsInEachBucket = async (bucketNames: string[]) => {
+  return Promise.all(
+    bucketNames.map(async (bucketName) => {
+      const { Contents: contents = [] } = await s3
+        .listObjects({
+          Bucket: bucketName,
+        })
+        .promise();
+      return { bucketName, contents };
+    })
+  );
+};
 
-
-findBucketName()
-.then(listObjects)
-.then(() => {
-  exit()
-})
+findWatcherBucketNames()
+  .then(listObjectsInEachBucket)
+  .then((results) => {
+    results.forEach((bucket) => {
+      if (!bucket) {
+        return;
+      }
+      console.log(bucket.bucketName);
+      console.table(bucket.contents, ["Key", "Size"]);
+    });
+  })
+  .then(() => {
+    exit();
+  });
