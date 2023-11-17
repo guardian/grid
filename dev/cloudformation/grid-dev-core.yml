@@ -14,6 +14,14 @@ Resources:
       ShardCount: 1
       RetentionPeriodHours: 168
 
+  IngestSqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: IngestSqsQueue
+      FifoQueue: false # standard queue will suffice (Fifo not worth performance penalty)
+      ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
+      VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
+
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -162,14 +170,14 @@ Resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+  IndexedImageMetadataQueue:
+    Type: AWS::SQS::Queue
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
-  IndexedImageMetadataQueue:
-    Type: AWS::SQS::Queue
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -259,14 +267,6 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
-
-  IngestSqsQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: IngestSqsQueue
-      FifoQueue: false # standard queue will suffice (Fifo not work performance penalty)
-      ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
-      VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
 
 Outputs:
   ImageBucket:
