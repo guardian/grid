@@ -16,6 +16,10 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         return loaderRoot;
     }
 
+    function prepare(filenames) {
+        return getLoaderRoot().follow('prepare').post(filenames);
+    }
+
     function load(imageData, uploadInfo) {
         const options = {
             // We could get the guessed mime-type from the File, but
@@ -35,6 +39,7 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
     }
 
     return {
+        prepare,
         load,
         import: import_
     };

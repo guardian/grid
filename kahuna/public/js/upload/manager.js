@@ -9,9 +9,16 @@ upload.factory('uploadManager',
     var jobs = new Set();
     var completedJobs = new Set();
 
-    function createJobItem(file) {
-        var request = fileUploader.upload(file);
-        var dataUrl = $window.URL.createObjectURL(file);
+    function createJobItem(file, preSignedUrl) {
+        // var request = fileUploader.upload(file);
+        const request = fetch(preSignedUrl, {
+          method: "PUT",
+          body: file,
+          headers: {
+            // TODO x-amz-meta (probably needs to be added when pre-signing too
+          }
+        });
+        const dataUrl = $window.URL.createObjectURL(file);
 
         return {
             name: file.name,
@@ -30,8 +37,13 @@ upload.factory('uploadManager',
         };
     }
 
-    function upload(files) {
-        var job = files.map(createJobItem);
+    async function upload(files) {
+
+        const preSignedPutUrls = await fileUploader.prepare(files.map(_ => _.name));
+
+        console.log(preSignedPutUrls);
+
+        var job = files.map(file => createJobItem(file, preSignedPutUrls[file.name]));
         var promises = job.map(jobItem => jobItem.resourcePromise);
 
         jobs.add(job);
@@ -85,6 +97,10 @@ upload.factory('fileUploader',
                ['$q', 'loaderApi',
                 function($q, loaderApi) {
 
+    function prepare(filenames) {
+        return loaderApi.prepare(filenames);
+    }
+
     function upload(file) {
       return uploadFile(file, {filename: file.name});
     }
@@ -98,6 +114,7 @@ upload.factory('fileUploader',
     }
 
     return {
+        prepare,
         upload,
         loadUriImage
     };
