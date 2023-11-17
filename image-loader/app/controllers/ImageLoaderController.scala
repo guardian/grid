@@ -92,7 +92,17 @@ class ImageLoaderController(auth: Authentication,
   def handleMessageFromIngestBucket(message:SQSMessage) {
     println(message)
 
+    val s3DataOrFailString = parseS3DataFromMessage(message)
     val approximateReceiveCount = getApproximateReceiveCount(message)
+
+    s3DataOrFailString match {
+      case Left(failString) => {
+        println(s"COULD NOT PARSE S3 DATA: $failString")
+      }
+      case Right(s3data) => {
+        println(s"PARSED S3, object key is: ${s3data.`object`.key}")
+      }
+    }
 
     if (approximateReceiveCount > 3) {
       println(s"File processing has been attempted $approximateReceiveCount times.")
@@ -104,7 +114,7 @@ class ImageLoaderController(auth: Authentication,
           transferIngestedFileToFailBucket(message)
         }
         case Right(digestedFile) => {
-            println(s"Succesfully processed image ${digestedFile.file.getName()}")
+          println(s"Succesfully processed image ${digestedFile.file.getName()}")
         }
       }
     }
@@ -115,6 +125,7 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def attemptToProgessIngestedFile(message:SQSMessage): Either[Exception, DigestedFile] = {
+    println("attemptToProgessIngestedFile - not implemented")
     Left.apply(new Exception)
   }
 
