@@ -17,10 +17,21 @@ object S3ObjectField {
   implicit val S3ObjectFieldWrites = Json.writes[S3ObjectField]
 }
 
+case class S3BucketField (
+  name: String,
+  arn: String,
+)
+
+object S3BucketField {
+  implicit val S3BucketFieldReads = Json.reads[S3BucketField]
+  implicit val S3BucketFieldWrites = Json.writes[S3BucketField]
+}
+
 // TO DO - add more fields. yet more case classes, yet more objects
 case class S3Data (
   s3SchemaVersion: Option[String],
   `object`: S3ObjectField,
+  bucket: S3BucketField,
 )
 
 object S3Data {
