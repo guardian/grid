@@ -92,25 +92,15 @@ class ImageLoaderController(auth: Authentication,
   def handleMessageFromIngestBucket(message:SQSMessage) {
     println(message)
 
-    val s3DataOrFailString = parseS3DataFromMessage(message)
     val approximateReceiveCount = getApproximateReceiveCount(message)
 
-    s3DataOrFailString match {
-      case Left(failString) => {
-        println(s"COULD NOT PARSE S3 DATA: $failString")
-      }
-      case Right(s3data) => {
-        println(s"PARSED S3, object key is: ${s3data.`object`.key}")
-      }
-    }
-
     if (approximateReceiveCount > 3) {
-      println(s"File processing has been attempted $approximateReceiveCount times.")
+      println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
       transferIngestedFileToFailBucket(message)
     } else {
       attemptToProgessIngestedFile(message) match {
         case Left(exception) => {
-          println(s"Failed to process file: ${exception.toString()}")
+          println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
           transferIngestedFileToFailBucket(message)
         }
         case Right(digestedFile) => {
@@ -120,13 +110,34 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def transferIngestedFileToFailBucket(message:SQSMessage) {
-    println("transferIngestedFileToFailBucket - not implemented")
+  def transferIngestedFileToFailBucket(message: SQSMessage) {
+    parseS3DataFromMessage(message) match {
+      case Left(failString) => {
+        // TO DO - delete message from Queue if cannont parse. Should only happen if we get malformed message payloads - not expected.
+        logger.warn("Failed to parse s3 data from SQS message", message)
+        println("transferIngestedFileToFailBucket - could not parse")
+      }
+      case Right(s3data) => {
+        println(s"Attempting to transfer file saved from ingest bucket to fail bucket. KEY: ${s3data.`object`.key}, SIZE: ${s3data.`object`.size}")
+        // TO DO - implement
+        println("transferIngestedFileToFailBucket - not implemented")
+      }
+    }
   }
 
   def attemptToProgessIngestedFile(message:SQSMessage): Either[Exception, DigestedFile] = {
-    println("attemptToProgessIngestedFile - not implemented")
-    Left.apply(new Exception)
+     parseS3DataFromMessage(message) match {
+      case Left(failString) => {
+        // TO DO - delete message from Queue if cannont parse. Should only happen if we get malformed message payloads - not expected.
+        logger.warn("Failed to parse s3 data from SQS message", message)
+        Left.apply(new Exception(s"Failed to parse s3 data from message ${message.getMessageId()}: $failString"))
+      }
+      case Right(s3data) => {
+        println(s"Attempting to process file saved to ingest bucket. KEY: ${s3data.`object`.key}, SIZE: ${s3data.`object`.size}")
+        // TO DO - implement
+        Left.apply(new Exception("attemptToProgessIngestedFile - not implemented"))
+      }
+    }
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
