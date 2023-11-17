@@ -3,11 +3,10 @@ package controllers
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.util.IOUtils
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
-
 import akka.stream.scaladsl.Source
 
 import java.io.{File, FileOutputStream}
-import java.net.URI
+import java.net.{URI, URL}
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -64,18 +63,20 @@ class ImageLoaderController(auth: Authentication,
 
   maybeIngestQueue.foreach{ingestQueue =>
     Source.repeat(())
-        .runWith(Sink.foreach{_ =>
-          ingestQueue.getNextMessage() match {
-            case None => println(s"No message at ${DateTimeUtils.now()}")
-            case Some(message) => handleMessageFromIngestBucket(message)
-          }
-        })
+      .throttle(1, per = 100.milliseconds)
+      .runWith(Sink.foreach{_ =>
+        ingestQueue.getNextMessage() match {
+          case None => println(s"No message at ${DateTimeUtils.now()}")
+          case Some(message) => handleMessageFromIngestBucket(message)
+        }
+      })
   }
 
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
+      Link("prepare", s"${config.rootUri}/prepare"),
       Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
@@ -137,6 +138,25 @@ class ImageLoaderController(auth: Authentication,
         Left.apply(new Exception("attemptToProgessIngestedFile - not implemented"))
       }
     }
+  }
+
+  def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised { request =>
+    val expiration = DateTimeUtils.now().plusHours(1)
+
+    val filenames: List[String] = request.body.asJson.get.as[List[String]]
+
+    val uploadedBy = Authentication.getIdentity(request.user)
+
+    Ok(Json.toJson(
+      filenames.map(filename => {
+
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy)
+
+        // TODO track in upload status table with 'prepared' status and one hour TTL
+
+        filename -> preSignedUrl
+      }).toMap
+    ))
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
