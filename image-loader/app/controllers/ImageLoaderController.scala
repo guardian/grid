@@ -64,7 +64,6 @@ class ImageLoaderController(auth: Authentication,
 
   maybeIngestQueue.foreach{ingestQueue =>
     Source.repeat(())
-        .throttle(1, per = 1.second)
         .runWith(Sink.foreach{_ =>
           ingestQueue.getNextMessage() match {
             case None => println(s"No message at ${DateTimeUtils.now()}")

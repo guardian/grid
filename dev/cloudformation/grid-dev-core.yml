@@ -60,7 +60,8 @@ Resources:
 
   S3WatcherIngestBucket:
     Type: AWS::S3::Bucket
-    NotificationConfiguration:
+    DependsOn: IngestSqsQueue
+    NotificationConfiguration: # this doesn't seem to be applied in localstack, so has to be applied explicitly in dev/script/setup.sh
       QueueConfigurations:
         - Event: "s3:ObjectCreated:*"
           Queue: !GetAtt IngestSqsQueue.Arn
@@ -174,6 +175,7 @@ Resources:
     Type: AWS::SQS::Queue
   IndexedImageTopic:
     Type: AWS::SNS::Topic
+    DependsOn: IndexedImageMetadataQueue
     Properties:
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
@@ -315,3 +317,5 @@ Outputs:
     Value: !Ref 'SoftDeletedMetadataTable'
   IngestSqsQueueUrl:
    Value: !Ref 'IngestSqsQueue'
+  IngestSqsQueueArn:
+   Value: !GetAtt IngestSqsQueue.Arn
