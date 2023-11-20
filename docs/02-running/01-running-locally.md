@@ -59,6 +59,8 @@ If you haven't used the `--with-local-auth` flag, you'll begin a Google authenti
 
 If you have used the `--no-auth` flag you'll be signed in automatically as John Doe (with no oauth flow) and will have ALL permissions.
 
+Note that there's currently a 20MB limit per file on uploads to image-loader (see `client_max_body_size` in nginx mappings).
+
 ## Cerebro
 
 To inspect the elasticsearch database, cerebro is included as part of the grids local stack.
