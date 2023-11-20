@@ -82,7 +82,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
           aws-region: eu-west-1
-      - uses: guardian/actions-riff-raff@v2
+      - uses: guardian/actions-riff-raff@v3
         if: "! github.event.pull_request.head.repo.fork"
         with:
           projectName: media-service::grid::all
