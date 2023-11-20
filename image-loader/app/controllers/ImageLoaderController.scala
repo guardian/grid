@@ -98,7 +98,7 @@ class ImageLoaderController(auth: Authentication,
       println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
       transferIngestedFileToFailBucket(message)
     } else {
-      attemptToProgessIngestedFile(message) match {
+      attemptToProcessIngestedFile(message) match {
         case Left(exception) => {
           println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
           transferIngestedFileToFailBucket(message)
@@ -125,17 +125,25 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def attemptToProgessIngestedFile(message:SQSMessage): Either[Exception, DigestedFile] = {
+  def attemptToProcessIngestedFile(message:SQSMessage): Either[Exception, DigestedFile] = {
      parseS3DataFromMessage(message) match {
       case Left(failString) => {
         // TO DO - delete message from Queue if cannont parse. Should only happen if we get malformed message payloads - not expected.
         logger.warn("Failed to parse s3 data from SQS message", message)
-        Left.apply(new Exception(s"Failed to parse s3 data from message ${message.getMessageId()}: $failString"))
+        Left(new Exception(s"Failed to parse s3 data from message ${message.getMessageId()}: $failString"))
       }
       case Right(s3data) => {
-        println(s"Attempting to process file saved to ingest bucket. KEY: ${s3data.`object`.key}, SIZE: ${s3data.`object`.size}")
-        // TO DO - implement
-        Left.apply(new Exception("attemptToProgessIngestedFile - not implemented"))
+        val key = s3data.`object`.key
+        println(s"Attempting to process file saved to ingest bucket. KEY: $key, SIZE: ${s3data.`object`.size}")
+        val tempFile = createTempFile("s3IngestBucketFile")(MarkerMap()) //TODO pass implicit LogMarker around
+        val s3IngestObject = store.getIngestObject(key)
+        val digestedFile = downloader.download(
+          inputStream = s3IngestObject.getObjectContent,
+          tempFile,
+          expectedSize = s3IngestObject.getObjectMetadata.getContentLength
+        )
+        println(s"SHA-1: ${digestedFile.digest}")
+        Left(new Exception("attemptToProgessIngestedFile - not implemented"))
       }
     }
   }
@@ -184,9 +192,6 @@ class ImageLoaderController(auth: Authentication,
           "uploadedBy" -> uploadedByToRecord,
           "requestId" -> RequestLoggingFilter.getRequestId(req)
         )
-
-      // TODO - allow for queued status
-      store.addFileToIngestBucket(req.body)
 
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
