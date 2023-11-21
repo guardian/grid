@@ -13,6 +13,7 @@ jobs:
       # required by aws-actions/configure-aws-credentials
       id-token: write
       contents: read
+      pull-requests: write
     services:
       elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
@@ -82,9 +83,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
           aws-region: eu-west-1
-      - uses: guardian/actions-riff-raff@v2
+      - uses: guardian/actions-riff-raff@v3.0.0
         if: "! github.event.pull_request.head.repo.fork"
         with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          commentingStage: TEST
           projectName: media-service::grid::all
           buildNumberOffset: 7565
           configPath: riff-raff.yaml
