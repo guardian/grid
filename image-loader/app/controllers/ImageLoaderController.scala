@@ -94,7 +94,7 @@ class ImageLoaderController(auth: Authentication,
 
     val approximateReceiveCount = getApproximateReceiveCount(message)
 
-    if (approximateReceiveCount > 3) {
+    if (approximateReceiveCount > 2) { // retry ingesting once before send to fail bucket - this is to allow for uncaught exception, EG box ran out fo memory and crashed while ingesting, or instances cycled before ingest was finished.
       println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
       transferIngestedFileToFailBucket(message)
     } else {
@@ -143,7 +143,7 @@ class ImageLoaderController(auth: Authentication,
           expectedSize = s3IngestObject.getObjectMetadata.getContentLength
         )
         println(s"SHA-1: ${digestedFile.digest}")
-        Left(new Exception("attemptToProgessIngestedFile - not implemented"))
+        Left(new Exception("attemptToProcessIngestedFile - not implemented"))
       }
     }
   }
