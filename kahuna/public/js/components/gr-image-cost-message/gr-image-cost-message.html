@@ -1,7 +1,7 @@
-<div ng-switch="messageState">
+<div ng-switch="ctrl.messageState">
     <div ng-switch-when="conditional"
          class="image-notice image-info__group cost cost--conditional"
          title="This image can be used but only within certain restrictions">
-        <b>Restricted use:</b> {{image.data.usageRights.restrictions}}
+        <b>Restricted use:</b> {{ctrl.restrictionsText()}}
     </div>
 </div>

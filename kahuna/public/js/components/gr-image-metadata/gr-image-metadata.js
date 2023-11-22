@@ -234,7 +234,7 @@ module.controller('grImageMetadataCtrl', [
         'title', 'description', 'copyright', 'keywords', 'byline',
         'credit', 'subLocation', 'city', 'state', 'country',
         'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
-        'domainMetadata'
+        'domainMetadata', 'usageInstructions'
       ];
 
       function updateSingleImage() {

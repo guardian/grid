@@ -206,9 +206,14 @@
     </dl>
     </div>
 
-    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions" role="region" aria-label="Special instructions">
+    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions || ctrl.rawMetadata.usageInstructions" role="region" aria-label="Special instructions">
         <dl class="image-info__wrap">
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
+            <span ng-if="ctrl.metadata.usageInstructions">
+                <div class="metadata-line__info">
+                    <dd>{{ctrl.metadata.usageInstructions}}</dd>
+                </div>
+            </span>
             <span ng-if="ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
                 <div class="metadata-line__info">
                     <dd class="image-info__special-instructions-preview">{{ctrl.metadata.specialInstructions}}</dd>

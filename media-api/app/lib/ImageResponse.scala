@@ -31,6 +31,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val quotas = usageQuotas
   }
 
+  val customSpecialInstructions: Map[String, String] = config.customSpecialInstructions
+  val customUsageRestrictions: Map[String, String] = config.customUsageRestrictions
+
   implicit val costing = Costing
 
   val metadataBaseUri: String = config.services.metadataBaseUri
@@ -81,7 +84,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
       .getOrElse(s3SignedThumbUrl)
 
-    val validityMap = ImageExtras.validityMap(image, withWritePermission)
+    val validityMap = checkUsageRestrictions(source, ImageExtras.validityMap(image, withWritePermission))
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
 
@@ -108,7 +111,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
-      .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex))).get
+      .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
+      .flatMap(_.transform(updateCustomSpecialInstructions(source)))
+      .flatMap(_.transform(updateCustomUsageRestrictions(source)))
+      .get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ getDownloadLinks(id, isDownloadable)
@@ -251,6 +257,42 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def makeOptimisedPngImageopsUri(uri: URI): String = {
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
+  }
+
+  private def updateCustomSpecialInstructions(source: JsValue): Reads[JsObject] = {
+     (source \ "usageRights" \ "category") match {
+        case JsDefined(category) =>
+          if (customSpecialInstructions.contains(category.as[String])) {
+            (__ \ "metadata").json.update(__.read[JsObject].map(_ ++ Json.obj(("usageInstructions") -> customSpecialInstructions.get(category.as[String]))))
+          } else {
+            __.json.update(__.read[JsObject])
+          }
+        case _ => __.json.update(__.read[JsObject])
+      }
+  }
+
+  private def updateCustomUsageRestrictions(source: JsValue): Reads[JsObject] = {
+    (source \ "usageRights" \ "category") match {
+      case JsDefined(category) =>
+        if (customUsageRestrictions.contains(category.as[String])) {
+          (__ \ "usageRights").json.update(__.read[JsObject].map(_ ++ Json.obj(("usageRestrictions") -> customUsageRestrictions.get(category.as[String]))))
+        } else {
+          __.json.update(__.read[JsObject])
+        }
+      case _ => __.json.update(__.read[JsObject])
+    }
+  }
+
+  private def checkUsageRestrictions(source: JsValue, validityMap: Map[String, ValidityCheck]) : Map[String, ValidityCheck] = {
+    (source \ "usageRights" \ "category") match {
+      case JsDefined(category) =>
+        if (customUsageRestrictions.contains(category.as[String])) {
+          validityMap.updated("conditional_paid", ValidityCheck(true, validityMap("conditional_paid").overrideable, validityMap("conditional_paid").shouldOverride))
+        } else {
+          validityMap
+        }
+      case _ => validityMap
+    }
   }
 
   import play.api.libs.json.JodaWrites._

@@ -91,7 +91,7 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.image.isPotentiallyGraphic = graphicImageBlurService.isPotentiallyGraphic(ctrl.image);
 
-      ctrl.flagState = ctrl.states.costState;
+      ctrl.flagState = (ctrl.states.hasRestrictions) ? "conditional" : ctrl.states.costState;
 
       const hasPrintUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
@@ -118,7 +118,7 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
       ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
-      ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
+      ctrl.showWarningOverlay = () => ctrl.flagState === 'conditional' && ctrl.hasActiveAllowLease === undefined;
       ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
 
       ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
@@ -136,6 +136,27 @@ image.controller('uiPreviewImageCtrl', [
       };
 
       ctrl.searchWithModifiers = searchWithModifiers;
+
+      ctrl.restrictionsText = () => {
+        if (!this.image.data.usageRights) {
+          return "";
+        }
+        let rtxt = "";
+        if (this.image.data.usageRights.usageRestrictions && this.image.data.usageRights.usageRestrictions.length > 0) {
+          rtxt = this.image.data.usageRights.usageRestrictions;
+        }
+        rtxt = rtxt.trim();
+        if (rtxt.length > 0 && rtxt[rtxt.length - 1] != ".") {
+          rtxt = rtxt + ". ";
+        } else {
+          rtxt = rtxt + " ";
+        }
+        if (this.image.data.usageRights.restrictions) {
+          rtxt = rtxt + this.image.data.usageRights.restrictions;
+        }
+        return rtxt;
+      };
+
     };
 }]);
 
