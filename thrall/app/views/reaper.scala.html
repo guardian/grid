@@ -37,9 +37,11 @@
                 </form>
             }
             <h3>Records from last 48 hours (UTC timestamps)</h3>
+            <div style="font-family: monospace">
             @recentRecordKeys.map { key =>
                 <a href="@routes.ReaperController.reaperRecord(key)">@key</a><br/>
             }
+            </div>
         </main>
     </body>
 </html>
