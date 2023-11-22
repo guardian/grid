@@ -18,7 +18,7 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
         .withMaxNumberOfMessages(1) // Pull 1 message at a time to avoid starvation
     ).getMessages.asScala.headOption
 
-  protected def deleteMessage(message: SQSMessage): Unit =
+  def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 
 }

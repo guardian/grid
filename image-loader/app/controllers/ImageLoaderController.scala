@@ -63,13 +63,13 @@ class ImageLoaderController(auth: Authentication,
 
   maybeIngestQueue.foreach{ingestQueue =>
     Source.repeat(())
-      .throttle(1, per = 100.milliseconds)
-      .runWith(Sink.foreach{_ =>
+      .mapAsync(parallelism=1)(_ =>
         ingestQueue.getNextMessage() match {
-          case None => println(s"No message at ${DateTimeUtils.now()}")
-          case Some(message) => handleMessageFromIngestBucket(message)
+          case None => Future.successful(println(s"No message at ${DateTimeUtils.now()}"))
+          case Some(message) => handleMessageFromIngestBucket(message).map(_ => ingestQueue.deleteMessage(message))
         }
-      })
+      )
+      .run()
   }
 
 
@@ -89,7 +89,7 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  def handleMessageFromIngestBucket(message:SQSMessage) = {
+  def handleMessageFromIngestBucket(message:SQSMessage): Future[Unit] = {
     println(message)
 
     val approximateReceiveCount = getApproximateReceiveCount(message)
@@ -102,16 +102,17 @@ class ImageLoaderController(auth: Authentication,
       attemptToProcessIngestedFile(message).transformWith {
         case Failure(exception) => {
           println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
-          Future.successful (transferIngestedFileToFailBucket(message))
+          transferIngestedFileToFailBucket(message)
         }
         case Success(outcome) => {
           outcome match {
             case Left(exception) => {
               println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
-              Future.successful (transferIngestedFileToFailBucket(message))
+              transferIngestedFileToFailBucket(message)
             }
             case Right(digestedFile) => {
-             Future.successful(println(s"Succesfully processed image ${digestedFile.file.getName()}"))
+             println(s"Succesfully processed image ${digestedFile.file.getName()}")
+             Future.unit
             }
           }
         }
@@ -119,7 +120,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def transferIngestedFileToFailBucket(message: SQSMessage) {
+  def transferIngestedFileToFailBucket(message: SQSMessage):Future[Unit] = Future{
     parseS3DataFromMessage(message) match {
       case Left(failString) => {
         // TO DO - delete message from Queue if cannont parse. Should only happen if we get malformed message payloads - not expected.
@@ -158,12 +159,13 @@ class ImageLoaderController(auth: Authentication,
 
         val futuredFile = Future(digestedFile)
 
+        // TODO - populate properties from metadata if present
         val futureUploadStatusUri = uploadDigestedFileToStore(
             futuredFile,
             key.split("/").head, // first segment of the key is the uploader id
             None, // identifiers - TODO generate the identifiers string in the expected format
-            Some(getUploadTime(message).toLong.toString()), // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-            Some(metadata.getUserMetaDataOf("filename")), // set on the upload metadata by the client when uploading tot ingest bucket
+            None, // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
+            None, // set on the upload metadata by the client when uploading to ingest bucket
         )(loggingContext)
 
         // under all circumstances, remove the temp files
@@ -429,12 +431,12 @@ class ImageLoaderController(auth: Authentication,
           case Success(result) => Right(result)
         }
 
-
         // update the upload status with the error or completion
         val status = res match {
           case Left(exception) => UploadStatus(StatusType.Failed, Some(s"${exception.getClass().getName()}: ${exception.getMessage()}"))
           case Right(_) => UploadStatus(StatusType.Completed, None)
         }
+
         uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
           status match {
             case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
