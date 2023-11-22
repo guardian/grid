@@ -16,6 +16,7 @@ userActions.controller('userActionCtrl',
               ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
               ctrl.shouldBlurGraphicImages = graphicImageBlurService.shouldBlurGraphicImages;
               ctrl.toggleShouldBlurGraphicImages = graphicImageBlurService.toggleShouldBlurGraphicImages;
+              ctrl.explainerContentFile = `/assets/js/common/blurring/${window._clientConfig.staffPhotographerOrganisation}-explainer.html`;
               ctrl.isYetToAcknowledgeBlurGraphicImages = graphicImageBlurService.isYetToAcknowledgeBlurGraphicImages;
               ctrl.acceptDefaultOfBlurringGraphicImages = () => {
                 graphicImageBlurService.acceptDefaultOfBlurringGraphicImages();
