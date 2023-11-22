@@ -66,6 +66,12 @@ trait SqsHelpers {
   def getApproximateReceiveCount(message: SQSMessage): Int =
    Try(message.getAttributes().get("ApproximateReceiveCount").toInt).toOption.getOrElse(-1)
 
+  /** Returns the time the message was first received from the queue (epoch time in milliseconds).
+   * see https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html
+  */
+  def getUploadTime(message:SQSMessage):Int =
+    Try(message.getAttributes().get("ApproximateFirstReceiveTimestamp").toInt).toOption.getOrElse(-1)
+
   def parseS3DataFromMessage(message: SQSMessage):Either[String,S3Data] = {
     Json.parse(message.getBody()).validate[MessageBody] match {
       case JsError(errors) => Left(errors.toString())
