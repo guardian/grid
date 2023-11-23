@@ -190,18 +190,18 @@ class ImageLoaderController(auth: Authentication,
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised { request =>
     val expiration = DateTimeUtils.now().plusHours(1)
 
-    val filenames: List[String] = request.body.asJson.get.as[List[String]]
+    val mediaIds: List[String] = request.body.asJson.get.as[List[String]]
 
-    val uploadedBy = Authentication.getIdentity(request.user)
+    val uploadedBy = Authentication.getIdentity(request.user) //FIXME URL decode the username from the folder when read from ingest bucket
 
     Ok(Json.toJson(
-      filenames.map(filename => {
+      mediaIds.map(mediaId => {
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename = mediaId, expiration, uploadedBy)
 
         // TODO track in upload status table with 'prepared' status and one hour TTL
 
-        filename -> preSignedUrl
+        mediaId -> preSignedUrl
       }).toMap
     ))
   }
