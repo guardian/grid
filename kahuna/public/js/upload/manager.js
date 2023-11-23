@@ -1,5 +1,7 @@
 import angular from 'angular';
 
+import Filehash from 'filehash/src/filehash';
+
 var upload = angular.module('kahuna.upload.manager', []);
 
 upload.factory('uploadManager',
@@ -9,13 +11,13 @@ upload.factory('uploadManager',
     var jobs = new Set();
     var completedJobs = new Set();
 
-    function createJobItem(file, preSignedUrl) {
+    function createJobItem(file, mediaId, preSignedUrl) {
         // var request = fileUploader.upload(file);
         const request = fetch(preSignedUrl, {
           method: "PUT",
           body: file,
           headers: {
-            // TODO x-amz-meta (probably needs to be added when pre-signing too
+            // TODO x-amz-meta (e.g. uploader)
           }
         });
         const dataUrl = $window.URL.createObjectURL(file);
@@ -39,11 +41,19 @@ upload.factory('uploadManager',
 
     async function upload(files) {
 
-        const preSignedPutUrls = await fileUploader.prepare(files.map(_ => _.name));
+        const mediaIdToFileMap = Object.fromEntries(
+          await Promise.all(
+            files.map(file =>
+              Filehash.hash(file, "SHA-1").then(mediaId => [mediaId, file])
+            )
+          )
+        );
+
+        const preSignedPutUrls = await fileUploader.prepare(Object.keys(mediaIdToFileMap));
 
         console.log(preSignedPutUrls);
 
-        var job = files.map(file => createJobItem(file, preSignedPutUrls[file.name]));
+        var job = Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
         var promises = job.map(jobItem => jobItem.resourcePromise);
 
         jobs.add(job);
