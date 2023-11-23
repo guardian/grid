@@ -41,6 +41,7 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 import akka.stream.scaladsl.Sink
 import akka.stream.Materializer
+import com.gu.scanamo.error.ScanamoError
 
 
 class ImageLoaderController(auth: Authentication,
@@ -173,13 +174,15 @@ class ImageLoaderController(auth: Authentication,
           Try { deleteTempFile(tempFile)(loggingContext) }
         }
 
-        getUploadStatusOutcomeAndUpdateUploadStatusTable(futureUploadStatusUri, futuredFile)(loggingContext)
-          .map(outcome => {
-            outcome match {
-              case Left(failureResponse) => Left(new Exception(s"attemptToProcessIngestedFile - ${failureResponse}"))
-              case Right(successfulUploadResult) => Right(digestedFile)
-            }
-          })
+        handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)(loggingContext)
+          .recover {
+            case e:Exception => Left(e)
+            case _ => Left(new Exception)
+          }
+          .map {
+            case _ => Right(digestedFile)
+          }
+
       }
     }
   }
@@ -410,40 +413,56 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  // TODO - this duplicates the method above, except it takes a UploadStatusUri, rather than a UploadStatusUri mapped to
-  // a result. shoudl make this simpler as when this methid is used, we only care about succes or fail, don't need
-  // to distinguish failures to produce a Play Result
-  private def getUploadStatusOutcomeAndUpdateUploadStatusTable (
-    uploadStatusUri: Future[UploadStatusUri],
-    digestedFileFuture: Future[DigestedFile],
-  )(implicit context:MarkerMap):Future[Either[Throwable,UploadStatusUri]] = {
-      /* combine the import result and digest file together into a single future
-       * note that we use transformWith instead of zip here as we are still interested in value of
-       * digestedFile even if the import fails */
-      val fileAndMaybeResult: Future[(DigestedFile, Try[UploadStatusUri])] = uploadStatusUri.transformWith{ result =>
-        digestedFileFuture.map(file => file -> result)
+
+
+  private def handleUploadCompletionAndUpdateUploadStatusTable (
+    uploadAttempt: Future[UploadStatusUri],
+    digestedFile: DigestedFile,
+  )(implicit context:MarkerMap): Future[Unit] = {
+
+    def reportFailure (error:Throwable) {
+      val errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
+      logger.error(context, errorMessage)
+      Future.failed(new Exception(errorMessage))
+    }
+    def reportScanamoError (error:ScanamoError) {
+      var errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
+      if (error.isInstanceOf[ConditionNotMet]) {
+        errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
       }
+      logger.error(context, errorMessage)
+      Future.failed(new Exception(errorMessage))
+    }
 
-      fileAndMaybeResult.flatMap { case (digestedFile, importResult) =>
-
-        val res = importResult match {
-          case Failure(exception) =>  Left(exception)
-          case Success(result) => Right(result)
+    uploadAttempt
+      .recover {
+        case uploadFailure => {
+          uploadStatusTable.updateStatus(
+            digestedFile.digest,
+            UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass().getName()}: ${uploadFailure.getMessage()}"))
+          )
+            .recover {
+              case error => reportFailure(error)
+            }
+            .map {
+              case Left(error:ScanamoError) => reportScanamoError(error)
+              case Right => uploadFailure
+            }
         }
-
-        // update the upload status with the error or completion
-        val status = res match {
-          case Left(exception) => UploadStatus(StatusType.Failed, Some(s"${exception.getClass().getName()}: ${exception.getMessage()}"))
-          case Right(_) => UploadStatus(StatusType.Completed, None)
-        }
-
-        uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
-          status match {
-            case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
-            case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
-            case Right(_) => logger.info(context, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
-          }
-          Future.successful(res)
+      }
+      .map {
+        case uploadStatusUri:UploadStatusUri => {
+          uploadStatusTable.updateStatus(
+            digestedFile.digest,
+            UploadStatus(StatusType.Completed, None)
+          )
+            .recover {
+              case error => reportFailure(error)
+            }
+            .map {
+              case Left(error:ScanamoError) => reportScanamoError(error)
+              case Right => uploadStatusUri
+            }
         }
       }
   }
