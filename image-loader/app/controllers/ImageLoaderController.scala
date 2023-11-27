@@ -46,6 +46,7 @@ import com.gu.scanamo.error.ScanamoError
 import com.gu.mediaservice.lib.ImageStorageProps
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime
+import scalaz.stream.nio.file
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
@@ -189,23 +190,35 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised { request =>
+  def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
     val expiration = DateTimeUtils.now().plusHours(1)
 
-    val mediaIds: List[String] = request.body.asJson.get.as[List[String]]
+    val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
 
-    val uploadedBy = Authentication.getIdentity(request.user) //FIXME URL decode the username from the folder when read from ingest bucket
+    val uploadedBy = Authentication.getIdentity(request.user)
 
-    Ok(Json.toJson(
-      mediaIds.map(mediaId => {
+    Future.sequence(
+
+      mediaIdToFilenameMap.map{case (mediaId, filename) => {
 
         val preSignedUrl = store.generatePreSignedUploadUrl(filename = mediaId, expiration, uploadedBy)
-
-        // TODO track in upload status table with 'prepared' status and one hour TTL
-
-        mediaId -> preSignedUrl
-      }).toMap
-    ))
+        uploadStatusTable.setStatus(UploadStatusRecord(
+          id = mediaId,
+          fileName = Some(filename),
+          uploadedBy,
+          uploadTime = DateTimeUtils.toString(DateTimeUtils.now()),
+          identifiers = None,
+          StatusType.Prepared,
+          errorMessage = None,
+          expires = expiration.toEpochSecond(), // TTL in case upload is never completed by client
+        )).map(_ =>
+          mediaId -> preSignedUrl
+        )
+      }}
+    )
+    .map(_.toMap)
+    .map(Json.toJson(_))
+    .map(Ok(_))
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {

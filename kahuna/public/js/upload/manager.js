@@ -49,7 +49,9 @@ upload.factory('uploadManager',
           )
         );
 
-        const preSignedPutUrls = await fileUploader.prepare(Object.keys(mediaIdToFileMap));
+        const preSignedPutUrls = await fileUploader.prepare(
+          Object.fromEntries(Object.entries(mediaIdToFileMap).map(([mediaId, file])=> [mediaId, file.name]))
+        );
 
         console.log(preSignedPutUrls);
 
@@ -107,8 +109,8 @@ upload.factory('fileUploader',
                ['$q', 'loaderApi',
                 function($q, loaderApi) {
 
-    function prepare(filenames) {
-        return loaderApi.prepare(filenames);
+    function prepare(mediaIdToFilenameMap) {
+        return loaderApi.prepare(mediaIdToFilenameMap);
     }
 
     function upload(file) {

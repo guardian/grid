@@ -16,8 +16,8 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         return loaderRoot;
     }
 
-    function prepare(filenames) {
-        return getLoaderRoot().follow('prepare').post(filenames);
+    function prepare(mediaIdToFilenameMap) {
+        return getLoaderRoot().follow('prepare').post(mediaIdToFilenameMap);
     }
 
     function load(imageData, uploadInfo) {
