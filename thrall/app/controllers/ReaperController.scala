@@ -1,7 +1,7 @@
 package controllers
 
 import akka.actor.Scheduler
-import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
@@ -15,7 +15,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
-import scala.concurrent.duration.DurationInt
+import java.time.temporal.ChronoUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 import scala.language.postfixOps
@@ -50,7 +50,7 @@ class ReaperController(
   (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
       scheduler.scheduleAtFixedRate(
-        initialDelay = 0 seconds,
+        initialDelay = DateTimeUtils.timeUntilNextInterval(INTERVAL), // so we always start on multiples of the interval past the hour
         interval = INTERVAL,
       ){ () =>
         if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
