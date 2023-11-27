@@ -17,7 +17,7 @@ upload.factory('uploadManager',
           method: "PUT",
           body: file,
           headers: {
-            // TODO x-amz-meta (e.g. uploader)
+            "x-amz-meta-file-name": file.name
           }
         });
         const dataUrl = $window.URL.createObjectURL(file);
