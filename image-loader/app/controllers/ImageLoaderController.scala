@@ -12,6 +12,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.aws.SqsHelpers
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
@@ -42,7 +43,9 @@ import scala.util.control.NonFatal
 import akka.stream.scaladsl.Sink
 import akka.stream.Materializer
 import com.gu.scanamo.error.ScanamoError
-
+import com.gu.mediaservice.lib.ImageStorageProps
+import scala.collection.JavaConverters._
+import org.joda.time.DateTime
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
@@ -160,13 +163,12 @@ class ImageLoaderController(auth: Authentication,
 
         val futuredFile = Future(digestedFile)
 
-        // TODO - populate properties from metadata if present
         val futureUploadStatusUri = uploadDigestedFileToStore(
-            futuredFile,
-            key.split("/").head, // first segment of the key is the uploader id
-            None, // identifiers - TODO generate the identifiers string in the expected format
-            None, // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-            None, // set on the upload metadata by the client when uploading to ingest bucket
+            digestedFileFuture = futuredFile,
+            uploadedBy = uriDecode(key.split("/").head), // first segment of the key is the uploader id
+            identifiers =  None,
+            uploadTime = Some(metadata.getLastModified().toString()) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
+            filename = metadata.getUserMetadata().asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
         )(loggingContext)
 
         // under all circumstances, remove the temp files
@@ -365,10 +367,10 @@ class ImageLoaderController(auth: Authentication,
         maybeStatus = uploadStatusResult.flatMap(_.toOption)
         uploadRequest <- uploader.loadFile(
           digestedFile,
-          maybeStatus.map(_.uploadedBy).getOrElse(uploadedBy),
-          maybeStatus.flatMap(_.identifiers).orElse(identifiers),
-          DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
-          maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
+          uploadedBy =  maybeStatus.map(_.uploadedBy).getOrElse(uploadedBy),
+          identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
+          uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
+          filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
         )
         result <- uploader.storeFile(uploadRequest)
       } yield {
