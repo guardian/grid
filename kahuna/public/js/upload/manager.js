@@ -19,14 +19,20 @@ upload.factory('uploadManager',
           headers: {
             "x-amz-meta-file-name": file.name
           }
-        });
+        }).then(s3Response => {
+          if (s3Response.ok) {
+            return {
+              uri: fileUploader.getUploadStatusUri(mediaId)
+            }
+          }
+        })
         const dataUrl = $window.URL.createObjectURL(file);
 
         return {
             name: file.name,
             size: file.size,
             dataUrl: dataUrl,
-            resourcePromise: request
+            resourcePromise: request,
         };
     }
     function createUriJobItem(fileUri) {
@@ -125,9 +131,14 @@ upload.factory('fileUploader',
         return loaderApi.import(fileUri);
     }
 
+    function getUploadStatusUri(mediaId) {
+      return `${loaderApi.getLoaderRoot().getUri()}/uploadStatus/${mediaId}`
+    }
+
     return {
         prepare,
         upload,
-        loadUriImage
+        loadUriImage,
+        getUploadStatusUri
     };
 }]);
