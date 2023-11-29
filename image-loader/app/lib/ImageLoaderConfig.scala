@@ -34,7 +34,6 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
   val ingestBucket: String = string("s3.ingest.bucket")
-  val ingestSqsQueueUrl: Option[String] = stringOpt("sqs.ingest.queue.url")
 
   val failBucket: String = string("s3.fail.bucket")
 

@@ -76,6 +76,7 @@
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
+          shouldUploadStraightToBucket: @kahunaConfig.ingestSqsQueueUrl.isDefined
         }
     </script>
 
