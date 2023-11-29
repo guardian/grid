@@ -24,6 +24,7 @@ function getCommonConfig(config) {
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
+        |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |`;
 }
 
@@ -73,7 +74,6 @@ function getImageLoaderConfig(config) {
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
         |upload.quarantine.enabled=false
-        |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |`;
 }
 

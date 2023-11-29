@@ -12,8 +12,7 @@ upload.factory('uploadManager',
     var completedJobs = new Set();
 
     function createJobItem(file, mediaId, preSignedUrl) {
-        // var request = fileUploader.upload(file);
-        const request = fetch(preSignedUrl, {
+        var request = preSignedUrl ? fetch(preSignedUrl, {
           method: "PUT",
           body: file,
           headers: {
@@ -21,18 +20,20 @@ upload.factory('uploadManager',
           }
         }).then(s3Response => {
           if (s3Response.ok) {
+            // TODO make request to update status table with 'queued' status and extend expires/TTL
             return {
               uri: fileUploader.getUploadStatusUri(mediaId)
-            }
+            };
           }
-        })
+        }) : fileUploader.upload(file);
+
         const dataUrl = $window.URL.createObjectURL(file);
 
         return {
             name: file.name,
             size: file.size,
             dataUrl: dataUrl,
-            resourcePromise: request,
+            resourcePromise: request
         };
     }
     function createUriJobItem(fileUri) {
@@ -45,8 +46,8 @@ upload.factory('uploadManager',
         };
     }
 
-    async function upload(files) {
-
+    async function createJobItems(files){
+      if (window._clientConfig.shouldUploadStraightToBucket) {
         const mediaIdToFileMap = Object.fromEntries(
           await Promise.all(
             files.map(file =>
@@ -61,17 +62,25 @@ upload.factory('uploadManager',
 
         console.log(preSignedPutUrls);
 
-        var job = Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
-        var promises = job.map(jobItem => jobItem.resourcePromise);
+        return Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
+      }
 
-        jobs.add(job);
+      return files.map(file => createJobItem(file));
+    }
+
+    async function upload(files) {
+
+        const jobItems = await createJobItems(files);
+        const promises = jobItems.map(jobItem => jobItem.resourcePromise);
+
+        jobs.add(jobItems);
 
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
         $q.all(promises).finally(() => {
-          completedJobs.add(job);
-          jobs.delete(job);
-          job.map(jobItem => {
+          completedJobs.add(jobItems);
+          jobs.delete(jobItems);
+          jobItems.map(jobItem => {
             $window.URL.revokeObjectURL(jobItem.dataUrl);
           });
         });
@@ -132,7 +141,7 @@ upload.factory('fileUploader',
     }
 
     function getUploadStatusUri(mediaId) {
-      return `${loaderApi.getLoaderRoot().getUri()}/uploadStatus/${mediaId}`
+      return `${loaderApi.getLoaderRoot().getUri()}/uploadStatus/${mediaId}`;
     }
 
     return {
