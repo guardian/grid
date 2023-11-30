@@ -128,14 +128,21 @@ class ImageLoaderController(auth: Authentication,
   def transferIngestedFileToFailBucket(message: SQSMessage):Future[Unit] = Future{
     parseS3DataFromMessage(message) match {
       case Left(failString) => {
-        // TO DO - delete message from Queue if cannont parse. Should only happen if we get malformed message payloads - not expected.
         logger.warn("Failed to parse s3 data from SQS message", message)
         println("transferIngestedFileToFailBucket - could not parse")
       }
       case Right(s3data) => {
-        println(s"Attempting to transfer file saved from ingest bucket to fail bucket. KEY: ${s3data.`object`.key}, SIZE: ${s3data.`object`.size}")
-        // TO DO - implement
-        println("transferIngestedFileToFailBucket - not implemented")
+        val key = s3data.`object`.key
+        val uploadedBy = uriDecode(key.split("/").head)
+        val imageIdFromKey = key.split("/").last // Using a hash provided by the client - don't want to digest a file that may have previously caused a crash.
+        val errorMessage = s"Failed to proccess queued image uploaded by '${uploadedBy}', SIZE: ${s3data.`object`.size}"
+
+        println(errorMessage)
+        logger.warn(s"${errorMessage} - image hash: ${imageIdFromKey}")
+
+        store.moveObjectToFailedBucket(key)
+        // TO DO - if the file has already been (successfully) ingested, should not overrwrite a "completed" status
+        uploadStatusTable.updateStatus(imageIdFromKey, UploadStatus(StatusType.Failed, Some(errorMessage)))
       }
     }
   }
@@ -143,7 +150,6 @@ class ImageLoaderController(auth: Authentication,
   def attemptToProcessIngestedFile(message:SQSMessage): Future[Either[Exception, DigestedFile]] = {
      parseS3DataFromMessage(message) match {
       case Left(failString) => {
-        // TO DO - delete message from Queue if cannot parse. Should only happen if we get malformed message payloads - not expected.
         logger.warn("Failed to parse s3 data from SQS message", message)
         Future( Left(new Exception(s"Failed to parse s3 data from message ${message.getMessageId()}: $failString")))
       }
