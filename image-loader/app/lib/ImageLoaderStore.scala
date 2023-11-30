@@ -24,6 +24,10 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   def moveObjectToFailedBucket(key: String) = {
     val copyObjectResult = client.copyObject(config.ingestBucket, key, config.failBucket, key)
     println(copyObjectResult)
+    deleteObjectFromIngestBucket(key)
+  }
+
+  def deleteObjectFromIngestBucket(key: String) = {
     client.deleteObject(config.ingestBucket,key)
   }
 }
