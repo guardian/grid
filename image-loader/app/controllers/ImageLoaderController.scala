@@ -47,6 +47,7 @@ import com.gu.mediaservice.lib.ImageStorageProps
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime
 import scalaz.stream.nio.file
+import com.gu.mediaservice.lib.aws.S3Data
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
@@ -97,106 +98,95 @@ class ImageLoaderController(auth: Authentication,
   def handleMessageFromIngestBucket(message:SQSMessage): Future[Unit] = {
     println(message)
 
-    val approximateReceiveCount = getApproximateReceiveCount(message)
-
-    if (approximateReceiveCount > 2) { // retry ingesting once before send to fail bucket - this is to allow for uncaught exception, EG box ran out fo memory and crashed while ingesting, or instances cycled before ingest was finished.
-      println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
-      transferIngestedFileToFailBucket(message)
-    } else {
-
-      attemptToProcessIngestedFile(message).transformWith {
-        case Failure(exception) => {
-          println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
-          transferIngestedFileToFailBucket(message)
-        }
-        case Success(outcome) => {
-          outcome match {
-            case Left(exception) => {
-              println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
-              transferIngestedFileToFailBucket(message)
-            }
-            case Right(digestedFile) => {
-             println(s"Succesfully processed image ${digestedFile.file.getName()}")
-             Future.unit
-            }
-          }
-        }
-      }
-    }
-  }
-
-  def transferIngestedFileToFailBucket(message: SQSMessage):Future[Unit] = Future{
     parseS3DataFromMessage(message) match {
       case Left(failString) => {
-        logger.warn("Failed to parse s3 data from SQS message", message)
-        println("transferIngestedFileToFailBucket - could not parse")
+        logger.warn("Failed to parse s3 data from SQS message.", message)
+        Future.unit
       }
       case Right(s3data) => {
-        val key = s3data.`object`.key
-        val uploadedBy = uriDecode(key.split("/").head)
-        val imageIdFromKey = key.split("/").last // Using a hash provided by the client - don't want to digest a file that may have previously caused a crash.
-        val errorMessage = s"Failed to proccess queued image uploaded by '${uploadedBy}', SIZE: ${s3data.`object`.size}"
+        val approximateReceiveCount = getApproximateReceiveCount(message)
+        if (approximateReceiveCount > 2) {
+          println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
+          transferIngestedFileToFailBucket(s3data)
+        }
 
-        println(errorMessage)
-        logger.warn(s"${errorMessage} - image hash: ${imageIdFromKey}")
-
-        store.moveObjectToFailedBucket(key)
-        // TO DO - if the file has already been (successfully) ingested, should not overrwrite a "completed" status
-        uploadStatusTable.updateStatus(imageIdFromKey, UploadStatus(StatusType.Failed, Some(errorMessage)))
+        attemptToProcessIngestedFile(s3data).transformWith {
+          case Failure(exception) => {
+            println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
+            transferIngestedFileToFailBucket(s3data)
+          }
+          case Success(exceptionOrDigestedFile) => {
+            exceptionOrDigestedFile match {
+              case Left(exception) => {
+                println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
+                transferIngestedFileToFailBucket(s3data)
+              }
+              case Right(digestedFile) => {
+                println(s"Succesfully processed image ${digestedFile.file.getName()}")
+                store.deleteObjectFromIngestBucket(s3data.`object`.key)
+                Future.unit
+              }
+            }
+          }
+        }
       }
     }
   }
 
-  def attemptToProcessIngestedFile(message:SQSMessage): Future[Either[Exception, DigestedFile]] = {
-     parseS3DataFromMessage(message) match {
-      case Left(failString) => {
-        logger.warn("Failed to parse s3 data from SQS message", message)
-        Future( Left(new Exception(s"Failed to parse s3 data from message ${message.getMessageId()}: $failString")))
-      }
-      case Right(s3data) => {
-        val key = s3data.`object`.key
-        val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
+  def transferIngestedFileToFailBucket(s3data:S3Data):Future[Unit] = Future{
+    val key = s3data.`object`.key
+    val uploadedBy = uriDecode(key.split("/").head)
+    val imageIdFromKey = key.split("/").last // Using a hash provided by the client - don't want to digest a file that may have previously caused a crash.
+    val errorMessage = s"Failed to proccess queued image uploaded by '${uploadedBy}', SIZE: ${s3data.`object`.size}"
 
-        println(s"Attempting to process file saved to ingest bucket. KEY: $key, SIZE: ${s3data.`object`.size}")
-        val tempFile = createTempFile("s3IngestBucketFile")(loggingContext)
-        val s3IngestObject = store.getIngestObject(key)
-        val metadata = s3IngestObject.getObjectMetadata
-        val digestedFile = downloader.download(
-          inputStream = s3IngestObject.getObjectContent,
-          tempFile,
-          expectedSize = metadata.getContentLength
-        )
-        println(s"SHA-1: ${digestedFile.digest}")
+    println(errorMessage)
+    logger.warn(s"${errorMessage} - image hash: ${imageIdFromKey}")
 
-        val futuredFile = Future(digestedFile)
+    store.moveObjectToFailedBucket(key)
+    // TO DO - if the file has already been (successfully) ingested, should not overrwrite a "completed" status
+    uploadStatusTable.updateStatus(imageIdFromKey, UploadStatus(StatusType.Failed, Some(errorMessage)))
+  }
 
-        val futureUploadStatusUri = uploadDigestedFileToStore(
-            digestedFileFuture = futuredFile,
-            uploadedBy = uriDecode(key.split("/").head), // first segment of the key is the uploader id
-            identifiers =  None,
-            uploadTime = Some(metadata.getLastModified().toString()) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-            filename = metadata.getUserMetadata().asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
-        )(loggingContext)
+  def attemptToProcessIngestedFile(s3data:S3Data): Future[Either[Exception, DigestedFile]] = {
+    val key = s3data.`object`.key
+    val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
 
-        // under all circumstances, remove the temp files
-        futureUploadStatusUri.onComplete { _ =>
-          Try { deleteTempFile(tempFile)(loggingContext) }
-        }
+    println(s"Attempting to process file saved to ingest bucket. KEY: $key, SIZE: ${s3data.`object`.size}")
+    val tempFile = createTempFile("s3IngestBucketFile")(loggingContext)
+    val s3IngestObject = store.getIngestObject(key)
+    val metadata = s3IngestObject.getObjectMetadata
+    val digestedFile = downloader.download(
+      inputStream = s3IngestObject.getObjectContent,
+      tempFile,
+      expectedSize = metadata.getContentLength
+    )
+    println(s"SHA-1: ${digestedFile.digest}")
 
-        handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)(loggingContext)
-          .recover {
-            case e:Exception => Left(e)
-            case _ => Left(new Exception)
-          }
-          .map {
-            case _ => {
-              store.deleteObjectFromIngestBucket(key)
-              Right(digestedFile)
-            }
-          }
+    val futuredFile = Future(digestedFile)
 
-      }
+    val futureUploadStatusUri = uploadDigestedFileToStore(
+        digestedFileFuture = futuredFile,
+        uploadedBy = uriDecode(key.split("/").head), // first segment of the key is the uploader id
+        identifiers =  None,
+        uploadTime = Some(metadata.getLastModified().toString()) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
+        filename = metadata.getUserMetadata().asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
+    )(loggingContext)
+
+    // under all circumstances, remove the temp files
+    futureUploadStatusUri.onComplete { _ =>
+      Try { deleteTempFile(tempFile)(loggingContext) }
     }
+
+    handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)(loggingContext)
+      .recover {
+        case e:Exception => Left(e)
+        case _ => Left(new Exception)
+      }
+      .map {
+        case _ => {
+          Right(digestedFile)
+        }
+      }
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
