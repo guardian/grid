@@ -47,7 +47,7 @@ import com.gu.mediaservice.lib.ImageStorageProps
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime
 import scalaz.stream.nio.file
-import com.gu.mediaservice.lib.aws.S3Data
+import com.gu.mediaservice.lib.aws.S3DataFromSqsMessage
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
@@ -133,21 +133,21 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def transferIngestedFileToFailBucket(s3data:S3Data):Future[Unit] = Future{
+  def transferIngestedFileToFailBucket(s3data:S3DataFromSqsMessage):Future[Unit] = Future{
     val key = s3data.`object`.key
-    val uploadedBy = uriDecode(key.split("/").head)
-    val imageIdFromKey = key.split("/").last // Using a hash provided by the client - don't want to digest a file that may have previously caused a crash.
-    val errorMessage = s"Failed to proccess queued image uploaded by '${uploadedBy}', SIZE: ${s3data.`object`.size}"
+
+    val errorMessage = s"Failed to proccess queued image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
 
     println(errorMessage)
-    logger.warn(s"${errorMessage} - image hash: ${imageIdFromKey}")
+    logger.warn(s"${errorMessage} - image hash: ${s3data.mediaId}")
 
     store.moveObjectToFailedBucket(key)
     // TO DO - if the file has already been (successfully) ingested, should not overrwrite a "completed" status
-    uploadStatusTable.updateStatus(imageIdFromKey, UploadStatus(StatusType.Failed, Some(errorMessage)))
+    // Using the hash provided by the client - don't want to digest a file that may have previously caused a crash.
+    uploadStatusTable.updateStatus(s3data.mediaId, UploadStatus(StatusType.Failed, Some(errorMessage)))
   }
 
-  def attemptToProcessIngestedFile(s3data:S3Data): Future[Either[Exception, DigestedFile]] = {
+  def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[Either[Exception, DigestedFile]] = {
     val key = s3data.`object`.key
     val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
 
@@ -166,7 +166,7 @@ class ImageLoaderController(auth: Authentication,
 
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = futuredFile,
-        uploadedBy = uriDecode(key.split("/").head), // first segment of the key is the uploader id
+        uploadedBy = s3data.uploadedBy,
         identifiers =  None,
         uploadTime = Some(metadata.getLastModified().toString()) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
         filename = metadata.getUserMetadata().asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
