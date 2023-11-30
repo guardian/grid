@@ -5,6 +5,7 @@ import scala.util.Try
 import play.api.libs.json.{Json, JsObject}
 import play.api.libs.json.JsError
 import play.api.libs.json.JsSuccess
+import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
 
 case class S3ObjectField (
   key: String,
@@ -27,16 +28,27 @@ object S3BucketField {
   implicit val S3BucketFieldWrites = Json.writes[S3BucketField]
 }
 
-// TO DO - add more fields. yet more case classes, yet more objects
-case class S3Data (
+case class S3DataFromSqsMessage (
   s3SchemaVersion: Option[String],
   `object`: S3ObjectField,
   bucket: S3BucketField,
-)
+) {
+  private val keyParts = `object`.key.split("/")
 
-object S3Data {
-  implicit val S3DataReads = Json.reads[S3Data]
-  implicit val MS3DatadWrites = Json.writes[S3Data]
+  /**
+    * @return the first part of the object key split by slashes, uriDecoded - expected to be the uplaoder's email address
+  */
+  val uploadedBy: String = uriDecode(keyParts.head)
+
+  /**
+    * @return the last part of the object key by slashes, expected to be a SHA-1 hash of the file
+  */
+  val mediaId: String = keyParts.last
+}
+
+object S3DataFromSqsMessage {
+  implicit val S3DataReads = Json.reads[S3DataFromSqsMessage]
+  implicit val MS3DatadWrites = Json.writes[S3DataFromSqsMessage]
 }
 
 case class MessageRecord (
@@ -44,7 +56,7 @@ case class MessageRecord (
   eventSource: Option[String],
   eventTime: Option[String],
   eventName: Option[String],
-  s3: Option[S3Data],
+  s3: Option[S3DataFromSqsMessage],
 )
 
 object MessageRecord {
@@ -72,7 +84,7 @@ trait SqsHelpers {
   def getUploadTime(message:SQSMessage):Int =
     Try(message.getAttributes().get("ApproximateFirstReceiveTimestamp").toInt).toOption.getOrElse(-1)
 
-  def parseS3DataFromMessage(message: SQSMessage):Either[String,S3Data] = {
+  def parseS3DataFromMessage(message: SQSMessage):Either[String,S3DataFromSqsMessage] = {
     Json.parse(message.getBody()).validate[MessageBody] match {
       case JsError(errors) => Left(errors.toString())
       case JsSuccess(value, path) => {
