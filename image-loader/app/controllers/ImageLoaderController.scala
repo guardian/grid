@@ -189,7 +189,10 @@ class ImageLoaderController(auth: Authentication,
             case _ => Left(new Exception)
           }
           .map {
-            case _ => Right(digestedFile)
+            case _ => {
+              store.deleteObjectFromIngestBucket(key)
+              Right(digestedFile)
+            }
           }
 
       }
