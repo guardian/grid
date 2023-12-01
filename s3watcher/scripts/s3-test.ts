@@ -22,10 +22,10 @@ AWS.config.update({
 
 const s3 = new AWS.S3(awsConfig);
 
-const findWatcherBucketNames = async () => {
+const findIngestQueueBucketNames = async () => {
   const { Buckets: buckets = [] } = await s3.listBuckets().promise();
   return buckets
-    .filter((bucket) => bucket.Name?.includes("s3watcheringestbucket"))
+    .filter((bucket) => bucket.Name?.includes("ingestqueue"))
     .map((bucket) => bucket.Name) as string[];
 };
 
@@ -43,7 +43,7 @@ const listObjectsAndGetQueueConfigInEachBucket = async (bucketNames: string[]) =
   );
 };
 
-findWatcherBucketNames()
+findIngestQueueBucketNames()
   .then(listObjectsAndGetQueueConfigInEachBucket)
   .then((results) => {
     results.forEach((bucket) => {

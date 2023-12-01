@@ -22,6 +22,17 @@ Resources:
       ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
       VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
 
+  IngestQueueBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: IngestSqsQueue
+    NotificationConfiguration: # this doesn't seem to be applied in localstack, so has to be applied explicitly in dev/script/setup.sh
+      QueueConfigurations:
+        - Event: "s3:ObjectCreated:*"
+          Queue: !GetAtt IngestSqsQueue.Arn
+
+  IngestQueueFailBucket:
+    Type: AWS::S3::Bucket
+
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -60,11 +71,6 @@ Resources:
 
   S3WatcherIngestBucket:
     Type: AWS::S3::Bucket
-    DependsOn: IngestSqsQueue
-    NotificationConfiguration: # this doesn't seem to be applied in localstack, so has to be applied explicitly in dev/script/setup.sh
-      QueueConfigurations:
-        - Event: "s3:ObjectCreated:*"
-          Queue: !GetAtt IngestSqsQueue.Arn
 
   S3WatcherFailBucket:
     Type: AWS::S3::Bucket
@@ -319,3 +325,7 @@ Outputs:
    Value: !Ref 'IngestSqsQueue'
   IngestSqsQueueArn:
    Value: !GetAtt IngestSqsQueue.Arn
+  IngestQueueBucket:
+    Value: !Ref 'IngestQueueBucket'
+  IngestQueueFailBucket:
+    Value: !Ref 'IngestQueueFailBucket'
