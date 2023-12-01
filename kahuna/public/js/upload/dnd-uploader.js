@@ -33,8 +33,9 @@ dndUploader.controller('DndUploaderCtrl',
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
         // show progress
-        uploadManager.upload(files);
-        $state.go('upload', {}, { reload: true });
+        uploadManager.upload(files).then(() => {
+          $state.go('upload', {}, { reload: true });
+        });
     }
 
 
