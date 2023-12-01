@@ -20,11 +20,15 @@ upload.factory('uploadManager',
           }
         }).then(s3Response => {
           if (s3Response.ok) {
-            // TODO make request to update status table with 'queued' status and extend expires/TTL
-            return {
+            const uploadStatusUriToPoll = {
               uri: fileUploader.getUploadStatusUri(mediaId)
             };
+            return fileUploader.markAsQueued(mediaId).then(() => uploadStatusUriToPoll).catch(err => {
+              console.error("Failed to mark as queued", err); //TODO consider posting to sentry
+              return uploadStatusUriToPoll;
+            });
           }
+          throw new Error(`Failed to upload to S3: ${s3Response.status} ${s3Response.statusText}`);
         }) : fileUploader.upload(file);
 
         const dataUrl = $window.URL.createObjectURL(file);
@@ -140,14 +144,23 @@ upload.factory('fileUploader',
         return loaderApi.import(fileUri);
     }
 
+    function buildUploadStatusEndpoint(mediaId) {
+      return loaderApi.getLoaderRoot().follow('uploadStatus', {id: mediaId});
+    }
+
     function getUploadStatusUri(mediaId) {
-      return `${loaderApi.getLoaderRoot().getUri()}/uploadStatus/${mediaId}`;
+      return buildUploadStatusEndpoint(mediaId).getUri();
+    }
+
+    function markAsQueued(mediaId) {
+      return buildUploadStatusEndpoint(mediaId).post({status: "QUEUED"});
     }
 
     return {
         prepare,
         upload,
         loadUriImage,
-        getUploadStatusUri
+        getUploadStatusUri,
+        markAsQueued
     };
 }]);

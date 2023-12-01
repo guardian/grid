@@ -2,9 +2,7 @@ package lib.storage
 
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
-import _root_.lib.DigestedFile
 import com.amazonaws.HttpMethod
-import java.io.File
 import java.time.ZonedDateTime
 import java.util.Date
 

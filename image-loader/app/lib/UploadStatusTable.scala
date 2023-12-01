@@ -3,7 +3,9 @@ package lib
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.scanamo._
 import com.gu.scanamo.error.DynamoReadError
+import com.gu.scanamo.query.{AndCondition, AttributeExists, Condition, ConditionExpression, KeyEquals}
 import com.gu.scanamo.syntax._
+import model.StatusType.{Prepared, Queued}
 import model.{UploadStatus, UploadStatusRecord}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -26,9 +28,14 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
       case Some(error) => set('status -> updateRequest.status) and set('errorMessages -> error)
       case None => set('status -> updateRequest.status)
     }
+    val uploadStatusTableWithCondition =
+      if(updateRequest.status == Queued) // can only transition to Queued status from Prepared status
+        uploadStatusTable.given(attributeExists('id) and ('status -> Prepared.name))
+      else
+        uploadStatusTable.given(attributeExists('id))
+
     ScanamoAsync.exec(client)(
-      uploadStatusTable
-        .given(attributeExists('id))
+      uploadStatusTableWithCondition
         .update(
           'id -> imageId,
           update = updateExpression

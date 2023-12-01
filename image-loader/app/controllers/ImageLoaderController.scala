@@ -83,6 +83,7 @@ class ImageLoaderController(auth: Authentication,
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
       Link("prepare", s"${config.rootUri}/prepare"),
+      Link("uploadStatus", s"${config.rootUri}/uploadStatus/{id}"),
       Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
