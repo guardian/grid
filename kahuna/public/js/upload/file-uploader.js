@@ -20,10 +20,11 @@ fileUploader.controller('FileUploaderCtrl',
       function uploadFiles(files) {
           // Queue up files for upload and go to the upload state to
           // show progress
-          uploadManager.upload(files);
-          // Force reload, in case we're already in that state
-          // TODO: Don't do this as it reloads "Your uploads" too
-          $state.go('upload', {}, {reload: true});
+          uploadManager.upload(files).then(() => {
+            // Force reload, in case we're already in that state
+            // TODO: Don't do this as it reloads "Your uploads" too
+            $state.go('upload', {}, {reload: true});
+          });
       }
     };
 }]);
