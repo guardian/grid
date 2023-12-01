@@ -39,6 +39,7 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
     }
 
     return {
+        getLoaderRoot,
         prepare,
         load,
         import: import_
