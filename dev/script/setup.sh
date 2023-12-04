@@ -280,16 +280,6 @@ createCoreStack() {
     echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
   fi
 
-  # although we define the 'NotificationConfiguration' in the dev/clouformation/grid-dev-core.yml file
-  # it doesn't seem to be applied in localstack when creating/updated the stack
-  ingestBucket=$(getStackOutput "$CORE_STACK_NAME" IngestQueueBucket)
-  ingestQueueArn=$(getStackOutput "$CORE_STACK_NAME" IngestSqsQueueArn)
-  notificationConfiguration="{ \"QueueConfigurations\": [ { \"QueueArn\": \"$ingestQueueArn\", \"Events\": [ \"s3:ObjectCreated:*\" ] } ] }"
-  aws s3api put-bucket-notification-configuration \
-    --bucket "$ingestBucket" \
-    --endpoint-url $LOCALSTACK_ENDPOINT \
-    --notification-configuration "$notificationConfiguration"
-
   set +x
 }
 

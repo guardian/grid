@@ -15,18 +15,18 @@ Resources:
       RetentionPeriodHours: 168
 
   IngestSqsQueue:
-    Type: AWS::SQS::Queue
+    Type: AWS::SQS::Queue  # standard queue will suffice (Fifo not worth performance penalty)
     Properties:
       QueueName: IngestSqsQueue
-      FifoQueue: false # standard queue will suffice (Fifo not worth performance penalty)
       ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
       VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
 
   IngestQueueBucket:
     Type: AWS::S3::Bucket
     DependsOn: IngestSqsQueue
-    NotificationConfiguration: # this doesn't seem to be applied in localstack, so has to be applied explicitly in dev/script/setup.sh
-      QueueConfigurations:
+    Properties:
+      NotificationConfiguration:
+        QueueConfigurations:
         - Event: "s3:ObjectCreated:*"
           Queue: !GetAtt IngestSqsQueue.Arn
 
