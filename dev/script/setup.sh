@@ -240,24 +240,6 @@ getStackResource() {
   echo "$resource"
 }
 
-getStackOutput() {
-  stackName=$1
-  outputKey=$2
-
-  stackOutputs=$(
-    aws cloudformation describe-stacks \
-      --stack-name "$stackName" \
-      --endpoint-url $LOCALSTACK_ENDPOINT
-  )
-
-  output=$(
-    echo "$stackOutputs" \
-    | jq -r ".Stacks[].Outputs[] | select(.OutputKey == \"$outputKey\") | .OutputValue"
-  )
-
-  echo "$output"
-}
-
 createCoreStack() {
   echo "creating local core cloudformation stack"
   set -x
@@ -279,18 +261,9 @@ createCoreStack() {
       --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
     echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
   fi
-
-  # although we define the 'NotificationConfiguration' in the dev/clouformation/grid-dev-core.yml file
-  # it doesn't seem to be applied in localstack when creating/updated the stack
-  ingestBucket=$(getStackOutput "$CORE_STACK_NAME" IngestQueueBucket)
-  ingestQueueArn=$(getStackOutput "$CORE_STACK_NAME" IngestSqsQueueArn)
-  notificationConfiguration="{ \"QueueConfigurations\": [ { \"QueueArn\": \"$ingestQueueArn\", \"Events\": [ \"s3:ObjectCreated:*\" ] } ] }"
-  aws s3api put-bucket-notification-configuration \
-    --bucket "$ingestBucket" \
-    --endpoint-url $LOCALSTACK_ENDPOINT \
-    --notification-configuration "$notificationConfiguration"
-
   set +x
+
+  # TODO - this should wait until the stack operation has completed
 }
 
 createGuardianLocalAuthStack() {
