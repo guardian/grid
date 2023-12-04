@@ -16,6 +16,7 @@ import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
+import {SortDropdownOption} from "../components/gr-sort-control/gr-sort-control";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -26,6 +27,7 @@ export var query = angular.module('kahuna.search.query', [
     grStructuredQuery.name,
     'util.storage',
     'gr.permissionsFilter',
+    'gr.sortControl',
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -136,6 +138,52 @@ query.controller('SearchQueryCtrl', [
         sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
         $state.go('search.results', filter);
     }
+
+    //-sort control-
+    function updateSortChips (sortSel) {
+      ctrl.sortProps.selectedOption = sortSel;
+      let newVal = undefined;
+      switch(sortSel.value){
+        case "uploadNewOld":
+          newVal = undefined;
+          break;
+        case "uploadOldNew":
+          newVal = "oldest";
+          break;
+        case "collecAdded":
+          newVal = "dateAddedToCollection";
+          break;
+        default:
+          newVal = undefined;
+          break;
+      }
+      ctrl.ordering['orderBy'] = newVal;
+      watchSearchChange(ctrl.filter);
+    }
+
+    ctrl.sortProps = {
+      options: [
+        {
+          value:"uploadNewOld",
+          label:"Upload date (new to old)"
+        },
+        {
+          value:"uploadOldNew",
+          label:"Upload date (old to new)"
+        },
+        {
+          value: "collecAdded",
+          label: "Added to Collection (new to old)"
+        }
+      ],
+      selectedOption: {
+        value:"uploadNewOld",
+        label:"Upload date (new to old)"
+      },
+      onSelect: updateSortChips,
+      query: ctrl.filter.query
+    }
+    //-end sort control-
 
     //-permissions filter-
     function updatePermissionsChips (permissionsSel, showChargeable) {
@@ -260,6 +308,10 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     $scope.$watchCollection(() => ctrl.filter, onValChange(watchSearchChange));
+
+    $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
+      $state.go('search.results', {orderBy: newVal});
+    }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params
