@@ -2,11 +2,11 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
+import com.gu.mediaservice.lib.aws.SimpleSqsMessageConsumer
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchImageCounts}
 import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json.{Format, Json}
 import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
-
 import scala.concurrent.{ExecutionContext, Future}
 
 trait BuildInfo {
@@ -32,6 +32,23 @@ trait ManagementController extends HealthCheck with BaseController with ArgoHelp
 }
 
 class Management(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo) extends ManagementController
+
+class ImageLoaderManagement(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo, maybeIngestQueue:Option[SimpleSqsMessageConsumer])
+  extends Management(controllerComponents, buildInfo) {
+  override def healthCheck: Action[AnyContent] = Action {
+    maybeIngestQueue match {
+      case Some(ingestQueue) => Ok(Json.obj(
+        "status" -> "OK",
+        "hasIngestQueue" -> true,
+        "ingestQueueStatus" -> ingestQueue.getStatus
+      ))
+      case None => Ok(Json.obj(
+        "status" -> "OK",
+        "hasIngestQueue" -> false,
+      ))
+    }
+  }
+}
 
 class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
   extends HealthCheck with GridLogging {

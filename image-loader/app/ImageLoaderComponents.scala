@@ -3,9 +3,9 @@ import com.gu.mediaservice.lib.aws.{DynamoDB, SimpleSqsMessageConsumer}
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
+import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, ImageLoaderManagement}
 import com.gu.mediaservice.lib.play.GridComponents
-import controllers.{ImageLoaderController, UploadStatusController}
+import controllers.{ImageLoaderController, IngestQueueMonitorController, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
 import model.{Projector, QuarantineUploader, Uploader}
@@ -45,8 +45,9 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val controller = new ImageLoaderController(
     auth, downloader, store, maybeIngestQueue, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation)
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
+  val ingestQueueMonitorController =  new IngestQueueMonitorController(auth, maybeIngestQueue, config,controllerComponents, authorisation)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
+  val imageLoaderManagement = new ImageLoaderManagement(controllerComponents, buildInfo, maybeIngestQueue)
 
-
-  override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController, management, InnerServiceStatusCheckController)
+  override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController,ingestQueueMonitorController, imageLoaderManagement, InnerServiceStatusCheckController)
 }

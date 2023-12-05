@@ -6,6 +6,7 @@ import com.amazonaws.services.sqs.AmazonSQSClientBuilder
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
 
@@ -21,4 +22,11 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
   def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 
+  def getStatus: mutable.Map[String, String] = {
+   client.getQueueAttributes(queueUrl, List(
+      "ApproximateNumberOfMessagesDelayed",
+      "ApproximateNumberOfMessages",
+      "ApproximateNumberOfMessagesNotVisible"
+    ).asJava).getAttributes.asScala
+  }
 }
