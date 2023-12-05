@@ -1,0 +1,13 @@
+.outer-my-uploads-container {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  padding-left: 12px;
+  padding-right: 12px;
+  fill: #ccc;
+}
+
+.my-uploads-label {
+  padding-left: 2px;
+  font-size: 1.4rem;
+}

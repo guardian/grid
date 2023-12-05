@@ -12,11 +12,12 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-permissions-filter/gr-permissions-filter';
+import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-my-uploads/gr-my-uploads';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
-import {SortDropdownOption} from "../components/gr-sort-control/gr-sort-control";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -28,6 +29,7 @@ export var query = angular.module('kahuna.search.query', [
     'util.storage',
     'gr.permissionsFilter',
     'gr.sortControl',
+    'gr.myUploads'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -65,15 +67,9 @@ query.controller('SearchQueryCtrl', [
         // filled in by the watcher below
     };
 
-    ctrl.permissionsCallback = false;
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
 
     function watchSearchChange(filter) {
-        if(ctrl.permissionsCallback) {
-          ctrl.permissionsCallback = false;
-          return;
-        }
-
         const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
         storage.setJs("isNonFree", showPaid, true);
 
@@ -139,6 +135,17 @@ query.controller('SearchQueryCtrl', [
         $state.go('search.results', filter);
     }
 
+    //-my uploads-
+    function selectMyUploads(myUploadsChecked) {
+      ctrl.filter.uploadedByMe = myUploadsChecked;
+      watchSearchChange(ctrl.filter);
+    }
+
+    ctrl.myUploadsProps = {
+      onChange: selectMyUploads
+    }
+    //-end my uploads
+
     //-sort control-
     function updateSortChips (sortSel) {
       ctrl.sortProps.selectedOption = sortSel;
@@ -191,13 +198,11 @@ query.controller('SearchQueryCtrl', [
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
       ctrl.filter.nonFree = showChargeable;
       watchSearchChange(ctrl.filter);
-      ctrl.permissionsCallback = true;
     }
 
     function chargeableChange (showChargeable) {
       ctrl.filter.nonFree = showChargeable;
       watchSearchChange(ctrl.filter);
-      ctrl.permissionsCallback = true;
     }
 
     let pfOpts = PermissionsConf.PermissionsOptions();

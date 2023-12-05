@@ -7,7 +7,7 @@
 }
 
 .sort-dropdown {
-  dispaly: inline-block;
+  display: inline-block;
   height: 50px;
   padding-right: 0px;
 }
@@ -44,7 +44,7 @@
 
 .sort-dropdown-menu {
   position: absolute;
-  width: 200px;
+  width: 250px;
   right: 0px;
   border: 1px solid #ccc;
   border-collapse: collapse;

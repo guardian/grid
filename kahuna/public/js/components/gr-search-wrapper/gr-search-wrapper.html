@@ -18,17 +18,7 @@
         </ul>
     </div>
 
-    <div class="search__modifier-container" style="margin-left: 10px;position: relative;">
-        <a ng-if="ctrl.canUpload"
-           ui-sref="upload"
-           gr-track-click="Your uploads button"
-           gr-track-click-data="{'Location': 'Search navigation'}"
-           class="top-bar-item clickable side-padded"
-           title="my uploads"
-           aria-label="My uploads">
-            <gr-icon-label gr-icon="photo_library">My uploads</gr-icon-label>
-        </a>
-    </div>
+    <my-uploads class="my-uploads" props="searchQuery.myUploadsProps"></my-uploads>
 
     <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
 
