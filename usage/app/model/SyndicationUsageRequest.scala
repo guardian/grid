@@ -14,7 +14,7 @@ case class SyndicationUsageRequest (
     case "Capture" => PendingUsageStatus
     case _ => SyndicatedUsageStatus
   }
-  val metadata: SyndicationUsageMetadata = SyndicationUsageMetadata(partnerName)
+  val metadata: SyndicationUsageMetadata = SyndicationUsageMetadata(partnerName, syndicatedBy)
 }
 object SyndicationUsageRequest {
   import JodaWrites._
