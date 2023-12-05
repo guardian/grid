@@ -149,7 +149,7 @@ query.controller('SearchQueryCtrl', [
     //-sort control-
     function updateSortChips (sortSel) {
       ctrl.sortProps.selectedOption = sortSel;
-      let newVal = undefined;
+      let newVal;
       switch(sortSel.value){
         case "uploadNewOld":
           newVal = undefined;
