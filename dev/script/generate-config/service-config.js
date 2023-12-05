@@ -25,6 +25,8 @@ function getCommonConfig(config) {
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
         |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
+        |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
+        |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
         |`;
 }
 
@@ -66,8 +68,6 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
         |s3.quarantine.bucket="${config.coreStackProps.QuarantineBucket}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
-        |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
-        |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
         |dynamo.table.upload.status="UploadStatusTable"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
