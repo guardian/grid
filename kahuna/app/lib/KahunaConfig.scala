@@ -42,7 +42,10 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
-  val connectSources: Set[String] = getStringSet("security.connectSources") + (if(isDev) "https://localstack.media.local.dev-gutools.co.uk" else "https://s3.amazonaws.com/")
+  val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeIngestBucket.map { ingestBucket =>
+    if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
+    else s"https://$ingestBucket.s3.$awsRegion.amazonaws.com"
+  }
   val fontSources: Set[String] = getStringSet("security.fontSources")
 
   val scriptsToLoad: List[ScriptToLoad] = getConfigList("scriptsToLoad").map(entry => ScriptToLoad(

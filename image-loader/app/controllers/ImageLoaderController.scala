@@ -199,9 +199,10 @@ class ImageLoaderController(auth: Authentication,
 
     Future.sequence(
 
-      mediaIdToFilenameMap.map{case (mediaId, filename) => {
+      mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
         val preSignedUrl = store.generatePreSignedUploadUrl(filename = mediaId, expiration, uploadedBy)
+
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
           fileName = Some(filename),
@@ -210,11 +211,11 @@ class ImageLoaderController(auth: Authentication,
           identifiers = None,
           StatusType.Prepared,
           errorMessage = None,
-          expires = expiration.toEpochSecond(), // TTL in case upload is never completed by client
+          expires = expiration.toEpochSecond, // TTL in case upload is never completed by client
         )).map(_ =>
           mediaId -> preSignedUrl
         )
-      }}
+      }
     )
     .map(_.toMap)
     .map(Json.toJson(_))
