@@ -1,53 +1,42 @@
 package controllers
 
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.util.IOUtils
-import com.amazonaws.services.sqs.model.{Message => SQSMessage}
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-
-import java.io.{File, FileOutputStream}
-import java.net.{URI, URL}
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.sqs.model.{Message => SQSMessage}
+import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
-import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.aws.SqsHelpers
-import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
-import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
-import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
-import com.gu.scanamo.error.ConditionNotMet
-import lib.FailureResponse.Response
-import lib.{FailureResponse, _}
-import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
-import lib.storage.ImageLoaderStore
-import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, StatusType, UploadStatus, UploadStatusRecord, Uploader, UploadStatusUri}
-import play.api.libs.json.Json
-import play.api.mvc._
-import model.upload.UploadRequest
-
-import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
-import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer}
+import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.aws.{S3DataFromSqsMessage, S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
+import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
+import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
+import lib.FailureResponse.Response
+import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.storage.ImageLoaderStore
+import lib._
+import model.upload.UploadRequest
+import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.libs.json.Json
+import play.api.mvc._
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
-import akka.stream.scaladsl.Sink
-import akka.stream.Materializer
-import com.gu.scanamo.error.ScanamoError
-import com.gu.mediaservice.lib.ImageStorageProps
+import java.io.{File, FileOutputStream}
+import java.net.URI
+import java.time.Instant
 import scala.collection.JavaConverters._
-import org.joda.time.DateTime
-import scalaz.stream.nio.file
-import com.gu.mediaservice.lib.aws.S3DataFromSqsMessage
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
@@ -100,11 +89,10 @@ class ImageLoaderController(auth: Authentication,
     println(message)
 
     parseS3DataFromMessage(message) match {
-      case Left(failString) => {
+      case Left(failString) =>
         logger.warn("Failed to parse s3 data from SQS message.", message)
         Future.unit
-      }
-      case Right(s3data) => {
+      case Right(s3data) =>
         val approximateReceiveCount = getApproximateReceiveCount(message)
         if (approximateReceiveCount > 2) {
           println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
@@ -112,38 +100,33 @@ class ImageLoaderController(auth: Authentication,
         }
 
         attemptToProcessIngestedFile(s3data).transformWith {
-          case Failure(exception) => {
-            println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
+          case Failure(exception) =>
+            println(s"Failed to process file: ${exception.toString}. Moving to fail bucket")
             transferIngestedFileToFailBucket(s3data)
-          }
-          case Success(exceptionOrDigestedFile) => {
+          case Success(exceptionOrDigestedFile) =>
             exceptionOrDigestedFile match {
-              case Left(exception) => {
-                println(s"Failed to process file: ${exception.toString()}. Moving to fail bucket")
+              case Left(exception) =>
+                println(s"Failed to process file: ${exception.toString}. Moving to fail bucket")
                 transferIngestedFileToFailBucket(s3data)
-              }
-              case Right(digestedFile) => {
-                println(s"Succesfully processed image ${digestedFile.file.getName()}")
+              case Right(digestedFile) =>
+                println(s"Successfully processed image ${digestedFile.file.getName}")
                 store.deleteObjectFromIngestBucket(s3data.`object`.key)
                 Future.unit
-              }
             }
-          }
         }
-      }
     }
   }
 
   def transferIngestedFileToFailBucket(s3data:S3DataFromSqsMessage):Future[Unit] = Future{
     val key = s3data.`object`.key
 
-    val errorMessage = s"Failed to proccess queued image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
+    val errorMessage = s"Transferring file to fail bucket: image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
 
     println(errorMessage)
-    logger.warn(s"${errorMessage} - image hash: ${s3data.mediaId}")
+    logger.warn(s"$errorMessage - image hash: ${s3data.mediaId}")
 
     store.moveObjectToFailedBucket(key)
-    // TO DO - if the file has already been (successfully) ingested, should not overrwrite a "completed" status
+    // TO DO - if the file has already been (successfully) ingested, should not overwrite a "completed" status
     // Using the hash provided by the client - don't want to digest a file that may have previously caused a crash.
     uploadStatusTable.updateStatus(s3data.mediaId, UploadStatus(StatusType.Failed, Some(errorMessage)))
   }
@@ -163,14 +146,14 @@ class ImageLoaderController(auth: Authentication,
     )
     println(s"SHA-1: ${digestedFile.digest}")
 
-    val futuredFile = Future(digestedFile)
+    val futureFile = Future(digestedFile)
 
     val futureUploadStatusUri = uploadDigestedFileToStore(
-        digestedFileFuture = futuredFile,
+        digestedFileFuture = futureFile,
         uploadedBy = s3data.uploadedBy,
         identifiers =  None,
-        uploadTime = Some(metadata.getLastModified().toString()) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = metadata.getUserMetadata().asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
+        uploadTime = Some(metadata.getLastModified.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
+        filename = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
     )(loggingContext)
 
     // under all circumstances, remove the temp files
@@ -183,11 +166,8 @@ class ImageLoaderController(auth: Authentication,
         case e:Exception => Left(e)
         case _ => Left(new Exception)
       }
-      .map {
-        case _ => {
-          Right(digestedFile)
-        }
-      }
+      .map(_ =>
+          Right(digestedFile))
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
@@ -421,7 +401,7 @@ class ImageLoaderController(auth: Authentication,
         uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
           status match {
             case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
-            case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
+            case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error")
             case Right(_) => logger.info(context, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
           }
           Future.successful(res)
@@ -436,26 +416,24 @@ class ImageLoaderController(auth: Authentication,
     digestedFile: DigestedFile,
   )(implicit context:MarkerMap): Future[Unit] = {
 
-    def reportFailure (error:Throwable) {
-      val errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
+    def reportFailure (error:Throwable): Unit = {
+      val errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
       logger.error(context, errorMessage)
       Future.failed(new Exception(errorMessage))
     }
-    def reportScanamoError (error:ScanamoError) {
-      var errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
-      if (error.isInstanceOf[ConditionNotMet]) {
-        errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}"
-      }
+    def reportScanamoError (error:ScanamoError): Unit = {
+      var errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
+      if (error.isInstanceOf[ConditionNotMet]) errorMessage = s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
       logger.error(context, errorMessage)
       Future.failed(new Exception(errorMessage))
     }
 
     uploadAttempt
       .recover {
-        case uploadFailure => {
+        case uploadFailure =>
           uploadStatusTable.updateStatus(
             digestedFile.digest,
-            UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass().getName()}: ${uploadFailure.getMessage()}"))
+            UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
             .recover {
               case error => reportFailure(error)
@@ -464,10 +442,9 @@ class ImageLoaderController(auth: Authentication,
               case Left(error:ScanamoError) => reportScanamoError(error)
               case Right => uploadFailure
             }
-        }
       }
       .map {
-        case uploadStatusUri:UploadStatusUri => {
+        case uploadStatusUri:UploadStatusUri =>
           uploadStatusTable.updateStatus(
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
@@ -479,7 +456,6 @@ class ImageLoaderController(auth: Authentication,
               case Left(error:ScanamoError) => reportScanamoError(error)
               case Right => uploadStatusUri
             }
-        }
       }
   }
 
