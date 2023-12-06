@@ -26,16 +26,17 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   };
 
   return (
-    <div className="outer-my-uploads-container">
-      <div className="my-uploads-checkbox">
-        <input type="checkbox" checked={myUploads} onChange={handleCheckboxClick} />
-      </div>
-      <div className="my-uploads-label">{MY_UPLOADS}</div>
+    <div className="my-uploads-container">
+      <label className="custom-checkbox">
+        <input type="checkbox" onChange={handleCheckboxClick}/>
+        <div className="label-wrapper">
+          <span className="custom-span"></span>
+          <span className="custom-label">{MY_UPLOADS}</span>
+        </div>
+      </label>
     </div>
   );
 };
 
 export const myUploads = angular.module('gr.myUploads', [])
   .component('myUploads', react2angular(MyUploads, ["props"]));
-
-

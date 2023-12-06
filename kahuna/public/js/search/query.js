@@ -18,6 +18,11 @@ import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
+import {
+  DefaultSortOption,
+  ManageSortSelection,
+  SortOptions
+} from "../components/gr-sort-control/gr-sort-control-config";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -68,21 +73,29 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
+    ctrl.filterMyUploads = false;
 
-    function watchSearchChange(filter) {
+    function watchSearchChange(filter, sender) {
         const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
         storage.setJs("isNonFree", showPaid, true);
 
-        const myUploadsCheckbox = filter.uploadedByMe;
         // Users should be able to follow URLs with uploadedBy set to another user's name, so only
         // overwrite if:
         //   - uploadedBy is unset, or
         //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
         //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
-        const shouldOverwriteUploadedBy =
-          !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
-        if (shouldOverwriteUploadedBy) {
-          filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        if (!ctrl.usePermissionsFilter) {
+          const myUploadsCheckbox = filter.uploadedByMe;
+          const shouldOverwriteUploadedBy =
+            !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
+          if (shouldOverwriteUploadedBy) {
+            filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+          }
+        } else {
+            if (typeof sender === "string") {
+              filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
+              ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
+            }
         }
         storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
 
@@ -137,8 +150,8 @@ query.controller('SearchQueryCtrl', [
 
     //-my uploads-
     function selectMyUploads(myUploadsChecked) {
-      ctrl.filter.uploadedByMe = myUploadsChecked;
-      watchSearchChange(ctrl.filter);
+      ctrl.filterMyUploads = myUploadsChecked;
+      watchSearchChange(ctrl.filter, "selectMyUploads");
     }
 
     ctrl.myUploadsProps = {
@@ -149,44 +162,13 @@ query.controller('SearchQueryCtrl', [
     //-sort control-
     function updateSortChips (sortSel) {
       ctrl.sortProps.selectedOption = sortSel;
-      let newVal;
-      switch(sortSel.value){
-        case "uploadNewOld":
-          newVal = undefined;
-          break;
-        case "uploadOldNew":
-          newVal = "oldest";
-          break;
-        case "collecAdded":
-          newVal = "dateAddedToCollection";
-          break;
-        default:
-          newVal = undefined;
-          break;
-      }
-      ctrl.ordering['orderBy'] = newVal;
-      watchSearchChange(ctrl.filter);
+      ctrl.ordering['orderBy'] = ManageSortSelection(sortSel.value);
+      watchSearchChange(ctrl.filter, "updateSortChips");
     }
 
     ctrl.sortProps = {
-      options: [
-        {
-          value:"uploadNewOld",
-          label:"Upload date (new to old)"
-        },
-        {
-          value:"uploadOldNew",
-          label:"Upload date (old to new)"
-        },
-        {
-          value: "collecAdded",
-          label: "Added to Collection (new to old)"
-        }
-      ],
-      selectedOption: {
-        value:"uploadNewOld",
-        label:"Upload date (new to old)"
-      },
+      options: SortOptions,
+      selectedOption: DefaultSortOption,
       onSelect: updateSortChips,
       query: ctrl.filter.query
     }
@@ -197,12 +179,12 @@ query.controller('SearchQueryCtrl', [
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
       ctrl.filter.nonFree = showChargeable;
-      watchSearchChange(ctrl.filter);
+      watchSearchChange(ctrl.filter, "updatePermissionsChips");
     }
 
     function chargeableChange (showChargeable) {
       ctrl.filter.nonFree = showChargeable;
-      watchSearchChange(ctrl.filter);
+      watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
     let pfOpts = PermissionsConf.PermissionsOptions();
@@ -309,7 +291,6 @@ query.controller('SearchQueryCtrl', [
             break;
         }
     });
-
 
     // eslint-disable-next-line complexity
     $scope.$watchCollection(() => ctrl.filter, onValChange(watchSearchChange));

@@ -3,6 +3,7 @@
   align-items: center;
   height: 50px;
   fill: #666;
+  cursor: pointer;
 }
 
 .ts-toggle-switch {

@@ -140,10 +140,10 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
             </table>
           )}
         </div>
-        <div className="ts-toggle-container">
+        <div className="ts-toggle-container" onClick={handleToggle}>
           <div className="ts-toggle-label">{SHOW_CHARGEABLE}</div>
           <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onChange={handleToggle} />
+            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
             <span className="ts-slider"></span>
           </label>
         </div>
