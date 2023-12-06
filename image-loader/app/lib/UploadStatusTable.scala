@@ -30,7 +30,7 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
     }
     val uploadStatusTableWithCondition =
       if(updateRequest.status == Queued) // can only transition to Queued status from Prepared status
-        uploadStatusTable.given(attributeExists('id) and ('status -> Prepared.name))
+        uploadStatusTable.given(attributeExists('id) and ('status -> Prepared.toString))
       else
         uploadStatusTable.given(attributeExists('id))
 
