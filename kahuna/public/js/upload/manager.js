@@ -11,33 +11,14 @@ upload.factory('uploadManager',
     var jobs = new Set();
     var completedJobs = new Set();
 
+
+
     function createJobItem(file, mediaId, preSignedUrl) {
-        var request = preSignedUrl ? fetch(preSignedUrl, {
-          method: "PUT",
-          body: file,
-          headers: {
-            "x-amz-meta-file-name": file.name
-          }
-        }).then(s3Response => {
-          if (s3Response.ok) {
-            const uploadStatusUriToPoll = {
-              uri: fileUploader.getUploadStatusUri(mediaId)
-            };
-            return fileUploader.markAsQueued(mediaId).then(() => uploadStatusUriToPoll).catch(err => {
-              console.error("Failed to mark as queued", err); //TODO consider posting to sentry
-              return uploadStatusUriToPoll;
-            });
-          }
-          throw new Error(`Failed to upload to S3: ${s3Response.status} ${s3Response.statusText}`);
-        }) : fileUploader.upload(file);
-
-        const dataUrl = $window.URL.createObjectURL(file);
-
         return {
             name: file.name,
             size: file.size,
-            dataUrl: dataUrl,
-            resourcePromise: request
+            dataUrl: $window.URL.createObjectURL(file),
+            resourcePromise: fileUploader.upload(file, mediaId, preSignedUrl)
         };
     }
     function createUriJobItem(fileUri) {
@@ -63,8 +44,6 @@ upload.factory('uploadManager',
         const preSignedPutUrls = await fileUploader.prepare(
           Object.fromEntries(Object.entries(mediaIdToFileMap).map(([mediaId, file])=> [mediaId, file.name]))
         );
-
-        console.log(preSignedPutUrls);
 
         return Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
       }
@@ -132,8 +111,27 @@ upload.factory('fileUploader',
         return loaderApi.prepare(mediaIdToFilenameMap);
     }
 
-    function upload(file) {
-      return uploadFile(file, {filename: file.name});
+    async function upload(file, mediaId, preSignedUrl) {
+
+      if (!preSignedUrl){
+        return uploadFile(file, {filename: file.name});
+      }
+
+      const s3Response = await fetch(preSignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "x-amz-meta-file-name": file.name
+        }
+      });
+
+      if (s3Response.ok) {
+        await markAsQueued(mediaId).catch(err => {
+          console.error("Failed to mark as queued", err);
+        });
+        return buildUploadStatusResource(mediaId);
+      }
+      throw new Error(`Failed to upload to S3: ${s3Response.status} ${s3Response.statusText}`);
     }
 
     function uploadFile(file, uploadInfo) {
@@ -148,8 +146,8 @@ upload.factory('fileUploader',
       return loaderApi.getLoaderRoot().follow('uploadStatus', {id: mediaId});
     }
 
-    function getUploadStatusUri(mediaId) {
-      return buildUploadStatusEndpoint(mediaId).getUri();
+    function buildUploadStatusResource(mediaId) {
+      return buildUploadStatusEndpoint(mediaId);
     }
 
     function markAsQueued(mediaId) {
@@ -159,8 +157,6 @@ upload.factory('fileUploader',
     return {
         prepare,
         upload,
-        loadUriImage,
-        getUploadStatusUri,
-        markAsQueued
+        loadUriImage
     };
 }]);
