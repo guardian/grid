@@ -103,16 +103,10 @@ class ImageLoaderController(auth: Authentication,
           case Failure(exception) =>
             println(s"Failed to process file: ${exception.toString}. Moving to fail bucket")
             transferIngestedFileToFailBucket(s3data)
-          case Success(exceptionOrDigestedFile) =>
-            exceptionOrDigestedFile match {
-              case Left(exception) =>
-                println(s"Failed to process file: ${exception.toString}. Moving to fail bucket")
-                transferIngestedFileToFailBucket(s3data)
-              case Right(digestedFile) =>
-                println(s"Successfully processed image ${digestedFile.file.getName}")
-                store.deleteObjectFromIngestBucket(s3data.`object`.key)
-                Future.unit
-            }
+          case Success(digestedFile) =>
+            println(s"Successfully processed image ${digestedFile.file.getName}")
+            store.deleteObjectFromIngestBucket(s3data.`object`.key)
+            Future.unit
         }
     }
   }
@@ -131,7 +125,7 @@ class ImageLoaderController(auth: Authentication,
     uploadStatusTable.updateStatus(s3data.mediaId, UploadStatus(StatusType.Failed, Some(errorMessage)))
   }
 
-  def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[Either[Exception, DigestedFile]] = {
+  def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[DigestedFile] = {
     val key = s3data.`object`.key
     val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
 
@@ -146,10 +140,8 @@ class ImageLoaderController(auth: Authentication,
     )
     println(s"SHA-1: ${digestedFile.digest}")
 
-    val futureFile = Future(digestedFile)
-
     val futureUploadStatusUri = uploadDigestedFileToStore(
-        digestedFileFuture = futureFile,
+        digestedFileFuture = Future(digestedFile),
         uploadedBy = s3data.uploadedBy,
         identifiers =  None,
         uploadTime = Some(metadata.getLastModified.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
@@ -163,11 +155,11 @@ class ImageLoaderController(auth: Authentication,
 
     handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)(loggingContext)
       .recover {
-        case e:Exception => Left(e)
-        case _ => Left(new Exception)
+        case e:Exception => Future.failed(e)
+        case _ => Future.failed(new Exception)
       }
       .map(_ =>
-          Right(digestedFile))
+          digestedFile)
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
@@ -303,7 +295,7 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     AuthenticatedAndAuthorised.async { request =>
-      implicit val context = MarkerMap(
+      implicit val context: MarkerMap = MarkerMap(
         "requestType" -> "import-image",
         "key-tier" -> request.user.accessor.tier.toString,
         "key-name" -> request.user.accessor.identity,
