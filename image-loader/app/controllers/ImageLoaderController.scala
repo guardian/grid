@@ -63,7 +63,11 @@ class ImageLoaderController(auth: Authentication,
           case None =>
             Future.successful(println(s"No message at ${DateTimeUtils.now()}"))
           case Some(message) =>
-            handleMessageFromIngestBucket(message).map(_ => ingestQueue.deleteMessage(message))
+            handleMessageFromIngestBucket(message)
+              .map(_ => ingestQueue.deleteMessage(message))
+              .recover {
+                case e: Exception => println(s"Failed to process message: ${e.toString}") //FIXME handle this better
+              }
         }
       )
       .run()
