@@ -46,7 +46,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
   val ingestQueueMonitorController =  new IngestQueueMonitorController(auth, maybeIngestQueue, config,controllerComponents, authorisation)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
-  val imageLoaderManagement = new ImageLoaderManagement(controllerComponents, buildInfo, maybeIngestQueue)
+  val imageLoaderManagement = new ImageLoaderManagement(controllerComponents, buildInfo, maybeIngestQueue, controller.maybeIngestQueueProcessorFuture)
 
   override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController,ingestQueueMonitorController, imageLoaderManagement, InnerServiceStatusCheckController)
 }
