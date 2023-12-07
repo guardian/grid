@@ -33,12 +33,15 @@ case class S3DataFromSqsMessage (
   `object`: S3ObjectField,
   bucket: S3BucketField,
 ) {
-  private val keyParts = `object`.key.split("/")
+
+  val key = uriDecode(`object`.key)
+
+  private val keyParts = key.split("/")
 
   /**
     * @return the first part of the object key split by slashes, uriDecoded - expected to be the uplaoder's email address
   */
-  val uploadedBy: String = uriDecode(keyParts.head)
+  val uploadedBy: String = keyParts.head
 
   /**
     * @return the last part of the object key by slashes, expected to be a SHA-1 hash of the file

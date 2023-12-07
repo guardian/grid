@@ -87,11 +87,11 @@ class ImageLoaderController(auth: Authentication,
 
   def index: Action[AnyContent] = AuthenticatedAndAuthorised { indexResponse }
 
-  def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
+  private def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  def handleMessageFromIngestBucket(message:SQSMessage): Future[Unit] = {
+  private def handleMessageFromIngestBucket(message:SQSMessage): Future[Unit] = {
     println(message)
 
     parseS3DataFromMessage(message) match {
@@ -111,14 +111,14 @@ class ImageLoaderController(auth: Authentication,
             transferIngestedFileToFailBucket(s3data)
           case Success(digestedFile) =>
             println(s"Successfully processed image ${digestedFile.file.getName}")
-            store.deleteObjectFromIngestBucket(s3data.`object`.key)
+            store.deleteObjectFromIngestBucket(s3data.key)
             Future.unit
         }
     }
   }
 
-  def transferIngestedFileToFailBucket(s3data:S3DataFromSqsMessage):Future[Unit] = Future{
-    val key = s3data.`object`.key
+  private def transferIngestedFileToFailBucket(s3data:S3DataFromSqsMessage):Future[Unit] = Future{
+    val key = s3data.key
 
     val errorMessage = s"Transferring file to fail bucket: image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
 
@@ -131,8 +131,8 @@ class ImageLoaderController(auth: Authentication,
     uploadStatusTable.updateStatus(s3data.mediaId, UploadStatus(StatusType.Failed, Some(errorMessage)))
   }
 
-  def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[DigestedFile] = {
-    val key = s3data.`object`.key
+  private def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[DigestedFile] = {
+    val key = s3data.key
     val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
 
     println(s"Attempting to process file saved to ingest bucket. KEY: $key, SIZE: ${s3data.`object`.size}")

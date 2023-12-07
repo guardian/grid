@@ -11,10 +11,7 @@ import java.util.Date
 
 class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperations(config.imageBucket, config.thumbnailBucket, config) {
 
-  def getIngestObject(key: String) = {
-    println(s"getting object $key from ingest bucket ${config.maybeIngestBucket.get}")
-    client.getObject(config.maybeIngestBucket.get, key)
-  }
+  def getIngestObject(key: String) = client.getObject(config.maybeIngestBucket.get, key)
 
   def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, originalFilename: String): String = {
     val request = new GeneratePresignedUrlRequest(
