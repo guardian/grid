@@ -56,16 +56,22 @@ class ImageLoaderController(auth: Authentication,
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
-  maybeIngestQueue.foreach{ingestQueue =>
+  val maybeIngestQueueProcessorFuture = maybeIngestQueue.map { ingestQueue =>
     Source.repeat(())
       .mapAsync(parallelism=1)(_ =>
         ingestQueue.getNextMessage() match {
-          case None => Future.successful(println(s"No message at ${DateTimeUtils.now()}"))
-          case Some(message) => handleMessageFromIngestBucket(message).map(_ => ingestQueue.deleteMessage(message))
+          case None =>
+            Future.successful(println(s"No message at ${DateTimeUtils.now()}"))
+          case Some(message) =>
+            handleMessageFromIngestBucket(message).map(_ => ingestQueue.deleteMessage(message))
         }
       )
       .run()
   }
+  maybeIngestQueueProcessorFuture.foreach(_.onComplete {
+    case Failure(exception) => throw exception
+    case Success(_) => throw new Exception("Ingest queue processor stream completed, when it should never complete")
+  })
 
 
   private lazy val indexResponse: Result = {
