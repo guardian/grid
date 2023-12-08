@@ -130,6 +130,12 @@
                 ng-click="ctrl.batchApplyMetadata('specialInstructions')"
             >⇔</button>
         </label>
+
+        <div class="job-info--editor__field flex-center" ng-if="!!ctrl.metadata.usageInstructions">
+            <div class="job-info--editor__label text-small">&nbsp;</div>
+            <div class="job-info--editor__label text-small job-usage-instructions" style="width:100%;">{{ctrl.metadata.usageInstructions}}</div>
+        </div>
+
     </div>
     <!-- Angular doesn't submit a form without a submit element, bonza!
     see: https://docs.angularjs.org/api/ng/directive/form#submitting-a-form-and-preventing-the-default-action -->

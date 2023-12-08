@@ -45,6 +45,12 @@
             </gr-icon>
         </div>
 
+        <div class="form-property" ng-if="!!ctrl.category.usageRestrictions && ctrl.usageRights.length == 1">
+            <div class="ure__caution warning warning--small">
+                {{ctrl.category.usageRestrictions}}
+            </div>
+        </div>
+
         <div
             class="form-property"
             ng-repeat="property in ctrl.category.properties"
@@ -79,6 +85,7 @@
                         ng-switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
 
                 </div>
+
             </div>
 
             <div ng-if="property.name !== 'restrictions'"

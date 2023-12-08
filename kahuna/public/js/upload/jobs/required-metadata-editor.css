@@ -5,3 +5,10 @@
 .job-info--editor__input-preview {
   border: 1px solid #ffbc01;
 }
+
+.job-usage-instructions {
+  border: 1px solid yellow;
+  padding: 2px;
+  margin-left: 28px;
+  width: 100%;
+}

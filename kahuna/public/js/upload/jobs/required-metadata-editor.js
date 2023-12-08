@@ -124,7 +124,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
               copyright: originalMetadata.copyright,
               specialInstructions: originalMetadata.specialInstructions,
               description: originalMetadata.description,
-              domainMetadata: originalMetadata.domainMetadata
+              domainMetadata: originalMetadata.domainMetadata,
+              usageInstructions: originalMetadata.usageInstructions
           };
       }
     };

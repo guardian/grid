@@ -53,7 +53,7 @@
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
-                 ng-switch="ctrl.image.data.cost">
+                 ng-switch="ctrl.image.data.usageRights.usageRestrictions ? 'conditional' : ctrl.image.data.cost">
                 <span class="result-editor__status status status--invalid"
                       ng-switch-when="pay">Pay to use</span>
 
