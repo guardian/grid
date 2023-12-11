@@ -127,12 +127,12 @@ class ImageLoaderController(auth: Authentication,
     val errorMessage = s"Transferring file to fail bucket: image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
 
     println(errorMessage)
-    logger.warn(s"$errorMessage - image hash: ${s3data.mediaId}")
+    logger.warn(s"$errorMessage - image hash: ${s3data.filename}")
 
     store.moveObjectToFailedBucket(key)
     // TO DO - if the file has already been (successfully) ingested, should not overwrite a "completed" status
     // Using the hash provided by the client - don't want to digest a file that may have previously caused a crash.
-    uploadStatusTable.updateStatus(s3data.mediaId, UploadStatus(StatusType.Failed, Some(errorMessage)))
+    uploadStatusTable.updateStatus(s3data.filename, UploadStatus(StatusType.Failed, Some(errorMessage)))  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
   }
 
   private def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[DigestedFile] = {
@@ -143,6 +143,8 @@ class ImageLoaderController(auth: Authentication,
     val tempFile = createTempFile("s3IngestBucketFile")(loggingContext)
     val s3IngestObject = store.getIngestObject(key)
     val metadata = s3IngestObject.getObjectMetadata
+    val maybeFilenameFromMetadata = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey) // set on the upload metadata by the client when uploading to ingest bucket
+    val maybeMediaIdFromUiUpload = maybeFilenameFromMetadata.map(_ => s3data.filename) // if the filename was set by the client, then the media id is the end of the S3 key
     val digestedFile = downloader.download(
       inputStream = s3IngestObject.getObjectContent,
       tempFile,
@@ -155,7 +157,7 @@ class ImageLoaderController(auth: Authentication,
         uploadedBy = s3data.uploadedBy,
         identifiers =  None,
         uploadTime = Some(metadata.getLastModified.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey), // set on the upload metadata by the client when uploading to ingest bucket
+        filename = maybeFilenameFromMetadata.orElse(Some(s3data.filename))
     )(loggingContext)
 
     // under all circumstances, remove the temp files
@@ -398,7 +400,7 @@ class ImageLoaderController(auth: Authentication,
         case Right(_) => UploadStatus(StatusType.Completed, None)
       }
       // try to update uploadStatusTable, log the outcome
-      uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{ outcomeOfUpdateStatus =>
+      uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{ outcomeOfUpdateStatus => //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
         outcomeOfUpdateStatus match {
           case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
           case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error")
@@ -431,7 +433,7 @@ class ImageLoaderController(auth: Authentication,
     uploadAttempt
       .recover {
         case uploadFailure =>
-          uploadStatusTable.updateStatus(
+          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
@@ -445,7 +447,7 @@ class ImageLoaderController(auth: Authentication,
       }
       .map {
         case uploadStatusUri:UploadStatusUri =>
-          uploadStatusTable.updateStatus(
+          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
           )
