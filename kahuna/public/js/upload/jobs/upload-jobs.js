@@ -67,7 +67,7 @@ jobs.controller('UploadJobsCtrl', [
                 if (status.data.status === 'QUEUED' && jobItem.status !== 'queued') {
                   jobItem.status = 'queued';
                   // decrement the counter blocking us from closing the page once things are at least queued
-                  // ctrl.remaining -= 1; //TODO need to think about this since its also done in the completed/failedblocks below
+                  // ctrl.remaining -= 1; //TODO need to think about this since its also done in the completed/failed blocks below
                 } else if (status.data.status !== 'QUEUED') {
                   jobItem.status = 'indexing';
                 }
