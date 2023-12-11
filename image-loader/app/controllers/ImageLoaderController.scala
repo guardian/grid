@@ -320,30 +320,28 @@ class ImageLoaderController(auth: Authentication,
         digestedFile <- downloader.download(validUri, tempFile)
       } yield digestedFile
 
-      val importResult: Future[Result] = for {
-        uploadStatusUri <- uploadDigestedFileToStore(
+      val uploadResultFuture = uploadDigestedFileToStore(
           digestedFileFuture,
           uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
           identifiers,
           uploadTime,
           filename
-        )
-      } yield {
-        // NB This return code (202) is explicitly required by s3-watcher
-        // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
-        Accepted(uploadStatusUri.toJsObject).as(ArgoMediaType)
-      }
+      )
 
       // under all circumstances, remove the temp files
-      importResult.onComplete { _ =>
+      uploadResultFuture.onComplete { _ =>
         Try { deleteTempFile(tempFile) }
       }
 
-      getImportResultOutcomeAndUpdateUploadStatusTable(importResult,digestedFileFuture).transform {
-        // create a play result out of what has happened
-        case Success(Right(result)) => Success(result)
-        case Success(Left(failure)) => Success(FailureResponse.responseToResult(failure))
+      // create a play result out of what has happened
+      resolveUploadAndUpdateStatus(uploadResultFuture,digestedFileFuture).transform {
+        // The upload request completed successfully and returned the uploadStatusUri for the image
+        case Success(Right(uploadStatusUri)) => Success(Accepted(uploadStatusUri.toJsObject).as(ArgoMediaType)) // NB This return code (202) is explicitly required by s3-watcher. Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
+        // The upload request completed by returning an anticipated error that has been mapped to a Response
+        case Success(Left(failureResponse)) => Success(FailureResponse.responseToResult(failureResponse))
+        // The download or upload failed with an unhandled non-fatal error
         case Failure(NonFatal(e)) => Success(FailureResponse.responseToResult(FailureResponse.internalError(e)))
+        // Throw unhandled fatal exceptions.
         case Failure(other) => Failure(other)
       }
     }
@@ -375,43 +373,43 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  private def getImportResultOutcomeAndUpdateUploadStatusTable (
-    importResult: Future[Result],
-    digestedFileFuture: Future[DigestedFile],
-  )(implicit context:MarkerMap):Future[Either[Response,Result]] = {
-      /* combine the import result and digest file together into a single future
-       * note that we use transformWith instead of zip here as we are still interested in value of
-       * digestedFile even if the import fails */
-      val fileAndMaybeResult: Future[(DigestedFile, Try[Result])] = importResult.transformWith{ result =>
-        digestedFileFuture.map(file => file -> result)
+  private def resolveUploadAndUpdateStatus (
+   uploadResultFuture: Future[UploadStatusUri],
+   digestedFileFuture: Future[DigestedFile],
+  )(implicit context:MarkerMap):Future[Either[Response,UploadStatusUri]] = {
+    // combine the import result and digest file together into a single future
+    uploadResultFuture.transformWith { // note that we use transformWith instead of zip here as we are still interested in value of digestedFile even if the import fails
+      maybeImportResult =>
+        digestedFileFuture.map(digestedFile =>
+          digestedFile -> maybeImportResult
+        )
+    }.flatMap { case (digestedFile, triedStatusUri) =>
+      // convert any exception from the upload to a failure response, or pass the uploadStatusUri if successful
+      val failureResponseOrUploadStatusUri = triedStatusUri match {
+        case Failure(e: UnsupportedMimeTypeException) => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
+        case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
+        case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
+        case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
+        case Success(uploadStatusUri) => Right(uploadStatusUri)
       }
+      // build a Failed StatusType from the failure response or Completed if successful
+      val status = failureResponseOrUploadStatusUri match {
+        case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
+        case Right(_) => UploadStatus(StatusType.Completed, None)
+      }
+      // try to update uploadStatusTable, log the outcome
+      uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{ outcomeOfUpdateStatus =>
+        outcomeOfUpdateStatus match {
+          case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
+          case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error")
+          case Right(_) => logger.info(context, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
+        }
 
-      fileAndMaybeResult.flatMap { case (digestedFile, importResult) =>
-        // convert exceptions to failure responses
-        val res = importResult match {
-          case Failure(e: UnsupportedMimeTypeException) => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
-          case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
-          case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
-          case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
-          case Success(result) => Right(result)
-        }
-        // update the upload status with the error or completion
-        val status = res match {
-          case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
-          case Right(_) => UploadStatus(StatusType.Completed, None)
-        }
-        uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
-          status match {
-            case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
-            case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error")
-            case Right(_) => logger.info(context, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
-          }
-          Future.successful(res)
-        }
+        // after status update completes or fails, return the failureResponseOrUploadStatusUri from the upload
+        Future.successful(failureResponseOrUploadStatusUri)
       }
+    }
   }
-
-
 
   private def handleUploadCompletionAndUpdateUploadStatusTable (
     uploadAttempt: Future[UploadStatusUri],
