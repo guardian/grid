@@ -141,8 +141,7 @@ class UsageStore(
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
-  def update() {
-    lastUpdated.send(_ => DateTime.now())
+  def update(): Unit = {
     fetchUsage.foreach { usage => store.send(usage) }
   }
 
@@ -200,8 +199,8 @@ class QuotaStore(
 
   def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
-  def update() {
-    store.send(_ => fetchQuota)
+  def update(): Unit = {
+    store.send(fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {
