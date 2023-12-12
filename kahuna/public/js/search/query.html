@@ -14,7 +14,7 @@
             </button>
     </span>
 
-    <button class="search__advanced-toggle"
+    <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
             gr-tooltip="Display advanced search information"

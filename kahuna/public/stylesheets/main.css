@@ -974,6 +974,9 @@ textarea.ng-invalid {
     cursor: pointer;
 }
 
+.search__advanced-toggle-lbl {
+  margin-right: 6px;
+}
 
 @media screen and (max-width: 850px) {
     .search__advanced-toggle {
