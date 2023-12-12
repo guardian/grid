@@ -1,11 +1,10 @@
 package com.gu.mediaservice.lib.aws
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
-import com.amazonaws.services.s3.model.Bucket
 import scala.util.Try
-import play.api.libs.json.{Json, JsObject}
+import play.api.libs.json.Json
 import play.api.libs.json.JsError
 import play.api.libs.json.JsSuccess
-import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
+
 
 case class S3ObjectField (
   key: String,
@@ -32,26 +31,7 @@ case class S3DataFromSqsMessage (
   s3SchemaVersion: Option[String],
   `object`: S3ObjectField,
   bucket: S3BucketField,
-) {
-  /**
-   * @return the object key (uri decoded)
-   */
-  val key = uriDecode(`object`.key)
-
-  private val keyParts = key.split("/")
-
-  /**
-   * @return the first part of the object key (uri decoded) split by slashes
-  */
-  val uploadedBy: String = keyParts.head
-
-  /**
-    * @return the last part of the object key (uri decoded) by slashes,
-   *         expected to be a SHA-1 hash of the file if manually uploaded,
-   *         else the original filename (e.g. FTP upload)
-  */
-  val filename: String = keyParts.last
-}
+)
 
 object S3DataFromSqsMessage {
   implicit val S3DataReads = Json.reads[S3DataFromSqsMessage]

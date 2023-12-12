@@ -24,7 +24,7 @@ import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderExc
 import lib.storage.ImageLoaderStore
 import lib._
 import model.upload.UploadRequest
-import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
+import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.Json
@@ -103,61 +103,55 @@ class ImageLoaderController(auth: Authentication,
         logger.warn("Failed to parse s3 data from SQS message.", message)
         Future.unit
       case Right(s3data) =>
+        val s3IngestObject = S3IngestObject(s3data, store)
         val approximateReceiveCount = getApproximateReceiveCount(message)
+
         if (approximateReceiveCount > 2) {
-          println(s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket.")
-          transferIngestedFileToFailBucket(s3data)
+          val errorMessage = s"File '${s3IngestObject.filename}' processing has been attempted $approximateReceiveCount times. Uploaded by: '${s3IngestObject.uploadedBy}', SIZE: ${s3IngestObject.contentLength}. Moving to fail bucket."
+          println(errorMessage)
+          store.moveObjectToFailedBucket(s3IngestObject.key)
+
+          s3IngestObject.maybeMediaIdFromUiUpload match {
+            case Some(imageId) => uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+              imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
+            )
+            case None => Future.unit
+          }
         }
 
-        attemptToProcessIngestedFile(s3data).transformWith {
+        attemptToProcessIngestedFile(s3IngestObject).transformWith {
           case Failure(exception) =>
             println(s"Failed to process file: ${exception.toString}. Moving to fail bucket")
-            transferIngestedFileToFailBucket(s3data)
+            store.moveObjectToFailedBucket(s3IngestObject.key)
+            Future.unit
           case Success(digestedFile) =>
             println(s"Successfully processed image ${digestedFile.file.getName}")
-            store.deleteObjectFromIngestBucket(s3data.key)
+            store.deleteObjectFromIngestBucket(s3IngestObject.key)
             Future.unit
         }
     }
   }
 
-  private def transferIngestedFileToFailBucket(s3data:S3DataFromSqsMessage):Future[Unit] = Future{
-    val key = s3data.key
 
-    val errorMessage = s"Transferring file to fail bucket: image uploaded by '${s3data.uploadedBy}', SIZE: ${s3data.`object`.size}"
-
-    println(errorMessage)
-    logger.warn(s"$errorMessage - image hash: ${s3data.filename}")
-
-    store.moveObjectToFailedBucket(key)
-    // TO DO - if the file has already been (successfully) ingested, should not overwrite a "completed" status
-    // Using the hash provided by the client - don't want to digest a file that may have previously caused a crash.
-    uploadStatusTable.updateStatus(s3data.filename, UploadStatus(StatusType.Failed, Some(errorMessage)))  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
-  }
-
-  private def attemptToProcessIngestedFile(s3data:S3DataFromSqsMessage): Future[DigestedFile] = {
-    val key = s3data.key
+  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject): Future[DigestedFile] = {
     val loggingContext = MarkerMap() //TODO pass implicit LogMarker around
 
-    println(s"Attempting to process file saved to ingest bucket. KEY: $key, SIZE: ${s3data.`object`.size}")
+    println(s"Attempting to process file saved to ingest bucket. KEY: ${s3IngestObject.key}, SIZE: ${s3IngestObject.contentLength}")
     val tempFile = createTempFile("s3IngestBucketFile")(loggingContext)
-    val s3IngestObject = store.getIngestObject(key)
-    val metadata = s3IngestObject.getObjectMetadata
-    val maybeFilenameFromMetadata = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey) // set on the upload metadata by the client when uploading to ingest bucket
-    val maybeMediaIdFromUiUpload = maybeFilenameFromMetadata.map(_ => s3data.filename) // if the filename was set by the client, then the media id is the end of the S3 key
+
     val digestedFile = downloader.download(
-      inputStream = s3IngestObject.getObjectContent,
+      inputStream = s3IngestObject.getInputStream(),
       tempFile,
-      expectedSize = metadata.getContentLength
+      expectedSize = s3IngestObject.contentLength
     )
     println(s"SHA-1: ${digestedFile.digest}")
 
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
-        uploadedBy = s3data.uploadedBy,
+        uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
-        uploadTime = Some(metadata.getLastModified.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = maybeFilenameFromMetadata.orElse(Some(s3data.filename))
+        uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
+        filename = Some(s3IngestObject.filename)
     )(loggingContext)
 
     // under all circumstances, remove the temp files
