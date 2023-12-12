@@ -47,10 +47,11 @@ export const graphicImageBlurService = angular.module("kahuna.services.graphicIm
           image.data?.metadata?.title?.toLowerCase()?.includes(searchPhrase) ||
           image.data?.metadata?.specialInstructions?.toLowerCase()?.includes(searchPhrase) ||
           image.data?.metadata?.keywords?.find(keyword => keyword?.toLowerCase()?.includes(searchPhrase))
-        ))
+        )
         // SMOUT is short for sensitive material out, often used in specialInstructions
         || image.data?.metadata?.specialInstructions?.includes("SMOUT")
         || !!image.data?.metadata?.keywords?.find(keyword => keyword?.toUpperCase() === "SMOUT")
+      )
     };
   }]
 );
