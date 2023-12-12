@@ -44,12 +44,13 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
   def scheduleUpdates(scheduler: Scheduler): Unit = {
     cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, 10.minutes)(() => {
-      try { update() }
-      catch {
+      try {
+        update()
+        lastUpdated.send(DateTime.now())
+      } catch {
         case e: Exception => logger.error("Store update failed", e)
         case e: RuntimeException => logger.error("Store update failed", e)
       }
-      finally { lastUpdated.send(DateTime.now()) }
     }))
   }
 
