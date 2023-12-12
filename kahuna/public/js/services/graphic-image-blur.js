@@ -31,8 +31,8 @@ export const graphicImageBlurService = angular.module("kahuna.services.graphicIm
         window.location.reload();
       },
       isPotentiallyGraphic: (image) => shouldBlurGraphicImages && (
-        image.data.isPotentiallyGraphic || // server can flag images as potentially graphic by inspecting deep in the metadata at query time (not available to the client)
-        !![
+        image.data.isPotentiallyGraphic // server can flag images as potentially graphic by inspecting deep in the metadata at query time (not available to the client)
+        || !![
           'graphic content',
           'depicts death',
           'dead child',
@@ -41,14 +41,16 @@ export const graphicImageBlurService = angular.module("kahuna.services.graphicIm
           'dead body',
           'dead bodies',
           'body of',
-          'bodies of',
-          'smout' // this is short for sensitive material out, often used in specialInstructions
+          'bodies of'
         ].find( searchPhrase =>
           image.data?.metadata?.description?.toLowerCase()?.includes(searchPhrase) ||
           image.data?.metadata?.title?.toLowerCase()?.includes(searchPhrase) ||
           image.data?.metadata?.specialInstructions?.toLowerCase()?.includes(searchPhrase) ||
           image.data?.metadata?.keywords?.find(keyword => keyword?.toLowerCase()?.includes(searchPhrase))
         ))
+        // SMOUT is short for sensitive material out, often used in specialInstructions
+        || image.data?.metadata?.specialInstructions?.includes("SMOUT")
+        || !!image.data?.metadata?.keywords?.find(keyword => keyword?.toUpperCase() === "SMOUT")
     };
   }]
 );
