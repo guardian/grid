@@ -9,6 +9,13 @@
 .job-usage-instructions {
   border: 1px solid yellow;
   padding: 2px;
-  margin-left: 28px;
-  width: 100%;
+}
+
+.job-additional-special-instructions {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.job-additional-special-instructions-label {
+  min-width: 130px;
 }
