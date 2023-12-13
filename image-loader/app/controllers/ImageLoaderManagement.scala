@@ -17,17 +17,36 @@ class ImageLoaderManagement(
   extends Management(controllerComponents, buildInfo) {
   override def healthCheck: Action[AnyContent] = Action {
     maybeIngestQueue match {
-      // FIXME add another case for when the maybeIngestQueueProcessorFuture is defined but has exited and return non-OK to fail the healthcheck
-      case Some(ingestQueue) => Ok(Json.obj(
-        "status" -> "OK",
-        "hasIngestQueue" -> true,
-        "ingestQueueStatus" -> ingestQueue.getStatus,
-        "maybeIngestQueueProcessorFuture" -> maybeIngestQueueProcessorFuture.toString // TODO format this better
-      ))
+      case Some(ingestQueue) =>
+        if (hasProcessorFutureEnded) {
+          // healthcheck should fail if the processor completes - this would mean the application is no longet monitoring the queue
+          InternalServerError(buildDataWithQueue(ingestQueue, processorHasStopped = true))
+        } else {
+          Ok(buildDataWithQueue(ingestQueue, processorHasStopped = false))
+        }
       case None => Ok(Json.obj(
         "status" -> "OK",
         "hasIngestQueue" -> false,
       ))
     }
+  }
+
+  private def hasProcessorFutureEnded = {
+    maybeIngestQueueProcessorFuture match {
+      case Some(processorFuture) => if (processorFuture.isCompleted) {
+        true
+      } else {
+        false
+      }
+      case None => false
+    }
+  }
+  private def buildDataWithQueue(ingestQueue:SimpleSqsMessageConsumer, processorHasStopped: Boolean) = {
+    Json.obj(
+      "status" -> (if (processorHasStopped) {"ERROR"} else {"OK"}),
+      "hasIngestQueue" -> true,
+      "ingestQueueStatus" -> ingestQueue.getStatus,
+      "maybeIngestQueueProcessorFuture" -> maybeIngestQueueProcessorFuture.toString // TODO format this better
+    )
   }
 }
