@@ -1,14 +1,13 @@
 package com.gu.mediaservice.lib
 
-import java.io.InputStream
 import akka.actor.{Cancellable, Scheduler}
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
-import org.slf4j.LoggerFactory
 
+import java.io.InputStream
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -43,8 +42,16 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
   private var cancellable: Option[Cancellable] = None
 
-  def scheduleUpdates(scheduler: Scheduler) {
-    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, 10.minutes)(() => update()))
+  def scheduleUpdates(scheduler: Scheduler): Unit = {
+    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, 10.minutes)(() => {
+      try {
+        update()
+        lastUpdated.send(DateTime.now())
+      } catch {
+        case e: Exception => logger.error("Store update failed", e)
+        case e: RuntimeException => logger.error("Store update failed", e)
+      }
+    }))
   }
 
   def stopUpdates(): Unit = {
@@ -53,4 +60,3 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
   def update(): Unit
 }
-

@@ -141,18 +141,18 @@ class UsageStore(
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
-  def update() {
-    lastUpdated.send(_ => DateTime.now())
-    fetchUsage.foreach { usage => store.send(usage) }
+  def update(): Unit = {
+    store.send(fetchUsage)
   }
 
-  private def fetchUsage: Future[Map[String, UsageStatus]] = {
+  private def fetchUsage: Map[String, UsageStatus] = {
     logger.info("Updating usage store")
 
     val maybeLines: Option[List[String]] = getLatestS3Stream.map(extractEmail)
 
     maybeLines match {
-      case Some(lines) => {
+      case None => Map.empty
+      case Some(lines) =>
         logger.info(s"Last usage file has ${lines.length} lines")
         val summary: List[SupplierUsageSummary] = csvParser(lines)
 
@@ -169,25 +169,23 @@ class UsageStore(
             case s => s
           }
 
-        quotaStore.getQuota.map { supplierQuota => {
-          cleanedSummary
-            .groupBy(_.agency.supplier)
-            .mapValues(_.head)
-            .mapValues((summary: SupplierUsageSummary) => {
-              val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-              val exceeded = quota.exists(q => summary.count > q.count)
-              val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+        val supplierQuota = quotaStore.getQuota
 
-              UsageStatus(
-                exceeded,
-                fractionOfQuota,
-                summary,
-                quota
-              )
-            })
-        }}
-      }
-      case _ => Future.successful(Map.empty)
+        cleanedSummary
+          .groupBy(_.agency.supplier)
+          .mapValues(_.head)
+          .mapValues((summary: SupplierUsageSummary) => {
+            val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
+            val exceeded = quota.exists(q => summary.count > q.count)
+            val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+
+            UsageStatus(
+              exceeded,
+              fractionOfQuota,
+              summary,
+              quota
+            )
+          })
     }
   }
 }
@@ -198,10 +196,10 @@ class QuotaStore(
   config: MediaApiConfig
 )(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
 
-  def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
+  def getQuota: Map[String, SupplierUsageQuota] = store.get()
 
-  def update() {
-    store.send(_ => fetchQuota)
+  def update(): Unit = {
+    store.send(fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

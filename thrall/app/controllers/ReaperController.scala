@@ -15,7 +15,6 @@ import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
-import java.time.temporal.ChronoUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 import scala.language.postfixOps
@@ -53,16 +52,21 @@ class ReaperController(
         initialDelay = DateTimeUtils.timeUntilNextInterval(INTERVAL), // so we always start on multiples of the interval past the hour
         interval = INTERVAL,
       ){ () =>
-        if(store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
-          logger.info("Reaper is paused")
-          es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
-          es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
-        } else {
-          val deletedBy = "reaper"
-          Future.sequence(Seq(
-            doBatchSoftReap(countOfImagesToReap, deletedBy),
-            doBatchHardReap(countOfImagesToReap, deletedBy)
-          ))
+        try {
+          if (store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+            logger.info("Reaper is paused")
+            es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+            es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
+          } else {
+            val deletedBy = "reaper"
+            Future.sequence(Seq(
+              doBatchSoftReap(countOfImagesToReap, deletedBy),
+              doBatchHardReap(countOfImagesToReap, deletedBy)
+            ))
+          }
+        } catch {
+          case e: Exception => logger.error("Reap failed", e)
+          case e: RuntimeException => logger.error("Reap failed", e)
         }
       }
     case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
