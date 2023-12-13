@@ -59,18 +59,20 @@ class ImageLoaderController(auth: Authentication,
   val maybeIngestQueueProcessorFuture = maybeIngestQueue.map { ingestQueue =>
     Source.repeat(())
       .mapAsync(parallelism=1)(_ => {
-        val logMarker: LogMarker = MarkerMap(
-          "requestType" -> "handleMessageFromIngestBucket",
-        )
         ingestQueue.getNextMessage() match {
           case None =>
-            Future.successful(logger.debug(logMarker, s"No message at ${DateTimeUtils.now()}"))
-          case Some(message) =>
-            handleMessageFromIngestBucket(message)(logMarker)
-              .map(_ => ingestQueue.deleteMessage(message))
+            Future.successful(logger.debug(s"No message at ${DateTimeUtils.now()}"))
+          case Some(sqsMessage) => {
+            val logMarker: LogMarker = MarkerMap(
+              "requestType" -> "handleMessageFromIngestBucket",
+              "requestId" -> sqsMessage.getMessageId(),
+            )
+            handleMessageFromIngestBucket(sqsMessage)(logMarker)
+              .map(_ => ingestQueue.deleteMessage(sqsMessage))
               .recover {
                 case e: Exception => logger.warn(logMarker, s"Failed to process message: ${e.toString}") //FIXME handle this better
               }
+          }
         }
       })
       .run()
@@ -99,10 +101,6 @@ class ImageLoaderController(auth: Authentication,
   }
 
   private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = {
-
-    logMarker ++ Map(
-      "requestId" -> sqsMessage.getMessageId(),
-    )
 
     logger.info(logMarker,sqsMessage.toString)
 
