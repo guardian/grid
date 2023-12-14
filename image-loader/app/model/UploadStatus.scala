@@ -27,7 +27,6 @@ sealed trait StatusType { def name: String }
 object StatusType {
   case object Prepared extends StatusType { val name = "PREPARED" }
   case object Queued extends StatusType { val name = "QUEUED" }
-  case object Processing extends StatusType { val name = "PROCESSING" }
   /** Pending related to the quarantine process */
   case object Pending extends StatusType { val name = "PENDING" }
   case object Completed extends StatusType { val name = "COMPLETED" }
@@ -37,7 +36,6 @@ object StatusType {
     override def reads(json: JsValue): JsResult[StatusType] = json match {
       case JsString("PREPARED") => JsSuccess(Prepared)
       case JsString("QUEUED") => JsSuccess(Queued)
-      case JsString("PROCESSING") => JsSuccess(Processing)
       case JsString("PENDING") => JsSuccess(Pending)
       case JsString("COMPLETED") => JsSuccess(Completed)
       case JsString("FAILED") => JsSuccess(Failed)
@@ -49,7 +47,6 @@ object StatusType {
   def apply(statusType: String): StatusType = statusType match {
     case "PREPARED" => Prepared
     case "QUEUED" => Queued
-    case "PROCESSING" => Processing
     case "PENDING" => Pending
     case "COMPLETED" => Completed
     case "FAILED" => Failed
