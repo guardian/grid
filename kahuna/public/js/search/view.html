@@ -7,7 +7,7 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
-        <a ng-if="ctrl.canUpload && !ctrl.usePermissionsFilter"
+        <a ng-if="ctrl.canUpload"
            ui-sref="upload"
            gr-track-click="Your recent uploads button"
            gr-track-click-data="{'Location': 'Search navigation'}"
