@@ -104,6 +104,8 @@ object Authentication {
   /** A human user with a name */
   case class UserPrincipal(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
+
+    override def toString: String = s"UserPrincipal(${(firstName, lastName, email)})"
   }
   /** A machine user doing work automatically for its human programmers */
   case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
