@@ -4,3 +4,8 @@
   justify-content: flex-end;
 }
 
+.permissions-filter {
+  width: 150px;
+  position: relative;
+  height: auto;
+}

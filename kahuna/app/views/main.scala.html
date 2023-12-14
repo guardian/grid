@@ -46,6 +46,7 @@
         this._clientConfig = {
           rootUri: "@Html(kahunaConfig.rootUri)",
           sessionId: "@Html(kahunaConfig.sessionId)",
+          googleTrackingId: "@Html(kahunaConfig.googleTrackingId.getOrElse(""))",
           feedbackFormLink: "@Html(kahunaConfig.feedbackFormLink.getOrElse(""))",
           usageRightsHelpLink: "@Html(kahunaConfig.usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(kahunaConfig.invalidSessionHelpLink.getOrElse(""))",
