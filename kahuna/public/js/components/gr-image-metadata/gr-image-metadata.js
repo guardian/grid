@@ -237,6 +237,7 @@ module.controller('grImageMetadataCtrl', [
       function updateSingleImage() {
         // Alias for convenience in view
         ctrl.identifiers = ctrl.singleImage.data.identifiers;
+        console.log(ctrl);
 
         ctrl.additionalMetadata = Object.fromEntries(
           Object.entries(ctrl.singleImage.data.aliases)
