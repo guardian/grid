@@ -57,6 +57,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   const handleQueryChange = (e: any) => {
     let newQuery = e.detail.query ? (" " + e.detail.query) : "";
+    console.log("Query:" + e.detail.query);
 
     //-check chargeable-
     const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
