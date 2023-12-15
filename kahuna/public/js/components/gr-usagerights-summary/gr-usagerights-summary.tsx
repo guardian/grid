@@ -54,34 +54,28 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
     let imageCount = 0;
     images.forEach((image: any) => {
       imageCount++;
-      let imageUsage: usageRightsSummaryInt[] = [];
+      const imageUsage: usageRightsSummaryInt[] = [];
       usageRightsOptions.forEach(opt => {
         if (opt.clause(image)) {
           imageUsage.push(opt);
         }
       });
-      if(imageCount === 1) {
-        //-first image processed-
+      if (imageCount === 1) { //-first image processed-
         currentUsage = imageUsage;
-      } else {
-        //-second and subsequent images-
-        if (!localMixed) { // once we have mixed usage rights no need to assess further
-          if (imageUsage.length === 0) { // no matches on current image
-            localMixed = (currentUsage.length > 0);
-          } else {
-            if (currentUsage.length === 0) { // previous image had no matches
+      } else if (!localMixed) { // once we have mixed usage rights no need to assess further
+        if (imageUsage.length === 0) { // no matches on current image
+          localMixed = (currentUsage.length > 0);
+        } else if (currentUsage.length === 0) { // previous image had no matches
+          localMixed = true;
+        } else { // find intersection of matches from this image and previous images
+            const currentUsageIds = new Set(currentUsage.map(o => o.id));
+            const imageIds = imageUsage.map(o => o.id);
+            const intersectIds = imageIds.filter(id => currentUsageIds.has(id));
+            if (intersectIds.length === 0) {
               localMixed = true;
-            } else { // find intersection of matches from this image and previous images
-              let currentUsageIds = new Set(currentUsage.map(o => o.id));
-              let imageIds = imageUsage.map(o => o.id);
-              let intersectIds = imageIds.filter(id => currentUsageIds.has(id));
-              if (intersectIds.length === 0) {
-                localMixed = true;
-              } else {
-                currentUsage = currentUsage.filter(opt => intersectIds.includes(opt.id));
-              }
+            } else {
+              currentUsage = currentUsage.filter(opt => intersectIds.includes(opt.id));
             }
-          }
         }
       }
     });
@@ -101,10 +95,10 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
     let tempClasses = "";
     if (images.length === 1 || images.size ===  1) {
       tempUploadedBy = images[0].data.uploadedBy ? images[0].data.uploadedBy : "";
-      let source = images[0].data.metadata.source ? " source-" + images[0].data.metadata.source.replace(" ","-") : "";
-      let credit = images[0].data.metadata.credit ?  " credit-" + images[0].data.metadata.credit.replace(" ","-") : "";
-      let supplier = images[0].data.uploadedBy ? " supplier-" + images[0].data.uploadedBy.replace(" ","-") : "";
-      let agencyIcon = images[0].data.usageRights.category ? " " + images[0].data.usageRights.category.replace(" ","-") + "-icon" : "";
+      const source = images[0].data.metadata.source ? " source-" + images[0].data.metadata.source.replace(" ","-") : "";
+      const credit = images[0].data.metadata.credit ?  " credit-" + images[0].data.metadata.credit.replace(" ","-") : "";
+      const supplier = images[0].data.uploadedBy ? " supplier-" + images[0].data.uploadedBy.replace(" ","-") : "";
+      const agencyIcon = images[0].data.usageRights.category ? " " + images[0].data.usageRights.category.replace(" ","-") + "-icon" : "";
       tempClasses = (supplier + source + credit + agencyIcon).trim();
     }
     setAgencyStyle(tempClasses);
@@ -135,7 +129,7 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
       </table>
     )}
   </div>);
-}
+};
 
 export const usageRightsSummary = angular.module('gr.usageRightsSummary', [])
   .component('usageRightsSummary', react2angular(UsageRightsSummary, ["props"]));

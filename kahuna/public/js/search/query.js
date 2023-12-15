@@ -19,8 +19,8 @@ import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
 import {
+  manageSortSelection,
   DefaultSortOption,
-  ManageSortSelection,
   SortOptions
 } from "../components/gr-sort-control/gr-sort-control-config";
 
@@ -75,38 +75,43 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
 
+    function watchUploadedBy(filter, sender) {
+      // Users should be able to follow URLs with uploadedBy set to another user's name, so only
+      // overwrite if:
+      //   - uploadedBy is unset, or
+      //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
+      //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
+      if (!ctrl.usePermissionsFilter) {
+        const myUploadsCheckbox = filter.uploadedByMe;
+        const shouldOverwriteUploadedBy =
+          !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
+        if (shouldOverwriteUploadedBy) {
+          filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        }
+      } else {
+        if (typeof sender === "string") {
+          filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
+          ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
+        }
+      }
+      storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
+    }
+
+    function raisePermissionsFilterEvent(q) {
+      const customEvent = new CustomEvent('queryChangeEvent', {
+        detail: {query: q},
+        bubbles: true
+      });
+      window.dispatchEvent(customEvent);
+    }
+
     function watchSearchChange(filter, sender) {
         const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
         storage.setJs("isNonFree", showPaid, true);
 
-        // Users should be able to follow URLs with uploadedBy set to another user's name, so only
-        // overwrite if:
-        //   - uploadedBy is unset, or
-        //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
-        //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
-        if (!ctrl.usePermissionsFilter) {
-          const myUploadsCheckbox = filter.uploadedByMe;
-          const shouldOverwriteUploadedBy =
-            !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
-          if (shouldOverwriteUploadedBy) {
-            filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-          }
-        } else {
-            if (typeof sender === "string") {
-              filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
-              ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
-            }
-        }
-        storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
-
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
-
-        //--permissions filter event--
-        const customEvent = new CustomEvent('queryChangeEvent', {
-          detail: {query: ctrl.filter.query},
-          bubbles: true
-        });
-        window.dispatchEvent(customEvent);
+        watchUploadedBy(filter, sender);
+        raisePermissionsFilterEvent(ctrl.filter.query);
 
         const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
         if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
@@ -156,13 +161,13 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.myUploadsProps = {
       onChange: selectMyUploads
-    }
+    };
     //-end my uploads
 
     //-sort control-
     function updateSortChips (sortSel) {
       ctrl.sortProps.selectedOption = sortSel;
-      ctrl.ordering['orderBy'] = ManageSortSelection(sortSel.value);
+      ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
       watchSearchChange(ctrl.filter, "updateSortChips");
     }
 
@@ -171,7 +176,7 @@ query.controller('SearchQueryCtrl', [
       selectedOption: DefaultSortOption,
       onSelect: updateSortChips,
       query: ctrl.filter.query
-    }
+    };
     //-end sort control-
 
     //-permissions filter-
@@ -187,8 +192,8 @@ query.controller('SearchQueryCtrl', [
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
-    let pfOpts = PermissionsConf.PermissionsOptions();
-    let defOptVal = PermissionsConf.PermissionsDefaultOpt;
+    let pfOpts = PermissionsConf.permissionsOptions();
+    let defOptVal = PermissionsConf.permissionsDefaultOpt();
     let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
     ctrl.permissionsProps = { options: pfOpts,
                               selectedOption: pfDefPerm,

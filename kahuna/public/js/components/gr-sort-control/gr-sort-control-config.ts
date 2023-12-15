@@ -1,8 +1,8 @@
 import {SortDropdownOption} from "./gr-sort-control";
 
-export function ManageSortSelection(newSelection:string): string {
+export function manageSortSelection(newSelection:string): string {
   let newVal;
-  switch(newSelection){
+  switch (newSelection) {
     case "uploadNewOld":
       newVal = undefined;
       break;

@@ -7,23 +7,23 @@ import * as PermissionsConf from "./gr-permissions-filter-config";
 import "./gr-permissions-filter.css";
 import "./gr-toggle-switch.css";
 
-const SHOW_CHARGEABLE:string = "Show payable images";
-const SELECT_OPTION:string = "Select an option";
+const SHOW_CHARGEABLE = "Show payable images";
+const SELECT_OPTION = "Select an option";
 
-const ChevronIcon = () =>
+const chevronIcon = () =>
   <svg fill="inherit" width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
     <path d="M16.003 18.626l7.081-7.081L25 13.46l-8.997 8.998-9.003-9 1.917-1.916z"/>
-  </svg>
+  </svg>;
 
-const EmptyIcon = () =>
+const emptyIcon = () =>
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <rect width="100%" height="100%" fill="none" stroke="none" />
-  </svg>
+  </svg>;
 
-const TickIcon = () =>
+const tickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <polyline fill="none" stroke="inherit" points="3.7 14.3 9.6 19 20.3 5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-  </svg>
+  </svg>;
 
 export interface PermissionsDropdownOption {
   value: string;
@@ -46,8 +46,8 @@ export interface PermissionsWrapperProps {
 // *** functional react component ***
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
-  const defOptVal:string = PermissionsConf.PermissionsDefaultOpt();
-  const payableDefaults = PermissionsConf.PermissionsPayable();
+  const defOptVal:string = PermissionsConf.permissionsDefaultOpt();
+  const payableDefaults = PermissionsConf.permissionsPayable();
   const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
@@ -55,30 +55,30 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
 
-  const handleQueryChange = (e: any) => {
-    let newQuery = e.detail.query ? (" " + e.detail.query) : "";
+  const handleQueryChange = (e: any ) => {
+    const newQuery = e.detail.query ? (" " + e.detail.query) : "";
 
     //-check chargeable-
     const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
-    if(logoClick.includes("logoClick")) {
+    if (logoClick.includes("logoClick")) {
       setIsChargeable(false);
       window.sessionStorage.setItem("logoClick", "");
     }
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
-      const permMaps = PermissionsConf.PermissionsMappings();
-      for(let i=0; i<permMaps.length; i++) {
-        if(permMaps[i].query.length > 0 && permMaps[i].query.filter(q => newQuery.includes(q)).length == permMaps[i].query.length) {
-          let sel = options.filter(opt => opt.value == permMaps[i].opt)[0];
+      const permMaps = PermissionsConf.permissionsMappings();
+      for (let i = 0; i < permMaps.length; i++) {
+        if (permMaps[i].query.length > 0 && permMaps[i].query.filter(q => newQuery.includes(q)).length == permMaps[i].query.length) {
+          const sel = options.filter(opt => opt.value == permMaps[i].opt)[0];
           setSelection(sel);
           return;
         }
       }
 
       //-default-
-      let lDefOptVal:string = PermissionsConf.PermissionsDefaultOpt();
-      let lDefPerms:PermissionsDropdownOption = props.options.filter(opt => opt.value == lDefOptVal)[0];
+      const lDefOptVal:string = PermissionsConf.permissionsDefaultOpt();
+      const lDefPerms:PermissionsDropdownOption = props.options.filter(opt => opt.value == lDefOptVal)[0];
       setSelection(options.filter(opt => opt.value == lDefPerms.value)[0]);
     }
   };
@@ -95,7 +95,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   const handleOptionClick = (option: PermissionsDropdownOption) => {
     const payableDef = payableDefaults.filter(pd => pd.opt === option.value)[0];
-    if(payableDef.payable === 'false' || payableDef.payable === 'true') {
+    if (payableDef.payable === 'false' || payableDef.payable === 'true') {
         const payableOn = payableDef.payable === 'false' ? false : true;
         setIsChargeable(payableOn);
         props.onSelect(option, payableOn);
@@ -120,7 +120,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
           <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
             <div className="permissions-selection">
               <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
-              <div className="permissions-selection-icon">{ChevronIcon()}</div>
+              <div className="permissions-selection-icon">{chevronIcon()}</div>
             </div>
           </button>
           {isOpen && (
@@ -129,7 +129,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
               {options.map((option) => (
                 <tr className="permissions-dropdown-item" key={option.value + "row"} onClick={() => handleOptionClick(option)}>
                   <td className="permissions-dropdown-cell-tick" key={option.value + "tick"}>
-                    {(selectedOption.value == option.value)?TickIcon():EmptyIcon()}
+                    {(selectedOption.value == option.value) ? tickIcon() : emptyIcon()}
                   </td>
                   <td className="permissions-dropdown-cell" key={option.value}>
                     {option.label}

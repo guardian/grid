@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import "./gr-my-uploads.css";
 
-const MY_UPLOADS:string = "My uploads";
+const MY_UPLOADS = "My uploads";
 
 export interface MyUploadsProps {
   onChange: (selected: boolean) => void;
@@ -20,7 +20,7 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   const [myUploads, setMyUploads] = useState(false);
 
   const handleCheckboxClick = () => {
-    let chkd = myUploads;
+    const chkd = myUploads;
     setMyUploads(!chkd);
     props.onChange(!chkd);
   };
