@@ -1,10 +1,8 @@
 package com.gu.mediaservice.lib.aws
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import scala.util.Try
-import play.api.libs.json.Json
-import play.api.libs.json.JsError
-import play.api.libs.json.JsSuccess
-
+import play.api.libs.json.{JsError, JsPath, JsSuccess, Json, Reads}
+import play.api.libs.functional.syntax._ // Combinator syntax
 
 case class S3ObjectField (
   key: String,
@@ -12,20 +10,10 @@ case class S3ObjectField (
   eTag: String,
 )
 
-object S3ObjectField {
-  implicit val S3ObjectFieldReads = Json.reads[S3ObjectField]
-  implicit val S3ObjectFieldWrites = Json.writes[S3ObjectField]
-}
-
 case class S3BucketField (
   name: String,
   arn: String,
 )
-
-object S3BucketField {
-  implicit val S3BucketFieldReads = Json.reads[S3BucketField]
-  implicit val S3BucketFieldWrites = Json.writes[S3BucketField]
-}
 
 case class S3DataFromSqsMessage (
   s3SchemaVersion: Option[String],
@@ -34,8 +22,11 @@ case class S3DataFromSqsMessage (
 )
 
 object S3DataFromSqsMessage {
-  implicit val S3DataReads = Json.reads[S3DataFromSqsMessage]
-  implicit val MS3DatadWrites = Json.writes[S3DataFromSqsMessage]
+  implicit val S3DataReads:  Reads[S3DataFromSqsMessage] = (
+    (JsPath \ "s3SchemaVersion").readNullable[String] and
+      (JsPath \ "object").read(Json.reads[S3ObjectField]) and
+        (JsPath \ "bucket").read(Json.reads[S3BucketField])
+  )(S3DataFromSqsMessage.apply _)
 }
 
 case class MessageRecord (
@@ -48,17 +39,14 @@ case class MessageRecord (
 
 object MessageRecord {
   implicit val MessageRecordReads = Json.reads[MessageRecord]
-  implicit val MessageRecordWrites = Json.writes[MessageRecord]
 }
 
 case class MessageBody(
   Records: List[MessageRecord],
-
 )
 
 object MessageBody {
   implicit val MessageBodyReads = Json.reads[MessageBody]
-  implicit val MessageBodyWrites = Json.writes[MessageBody]
 }
 
 trait SqsHelpers {
