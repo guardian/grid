@@ -8,8 +8,6 @@ import { ImportAction, IngestConfig } from "./Lambda"
 import { S3, CloudWatch } from "aws-sdk"
 import { Logger } from "./Logging"
 
-const PROBABILITY_IT_WILL_COPY_TO_LOWER_ENV_WATCHER_BUCKET = 0.01
-
 type ImportCall = (
   logger: Logger,
   req: GridImportRequest
@@ -55,7 +53,6 @@ export const transfer = async function (
   if (uploadResult.succeeded) {
 
     // ALSO copy a percentage sample of images to lower environment
-    const lowerEnvironmentIngestWatcherBucket = process.env.LOWER_ENVIRONMENT_INGEST_BUCKET
     const lowerEnvironmentIngestQueueBucket = process.env.LOWER_ENVIRONMENT_QUEUE_BUCKET
     const probabilityToCopyToLowerEnvironmentQueueBucket = parseFloat( process.env.PROBABILITY_IT_WILL_COPY_TO_LOWER_ENV_QUEUE_BUCKET ?? '0')
     const isProd = config.stage.toLowerCase() === "prod"
@@ -64,28 +61,9 @@ export const transfer = async function (
 
     if(
       isProd &&
-      lowerEnvironmentIngestWatcherBucket &&
-      lowerEnvironmentIngestWatcherBucket !== event.bucket &&
-      random < PROBABILITY_IT_WILL_COPY_TO_LOWER_ENV_WATCHER_BUCKET
-    ){
-      const loggingFields = { filename: event.filename }
-      logger.info(`Also copying image to lower environment's ingest watcher bucket (based on ${PROBABILITY_IT_WILL_COPY_TO_LOWER_ENV_WATCHER_BUCKET} probability/sampling)...`, loggingFields)
-      await s3.copyObject({
-        CopySource: `/${s3ObjectRequest.Bucket}/${s3ObjectRequest.Key}`,
-        Bucket: lowerEnvironmentIngestWatcherBucket,
-        Key: s3ObjectRequest.Key,
-      }).promise()
-        .then(() => {
-          logger.info("Successfully copied image to lower environment's ingest watcher bucket.", loggingFields)
-        })
-        .catch((err) => {
-          logger.error(`Error whilst copying ingested image to watcher bucket for lower environment: ${err}`, loggingFields)
-        })
-    } else if(
-      isProd &&
       lowerEnvironmentIngestQueueBucket &&
       lowerEnvironmentIngestQueueBucket !== event.bucket &&
-      random < (PROBABILITY_IT_WILL_COPY_TO_LOWER_ENV_WATCHER_BUCKET+probabilityToCopyToLowerEnvironmentQueueBucket)
+      random < probabilityToCopyToLowerEnvironmentQueueBucket
     ){
       const loggingFields = { filename: event.filename }
       logger.info(`Also copying image to lower environment's queue-based ingest bucket (based on ${probabilityToCopyToLowerEnvironmentQueueBucket} probability/sampling)...`, loggingFields)
