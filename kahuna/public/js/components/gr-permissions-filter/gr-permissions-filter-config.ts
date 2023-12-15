@@ -1,10 +1,10 @@
 //***permissions constants***
 
 //-chip query content-
-const CHARGEABLE_QUERY= " category:chargeable";
+const CHARGEABLE_QUERY = " category:chargeable";
 
 //-permissions options-
-const CHARGEABLE_OPT= "chargeable";
+const CHARGEABLE_OPT = "chargeable";
 const ALL_PERMISSIONS_OPT = "allPermissions";
 
 //-permissions labels-

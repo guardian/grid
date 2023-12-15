@@ -11,6 +11,6 @@ export function updateFilterChips(permissionsSel: PermissionsDropdownOption, que
   permMappings.query.forEach((q) => {
     workingQuery = workingQuery + q;
   });
-  if (workingQuery[0] == ' ') { workingQuery = workingQuery.trimStart() };
+  if (workingQuery[0] == ' ') { workingQuery = workingQuery.trimStart(); }
   return workingQuery;
 }
