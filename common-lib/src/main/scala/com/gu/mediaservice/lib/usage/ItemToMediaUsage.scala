@@ -52,7 +52,7 @@ object ItemToMediaUsage {
     Try {
       SyndicationUsageMetadata(
         metadataMap("partnerName").asInstanceOf[String],
-        None
+        metadataMap.get("syndicatedBy").map(x => x.asInstanceOf[String])
       )
     }.toOption
   }

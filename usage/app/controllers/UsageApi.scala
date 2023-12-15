@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.usage.UsageBuilder
-import com.gu.mediaservice.model.usage.{MediaUsage, Usage, UsageStatus}
+import com.gu.mediaservice.model.usage.{MediaUsage, SyndicatedUsageStatus, Usage, UsageStatus}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
@@ -257,7 +257,7 @@ class UsageApi(
   }}
 
   def updateUsageStatus(mediaId: String, usageId: String) = auth(parse.json) {req => {
-    print(mediaId, usageId)
+    println(s"mediaid is: $mediaId, usageid is: $usageId")
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
       e => respondError(
@@ -265,19 +265,19 @@ class UsageApi(
         errorKey = "update-image-usage-status-failed",
         errorMessage = JsError.toJson(e).toString()
       ),
-      usageStatusRequest => {
+      usageStatus => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "update-usage-status",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
-          "usageStatus" -> usageStatusRequest.toString,
+          "usageStatus" -> usageStatus.toString,
           "image-id" -> mediaId,
           "usage-id" -> usageId,
         ) ++ apiKeyMarkers(req.user.accessor)
-        logger.info(logMarker, "recording usage status update")
+        logger.info(logMarker, "recording usage status  update")
         usageTable.queryByUsageId(usageId).map {
           case Some(mediaUsage) =>
-            mediaUsage.copy(status = UsageStatus("some string")) // this will need to change
-            usageTable.update(mediaUsage)
+            val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
+            usageTable.update(updatedStatusMediaUsage)
             val updateMessage = UpdateMessage(subject = UpdateUsageStatus, id = Some(mediaId), usageId = Some(usageId))
             notifications.publish(updateMessage)
             Ok
