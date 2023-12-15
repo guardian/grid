@@ -4,14 +4,11 @@ import play.api.libs.json._
 
 case class SyndicationUsageMetadata(
   partnerName: String,
-  syndicatedBy: Option[String]
+  syndicatedBy: Option[String] = None
 ) extends UsageMetadata {
-  override def toMap: Map[String, Any] = {
-    syndicatedBy match {
-      case Some(user) => Map("partnerName" -> partnerName, "syndicatedBy" -> user) // why isn't this working?
-      case None       => Map("partnerName" -> partnerName)
-    }
-  }
+  override def toMap: Map[String, Any] = Map(
+    "partnerName" -> partnerName
+  ) ++ syndicatedBy.map("syndicatedBy" -> _)
 }
 
 object SyndicationUsageMetadata {

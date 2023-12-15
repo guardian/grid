@@ -281,7 +281,8 @@ object Mappings {
   ))
 
   def syndicationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
-    keywordField("partnerName")
+    keywordField("partnerName"),
+    keywordField("syndicatedBy")
   ))
 
   def frontUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
