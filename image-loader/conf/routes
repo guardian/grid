@@ -9,6 +9,7 @@ GET     /images/project/:imageId                      controllers.ImageLoaderCon
 # Upload Status
 GET     /uploadStatus/:imageId                        controllers.UploadStatusController.getUploadStatus(imageId: String)
 POST    /uploadStatus/:imageId                        controllers.UploadStatusController.updateUploadStatus(imageId: String)
+GET     /uploadsBy/:userId                            controllers.UploadStatusController.getUploadsBy(userId: String)
 
 # Management
 GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck

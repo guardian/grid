@@ -52,4 +52,11 @@ class UploadStatusController(auth: Authentication,
           }
     }
   }
+  def getUploadsBy(user: String) = auth.async {
+    store.queryByUser(user).map(list => {
+
+      respond(list)
+
+    })
+  }
 }
