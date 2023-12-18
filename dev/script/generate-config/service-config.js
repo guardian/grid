@@ -147,7 +147,6 @@ function getMediaApiConfig(config) {
         |quota.store.key="rcs-quota.json"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
-        |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         |syndication.review.useRuntimeFieldsFix=true
         |`;
 }
