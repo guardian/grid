@@ -1,5 +1,6 @@
 package controllers
 
+import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.s3.AmazonS3
@@ -55,8 +56,8 @@ class ImageLoaderController(auth: Authentication,
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
-  val maybeIngestQueueProcessorFuture = maybeIngestQueue.map { ingestQueue =>
-    Source.repeat(())
+  val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
+    val processor = Source.repeat(())
       .mapAsync(parallelism=1)(_ => {
         ingestQueue.getNextMessage() match {
           case None =>
@@ -69,18 +70,20 @@ class ImageLoaderController(auth: Authentication,
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
               .map(_ => ingestQueue.deleteMessage(sqsMessage))
               .recover {
-                case e: Exception => logger.warn(logMarker, s"Failed to process message: ${e.toString}") //FIXME handle this better
+                case t: Throwable => logger.error(logMarker, s"Failed to process message", t)
               }
           }
         }
       })
       .run()
-  }
-  maybeIngestQueueProcessorFuture.foreach(_.onComplete {
-    case Failure(exception) => throw exception
-    case Success(_) => throw new Exception("Ingest queue processor stream completed, when it should never complete")
-  })
 
+    processor.onComplete {
+      case Failure(exception) => throw exception
+      case Success(_) => throw new Exception("Ingest queue processor stream completed, when it should never complete")
+    }
+
+    (ingestQueue, processor)
+  }
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
