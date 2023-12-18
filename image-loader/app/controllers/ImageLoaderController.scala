@@ -62,17 +62,19 @@ class ImageLoaderController(auth: Authentication,
         ingestQueue.getNextMessage() match {
           case None =>
             Future.successful(logger.debug(s"No message at ${DateTimeUtils.now()}"))
-          case Some(sqsMessage) => {
+          case Some(sqsMessage) =>
             val logMarker: LogMarker = MarkerMap(
               "requestType" -> "handleMessageFromIngestBucket",
               "requestId" -> sqsMessage.getMessageId,
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
-              .map(_ => ingestQueue.deleteMessage(sqsMessage))
+              .map { _ =>
+                logger.debug(logMarker, "Deleting message")
+                ingestQueue.deleteMessage(sqsMessage)
+              }
               .recover {
                 case t: Throwable => logger.error(logMarker, s"Failed to process message", t)
               }
-          }
         }
       })
       .run()
@@ -102,13 +104,13 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = {
+  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
 
-    logger.info(logMarker,sqsMessage.toString)
+    logger.info(logMarker, sqsMessage.toString)
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
       case Failure(exception) =>
-        logger.warn(logMarker, s"Failed to parse s3 data from SQS message", exception)
+        logger.error(logMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
         val s3IngestObject = S3IngestObject(key, store)
@@ -125,28 +127,23 @@ class ImageLoaderController(auth: Authentication,
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
-
-          s3IngestObject.maybeMediaIdFromUiUpload match {
-            case Some(imageId) => uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
               imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
             )
-            case None => Future.unit
           }
-        }
-
-        attemptToProcessIngestedFile(s3IngestObject).transformWith {
-          case Failure(exception) =>
-            logger.warn(logMarker, s"Failed to process file: ${exception.toString}. Moving to fail bucket")
-            store.moveObjectToFailedBucket(s3IngestObject.key)
-            Future.unit
-          case Success(digestedFile) =>
+          Future.unit
+        } else {
+          attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
-            Future.unit
+          } recover { case t: Throwable =>
+            logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+            store.moveObjectToFailedBucket(s3IngestObject.key)
+          }
         }
     }
-  }
-
+  }.flatten
 
   private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject)(implicit logMarker:LogMarker): Future[DigestedFile] = {
 
@@ -177,11 +174,10 @@ class ImageLoaderController(auth: Authentication,
 
     handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
       .recover {
-        case e:Exception => Future.failed(e)
+        case t:Throwable => Future.failed(t)
         case _ => Future.failed(new Exception)
       }
-      .map(_ =>
-          digestedFile)
+      .map(_ => digestedFile)
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
