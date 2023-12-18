@@ -173,10 +173,6 @@ class ImageLoaderController(auth: Authentication,
     }
 
     handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
-      .recover {
-        case t:Throwable => Future.failed(t)
-        case _ => Future.failed(new Exception)
-      }
       .map(_ => digestedFile)
   }
 
