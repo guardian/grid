@@ -11,6 +11,15 @@
 <div ng-if="ctrl.canUpload" class="page-wrapper" role="main" aria-label="Image uploads">
     <file-prompt class="section" role="region" aria-label="File upload"></file-prompt>
 
+    <section class="section" role="region" aria-label="completed Jobs">
+        <div class="flex-container section-heading">
+            <h2 class="flex-spacer">Uploads in progress</h2>
+        </div>
+        <div>
+            {{ctrl.getUploadsNotCompleted()}}
+        </div>
+    </section>
+
     <section class="section" role="region" aria-label="Your current uploads"
              ng-if="ctrl.latestJob && ctrl.latestJob.length > 0">
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>

@@ -10,8 +10,7 @@ upload.factory('uploadManager',
 
     var jobs = new Set();
     var completedJobs = new Set();
-
-
+    var uploadsInProgress = [];
 
     function createJobItem(file, mediaId, preSignedUrl) {
         return {
@@ -96,9 +95,15 @@ upload.factory('uploadManager',
    async function fetchUploadsNotCompleted() {
       const resource = await fileUploader.getUploadsByCurrentUser();
       const uploadsNotCompleted = resource.data.filter(upload => upload.status !== 'COMPLETED');
-      // TO DO - remove test logging when this method is used
-      console.log(`There are ${uploadsNotCompleted.length} not COMPLETED, ${resource.data.length} in total`, resource.data);
+      uploadsInProgress = uploadsNotCompleted;
       return uploadsNotCompleted;
+    }
+
+    // TO DO - call only when needed, not all the time
+    window.setInterval(fetchUploadsNotCompleted, 500);
+
+    function getUploadsInProgress (){
+      return uploadsInProgress;
     }
 
     return {
@@ -107,7 +112,8 @@ upload.factory('uploadManager',
         getLatestRunningJob,
         getJobs,
         getCompletedJobs,
-        fetchUploadsNotCompleted
+        fetchUploadsNotCompleted,
+        getUploadsInProgress
     };
 }]);
 
