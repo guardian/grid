@@ -33,11 +33,7 @@ class ImageLoaderManagement(
 
   private def hasProcessorFutureEnded = {
     maybeIngestQueueProcessorFuture match {
-      case Some(processorFuture) => if (processorFuture.isCompleted) {
-        true
-      } else {
-        false
-      }
+      case Some(processorFuture) => processorFuture.isCompleted
       case None => false
     }
   }
