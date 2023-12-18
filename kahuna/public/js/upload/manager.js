@@ -93,12 +93,21 @@ upload.factory('uploadManager',
         return completedJobs;
     }
 
+   async function fetchUploadsNotCompleted() {
+      const resource = await fileUploader.getUploadsByCurrentUser();
+      const uploadsNotCompleted = resource.data.filter(upload => upload.status !== 'COMPLETED');
+      // TO DO - remove test logging when this method is used
+      console.log(`There are ${uploadsNotCompleted.length} not COMPLETED, ${resource.data.length} in total`, resource.data);
+      return uploadsNotCompleted;
+    }
+
     return {
         upload,
         uploadUri,
         getLatestRunningJob,
         getJobs,
-        getCompletedJobs
+        getCompletedJobs,
+        fetchUploadsNotCompleted
     };
 }]);
 
@@ -154,9 +163,14 @@ upload.factory('fileUploader',
       return buildUploadStatusEndpoint(mediaId).post({status: "QUEUED"});
     }
 
+    function getUploadsByCurrentUser() {
+      return loaderApi.getUploadsByCurrentUser();
+    }
+
     return {
         prepare,
         upload,
-        loadUriImage
+        loadUriImage,
+        getUploadsByCurrentUser
     };
 }]);

@@ -24,6 +24,11 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
       return getLoaderRoot().follow('uploadsBy', {userId}).get();
     }
 
+   async function getUploadsByCurrentUser() {
+      const session = await mediaApi.getSession();
+      return getLoaderRoot().follow('uploadsBy', {userId:session.user.email}).get();
+    }
+
     function load(imageData, uploadInfo) {
         const options = {
             // We could get the guessed mime-type from the File, but
@@ -47,6 +52,7 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         prepare,
         load,
         getUploadsBy,
+        getUploadsByCurrentUser,
         import: import_
     };
 }]);
