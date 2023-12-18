@@ -19,7 +19,7 @@ Resources:
     Properties:
       QueueName: IngestSqsQueue
       ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
-      VisibilityTimeout: 300 # 5 minutes - estimated value for maximum time to process an image. TODO - refine value with testing before using on PROD
+      VisibilityTimeout: 900 # 15 minutes - maximum time we're willing to let it process an image
 
   IngestQueueBucket:
     Type: AWS::S3::Bucket
