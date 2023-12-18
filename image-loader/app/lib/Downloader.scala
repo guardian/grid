@@ -23,7 +23,7 @@ class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends Grid
   def download(inputStream: java.io.InputStream, destinationFile: File, expectedSize: Long): DigestedFile = {
 
     val output = new FileOutputStream(destinationFile)
-    val hashedOutput = new HashingOutputStream(digester, output) // TODO should we care that this is considered 'unstable'
+    val hashedOutput = new HashingOutputStream(digester, output)
 
     ByteStreams.copy(inputStream, hashedOutput)
 
