@@ -12,11 +12,11 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{S3DataFromSqsMessage, S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
@@ -33,7 +33,6 @@ import play.api.mvc._
 import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.time.Instant
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -65,7 +64,7 @@ class ImageLoaderController(auth: Authentication,
           case Some(sqsMessage) => {
             val logMarker: LogMarker = MarkerMap(
               "requestType" -> "handleMessageFromIngestBucket",
-              "requestId" -> sqsMessage.getMessageId(),
+              "requestId" -> sqsMessage.getMessageId,
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
               .map(_ => ingestQueue.deleteMessage(sqsMessage))
@@ -104,12 +103,12 @@ class ImageLoaderController(auth: Authentication,
 
     logger.info(logMarker,sqsMessage.toString)
 
-    parseS3DataFromMessage(sqsMessage) match {
-      case Left(failString) =>
-        logger.warn(logMarker, s"Failed to parse s3 data from SQS message : $failString")
+    extractS3KeyFromSqsMessage(sqsMessage) match {
+      case Failure(exception) =>
+        logger.warn(logMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
-      case Right(s3data) =>
-        val s3IngestObject = S3IngestObject(s3data, store)
+      case Success(key) =>
+        val s3IngestObject = S3IngestObject(key, store)
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
         logMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
