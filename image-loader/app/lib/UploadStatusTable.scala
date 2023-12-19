@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.scanamo._
 import com.gu.scanamo.error.DynamoReadError
-import com.gu.scanamo.query.{AndCondition, AttributeExists, Condition, ConditionExpression, KeyEquals, Query}
+import com.gu.scanamo.query.{AndCondition, AttributeExists, Condition, ConditionExpression, KeyEquals}
 import com.gu.scanamo.syntax._
 import model.StatusType.{Prepared, Queued}
 import model.{UploadStatus, UploadStatusRecord}
@@ -17,18 +17,6 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
 
   def getStatus(imageId: String) = {
     ScanamoAsync.exec(client)(uploadStatusTable.get('id -> imageId))
-  }
-
-  def queryByUser(user: String):Future[List[UploadStatusRecord]] = {
-     ScanamoAsync.exec(client)(uploadStatusTable.scan()).map {
-      case Nil => List.empty[UploadStatusRecord]
-      case recordsAndErrors => {
-        recordsAndErrors
-          .filter(item => item.isRight)
-          .map(item => item.getOrElse(null))
-          .filter(item => item.uploadedBy == user)
-      }
-    }
   }
 
   def setStatus(uploadStatus: UploadStatusRecord) = {

@@ -1,9 +1,7 @@
 package model
 
 import com.gu.mediaservice.lib.ImageStorageProps
-import com.gu.mediaservice.lib.aws.S3DataFromSqsMessage
 import lib.storage.ImageLoaderStore
-import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
 
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 
@@ -18,9 +16,8 @@ case class S3IngestObject (
 )
 
 object S3IngestObject {
-  def apply (s3DataFromSqsMessage: S3DataFromSqsMessage, store: ImageLoaderStore): S3IngestObject  = {
+  def apply (key: String, store: ImageLoaderStore): S3IngestObject  = {
 
-    val key = uriDecode(s3DataFromSqsMessage.`object`.key)
     val keyParts = key.split("/")
 
     /**

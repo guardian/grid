@@ -1,5 +1,6 @@
 package controllers
 
+import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.s3.AmazonS3
@@ -12,11 +13,11 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{S3DataFromSqsMessage, S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
@@ -33,7 +34,6 @@ import play.api.mvc._
 import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.time.Instant
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -56,32 +56,36 @@ class ImageLoaderController(auth: Authentication,
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
-  val maybeIngestQueueProcessorFuture = maybeIngestQueue.map { ingestQueue =>
-    Source.repeat(())
-      .mapAsync(parallelism=1)(_ => {
+  val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
+    val processor = Source.repeat(())
+      .mapAsyncUnordered(parallelism=1)(_ => {
         ingestQueue.getNextMessage() match {
           case None =>
             Future.successful(logger.debug(s"No message at ${DateTimeUtils.now()}"))
-          case Some(sqsMessage) => {
+          case Some(sqsMessage) =>
             val logMarker: LogMarker = MarkerMap(
               "requestType" -> "handleMessageFromIngestBucket",
-              "requestId" -> sqsMessage.getMessageId(),
+              "requestId" -> sqsMessage.getMessageId,
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
-              .map(_ => ingestQueue.deleteMessage(sqsMessage))
-              .recover {
-                case e: Exception => logger.warn(logMarker, s"Failed to process message: ${e.toString}") //FIXME handle this better
+              .map { _ =>
+                logger.debug(logMarker, "Deleting message")
+                ingestQueue.deleteMessage(sqsMessage)
               }
-          }
+              .recover {
+                case t: Throwable => logger.error(logMarker, s"Failed to process message", t)
+              }
         }
       })
       .run()
-  }
-  maybeIngestQueueProcessorFuture.foreach(_.onComplete {
-    case Failure(exception) => throw exception
-    case Success(_) => throw new Exception("Ingest queue processor stream completed, when it should never complete")
-  })
 
+    processor.onComplete {
+      case Failure(exception) => throw exception
+      case Success(_) => throw new Exception("Ingest queue processor stream completed, when it should never complete")
+    }
+
+    (ingestQueue, processor)
+  }
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -101,16 +105,16 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = {
+  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
 
-    logger.info(logMarker,sqsMessage.toString)
+    logger.info(logMarker, sqsMessage.toString)
 
-    parseS3DataFromMessage(sqsMessage) match {
-      case Left(failString) =>
-        logger.warn(logMarker, s"Failed to parse s3 data from SQS message : $failString")
+    extractS3KeyFromSqsMessage(sqsMessage) match {
+      case Failure(exception) =>
+        logger.error(logMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
-      case Right(s3data) =>
-        val s3IngestObject = S3IngestObject(s3data, store)
+      case Success(key) =>
+        val s3IngestObject = S3IngestObject(key, store)
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
         logMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
@@ -124,28 +128,23 @@ class ImageLoaderController(auth: Authentication,
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
-
-          s3IngestObject.maybeMediaIdFromUiUpload match {
-            case Some(imageId) => uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
               imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
             )
-            case None => Future.unit
           }
-        }
-
-        attemptToProcessIngestedFile(s3IngestObject).transformWith {
-          case Failure(exception) =>
-            logger.warn(logMarker, s"Failed to process file: ${exception.toString}. Moving to fail bucket")
-            store.moveObjectToFailedBucket(s3IngestObject.key)
-            Future.unit
-          case Success(digestedFile) =>
+          Future.unit
+        } else {
+          attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
-            Future.unit
+          } recover { case t: Throwable =>
+            logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+            store.moveObjectToFailedBucket(s3IngestObject.key)
+          }
         }
     }
-  }
-
+  }.flatten
 
   private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject)(implicit logMarker:LogMarker): Future[DigestedFile] = {
 
@@ -175,12 +174,7 @@ class ImageLoaderController(auth: Authentication,
     }
 
     handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
-      .recover {
-        case e:Exception => Future.failed(e)
-        case _ => Future.failed(new Exception)
-      }
-      .map(_ =>
-          digestedFile)
+      .map(_ => digestedFile)
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>

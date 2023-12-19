@@ -11,19 +11,20 @@ import scala.concurrent.Future
 class ImageLoaderManagement(
   override val controllerComponents: ControllerComponents,
   override val buildInfo: BuildInfo,
-  maybeIngestQueue:Option[SimpleSqsMessageConsumer],
-  maybeIngestQueueProcessorFuture: Option[Future[Done]]
+  maybeIngestQueueAndProcessor:Option[(SimpleSqsMessageConsumer, Future[Done])]
 )
   extends Management(controllerComponents, buildInfo) {
   override def healthCheck: Action[AnyContent] = Action {
-    maybeIngestQueue match {
-      case Some(ingestQueue) =>
-        if (hasProcessorFutureEnded) {
-          // healthcheck should fail if the processor completes - this would mean the application is no longet monitoring the queue
-          InternalServerError(buildDataWithQueue(ingestQueue, processorHasStopped = true))
-        } else {
-          Ok(buildDataWithQueue(ingestQueue, processorHasStopped = false))
-        }
+    maybeIngestQueueAndProcessor match {
+      case Some((ingestQueue, ingestQueueProcessorFuture)) =>
+        // healthcheck should fail if the processor completes - this would mean the application is no longer monitoring the queue
+        val status = if (ingestQueueProcessorFuture.isCompleted) InternalServerError else Ok
+        status(Json.obj(
+          "status" -> (if (ingestQueueProcessorFuture.isCompleted) "ERROR" else "OK"),
+          "hasIngestQueue" -> true,
+          "ingestQueueStatus" -> ingestQueue.getStatus,
+          "maybeIngestQueueProcessorFuture" -> ingestQueueProcessorFuture.toString
+        ))
       case None => Ok(Json.obj(
         "status" -> "OK",
         "hasIngestQueue" -> false,
@@ -31,22 +32,4 @@ class ImageLoaderManagement(
     }
   }
 
-  private def hasProcessorFutureEnded = {
-    maybeIngestQueueProcessorFuture match {
-      case Some(processorFuture) => if (processorFuture.isCompleted) {
-        true
-      } else {
-        false
-      }
-      case None => false
-    }
-  }
-  private def buildDataWithQueue(ingestQueue:SimpleSqsMessageConsumer, processorHasStopped: Boolean) = {
-    Json.obj(
-      "status" -> (if (processorHasStopped) {"ERROR"} else {"OK"}),
-      "hasIngestQueue" -> true,
-      "ingestQueueStatus" -> ingestQueue.getStatus,
-      "maybeIngestQueueProcessorFuture" -> maybeIngestQueueProcessorFuture.toString // TODO format this better
-    )
-  }
 }
