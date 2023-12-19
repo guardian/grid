@@ -18,9 +18,7 @@ object DateTimeUtils {
   def toString(instant: Instant): String = instant.atZone(EuropeLondonZone).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
   // TODO move this to a LocalDateTime
-  def fromValueOrNow(value: Option[String]): DateTime = fromValue(value).getOrElse(DateTime.now)
-
-  def fromValue(value: Option[String]): Option[DateTime] = Try{new DateTime(value.get)}.toOption
+  def fromValueOrNow(value: Option[String]): DateTime = Try{new DateTime(value.get)}.getOrElse(DateTime.now)
 
   def timeUntilNextInterval(interval: FiniteDuration, now: ZonedDateTime = now): FiniteDuration = {
     val nowRoundedDownToTheHour = now.truncatedTo(ChronoUnit.HOURS)

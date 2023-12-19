@@ -12,8 +12,6 @@ upload.factory('uploadManager',
     var completedJobs = new Set();
     var uploadsInProgress = [];
 
-
-
     function createJobItem(file, mediaId, preSignedUrl) {
         return {
             name: file.name,

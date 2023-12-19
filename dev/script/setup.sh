@@ -240,24 +240,6 @@ getStackResource() {
   echo "$resource"
 }
 
-getStackOutput() {
-  stackName=$1
-  outputKey=$2
-
-  stackOutputs=$(
-    aws cloudformation describe-stacks \
-      --stack-name "$stackName" \
-      --endpoint-url $LOCALSTACK_ENDPOINT
-  )
-
-  output=$(
-    echo "$stackOutputs" \
-    | jq -r ".Stacks[].Outputs[] | select(.OutputKey == \"$outputKey\") | .OutputValue"
-  )
-
-  echo "$output"
-}
-
 createCoreStack() {
   echo "creating local core cloudformation stack"
   set -x
@@ -279,8 +261,9 @@ createCoreStack() {
       --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
     echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
   fi
-
   set +x
+
+  # TODO - this should wait until the stack operation has completed
 }
 
 createGuardianLocalAuthStack() {

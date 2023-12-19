@@ -105,24 +105,24 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit logMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
+  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit basicLogMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
 
-    logger.info(logMarker, sqsMessage.toString)
+    logger.info(basicLogMarker, sqsMessage.toString)
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
       case Failure(exception) =>
-        logger.error(logMarker, s"Failed to parse s3 data from SQS message", exception)
+        logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
         val s3IngestObject = S3IngestObject(key, store)
-        val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
-        logMarker ++ Map(
+        val logMarker = basicLogMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
           "uploadedTime" -> s3IngestObject.uploadTime,
           "contentLength" -> s3IngestObject.contentLength,
           "filename" -> s3IngestObject.filename,
           "isUiUpload" -> s3IngestObject.maybeMediaIdFromUiUpload.isDefined,
         )
+        val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if (approximateReceiveCount > 2) {
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."

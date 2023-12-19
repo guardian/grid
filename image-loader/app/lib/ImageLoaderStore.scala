@@ -3,7 +3,7 @@ package lib.storage
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.amazonaws.HttpMethod
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
+import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest}
 import com.gu.mediaservice.lib.ImageStorageProps
 
 import java.time.ZonedDateTime
@@ -28,13 +28,22 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def moveObjectToFailedBucket(key: String) = {
-    val copyObjectResult = client.copyObject(config.maybeIngestBucket.get, key, config.maybeFailBucket.get, key)
-    println(copyObjectResult)
-    deleteObjectFromIngestBucket(key)
+    try {
+      client.copyObject(config.maybeIngestBucket.get, key, config.maybeFailBucket.get, key)
+      deleteObjectFromIngestBucket(key)
+    } catch {
+      case e: AmazonS3Exception if e.getErrorCode == "AccessDenied" && !client.doesObjectExist(config.maybeIngestBucket.get, key) =>
+        logger.warn(s"Attempted to copy $key from ingest bucket to fail bucket, but it does not exist.")
+      case other: Throwable => throw other
+    }
   }
 
-  def deleteObjectFromIngestBucket(key: String) = {
+  def deleteObjectFromIngestBucket(key: String) = try {
     client.deleteObject(config.maybeIngestBucket.get,key)
+  } catch {
+    case e: AmazonS3Exception if e.getErrorCode == "AccessDenied" && !client.doesObjectExist(config.maybeIngestBucket.get, key) =>
+      logger.warn(s"Attempted to delete $key from ingest bucket, but it does not exist.")
+    case other: Throwable => throw other
   }
 }
 
