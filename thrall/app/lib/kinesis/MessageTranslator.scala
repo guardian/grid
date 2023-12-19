@@ -73,6 +73,10 @@ object MessageTranslator extends GridLogging {
         case (Some(id), Some(edits)) => Right(UpdateImagePhotoshootMetadataMessage(id, updateMessage.lastModified, edits))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
+      case UpdateSingleUsage => (updateMessage.id, updateMessage.usageId, updateMessage.usageNotice ) match {
+        case (Some(id), Some(usageId), Some(usageNotice)) => Right(UpdateSingleUsageMessage(id, usageId, usageNotice, updateMessage.lastModified))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
+      }
       case _ => Left(ProcessorNotFoundException(updateMessage.subject))
     }
   }

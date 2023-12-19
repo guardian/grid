@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
@@ -501,6 +501,11 @@ class ElasticSearch(
       }
       ElasticSearchUpdateResponse()
     }))
+  }
+
+  def updateSingleUsage(id: String, usageId: String, usageNotice: UsageNotice, lastModified: DateTime)
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+
   }
 
   def deleteSyndicationRights(id: String, lastModified: DateTime)

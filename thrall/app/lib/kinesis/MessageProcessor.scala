@@ -49,6 +49,7 @@ class MessageProcessor(
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
       case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
+      case message: UpdateSingleUsageMessage => updateSingleUsage(message, logMarker)
       case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
@@ -181,6 +182,9 @@ class MessageProcessor(
   private def deleteSingleUsage(message: DeleteSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     Future.sequence(es.deleteSingleImageUsage(message.id, message.usageId, message.lastModified)(ec, logMarker))
   }
+
+  private def updateSingleUsage(message: UpdateSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(es.updateSingleUsage(message.id, message.usageId, message.usageNotice, message.lastModified)(ec, logMarker))
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))

@@ -124,6 +124,8 @@ case class DeleteSingleUsageMessage(id: String, lastModified: DateTime, usageId:
 
 case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
+case class UpdateSingleUsageMessage(id: String, usageId: String, usageNotice: UsageNotice, lastModified: DateTime) extends ExternalThrallMessage
+
 object DeleteUsagesMessage {
   implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
