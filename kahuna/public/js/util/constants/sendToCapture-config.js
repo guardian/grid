@@ -1,0 +1,9 @@
+export const sendToCaptureTitle = "Are you sure?";
+export const sendToCaptureAllValid = "Do you want to send these images to Photo Sales?";
+export const sendToCaptureMixed = "Do you want to send these images to Photo Sales?; #VALIDIMAGES# of these images will be sent through to Photo Sales; #INVALIDIMAGES# are already in Photo Sales and will not be sent again; Look out for the Photo Sales logo which will identify these images";
+export const sendToCaptureInvalid = "The image(s) selected are already in Photo Sales. If an image has the Photo Sales logo it already exists there";
+export const VALIDIMAGES = "#VALIDIMAGES#";
+export const INVALIDIMAGES = "#INVALIDIMAGES#";
+export const sendToCaptureCancelBtnTxt = "No";
+export const sendToCaptureConfirmBtnTxt = "Yes, send";
+export const sendToCaptureSingleBtnTxt = "Okay";

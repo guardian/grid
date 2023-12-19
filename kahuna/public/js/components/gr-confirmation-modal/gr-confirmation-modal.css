@@ -1,0 +1,75 @@
+.modalStyle {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 42;
+  background: #FFF;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.backdropStyle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 41;
+}
+.modalTitle {
+  font-weight: bold;
+  font-size: 20px;
+  color: #262525;
+}
+.modalMessage {
+ padding-top: 44px;
+ padding-bottom: 44px;
+ color: #262525;
+}
+.buttonContainerStyle {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+.confirmButtonStyle {
+  padding: 7px 10px;
+  margin-top: 12px;
+  margin-left: 10px;
+  width: fit-content;
+  cursor: pointer;
+  border: none;
+  text-align: center;
+  background: #5a526b;
+  color: white;
+  font-size: 16px;
+}
+.closeButtonStyle {
+  padding: 6px 10px;
+  margin-top: 12px;
+  width: fit-content;
+  cursor: pointer;
+  border: 2px solid #b6b7b7;
+  text-align: center;
+  background: #FFF;
+  color: #1e1f1d;
+  font-size: 16px;
+}
+.closeIconStyle {
+  margin: 10px;
+  padding: 10px 20px;
+  position: absolute;
+  top:1px;
+  right: -10px;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+  color: white;
+}
+.styledParagraph {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+.confirmation-closed {
+  display: none;
+}

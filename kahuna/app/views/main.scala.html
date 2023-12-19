@@ -57,6 +57,7 @@
           systemName: "@Html(kahunaConfig.systemName)",
           canDownloadCrop: @kahunaConfig.canDownloadCrop,
           showDenySyndicationWarning: @kahunaConfig.showDenySyndicationWarning.getOrElse(false),
+          showSendToPhotoSales:@kahunaConfig.showSendToPhotoSales.getOrElse(false),
           domainMetadataSpecs: @Html(domainMetadataSpecs),
           recordDownloadAsUsage: @kahunaConfig.recordDownloadAsUsage,
           metadataTemplates: @Html(metadataTemplates),
@@ -88,6 +89,7 @@
 
 <div ui-view></div>
 <ui-global-errors></ui-global-errors>
+<confirmation-modal></confirmation-modal>
 <div>
     <ui-notifications></ui-notifications>
 </div>
