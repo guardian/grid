@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "eu-west-1",
+      "eventTime": "2023-12-19T12:57:19.116Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AWS:AROAJFJ3R35ABBH5ZOP2Q:i-041d72c20eba9e2d4"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "1.1.1.1"
+      },
+      "responseElements": {
+        "x-amz-request-id": "9DG52BCBG9HMR73K",
+        "x-amz-id-2": "FLrMbtNZWhTSbSCrLYMaRnc7ryVEHzxIaia5TtTMhy69eJSpHmZQaPBos9crqKQL2QOeOwvjRdHytbEdAVqBH7cqsOBmsnyS"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "YjRlM2M0MDUtNDk1Yi00NzQwLWFjZGEtNGRkNzYxZmMxZjkx",
+        "bucket": {
+          "name": "media-service-prod-ingestqueuebucket-h7olblmxmf9e",
+          "ownerIdentity": {
+            "principalId": "A2WXMAO3QWDXTH"
+          },
+          "arn": "arn:aws:s3:::media-service-prod-ingestqueuebucket-h7olblmxmf9e"
+        },
+        "object": {
+          "key": "bill.bloggs%40example.co.uk/0cd747d665e2c59e86d256e6f45c369664e558bd",
+          "size": 7028718,
+          "eTag": "7fc05ba774bfc19cc9445eae78da0b81",
+          "sequencer": "006581932EF313EE13"
+        }
+      }
+    }
+  ]
+}
