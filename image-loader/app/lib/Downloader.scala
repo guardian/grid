@@ -20,11 +20,31 @@ case object InvalidDownload extends Exception
 class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends GridLogging {
   private val digester = DeprecatedHashWrapper.sha1()
 
+  def download(inputStream: java.io.InputStream, destinationFile: File, expectedSize: Long): DigestedFile = {
+
+    val output = new FileOutputStream(destinationFile)
+    val hashedOutput = new HashingOutputStream(digester, output)
+
+    ByteStreams.copy(inputStream, hashedOutput)
+
+    val hash = hashedOutput.hash().asBytes()
+
+    hashedOutput.close()
+
+    val actualSize = Files.size(destinationFile.toPath)
+
+    if (actualSize != expectedSize) {
+      throw TruncatedDownload
+    }
+
+    DigestedFile(destinationFile, hash)
+  }
+
   def download(uri: URI, file: File)(implicit logMarker: LogMarker): Future[DigestedFile] = for {
     response <- wsClient.url(uri.toString).get()
 
     maybeExpectedSize = Try {
-      response.header(HeaderNames.CONTENT_LENGTH).map(_.toInt)
+      response.header(HeaderNames.CONTENT_LENGTH).map(_.toLong)
     }
   } yield maybeExpectedSize match {
     case Success(None) =>
@@ -34,23 +54,7 @@ class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends Grid
       logger.error(logMarker, s"Bad content-length header from $uri", exception)
       throw InvalidDownload
     case Success(Some(expectedSize)) =>
-      val input: java.io.InputStream = new java.io.ByteArrayInputStream(response.bodyAsBytes.toArray)
-
-      val output = new FileOutputStream(file)
-      val hashedOutput = new HashingOutputStream(digester, output)
-
-      ByteStreams.copy(input, hashedOutput)
-
-      val hash = hashedOutput.hash().asBytes()
-
-      hashedOutput.close()
-
-      val actualSize = Files.size(file.toPath)
-
-      if (actualSize != expectedSize) {
-        throw TruncatedDownload
-      }
-
-      DigestedFile(file, hash)
+      val inputStream: java.io.InputStream = new java.io.ByteArrayInputStream(response.bodyAsBytes.toArray)
+      download(inputStream, file, expectedSize)
   }
 }

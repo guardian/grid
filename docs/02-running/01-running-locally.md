@@ -59,6 +59,9 @@ If you haven't used the `--with-local-auth` flag, you'll begin a Google authenti
 
 If you have used the `--no-auth` flag you'll be signed in automatically as John Doe (with no oauth flow) and will have ALL permissions.
 
+Note that there's currently a 20MB limit per file on direct/legacy uploads to image-loader (see `client_max_body_size` in nginx mappings). Theoretically you could upload such large files directly to the S3watcher bucket with something like `aws s3 cp --endpoint http://localhost:4576 ...`.
+No such limit applies to the queue-based ingestion (see https://github.com/guardian/grid/pull/4201), which is the default for a fresh local setup.
+
 ## Cerebro
 
 To inspect the elasticsearch database, cerebro is included as part of the grids local stack.

@@ -82,6 +82,10 @@ case class ImageUploadOpsDependencies(
   tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
 )
 
+case class UploadStatusUri (uri: String) extends AnyVal {
+  def toJsObject = Json.obj("uri" -> uri)
+}
+
 object Uploader extends GridLogging {
 
   def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
@@ -373,7 +377,7 @@ class Uploader(val store: ImageLoaderStore,
 
   def storeFile(uploadRequest: UploadRequest)
                (implicit ec:ExecutionContext,
-                logMarker: LogMarker): Future[JsObject] = {
+                logMarker: LogMarker): Future[UploadStatusUri] = {
 
     logger.info(logMarker, "Storing file")
 
@@ -382,10 +386,7 @@ class Uploader(val store: ImageLoaderStore,
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
-      uri = s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}"
-    } yield {
-      Json.obj("uri" -> uri)
-    }
+    } yield UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
 
   }
 

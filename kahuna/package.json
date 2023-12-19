@@ -16,6 +16,7 @@
     "any-http-angular": "^0.1.0",
     "any-promise-angular": "^0.1.1",
     "cropperjs": "^1.5.12",
+    "filehash": "^1.0.0",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
     "jszip": "3.7.0",

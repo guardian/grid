@@ -48,6 +48,10 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
 
+  val maybeIngestSqsQueueUrl: Option[String] = stringOpt("sqs.ingest.queue.url")
+  val maybeIngestBucket: Option[String] = stringOpt("s3.ingest.bucket")
+  val maybeFailBucket: Option[String] = stringOpt("s3.fail.bucket")
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")

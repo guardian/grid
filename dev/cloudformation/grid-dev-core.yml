@@ -14,6 +14,25 @@ Resources:
       ShardCount: 1
       RetentionPeriodHours: 168
 
+  IngestSqsQueue:
+    Type: AWS::SQS::Queue  # standard queue will suffice (Fifo not worth performance penalty)
+    Properties:
+      QueueName: IngestSqsQueue
+      ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
+      VisibilityTimeout: 900 # 15 minutes - maximum time we're willing to let it process an image
+
+  IngestQueueBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: IngestSqsQueue
+    Properties:
+      NotificationConfiguration:
+        QueueConfigurations:
+        - Event: "s3:ObjectCreated:*"
+          Queue: !GetAtt IngestSqsQueue.Arn
+
+  IngestQueueFailBucket:
+    Type: AWS::S3::Bucket
+
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -158,14 +177,15 @@ Resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+  IndexedImageMetadataQueue:
+    Type: AWS::SQS::Queue
   IndexedImageTopic:
     Type: AWS::SNS::Topic
+    DependsOn: IndexedImageMetadataQueue
     Properties:
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
-  IndexedImageMetadataQueue:
-    Type: AWS::SQS::Queue
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -301,3 +321,11 @@ Outputs:
     Value: !Ref 'UploadStatusTable'
   SoftDeletedMetadataTable:
     Value: !Ref 'SoftDeletedMetadataTable'
+  IngestSqsQueueUrl:
+   Value: !Ref 'IngestSqsQueue'
+  IngestSqsQueueArn:
+   Value: !GetAtt IngestSqsQueue.Arn
+  IngestQueueBucket:
+    Value: !Ref 'IngestQueueBucket'
+  IngestQueueFailBucket:
+    Value: !Ref 'IngestQueueFailBucket'

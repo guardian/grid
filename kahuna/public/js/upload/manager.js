@@ -1,5 +1,7 @@
 import angular from 'angular';
 
+import Filehash from 'filehash/src/filehash';
+
 var upload = angular.module('kahuna.upload.manager', []);
 
 upload.factory('uploadManager',
@@ -9,15 +11,14 @@ upload.factory('uploadManager',
     var jobs = new Set();
     var completedJobs = new Set();
 
-    function createJobItem(file) {
-        var request = fileUploader.upload(file);
-        var dataUrl = $window.URL.createObjectURL(file);
 
+
+    function createJobItem(file, mediaId, preSignedUrl) {
         return {
             name: file.name,
             size: file.size,
-            dataUrl: dataUrl,
-            resourcePromise: request
+            dataUrl: $window.URL.createObjectURL(file),
+            resourcePromise: fileUploader.upload(file, mediaId, preSignedUrl)
         };
     }
     function createUriJobItem(fileUri) {
@@ -30,18 +31,39 @@ upload.factory('uploadManager',
         };
     }
 
-    function upload(files) {
-        var job = files.map(createJobItem);
-        var promises = job.map(jobItem => jobItem.resourcePromise);
+    async function createJobItems(files){
+      if (window._clientConfig.shouldUploadStraightToBucket) {
+        const mediaIdToFileMap = Object.fromEntries(
+          await Promise.all(
+            files.map(file =>
+              Filehash.hash(file, "SHA-1").then(mediaId => [mediaId, file])
+            )
+          )
+        );
 
-        jobs.add(job);
+        const preSignedPutUrls = await fileUploader.prepare(
+          Object.fromEntries(Object.entries(mediaIdToFileMap).map(([mediaId, file])=> [mediaId, file.name]))
+        );
+
+        return Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
+      }
+
+      return files.map(file => createJobItem(file));
+    }
+
+    async function upload(files) {
+
+        const jobItems = await createJobItems(files);
+        const promises = jobItems.map(jobItem => jobItem.resourcePromise);
+
+        jobs.add(jobItems);
 
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
         $q.all(promises).finally(() => {
-          completedJobs.add(job);
-          jobs.delete(job);
-          job.map(jobItem => {
+          completedJobs.add(jobItems);
+          jobs.delete(jobItems);
+          jobItems.map(jobItem => {
             $window.URL.revokeObjectURL(jobItem.dataUrl);
           });
         });
@@ -85,8 +107,31 @@ upload.factory('fileUploader',
                ['$q', 'loaderApi',
                 function($q, loaderApi) {
 
-    function upload(file) {
-      return uploadFile(file, {filename: file.name});
+    function prepare(mediaIdToFilenameMap) {
+        return loaderApi.prepare(mediaIdToFilenameMap);
+    }
+
+    async function upload(file, mediaId, preSignedUrl) {
+
+      if (!preSignedUrl){
+        return uploadFile(file, {filename: file.name});
+      }
+
+      const s3Response = await fetch(preSignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "x-amz-meta-file-name": file.name
+        }
+      });
+
+      if (s3Response.ok) {
+        await markAsQueued(mediaId).catch(err => {
+          console.error("Failed to mark as queued", err);
+        });
+        return buildUploadStatusResource(mediaId);
+      }
+      throw new Error(`Failed to upload to S3: ${s3Response.status} ${s3Response.statusText}`);
     }
 
     function uploadFile(file, uploadInfo) {
@@ -97,7 +142,20 @@ upload.factory('fileUploader',
         return loaderApi.import(fileUri);
     }
 
+    function buildUploadStatusEndpoint(mediaId) {
+      return loaderApi.getLoaderRoot().follow('uploadStatus', {id: mediaId});
+    }
+
+    function buildUploadStatusResource(mediaId) {
+      return buildUploadStatusEndpoint(mediaId);
+    }
+
+    function markAsQueued(mediaId) {
+      return buildUploadStatusEndpoint(mediaId).post({status: "QUEUED"});
+    }
+
     return {
+        prepare,
         upload,
         loadUriImage
     };

@@ -24,6 +24,9 @@ function getCommonConfig(config) {
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
+        |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
+        |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
+        |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
         |`;
 }
 
