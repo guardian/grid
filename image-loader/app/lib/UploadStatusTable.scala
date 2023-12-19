@@ -42,4 +42,16 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
         )
     )
   }
+
+  def queryByUser(user: String): Future[List[UploadStatusRecord]] = {
+    ScanamoAsync.exec(client)(uploadStatusTable.scan()).map {
+      case Nil => List.empty[UploadStatusRecord]
+      case recordsAndErrors => {
+        recordsAndErrors
+          .filter(item => item.isRight)
+          .map(item => item.getOrElse(null))
+          .filter(item => item.uploadedBy == user)
+      }
+    }
+  }
 }
