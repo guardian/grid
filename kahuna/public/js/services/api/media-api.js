@@ -98,6 +98,10 @@ mediaApi.factory('mediaApi',
         return root.follow('undelete', {id: id}).put();
     }
 
+    function syndicateImage(mediaId, partner, pending) {
+      return root.follow('syndicate-image', {id: mediaId, partnerName: partner, startPending: pending}).post();
+    }
+
     function canUserArchive() {
         return root.getLink('archive').then(() => true, () => false);
     }
@@ -113,6 +117,7 @@ mediaApi.factory('mediaApi',
         delete: delete_,
         canUserUpload,
         canUserArchive,
-        undelete
+        undelete,
+        syndicateImage
     };
 }]);

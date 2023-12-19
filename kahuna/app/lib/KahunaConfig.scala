@@ -42,6 +42,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val usageRightsSummary: Option[Boolean] = booleanOpt("usageRightsSummary")
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
+  val showSendToPhotoSales: Option[Boolean] = booleanOpt("showSendToPhotoSales")
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeIngestBucket.map { ingestBucket =>

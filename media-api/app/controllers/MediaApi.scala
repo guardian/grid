@@ -116,6 +116,7 @@ class MediaApi(
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
+      Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
@@ -368,6 +369,25 @@ class MediaApi(
     }
   }
 
+  def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request.user, image) => {
+        val apiKey = request.user.accessor
+        logger.info(s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey,
+          id, partnerName, startPending)
+
+        postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id,
+          Authentication.getIdentity(request.user), Option(partnerName), Option(startPending))
+
+        Future.successful(Ok)
+      }
+      case _ => {
+        Future.successful(ImageNotFound(id))}
+    }
+  }
+
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
     implicit val r = request
 
@@ -395,7 +415,9 @@ class MediaApi(
     }
   }
 
-  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String,
+                   partnerName: Option[String] = None, startPending: Option[String] = None) = {
+
     val baseRequest = ws.url(uri)
       .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
         HttpHeaders.ORIGIN -> config.rootUri,
@@ -403,13 +425,22 @@ class MediaApi(
 
     val request = onBehalfOfPrincipal(baseRequest)
 
-    val usagesMetadata = Map("mediaId" -> mediaId,
-      "dateAdded" -> printDateTime(DateTime.now()),
-      "downloadedBy" -> user)
-
-    logger.info(s"Making usages download request")
+    val usagesMetadata = uri match {
+      case s if s.contains("download") =>  Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "downloadedBy" -> user)
+      case s if s.contains("syndication") => Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "syndicatedBy" -> user,
+        "startPending" -> startPending.getOrElse("false"),
+        "partnerName" -> partnerName.getOrElse(
+          throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest"))
+      )
+    }
+    logger.info(s"Making usages request to $uri")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
+
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
