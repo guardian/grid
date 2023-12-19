@@ -22,11 +22,11 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
   def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 
-  def getStatus: mutable.Map[String, String] = {
+  def getStatus: Map[String, String] = {
    client.getQueueAttributes(queueUrl, List(
       "ApproximateNumberOfMessagesDelayed",
       "ApproximateNumberOfMessages",
       "ApproximateNumberOfMessagesNotVisible"
-    ).asJava).getAttributes.asScala
+    ).asJava).getAttributes.asScala.toMap
   }
 }
