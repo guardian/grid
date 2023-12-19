@@ -9,11 +9,11 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.usage.UsageBuilder
-import com.gu.mediaservice.model.usage.{MediaUsage, SyndicatedUsageStatus, Usage, UsageStatus}
+import com.gu.mediaservice.model.usage.{MediaUsage, SyndicatedUsageStatus, Usage, UsageNotice, UsageStatus}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
-import play.api.libs.json.{JsError, JsValue}
+import play.api.libs.json.{JsArray, JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
 import rx.lang.scala.Subject
@@ -278,7 +278,12 @@ class UsageApi(
           case Some(mediaUsage) =>
             val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
             usageTable.update(updatedStatusMediaUsage)
-            val updateMessage = UpdateMessage(subject = UpdateUsageStatus, id = Some(mediaId), usageId = Some(usageId))
+            val usageNotice = UsageNotice(mediaId,
+              JsArray(Seq(Json.toJson(UsageBuilder.build(updatedStatusMediaUsage)))))
+            val updateMessage = UpdateMessage(
+              subject = UpdateSingleUsage, id = Some(mediaId),
+              usageId = Some(usageId), usageNotice = Some(usageNotice)
+            )
             notifications.publish(updateMessage)
             Ok
           case None =>
