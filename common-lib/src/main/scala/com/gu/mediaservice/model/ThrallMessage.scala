@@ -76,6 +76,7 @@ object ExternalThrallMessage{
   implicit val updateImagePhotoshootMetadataMessage = Json.format[UpdateImagePhotoshootMetadataMessage]
   implicit val deleteUsagesMessage = Json.format[DeleteUsagesMessage]
   implicit val deleteSingleUsageMessage = Json.format[DeleteSingleUsageMessage]
+  implicit val updateSingleUsageMessage = Json.format[UpdateSingleUsageMessage]
   implicit val updateImageUsagesMessage = Json.format[UpdateImageUsagesMessage]
   implicit val addImageLeaseMessage = Json.format[AddImageLeaseMessage]
   implicit val removeImageLeaseMessage = Json.format[RemoveImageLeaseMessage]
