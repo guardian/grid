@@ -27,11 +27,15 @@
             </gr-usage-rights-editor>
 
             <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
-                <!--{{ctrl.usageCategory || 'None'}}-->
-                <usage-rights-summary
-                    class="usage-rights-summary"
-                    props="{'images':ctrl.selectedImages, 'categoryCallback':ctrl.callbackUsageCategory}">
-                </usage-rights-summary>
+                <dd ng-if="! ctrl.usageRightsSummary">
+                  {{ctrl.usageCategory || 'None'}}
+                </dd>
+                <dd ng-if="ctrl.usageRightsSummary">
+                    <usage-rights-summary
+                        class="usage-rights-summary"
+                        props="{'images':ctrl.selectedImages, 'categoryCallback':ctrl.callbackUsageCategory}">
+                    </usage-rights-summary>
+                </dd>
             </dd>
 
             <button

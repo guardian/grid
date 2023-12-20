@@ -96,11 +96,12 @@ function getKahunaConfig(config){
 
     const permissionsConfig = stripMargin`
         |usePermissionsFilter=true
+        |usageRightsSummary=true
         |permissionsOptions="allPermissions,usableForAll,usableForNews,bbcOwned,independent"
         |permissionsLabels="All permissions,Usable for all,Usable for News,BBC owned programmes,Independent programmes"
-        |permissionsMappings=",is:BBC-owned#-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
+        |permissionsMappings=",is:BBC-owned#-has:restrictions,category:agency,category:programmes-organisation-owned,category:programmes-independents"
         |permissionsDefault="allPermissions"
-        |permissionsQueries="is:BBC-owned,-has:restrictions,category:agency,category:programmes-bbc-owned,category:programmes-independents"
+        |permissionsPayable="none,none,false,none,none"
     `;
 
     return stripMargin`${getCommonConfig(config)}

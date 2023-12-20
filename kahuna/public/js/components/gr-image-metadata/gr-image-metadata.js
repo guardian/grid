@@ -57,6 +57,7 @@ module.controller('grImageMetadataCtrl', [
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.usageRightsSummary = window._clientConfig.usageRightsSummary;
     ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.$onInit = () => {

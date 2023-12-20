@@ -33,7 +33,7 @@ export interface PermissionsDropdownOption {
 export interface PermissionsDropdownProps {
   options: PermissionsDropdownOption[];
   selectedOption?: PermissionsDropdownOption | null;
-  onSelect: (option: PermissionsDropdownOption) => void;
+  onSelect: (option: PermissionsDropdownOption, showPayable: boolean) => void;
   onChargeable: (showChargeable: boolean) => void;
   chargeable: boolean;
   query?: string | "";
@@ -47,6 +47,7 @@ export interface PermissionsWrapperProps {
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
   const defOptVal:string = PermissionsConf.PermissionsDefaultOpt();
+  const payableDefaults = PermissionsConf.PermissionsPayable();
   const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
@@ -56,6 +57,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   const handleQueryChange = (e: any) => {
     let newQuery = e.detail.query ? (" " + e.detail.query) : "";
+    console.log("Query:" + e.detail.query);
 
     //-check chargeable-
     const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
@@ -93,7 +95,14 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   }, []);
 
   const handleOptionClick = (option: PermissionsDropdownOption) => {
-    props.onSelect(option);
+    const payableDef = payableDefaults.filter(pd => pd.opt === option.value)[0];
+    if(payableDef.payable === 'false' || payableDef.payable === 'true') {
+        const payableOn = payableDef.payable === 'false' ? false : true;
+        setIsChargeable(payableOn);
+        props.onSelect(option, payableOn);
+    } else {
+      props.onSelect(option, isChargeable);
+    }
     setSelection(option);
     setIsOpen(false);
   };

@@ -138,9 +138,10 @@ query.controller('SearchQueryCtrl', [
     }
 
     //-permissions filter-
-    function updatePermissionsChips (permissionsSel) {
+    function updatePermissionsChips (permissionsSel, showChargeable) {
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
+      ctrl.filter.nonFree = showChargeable;
       watchSearchChange(ctrl.filter);
       ctrl.permissionsCallback = true;
     }

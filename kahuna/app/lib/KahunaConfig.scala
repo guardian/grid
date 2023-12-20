@@ -41,11 +41,12 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   // interim permissions filter configuration settings
   val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
+  val usageRightsSummary: Option[Boolean] = booleanOpt("usageRightsSummary");
   val permissionsOptions: String = string("permissionsOptions")
   val permissionsLabels: String = string("permissionsLabels")
   val permissionsMappings: String = string("permissionsMappings")
   val permissionsDefault: String = string("permissionsDefault")
-  val permissionsQueries: String = string("permissionsQueries")
+  val permissionsPayable: String = string("permissionsPayable")
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 

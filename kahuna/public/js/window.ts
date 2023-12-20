@@ -11,7 +11,7 @@ declare global {
         permissionsLabels?: string | undefined;
         permissionsMappings?: string | undefined;
         permissionsDefault?: string | undefined;
-        permissionsQueries?: string | undefined;
+        permissionsPayable?: string | undefined;
       }
     }
   }

@@ -20,12 +20,35 @@ export function PermissionsDefaultOpt():string{
 }
 
 export function PermissionsQueries():string[]  {
-  if(window._clientConfig.permissionsQueries) {
-    return window._clientConfig.permissionsQueries.split(",").map(chip => ' ' + chip);
+  if(window._clientConfig.permissionsMappings) {
+    return window._clientConfig.permissionsMappings.split(",").flatMap(chips => chips.split("#"));
   } else {
       return [
           CHARGEABLE_QUERY
       ];
+  }
+}
+
+export function PermissionsPayable():{opt:string, payable:string}[] {
+  if(window._clientConfig.permissionsOptions && window._clientConfig.permissionsPayable) {
+    let mappings: {opt:string, payable:string}[] = [];
+    let pOpts = window._clientConfig.permissionsOptions.split(",");
+    let pPay = window._clientConfig.permissionsPayable.split(",");
+    for(let i=0; i < pOpts.length; i++ ) {
+      let p: string = pPay[i];
+      let pOpt = {
+        opt: pOpts[i],
+        payable: p
+      };
+      mappings.push(pOpt);
+    }
+    return mappings;
+  } else {
+    const pPayable: { opt: string, payable: string }[] = [
+      {opt: CHARGEABLE_OPT, payable: 'none'},
+      {opt: ALL_PERMISSIONS_OPT, payable: 'none'}
+    ]
+    return pPayable;
   }
 }
 
