@@ -4,7 +4,6 @@ import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.amazonaws.HttpMethod
 import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest}
-import com.gu.mediaservice.lib.ImageStorageProps
 
 import java.time.ZonedDateTime
 import java.util.Date
@@ -13,7 +12,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
 
   def getS3Object(key: String) = client.getObject(config.maybeIngestBucket.get, key)
 
-  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, originalFilename: String): String = {
+  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {
     val request = new GeneratePresignedUrlRequest(
       config.maybeIngestBucket.get, // bucket
       s"$uploadedBy/$filename", // key
@@ -22,7 +21,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
       .withExpiration(Date.from(expiration.toInstant));
 
     // sent by the client in manager.js
-    request.putCustomRequestHeader(s"x-amz-meta-${ImageStorageProps.filenameMetadataKey}", originalFilename)
+    request.putCustomRequestHeader("x-amz-meta-media-id", mediaId)
 
     client.generatePresignedUrl(request).toString
   }
