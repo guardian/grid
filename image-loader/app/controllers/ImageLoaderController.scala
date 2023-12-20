@@ -179,19 +179,19 @@ class ImageLoaderController(auth: Authentication,
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
     val expiration = DateTimeUtils.now().plusHours(1)
 
-    val mediaIdToOriginalFilenameMap = request.body.asJson.get.as[Map[String, String]]
+    val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
 
     val uploadedBy = Authentication.getIdentity(request.user)
 
     Future.sequence(
 
-      mediaIdToOriginalFilenameMap.map{case (mediaId, originalFilename) =>
+      mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename = mediaId, expiration, uploadedBy, originalFilename)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
 
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
-          fileName = Some(originalFilename),
+          fileName = Some(filename),
           uploadedBy,
           uploadTime = DateTimeUtils.toString(DateTimeUtils.now()),
           identifiers = None,
