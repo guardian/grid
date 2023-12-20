@@ -42,7 +42,7 @@ upload.factory('uploadManager',
         );
 
         const preSignedPutUrls = await fileUploader.prepare(
-          Object.fromEntries(Object.entries(mediaIdToFileMap).map(([mediaId, file])=> [mediaId, file.name]))
+          Object.fromEntries(Object.entries(mediaIdToFileMap).map(([mediaId, file])=> [mediaId, encodeURI(file.name)]))
         );
 
         return Object.entries(mediaIdToFileMap).map(([mediaId, file]) => createJobItem(file, mediaId, preSignedPutUrls[mediaId]));
@@ -121,7 +121,7 @@ upload.factory('fileUploader',
         method: "PUT",
         body: file,
         headers: {
-          "x-amz-meta-file-name": file.name
+          "x-amz-meta-file-name": encodeURIComponent(file.name)
         }
       });
 

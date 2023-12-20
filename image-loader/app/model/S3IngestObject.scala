@@ -5,6 +5,8 @@ import lib.storage.ImageLoaderStore
 
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 
+import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
+
 case class S3IngestObject (
   key: String,
   uploadedBy: String,
@@ -28,7 +30,8 @@ object S3IngestObject {
     val filenameInS3: String = keyParts.last
     val s3Object = store.getS3Object(key)
     val metadata = s3Object.getObjectMetadata
-    val maybeFilenameFromMetadata = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey) // set on the upload metadata by the client when uploading to ingest bucket
+    // set on the upload metadata by the client when uploading to ingest bucket
+    val maybeFilenameFromMetadata = metadata.getUserMetadata.asScala.get(ImageStorageProps.filenameMetadataKey).map(uriDecode)
 
 
     S3IngestObject(
