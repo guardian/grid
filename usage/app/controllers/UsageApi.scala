@@ -257,7 +257,6 @@ class UsageApi(
   }}
 
   def updateUsageStatus(mediaId: String, usageId: String) = auth(parse.json) {req => {
-    println(s"mediaid is: $mediaId, usageid is: $usageId")
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
       e => respondError(

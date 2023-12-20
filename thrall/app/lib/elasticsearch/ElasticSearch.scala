@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
+import play.api.libs.json.JsValue.jsValueToJsLookup
 import play.api.libs.json._
 
 import scala.annotation.nowarn
@@ -505,6 +506,26 @@ class ElasticSearch(
 
   def updateSingleUsage(id: String, usageId: String, usageNotice: UsageNotice, lastModified: DateTime)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+
+    val updateSingleUsageScript = s"""
+         |ctx._source.usages.stream().filter(usage ->
+         |usage.id == params.usageParameter.usageId).forEach(usage ->
+         |{ usage.status = params.usageParameter.status;})
+         |""".stripMargin // need to update the script for all values not just status
+
+    val usagesParameter = usageNotice.usageJson.value.flatMap(jsValue => asNestedMap(jsValue)).toMap //should be an option/have .orNull like metadata/syndication update?
+    // how will 'prepareUpdaterequest' take two params in usageId and usagesParameters?
+    println(s"Usage parameters are: $usagesParameter")
+
+    val scriptSource = loadUpdatingModificationPainless(updateSingleUsageScript)
+
+    List(migrationAwareUpdater(
+      requestFromIndexName = indexName =>
+        prepareUpdateRequest(indexName, id, scriptSource, lastModified, (("usageRights", usagesParameter))),
+      logMessageFromIndexName = indexName =>
+        s"ES6 updating usagesRights on image $id and usages id ${usagesParameter.get("usageId")} " +
+          s"in index $indexName with usage $usagesParameter"
+    ).map(_ => ElasticSearchUpdateResponse()))
 
   }
 
