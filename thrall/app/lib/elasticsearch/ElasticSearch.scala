@@ -509,8 +509,8 @@ class ElasticSearch(
 
     val updateSingleUsageScript = s"""
          |ctx._source.usages.stream().filter(usage ->
-         |usage.id == params.usageParameter.usageId).forEach(usage ->
-         |{ usage.status = params.usageParameter.status;})
+         |usage.id == params.usagesParameter.usageId).forEach(usage ->
+         |{ usage.status = params.usagesParameter.status;})
          |""".stripMargin // need to update the script for all values not just status
 
     val usagesParameter = usageNotice.usageJson.value.flatMap(jsValue => asNestedMap(jsValue)).toMap //should be an option/have .orNull like metadata/syndication update?
