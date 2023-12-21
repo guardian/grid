@@ -4,6 +4,7 @@ import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -22,7 +23,7 @@ import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
-import lib.storage.ImageLoaderStore
+import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
@@ -68,6 +69,9 @@ class ImageLoaderController(auth: Authentication,
               "requestId" -> sqsMessage.getMessageId,
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
+              .recover {
+                case _: S3FileDoesNotExistException => ()
+              }
               .map { _ =>
                 logger.debug(logMarker, "Deleting message")
                 ingestQueue.deleteMessage(sqsMessage)

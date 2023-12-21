@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.lib.logging.LogMarker
 import lib.storage.ImageLoaderStore
 
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
@@ -16,7 +17,7 @@ case class S3IngestObject (
 
 object S3IngestObject {
 
-  def apply (key: String, store: ImageLoaderStore): S3IngestObject  = {
+  def apply (key: String, store: ImageLoaderStore)(implicit logMarker: LogMarker): S3IngestObject  = {
 
     val keyParts = key.split("/")
 
