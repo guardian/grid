@@ -3,6 +3,7 @@ package controllers
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
@@ -129,10 +130,12 @@ class ImageLoaderController(auth: Authentication,
           "filename" -> s3IngestObject.filename,
           "isUiUpload" -> s3IngestObject.maybeMediaIdFromUiUpload.isDefined,
         )
+        val metricDimensions = List(new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy))
+
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if (approximateReceiveCount > 2) {
-          metrics.abandonedMessagesFromQueue.increment().run
+          metrics.abandonedMessagesFromQueue.increment(metricDimensions).run
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
@@ -144,11 +147,11 @@ class ImageLoaderController(auth: Authentication,
           Future.unit
         } else {
           attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
-            metrics.successfulIngestsFromQueue.increment().run
+            metrics.successfulIngestsFromQueue.increment(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover { case t: Throwable =>
-            metrics.failedIngestsFromQueue.increment().run
+            metrics.failedIngestsFromQueue.increment(metricDimensions).run
             logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
             store.moveObjectToFailedBucket(s3IngestObject.key)
           }
