@@ -136,7 +136,7 @@ upload.factory('fileUploader',
         method: "PUT",
         body: file,
         headers: {
-          "x-amz-meta-file-name": file.name
+          "x-amz-meta-media-id": mediaId
         }
       });
 

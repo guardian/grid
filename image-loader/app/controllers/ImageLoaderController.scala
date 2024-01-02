@@ -4,6 +4,7 @@ import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -22,7 +23,7 @@ import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
-import lib.storage.ImageLoaderStore
+import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
@@ -68,8 +69,11 @@ class ImageLoaderController(auth: Authentication,
               "requestId" -> sqsMessage.getMessageId,
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
+              .recover {
+                case _: S3FileDoesNotExistException => ()
+              }
               .map { _ =>
-                logger.debug(logMarker, "Deleting message")
+                logger.info(logMarker, "Deleting message")
                 ingestQueue.deleteMessage(sqsMessage)
               }
               .recover {
@@ -105,7 +109,7 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit basicLogMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
+  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(basicLogMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
 
     logger.info(basicLogMarker, sqsMessage.toString)
 
@@ -114,8 +118,8 @@ class ImageLoaderController(auth: Authentication,
         logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
-        val s3IngestObject = S3IngestObject(key, store)
-        val logMarker = basicLogMarker ++ Map(
+        val s3IngestObject = S3IngestObject(key, store)(basicLogMarker)
+        implicit val logMarker: LogMarker = basicLogMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
           "uploadedTime" -> s3IngestObject.uploadTime,
           "contentLength" -> s3IngestObject.contentLength,
@@ -180,19 +184,19 @@ class ImageLoaderController(auth: Authentication,
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
     val expiration = DateTimeUtils.now().plusHours(1)
 
-    val mediaIdToOriginalFilenameMap = request.body.asJson.get.as[Map[String, String]]
+    val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
 
     val uploadedBy = Authentication.getIdentity(request.user)
 
     Future.sequence(
 
-      mediaIdToOriginalFilenameMap.map{case (mediaId, originalFilename) =>
+      mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename = mediaId, expiration, uploadedBy, originalFilename)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
 
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
-          fileName = Some(originalFilename),
+          fileName = Some(filename),
           uploadedBy,
           uploadTime = DateTimeUtils.toString(DateTimeUtils.now()),
           identifiers = None,
