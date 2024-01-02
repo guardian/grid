@@ -73,7 +73,7 @@ class ImageLoaderController(auth: Authentication,
                 case _: S3FileDoesNotExistException => ()
               }
               .map { _ =>
-                logger.debug(logMarker, "Deleting message")
+                logger.info(logMarker, "Deleting message")
                 ingestQueue.deleteMessage(sqsMessage)
               }
               .recover {
@@ -108,7 +108,7 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(implicit basicLogMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
+  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(basicLogMarker: LogMarker): Future[Unit] = Future[Future[Unit]]{
 
     logger.info(basicLogMarker, sqsMessage.toString)
 
@@ -117,8 +117,8 @@ class ImageLoaderController(auth: Authentication,
         logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
-        val s3IngestObject = S3IngestObject(key, store)
-        val logMarker = basicLogMarker ++ Map(
+        val s3IngestObject = S3IngestObject(key, store)(basicLogMarker)
+        implicit val logMarker: LogMarker = basicLogMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
           "uploadedTime" -> s3IngestObject.uploadTime,
           "contentLength" -> s3IngestObject.contentLength,
