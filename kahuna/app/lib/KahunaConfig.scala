@@ -76,6 +76,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val imagePreviewFlagLeaseAttachedCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.leaseAttachedCopy")
     .getOrElse("Not configured")
 
-  val shouldUploadStraightToBucket: Boolean = false // maybeIngestBucket.isDefined TODO reinstate after xmas break 2023
+  val shouldUploadStraightToBucket: Boolean = maybeIngestBucket.isDefined
 }
 
