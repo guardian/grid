@@ -51,7 +51,8 @@ class ImageLoaderController(auth: Authentication,
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
-                            authorisation: Authorisation)
+                            authorisation: Authorisation,
+                            metrics: ImageLoaderMetrics)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
 
@@ -77,7 +78,9 @@ class ImageLoaderController(auth: Authentication,
                 ingestQueue.deleteMessage(sqsMessage)
               }
               .recover {
-                case t: Throwable => logger.error(logMarker, s"Failed to process message", t)
+                case t: Throwable =>
+                  metrics.failedIngestsFromQueue.increment().run
+                  logger.error(logMarker, s"Failed to process message", t)
               }
         }
       })
@@ -114,6 +117,7 @@ class ImageLoaderController(auth: Authentication,
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
       case Failure(exception) =>
+        metrics.failedIngestsFromQueue.increment().run
         logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
@@ -128,6 +132,7 @@ class ImageLoaderController(auth: Authentication,
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if (approximateReceiveCount > 2) {
+          metrics.abandonedMessagesFromQueue.increment().run
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
@@ -139,9 +144,11 @@ class ImageLoaderController(auth: Authentication,
           Future.unit
         } else {
           attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
+            metrics.successfulIngestsFromQueue.increment().run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover { case t: Throwable =>
+            metrics.failedIngestsFromQueue.increment().run
             logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
             store.moveObjectToFailedBucket(s3IngestObject.key)
           }
