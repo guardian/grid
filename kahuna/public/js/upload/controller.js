@@ -39,17 +39,6 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
     // TODO: Show multiple jobs?
     ctrl.latestJob = uploadManager.getLatestRunningJob();
 
-    ctrl.getUploadsNotCompleted = () => {
-      const data = uploadManager.getUploadsInProgress();
-      const list = data.map(upload => {
-        const time = new Date(upload.uploadTime).valueOf();
-        return {
-         name: upload.fileName, status: upload.status, time
-        };
-      });
-      return JSON.stringify(list);
-    };
-
     ctrl.displayWarning = (e) => {
       if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
         if (confirm("You have uploads in progress. Are you sure you want to leave this page?") === false) {

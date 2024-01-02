@@ -10,7 +10,8 @@ upload.factory('uploadManager',
 
     var jobs = new Set();
     var completedJobs = new Set();
-    var uploadsInProgress = [];
+
+
 
     function createJobItem(file, mediaId, preSignedUrl) {
         return {
@@ -92,28 +93,12 @@ upload.factory('uploadManager',
         return completedJobs;
     }
 
-   async function fetchUploadsNotCompleted() {
-      const resource = await fileUploader.getUploadsByCurrentUser();
-      const uploadsNotCompleted = resource.data.filter(upload => upload.status !== 'COMPLETED');
-      uploadsInProgress = uploadsNotCompleted;
-      return uploadsNotCompleted;
-    }
-
-    // TO DO - call only when needed, not all the time
-    window.setInterval(fetchUploadsNotCompleted, 500);
-
-    function getUploadsInProgress (){
-      return uploadsInProgress;
-    }
-
     return {
         upload,
         uploadUri,
         getLatestRunningJob,
         getJobs,
-        getCompletedJobs,
-        fetchUploadsNotCompleted,
-        getUploadsInProgress
+        getCompletedJobs
     };
 }]);
 
@@ -169,14 +154,9 @@ upload.factory('fileUploader',
       return buildUploadStatusEndpoint(mediaId).post({status: "QUEUED"});
     }
 
-    function getUploadsByCurrentUser() {
-      return loaderApi.getUploadsByCurrentUser();
-    }
-
     return {
         prepare,
         upload,
-        loadUriImage,
-        getUploadsByCurrentUser
+        loadUriImage
     };
 }]);
