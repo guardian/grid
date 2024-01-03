@@ -12,7 +12,8 @@ case class S3IngestObject (
   maybeMediaIdFromUiUpload: Option[String],
   uploadTime: java.util.Date,
   contentLength: Long,
-  getInputStream: () => java.io.InputStream
+  getInputStream: () => java.io.InputStream,
+  isUiUpload: Boolean,
 )
 
 object S3IngestObject {
@@ -31,7 +32,8 @@ object S3IngestObject {
       maybeMediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id"), // set by the client in upload in manager.js
       uploadTime = metadata.getLastModified,
       contentLength = metadata.getContentLength,
-      getInputStream = () => s3Object.getObjectContent
+      getInputStream = () => s3Object.getObjectContent,
+      isUiUpload = metadata.getUserMetadata.asScala.contains("media-id")
     )
   }
 }

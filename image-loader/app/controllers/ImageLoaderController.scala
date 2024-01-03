@@ -129,7 +129,7 @@ class ImageLoaderController(auth: Authentication,
           "uploadedTime" -> s3IngestObject.uploadTime,
           "contentLength" -> s3IngestObject.contentLength,
           "filename" -> s3IngestObject.filename,
-          "isUiUpload" -> s3IngestObject.maybeMediaIdFromUiUpload.isDefined,
+          "isUiUpload" -> s3IngestObject.isUiUpload,
         )
         val metricDimensions = List(new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy))
 
@@ -187,7 +187,7 @@ class ImageLoaderController(auth: Authentication,
       Try { deleteTempFile(tempFile) }
     }
 
-    if (s3IngestObject.maybeMediaIdFromUiUpload.isDefined) {
+    if (s3IngestObject.isUiUpload) {
       handleUploadCompletionAndUpdateUploadStatusTable(uploadAttempt, digestedFile)
         .map(_ => digestedFile)
     } else {
