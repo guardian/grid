@@ -153,7 +153,7 @@ class ImageLoaderController(auth: Authentication,
           }
           Future.unit
         } else {
-          attemptToProcessIngestedFile(s3IngestObject)(logMarker) map { digestedFile =>
+          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
@@ -166,7 +166,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject)(initialLogMarker:LogMarker): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker): Future[DigestedFile] = {
 
     logger.info(initialLogMarker, "Attempting to process file")
     val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
@@ -193,8 +193,11 @@ class ImageLoaderController(auth: Authentication,
       Try { deleteTempFile(tempFile) }
     }
 
-    handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
-      .map(_ => digestedFile)
+    if(isUiUpload) {
+      updateUploadStatusTable(futureUploadStatusUri, digestedFile).map(_ => digestedFile)
+    } else {
+      futureUploadStatusUri.map(_ => digestedFile)
+    }
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
@@ -436,9 +439,9 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  private def handleUploadCompletionAndUpdateUploadStatusTable (
+  private def updateUploadStatusTable (
     uploadAttempt: Future[UploadStatusUri],
-    digestedFile: DigestedFile,
+    digestedFile: DigestedFile
   )(implicit logMarker:LogMarker): Future[Unit] = {
 
     def reportFailure (error:Throwable): Unit = {
