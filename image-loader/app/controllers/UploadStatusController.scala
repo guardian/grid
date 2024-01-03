@@ -52,8 +52,8 @@ class UploadStatusController(auth: Authentication,
           }
     }
   }
-  def getUploadsBy(maybeUser: Option[String]) = auth.async { request =>
-    store.queryByUser(maybeUser.getOrElse(request.identity)).map(list => {
+  def getUploadsBy(maybeUser: Option[String]): Action[AnyContent] = auth.async { req =>
+    store.queryByUser(maybeUser.getOrElse(Authentication.getIdentity(req.user))).map(list => {
 
       respond(list)
 
