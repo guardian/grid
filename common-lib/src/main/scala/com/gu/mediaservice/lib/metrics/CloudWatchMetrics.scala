@@ -50,6 +50,12 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
 
     def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Task[Unit] = recordOne(n, dimensions)
 
+    // CloudWatch cannot aggregate metric counts with dimensions, so we must record separately
+    def incrementBothWithAndWithoutDimensions(dimensions: List[Dimension], n: Long = 1): Task[Unit] = recordMany(List(
+      n -> dimensions,
+      n -> Nil // useful for total count
+    ))
+
   }
 
   class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
@@ -111,6 +117,10 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
 
     final def recordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Task[Unit] =
       emitAll(as map (a => toDatum(a, dimensions).withTimestamp(new java.util.Date)))
+        .toSource.to(topic.publish).run
+
+    final def recordMany(as: Seq[(A, List[Dimension])]): Task[Unit] =
+      emitAll(as map { case (a, dimensions) => toDatum(a, dimensions).withTimestamp(new java.util.Date) })
         .toSource.to(topic.publish).run
 
     final def runRecordOne(a: A, dimensions: List[Dimension] = Nil): Unit =

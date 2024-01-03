@@ -124,19 +124,25 @@ class ImageLoaderController(auth: Authentication,
         Future.unit
       case Success(key) =>
         val s3IngestObject = S3IngestObject(key, store)(basicLogMarker)
+
+        val isUiUpload = s3IngestObject.maybeMediaIdFromUiUpload.isDefined
+
         implicit val logMarker: LogMarker = basicLogMarker ++ Map(
           "uploadedBy" -> s3IngestObject.uploadedBy,
           "uploadedTime" -> s3IngestObject.uploadTime,
           "contentLength" -> s3IngestObject.contentLength,
           "filename" -> s3IngestObject.filename,
-          "isUiUpload" -> s3IngestObject.maybeMediaIdFromUiUpload.isDefined,
+          "isUiUpload" -> isUiUpload,
         )
-        val metricDimensions = List(new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy))
+        val metricDimensions = List(
+          new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy),
+          new Dimension().withName("IsUiUpload").withValue(isUiUpload.toString),
+        )
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if (approximateReceiveCount > 2) {
-          metrics.abandonedMessagesFromQueue.increment(metricDimensions).run
+          metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
@@ -148,11 +154,11 @@ class ImageLoaderController(auth: Authentication,
           Future.unit
         } else {
           attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
-            metrics.successfulIngestsFromQueue.increment(metricDimensions).run
+            metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover { case t: Throwable =>
-            metrics.failedIngestsFromQueue.increment(metricDimensions).run
+            metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
             store.moveObjectToFailedBucket(s3IngestObject.key)
           }
