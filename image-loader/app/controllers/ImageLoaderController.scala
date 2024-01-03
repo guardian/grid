@@ -174,7 +174,7 @@ class ImageLoaderController(auth: Authentication,
       "SHA-1" -> digestedFile.digest
     )
 
-    val futureUploadStatusUri = uploadDigestedFileToStore(
+    val uploadAttempt = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
         uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
@@ -183,12 +183,17 @@ class ImageLoaderController(auth: Authentication,
     )
 
     // under all circumstances, remove the temp files
-    futureUploadStatusUri.onComplete { _ =>
+    uploadAttempt.onComplete { _ =>
       Try { deleteTempFile(tempFile) }
     }
 
-    handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
-      .map(_ => digestedFile)
+    if (s3IngestObject.maybeMediaIdFromUiUpload.isDefined) {
+      handleUploadCompletionAndUpdateUploadStatusTable(uploadAttempt, digestedFile)
+        .map(_ => digestedFile)
+    } else {
+      uploadAttempt
+        .map(_ => digestedFile)
+    }
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
