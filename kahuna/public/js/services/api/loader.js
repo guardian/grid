@@ -21,7 +21,7 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
     }
 
    async function getUploadsByCurrentUser() {
-      return getLoaderRoot().follow('uploadsBy').get();
+      return getLoaderRoot().follow('uploadStatuses').get();
     }
 
     function load(imageData, uploadInfo) {
