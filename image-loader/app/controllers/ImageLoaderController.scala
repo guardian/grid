@@ -98,7 +98,7 @@ class ImageLoaderController(auth: Authentication,
       Link("uploadStatus", s"${config.rootUri}/uploadStatus/{id}"),
       Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}"),
-      Link("uploadsBy", s"${config.rootUri}/uploadsBy/{userId}")
+      Link("uploadsBy", s"${config.rootUri}/uploadsBy/")
     )
     respond(indexData, indexLinks)
   }

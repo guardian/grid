@@ -20,13 +20,8 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         return getLoaderRoot().follow('prepare').post(mediaIdToFilenameMap);
     }
 
-    function getUploadsBy(userId) {
-      return getLoaderRoot().follow('uploadsBy', {userId}).get();
-    }
-
    async function getUploadsByCurrentUser() {
-      const session = await mediaApi.getSession();
-      return getLoaderRoot().follow('uploadsBy', {userId:session.user.email}).get();
+      return getLoaderRoot().follow('uploadsBy').get();
     }
 
     function load(imageData, uploadInfo) {
@@ -51,7 +46,6 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
         getLoaderRoot,
         prepare,
         load,
-        getUploadsBy,
         getUploadsByCurrentUser,
         import: import_
     };
