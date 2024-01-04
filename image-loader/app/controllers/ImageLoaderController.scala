@@ -156,11 +156,20 @@ class ImageLoaderController(auth: Authentication,
           attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
+            println(s"THE FILE WAS FINE")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
-          } recover { case t: Throwable =>
-            metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
-            logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
-            store.moveObjectToFailedBucket(s3IngestObject.key)
+          } recover {
+            case unsupportedMimeTypeException: UnsupportedMimeTypeException =>
+              println(s"THE FILE WAS A ${unsupportedMimeTypeException.mimeType}")
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              logger.info(logMarker, s"File has unsupported mime type(${unsupportedMimeTypeException.mimeType}). Moving to fail bucket.")
+              store.moveObjectToFailedBucket(s3IngestObject.key)
+            case t: Throwable =>
+              println(s"THE FILE CAUSED SOME PROBLEM")
+              println(t)
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+              store.moveObjectToFailedBucket(s3IngestObject.key)
           }
         }
     }
@@ -447,7 +456,6 @@ class ImageLoaderController(auth: Authentication,
     def reportFailure (error:Throwable): Unit = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
       logger.error(logMarker, errorMessage, error)
-      Future.failed(new Exception(errorMessage))
     }
     def reportScanamoError (error:ScanamoError): Unit = {
       val errorMessage = error match {
@@ -455,37 +463,36 @@ class ImageLoaderController(auth: Authentication,
         case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
       }
       logger.error(logMarker, errorMessage)
-      Future.failed(new Exception(errorMessage))
     }
 
-    uploadAttempt
+    def updateStatusAndLogIfFails(imageId:String, status: UploadStatus):Future[Unit] = {
+      uploadStatusTable.updateStatus(imageId, status)
+        .recover {
+          case error => reportFailure(error)
+        }
+        .map {
+          case Left(error: ScanamoError) => reportScanamoError(error)
+          case Right => ()
+        }
+    }
+
+   uploadAttempt
       .recover {
         case uploadFailure =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          updateStatusAndLogIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadFailure
-            }
+          println("uploadFailure")
+          println(uploadFailure)
+          throw uploadFailure
       }
-      .map {
+      .flatMap {
         case uploadStatusUri:UploadStatusUri =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          updateStatusAndLogIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadStatusUri
-            }
       }
   }
 
