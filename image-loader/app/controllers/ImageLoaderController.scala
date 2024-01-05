@@ -448,48 +448,40 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
+  private def attemptUpdateStatusAndLogErrorIfFails(imageId: String, status: UploadStatus)(implicit logMarker:LogMarker): Future[Unit] = {
+    uploadStatusTable.updateStatus(imageId, status)
+      .map {
+        case Left (_: ConditionNotMet) => {
+          logger.error(logMarker, s"ConditionNotMet error occurred while updating image upload status, image-id:${imageId}")
+        }
+        case Left(_: ScanamoError) => {
+          logger.error(logMarker, "an error occurred while updating image upload status, image-id:${imageId}")
+        }
+        case Right(_) => ()
+      }
+      .recover {
+        case error =>
+          logger.error(logMarker, s"an error occurred while updating image upload status, image-id:${imageId}", error)
+      }
+  }
+
   private def updateUploadStatusTable (
     uploadAttempt: Future[UploadStatusUri],
     digestedFile: DigestedFile
   )(implicit logMarker:LogMarker): Future[Unit] = {
 
-    def reportFailure (error:Throwable): Unit = {
-      val errorMessage = s"an error occurred while updating image upload status, error:$error"
-      logger.error(logMarker, errorMessage, error)
-    }
-    def reportScanamoError (error:ScanamoError): Unit = {
-      val errorMessage = error match {
-        case ConditionNotMet(_) => s"ConditionNotMet error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
-        case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
-      }
-      logger.error(logMarker, errorMessage)
-    }
-
-    def updateStatusAndLogIfFails(imageId:String, status: UploadStatus):Future[Unit] = {
-      uploadStatusTable.updateStatus(imageId, status)
-        .recover {
-          case error => reportFailure(error)
-        }
-        .map {
-          case Left(error: ScanamoError) => reportScanamoError(error)
-          case Right => ()
-        }
-    }
-
    uploadAttempt
       .recover {
         case uploadFailure =>
-          updateStatusAndLogIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          attemptUpdateStatusAndLogErrorIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
-          println("uploadFailure")
-          println(uploadFailure)
           throw uploadFailure
       }
       .flatMap {
         case uploadStatusUri:UploadStatusUri =>
-          updateStatusAndLogIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+          attemptUpdateStatusAndLogErrorIfFails(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
           )
