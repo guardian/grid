@@ -9,4 +9,6 @@ class ImageLoaderMetrics(config: ImageLoaderConfig) extends CloudWatchMetrics (n
   val failedIngestsFromQueue = new CountMetric("FailedIngestsFromQueue")
 
   val abandonedMessagesFromQueue = new CountMetric("AbandonedMessagesFromQueue")
+
+  val invalidMimeTypeUploaded = new CountMetric("invalidMimeTypeUploaded")
 }

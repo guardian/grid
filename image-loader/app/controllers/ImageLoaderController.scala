@@ -156,17 +156,18 @@ class ImageLoaderController(auth: Authentication,
           attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
-            println(s"THE FILE WAS FINE")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover {
             case unsupportedMimeTypeException: UnsupportedMimeTypeException =>
               println(s"THE FILE WAS A ${unsupportedMimeTypeException.mimeType}")
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              metrics.invalidMimeTypeUploaded.increment(List(
+                new Dimension().withName("MimeType").withValue(unsupportedMimeTypeException.mimeType),
+                new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy)
+              ))
               logger.info(logMarker, s"File has unsupported mime type(${unsupportedMimeTypeException.mimeType}). Moving to fail bucket.")
               store.moveObjectToFailedBucket(s3IngestObject.key)
             case t: Throwable =>
-              println(s"THE FILE CAUSED SOME PROBLEM")
-              println(t)
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
               logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
               store.moveObjectToFailedBucket(s3IngestObject.key)
