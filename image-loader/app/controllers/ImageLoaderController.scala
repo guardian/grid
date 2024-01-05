@@ -159,7 +159,6 @@ class ImageLoaderController(auth: Authentication,
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover {
             case unsupportedMimeTypeException: UnsupportedMimeTypeException =>
-              println(s"THE FILE WAS A ${unsupportedMimeTypeException.mimeType}")
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
               metrics.invalidMimeTypeUploaded.increment(List(
                 new Dimension().withName("MimeType").withValue(unsupportedMimeTypeException.mimeType),
