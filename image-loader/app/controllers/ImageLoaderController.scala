@@ -133,7 +133,7 @@ class ImageLoaderController(auth: Authentication,
           "contentLength" -> s3IngestObject.contentLength,
           "filename" -> s3IngestObject.filename,
           "isUiUpload" -> isUiUpload,
-        )
+        ) ++ s3IngestObject.maybeMediaIdFromUiUpload.map("mediaId" -> _).toMap
         val metricDimensions = List(
           new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy),
           new Dimension().withName("IsUiUpload").withValue(isUiUpload.toString),
@@ -153,7 +153,7 @@ class ImageLoaderController(auth: Authentication,
           }
           Future.unit
         } else {
-          attemptToProcessIngestedFile(s3IngestObject) map { digestedFile =>
+          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
@@ -166,18 +166,18 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject)(implicit logMarker:LogMarker): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker): Future[DigestedFile] = {
 
-    logger.info(logMarker, "Attempting to process file")
-    val tempFile = createTempFile("s3IngestBucketFile")
+    logger.info(initialLogMarker, "Attempting to process file")
+    val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
 
     val digestedFile = downloader.download(
       inputStream = s3IngestObject.getInputStream(),
       tempFile,
       expectedSize = s3IngestObject.contentLength
     )
-    logMarker ++ Map(
-      "SHA-1" -> digestedFile.digest
+    implicit val logMarker = initialLogMarker ++ Map(
+      "mediaId" -> digestedFile.digest
     )
 
     val futureUploadStatusUri = uploadDigestedFileToStore(
@@ -193,8 +193,11 @@ class ImageLoaderController(auth: Authentication,
       Try { deleteTempFile(tempFile) }
     }
 
-    handleUploadCompletionAndUpdateUploadStatusTable(futureUploadStatusUri, digestedFile)
-      .map(_ => digestedFile)
+    if(isUiUpload) {
+      updateUploadStatusTable(futureUploadStatusUri, digestedFile).map(_ => digestedFile)
+    } else {
+      futureUploadStatusUri.map(_ => digestedFile)
+    }
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
@@ -436,19 +439,21 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  private def handleUploadCompletionAndUpdateUploadStatusTable (
+  private def updateUploadStatusTable (
     uploadAttempt: Future[UploadStatusUri],
-    digestedFile: DigestedFile,
+    digestedFile: DigestedFile
   )(implicit logMarker:LogMarker): Future[Unit] = {
 
     def reportFailure (error:Throwable): Unit = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
-      logger.error(logMarker, errorMessage)
+      logger.error(logMarker, errorMessage, error)
       Future.failed(new Exception(errorMessage))
     }
     def reportScanamoError (error:ScanamoError): Unit = {
-      var errorMessage = s"an error occurred while updating image upload status, error:$error"
-      if (error.isInstanceOf[ConditionNotMet]) errorMessage = s"a ConditionNotMet error occurred while updating image upload status, error:$error"
+      val errorMessage = error match {
+        case ConditionNotMet(_) => s"ConditionNotMet error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
+        case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
+      }
       logger.error(logMarker, errorMessage)
       Future.failed(new Exception(errorMessage))
     }
