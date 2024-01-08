@@ -28,7 +28,7 @@ export function permissionsDefaultOpt():string{
 
 export function permissionsQueries():string[]  {
   if (window._clientConfig.permissionsOptions) {
-    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
     return pOpts.map(c => c.mapping);
   } else {
       return [
@@ -39,7 +39,7 @@ export function permissionsQueries():string[]  {
 
 export function permissionsPayable():{opt:string, payable:string}[] {
   if (window._clientConfig.permissionsOptions) {
-    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
     return pOpts.map(c => { return {opt: c.id, payable: c.payable};});
   } else {
     const pPayable: { opt: string, payable: string }[] = [
@@ -53,7 +53,7 @@ export function permissionsPayable():{opt:string, payable:string}[] {
 //-options and labels-
 export function permissionsOptions():{label:string, value:string}[] {
    if (window._clientConfig.permissionsOptions) {
-     let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+     const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
      return pOpts.map(c => {
        return {
          label: c.label,
@@ -71,7 +71,7 @@ export function permissionsOptions():{label:string, value:string}[] {
 
 export function permissionsMappings():{opt:string, query:string[]}[] {
   if (window._clientConfig.permissionsOptions) {
-    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
     return pOpts.map(c => {
       return  {
         opt: c.id,
