@@ -3,6 +3,8 @@ package lib
 import com.gu.mediaservice.lib.auth.Permissions.Pinboard
 import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import play.api.libs.json._
+
 
 case class ScriptToLoad(
   host: String,
@@ -11,6 +13,16 @@ case class ScriptToLoad(
   permission: Option[SimplePermission],
   shouldLoadWhenIFramed: Option[Boolean]
 )
+
+case class PermissionOption(
+   id: String,
+   label: String,
+   mapping: String,
+   payable: String
+)
+object PermissionOption {
+  implicit val writes: Writes[PermissionOption] = Json.writes[PermissionOption]
+}
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val rootUri: String = services.kahunaBaseUri
@@ -42,11 +54,13 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   // interim permissions filter configuration settings
   val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
   val usageRightsSummary: Option[Boolean] = booleanOpt("usageRightsSummary")
-  val permissionsOptions: Option[String] = stringOpt("permissionsOptions").filterNot(_.isEmpty)
-  val permissionsLabels: Option[String] = stringOpt("permissionsLabels").filterNot(_.isEmpty)
-  val permissionsMappings: Option[String] = stringOpt("permissionsMappings").filterNot(_.isEmpty)
   val permissionsDefault: Option[String] = stringOpt("permissionsDefault").filterNot(_.isEmpty)
-  val permissionsPayable: Option[String] = stringOpt("permissionsPayable").filterNot(_.isEmpty)
+  val permissionsOptions: List[PermissionOption] = getConfigList("permissionsOptions").map(entry => PermissionOption(
+    id = entry.getString("id"),
+    label = entry.getString("label"),
+    mapping = entry.getString("mapping"),
+    payable = entry.getString("payable")
+  ))
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 

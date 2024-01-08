@@ -97,11 +97,27 @@ function getKahunaConfig(config){
     const permissionsConfig = stripMargin`
         |usePermissionsFilter=true
         |usageRightsSummary=true
-        |permissionsOptions="allPermissions,usableForNews,orgOwned"
-        |permissionsLabels="All permissions,Usable for News,Organisation owned programmes"
-        |permissionsMappings=",category:agency,category:programmes-organisation-owned"
         |permissionsDefault="allPermissions"
-        |permissionsPayable="none,false,none"
+        |permissionsOptions=[
+        | {
+        |   id: "allPermissions",
+        |   label: "All Permissions",
+        |   mapping: "",
+        |   payable: "none"
+        | },
+        | {
+        |   id: "usableForNews",
+        |   label: "Usable for News",
+        |   mapping: "category:agency",
+        |   payable: "false"
+        | },
+        | {
+        |   id: "orgOwned",
+        |   label: "Organisation owned programmes",
+        |   mapping: "category:programmes-organisation-owned",
+        |   payable: "none"
+        | }
+        |]
     `;
 
     return stripMargin`${getCommonConfig(config)}

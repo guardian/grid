@@ -11,6 +11,13 @@ const ALL_PERMISSIONS_OPT = "allPermissions";
 const CHARGEABLE_LABEL = "Chargeable";
 const ALL_PERMISSIONS_LABEL = "All Permissions";
 
+export type PermissionOption = {
+  id: string,
+  label: string,
+  mapping: string,
+  payable: string
+}
+
 export function permissionsDefaultOpt():string{
   if (window._clientConfig.permissionsDefault) {
     return window._clientConfig.permissionsDefault;
@@ -20,8 +27,9 @@ export function permissionsDefaultOpt():string{
 }
 
 export function permissionsQueries():string[]  {
-  if (window._clientConfig.permissionsMappings) {
-    return window._clientConfig.permissionsMappings.split(",").flatMap(chips => chips.split("#"));
+  if (window._clientConfig.permissionsOptions) {
+    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    return pOpts.map(c => c.mapping);
   } else {
       return [
           CHARGEABLE_QUERY
@@ -30,19 +38,9 @@ export function permissionsQueries():string[]  {
 }
 
 export function permissionsPayable():{opt:string, payable:string}[] {
-  if (window._clientConfig.permissionsOptions && window._clientConfig.permissionsPayable) {
-    const mappings: {opt:string, payable:string}[] = [];
-    const pOpts = window._clientConfig.permissionsOptions.split(",");
-    const pPay = window._clientConfig.permissionsPayable.split(",");
-    for (let i = 0; i < pOpts.length; i++ ) {
-      const p: string = pPay[i];
-      const pOpt = {
-        opt: pOpts[i],
-        payable: p
-      };
-      mappings.push(pOpt);
-    }
-    return mappings;
+  if (window._clientConfig.permissionsOptions) {
+    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    return pOpts.map(c => { return {opt: c.id, payable: c.payable};});
   } else {
     const pPayable: { opt: string, payable: string }[] = [
       {opt: CHARGEABLE_OPT, payable: 'none'},
@@ -52,30 +50,16 @@ export function permissionsPayable():{opt:string, payable:string}[] {
   }
 }
 
-export function permissionsOptValues(): string[] {
-  if (window._clientConfig.permissionsOptions) {
-    return window._clientConfig.permissionsOptions.split(",");
-  } else {
-    const optVals = [
-      ALL_PERMISSIONS_OPT,
-      CHARGEABLE_OPT
-    ];
-    return optVals;
-  }
-}
-
 //-options and labels-
 export function permissionsOptions():{label:string, value:string}[] {
-   if (window._clientConfig.permissionsOptions && window._clientConfig.permissionsLabels) {
-     const dropDownOpts: {label:string, value:string}[] = [];
-     for (let i = 0; i < window._clientConfig.permissionsOptions.split(",").length; i++ ) {
-       const opt = {
-         label: window._clientConfig.permissionsLabels.split(",")[i],
-         value: window._clientConfig.permissionsOptions.split(",")[i]
+   if (window._clientConfig.permissionsOptions) {
+     let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+     return pOpts.map(c => {
+       return {
+         label: c.label,
+         value: c.id
        };
-       dropDownOpts.push(opt);
-     }
-     return dropDownOpts;
+     });
    } else {
      const permOpts: { label: string, value: string }[] = [
        {label: ALL_PERMISSIONS_LABEL, value: ALL_PERMISSIONS_OPT},
@@ -86,19 +70,14 @@ export function permissionsOptions():{label:string, value:string}[] {
 }
 
 export function permissionsMappings():{opt:string, query:string[]}[] {
-  if (window._clientConfig.permissionsOptions && window._clientConfig.permissionsMappings) {
-    const mappings: {opt:string, query:string[]}[] = [];
-    const popts = window._clientConfig.permissionsOptions.split(",");
-    const pmaps = window._clientConfig.permissionsMappings.split(",");
-    for (let i = 0; i < popts.length; i++ ) {
-      const qArr: string[] = pmaps[i].split("#").map(q => " " + q).filter(q => q.trim() != "");
-      const query = {
-        opt: popts[i],
-        query: qArr
+  if (window._clientConfig.permissionsOptions) {
+    let pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+    return pOpts.map(c => {
+      return  {
+        opt: c.id,
+        query: c.mapping.split(",").map(q => " " + q).filter(q => q.trim() != "")
       };
-      mappings.push(query);
-    }
-    return mappings;
+    });
   } else {
     const permMappings: { opt: string, query: string[] }[] = [
       {opt: CHARGEABLE_OPT, query: [CHARGEABLE_QUERY]},
