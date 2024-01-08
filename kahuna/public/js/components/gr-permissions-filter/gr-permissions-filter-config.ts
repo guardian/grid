@@ -18,8 +18,18 @@ export type PermissionOption = {
   payable: string
 }
 
+function getPermissionsOptions():Array<PermissionOption> {
+  try {
+    return JSON.parse(window._clientConfig.permissionsOptions);
+  } catch {
+    return [];
+  }
+}
+
+const pOpts = getPermissionsOptions();
+
 export function permissionsDefaultOpt():string{
-  if (window._clientConfig.permissionsDefault) {
+  if (window._clientConfig.permissionsDefault && pOpts.length > 0) {
     return window._clientConfig.permissionsDefault;
   } else {
     return ALL_PERMISSIONS_OPT;
@@ -27,9 +37,8 @@ export function permissionsDefaultOpt():string{
 }
 
 export function permissionsQueries():string[]  {
-  if (window._clientConfig.permissionsOptions) {
-    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
-    return pOpts.map(c => c.mapping);
+  if (pOpts.length > 0) {
+    return pOpts.map(c => c.mapping.split(',')).flatMap(c => c);
   } else {
       return [
           CHARGEABLE_QUERY
@@ -38,8 +47,7 @@ export function permissionsQueries():string[]  {
 }
 
 export function permissionsPayable():{opt:string, payable:string}[] {
-  if (window._clientConfig.permissionsOptions) {
-    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+  if (pOpts.length > 0) {
     return pOpts.map(c => { return {opt: c.id, payable: c.payable};});
   } else {
     const pPayable: { opt: string, payable: string }[] = [
@@ -52,8 +60,7 @@ export function permissionsPayable():{opt:string, payable:string}[] {
 
 //-options and labels-
 export function permissionsOptions():{label:string, value:string}[] {
-   if (window._clientConfig.permissionsOptions) {
-     const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+   if (pOpts.length > 0) {
      return pOpts.map(c => {
        return {
          label: c.label,
@@ -70,8 +77,7 @@ export function permissionsOptions():{label:string, value:string}[] {
 }
 
 export function permissionsMappings():{opt:string, query:string[]}[] {
-  if (window._clientConfig.permissionsOptions) {
-    const pOpts: Array<PermissionOption> = JSON.parse(window._clientConfig.permissionsOptions);
+  if (pOpts.length > 0) {
     return pOpts.map(c => {
       return  {
         opt: c.id,
