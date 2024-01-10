@@ -25,7 +25,7 @@ function getPermissionsOptions():Array<PermissionOption> {
     } else {
       return [];
     }
-  } catch(e) {
+  } catch (e) {
     console.log("Error Parsing Permissions Options");
     console.log("Options String: " + window._clientConfig.permissionsOptions);
     console.log("Error: " + e);
