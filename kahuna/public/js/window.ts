@@ -7,7 +7,7 @@ declare global {
         featureSwitches: Array<FeatureSwitchData>;
         maybeOrgOwnedValue: string | undefined;
         usePermissionsFilter: boolean;
-        permissionsOptions: string | "";
+        permissionsOptions?: string | undefined;
         permissionsDefault?: string | undefined;
       }
     }

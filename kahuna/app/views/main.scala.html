@@ -1,12 +1,10 @@
 @import lib.ScriptToLoad
-@import lib.PermissionOption
 
 @import lib.KahunaConfig
 @(
   reauthUri: String,
   fieldAliases: String,
   scriptsToLoad: List[ScriptToLoad],
-  permissionsOptions: String,
   domainMetadataSpecs: String,
   metadataTemplates: String,
   additionalNavigationLinks: String,
@@ -79,8 +77,8 @@
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
           usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(false),
           usageRightsSummary: @kahunaConfig.usageRightsSummary.getOrElse(false),
-          permissionsOptions: '@Html(permissionsOptions)',
-          permissionsDefault: '@kahunaConfig.permissionsDefault',
+          permissionsOptions: '@Html(kahunaConfig.permissionsOptions)',
+          permissionsDefault: "@kahunaConfig.permissionsDefault",
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
         }

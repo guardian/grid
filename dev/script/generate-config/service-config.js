@@ -94,31 +94,14 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
+    const permissionsOptions = `[{\\"id\\":\\"allPermissions\\",\\"label\\":\\"All permissions\\",\\"mapping\\":\\"\\",\\"payable\\":\\"none\\"},{\\"id\\":\\"usableForNews\\",\\"label\\":\\"Usable for News\\",\\"mapping\\":\\"category:agency\\",\\"payable\\":\\"false\\"}]`;
+
     const permissionsConfig = stripMargin`
-        |usePermissionsFilter=true
         |usageRightsSummary=true
+        |usePermissionsFilter=true
         |permissionsDefault="allPermissions"
-        |permissionsOptions=[
-        | {
-        |   id: "allPermissions",
-        |   label: "All Permissions",
-        |   mapping: "",
-        |   payable: "none"
-        | },
-        | {
-        |   id: "usableForNews",
-        |   label: "Usable for News",
-        |   mapping: "category:agency",
-        |   payable: "false"
-        | },
-        | {
-        |   id: "orgOwned",
-        |   label: "Organisation owned programmes",
-        |   mapping: "category:programmes-organisation-owned",
-        |   payable: "none"
-        | }
-        |]
-    `;
+        |permissionsOptions="${permissionsOptions}"
+        `;
 
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"

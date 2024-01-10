@@ -43,8 +43,6 @@ class KahunaController(
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
 
-    val permissionsOptions: String = Json.stringify(Json.toJson(config.permissionsOptions))
-
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
       .filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
@@ -68,7 +66,6 @@ class KahunaController(
       s"${config.authUri}/login?redirectUri=$returnUri",
       fieldAliases,
       scriptsToLoad,
-      permissionsOptions,
       domainMetadataSpecs,
       metadataTemplates,
       additionalNavigationLinks,
