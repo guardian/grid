@@ -255,7 +255,7 @@ class UsageApi(
       }
     )
   }}
-
+  // Might need to rename to updateSingleUsage -> will involve further changes
   def updateUsageStatus(mediaId: String, usageId: String) = auth(parse.json) {req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
