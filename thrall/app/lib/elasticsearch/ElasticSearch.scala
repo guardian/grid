@@ -506,27 +506,37 @@ class ElasticSearch(
 
   def updateSingleUsage(id: String, usageId: String, usageNotice: UsageNotice, lastModified: DateTime)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-
+    // like in the case of leases it might be that I need to use 'usages' instead of 'usage'
+    // further, instead of using the approach of streaming the source, I may simplify and assume a single usage
     val updateSingleUsageScript = s"""
-         |ctx._source.usages.stream().filter(usage ->
-         |usage.id == params.usagesParameter.usageId).forEach(usage ->
-         |{ usage.status = params.usagesParameter.status;})
+         |
+         | for(int i = 0; i < ctx._source.usages.size(); i++) {
+         |    int dummy = ctx._source.usages.size();
+         |    if(ctx._source.usages[i].id == "syndication/1defb893fd70ac054f212ddbe2aab485_1e54245a8a937e66d03d7abafa8048f3") {
+         |        ctx._source.usages[i].status = params.status;
+         |    }
+         | }
          |""".stripMargin // need to update the script for all values not just status
 
     val usagesParameter = usageNotice.usageJson.value.flatMap(jsValue => asNestedMap(jsValue)).toMap //should be an option/have .orNull like metadata/syndication update?
-    // how will 'prepareUpdaterequest' take two params in usageId and usagesParameters?
-    println(s"Usage parameters are: $usagesParameter")
+//    val processedParameters: Map[String, Any] = usagesParameter.collect {
+//      case (key, Some(value)) => value
+//      case (key, value) if value != None => key -> value
+//    }.toMap
 
+    // how will 'prepareUpdateRequest' take two params: usageId & usagesParameters? Can just get from usage params (esp if use sequence of usageNotice) so two not required
+    println(s"Usage parameters are: $usagesParameter")
+    println(s"usage id from params is: ${usagesParameter.get("id")}")
+    println(s"status from params is: ${usagesParameter.get("status")}")
     val scriptSource = loadUpdatingModificationPainless(updateSingleUsageScript)
 
     List(migrationAwareUpdater(
       requestFromIndexName = indexName =>
-        prepareUpdateRequest(indexName, id, scriptSource, lastModified, (("usageRights", usagesParameter))),
+        prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("usageRights", usagesParameter)),
       logMessageFromIndexName = indexName =>
-        s"ES6 updating usagesRights on image $id and usages id ${usagesParameter.get("usageId")} " +
+        s"ES6 updating usagesRights on image $id and usages id ${usageId} " +
           s"in index $indexName with usage $usagesParameter"
     ).map(_ => ElasticSearchUpdateResponse()))
-
   }
 
   def deleteSyndicationRights(id: String, lastModified: DateTime)
@@ -803,4 +813,5 @@ class ElasticSearch(
 
     image.transform(removeUploadInformation()).get
   }
+
 }

@@ -183,8 +183,14 @@ class MessageProcessor(
     Future.sequence(es.deleteSingleImageUsage(message.id, message.usageId, message.lastModified)(ec, logMarker))
   }
 
-  private def updateSingleUsage(message: UpdateSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+  private def updateSingleUsage(message: UpdateSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     Future.sequence(es.updateSingleUsage(message.id, message.usageId, message.usageNotice, message.lastModified)(ec, logMarker))
+//    implicit val lm: LogMarker = combineMarkers(message, logMarker)
+//    val usages = message.usageNotice.usageJson.as[Seq[Usage]]
+//    Future.traverse(es.updateImageUsages(message.id, usages, message.lastModified))(_.recoverWith {
+//      case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
+//    })
+  }
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))
