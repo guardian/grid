@@ -504,21 +504,38 @@ class ElasticSearch(
     }))
   }
 
-  def updateSingleUsage(id: String, usageId: String, usageNotice: UsageNotice, lastModified: DateTime)
+  def updateSingleUsage(id: String, usageId: String, usages: Seq[Usage], lastModified: DateTime)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+//    implicit val unw: Writes[UsageNotice] = Json.writes[UsageNotice]
+//    implicit val unr: Reads[UsageNotice] = Json.reads[UsageNotice]
     // like in the case of leases it might be that I need to use 'usages' instead of 'usage'
     // further, instead of using the approach of streaming the source, I may simplify and assume a single usage
     val updateSingleUsageScript = s"""
          |
          | for(int i = 0; i < ctx._source.usages.size(); i++) {
          |    int dummy = ctx._source.usages.size();
-         |    if(ctx._source.usages[i].id == "syndication/1defb893fd70ac054f212ddbe2aab485_1e54245a8a937e66d03d7abafa8048f3") {
-         |        ctx._source.usages[i].status = params.status;
+         |    if(ctx._source.usages[i].id == params.id) {
+         |        ctx._source.usages[i].status = "foo";
          |    }
          | }
          |""".stripMargin // need to update the script for all values not just status
 
-    val usagesParameter = usageNotice.usageJson.value.flatMap(jsValue => asNestedMap(jsValue)).toMap //should be an option/have .orNull like metadata/syndication update?
+    //val usagesParameter = usageNotice.usageJson.value.flatMap(jsValue => asNestedMap(jsValue)).toMap
+    val usagesParameter = JsDefined(Json.toJson(usages)).toOption.map(_.as[Usage]).map(i => asNestedMap(Json.toJson(i))).orNull
+
+//      .map{
+//      case (key, value: Option[_]) => key -> value.getOrElse("default")
+//      case (key, value) => key -> value
+//    }
+
+//      .filterKeys(key => key == "id" || key == "status")
+//      .mapValues {
+//        case Some(value: String) => value
+//        case None => "default"
+//        case other => other.toString
+//      }
+
+    //should be an option/have .orNull like metadata/syndication update?
 //    val processedParameters: Map[String, Any] = usagesParameter.collect {
 //      case (key, Some(value)) => value
 //      case (key, value) if value != None => key -> value
@@ -527,7 +544,25 @@ class ElasticSearch(
     // how will 'prepareUpdateRequest' take two params: usageId & usagesParameters? Can just get from usage params (esp if use sequence of usageNotice) so two not required
     println(s"Usage parameters are: $usagesParameter")
     println(s"usage id from params is: ${usagesParameter.get("id")}")
-    println(s"status from params is: ${usagesParameter.get("status")}")
+    println(s"status frm params is: ${usagesParameter.get("status")}")
+
+//    val unwrappedMap: Map[String, Any] = usagesParameter.flatMap {
+//      case (key, Some(value)) => Some(key -> value)
+//      case (key, value) if value != None => Some(key -> value)
+//      case _ => None
+//    }
+//    println(s"unwrapped parameters are: $unwrappedMap")
+//    println(s"unwrapped id is: ${unwrappedMap.getOrElse("id","default")}")
+//    println(s"unwrapped references is: ${unwrappedMap.getOrElse("references","default")}")
+
+//    val testId = usagesParameter.get("id")
+//    val stringId = testId.getOrElse("default")
+//
+//    println(s"*****String id is: $stringId")
+//
+//    usagesParameter.foreach { case (key, value) =>
+//      println(s"Key: $key, Value Type: ${value.getClass.getName}")
+//    }
     val scriptSource = loadUpdatingModificationPainless(updateSingleUsageScript)
 
     List(migrationAwareUpdater(

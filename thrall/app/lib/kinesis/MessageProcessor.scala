@@ -184,12 +184,13 @@ class MessageProcessor(
   }
 
   private def updateSingleUsage(message: UpdateSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
-    Future.sequence(es.updateSingleUsage(message.id, message.usageId, message.usageNotice, message.lastModified)(ec, logMarker))
-//    implicit val lm: LogMarker = combineMarkers(message, logMarker)
-//    val usages = message.usageNotice.usageJson.as[Seq[Usage]]
-//    Future.traverse(es.updateImageUsages(message.id, usages, message.lastModified))(_.recoverWith {
-//      case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
-//    })
+//    Future.sequence(es.updateSingleUsage(message.id, message.usageId, message.usageNotice, message.lastModified)(ec, logMarker))
+      implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
+      implicit val lm: LogMarker = combineMarkers(message, logMarker)
+      val usages = message.usageNotice.usageJson.as[Seq[Usage]]
+      Future.traverse(es.updateSingleUsage(message.id, message.usageId, usages, message.lastModified ))(_.recoverWith {
+        case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
+    })
   }
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
