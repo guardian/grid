@@ -221,6 +221,12 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
+    implicit val context: MarkerMap = MarkerMap(
+      "requestType" -> "get-presigned-uploads",
+      "key-tier" -> request.user.accessor.tier.toString,
+      "key-name" -> request.user.accessor.identity,
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    )
     val expiration = DateTimeUtils.now().plusHours(1)
 
     val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]

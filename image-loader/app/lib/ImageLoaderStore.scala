@@ -41,7 +41,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     // sent by the client in manager.js
     request.putCustomRequestHeader("x-amz-meta-media-id", mediaId)
 
-    extraCustomMetadata.foreach(customHeader => request.putCustomQueryParameter("x-amz-meta-" + customHeader._1, customHeader._2))
+    extraCustomMetadata.foreach(customHeader => request.putCustomRequestHeader("x-amz-meta-" + customHeader._1, customHeader._2))
 
     client.generatePresignedUrl(request).toString
   }
