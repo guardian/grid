@@ -8,7 +8,7 @@ on:
       - 'pr**'
 jobs:
   CI:
-    runs-on: 4core-ubuntu-latest
+    runs-on: ubuntu-latest
     permissions:
       # required by aws-actions/configure-aws-credentials
       id-token: write
