@@ -57,7 +57,7 @@ class ImageLoaderController(auth: Authentication,
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
 
-  private val useVips = false
+  private val useVips = !config.isProd
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
