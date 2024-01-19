@@ -5,7 +5,6 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -16,6 +15,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.feature.VipsImagingSwitch
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -282,7 +282,7 @@ class ImageLoaderController(auth: Authentication,
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
       val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
 
-      val useVips = req.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+      val useVips = VipsImagingSwitch.getValue(req)
 
       println("in controller userVips = " + useVips)
       val result = for {
@@ -328,7 +328,7 @@ class ImageLoaderController(auth: Authentication,
       implicit val context: LogMarker = initialContext ++ Map(
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
-      val useVips = req.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+      val useVips = VipsImagingSwitch.getValue(req)
 
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
       val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn, useVips)
@@ -375,7 +375,7 @@ class ImageLoaderController(auth: Authentication,
         digestedFile <- downloader.download(validUri, tempFile)
       } yield digestedFile
 
-      val useVips = request.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+      val useVips = VipsImagingSwitch.getValue(request)
 
       val uploadResultFuture = uploadDigestedFileToStore(
         digestedFileFuture,
