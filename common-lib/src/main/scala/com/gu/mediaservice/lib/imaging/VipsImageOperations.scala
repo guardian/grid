@@ -53,7 +53,7 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
 
   override def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)
     (implicit logMarker: LogMarker): Future[(File, MimeType)] = {
-    println("transforming image with VIPSSS")
+    logger.info(logMarker, "transforming image with VIPS")
     val profile = rgbProfileLocation(optimised = true)
 
     val quantise = Some(VipsPngsaveQuantise(
@@ -75,7 +75,8 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     colourModel: Option[String], hasAlpha: Boolean
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val profile = rgbProfileLocation(false)
-    println(s"making thumbnail with VIPSSS - hasAlpha $hasAlpha")
+    logger.info(logMarker, s"making thumbnail with with VIPS - hasAlpha $hasAlpha")
+
     for {
       thumb <- futureFromTry { Vips.thumbnail(browserViewableImage.file, width) }
       _ <- futureFromTry {
