@@ -58,7 +58,7 @@ val awsSdkVersion = "1.12.470"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
-val jnaVersion = (if (System.getProperty("os.name").contains("Mac OS X")) "5.14.0-SNAPSHOT" else "5.13.0")
+val jnaVersion = "5.14.0"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
