@@ -3,15 +3,16 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, VipsImagingSwitch}
-import play.api.mvc.ControllerComponents
-import play.api.libs.json._
-
-import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.feature.FeatureSwitches
+import lib.KahunaConfig
+import play.api.libs.json._
+import play.api.mvc.ControllerComponents
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
+
+import scala.concurrent.ExecutionContext
 
 class KahunaController(
   authentication: Authentication,
@@ -37,9 +38,8 @@ class KahunaController(
     }
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
-    val featureSwitches = new FeatureSwitches(
-      List(ExampleSwitch, VipsImagingSwitch)
-    )
+    val featureSwitches = new FeatureSwitches(FeatureSwitches.all)
+
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
 

@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice.lib.feature
 
 import play.api.mvc.Cookie
 
@@ -14,6 +14,10 @@ object VipsImagingSwitch extends FeatureSwitch(
   title = "Enable the VIPS upload pipeline, where implemented",
   default = false
 )
+
+object FeatureSwitches {
+  val all: List[FeatureSwitch] = List(ExampleSwitch, VipsImagingSwitch)
+}
 
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
@@ -47,11 +51,5 @@ class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
     maybeSwitch.flatMap(switch => clientSwitchValues.get(switch)).getOrElse(false)
   }
 
-  private def getBoolean(cookieValue: String): Boolean = {
-    cookieValue match{
-      case "true" => true
-      case _ => false
-    }
-  }
+  private def getBoolean(cookieValue: String): Boolean = cookieValue == "true"
 }
-
