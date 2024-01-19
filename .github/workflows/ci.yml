@@ -3,11 +3,10 @@ on:
   workflow_dispatch: # Manual invocation.
   pull_request:
   push:
-    branches:
-      - main
-      - 'pr**'
 jobs:
   CI:
+    # only actually run if this is a pull_request (incl. from forks) OR push to a branch without a PR
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || needs.pr-check.outputs.number == null
     runs-on: ubuntu-latest
     permissions:
       # required by aws-actions/configure-aws-credentials
