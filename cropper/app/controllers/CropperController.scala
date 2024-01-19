@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCropsOrUsages, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.feature.VipsImagingSwitch
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -58,7 +59,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       val user = httpRequest.user
       val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
-      val useVips = httpRequest.cookies.get("feature-switch-vips-beta").exists(_.value == "true")
+      val useVips = VipsImagingSwitch.getValue(httpRequest)
 
       executeRequest(exportRequest, user, onBehalfOfPrincipal, useVips).map { case (imageId, export) =>
 
