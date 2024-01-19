@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.lib.feature.VipsImagingSwitch
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.storage.ImageLoaderStore
 
@@ -10,6 +11,7 @@ case class S3IngestObject (
   uploadedBy: String,
   filename:String,
   maybeMediaIdFromUiUpload: Option[String],
+  useVips: Boolean,
   uploadTime: java.util.Date,
   contentLength: Long,
   getInputStream: () => java.io.InputStream
@@ -23,16 +25,17 @@ object S3IngestObject {
 
     val s3Object = store.getS3Object(key)
     val metadata = s3Object.getObjectMetadata
+    val userMetadata = metadata.getUserMetadata.asScala
 
     S3IngestObject(
       key,
       uploadedBy = keyParts.head,
       filename = keyParts.last,
-      maybeMediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id"), // set by the client in upload in manager.js
+      maybeMediaIdFromUiUpload = userMetadata.get("media-id"), // set by the client in upload in manager.js
+      useVips = userMetadata.get(VipsImagingSwitch.name).contains("true") || VipsImagingSwitch.default,
       uploadTime = metadata.getLastModified,
       contentLength = metadata.getContentLength,
       getInputStream = () => s3Object.getObjectContent
     )
   }
 }
-

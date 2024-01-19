@@ -57,7 +57,7 @@ class ImageLoaderController(auth: Authentication,
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
 
-  private val useVips = !config.isProd
+//  private val useVips = !config.isProd
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
@@ -173,7 +173,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject: S3IngestObject, isUiUpload: Boolean)(initialLogMarker: LogMarker): Future[DigestedFile] = {
 
     logger.info(initialLogMarker, "Attempting to process file")
     val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
@@ -193,7 +193,7 @@ class ImageLoaderController(auth: Authentication,
         identifiers =  None,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
         filename = Some(s3IngestObject.filename),
-        useVips
+        useVips = s3IngestObject.useVips,
     )
 
     // under all circumstances, remove the temp files
@@ -566,7 +566,7 @@ class ImageLoaderController(auth: Authentication,
               metadata.uploadedBy,
               metadata.identifiers,
               UploadInfo(metadata.uploadFileName),
-              useVips
+              useVips = VipsImagingSwitch.default
             ),
             gridClient,
             auth.getOnBehalfOfPrincipal(request.user)
