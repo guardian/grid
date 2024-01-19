@@ -30,7 +30,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
 
-  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {
+  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String, extraCustomMetadata: Seq[(String, String)] = Seq.empty): String = {
     val request = new GeneratePresignedUrlRequest(
       config.maybeIngestBucket.get, // bucket
       s"$uploadedBy/$filename", // key
@@ -40,6 +40,8 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
 
     // sent by the client in manager.js
     request.putCustomRequestHeader("x-amz-meta-media-id", mediaId)
+
+    extraCustomMetadata.foreach(customHeader => request.putCustomQueryParameter("x-amz-meta-" + customHeader._1, customHeader._2))
 
     client.generatePresignedUrl(request).toString
   }
@@ -57,4 +59,3 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     logger.warn(logMarker, s"Attempted to delete $key from ingest bucket, but it does not exist.")
   }
 }
-

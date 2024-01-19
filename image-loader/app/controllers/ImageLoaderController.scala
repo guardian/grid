@@ -227,11 +227,17 @@ class ImageLoaderController(auth: Authentication,
 
     val uploadedBy = Authentication.getIdentity(request.user)
 
+    val useVips = VipsImagingSwitch.getValue(request)
+
+    val customMetadata = Seq(
+      if (useVips) Some((VipsImagingSwitch.name, "true")) else None
+    ).flatten
+
     Future.sequence(
 
       mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId, extraCustomMetadata = customMetadata)
 
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
