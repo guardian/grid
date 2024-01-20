@@ -75,6 +75,10 @@
           useReaper: @kahunaConfig.useReaper.getOrElse(false),
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
+          usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(false),
+          usageRightsSummary: @kahunaConfig.usageRightsSummary.getOrElse(false),
+          permissionsOptions: '@Html(kahunaConfig.permissionsOptions)',
+          permissionsDefault: "@kahunaConfig.permissionsDefault",
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
         }

@@ -1,20 +1,20 @@
 <form class="search">
     <span class="search-query">
-        <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
-        <gr-structured-query class="search-query__query"
-                             ng-model="searchQuery.filter.query">
-        </gr-structured-query>
-        <button class="search-query__icon search-query__clear clear-button"
-                type="button"
-                title="Clear query"
-                ng-show="searchQuery.filter.query"
-                ng-click="searchQuery.resetQuery()"
-                aria-label="Clear search">
-            <gr-icon>cancel</gr-icon>
-        </button>
+            <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
+            <gr-structured-query class="search-query__query"
+                                 ng-model="searchQuery.filter.query">
+            </gr-structured-query>
+            <button class="search-query__icon search-query__clear clear-button"
+                    type="button"
+                    title="Clear query"
+                    ng-show="searchQuery.filter.query"
+                    ng-click="searchQuery.resetQuery()"
+                    aria-label="Clear search">
+                <gr-icon>cancel</gr-icon>
+            </button>
     </span>
 
-    <button class="search__advanced-toggle"
+    <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
             gr-tooltip="Display advanced search information"
@@ -22,7 +22,7 @@
         <gr-icon>info_outline</gr-icon>
     </button>
 
-    <div class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -33,13 +33,13 @@
         <ul class="search__modifier search__filter" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
             <li class="search__modifier-item search__modifier-checkbox">
                 <label>
-                <!-- minor mindfuck logic as we want an optional flag
-                                when the option is off -->
+                    <!-- minor mindfuck logic as we want an optional flag
+                                    when the option is off -->
                     <input type="checkbox"
-                        ng-model="searchQuery.filter.nonFree"
-                        ng-true-value="{{searchQuery.costFilterTrueValue}}"
-                        ng-false-value="{{searchQuery.costFilterFalseValue}}" />
-                        {{ searchQuery.costFilterLabel }}
+                           ng-model="searchQuery.filter.nonFree"
+                           ng-true-value="{{searchQuery.costFilterTrueValue}}"
+                           ng-false-value="{{searchQuery.costFilterFalseValue}}" />
+                    {{ searchQuery.costFilterLabel }}
 
                     <!-- TODO: Decide on correct cost filter model -->
                     <!--
@@ -56,7 +56,7 @@
             <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
-                        ng-model="searchQuery.filter.uploadedByMe" />
+                           ng-model="searchQuery.filter.uploadedByMe" />
                     My uploads
                 </label>
             </li>
@@ -64,11 +64,10 @@
             <li ng-if="searchQuery.maybeOrgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
-                        ng-model="searchQuery.filter.orgOwned" />
+                           ng-model="searchQuery.filter.orgOwned" />
                     {{ searchQuery.maybeOrgOwnedValue }}
                 </label>
             </li>
-
 
             <li class="search__modifier-item">
                 <gu-date-range class="search__date"
@@ -84,7 +83,7 @@
         </ul>
     </div>
 
-    <div class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="orderShown = !orderShown">
@@ -143,6 +142,7 @@
         </ul>
 
     </div>
+
 </form>
 
 <gr-syntax ng-if="searchInfo"></gr-syntax>
