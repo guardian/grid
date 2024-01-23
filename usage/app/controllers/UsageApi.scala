@@ -255,7 +255,7 @@ class UsageApi(
       }
     )
   }}
-  // Might need to rename to updateSingleUsage -> will involve further changes
+
   def updateUsageStatus(mediaId: String, usageId: String) = auth(parse.json) {req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
@@ -280,15 +280,15 @@ class UsageApi(
             val usageNotice = UsageNotice(mediaId,
               JsArray(Seq(Json.toJson(UsageBuilder.build(updatedStatusMediaUsage)))))
             val updateMessage = UpdateMessage(
-              subject = UpdateSingleUsage, id = Some(mediaId),
-              usageId = Some(usageId), usageNotice = Some(usageNotice)
+              subject = UpdateUsageStatus, id = Some(mediaId),
+              usageNotice = Some(usageNotice)
             )
             notifications.publish(updateMessage)
             Ok
           case None =>
             NotFound
         }
-        Ok // this will need to change
+        Ok
       }
     )
   }}
