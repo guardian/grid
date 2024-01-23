@@ -514,6 +514,7 @@ class ElasticSearch(
        |    int dummy = ctx._source.usages.size();
        |    if(ctx._source.usages[i].id == params.usage.id) {
        |        ctx._source.usages[i].status = params.usage.status;
+       |        ctx._source.usages[i].lastModified = params.lastModified;
        |    }
        | }
        |""".stripMargin
