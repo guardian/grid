@@ -256,13 +256,15 @@ class UsageApi(
     )
   }}
 
-  def updateUsageStatus(mediaId: String, usageId: String) = auth(parse.json) {req => {
+  def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
-      e => respondError(
-        BadRequest,
-        errorKey = "update-image-usage-status-failed",
-        errorMessage = JsError.toJson(e).toString()
+      e => Future.successful(
+        respondError(
+          BadRequest,
+          errorKey = "update-image-usage-status-failed",
+          errorMessage = JsError.toJson(e).toString()
+        )
       ),
       usageStatus => {
         implicit val logMarker: LogMarker = MarkerMap(
@@ -273,6 +275,7 @@ class UsageApi(
           "usage-id" -> usageId,
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording usage status  update")
+
         usageTable.queryByUsageId(usageId).map {
           case Some(mediaUsage) =>
             val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
@@ -288,7 +291,6 @@ class UsageApi(
           case None =>
             NotFound
         }
-        Ok
       }
     )
   }}
