@@ -49,7 +49,7 @@ class MessageProcessor(
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
       case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
-      case message: UpdateSingleUsageMessage => updateSingleUsage(message, logMarker)
+      case message: UpdateUsageStatusMessage => updateUsageStatus(message, logMarker)
       case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
@@ -183,12 +183,10 @@ class MessageProcessor(
     Future.sequence(es.deleteSingleImageUsage(message.id, message.usageId, message.lastModified)(ec, logMarker))
   }
 
-  private def updateSingleUsage(message: UpdateSingleUsageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
-//    Future.sequence(es.updateSingleUsage(message.id, message.usageId, message.usageNotice, message.lastModified)(ec, logMarker))
-      implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
+  private def updateUsageStatus(message: UpdateUsageStatusMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
       implicit val lm: LogMarker = combineMarkers(message, logMarker)
-      val usages = message.usageNotice.usageJson.as[Seq[Usage]]
-      Future.traverse(es.updateSingleUsage(message.id, message.usageId, usages, message.lastModified ))(_.recoverWith {
+      val usage = message.usageNotice.usageJson.as[Seq[Usage]]
+      Future.traverse(es.updateUsageStatus(message.id, usage, message.lastModified ))(_.recoverWith {
         case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
     })
   }
