@@ -509,12 +509,12 @@ class ElasticSearch(
 
   val updateUsageStatusScript =
     s"""
-       |
+       | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.usagesLastModified))) : null;
        | for(int i = 0; i < ctx._source.usages.size(); i++) {
-       |    int dummy = ctx._source.usages.size();
-       |    if(ctx._source.usages[i].id == params.usage.id) {
+       |    if(lastUpdatedDate == null || modificationDate.after(lastUpdatedDate) && ctx._source.usages[i].id == params.usage.id) {
        |        ctx._source.usages[i].status = params.usage.status;
        |        ctx._source.usages[i].lastModified = params.lastModified;
+       |        ctx._source.usagesLastModified = params.lastModified;
        |    }
        | }
        |""".stripMargin
