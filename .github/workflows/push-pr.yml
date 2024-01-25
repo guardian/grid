@@ -1,0 +1,26 @@
+name: push-pr
+on:
+  workflow_dispatch:
+    inputs:
+      prNumber:
+        description: 'PR number'
+        required: true
+        type: string
+  # we decided not to have 'workflow_run' here (chained off CI success) for 'trusted' forks, as we don't know/control the
+  # access control etc. - so keeping it manual only (via workflow_dispatch above)
+  # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_run:
+
+jobs:
+  push-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: push-pr
+        env:
+          PR: ${{ inputs.prNumber }}
+        run: |
+          echo "Pushing PR merge commit for ${PR} to remote pr${PR} branch"
+          git fetch -f origin pull/${PR}/merge:pr${PR}
+          git push -f origin pr${PR}:pr${PR}
