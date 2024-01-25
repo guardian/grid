@@ -176,7 +176,7 @@ object MappingTest {
       )),
       syndicationUsageMetadata = Some(SyndicationUsageMetadata(
         partnerName = "friends of ours",
-        syndicatedBy = None
+        syndicatedBy = Some("Bob")
       )),
       frontUsageMetadata = Some(FrontUsageMetadata(
         addedBy = "me",
