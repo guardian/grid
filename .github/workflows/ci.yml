@@ -78,6 +78,17 @@ jobs:
           npm install-clean
           npm test
           npm run build
+      - name: on PRs from forks, comment on PR with link to 'push-pr' workflow for @guardian/digital-cms members
+        if: "github.event.pull_request.head.repo.fork"
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Hey @guardian/digital-cms, this PR is from a fork. Brilliant that people are contributing from outside the organisation but please check there's nothing malicious/problematic... when you're happy and you need a deployable, manually run the [push-pr workflow]("https://github.com/guardian/grid/actions/workflows/push-pr.yml").'
+            })
       - uses: aws-actions/configure-aws-credentials@v4
         if: "! github.event.pull_request.head.repo.fork"
         with:
