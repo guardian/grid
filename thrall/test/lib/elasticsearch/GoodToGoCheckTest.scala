@@ -2,11 +2,10 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.MappingTest
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.sksamuel.elastic4s.requests.count.CountResponse
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.Response
 import org.joda.time.{DateTime, DateTimeZone, Period}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class GoodToGoCheckTest extends ElasticSearchTestBase {

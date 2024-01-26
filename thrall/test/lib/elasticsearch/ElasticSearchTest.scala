@@ -1,18 +1,16 @@
 package lib.elasticsearch
 
-import java.util.UUID
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{PublishedUsageStatus, SyndicatedUsageStatus}
-import com.gu.mediaservice.model.usage.Usage
-import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.http._
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.json.{JsDefined, JsLookupResult, JsObject, JsString, Json}
+import play.api.libs.json.{JsString, Json}
 
+import java.util.UUID
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
