@@ -294,7 +294,7 @@ object Mappings {
     keywordField("downloadedBy")
   ))
 
-  def usagesMapping(name: String): NestedField = nestedFieldDynamic(name).copy(properties = Seq(
+  def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
     keywordField("id"),
     sStemmerAnalysed("title"),
     usageReference("references"),
@@ -336,7 +336,6 @@ object Mappings {
   private def nonDynamicObjectField(name: String) = ObjectField(name = name, dynamic = Some("strict"))
 
   private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
-  private def nestedFieldDynamic(name: String) = nestedField(name).copy(dynamic = Some("true"))
 
   private def dynamicObj(name: String) = objectField(name).copy(dynamic = Some("true"))
 
