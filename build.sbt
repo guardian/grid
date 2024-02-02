@@ -55,7 +55,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val elastic4sVersion = "8.3.0"
+val elastic4sVersion = "8.9.1"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -98,7 +98,8 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+    "com.typesafe.play" %% "play-json" % "2.10.1",
+    "com.typesafe.play" %% "play-json-joda" % "2.10.1",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
@@ -252,3 +253,4 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
   //Add the BBC library dependency if defined
   maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
 }
+//ThisBuild / evictionErrorLevel := Level.Warn
