@@ -15,7 +15,7 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.15",
+  scalaVersion := "2.12.18",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -30,8 +30,8 @@ val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.2.10.0" % Test,
-    "org.mockito" % "mockito-core" % "2.18.0" % Test,
-    "org.scalamock" %% "scalamock" % "5.1.0" % Test,
+    "org.mockito" % "mockito-core" % "2.18.3" % Test,
+    "org.scalamock" %% "scalamock" % "5.2.0" % Test,
   ),
 
   Compile / doc / sources := Seq.empty,
@@ -55,7 +55,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val elastic4sVersion = "8.3.0"
+val elastic4sVersion = "8.3.2"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -68,7 +68,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.gu" %% "editorial-permissions-client" % "2.14",
+    "com.gu" %% "editorial-permissions-client" % "2.15",
     "com.gu" %% "pan-domain-auth-play_2-8" % "1.3.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -80,7 +80,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
-    "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "org.elasticsearch" % "elasticsearch" % "8.10.2",
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
@@ -88,21 +88,21 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "org.im4java" % "im4java" % "1.4.0",
-    "com.gu" % "kinesis-logback-appender" % "1.4.2",
-    "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
+    "com.gu" % "kinesis-logback-appender" % "1.4.4",
+    "net.logstash.logback" % "logstash-logback-encoder" % "5.3",
     "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-    "org.scalacheck" %% "scalacheck" % "1.14.0",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
+    "org.scalacheck" %% "scalacheck" % "1.14.3",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+    "org.codehaus.janino" % "janino" % "3.0.16",
+    "com.typesafe.play" %% "play-json-joda" % "2.9.4",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
-    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
-    "org.yaml" % "snakeyaml" % "1.31"
+    "com.typesafe.play" %% "play-ahc-ws" % "2.8.20",
+    "org.yaml" % "snakeyaml" % "1.33"
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
 )
@@ -125,8 +125,8 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "org.apache.tika" % "tika-core" % "1.20",
-    "com.drewnoakes" % "metadata-extractor" % "2.17.0"
+    "org.apache.tika" % "tika-core" % "1.28.5",
+    "com.drewnoakes" % "metadata-extractor" % "2.18.0"
   )
 }
 
@@ -139,11 +139,11 @@ lazy val leases = playProject("leases", 9012)
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
-    "org.parboiled" %% "parboiled" % "2.1.5",
-    "org.http4s" %% "http4s-core" % "0.23.17",
-    "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
+    "org.parboiled" %% "parboiled" % "2.1.8",
+    "org.http4s" %% "http4s-core" % "0.23.23",
+    "com.softwaremill.quicklens" %% "quicklens" % "1.4.13",
+    "com.whisk" %% "docker-testkit-scalatest" % "0.9.9" % Test,
+    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.9" % Test
   )
 )
 
@@ -152,22 +152,22 @@ lazy val metadataEditor = playProject("metadata-editor", 9007)
 lazy val thrall = playProject("thrall", 9002).settings(
   pipelineStages := Seq(digest, gzip),
   libraryDependencies ++= Seq(
-    "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
+    "org.codehaus.groovy" % "groovy-json" % "3.0.19",
+    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.6.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test,
-    "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    "com.whisk" %% "docker-testkit-scalatest" % "0.9.9" % Test,
+    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.9" % Test,
+    "com.google.protobuf" % "protobuf-java" % "3.24.4"
   )
 )
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "content-api-client-default" % "19.0.4",
+    "com.gu" %% "content-api-client-default" % "19.0.5",
     "com.gu" %% "content-api-client-aws" % "0.7",
-    "io.reactivex" %% "rxscala" % "0.26.5",
+    "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    "com.google.protobuf" % "protobuf-java" % "3.24.4"
   )
 )
 
