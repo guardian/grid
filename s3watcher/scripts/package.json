@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "",
   "dependencies": {
-    "aws-sdk": "^2.2.21",
+    "aws-sdk": "^2.1357.0",
     "hocon-parser": "^1.0.1"
   },
   "author": "",
