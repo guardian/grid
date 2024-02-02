@@ -58,7 +58,11 @@ object Vips {
         throw new Exception(s"Failed to save file to Jpeg - conversion to $profile failed ${getErrors()}")
       }
 
-      val args = Seq("Q", quality.asInstanceOf[Integer], "strip", 1.asInstanceOf[Integer], "profile", profile)
+      val args = Seq(
+        "Q", quality.asInstanceOf[Integer],
+        "keep", VipsForeignKeep.VIPS_FOREIGN_KEEP_NONE.value.asInstanceOf[Integer],
+        "profile", profile
+      )
 
       if (LibVips.INSTANCE.vips_jpegsave(profileTransformed.getValue, outputFile.getAbsolutePath, args: _*) != 0) {
         throw new Exception(s"Failed to save file to Jpeg - libvips returned error ${getErrors()}")
@@ -108,7 +112,7 @@ object Vips {
         throw new Exception(s"Failed to save file to Png - conversion to $profile failed ${getErrors()}")
       }
 
-      val args = Seq("strip", 1.asInstanceOf[Integer], "profile", profile) ++
+      val args = Seq("keep", VipsForeignKeep.VIPS_FOREIGN_KEEP_NONE.value.asInstanceOf[Integer], "profile", profile) ++
         quantisation.toSeq.flatMap(qargs => Seq(
           "palette", 1.asInstanceOf[Integer],
           "Q", qargs.quality.asInstanceOf[Integer],
