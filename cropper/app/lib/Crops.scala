@@ -44,7 +44,6 @@ class Crops(config: CropperConfig, store: CropStore, magickImageOperations: Magi
     logger.info(logMarker, s"Making master crop for ${apiImage.id} with VIPS")
     val source = crop.specification
     val metadata = apiImage.metadata
-    val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
       img <- vipsImageOperations.cropImage(sourceImage, source.bounds)
