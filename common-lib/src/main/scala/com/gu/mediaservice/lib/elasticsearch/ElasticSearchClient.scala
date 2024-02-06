@@ -7,7 +7,11 @@ import com.sksamuel.elastic4s.http.JavaClient
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
+import org.apache.http.conn.ssl.NoopHostnameVerifier
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 
+import javax.net.ssl.HostnameVerifier
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -42,7 +46,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   lazy val client = {
     logger.info("Connecting to Elastic 8: " + url)
-    val client = JavaClient(ElasticProperties(url))
+    val client = JavaClient(
+      props = ElasticProperties(url),
+      httpClientConfigCallback = (httpClientBuilder: HttpAsyncClientBuilder) => httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+    )
     ElasticClient(client)
   }
 
