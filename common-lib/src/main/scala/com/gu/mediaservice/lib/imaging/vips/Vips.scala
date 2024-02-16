@@ -130,6 +130,8 @@ object Vips {
     }
   }
 
+  def hasAlpha(image: VipsImage): Boolean = LibVips.INSTANCE.vips_image_hasalpha(image)
+
   def thumbnail(file: File, width: Int): Try[VipsImage] = Try {
     val output = new VipsImageByReference()
     if (LibVips.INSTANCE.vips_thumbnail(file.getAbsolutePath, output, width.asInstanceOf[Integer],
