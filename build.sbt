@@ -76,7 +76,6 @@ lazy val bbcProject = project("bbc").dependsOn(restLib % "compile->compile;test-
 val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
 
 lazy val commonLib = project("common-lib").settings(
-  ThisBuild / resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "4.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "9.0.0",
@@ -267,4 +266,3 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
   //Add the BBC library dependency if defined
   maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
 }
-
