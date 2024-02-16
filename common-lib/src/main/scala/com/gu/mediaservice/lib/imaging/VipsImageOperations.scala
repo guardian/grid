@@ -37,14 +37,17 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
   }
 
 
-  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType): Future[File] = {
+  def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType, quantise: Boolean): Future[File] = {
     val profile = rgbProfileLocation(false)
+    lazy val quantiseOpts = if (quantise) Some(VipsPngsaveQuantise(
+      quality = 85, effort = 1, bitdepth = 8
+    )) else None
     for {
       outputFile <- createTempFile("crop-", mimeType.fileExtension, tempDir)
       _ <- futureFromTry {
         mimeType match {
           case Jpeg => Vips.saveJpeg(image, outputFile, quality, profile)
-          case Png => Vips.savePng(image, outputFile, profile)
+          case Png => Vips.savePng(image, outputFile, profile, quantiseOpts)
           case unsupported => Failure(new UnsupportedCropOutputTypeException(unsupported))
         }
       }
