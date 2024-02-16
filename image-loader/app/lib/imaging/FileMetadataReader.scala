@@ -13,6 +13,7 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
+import com.gu.mediaservice.lib.imaging.vips.Vips
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
@@ -225,8 +226,10 @@ object FileMetadataReader extends GridLogging {
 
     val formatter = format(source)("%r")
 
-    runIdentifyCmd(formatter, useImageMagick = false).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+    runIdentifyCmd(formatter, useImageMagick = false)
+      .map { imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
+      .map { _ ++ Vips.openFile(image).map(Vips.hasAlpha).toOption.map(ha => ("vipsHasAlpha", ha.toString))}
   }
 
   // bits per sample might be a useful value, eg. "1", "8"; or it might be annoying like "1 bits/component/pixel", "8 8 8 bits/component/pixel"
