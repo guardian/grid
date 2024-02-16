@@ -65,6 +65,7 @@ public interface LibVips extends Library {
   int vips_image_guess_interpretation(VipsImage in);
   int vips_image_guess_format(VipsImage in);
   int vips_image_get_format(VipsImage in);
+  boolean vips_image_hasalpha(VipsImage image);
 
   int vips_resize(VipsImage in, VipsImageByReference out, double scale, Object... args);
   int vips_extract_area(VipsImage in, VipsImageByReference out, int left, int top, int width, int height, Object... args);

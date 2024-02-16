@@ -36,6 +36,7 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     futureFromTry { Vips.resize(image, scale) }
   }
 
+  private val browserViewableQuality = 85
 
   def saveImage(image: VipsImage, tempDir: File, quality: Int, mimeType: MimeType, quantise: Boolean): Future[File] = {
     val profile = rgbProfileLocation(false)
@@ -62,10 +63,15 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     val quantise = Some(VipsPngsaveQuantise(
       quality = 85, effort = 1, bitdepth = 8
     ))
+
     for {
-      outputFile <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       img <- futureFromTry { Vips.openFile(sourceFile) }
-      _ <- futureFromTry { Vips.savePng(img, outputFile, profile, quantisation = quantise) }
+      hasAlpha = Vips.hasAlpha(img)
+      outputFile <- createTempFile(s"transformed-", if (hasAlpha) Png.fileExtension else Jpeg.fileExtension, tempDir)
+      _ <- futureFromTry {
+        if (hasAlpha) Vips.savePng(img, outputFile, profile, quantisation = quantise)
+        else Vips.saveJpeg(img, outputFile, browserViewableQuality, profile)
+      }
     } yield outputFile -> optimisedMimeType
   }
 
@@ -75,7 +81,8 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     qual: Double,
     outputFile: File,
     iccColourSpace: Option[String],
-    colourModel: Option[String], hasAlpha: Boolean
+    colourModel: Option[String],
+    hasAlpha: Boolean
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val profile = rgbProfileLocation(false)
     logger.info(logMarker, s"making thumbnail with with VIPS - hasAlpha $hasAlpha")
