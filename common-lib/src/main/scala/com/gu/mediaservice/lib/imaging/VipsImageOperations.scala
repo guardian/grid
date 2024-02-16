@@ -67,12 +67,13 @@ class VipsImageOperations(val playPath: String)(implicit val ec: ExecutionContex
     for {
       img <- futureFromTry { Vips.openFile(sourceFile) }
       hasAlpha = Vips.hasAlpha(img)
-      outputFile <- createTempFile(s"transformed-", if (hasAlpha) Png.fileExtension else Jpeg.fileExtension, tempDir)
+      outputMimeType = if (hasAlpha) Png else Jpeg
+      outputFile <- createTempFile(s"transformed-", outputMimeType.fileExtension, tempDir)
       _ <- futureFromTry {
-        if (hasAlpha) Vips.savePng(img, outputFile, profile, quantisation = quantise)
+        if (outputMimeType == Png) Vips.savePng(img, outputFile, profile, quantisation = quantise)
         else Vips.saveJpeg(img, outputFile, browserViewableQuality, profile)
       }
-    } yield outputFile -> optimisedMimeType
+    } yield outputFile -> outputMimeType
   }
 
   override def createThumbnail(
