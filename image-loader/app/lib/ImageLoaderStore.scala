@@ -17,7 +17,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     try {
       doWork
     } catch {
-      case e: AmazonS3Exception if e.getStatusCode == 404 =>
+      case e: AmazonS3Exception if e.getStatusCode == 404 || e.getStatusCode == 403 =>
         loggingIfNotFound
         throw new S3FileDoesNotExistException
       case other: Throwable => throw other
