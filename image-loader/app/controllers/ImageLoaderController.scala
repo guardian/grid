@@ -157,10 +157,15 @@ class ImageLoaderController(auth: Authentication,
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
-          } recover { case t: Throwable =>
-            metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
-            logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
-            store.moveObjectToFailedBucket(s3IngestObject.key)
+          } recover {
+            case _: UnsupportedMimeTypeException =>
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
+              store.moveObjectToFailedBucket(s3IngestObject.key)
+            case t: Throwable =>
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+              store.moveObjectToFailedBucket(s3IngestObject.key)
           }
         }
     }
