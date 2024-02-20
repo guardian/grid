@@ -7,8 +7,10 @@ import play.api.libs.json.Json
 import scala.util.Try
 
 trait SqsHelpers {
+
+  val attrApproximateReceiveCount = "ApproximateReceiveCount"
   def getApproximateReceiveCount(message: SQSMessage): Int =
-   Try(message.getAttributes.get("ApproximateReceiveCount").toInt).toOption.getOrElse(-1)
+   Try(message.getAttributes.get(attrApproximateReceiveCount).toInt).toOption.getOrElse(-1)
 
   def extractS3KeyFromSqsMessage(message: SQSMessage): Try[String] = Try {
 
