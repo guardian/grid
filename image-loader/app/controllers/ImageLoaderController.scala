@@ -62,7 +62,7 @@ class ImageLoaderController(auth: Authentication,
   val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
     val processor = Source.repeat(())
       .mapAsyncUnordered(parallelism=1)(_ => {
-        ingestQueue.getNextMessage() match {
+        ingestQueue.getNextMessage(attrApproximateReceiveCount) match {
           case None =>
             Future.successful(logger.debug(s"No message at ${DateTimeUtils.now()}"))
           case Some(sqsMessage) =>
