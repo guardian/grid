@@ -18,6 +18,7 @@ import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 class ReaperController(
   es: ElasticSearch,
@@ -62,11 +63,13 @@ class ReaperController(
             Future.sequence(Seq(
               doBatchSoftReap(countOfImagesToReap, deletedBy),
               doBatchHardReap(countOfImagesToReap, deletedBy)
-            ))
+            )).onComplete {
+              case Success(_) => logger.info("Reap completed")
+              case Failure(e) => logger.error("Reap failed", e)
+            }
           }
         } catch {
-          case e: Exception => logger.error("Reap failed", e)
-          case e: RuntimeException => logger.error("Reap failed", e)
+          case e: Throwable => logger.error("Reap failed", e)
         }
       }
     case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
