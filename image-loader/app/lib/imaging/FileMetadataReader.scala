@@ -229,7 +229,7 @@ object FileMetadataReader extends GridLogging {
     runIdentifyCmd(formatter, useImageMagick = false)
       .map { imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
-      .map { _ ++ Vips.openFile(image).map(Vips.hasAlpha).toOption.map(ha => ("vipsHasAlpha", ha.toString))}
+      .map { _ ++ Vips.openFile(image).map(vipsImage => Vips.hasAlpha(vipsImage)).toOption.map(ha => ("vipsHasAlpha", ha.toString))}
   }
 
   // bits per sample might be a useful value, eg. "1", "8"; or it might be annoying like "1 bits/component/pixel", "8 8 8 bits/component/pixel"
