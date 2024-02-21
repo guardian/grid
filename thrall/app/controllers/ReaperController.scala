@@ -18,6 +18,7 @@ import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 class ReaperController(
@@ -69,7 +70,7 @@ class ReaperController(
             }
           }
         } catch {
-          case e: Throwable => logger.error("Reap failed", e)
+          case NonFatal(e) => logger.error("Reap failed", e)
         }
       }
     case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
