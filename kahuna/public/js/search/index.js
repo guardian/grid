@@ -14,6 +14,10 @@ import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+import '../components/gr-permissions-filter/gr-permissions-filter';
+import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-my-uploads/gr-my-uploads';
+import '../components/gr-search-wrapper/gr-search-wrapper';
 import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
@@ -25,7 +29,6 @@ import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
 
-
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
     'kahuna.search.query',
@@ -36,6 +39,10 @@ export var search = angular.module('kahuna.search', [
     'gr.topBar',
     'gr.panels',
     'gr.keyboardShortcut',
+    'gr.permissionsFilter',
+    'gr.sortControl',
+    'gr.myUploads',
+    'gr-searchWrapper',
     'grInfoPanel',
     'grCollectionsPanel',
     'ui.router',
@@ -85,6 +92,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             const ctrl = this;
 
             ctrl.canUpload = false;
+            ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
 
             mediaApi.canUserUpload().then(canUpload => {
                 ctrl.canUpload = canUpload;
@@ -100,6 +108,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   isNonFree: showPaid ? showPaid : false
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+                storage.setJs("logoClick","logoClick", true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
               });
             };

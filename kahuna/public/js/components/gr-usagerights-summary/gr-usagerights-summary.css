@@ -1,0 +1,19 @@
+.usage-rights-summary-table {
+  border: 0;
+  width: auto;
+}
+
+.usage-rights-summary-cell {
+  padding-right: 8px;
+  padding-left: 0;
+  border: 0;
+}
+
+.usage-rights-container {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.usage-rights-element {
+  padding-right: 8px;
+}

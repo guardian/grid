@@ -12,13 +12,15 @@ import { editOptions, overwrite } from '../../util/constants/editOptions';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
+import '../gr-usagerights-summary/gr-usagerights-summary';
 import { List } from 'immutable';
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
     'gr.descriptionWarning',
-    'util.storage'
+    'util.storage',
+    'gr.usageRightsSummary'
 ]);
 
 module.controller('grImageMetadataCtrl', [
@@ -55,6 +57,7 @@ module.controller('grImageMetadataCtrl', [
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.usageRightsSummary = window._clientConfig.usageRightsSummary;
     ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.$onInit = () => {
@@ -343,6 +346,13 @@ module.controller('grImageMetadataCtrl', [
       }
 
       function selectedUsageRights() {
+        //--image selection change event--
+        const customEvent = new CustomEvent('imageSelectionChange', {
+          detail: {images: ctrl.selectedImages},
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+
         return ctrl.selectedImages.map(image => {
           return {
             image: image,
@@ -422,6 +432,23 @@ module.controller('grImageMetadataCtrl', [
         ctrl.removingCollection = collection;
         collections.removeImageFromCollection(collection, ctrl.singleImage)
             .then(() => ctrl.removingCollection = false);
+      };
+
+      ctrl.callbackUsageCategory = (images) => {
+          let usageRights = images.map(image => {
+              return {
+                  image: image,
+                  data: imageAccessor.readUsageRights(image)
+              };
+          });
+          const categoryCode = usageRights.reduce((m, o) => {
+              return (m == o.data.category) ? o.data.category : 'multiple categories';
+          }, usageRights && usageRights.first().data.category);
+          let categoryPromise = editsApi.getUsageRightsCategories().then(categories => {
+              const usageCategory = categories.find(cat => cat.value === categoryCode);
+              return usageCategory ? usageCategory.name : categoryCode;
+          });
+          return categoryPromise;
       };
 
       $scope.$on('$destroy', function() {

@@ -1,6 +1,6 @@
 <!-- TODO: rename this file and split it into it's components -->
 <gr-top-bar fixed="true" role="banner" aria-label="Top bar">
-    <gr-top-bar-nav role="region" aria-label="Primary navigation and image search">
+    <gr-top-bar-nav role="region" aria-label="Primary navigation and image search - row 1">
         <div role="region" aria-label="Image search and filters">
             <search-query></search-query>
         </div>
@@ -18,6 +18,10 @@
         </a>
         <file-uploader ng-if="ctrl.canUpload" class="top-bar-item side-padded"></file-uploader>
     </gr-top-bar-actions>
+</gr-top-bar>
+
+<gr-top-bar ng-if="ctrl.usePermissionsFilter" fixed="true" role="banner" aria-label="Top bar" style="z-index: 28;">
+    <gr-search-wrapper></gr-search-wrapper>
 </gr-top-bar>
 
 <gr-panels class="search-panels" role="main" aria-label="Image search results">

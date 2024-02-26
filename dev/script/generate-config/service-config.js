@@ -94,6 +94,15 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
+    const permissionsOptions = `[{\\"id\\":\\"allPermissions\\",\\"label\\":\\"All permissions\\",\\"mapping\\":\\"\\",\\"payable\\":\\"none\\"},{\\"id\\":\\"usableForNews\\",\\"label\\":\\"Usable for News\\",\\"mapping\\":\\"category:agency\\",\\"payable\\":\\"false\\"}]`;
+
+    const permissionsConfig = stripMargin`
+        |usageRightsSummary=true
+        |usePermissionsFilter=true
+        |permissionsDefault="allPermissions"
+        |permissionsOptions="${permissionsOptions}"
+        `;
+
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
@@ -108,6 +117,7 @@ function getKahunaConfig(config){
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |metrics.request.enabled=false
+        |${permissionsConfig}
         |${pinboardConfig}
         |`;
 }
