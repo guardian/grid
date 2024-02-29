@@ -1,4 +1,5 @@
 name: push-pr
+run-name: Create/Update pr${{ inputs.prNumber }} branch
 on:
   workflow_dispatch:
     inputs:
