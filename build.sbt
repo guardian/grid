@@ -142,8 +142,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.23.17",
     "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
+    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   )
 )
 
@@ -155,8 +154,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "org.codehaus.groovy" % "groovy-json" % "3.0.7",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test,
+    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )
 )
