@@ -37,7 +37,7 @@ const FeatureSwitch = ({ data }: { data: FeatureSwitchData}) => {
 
   const handleClick = () => {
     const newOn = !on;
-    document.cookie = `feature-switch-${data.key}=${newOn.toString()}`;
+    document.cookie = `feature-switch-${data.key}=${newOn.toString()};domain=${location.host};same-site=strict;secure;path=/`;
     setOn(newOn);
   };
   return (

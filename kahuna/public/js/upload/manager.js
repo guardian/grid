@@ -1,6 +1,7 @@
 import angular from 'angular';
 
 import Filehash from 'filehash/src/filehash';
+import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 var upload = angular.module('kahuna.upload.manager', []);
 
@@ -117,10 +118,17 @@ upload.factory('fileUploader',
         return uploadFile(file, {filename: file.name});
       }
 
+      const extraHeaders = {};
+
+      if (getFeatureSwitchActive("vips-beta")) {
+        extraHeaders["x-amz-meta-feature-switch-vips-beta"] = "true";
+      }
+
       const s3Response = await fetch(preSignedUrl, {
         method: "PUT",
         body: file,
         headers: {
+          ...extraHeaders,
           "x-amz-meta-media-id": mediaId
         }
       });
