@@ -60,16 +60,16 @@ jobs:
           vipsdir="$(mktemp -d)"
           curl -fLso- 'https://github.com/kleisauke/libvips-packaging/releases/download/v8.15.1/libvips-8.15.1-linux-arm64.tar.gz' | tar xzC $vipsdir
           mkdir -p cropper/conf/linux-aarch64
-          cp $mydir/lib/libvips.so.42 cropper/conf/linux-aarch64/libvips.so
+          cp $vipsdir/lib/libvips.so.42 cropper/conf/linux-aarch64/libvips.so
           mkdir -p image-loader/conf/linux-aarch64
-          cp $mydir/lib/libvips.so.42 image-loader/conf/linux-aarch64/libvips.so
+          cp $vipsdir/lib/libvips.so.42 image-loader/conf/linux-aarch64/libvips.so
           rm -rf $vipsdir
           vipsdir="$(mktemp -d)"
           curl -fLso- 'https://github.com/kleisauke/libvips-packaging/releases/download/v8.15.1/libvips-8.15.1-linux-x64.tar.gz' | tar xzC $vipsdir
           mkdir -p cropper/conf/linux-x86-64
-          cp $mydir/lib/libvips.so.42 cropper/conf/linux-x86-64/libvips.so
+          cp $vipsdir/lib/libvips.so.42 cropper/conf/linux-x86-64/libvips.so
           mkdir -p image-loader/conf/linux-x86-64
-          cp $mydir/lib/libvips.so.42 image-loader/conf/linux-x86-64/libvips.so
+          cp $vipsdir/lib/libvips.so.42 image-loader/conf/linux-x86-64/libvips.so
           rm -rf $vipsdir
 
       - name: Setup Java
