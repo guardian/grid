@@ -324,7 +324,6 @@
                                 <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by'), nonFree: ctrl.srefNonfree()})"
                                    ng-click="ctrl.searchWithModifiers($event, 'by', ctrl.metadata.byline)"
                                    aria-label="Search images by {{ctrl.metadata.byline}} byline"
-                                   title="Hold alt to exclude or hold shift to include {{ctrl.metadata.byline}}">{{ctrl.metadata.byline}}</a>
                             </span>
 
                             <span class="editable-empty" ng-if="!ctrl.metadata.byline && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
