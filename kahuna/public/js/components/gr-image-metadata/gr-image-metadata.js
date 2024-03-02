@@ -515,17 +515,17 @@ module.controller('grImageMetadataCtrl', [
         return totalAdditionalMetadataCount == 0;
       };
 
-      function updateQueryWithModifiers(field, byline, alt, shift, prevQuery) {
+      function updateQueryWithModifiers(field, fieldValue, alt, shift, prevQuery) {
         if (alt && prevQuery) {
-          return `${prevQuery} -${fieldFilter(field, byline)}`;
+          return `${prevQuery} -${fieldFilter(field, fieldValue)}`;
         }
         if (alt) {
-          return `-${fieldFilter(field, byline)}`;
+          return `-${fieldFilter(field, fieldValue)}`;
         }
         if (shift && prevQuery) {
-          return `${prevQuery} ${fieldFilter(field, byline)}`;
+          return `${prevQuery} ${fieldFilter(field, fieldValue)}`;
         }
-        return fieldFilter(field, byline);
+        return fieldFilter(field, fieldValue);
       }
 
 
