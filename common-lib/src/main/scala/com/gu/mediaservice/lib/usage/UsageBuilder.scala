@@ -64,7 +64,7 @@ object UsageBuilder {
   private def buildSyndicationUsageReference(usage: MediaUsage): List[UsageReference] = usage.syndicationUsageMetadata.map (metadata => {
     List(
       UsageReference(
-        SyndicationUsageReference, None, Some(List(metadata.partnerName, metadata.syndicatedBy).mkString(", "))
+        SyndicationUsageReference, None, metadata.syndicatedBy.map(_ => s"${metadata.partnerName}, ${metadata.syndicatedBy}").orElse(Some(metadata.partnerName))
       )
     )
   }).getOrElse(
