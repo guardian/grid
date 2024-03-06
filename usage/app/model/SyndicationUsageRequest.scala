@@ -7,11 +7,12 @@ import play.api.libs.json._
 case class SyndicationUsageRequest (
   partnerName: String,
   syndicatedBy: Option[String],
+  startPending: Option[Boolean],
   mediaId: String,
   dateAdded: DateTime
 ) {
-  val status: UsageStatus = partnerName match {
-    case "Capture" => PendingUsageStatus
+  val status: UsageStatus = startPending match {
+    case Some(true) => PendingUsageStatus
     case _ => SyndicatedUsageStatus
   }
   val metadata: SyndicationUsageMetadata = SyndicationUsageMetadata(partnerName, syndicatedBy)
