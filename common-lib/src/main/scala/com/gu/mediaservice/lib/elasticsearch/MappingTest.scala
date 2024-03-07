@@ -175,7 +175,8 @@ object MappingTest {
         composerUrl = Some(new URI("https://composer/api/2345678987654321345678"))
       )),
       syndicationUsageMetadata = Some(SyndicationUsageMetadata(
-        partnerName = "friends of ours"
+        partnerName = "friends of ours",
+        syndicatedBy = Some("Bob")
       )),
       frontUsageMetadata = Some(FrontUsageMetadata(
         addedBy = "me",
