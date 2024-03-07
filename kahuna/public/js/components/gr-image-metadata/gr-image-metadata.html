@@ -646,6 +646,7 @@
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
                 <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
                 <a ui-sref="search.results({query: (value | queryFilter:'{{key}}'), nonFree: ctrl.srefNonfree()})"
+                ng-click="ctrl.searchWithModifiers($event, key, value)"
                 aria-label="Search images with {{key}} '{{value}}'">{{value}}</a>
                 </dd>
             </dl>
@@ -654,6 +655,7 @@
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key}}</dt>
                 <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
                 <a ui-sref="search.results({query: (metadata.value | queryFilter:'{{metadata.alias}}'), nonFree: ctrl.srefNonfree()})"
+                ng-click="ctrl.searchWithModifiers($event, metadata.alias, metadata.value)"
                 aria-label="Search images with {{key}} '{{metadata.value}}'">{{metadata.value}}</a>
                 </dd>
             </dl>
