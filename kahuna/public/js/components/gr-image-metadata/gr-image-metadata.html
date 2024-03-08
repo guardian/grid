@@ -841,6 +841,7 @@
                   ng-repeat="collection in ctrl.singleImage.data.collections"
                   ng-switch-default>
                 <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter), nonFree: ctrl.srefNonfree()})"
+                   ng-click="ctrl.searchWithModifiers($event, 'collection', collection.data.pathId)"
                    aria-label="Search images by {{collection.data.description}} collection">
                     {{collection.data.path.join(' ▸ ')}}
                 </a>
