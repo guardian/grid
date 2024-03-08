@@ -14,6 +14,8 @@ import '../../services/image-list';
 import '../../services/label';
 import { List } from 'immutable';
 
+import { fieldFilter} from '../../search/query-filter';
+
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
@@ -24,6 +26,8 @@ export const module = angular.module('gr.imageMetadata', [
 module.controller('grImageMetadataCtrl', [
   '$rootScope',
   '$scope',
+  '$state',
+  '$stateParams',
   '$window',
   'editsService',
   'mediaApi',
@@ -38,6 +42,8 @@ module.controller('grImageMetadataCtrl', [
 
   function ($rootScope,
     $scope,
+    $state,
+    $stateParams,
     $window,
     editsService,
     mediaApi,
@@ -507,6 +513,34 @@ module.controller('grImageMetadataCtrl', [
         Object.keys(ctrl.identifiers).length;
 
         return totalAdditionalMetadataCount == 0;
+      };
+
+      function updateQueryWithModifiers(field, fieldValue, alt, shift, prevQuery) {
+        if (alt && prevQuery) {
+          return `${prevQuery} -${fieldFilter(field, fieldValue)}`;
+        }
+        if (alt) {
+          return `-${fieldFilter(field, fieldValue)}`;
+        }
+        if (shift && prevQuery) {
+          return `${prevQuery} ${fieldFilter(field, fieldValue)}`;
+        }
+        return fieldFilter(field, fieldValue);
+      }
+
+
+      ctrl.searchWithModifiers = ($event, fieldName, fieldValue) => {
+        const alt = event.getModifierState('Alt');
+        const shift = event.getModifierState('Shift');
+        if (alt || shift) {
+          $event.preventDefault();
+          const nonFree = ctrl.srefNonfree();
+
+          return $state.go('search.results', {
+            query: updateQueryWithModifiers(fieldName, fieldValue, alt, shift, $stateParams.query),
+            nonFree: nonFree
+          });
+        }
       };
     };
   }
