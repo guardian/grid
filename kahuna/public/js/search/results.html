@@ -81,6 +81,18 @@
                     <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
                 </a>
 
+                <a id="send-to" class="results-toolbar-item results-toolbar-item--right"
+                   style="display: flex;"
+                   ng-class="{'batch-archive__button--disabled': ctrl.selectionCount >= 45}"
+                   ng-click="ctrl.selectionCount < 45 && ctrl.sendToCapture()"
+                   ng-if="ctrl.selectionCount > 0"
+                   aria-label="{{ctrl.selectionCount >= 45 ? 'You can’t share all these images at once, please reduce to 44 or less' : 'Share selected images'}}"
+                   gr-tooltip="{{ctrl.selectionCount >= 45 ? 'You can’t share all these images at once, please reduce to 44 or less' : 'Share selected images'}}"
+                   gr-tooltip-position="bottom"
+                   gr-tooltip-updates>
+                    <gr-icon-label gr-icon="send">Send To Capture</gr-icon-label>
+                </a>
+
                 <gr-batch-export-original-images class="results-toolbar-item results-toolbar-item--right"
                   images="ctrl.selectedImages"
                   ng-if="ctrl.selectionCount > 0"></gr-batch-export-original-images>

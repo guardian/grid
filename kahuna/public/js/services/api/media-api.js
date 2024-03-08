@@ -98,6 +98,11 @@ mediaApi.factory('mediaApi',
         return root.follow('undelete', {id: id}).put();
     }
 
+    function sendToCapture(id) {
+      console.log("send to capture: ",id)
+      return root.follow('send-to-capture', {id: id}).post();
+    }
+
     function canUserArchive() {
         return root.getLink('archive').then(() => true, () => false);
     }
@@ -113,6 +118,7 @@ mediaApi.factory('mediaApi',
         delete: delete_,
         canUserUpload,
         canUserArchive,
-        undelete
+        undelete,
+        sendToCapture
     };
 }]);

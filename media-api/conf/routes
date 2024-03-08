@@ -26,6 +26,7 @@ GET     /images/:imageId/downloadOptimised                          controllers.
 DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
 PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
+POST     /images/:id/sendToCapture                                  controllers.MediaApi.setCaptureUsage(id: String)
 GET     /images                                                     controllers.MediaApi.imageSearch
 
 # completion
