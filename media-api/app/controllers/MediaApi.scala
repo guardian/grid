@@ -369,7 +369,7 @@ class MediaApi(
     }
   }
 
-  def setCaptureUsage(id: String) = auth.async { request =>
+  def syndicateImage(id: String, partnerName: String, startPending: Option[String] = None) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) flatMap {
@@ -382,7 +382,7 @@ class MediaApi(
         // val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         // val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
-        postCaptureToUsages(config.usageUri + "/usages/capture", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
+        postToUsages(config.usageUri + "/usages/capture", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user), Option(partnerName), startPending)
         println("done send to usages...............................")
 
         Future.successful(Ok)
@@ -421,7 +421,8 @@ class MediaApi(
     }
   }
 
-  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String,
+                   partnerName: Option[String] = None, startPending: Option[String] = None) = {
     val baseRequest = ws.url(uri)
       .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
         HttpHeaders.ORIGIN -> config.rootUri,
@@ -429,27 +430,19 @@ class MediaApi(
 
     val request = onBehalfOfPrincipal(baseRequest)
 
-    val usagesMetadata = Map("mediaId" -> mediaId,
-      "dateAdded" -> printDateTime(DateTime.now()),
-      "downloadedBy" -> user)
+    val usagesMetadata = uri match {
+      case s if s.contains("download") =>  Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "downloadedBy" -> user)
+      case s if s.contains("syndication") => Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "syndicatedBy" -> user,
+        "startPending" -> startPending.getOrElse("false"),
+        "partnerName" -> partnerName.getOrElse(
+          throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest")))
+    }
 
-    logger.info(s"Making usages download request")
-    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
-  }
-
-  def postCaptureToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
-    val baseRequest = ws.url(uri)
-      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
-        HttpHeaders.ORIGIN -> config.rootUri,
-        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
-
-    val request = onBehalfOfPrincipal(baseRequest)
-
-    val usagesMetadata = Map("mediaId" -> mediaId,
-      "dateAdded" -> printDateTime(DateTime.now()),
-      "sentBy" -> user)
-
-    logger.info(s"Making capture usages request")
+    logger.info(s"Making usages request to $uri")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
