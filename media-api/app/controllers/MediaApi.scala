@@ -375,20 +375,11 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
         val apiKey = request.user.accessor
-        logger.info(s"set capture usage, image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
-        println(s"set capture usage, image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
-        //        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        // val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        // val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        // val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
+        logger.info(s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id, partnerName, startPending)
 
-        postToUsages(config.usageUri + "/usages/capture", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user), Option(partnerName), startPending)
-        println("done send to usages...............................")
+        postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user), Option(partnerName), startPending)
 
         Future.successful(Ok)
-        // Future.successful(
-        //   Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
-        // )
       }
       case _ => Future.successful(ImageNotFound(id))
     }

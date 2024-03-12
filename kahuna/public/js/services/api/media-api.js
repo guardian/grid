@@ -98,9 +98,9 @@ mediaApi.factory('mediaApi',
         return root.follow('undelete', {id: id}).put();
     }
 
-    function sendToCapture(id) {
-      console.log("send to capture: ",id)
-      return root.follow('send-to-capture', {id: id}).post();
+    function syndicateImage(id, partnerName, startPending) {
+      console.log("syndicate image: ",id)
+      return root.follow('syndicate image').post({id, partnerName, startPending});
     }
 
     function canUserArchive() {
@@ -119,6 +119,6 @@ mediaApi.factory('mediaApi',
         canUserUpload,
         canUserArchive,
         undelete,
-        sendToCapture
+        syndicateImage
     };
 }]);
