@@ -98,9 +98,8 @@ mediaApi.factory('mediaApi',
         return root.follow('undelete', {id: id}).put();
     }
 
-    function syndicateImage(id, partnerName, startPending) {
-      console.log("syndicate image: ",id)
-      return root.follow('syndicate image').post({id, partnerName, startPending});
+    function syndicateImage(mediaId, partner, pending) {
+      return root.follow('syndicate-image', {id: mediaId, partnerName: partner, startPending: pending}).post();
     }
 
     function canUserArchive() {

@@ -116,7 +116,7 @@ class MediaApi(
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
-      Link("send-to-capture", s"${config.rootUri}/images/{id}/sendToCapture"), // will have to change to reflect altered syndication endpoint
+      Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
@@ -369,19 +369,29 @@ class MediaApi(
     }
   }
 
-  def syndicateImage(id: String, partnerName: String, startPending: Option[String] = None) = auth.async { request =>
+  def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
     implicit val r = request
+    println(id)
+
+    //partnerName: String, startPending: String)
+
+    println("media syndication endpoint has been triggered")
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
+        println(s"Found image by id from: https://api.media.local.dev-gutools.co.uk/images/$id/$partnerName/$startPending/syndicateImage")
         val apiKey = request.user.accessor
-        logger.info(s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id, partnerName, startPending)
+        logger.info(s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey,
+          id, partnerName, startPending)
 
-        postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user), Option(partnerName), startPending)
+        postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id,
+          Authentication.getIdentity(request.user), Option(partnerName), Option(startPending))
 
         Future.successful(Ok)
       }
-      case _ => Future.successful(ImageNotFound(id))
+      case _ => {
+        println(s"NO image by id from: https://api.media.local.dev-gutools.co.uk/images/$id/$partnerName/$startPending/syndicateImage")
+        Future.successful(ImageNotFound(id))}
     }
   }
 
@@ -414,6 +424,9 @@ class MediaApi(
 
   def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String,
                    partnerName: Option[String] = None, startPending: Option[String] = None) = {
+
+    println(s"Making a request to: $uri, with mediaId:$mediaId, partnerName: $partnerName, startPending: $startPending")
+
     val baseRequest = ws.url(uri)
       .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
         HttpHeaders.ORIGIN -> config.rootUri,
@@ -430,9 +443,10 @@ class MediaApi(
         "syndicatedBy" -> user,
         "startPending" -> startPending.getOrElse("false"),
         "partnerName" -> partnerName.getOrElse(
-          throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest")))
+          throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest"))
+      )
     }
-
+    println(s"data on body: $usagesMetadata")
     logger.info(s"Making usages request to $uri")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
