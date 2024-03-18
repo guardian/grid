@@ -804,6 +804,19 @@ textarea.ng-invalid {
     padding-top: 10px;
 }
 
+/* ================================
+   Notifications
+   ================================ */
+.global-notifications {
+  position: fixed;
+  margin: 0 auto;
+  left: 0;
+  right: 0;
+  top: 88px;
+  z-index: 40;
+  text-align: left;
+  max-width: 100%;
+}
 
 /* ==========================================================================
    Errors / status
