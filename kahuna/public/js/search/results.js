@@ -388,16 +388,11 @@ results.controller('SearchResultsCtrl', [
         ctrl.selectedImages.map(image => {
           console.log("map image: ", image.data.id)
           mediaApi.syndicateImage(image.data.id, "Capture", "true")
-          // image.data.uploadTime = moment(image.data.uploadTime).format('YYYY-MM-DDTHH:mm:ss.SSSZ');
-          // return image;
         });
         const sharedImagesIds = ctrl.selectedImages.map( image => image.data.id);
         console.log("images ids: ", sharedImagesIds)
         console.log("ctrl.image: ", ctrl.image)
         console.log("images ids join : ", sharedImagesIds.join(','))
-        // mediaApi.sendToCapture(sharedImagesIds).then(sent => {
-        //         console.log("sent to capture", sent)
-        //     });
       };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
