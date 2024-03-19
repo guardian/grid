@@ -154,7 +154,6 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
 
   useEffect(() => {
     const announce = window._clientConfig.announcements;
-    const checkUrl = window._clientConfig.telemetryUri;
     const tdy = todayStr();
     let notif_cookie = getCookie(NOTIFICATION_COOKIE);
     if (!notif_cookie) {
@@ -223,8 +222,8 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
 
   return (
     <div className="outer-notifications" key="notification-banner">
-      {notifications.map((notification) => (
-        <div className={'notification-container notification-' + notification.category}
+      {notifications.map((notification, index, array) => (
+        <div className={'notification-container' + ((index === array.length - 1) ? '-last' : '') + ' notification-' + notification.category}
              key={"notification-" + notification.announceId}>
           <div className="notification-start" key={"notification-start-" + notification.announceId}>
             <div className="notification-start-icon" key={"notification-start-icon-" + notification.announceId}>

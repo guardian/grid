@@ -8,6 +8,11 @@
   border-bottom: 1px solid black;
 }
 
+.notification-container-last {
+  width: 100%;
+  display: flex;
+}
+
 .notification-start {
   flex: 0 0 initial;
   display: flex;
@@ -38,7 +43,13 @@
 
 .notification-url {
   color: black;
-  text-decoration: underline;
+  border-bottom: 1px solid black;
+  font-weight: 500;
+}
+
+.notification-url:hover {
+  color: black;
+  font-weight: 500;
 }
 
 .notification-button {
@@ -47,8 +58,7 @@
   text-align: center;
 }
 
-.notification-button:hover {
-  background: grey;
+.notification-button:hover  {
   cursor: pointer;
 }
 
