@@ -95,6 +95,10 @@ results.controller('SearchResultsCtrl', [
 
         const ctrl = this;
 
+        ctrl.$onInit = () => {
+          ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales
+        }
+
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
@@ -384,7 +388,7 @@ results.controller('SearchResultsCtrl', [
             globalErrors.trigger('clipboard', sharedUrl);
         };
 
-      ctrl.sendToCapture = () => {
+      ctrl.sendToPhotoSales = () => {
         ctrl.selectedImages.map(image => {
           console.log("map image: ", image.data.id)
           mediaApi.syndicateImage(image.data.id, "Capture", "true")
