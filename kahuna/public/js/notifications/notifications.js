@@ -17,6 +17,7 @@ notifications.controller('NotificationsCtrl',
       const ctrl = this;
 
       ctrl.$onInit = () => {
+        ctrl.getCurrentLocation = () => $location.url();
         ctrl.notifications = window._clientConfig.announcements;
         ctrl.hasNotifications = ctrl.notifications.length > 0;
       };
