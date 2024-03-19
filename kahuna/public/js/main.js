@@ -27,6 +27,8 @@ import {userActions}        from './common/user-actions';
 import {httpErrors}   from './errors/http';
 import {globalErrors} from './errors/global';
 
+import {notifications} from './notifications/notifications';
+
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
 
@@ -80,6 +82,7 @@ var kahuna = angular.module('kahuna', [
     userActions.name,
     httpErrors.name,
     globalErrors.name,
+    notifications.name,
 
     // directives used throughout
     imageFade.name,

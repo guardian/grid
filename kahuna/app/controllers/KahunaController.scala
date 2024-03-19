@@ -53,6 +53,7 @@ class KahunaController(
     val domainMetadataSpecs: String = Json.toJson(config.domainMetadataSpecs).toString()
     val fieldAliases: String = Json.toJson(config.fieldAliasConfigs).toString()
     val metadataTemplates: String = Json.toJson(config.metadataTemplates).toString()
+    val announcements: String = Json.toJson(config.announcements).toString()
     val returnUri = config.rootUri + okPath
     val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
@@ -68,6 +69,7 @@ class KahunaController(
       scriptsToLoad,
       domainMetadataSpecs,
       metadataTemplates,
+      announcements,
       additionalNavigationLinks,
       costFilterLabel,
       costFilterChargeable,
@@ -79,6 +81,11 @@ class KahunaController(
 
   def quotas = authentication { req =>
     Ok(views.html.quotas(config.mediaApiUri))
+  }
+
+  def notifications = authentication { req =>
+    val announcements: String = Json.toJson(config.announcements).toString()
+    Ok(announcements)
   }
 
   def ok = Action { implicit request =>
