@@ -35,7 +35,7 @@ const triangleIcon = () =>
         </path>
       </g>
     </g>
-  </svg>
+  </svg>;
 
 
 const crossIcon = () =>
@@ -44,7 +44,7 @@ const crossIcon = () =>
     <path d="M7 17L16.8995 7.10051" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
     <path d="M7 7.00001L16.8995 16.8995" stroke="#000" strokeLinecap="round" strokeLinejoin="round"
           strokeWidth="2"/>
-  </svg>
+  </svg>;
 
 const circleIcon = () =>
   <svg width="24px" height="24px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
@@ -56,7 +56,7 @@ const circleIcon = () =>
         </path>
       </g>
     </g>
-  </svg>
+  </svg>;
 
 export interface Notification {
   announceId: string,
@@ -76,7 +76,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
   const bannerHeading = heading;
   const initNotifications: Notification[] = [];
   const [notifications, setNotifications] = useState(initNotifications);
-  let checkNotificationsRef: any;
+  let checkNotificationsRef: NodeJS.Timer;
 
   const todayStr = (): string => {
     const today = new Date();
@@ -86,7 +86,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
     const mthStr = (month < 10) ? `0${month}` : `${month}`;
     const dayStr = (day < 10) ? `0${day}` : `${day}`;
     return (`${year}-${mthStr}-${dayStr}`);
-  }
+  };
 
   const getCookie = (cookieName: string): string => {
     const name = cookieName + "=";
@@ -104,7 +104,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
     }
 
     return null; // Return null if the cookie is not found
-  }
+  };
 
   const mergeArraysByKey = (array1: Notification[], array2: Notification[], key: keyof Notification): Notification[] => {
     const merged = new Map<string, Notification>();
@@ -114,8 +114,8 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
 
     array1.forEach(addOrUpdate);
     array2.forEach(addOrUpdate);
-    return Array.from(merged.values())
-  }
+    return Array.from(merged.values());
+  };
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -125,7 +125,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
         setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
       }
     }
-  }
+  };
 
   const checkNotifications = () => {
     fetch(checkNotificationsUri)
@@ -150,7 +150,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
       .catch(error => {
         console.error('There was a problem checking for Notifications:', error);
       });
-  }
+  };
 
   useEffect(() => {
     const announce = window._clientConfig.announcements;
@@ -203,7 +203,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
       default:
         return emptyIcon();
     }
-  }
+  };
 
   const handleNotificationClick = (notif: Notification) => {
     const ns = notifications.filter(n => n.announceId !== notif.announceId);
@@ -219,7 +219,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
     }
 
     setNotifications(ns);
-  }
+  };
 
   return (
     <div className="outer-notifications" key="notification-banner">
@@ -243,7 +243,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
                       role="link"
                       aria-label={DEFAULT_URL_TEXT}>
                   &nbsp;
-                  <a className="notification-url" target="_blank" href={notification.url}>
+                  <a className="notification-url" target="_blank" rel="noreferrer" href={notification.url}>
                     {notification.urlText ? notification.urlText : DEFAULT_URL_TEXT}
                   </a>
                 </span>

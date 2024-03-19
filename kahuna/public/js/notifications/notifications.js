@@ -12,22 +12,13 @@ export var notifications = angular.module(
 );
 
 notifications.controller('NotificationsCtrl',
-  ['$location', '$scope',
-    function ($location, $scope) {
-
-      var ctrl = this;
+  ['$location',
+    function ($location) {
+      const ctrl = this;
 
       ctrl.$onInit = () => {
         ctrl.notifications = window._clientConfig.announcements;
         ctrl.hasNotifications = ctrl.notifications.length > 0;
-
-        // handy as these can happen anywhere
-        ctrl.getCurrentLocation = () => $location.url();
-
-        ctrl.dismiss = (notification) => {
-          // remove notification
-        }
-
       };
   }
 ]);
