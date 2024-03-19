@@ -76,7 +76,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
   const bannerHeading = heading;
   const initNotifications: Notification[] = [];
   const [notifications, setNotifications] = useState(initNotifications);
-  let checkNotificationsRef: NodeJS.Timer;
+  let checkNotificationsRef: NodeJS.Timeout;
 
   const todayStr = (): string => {
     const today = new Date();
