@@ -9,6 +9,7 @@ sealed trait UsageStatus {
     case RemovedUsageStatus => "removed"
     case SyndicatedUsageStatus => "syndicated"
     case DownloadedUsageStatus => "downloaded"
+    case FailedUsageStatus => "failed"
     case UnknownUsageStatus => "unknown"
   }
 }
@@ -20,7 +21,9 @@ object UsageStatus {
     case "removed" => RemovedUsageStatus
     case "syndicated" => SyndicatedUsageStatus
     case "downloaded" => DownloadedUsageStatus
+    case "failed" => FailedUsageStatus
     case "unknown" => UnknownUsageStatus
+    case _ => throw new IllegalArgumentException("Invalid usage status")
   }
 
   implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
@@ -35,6 +38,7 @@ object PublishedUsageStatus extends UsageStatus
 object RemovedUsageStatus extends UsageStatus
 object SyndicatedUsageStatus extends UsageStatus
 object DownloadedUsageStatus extends UsageStatus
+object FailedUsageStatus extends UsageStatus
 
 // For Fronts usages as we don't know if a front is in draft or is live
 // TODO remove this once we do!

@@ -95,6 +95,10 @@ results.controller('SearchResultsCtrl', [
 
         const ctrl = this;
 
+        ctrl.$onInit = () => {
+          ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+        };
+
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
@@ -383,6 +387,17 @@ results.controller('SearchResultsCtrl', [
             navigator.clipboard.writeText(sharedUrl);
             globalErrors.trigger('clipboard', sharedUrl);
         };
+
+      ctrl.sendToPhotoSales = () => {
+        ctrl.selectedImages.map(image => {
+          console.log("map image: ", image.data.id);
+          mediaApi.syndicateImage(image.data.id, "Capture", "true");
+        });
+        const sharedImagesIds = ctrl.selectedImages.map( image => image.data.id);
+        console.log("images ids: ", sharedImagesIds);
+        console.log("ctrl.image: ", ctrl.image);
+        console.log("images ids join : ", sharedImagesIds.join(','));
+      };
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
         inject$($scope, inSelectionMode$, ctrl, 'inSelectionMode');
