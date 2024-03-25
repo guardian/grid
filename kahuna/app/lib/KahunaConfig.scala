@@ -4,13 +4,21 @@ import com.gu.mediaservice.lib.auth.Permissions.Pinboard
 import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 
+import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+
 case class ScriptToLoad(
   host: String,
   path: String,
   async: Option[Boolean],
   permission: Option[SimplePermission],
-  shouldLoadWhenIFramed: Option[Boolean]
-)
+  shouldLoadWhenIFramed: Option[Boolean],
+  additionalFrameSourcesForCSP: Option[Set[String]] = None,
+  additionalImageSourcesForCSP: Option[Set[String]] = None,
+) {
+  def cspScriptSources: Set[String] = Set(host)
+  def cspFrameSources: Set[String] = additionalFrameSourcesForCSP.getOrElse(Set.empty) + host
+  def cspImageSources: Set[String] = additionalImageSourcesForCSP.getOrElse(Set.empty)
+}
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val rootUri: String = services.kahunaBaseUri
@@ -41,6 +49,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 
+  val frameSources: Set[String] = getStringSet("security.frameSources")
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeIngestBucket.map { ingestBucket =>
     if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
@@ -56,6 +65,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     // FIXME ideally the below would not hardcode reference to pinboard - hopefully future iterations of the pluggable authorisation will support evaluating permissions without a corresponding case object
     permission = if (entry.hasPath("permission") && entry.getString("permission") == "pinboard") Some(Pinboard) else None,
     shouldLoadWhenIFramed = if (entry.hasPath("shouldLoadWhenIFramed")) Some(entry.getBoolean("shouldLoadWhenIFramed")) else None,
+    additionalFrameSourcesForCSP = if (entry.hasPath("additionalFrameSourcesForCSP")) Some(entry.getStringList("additionalFrameSourcesForCSP").asScala.toSet) else None,
+    additionalImageSourcesForCSP = if (entry.hasPath("additionalImageSourcesForCSP")) Some(entry.getStringList("additionalImageSourcesForCSP").asScala.toSet) else None,
   ))
 
   val metadataTemplates: Seq[MetadataTemplate] = configuration.get[Seq[MetadataTemplate]]("metadata.templates")

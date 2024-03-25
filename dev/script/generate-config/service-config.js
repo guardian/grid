@@ -90,7 +90,9 @@ function getKahunaConfig(config){
         |    host: "https://pinboard.${config.DOMAIN}",
         |    path: "pinboard.loader.js",
         |    async: true,
-        |    permission: "pinboard"
+        |    permission: "pinboard",
+        |    additionalFrameSourcesForCSP: ["https://www.youtube.com"],
+        |    additionalImageSourcesForCSP: ["https://*.googleusercontent.com"]
         |  }
         |]`;
 
@@ -106,6 +108,7 @@ function getKahunaConfig(config){
         |links.invalidSessionHelp="${config.links.invalidSessionHelp}"
         |links.supportEmail="${config.links.supportEmail}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
+        |security.frameSources="https://accounts.google.com"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |security.imageSources=["https://*.newslabs.co/"]
         |metrics.request.enabled=false
