@@ -90,7 +90,9 @@ function getKahunaConfig(config){
         |    host: "https://pinboard.${config.DOMAIN}",
         |    path: "pinboard.loader.js",
         |    async: true,
-        |    permission: "pinboard"
+        |    permission: "pinboard",
+        |    additionalFrameSourcesForCSP: ["https://www.youtube.com"],
+        |    additionalImageSourcesForCSP: ["https://*.googleusercontent.com"]
         |  }
         |]`;
 
