@@ -37,7 +37,7 @@ object KahunaSecurityConfig {
       config.services.guardianWitnessBaseUri
     )
 
-    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
+    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} ${config.scriptsToLoad.flatMap(_.cspFrameSources).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
     val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")}"
 
@@ -49,13 +49,13 @@ object KahunaSecurityConfig {
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
       URI.ensureSecure("app.getsentry.com").toString,
-      "https://*.googleusercontent.com",
+      config.scriptsToLoad.flatMap(_.cspImageSources).mkString(" "),
       "'self'"
     ).mkString(" ")}"
 
     val fontSources = s"font-src data: 'self' ${config.fontSources.mkString(" ")}"
 
-    val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")}"
+    val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.flatMap(_.cspScriptSources).mkString(" ")}"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
