@@ -91,58 +91,12 @@
             <gr-icon class="search__modifier-toggle__icon">sort</gr-icon>
             <span class="search__modifier-toggle__text">Sort order</span>
         </button>
-
-        <ul class="search__modifier order__option"
+        <div class="search__modifier-sort order__option"
             ng-class="orderShown ? 'order__option--show' : 'order__option--hide'">
-            <li class="search__modifier-item radio-list">
-                <div class="radio-list__item">
-                    <input type="radio"
-                           aria-hidden="false"
-                           id="sort-direction__desc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="undefined"
-                           ng-model="searchQuery.ordering.orderBy"
-                           aria-label="Order search results by newest first">
-                    <label for="sort-direction__desc" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === undefined}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Newest first</div>
-                    </label>
-                </div>
-                <div ng-if="!searchQuery.collectionSearch"
-                     class="radio-list__item">
-                    <input type="radio"
-                           aria-hidden="false"
-                           id="sort-direction__asc"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="'oldest'"
-                           ng-model="searchQuery.ordering.orderBy"
-                           aria-label="Order search results by oldest first">
-                    <label for="sort-direction__asc" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === 'oldest'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Oldest first</div>
-                    </label>
-                </div>
-                <div ng-if="searchQuery.collectionSearch" class="radio-list__item">
-                    <input type="radio"
-                           id="sort-direction__added-to-collection"
-                           class="radio-list__circle"
-                           name="sort-direction"
-                           ng-value="'dateAddedToCollection'"
-                           ng-model="searchQuery.ordering.orderBy">
-                    <label for="sort-direction__added-to-collection" class="radio-list__label"
-                           ng-class="{'radio-list--selected': searchQuery.ordering.orderBy === 'dateAddedToCollection'}">
-                        <div class="radio-list__selection-state"></div>
-                        <div class="radio-list__label-value">Recently Added First</div>
-                    </label>
-                </div>
-            </li>
-        </ul>
-
+            <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
+        </div>
     </div>
+
 </form>
 
 <gr-syntax ng-if="searchInfo"></gr-syntax>

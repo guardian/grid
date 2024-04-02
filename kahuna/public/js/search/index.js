@@ -14,6 +14,7 @@ import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+import '../components/gr-sort-control/gr-sort-control';
 import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
@@ -36,6 +37,7 @@ export var search = angular.module('kahuna.search', [
     'gr.topBar',
     'gr.panels',
     'gr.keyboardShortcut',
+    'gr.sortControl',
     'grInfoPanel',
     'grCollectionsPanel',
     'ui.router',
@@ -101,6 +103,10 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
+                window.dispatchEvent(new CustomEvent("logoClick", {
+                  detail: "logoClick",
+                  bubbles: true
+                }));
               });
             };
 

@@ -932,11 +932,20 @@ textarea.ng-invalid {
 }
 
 .search__modifier {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    margin-left: 25px;
-    align-items: center; /* vertical align all filters */
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  margin-left: 25px;
+  align-items: center; /* vertical align all filters */
+}
+
+.search__modifier-sort {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center; /* vertical align all filters */
+  margin-left: 0px;
+  margin-right: 8px;
 }
 
 .search__modifier-item {
