@@ -66,7 +66,7 @@ query.controller('SearchQueryCtrl', [
         // filled in by the watcher below
     };
 
-    function watchUploadedBy(filter, sender) {
+    function watchUploadedBy(filter) {
       // Users should be able to follow URLs with uploadedBy set to another user's name, so only
       // overwrite if:
       //   - uploadedBy is unset, or
@@ -89,12 +89,12 @@ query.controller('SearchQueryCtrl', [
       window.dispatchEvent(customEvent);
     }
 
-    function watchSearchChange(filter, sender) {
+    function watchSearchChange(filter) {
       const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
       ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
-      watchUploadedBy(filter, sender);
+      watchUploadedBy(filter);
       raiseQueryChangeEvent(ctrl.filter.query);
 
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
@@ -141,7 +141,7 @@ query.controller('SearchQueryCtrl', [
     function updateSortChips (sortSel) {
       ctrl.sortProps.selectedOption = sortSel;
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
-      watchSearchChange(ctrl.filter, "updateSortChips");
+      watchSearchChange(ctrl.filter);
     }
 
     ctrl.sortProps = {

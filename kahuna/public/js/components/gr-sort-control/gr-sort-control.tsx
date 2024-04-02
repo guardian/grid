@@ -65,7 +65,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     }
 
     return false;
-  }
+  };
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -84,7 +84,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   const handleLogoClick = (e: any) => {
     setSelection(defSort);
-  }
+  };
 
   useEffect(() => {
     if (hasCollection) {
@@ -98,8 +98,8 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   }, [hasCollection]);
 
   useEffect(() => {
-    if(props.options.filter(o => o.value === props.orderBy).length > 0) {
-      setSelection(props.options.filter(o => o.value === props.orderBy)[0])
+    if (props.options.filter(o => o.value === props.orderBy).length > 0) {
+      setSelection(props.options.filter(o => o.value === props.orderBy)[0]);
     } else {
       setSelection(defSort);
     }
