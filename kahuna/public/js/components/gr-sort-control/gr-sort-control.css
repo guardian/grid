@@ -62,6 +62,13 @@
   cursor: pointer;
 }
 
+.sort-dropdown-highlight {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
+}
+
 .sort-dropdown-cell {
   border: 0px;
 }
