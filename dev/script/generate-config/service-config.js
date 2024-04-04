@@ -109,6 +109,7 @@ function getKahunaConfig(config){
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |security.imageSources=["https://*.newslabs.co/"]
         |metrics.request.enabled=false
+        |usageRightsSummary=true
         |${pinboardConfig}
         |`;
 }
