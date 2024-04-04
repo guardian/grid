@@ -13,14 +13,15 @@ import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
 import '../../search/query-filter';
-
+import '../gr-usagerights-summary/gr-usagerights-summary';
 import { List } from 'immutable';
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
     'gr.descriptionWarning',
-    'util.storage'
+    'util.storage',
+    'gr.usageRightsSummary'
 ]);
 
 module.controller('grImageMetadataCtrl', [
@@ -57,6 +58,7 @@ module.controller('grImageMetadataCtrl', [
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.usageRightsSummary = window._clientConfig.usageRightsSummary;
     ctrl.metadataUpdatedByTemplate = [];
 
     ctrl.$onInit = () => {
