@@ -107,6 +107,7 @@ function getKahunaConfig(config){
         |links.supportEmail="${config.links.supportEmail}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
+        |security.imageSources=["https://*.newslabs.co/"]
         |metrics.request.enabled=false
         |${pinboardConfig}
         |`;
