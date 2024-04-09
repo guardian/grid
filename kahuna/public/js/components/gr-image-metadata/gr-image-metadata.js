@@ -349,6 +349,13 @@ module.controller('grImageMetadataCtrl', [
       }
 
       function selectedUsageRights() {
+        //--image selection change event--
+        const customEvent = new CustomEvent('imageSelectionChange', {
+          detail: {images: ctrl.selectedImages},
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+
         return ctrl.selectedImages.map(image => {
           return {
             image: image,
