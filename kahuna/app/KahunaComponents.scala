@@ -51,7 +51,7 @@ object KahunaSecurityConfig {
       URI.ensureSecure("app.getsentry.com").toString,
       "https://*.googleusercontent.com",
       "'self'"
-    ).mkString(" ")}"
+    ).mkString(" ")} ${config.imageSources.mkString(" ")}"
 
     val fontSources = s"font-src data: 'self' ${config.fontSources.mkString(" ")}"
 

@@ -47,6 +47,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     else s"https://$ingestBucket.s3.$awsRegion.amazonaws.com"
   }
   val fontSources: Set[String] = getStringSet("security.fontSources")
+  val imageSources: Set[String] = getStringSet("security.imageSources")
 
   val scriptsToLoad: List[ScriptToLoad] = getConfigList("scriptsToLoad").map(entry => ScriptToLoad(
     host = entry.getString("host"),
