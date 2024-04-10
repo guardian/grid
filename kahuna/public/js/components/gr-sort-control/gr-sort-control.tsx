@@ -89,13 +89,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     const rowCount = options.length;
-    if (event.key === 'Tab') {
-      var focusedElement = document.activeElement;
-      console.log(focusedElement.tagName);    // Outputs the tag name of the focused element
-      console.log(focusedElement.id);         // Outputs the ID of the focused element, if any
-      console.log(focusedElement.className);
-      }
-
     if (event.key === 'ArrowDown') {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
     } else if (event.key === 'ArrowUp') {
