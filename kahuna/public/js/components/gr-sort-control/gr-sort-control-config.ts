@@ -9,7 +9,7 @@ export function manageSortSelection(newSelection:string): string {
     case "oldest":
       newVal = "oldest";
       break;
-    case "collecAdded":
+    case "dateAddedToCollection":
       newVal = "dateAddedToCollection";
       break;
     default:
@@ -22,19 +22,23 @@ export function manageSortSelection(newSelection:string): string {
 export const SortOptions: SortDropdownOption[] = [
   {
     value: "uploadNewOld",
-    label: "Upload date (new to old)"
+    label: "Upload date (new to old)",
+    isCollection: false
   },
   {
     value: "oldest",
-    label: "Upload date (old to new)"
+    label: "Upload date (old to new)",
+    isCollection: false
   },
   {
-    value: "collecAdded",
-    label: "Added to Collection (new to old)"
+    value: "dateAddedToCollection",
+    label: "Added to Collection (recent 1st)",
+    isCollection: true
   }
 ];
 
 export const DefaultSortOption: SortDropdownOption = {
   value: "uploadNewOld",
-  label: "Upload date (new to old)"
+  label: "Upload date (new to old)",
+  isCollection: false
 };

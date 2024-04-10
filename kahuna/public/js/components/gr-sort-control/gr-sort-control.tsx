@@ -7,8 +7,9 @@ import "./gr-sort-control.css";
 
 const SELECT_OPTION = "Select an option";
 const DEFAULT_OPTION = "uploadNewOld";
-const COLLECTION_OPTION = "collecAdded";
+const COLLECTION_OPTION = "dateAddedToCollection";
 const CONTROL_TITLE = "Sort by:";
+const SORT_ORDER = "Sort order";
 
 const downArrowIcon = () =>
   <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -25,9 +26,17 @@ const tickIcon = () =>
     <polyline fill="none" stroke="inherit" points="3.7 14.3 9.6 19 20.3 5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
   </svg>;
 
+const sortIcon = () =>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20 7L4 7" stroke="inherit" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M15 12L4 12" stroke="inherit" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M9 17H4" stroke="inherit" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>;
+
 export interface SortDropdownOption {
   value: string;
   label: string;
+  isCollection: boolean;
 }
 
 export interface SortDropdownProps {
@@ -80,6 +89,13 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     const rowCount = options.length;
+    if (event.key === 'Tab') {
+      var focusedElement = document.activeElement;
+      console.log(focusedElement.tagName);    // Outputs the tag name of the focused element
+      console.log(focusedElement.id);         // Outputs the ID of the focused element, if any
+      console.log(focusedElement.className);
+      }
+
     if (event.key === 'ArrowDown') {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
     } else if (event.key === 'ArrowUp') {
@@ -119,7 +135,14 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     } else {
       setSelection(defSort);
     }
-    setHasCollection(checkForCollection(props.query));
+
+    if (props.query) {
+      setHasCollection(checkForCollection(props.query));
+    } else if (props.options.filter(o => o.value === props.orderBy).length > 0) {
+      setHasCollection(props.options.filter(o => o.value === props.orderBy)[0].isCollection);
+    } else {
+      setHasCollection(false);
+    }
 
     window.addEventListener("logoClick", handleLogoClick);
     window.addEventListener("queryChangeEvent", handleQueryChange);
@@ -146,14 +169,20 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   return (
     <div className="outer-sort-container">
-      <div className="sort-selection-label">{CONTROL_TITLE}</div>
-      <div className="sort-dropdown" aria-label={CONTROL_TITLE} tabIndex={0} onKeyDown={handleArrowKeys}>
-        <button className="sort-dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
+      <span className="sort-selection-title">{CONTROL_TITLE}</span>
+      <div className="sort-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleArrowKeys}>
+        <div className="sort-dropdown-toggle-advanced" onClick={() => setIsOpen(!isOpen)}>
           <div className="sort-selection">
             <div className="sort-selection-label">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
             <div className="sort-selection-icon">{downArrowIcon()}</div>
           </div>
-        </button>
+        </div>
+        <div className="sort-dropdown-toggle-basic" onClick={() => setIsOpen(!isOpen)}>
+          <div className="sort-selection-basic">
+            <div className="sort-selection-icon">{sortIcon()}</div>
+            <span className="sort-selection-label">{SORT_ORDER}</span>
+          </div>
+        </div>
         {isOpen && (
           <table className="sort-dropdown-menu">
             <tbody>

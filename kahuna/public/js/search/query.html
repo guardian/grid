@@ -85,14 +85,7 @@
     </div>
 
     <div class="search__modifier-container">
-        <button class="search__modifier-toggle"
-                type="button"
-                ng-click="orderShown = !orderShown">
-            <gr-icon class="search__modifier-toggle__icon">sort</gr-icon>
-            <span class="search__modifier-toggle__text">Sort order</span>
-        </button>
-        <div class="search__modifier-sort order__option"
-            ng-class="orderShown ? 'order__option--show' : 'order__option--hide'">
+        <div class="search__modifier-sort">
             <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
         </div>
     </div>

@@ -997,7 +997,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 1350px) {
+@media screen and (max-width: 1380px) {
     .search__modifier-toggle {
         display: flex;
         flex-direction: row;
