@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
+import play.api.libs.json.JsValue.jsValueToJsLookup
 import play.api.libs.json._
 
 import scala.annotation.nowarn
@@ -503,6 +504,33 @@ class ElasticSearch(
     }))
   }
 
+  def updateUsageStatus(id: String, usages: Seq[Usage], lastModified: DateTime)
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+
+  val updateUsageStatusScript =
+    s"""
+       | for(int i = 0; i < ctx._source.usages.size(); i++) {
+       |    if(ctx._source.usages[i].id == params.usage.id) {
+       |        ctx._source.usages[i].status = params.usage.status;
+       |        ctx._source.usages[i].lastModified = params.lastModified;
+       |        ctx._source.usagesLastModified = params.lastModified;
+       |    }
+       | }
+       |""".stripMargin
+
+    val scriptSource = loadUpdatingModificationPainless(updateUsageStatusScript)
+
+    val usageParameters = JsDefined(Json.toJson(usages.head)).toOption.map(_.as[Usage]).map(i => asNestedMap(Json.toJson(i))).orNull
+
+    List(migrationAwareUpdater(
+      requestFromIndexName = indexName =>
+        prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("usage", usageParameters)),
+      logMessageFromIndexName = indexName =>
+        s"ES6 updating usagesRights on image $id and usages id ${usageParameters.get("id")} " +
+          s"in index $indexName with usage $usageParameters"
+    ).map(_ => ElasticSearchUpdateResponse()))
+  }
+
   def deleteSyndicationRights(id: String, lastModified: DateTime)
                              (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteSyndicationRightsScript = s"""
@@ -777,4 +805,5 @@ class ElasticSearch(
 
     image.transform(removeUploadInformation()).get
   }
+
 }

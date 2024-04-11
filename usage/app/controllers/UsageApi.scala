@@ -9,11 +9,11 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.usage.UsageBuilder
-import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
+import com.gu.mediaservice.model.usage.{MediaUsage, SyndicatedUsageStatus, Usage, UsageNotice, UsageStatus}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
-import play.api.libs.json.{JsError, JsValue}
+import play.api.libs.json.{JsArray, JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
 import rx.lang.scala.Subject
@@ -252,6 +252,45 @@ class UsageApi(
         val group = usageGroupOps.build(usageRequest)
         usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted
+      }
+    )
+  }}
+
+  def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
+    val request = (req.body \ "data").validate[UsageStatus]
+    request.fold(
+      e => Future.successful(
+        respondError(
+          BadRequest,
+          errorKey = "update-image-usage-status-failed",
+          errorMessage = JsError.toJson(e).toString()
+        )
+      ),
+      usageStatus => {
+        implicit val logMarker: LogMarker = MarkerMap(
+          "requestType" -> "update-usage-status",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "usageStatus" -> usageStatus.toString,
+          "image-id" -> mediaId,
+          "usage-id" -> usageId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+        logger.info(logMarker, "recording usage status  update")
+
+        usageTable.queryByUsageId(usageId).map {
+          case Some(mediaUsage) =>
+            val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
+            usageTable.update(updatedStatusMediaUsage)
+            val usageNotice = UsageNotice(mediaId,
+              JsArray(Seq(Json.toJson(UsageBuilder.build(updatedStatusMediaUsage)))))
+            val updateMessage = UpdateMessage(
+              subject = UpdateUsageStatus, id = Some(mediaId),
+              usageNotice = Some(usageNotice)
+            )
+            notifications.publish(updateMessage)
+            Ok
+          case None =>
+            NotFound
+        }
       }
     )
   }}
