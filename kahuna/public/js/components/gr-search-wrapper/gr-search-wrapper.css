@@ -1,0 +1,5 @@
+.gr-search-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}

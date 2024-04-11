@@ -9,6 +9,9 @@ declare global {
         featureSwitches: Array<FeatureSwitchData>;
         maybeOrgOwnedValue: string | undefined;
         announcements: Array<Notification>;
+        usePermissionsFilter: boolean;
+        permissionsOptions?: string | undefined;
+        permissionsDefault?: string | undefined;
       }
     }
   }
