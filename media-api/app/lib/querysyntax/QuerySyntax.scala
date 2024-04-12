@@ -34,7 +34,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     DateConstraintMatch |
     DateRangeMatch ~> Match | AtMatch |
     FileTypeMatch ~> Match |
-    ScopedMatch ~> Match | HashMatch | CollectionRule |
+    CollectionRule |
+    ScopedMatch ~> Match | HashMatch |
     AnyMatch
   }
 
@@ -83,7 +84,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     )
   )}
 
-  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (
+  def CollectionRule = rule { ("~" | "collection:") ~ ExactMatchValue ~> (
     collection => Match(
       HierarchyField,
       Phrase(collection.string.toLowerCase)
@@ -120,7 +121,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "supplier" |
     "specialInstructions" |
     "title" |
-    "collection" |
     "keyword" |
     "label" |
     "croppedBy" |
@@ -134,7 +134,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "illustrator"         => "credit"
     case "uploader"            => "uploadedBy"
     case "label"               => "labels"
-    case "collection"          => "suppliersCollection"
     case "subject"             => "subjects"
     case "location"            => "subLocation"
     case "by" | "photographer" => "byline"
