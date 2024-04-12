@@ -7,7 +7,6 @@ import '../services/image-list';
 import '../util/storage';
 
 import '../search/query-filter';
-import { fieldFilter} from '../search/query-filter';
 
 export var listEditor = angular.module('kahuna.edits.listEditor', [
     'kahuna.search.filters.query',
@@ -18,22 +17,20 @@ export var listEditor = angular.module('kahuna.edits.listEditor', [
 listEditor.controller('ListEditorCtrl', [
     '$rootScope',
     '$scope',
-    '$state',
-    '$stateParams',
     '$window',
     '$timeout',
     'imageLogic',
     'imageList',
     'storage',
+    'searchWithModifiers',
     function($rootScope,
             $scope,
-            $state,
-            $stateParams,
             $window,
             $timeout,
             imageLogic,
             imageList,
-            storage) {
+            storage,
+            searchWithModifiers) {
     var ctrl = this;
 
     ctrl.$onInit = () => {
@@ -152,34 +149,8 @@ listEditor.controller('ListEditorCtrl', [
       $scope.$on('$destroy', function() {
           updateListener();
       });
-      function updateQueryWithModifiers(field, fieldValue, alt, shift, prevQuery) {
-        if (alt && prevQuery) {
-          return `${prevQuery} -${fieldFilter(field, fieldValue)}`;
-        }
-        if (alt) {
-          return `-${fieldFilter(field, fieldValue)}`;
-        }
-        if (shift && prevQuery) {
-          return `${prevQuery} ${fieldFilter(field, fieldValue)}`;
-        }
-        return fieldFilter(field, fieldValue);
-      }
 
-
-      ctrl.searchWithModifiers = ($event, fieldName, fieldValue) => {
-        const alt = event.getModifierState('Alt');
-        const shift = event.getModifierState('Shift');
-        if (alt || shift) {
-          $event.preventDefault();
-          const nonFree = ctrl.srefNonfree();
-
-          return $state.go('search.results', {
-            query: updateQueryWithModifiers(fieldName, fieldValue, alt, shift, $stateParams.query),
-            nonFree: nonFree
-          });
-        }
-      };
-
+      ctrl.searchWithModifiers = searchWithModifiers;
     };
 }]);
 

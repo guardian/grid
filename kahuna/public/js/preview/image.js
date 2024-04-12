@@ -17,7 +17,7 @@ import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
 import '../components/gr-syndication-icon/gr-syndication-icon';
 import {graphicImageBlurService} from "../services/graphic-image-blur";
-import { fieldFilter} from '../search/query-filter';
+import '../search/query-filter';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
@@ -35,8 +35,6 @@ export var image = angular.module('kahuna.preview.image', [
 
 image.controller('uiPreviewImageCtrl', [
   '$scope',
-  '$state',
-  '$stateParams',
   'inject$',
   '$rootScope',
   '$window',
@@ -46,10 +44,9 @@ image.controller('uiPreviewImageCtrl', [
   'imageAccessor',
   'storage',
   'graphicImageBlurService',
+  'searchWithModifiers',
   function (
       $scope,
-      $state,
-      $stateParams,
       inject$,
       $rootScope,
       $window,
@@ -58,7 +55,8 @@ image.controller('uiPreviewImageCtrl', [
       labelService,
       imageAccessor,
       storage,
-      graphicImageBlurService) {
+      graphicImageBlurService,
+      searchWithModifiers) {
     var ctrl = this;
 
     ctrl.$onInit = () => {
@@ -137,33 +135,7 @@ image.controller('uiPreviewImageCtrl', [
         }
       };
 
-      function updateQueryWithModifiers(field, byline, alt, shift, prevQuery) {
-        if (alt && prevQuery) {
-          return `${prevQuery} -${fieldFilter(field, byline)}`;
-        }
-        if (alt) {
-          return `-${fieldFilter(field, byline)}`;
-        }
-        if (shift && prevQuery) {
-          return `${prevQuery} ${fieldFilter(field, byline)}`;
-        }
-        return fieldFilter(field, byline);
-      }
-
-
-      ctrl.searchWithModifiers = ($event, fieldName, fieldValue) => {
-        const alt = event.getModifierState('Alt');
-        const shift = event.getModifierState('Shift');
-        if (alt || shift) {
-          $event.preventDefault();
-          const nonFree = ctrl.srefNonfree();
-
-          return $state.go('search.results', {
-            query: updateQueryWithModifiers(fieldName, fieldValue, alt, shift, $stateParams.query),
-            nonFree: nonFree
-          });
-        }
-      };
+      ctrl.searchWithModifiers = searchWithModifiers;
     };
 }]);
 
