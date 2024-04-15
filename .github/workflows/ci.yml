@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - 'pr**'
+      - pr*
 jobs:
   CI:
     runs-on: ubuntu-latest
