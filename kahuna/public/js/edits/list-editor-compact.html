@@ -8,6 +8,7 @@
             <a class="element__value element__value--compact element__link"
                ng-if="!ctrl.disabled"
                ui-sref="search.results({query: (element | {{ctrl.queryFilter}}), nonFree: ctrl.srefNonfree()})"
+               ng-click="ctrl.searchWithModifiers($event, 'label', element)"
                aria-label="Search images by {{element}} {{ctrl.elementName}}">
                 {{element}}
             </a>
