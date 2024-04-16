@@ -17,6 +17,7 @@ import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
 import '../components/gr-syndication-icon/gr-syndication-icon';
 import {graphicImageBlurService} from "../services/graphic-image-blur";
+import '../search/query-filter';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
@@ -43,6 +44,7 @@ image.controller('uiPreviewImageCtrl', [
   'imageAccessor',
   'storage',
   'graphicImageBlurService',
+  'searchWithModifiers',
   function (
       $scope,
       inject$,
@@ -53,7 +55,8 @@ image.controller('uiPreviewImageCtrl', [
       labelService,
       imageAccessor,
       storage,
-      graphicImageBlurService) {
+      graphicImageBlurService,
+      searchWithModifiers) {
     var ctrl = this;
 
     ctrl.$onInit = () => {
@@ -131,6 +134,8 @@ image.controller('uiPreviewImageCtrl', [
           return $window._clientConfig.imagePreviewFlagAlertCopy;
         }
       };
+
+      ctrl.searchWithModifiers = searchWithModifiers;
     };
 }]);
 

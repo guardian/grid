@@ -79,6 +79,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                     gr-tooltip-position="top">
                     <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter), nonFree: ctrl.srefNonfree()})"
                        ng-attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                       ng-click="ctrl.searchWithModifiers($event, 'collection', collection.data.pathId)"
                        class="preview__collections__collection__value">
                         {{::collection.data.description}}
                     </a>
