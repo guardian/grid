@@ -23,6 +23,7 @@ object UsageIdBuilder {
   def build(syndicationUsageRequest: SyndicationUsageRequest) = buildId(List(
     Some(syndicationUsageRequest.mediaId),
     Some(syndicationUsageRequest.metadata.partnerName),
+    syndicationUsageRequest.metadata.syndicatedBy,
     Some(syndicationUsageRequest.status)
   ))
 

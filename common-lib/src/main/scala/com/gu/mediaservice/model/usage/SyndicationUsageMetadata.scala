@@ -3,11 +3,12 @@ package com.gu.mediaservice.model.usage
 import play.api.libs.json._
 
 case class SyndicationUsageMetadata(
-  partnerName: String
+  partnerName: String,
+  syndicatedBy: Option[String] = None
 ) extends UsageMetadata {
   override def toMap: Map[String, Any] = Map(
     "partnerName" -> partnerName
-  )
+  ) ++ syndicatedBy.map("syndicatedBy" -> _)
 }
 
 object SyndicationUsageMetadata {

@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.usage.{PublishedUsageStatus, SyndicatedUsageStatus}
 import com.gu.mediaservice.model.usage.Usage
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
@@ -533,6 +534,18 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.updateImageUsages(id, List(staleUsage), staleLastModified)), fiveSeconds)
 
         reloadedImage(id).get.usages.head.id shouldEqual ("recent")
+      }
+
+      "can update usage status for single image" in {
+        val id = UUID.randomUUID().toString
+        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage(), usage()))
+        val usageWithUpdatedUsageStatus = imageWithUsages.usages.head.copy(status = SyndicatedUsageStatus)
+
+        Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
+
+        Await.result(Future.sequence(ES.updateUsageStatus(id, List(usageWithUpdatedUsageStatus), now)), fiveSeconds)
+        reloadedImage(id).get.usages.head.status shouldBe (SyndicatedUsageStatus)
+        reloadedImage(id).get.usages.last.status shouldBe (PublishedUsageStatus)
       }
     }
 
