@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as angular from "angular";
 import {react2angular} from "react2angular";
-import {useEffect, useState, useRef} from "react";
+import {useEffect, useState} from "react";
 
 import "./gr-notifications-banner.css";
 
@@ -78,7 +78,6 @@ const todayStr = (): string => {
 };
 
 const getCookie = (cookieName: string): string => {
-  const name = cookieName + "=";
   const decodedCookie = decodeURIComponent(document.cookie);
   const cookieArray = decodedCookie.split(';');
   return cookieArray.find((cookie) => cookie.trim().startsWith(cookieName));
