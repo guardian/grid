@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as angular from "angular";
 import {react2angular} from "react2angular";
-import {useEffect, useState} from "react";
+import {useEffect, useState, useRef} from "react";
 
 import "./gr-notifications-banner.css";
 
@@ -37,7 +37,6 @@ const triangleIcon = () =>
     </g>
   </svg>;
 
-
 const crossIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="24" height="24" fill="none" stroke="none"/>
@@ -68,54 +67,51 @@ export interface Notification {
   lifespan: string
 }
 
-export interface NotificationBannerProps {
-  heading: string;
-}
+const todayStr = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const mthStr = (month < 10) ? `0${month}` : `${month}`;
+  const dayStr = (day < 10) ? `0${day}` : `${day}`;
+  return (`${year}-${mthStr}-${dayStr}`);
+};
 
-const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
-  const bannerHeading = heading;
-  const initNotifications: Notification[] = [];
-  const [notifications, setNotifications] = useState(initNotifications);
-  let checkNotificationsRef: NodeJS.Timeout;
+const getCookie = (cookieName: string): string => {
+  const name = cookieName + "=";
+  const decodedCookie = decodeURIComponent(document.cookie);
+  const cookieArray = decodedCookie.split(';');
+  return cookieArray.find((cookie) => cookie.trim().startsWith(cookieName));
+};
 
-  const todayStr = (): string => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const mthStr = (month < 10) ? `0${month}` : `${month}`;
-    const dayStr = (day < 10) ? `0${day}` : `${day}`;
-    return (`${year}-${mthStr}-${dayStr}`);
+const mergeArraysByKey = (array1: Notification[], array2: Notification[], key: keyof Notification): Notification[] => {
+  const merged = new Map<string, Notification>();
+  const addOrUpdate = (item: Notification) => {
+    merged.set(item[key], item);
   };
 
-  const getCookie = (cookieName: string): string => {
-    const name = cookieName + "=";
-    const decodedCookie = decodeURIComponent(document.cookie);
-    const cookieArray = decodedCookie.split(';');
+  array1.forEach(addOrUpdate);
+  array2.forEach(addOrUpdate);
+  return Array.from(merged.values());
+};
 
-    for (let i = 0; i < cookieArray.length; i++) {
-      let cookie = cookieArray[i];
-      while (cookie.charAt(0) === ' ') {
-        cookie = cookie.substring(1);
-      }
-      if (cookie.indexOf(name) === 0) {
-        return cookie.substring(name.length, cookie.length);
-      }
-    }
+const getIcon = (notification: Notification): JSX.Element => {
+  switch (notification.category) {
+    case "success":
+      return tickIcon();
+    case "error":
+    case "warning":
+    case "information":
+      return triangleIcon();
+    case "announcement":
+      return circleIcon();
+    default:
+      return emptyIcon();
+  }
+};
 
-    return null; // Return null if the cookie is not found
-  };
-
-  const mergeArraysByKey = (array1: Notification[], array2: Notification[], key: keyof Notification): Notification[] => {
-    const merged = new Map<string, Notification>();
-    const addOrUpdate = (item: Notification) => {
-      merged.set(item[key], item);
-    };
-
-    array1.forEach(addOrUpdate);
-    array2.forEach(addOrUpdate);
-    return Array.from(merged.values());
-  };
+const NotificationsBanner: React.FC = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -165,7 +161,7 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
     setNotifications(current_notifs);
 
     // trigger server call to check notifications
-    checkNotificationsRef = setInterval(checkNotifications, checkNotificationsInterval);
+    const checkNotificationsRef:NodeJS.Timeout = setInterval(checkNotifications, checkNotificationsInterval);
 
     document.addEventListener("mouseup", autoHideListener);
     document.addEventListener("scroll", autoHideListener);
@@ -181,28 +177,13 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
 
     // Clean up the event listener when the component unmounts
     return () => {
-      window.removeEventListener("mouseup", autoHideListener);
-      window.removeEventListener("scroll", autoHideListener);
-      window.removeEventListener("keydown", autoHideListener);
+      document.removeEventListener("mouseup", autoHideListener);
+      document.removeEventListener("scroll", autoHideListener);
+      document.removeEventListener("keydown", autoHideListener);
       clearInterval(checkNotificationsRef);
     };
 
   }, []);
-
-  const getIcon = (notification: Notification): JSX.Element => {
-    switch (notification.category) {
-      case "success":
-        return tickIcon();
-      case "error":
-      case "warning":
-      case "information":
-        return triangleIcon();
-      case "announcement":
-        return circleIcon();
-      default:
-        return emptyIcon();
-    }
-  };
 
   const handleNotificationClick = (notif: Notification) => {
     const ns = notifications.filter(n => n.announceId !== notif.announceId);
@@ -266,4 +247,4 @@ const NotificationsBanner: React.FC<NotificationBannerProps> = ({heading}) => {
 };
 
 export const notificationsBanner = angular.module('gr.notificationsBanner', [])
-  .component('notificationsBanner', react2angular(NotificationsBanner, ["heading"]));
+  .component('notificationsBanner', react2angular(NotificationsBanner));
