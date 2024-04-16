@@ -7,6 +7,7 @@
   scriptsToLoad: List[ScriptToLoad],
   domainMetadataSpecs: String,
   metadataTemplates: String,
+  announcements: String,
   additionalNavigationLinks: String,
   costFilterLabel: String,
   costFilterChargeable: Boolean,
@@ -77,6 +78,7 @@
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
+          announcements: @Html(announcements),
         }
     </script>
 
@@ -86,6 +88,7 @@
 
 <div ui-view></div>
 <ui-global-errors></ui-global-errors>
+<ui-notifications></ui-notifications>
 
 <script src="@routes.Assets.versioned("dist/build.js")"></script>
 
