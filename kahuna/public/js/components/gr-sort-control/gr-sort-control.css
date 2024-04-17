@@ -5,6 +5,13 @@
   fill: #ccc;
 }
 
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 .sort-dropdown {
   display: inline-block;
   padding-right: 0px;

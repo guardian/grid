@@ -2,12 +2,13 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useEffect, useState, KeyboardEvent } from "react";
+import { DefaultSortOption, CollectionSortOption } from "./gr-sort-control-config";
 
 import "./gr-sort-control.css";
 
 const SELECT_OPTION = "Select an option";
-const DEFAULT_OPTION = "uploadNewOld";
-const COLLECTION_OPTION = "dateAddedToCollection";
+const DEFAULT_OPTION = DefaultSortOption.value;
+const COLLECTION_OPTION = CollectionSortOption.value;
 const CONTROL_TITLE = "Sort by:";
 const SORT_ORDER = "Sort order";
 
@@ -51,6 +52,23 @@ export interface SortWrapperProps {
   props: SortDropdownProps;
 }
 
+const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+
+const hasClassInSelfOrParent = (node: Element | null, className: string): boolean => {
+  if (node !== null && node.classList.contains(className)) {
+    return true;
+  }
+
+  while (node && node.parentNode && node.parentNode !== document) {
+    node = node.parentNode as Element;
+    if (node.classList.contains(className)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const defOptVal:string = DEFAULT_OPTION;
   const [hasCollection, setHasCollection] = useState(false);
@@ -59,23 +77,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(defSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
-
-  const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
-
-  const hasClassInSelfOrParent = (node: Element | null, className: string): boolean => {
-    if (node !== null && node.classList.contains(className)) {
-      return true;
-    }
-
-    while (node && node.parentNode && node.parentNode !== document) {
-      node = node.parentNode as Element;
-      if (node.classList.contains(className)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -88,16 +89,25 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   };
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
-    const rowCount = options.length;
-    if (event.key === 'ArrowDown') {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
-    } else if (event.key === 'ArrowUp') {
-      setCurrentIndex((prevIndex) => (prevIndex - 1 + rowCount) % rowCount);
-    } else if (event.key === 'Enter') {
-      if (!isOpen) {
-        setIsOpen(true);
-      } else {
-        handleOptionClick(options[currentIndex]);
+    if (event.key === 'ArrowDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'Enter' ||
+        event.code === 'Space') {
+      event.preventDefault();
+      event.stopPropagation();
+      let rowCount = options.length;
+      if (!hasCollection) --rowCount;
+      if (event.key === 'ArrowDown') {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
+      } else if (event.key === 'ArrowUp') {
+        setCurrentIndex((prevIndex) => (prevIndex - 1 + rowCount) % rowCount);
+      } else if (event.key === 'Enter' || event.code === 'Space') {
+        if (!isOpen) {
+          setCurrentIndex(options.findIndex(opt => opt.value === selectedOption.value));
+          setIsOpen(true);
+        } else {
+          handleOptionClick(options[currentIndex]);
+        }
       }
     }
   };
@@ -155,25 +165,27 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   }, []);
 
   const handleOptionClick = (option: SortDropdownOption) => {
-    setSelection(option);
     setIsOpen(false);
-    props.onSelect(option);
+    if (option.value !== selectedOption.value) {
+      setSelection(option);
+      props.onSelect(option);
+    }
   };
 
   return (
     <div className="outer-sort-container">
-      <span className="sort-selection-title">{CONTROL_TITLE}</span>
+      <span className="sort-selection-title no-select">{CONTROL_TITLE}</span>
       <div className="sort-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleArrowKeys}>
         <div className="sort-dropdown-toggle-advanced" onClick={() => setIsOpen(!isOpen)}>
           <div className="sort-selection">
-            <div className="sort-selection-label">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
+            <div className="sort-selection-label no-select">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
             <div className="sort-selection-icon">{downArrowIcon()}</div>
           </div>
         </div>
         <div className="sort-dropdown-toggle-basic" onClick={() => setIsOpen(!isOpen)}>
           <div className="sort-selection-basic">
             <div className="sort-selection-icon">{sortIcon()}</div>
-            <span className="sort-selection-label">{SORT_ORDER}</span>
+            <span className="sort-selection-label no-select">{SORT_ORDER}</span>
           </div>
         </div>
         {isOpen && (
@@ -187,7 +199,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
                 <td className="sort-dropdown-cell-tick" key={option.value + "tick"}>
                   {(selectedOption.value == option.value) ? tickIcon() : emptyIcon()}
                 </td>
-                <td className="sort-dropdown-cell" key={option.value}>
+                <td className="sort-dropdown-cell no-select" key={option.value}>
                   {option.label}
                 </td>
               </tr>

@@ -37,8 +37,5 @@ export const SortOptions: SortDropdownOption[] = [
   }
 ];
 
-export const DefaultSortOption: SortDropdownOption = {
-  value: "uploadNewOld",
-  label: "Upload date (new to old)",
-  isCollection: false
-};
+export const DefaultSortOption: SortDropdownOption = SortOptions[0];
+export const CollectionSortOption: SortDropdownOption = SortOptions[2];
