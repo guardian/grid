@@ -5,9 +5,17 @@
   fill: #ccc;
 }
 
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 .permissions-dropdown {
   height: 50px;
   padding-right: 0px;
+  cursor: pointer;
 }
 
 .permissions-selection {
@@ -41,6 +49,13 @@
 
 .permissions-dropdown-item {
   border: 1px solid #ccc;
+}
+
+.permissions-dropdown-highlight {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
 }
 
 .permissions-dropdown-item:hover {

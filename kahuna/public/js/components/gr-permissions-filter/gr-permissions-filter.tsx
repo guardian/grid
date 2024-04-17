@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import * as PermissionsConf from "./gr-permissions-filter-config";
 
 import "./gr-permissions-filter.css";
@@ -9,6 +9,7 @@ import "./gr-toggle-switch.css";
 
 const SHOW_CHARGEABLE = "Show payable images";
 const SELECT_OPTION = "Select an option";
+const CONTROL_TITLE = "Permissions Selector";
 
 const chevronIcon = () =>
   <svg fill="inherit" width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -43,7 +44,21 @@ export interface PermissionsWrapperProps {
   props: PermissionsDropdownProps;
 }
 
-// *** functional react component ***
+const hasClassInSelfOrParent = (node: Element | null, className: string): boolean => {
+  if (node !== null && node.classList.contains(className)) {
+    return true;
+  }
+
+  while (node && node.parentNode && node.parentNode !== document) {
+    node = node.parentNode as Element;
+    if (node.classList.contains(className)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
   const defOptVal:string = PermissionsConf.permissionsDefaultOpt();
@@ -54,6 +69,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+
+  const autoHideListener = (event: any) => {
+    if (event.type === "keydown" && event.key === "Escape") {
+      setIsOpen(false);
+    } else if (event.type !== "keydown") {
+      if (!hasClassInSelfOrParent(event.target, "outer-permissions-filters")) {
+        setIsOpen(false);
+      }
+    }
+  };
 
   const handleQueryChange = (e: any ) => {
     const newQuery = e.detail.query ? (" " + e.detail.query) : "";
@@ -85,11 +111,18 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
+    window.addEventListener("mouseup", autoHideListener);
+    window.addEventListener("scroll", autoHideListener);
+    window.addEventListener("keydown", autoHideListener);
     setSelection(defPerms);
 
     // Clean up the event listener when the component unmounts
     return () => {
+      setCurrentIndex(-1);
       window.removeEventListener('queryChangeEvent', handleQueryChange);
+      window.removeEventListener("mouseup", autoHideListener);
+      window.removeEventListener("scroll", autoHideListener);
+      window.removeEventListener("keydown", autoHideListener);
     };
   }, []);
 
@@ -114,34 +147,68 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     setIsChargeable(prevState => !prevState);
   };
 
+  const handleKeyToggle = (event:KeyboardEvent<HTMLDivElement>) => {
+    if (event.code === 'Space') {
+      event.preventDefault();
+      event.stopPropagation();
+      handleToggle();
+    }
+  };
+
+  const handleKeyboard = (event:KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'Enter' ||
+        event.code === 'Space') {
+      event.preventDefault();
+      event.stopPropagation();
+      let rowCount = options.length;
+      if (event.key === 'ArrowDown') {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
+      } else if (event.key === 'ArrowUp') {
+        setCurrentIndex((prevIndex) => (prevIndex - 1 + rowCount) % rowCount);
+      } else if (event.key === 'Enter' || event.code === 'Space') {
+        if (!isOpen) {
+          setCurrentIndex(options.findIndex(opt => opt.value === selectedOption.value));
+          setIsOpen(true);
+        } else {
+          handleOptionClick(options[currentIndex]);
+        }
+      }
+    }
+  };
+
   return (
       <div className="outer-permissions-filters">
-        <div className="dropdown permissions-dropdown">
-          <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
+        <div className="dropdown permissions-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleKeyboard}>
+          <div className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
             <div className="permissions-selection">
-              <div className="permissions-selection-label">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
+              <div className="permissions-selection-label no-select">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
               <div className="permissions-selection-icon">{chevronIcon()}</div>
             </div>
-          </button>
+          </div>
           {isOpen && (
             <table className="permissions-dropdown-menu">
               <tbody>
               {options.map((option) => (
-                <tr className="permissions-dropdown-item" key={option.value + "row"} onClick={() => handleOptionClick(option)}>
+                <tr className={(currentIndex > -1 && options[currentIndex].value) === option.value ? "permissions-dropdown-item permissions-dropdown-highlight" : "permissions-dropdown-item"}
+                    key={option.value + "row"}
+                    aria-label={option.label}
+                    onClick={() => handleOptionClick(option)}>
                   <td className="permissions-dropdown-cell-tick" key={option.value + "tick"}>
                     {(selectedOption.value == option.value) ? tickIcon() : emptyIcon()}
                   </td>
-                  <td className="permissions-dropdown-cell" key={option.value}>
+                  <td className="permissions-dropdown-cell no-select" key={option.value}>
                     {option.label}
                   </td>
                 </tr>
               ))}
               </tbody>
-            </table>
+             </table>
           )}
         </div>
-        <div className="ts-toggle-container" onClick={handleToggle}>
-          <div className="ts-toggle-label">{SHOW_CHARGEABLE}</div>
+        <div className="ts-toggle-container" tabIndex={0} onKeyDown={handleKeyToggle} onClick={handleToggle}>
+          <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
           <label className="ts-toggle-switch">
             <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
             <span className="ts-slider"></span>
