@@ -8,6 +8,7 @@
         <gr-icon>library_add</gr-icon>
     </button>
     <a ui-sref="search.results({query: (element.data | {{ctrl.queryFilter}}), nonFree: ctrl.srefNonfree()})" class="element__value"
+       ng-click="ctrl.searchWithModifiers($event, ctrl.elementName, element.data)"
        aria-label="Search images by {{element.data}} {{ctrl.elementName}}"
        ng-class="{'element__right-bit': !ctrl.isEditable}"
     >
