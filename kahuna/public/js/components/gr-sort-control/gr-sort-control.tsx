@@ -96,7 +96,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       event.preventDefault();
       event.stopPropagation();
       let rowCount = options.length;
-      if (!hasCollection) --rowCount;
+      if (!hasCollection) { --rowCount; }
       if (event.key === 'ArrowDown') {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
       } else if (event.key === 'ArrowUp') {
