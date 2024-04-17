@@ -1,0 +1,138 @@
+.outer-sort-container {
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  fill: #ccc;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.sort-dropdown {
+  display: inline-block;
+  padding-right: 0px;
+  padding-bottom: 10px;
+}
+
+.sort-dropdown-toggle-advanced {
+  display: block;
+  padding-top: 10px;
+}
+
+.sort-dropdown-toggle-basic {
+  display: none;
+}
+
+.sort-selection {
+  display: flex;
+  align-items: center;
+  fill: #ccc;
+  padding: 5px 3px 5px 2px;
+  margin-left: 6px;
+  border: 1px solid #999;
+}
+
+.sort-selection:hover {
+  color: white;
+  fill: #fff;
+  border: 1px solid #fff;
+}
+
+.sort-selection-basic {
+  display: flex;
+  align-items: center;
+  fill: #ccc;
+  stroke: #ccc;
+  padding: 1px 3px 2px 2px;
+  margin-left: 6px;
+}
+
+.sort-selection-basic:hover {
+  color: white;
+  fill: #fff;
+  stroke: #fff;
+}
+
+.sort-selection-label {
+  font-size: 1.4rem;
+  padding-left: 3px;
+}
+
+.sort-selection-title {
+  font-size: 1.4rem;
+  padding-left: 3px;
+}
+
+.sort-selection-icon {
+  padding-top: 3px;
+  padding-left: 6px;
+  padding-right: 3px;
+  transition: fill 0.3s;
+}
+
+.sort-dropdown-menu {
+  position: absolute;
+  width: 250px;
+  right: 0px;
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+  background-color: #333;
+  margin-right: 8px;
+}
+
+.sort-dropdown-item {
+  border: 1px solid #ccc;
+}
+
+.sort-dropdown-item:hover {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
+}
+
+.sort-dropdown-highlight {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
+}
+
+.sort-dropdown-cell {
+  border: 0px;
+}
+
+.sort-dropdown-cell-tick {
+  border: 0px;
+  stroke: #ccc;
+  transition: stroke 0.3ms;
+}
+
+.sort-dropdown-cell-tick:hover {
+  stroke: #fff;
+}
+
+@media screen and (max-width: 880px) {
+  .sort-selection-label {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 1380px) {
+  .sort-selection-title {
+    display: none;
+  }
+
+  .sort-dropdown-toggle-basic {
+    display: block;
+    padding-top: 10px;
+  }
+
+  .sort-dropdown-toggle-advanced {
+    display: none;
+  }
+}
