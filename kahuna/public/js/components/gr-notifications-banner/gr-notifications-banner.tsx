@@ -80,7 +80,11 @@ const todayStr = (): string => {
 const getCookie = (cookieName: string): string => {
   const decodedCookie = decodeURIComponent(document.cookie);
   const cookieArray = decodedCookie.split(';');
-  return cookieArray.find((cookie) => cookie.trim().startsWith(cookieName));
+  const temp = cookieArray.find((cookie) => cookie.trim().startsWith(cookieName));
+  if (temp) {
+    return temp.trim().replace((cookieName + "="), "");
+  }
+  return null;
 };
 
 const mergeArraysByKey = (array1: Notification[], array2: Notification[], key: keyof Notification): Notification[] => {
@@ -171,7 +175,7 @@ const NotificationsBanner: React.FC = () => {
       const current_notif_ids = announce.map(ann => ann.announceId).join(",");
       const notif_ids = notif_cookie.split(',');
       const new_notif_ids = notif_ids.filter(n_id => current_notif_ids.includes(n_id)).join(",");
-      document.cookie = (`${NOTIFICATION_COOKIE}=${new_notif_ids}; max-age=${cookie_age}`);
+      document.cookie = `${NOTIFICATION_COOKIE}=${new_notif_ids}; max-age=${cookie_age}`;
     }
 
     // Clean up the event listener when the component unmounts
