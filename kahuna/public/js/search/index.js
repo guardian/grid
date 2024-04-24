@@ -87,6 +87,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             const ctrl = this;
 
             ctrl.canUpload = false;
+            ctrl.hasNotifications = window._clientConfig.announcements.length > 0;
 
             mediaApi.canUserUpload().then(canUpload => {
                 ctrl.canUpload = canUpload;
