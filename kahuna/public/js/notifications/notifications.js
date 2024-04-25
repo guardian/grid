@@ -9,13 +9,13 @@ export var notifications = angular.module(
 
 notifications.controller('NotificationsCtrl',
   ['$window',
-    function ($window) {
+    function () {
       const notifctrl = this;
       notifctrl.$onInit = () => {
         notifctrl.notifications = window._clientConfig.announcements;
         notifctrl.hasNotifications = notifctrl.notifications.length > 0;
       };
-  }
+    }
 ]);
 
 notifications.directive('uiNotifications', [function() {
