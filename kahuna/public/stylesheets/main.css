@@ -832,7 +832,7 @@ textarea.ng-invalid {
   left: 0;
   right: 0;
   top: 87px;
-  z-index: 40;
+  z-index: 39;
   text-align: left;
   max-width: 100%;
 }
