@@ -6,6 +6,7 @@ import { useState, KeyboardEvent } from "react";
 import "./gr-my-uploads.css";
 
 const MY_UPLOADS = "My uploads";
+const MY_UPLOADS_SHORT = "Mine";
 
 export interface MyUploadsProps {
   onChange: (selected: boolean) => void;
@@ -39,8 +40,9 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
       <label className="custom-checkbox">
         <input type="checkbox" checked={myUploads} onChange={handleCheckboxClick}/>
         <div className="label-wrapper" >
+          <span className="custom-label no-select">{MY_UPLOADS}</span>
+          <span className="custom-label-short no-select">{MY_UPLOADS_SHORT}</span>
           <span className="custom-span"></span>
-          <span className="custom-label">{MY_UPLOADS}</span>
         </div>
       </label>
     </div>

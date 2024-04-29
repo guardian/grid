@@ -44,7 +44,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
   val usageRightsSummary: Option[Boolean] = booleanOpt("usageRightsSummary")
   val permissionsDefault: Option[String] = stringOpt("permissionsDefault").filterNot(_.isEmpty)
-  val permissionsOptions: Option[String] = stringOpt("permissionsOptions").filterNot(_.isEmpty)
+  val interimFilterOptions: Seq[InterimFilterOption] = configuration.getOptional[Seq[InterimFilterOption]]("interimFilterOptions").getOrElse(Seq.empty)
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 

@@ -1,7 +1,6 @@
 .outer-permissions-filters {
   display: flex;
   align-items: center;
-  height: 50px;
   fill: #ccc;
 }
 
@@ -13,7 +12,6 @@
 }
 
 .permissions-dropdown {
-  height: 50px;
   padding-right: 0px;
   cursor: pointer;
 }
@@ -21,7 +19,6 @@
 .permissions-selection {
   display: flex;
   align-items: center;
-  height: 50px;
   fill: #ccc;
 }
 
@@ -32,6 +29,10 @@
 
 .permissions-selection-label {
   font-size: larger;
+}
+
+.permissions-selection-label-short {
+  display: none;
 }
 
 .permissions-selection-icon {
@@ -77,4 +78,20 @@
 
 .permissions-dropdown-cell-tick:hover {
   stroke: #fff;
+}
+
+@media screen and (max-width: 1380px) {
+  .permissions-selection-label {
+    display: none;
+  }
+
+  .permissions-selection-label-short {
+    display: inline;
+  }
+}
+
+@media screen and (max-width: 880px) {
+  .permissions-selection-label-short {
+    display: none;
+  }
 }

@@ -20,14 +20,14 @@ export type PermissionOption = {
 
 function getPermissionsOptions():Array<PermissionOption> {
   try {
-    if (window._clientConfig.permissionsOptions) {
-      return JSON.parse(window._clientConfig.permissionsOptions);
+    if (window._clientConfig.interimFilterOptions) {
+      return window._clientConfig.interimFilterOptions;
     } else {
       return [];
     }
   } catch (e) {
     console.log("Error Parsing Permissions Options");
-    console.log("Options String: " + window._clientConfig.permissionsOptions);
+    console.log("Options String: " + JSON.stringify(window._clientConfig.interimFilterOptions));
     console.log("Error: " + e);
     return [];
   }

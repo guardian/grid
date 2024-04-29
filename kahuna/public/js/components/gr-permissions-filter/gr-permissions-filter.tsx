@@ -8,8 +8,12 @@ import "./gr-permissions-filter.css";
 import "./gr-toggle-switch.css";
 
 const SHOW_CHARGEABLE = "Show payable images";
+const SHOW_CHARGEABLE_SHORT = "Payable";
 const SELECT_OPTION = "Select an option";
 const CONTROL_TITLE = "Permissions Selector";
+const SELECTED = "Selected";
+const NOT_SELECTED = " Not Selected";
+const PERMISSIONS = "Permissions";
 
 const chevronIcon = () =>
   <svg fill="inherit" width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -184,6 +188,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
           <div className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
             <div className="permissions-selection">
               <div className="permissions-selection-label no-select">{(selectedOption ? selectedOption.label : SELECT_OPTION)}</div>
+              <div className="permissions-selection-label-short no-select">{PERMISSIONS}</div>
               <div className="permissions-selection-icon">{chevronIcon()}</div>
             </div>
           </div>
@@ -207,11 +212,20 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
              </table>
           )}
         </div>
-        <div className="ts-toggle-container" tabIndex={0} onKeyDown={handleKeyToggle} onClick={handleToggle}>
+        <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
           <label className="ts-toggle-switch">
             <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
             <span className="ts-slider"></span>
+          </label>
+        </div>
+        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
+          <label className="chargeable-checkbox">
+            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
+            <div className="chargeable-label-wrapper" >
+              <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
+              <span className="chargeable-span"></span>
+            </div>
           </label>
         </div>
       </div>

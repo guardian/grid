@@ -94,12 +94,9 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
-    const permissionsOptions = `[{\\"id\\":\\"allPermissions\\",\\"label\\":\\"All permissions\\",\\"mapping\\":\\"\\",\\"payable\\":\\"none\\"},{\\"id\\":\\"usableForNews\\",\\"label\\":\\"Usable for News\\",\\"mapping\\":\\"category:agency\\",\\"payable\\":\\"false\\"}]`;
-
     const permissionsConfig = stripMargin`
       |usePermissionsFilter=true
       |permissionsDefault="allPermissions"
-      |permissionsOptions="${permissionsOptions}"
       `;
 
     return stripMargin`${getCommonConfig(config)}

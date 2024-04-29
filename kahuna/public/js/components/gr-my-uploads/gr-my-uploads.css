@@ -31,10 +31,26 @@
   border: 1px solid grey;
   display: inline-block;
   background: white;
-  margin-right: 4px;
+  margin-left: 7px;
+}
+
+.custom-label-short {
+  display: none;
 }
 
 [type=checkbox]:checked + .label-wrapper .custom-span {
   background: #4eaae8;
   content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="white" stroke-width="3"/></svg>');
 }
+
+@media screen and (max-width: 880px) {
+  .custom-label {
+    display: none;
+  }
+
+  .custom-label-short {
+    display: inline;
+  }
+}
+
+
