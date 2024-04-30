@@ -53,9 +53,8 @@ const confirmationModal: React.FC = () => {
   const processedMessage = message.includes(';') ? message.split(';')
     .map((item, index) => <p key={index} className="styledParagraph">{item.trim()}</p>) : message;
 
-  const processedMessage = message.includes(';')
-    ? message.split(';').map((item, index) => <p key={index}>{item.trim()}</p>)
-    : message;
+  const processedMessage = message.includes(';') ? message.split(';')
+    .map((item, index) => <p key={index} className="styledParagraph">{item.trim()}</p>) : message;
 
   useEffect(() => {
     window.addEventListener('displayModal', handleDisplay);
