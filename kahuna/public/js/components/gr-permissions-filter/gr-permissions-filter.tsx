@@ -223,8 +223,8 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
           <label className="chargeable-checkbox">
             <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
             <div className="chargeable-label-wrapper" >
-              <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
               <span className="chargeable-span"></span>
+              <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
             </div>
           </label>
         </div>

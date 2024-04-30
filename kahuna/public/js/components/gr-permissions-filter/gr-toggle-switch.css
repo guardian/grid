@@ -81,7 +81,7 @@ input:checked + .ts-slider:before {
   border: 1px solid grey;
   display: inline-block;
   background: white;
-  margin-left: 4px;
+  margin-right: 7px;
 }
 
 [type=checkbox]:checked + .chargeable-label-wrapper .chargeable-span {

@@ -40,9 +40,9 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
       <label className="custom-checkbox">
         <input type="checkbox" checked={myUploads} onChange={handleCheckboxClick}/>
         <div className="label-wrapper" >
+          <span className="custom-span"></span>
           <span className="custom-label no-select">{MY_UPLOADS}</span>
           <span className="custom-label-short no-select">{MY_UPLOADS_SHORT}</span>
-          <span className="custom-span"></span>
         </div>
       </label>
     </div>
