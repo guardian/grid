@@ -49,13 +49,13 @@ export interface PermissionsWrapperProps {
 }
 
 const hasClassInSelfOrParent = (node: Element | null, className: string): boolean => {
-  if (node !== null && node.classList.contains(className)) {
+  if (node !== null && node.classList && node.classList.contains(className)) {
     return true;
   }
 
   while (node && node.parentNode && node.parentNode !== document) {
     node = node.parentNode as Element;
-    if (node.classList.contains(className)) {
+    if (node.classList && node.classList.contains(className)) {
       return true;
     }
   }
