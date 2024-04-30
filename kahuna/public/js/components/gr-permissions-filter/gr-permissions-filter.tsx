@@ -166,7 +166,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         event.code === 'Space') {
       event.preventDefault();
       event.stopPropagation();
-      let rowCount = options.length;
+      const rowCount = options.length;
       if (event.key === 'ArrowDown') {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % rowCount);
       } else if (event.key === 'ArrowUp') {
