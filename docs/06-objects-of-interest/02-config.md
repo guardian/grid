@@ -81,6 +81,13 @@ Service-specific configs. These will override all other config files.
     <td>boolean</td>
     <td>false</td>
   </tr>
+  <tr>
+    <td><code>announcements</code>
+    <br>Notifications and announcements to be sent to users<br>Format:<br>[ (array)<br>{ (json object)<br><i>announceId</i>: (string) the unique id of the announcement - should be unique among all active announcements<br><i>description</i>: (string) the main text to display in the notification<br><i>endDate</i>: (string, optional, format="yyyy-mm-dd") the date beyond which the announcement should not be seen, if not present set as today + 1 year<br><i>url</i>: (string, optional) a link to a page/document providing further details regarding announcement<br><i>urlText</i>: (string, optional) text to be included in a-tag hyperlink (will revert to default if not present)<br><i>category</i>: (string) the type of announcement - will control styling and display, Enum=announcement; information; warning; error; success<br><i>lifespan</i>: (string) the lifecycle behaviour Enum=transient (message disappears on any click etc); session (message must be acknowledged but action NOT stored in client cookie - used for current session messages); persistent (message must be acknowledged and action stored in client cookie - used for long-running announcements)<br>},<br>...<br>]</td>
+    <td>True</td>
+    <td>Json Object Array</td>
+    <td>[]</td>
+  </tr>
 </tbody>
 </table>
 
