@@ -76,6 +76,7 @@
           useReaper: @kahunaConfig.useReaper.getOrElse(false),
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
+          usageRightsSummary: @kahunaConfig.usageRightsSummary.getOrElse(false),
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
           announcements: @Html(announcements),
