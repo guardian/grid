@@ -212,16 +212,17 @@ val buildInfo = Seq(
 )
 
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
-  val commonProject = project(projectName, path)
-    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
+  project(projectName, path)
+    .enablePlugins(PlayScala, BuildInfoPlugin, DockerPlugin)
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
+      dockerBaseImage := "openjdk:11-jre",
+      dockerExposedPorts in Docker := Seq(port),
       playDefaultPort := port,
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
-
       bashScriptEnvConfigLocation := Some("/etc/environment"),
       Debian / makeEtcDefault := None,
       Debian / packageBin := {
@@ -240,15 +241,6 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       Universal / javaOptions ++= Seq(
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
-        "-J-XX:+PrintGCDetails",
-        "-J-XX:+PrintGCDateStamps",
-        s"-J-Xloggc:/var/log/$projectName/gc.log",
-        "-J-XX:+UseGCLogFileRotation",
-        "-J-XX:NumberOfGCLogFiles=5",
-        "-J-XX:GCLogFileSize=2M"
-      )
-    ))
-  //Add the BBC library dependency if defined
-  maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
+        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
+      )))
 }
