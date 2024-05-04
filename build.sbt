@@ -4,8 +4,7 @@ import sbt.Package.FixedTimestamp
 import scala.sys.process._
 import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
-
-import com.typesafe.sbt.packager.debian.JDebPackaging
+import com.typesafe.sbt.packager.docker._
 
 // We need to keep the timestamps to allow caching headers to work as expected on assets.
 // The below should work, but some problem in one of the plugins (possible the play plugin? or sbt-web?) causes
@@ -233,10 +232,21 @@ val buildInfo = Seq(
 )
 
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
-  val commonProject = project(projectName, path)
-    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
+  project(projectName, path)
+    .enablePlugins(PlayScala, BuildInfoPlugin, DockerPlugin)
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
+      dockerBaseImage := "openjdk:11-jre",
+      dockerExposedPorts in Docker := Seq(port),
+      // TODO image-loader specific
+      dockerCommands ++= Seq(
+        Cmd("USER", "root"), Cmd("RUN", "apt-get", "update"),
+        Cmd("RUN", "apt-get", "install", "-y", "apt-utils"),
+        Cmd("RUN", "apt-get", "install", "-y", "graphicsmagick"),
+        Cmd("RUN", "apt-get", "install", "-y", "graphicsmagick-imagemagick-compat"),
+        Cmd("RUN", "apt-get", "install", "-y", "pngquant"),
+        Cmd("RUN", "apt-get", "install", "-y", "libimage-exiftool-perl")
+      ),
       playDefaultPort := port,
       debianPackageDependencies := Seq("java11-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
@@ -256,16 +266,15 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       },
       Universal / mappings ++= Seq(
         file("common-lib/src/main/resources/application.conf") -> "conf/application.conf",
-        file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml"
+        file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml",
+        // TODO image-loader specific
+        file("image-loader/facebook-TINYsRGB_c2.icc") -> "facebook-TINYsRGB_c2.icc",
+        file("image-loader/grayscale.icc") -> "grayscale.icc",
+        file("image-loader/srgb.icc") -> "srgb.icc"
       ),
       Universal / javaOptions ++= Seq(
         "-Dpidfile.path=/dev/null",
-        s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
-        "-J-Xlog:gc*",
-        s"-J-Xlog:gc:/var/log/$projectName/gc.log"
-      )
-    ))
-  //Add the BBC library dependency if defined
-  maybeBBCLib.fold(commonProject){commonProject.dependsOn(_)}
+        s"-Dconfig.file=/opt/docker/conf/application.conf",
+        s"-Dlogger.file=/opt/docker/conf/logback.xml"
+      )))
 }
