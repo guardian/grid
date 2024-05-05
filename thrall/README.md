@@ -48,7 +48,7 @@ Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/e
 
 ### Disable Kinesis log shipping
 
-Set `logger.kinesis.enabled` false.
+Set `logger.kinesis.enabled=false`
 
 Starts up; complains about Kinesis and S3 permissions.
 
