@@ -45,6 +45,11 @@ Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/e
 
 ## Run
 
+
+### Disable Kinesis log shipping
+
+Set `logger.kinesis.enabled=false`
+
 ```
 docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
 ```
