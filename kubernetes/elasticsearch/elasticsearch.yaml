@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  labels:
+    service: elasticsearch
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      service: elasticsearch
+  template:
+    metadata:
+      labels:
+        service: elasticsearch
+    spec:
+      terminationGracePeriodSeconds: 300
+      initContainers:
+      # NOTE:
+      # This is to fix the permission on the volume
+      # By default elasticsearch container is not run as
+      # non root user.
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html#_notes_for_production_use_and_defaults
+      - name: fix-the-volume-permission
+        image: busybox
+        command:
+        - sh
+        - -c
+        - chown -R 1000:1000 /usr/share/elasticsearch/data
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+      - name: increase-the-vm-max-map-count
+        image: busybox
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      volumes:
+      - name: data
+        emptyDir:
+          medium: Memory
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.8.1
+        resources:
+          requests:
+            memory: "1Gi"
+          limits:
+            memory: "1Gi"
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+        ports:
+        - containerPort: 9200
+        env:
+          # NOTE: the cluster name; update this
+          - name: cluster.name
+            value: york
+          - name: node.name
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: discovery.zen.ping.unicast.hosts
+            value: "elasticsearch-0.elasticsearch.default.svc.cluster.local"
+          - name: cluster.initial_master_nodes
+            value: elasticsearch-0
+          - name: ES_JAVA_OPTS
+            value: -Xms512m -Xmx512m
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: local-storage
+      selector:
+        matchLabels:
+          app: elastic-data
