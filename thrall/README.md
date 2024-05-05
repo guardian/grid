@@ -61,7 +61,6 @@ Why is Thrall even user facing is a question for another day.
 Set `authorisation.provider` and `authentication.providers.user` to local in common.conf.
 
 ```
-docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
+docker run -it -e AWS_ACCESS_KEY_ID=*** -e AWS_SECRET_ACCESS_KEY=*** --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
 ```
 
-Gets as far as trying to connect to Elasticsearch
