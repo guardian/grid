@@ -16,8 +16,10 @@ sbt thrall/compile
 sbt thrall/test
 ```
 
-Fails immediately while apparently trying to start functional test Docker dependencies from test code.
+Fails immediately on M2 laptop while apparently trying to start functional test Docker dependencies from test code.
 Move these dependencies to a start off docker-compose for an easier build.
+
+Passes on an i386 machine.
 
 
 ## Packaging
