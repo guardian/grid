@@ -84,9 +84,13 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
       .toSeq
 
     aggregatedMetrics.grouped(20).foreach(chunkedMetrics => { //can only send max 20 metrics to CW at a time
-      client.putMetricData(new PutMetricDataRequest()
+      /*
+        Yeah nah
+        client.putMetricData(new PutMetricDataRequest()
         .withNamespace(namespace)
         .withMetricData(chunkedMetrics.asJava))
+      }
+       */
       }
     )
 
