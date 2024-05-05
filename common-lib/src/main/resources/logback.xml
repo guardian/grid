@@ -2,30 +2,6 @@
 
     <conversionRule conversionWord="coloredLevel" converterClass="play.api.libs.logback.ColoredLevel" />
 
-    <if condition='property("STAGE").contains("DEV")'>
-        <then>
-            <property name="LOGS_LOCATION" value="${application.home}/logs" />
-        </then>
-        <else>
-            <property name="LOGS_LOCATION" value="logs" />
-        </else>
-    </if>
-
-    <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOGS_LOCATION}/application.log</file>
-
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOGS_LOCATION}/application.log.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>500MB</totalSizeCap>
-        </rollingPolicy>
-
-        <encoder>
-            <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
-        </encoder>
-    </appender>
-
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
       <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
     </appender>
@@ -39,12 +15,7 @@
     <logger name="request" level="INFO" />
 
     <root level="INFO">
-      <appender-ref ref="LOGFILE"/>
-      <if condition='!property("STAGE").contains("DEV")'>
-        <then>
-          <appender-ref ref="ASYNCSTDOUT"/>
-        </then>
-      </if>
+        <appender-ref ref="ASYNCSTDOUT"/>
     </root>
 
 </configuration>
