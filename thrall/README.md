@@ -25,11 +25,17 @@ Move these dependencies to a start off docker-compose for an easier build.
 The Guardian build.sbt no longer mentions riffraff.
 
 They seem to be using JDebPackaging which is probably a wrapper around universal.
+
 sbt docker is also a wrapper around universal so this probably makes things easier for us.
+
+sbt dist and examining the contents of the .zip file seems to reflect the contents of the container image.
 
 ```
 sbt thrall/docker:publishLocal
+docker run -it thrall:0.1
 ```
 
-Starts up be fails with log output folder missing.
+Fails with missing application level config; this is encoraging:
+`java.lang.RuntimeException: Required string configuration property missing: thrall.kinesis.stream.name`
+
 
