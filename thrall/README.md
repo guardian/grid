@@ -58,10 +58,10 @@ Starts up; complains about Kinesis and S3 permissions.
 Blocks further start up until loaded.
 Why is Thrall even user facing is a question for another day.
 
-```
-authorisation.provider=com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider
-```
+Set `authorisation.provider` and `authentication.providers.user` to local in common.conf.
 
 ```
-docker run -it  -e APPLICATION_SECRET=changeme123 --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
+docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
 ```
+
+Gets as far as trying to connect to Elasticsearch
