@@ -19,7 +19,7 @@ case class KinesisReceiverConfig(
   override val isDev: Boolean,
   streamName: String,
   rewindFrom: Option[DateTime],
-  metricsLevel: MetricsLevel = MetricsLevel.DETAILED
+  metricsLevel: MetricsLevel = MetricsLevel.NONE
 ) extends AwsClientBuilderUtils
 
 object KinesisReceiverConfig {
