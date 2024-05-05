@@ -46,8 +46,8 @@ Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/e
 ## Run
 
 ```
-docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
+docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
 ```
 
-Starts up; complains about S3 permissions.
+Starts up; complains about Kinesis and S3 permissions.
 
