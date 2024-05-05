@@ -34,13 +34,7 @@ sbt dist and examining the contents of the .zip file seems to reflect the conten
 
 ```
 sbt thrall/docker:publishLocal
-docker run -it thrall:0.1
 ```
-
-Fails with missing application level config; this is encouraging:
-`java.lang.RuntimeException: Required string configuration property missing: thrall.kinesis.stream.name`
-
-
 
 ## Configuration
 
@@ -48,4 +42,12 @@ Fails with missing application level config; this is encouraging:
 The locations it looks in is controlled by the stage file in `/etc/gu/stage` which would contain `PROD`.
 
 Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/etc/grid` is our config mount point.
+
+## Run
+
+```
+docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
+```
+
+Starts up; complains about S3 permissions.
 
