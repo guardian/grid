@@ -50,10 +50,6 @@ Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/e
 
 Set `logger.kinesis.enabled=false`
 
-```
-docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
-```
-
 Starts up; complains about Kinesis and S3 permissions.
 
 
@@ -64,4 +60,8 @@ Why is Thrall even user facing is a question for another day.
 
 ```
 authorisation.provider=com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider
+```
+
+```
+docker run -it  -e APPLICATION_SECRET=changeme123 --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,target=/etc/gu --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/grid,target=/etc/grid thrall:0.1
 ```
