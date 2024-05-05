@@ -35,7 +35,15 @@ sbt thrall/docker:publishLocal
 docker run -it thrall:0.1
 ```
 
-Fails with missing application level config; this is encoraging:
+Fails with missing application level config; this is encouraging:
 `java.lang.RuntimeException: Required string configuration property missing: thrall.kinesis.stream.name`
 
+
+
+## Configuration
+
+`GridConfigLoader` searches many locations for application configuration.
+The locations it looks in is controlled by the stage file in `/etc/gu/stage` which would contain `PROD`.
+
+Setting to `PROD` will see `/etc/grid/thrall.conf` checked; allows is to use `/etc/grid` is our config mount point.
 
