@@ -39,7 +39,6 @@ class ElasticSearch(
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
   lazy val url: String = config.url
-  lazy val cluster: String = config.cluster
   lazy val shards: Int = config.shards
   lazy val replicas: Int = config.replicas
 

@@ -131,7 +131,6 @@ function getMediaApiConfig(config) {
         |s3.usagemail.bucket="${config.coreStackProps.UsageMailBucket}"
         |persistence.identifier="picdarUrn"
         |es6.url="${config.es6.url}"
-        |es6.cluster="${config.es6.cluster}"
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |quota.store.key="rcs-quota.json"
@@ -173,7 +172,6 @@ function getThrallConfig(config) {
         |persistence.identifier="picdarUrn"
         |indexed.image.sns.topic.arn="${config.coreStackProps.IndexedImageTopic}"
         |es6.url="${config.es6.url}"
-        |es6.cluster="${config.es6.cluster}"
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |metrics.request.enabled=false

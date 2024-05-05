@@ -48,7 +48,6 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       migration = "Images_Migration"
     ),
     url = es6TestUrl,
-    cluster = "media-service-test",
     shards = 1,
     replicas = 0
   )

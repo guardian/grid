@@ -10,7 +10,6 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
       migration = string("es.index.aliases.migration")
     ),
     url = string("es6.url"),
-    cluster =  string("es6.cluster"),
     shards = string("es6.shards").toInt,
     replicas = string("es6.replicas").toInt
   )

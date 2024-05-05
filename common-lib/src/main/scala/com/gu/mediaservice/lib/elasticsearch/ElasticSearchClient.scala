@@ -26,8 +26,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def url: String
 
-  def cluster: String
-
   def imagesCurrentAlias: String
   def imagesMigrationAlias: String
   lazy val imagesHistoricalAlias: String = "Images_Historical"

@@ -31,7 +31,6 @@ es.index.aliases.current=Images_Current
 es.index.aliases.migration=Images_Migration
 
 es6.url=http://elastic6.local:9200
-es6.cluster=media-service
 es6.shards=5
 es6.replicas=2
 ```
