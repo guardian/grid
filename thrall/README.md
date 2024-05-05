@@ -56,3 +56,12 @@ docker run -it --mount type=bind,source="$(pwd)"/thrall/docker-conf/etc/gu,targe
 
 Starts up; complains about Kinesis and S3 permissions.
 
+
+### Bypass Guardian Permissions
+
+Blocks further start up until loaded.
+Why is Thrall even user facing is a question for another day.
+
+```
+authorisation.provider=com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider
+```
