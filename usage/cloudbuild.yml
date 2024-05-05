@@ -1,0 +1,9 @@
+options:
+  machineType: 'N1_HIGHCPU_8'
+steps:
+  - name: 'gcr.io/$PROJECT_ID/scala-sbt'
+    args: ['usage/docker:publishLocal']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'tag', 'usage:0.1', 'eu.gcr.io/$PROJECT_ID/usage:0.1']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/usage:0.1']
