@@ -240,7 +240,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       ),
       Universal / javaOptions ++= Seq(
         "-Dpidfile.path=/dev/null",
-        s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
+        s"-Dconfig.file=/opt/docker/conf/application.conf",
+        s"-Dlogger.file=/opt/docker/conf/logback.xml"
       )))
 }
