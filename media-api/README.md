@@ -49,4 +49,12 @@ quota.store.key=
 ```
 
 
-### What is usage mail?
+### Mandatory usage mail config
+
+```
+s3.usagemail.bucket=
+```
+
+Seems to be the backing bucket for usage store. Do not know what the email reference means though!
+Media API seems like a read only user of this bucket.
+
