@@ -25,7 +25,6 @@ case class InsertImageFailure(message: String) extends Exception(message) with M
 class MessageProcessor(
   es: ElasticSearch,
   store: ThrallStore,
-  metadataEditorNotifications: MetadataEditorNotifications,
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {

@@ -41,8 +41,6 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
   val maybeReaperBucket: Option[String] = stringOpt("s3.reaper.bucket")
   val maybeReaperCountPerRun: Option[Int] = intOpt("reaper.countPerRun")
 
-  val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
-
   val rewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
   val lowPriorityRewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 
