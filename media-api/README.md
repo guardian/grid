@@ -29,8 +29,8 @@ See the [routes file](https://github.com/guardian/media-service/blob/master/medi
 
 ## Start up
 
+### Mandatory usage quota config
 
-### Deal with usage quota config
 Fails hard with an S3 error if the usage quota config JSON file is not available.
 
 `com.amazonaws.services.s3.model.AmazonS3Exception: The specified key does not exist. (Service: Amazon S3; Status Code: 404'
@@ -40,10 +40,8 @@ at lib.QuotaStore.fetchQuota(UsageStore.scala:207)
 at lib.QuotaStore.update(UsageStore.scala:202)
 at MediaApiComponents.<init>(MediaApiComponents.scala:25)
 ```
-This
-val usageQuota = new UsageQuota(config, actorSystem.scheduler)
-//usageQuota.quotaStore.update()
-//usageQuota.scheduleUpdates()
+
+Needs at least an empty JSON array in a file in a bucket:
 
 ```
 s3.config.bucket=
