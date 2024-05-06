@@ -25,7 +25,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new ThrallStore(config)
-  val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
   val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
@@ -60,7 +59,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     es,
     thrallMetrics,
     store,
-    metadataEditorNotifications,
     actorSystem
   )
 
