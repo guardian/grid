@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leases
+  labels:
+    app: leases
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leases
+  template:
+    metadata:
+      labels:
+        app: leases
+    spec:
+      containers:
+      - name: leases
+        image: eu.gcr.io/grid-301122/leases:0.1
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: gu-config
+          mountPath: /etc/gu
+        - name: grid-config
+          mountPath: /etc/grid
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: grid-aws-access-token
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: grid-aws-access-token
+              key: AWS_SECRET_ACCESS_KEY
+      volumes:
+      - name: gu-config
+        configMap:
+          name: gu
+      - name: common-config
+        configMap:
+          name: common
+      - name: grid-config
+        configMap:
+          name: grid
+
