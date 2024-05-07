@@ -155,20 +155,24 @@ class PandaAuthenticationProvider(
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
     val isValid = PandaAuthenticationProvider.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
 
-    val hasBasicAccessExplicitly = resources.authorisation.hasBasicAccessExplicitly(authedUser.user.email)
-    val hasAnyGridPermission = resources.authorisation.hasAtLeastBasicAccess(authedUser.user.email)
+    val hasBasicAccess = resources.authorisation.hasBasicAccess(authedUser.user.email)
 
     if(!isValid) {
       logger.warn(s"User ${authedUser.user.email} is not valid")
     }
-    else if (!hasAnyGridPermission) {
-      logger.warn(s"User ${authedUser.user.email} does not have any grid permissions")
-    }
-    else if (!hasBasicAccessExplicitly) {
-      logger.warn(s"User ${authedUser.user.email} does not have grid_access permission but does have other grid permissions")
+    else if (!hasBasicAccess) {
+      logger.warn(s"User ${authedUser.user.email} does not have grid_access permission")
     }
 
-    isValid
+    isValid && hasBasicAccess
+  }
+
+  override def showUnauthedMessage(message: String)(implicit request: RequestHeader): Result = {
+    super.showUnauthedMessage(message) // this ensures the logging of panda library still occurs
+    Forbidden(
+      "You do not have permission to access the Grid. " +
+        "Please contact Central Production to request the permissions you need."
+    )
   }
 }
 
