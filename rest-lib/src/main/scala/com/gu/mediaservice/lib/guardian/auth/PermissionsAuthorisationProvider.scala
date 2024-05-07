@@ -51,6 +51,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       }
     }
     permissionContext match {
+      case GridAccess => hasPermission(Permissions.GridAccess)
       case EditMetadata => hasPermission(Permissions.EditMetadata)
       case DeleteImage => hasPermission(Permissions.DeleteImage)
       case DeleteCropsOrUsages => hasPermission(Permissions.DeleteCrops)
@@ -59,5 +60,9 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       case UploadImages => true
       case ArchiveImages => true
     }
+  }
+
+  override def hasAtLeastBasicAccess(userEmail: String): Boolean = permissions.listPermissions(userEmail).exists {
+    case (PermissionDefinition(_, app), isActive) => app == Permissions.app && isActive
   }
 }

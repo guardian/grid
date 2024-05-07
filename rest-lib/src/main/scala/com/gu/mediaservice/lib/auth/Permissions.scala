@@ -13,6 +13,7 @@ object Permissions {
   /** A predicate that takes a principal and returns a boolean reflecting whether the principal has permission or not */
   type PrincipalFilter = Principal => Boolean
 
+  case object GridAccess extends SimplePermission
   case object EditMetadata extends SimplePermission
   case object DeleteImage extends SimplePermission
   case object DeleteCropsOrUsages extends SimplePermission

@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth.provider
 
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Principal}
+import com.gu.mediaservice.lib.auth.Authorisation
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.config.{CommonConfig, Provider}
 import play.api.libs.crypto.CookieSigner
@@ -18,10 +19,13 @@ import scala.concurrent.Future
   * @param wsClient a play WSClient for making API calls
   * @param controllerComponents play components, including the execution context for example
   */
-case class AuthenticationProviderResources(commonConfig: CommonConfig,
-                                           actorSystem: ActorSystem,
-                                           wsClient: WSClient,
-                                           controllerComponents: ControllerComponents)
+case class AuthenticationProviderResources(
+  commonConfig: CommonConfig,
+  actorSystem: ActorSystem,
+  wsClient: WSClient,
+  controllerComponents: ControllerComponents,
+  authorisation: Authorisation
+)
 
 sealed trait LoginLink
 case object BuiltInAuthService extends LoginLink

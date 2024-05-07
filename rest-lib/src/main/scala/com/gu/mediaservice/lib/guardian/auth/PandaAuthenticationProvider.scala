@@ -20,7 +20,10 @@ import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class PandaAuthenticationProvider(resources: AuthenticationProviderResources, providerConfiguration: Configuration)
+class PandaAuthenticationProvider(
+  resources: AuthenticationProviderResources,
+  providerConfiguration: Configuration
+)
   extends UserAuthenticationProvider with AuthActions with StrictLogging with ArgoHelpers with HeaderNames {
 
   implicit val ec: ExecutionContext = controllerComponents.executionContext
@@ -150,7 +153,18 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
   private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    PandaAuthenticationProvider.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+    val isValid = PandaAuthenticationProvider.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+
+    val hasAnyGridPermission = resources.authorisation.hasAtLeastBasicAccess(authedUser.user.email)
+
+    if(!isValid) {
+      logger.warn(s"User ${authedUser.user.email} is not valid")
+    }
+    else if (!hasAnyGridPermission) {
+      logger.warn(s"User ${authedUser.user.email} does not have any grid permissions")
+    }
+
+    isValid
   }
 }
 

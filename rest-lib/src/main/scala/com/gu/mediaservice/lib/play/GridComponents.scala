@@ -52,7 +52,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     commonConfig = config,
     actorSystem = actorSystem,
     wsClient = wsClient,
-    controllerComponents = controllerComponents
+    controllerComponents = controllerComponents,
+    authorisation = authorisation
   )
 
   protected val providers: AuthenticationProviders = AuthenticationProviders(
