@@ -27,10 +27,6 @@
   fill: #fff;
 }
 
-.permissions-selection-label {
-  font-size: larger;
-}
-
 .permissions-selection-label-short {
   display: none;
 }
