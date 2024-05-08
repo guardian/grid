@@ -76,7 +76,7 @@ object ServiceHosts {
   }
 }
 
-class GuardianUrlSchemeServices(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String], domainRootOverride: Option[String] = None) extends Services {
+class GuardianUrlSchemeServices(domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String], domainRootOverride: Option[String] = None) extends Services {
   private val kahunaHost: String = s"${hosts.kahunaPrefix}$domainRoot"
   private val apiHost: String = s"${hosts.apiPrefix}$domainRoot"
   private val loaderHost: String = s"${hosts.loaderPrefix}${domainRootOverride.getOrElse(domainRoot)}"
