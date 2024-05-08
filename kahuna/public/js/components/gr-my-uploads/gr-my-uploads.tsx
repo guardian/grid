@@ -6,7 +6,7 @@ import { useState, KeyboardEvent } from "react";
 import "./gr-my-uploads.css";
 
 const MY_UPLOADS = "My uploads";
-const MY_UPLOADS_SHORT = "Mine";
+const MY_UPLOADS_SHORT = "My uploads";
 
 export interface MyUploadsProps {
   onChange: (selected: boolean) => void;
