@@ -3,7 +3,6 @@ import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.config.{GuardianUrlSchemeServices, Services}
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
@@ -30,8 +29,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
   es.ensureIndexExistsAndAliasAssigned()
 
-  val services: Services = new GuardianUrlSchemeServices(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(wsClient)
+  val gridClient: GridClient = GridClient(config.services)(wsClient)
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
   private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
