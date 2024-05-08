@@ -7,6 +7,7 @@ import '../services/panel';
 import '../util/async';
 import '../util/rx';
 import '../util/seq';
+import '../util/constants/sendToCapture-config';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../components/gu-lazy-preview/gu-lazy-preview';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
@@ -18,6 +19,14 @@ import '../components/gr-downloader/gr-downloader';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
+import '../components/gr-confirmation-modal/gr-confirmation-modal';
+import {
+  INVALIDIMAGES,
+  sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
+  sendToCaptureMixed, sendToCaptureSingleBtnTxt,
+  sendToCaptureTitle,
+  VALIDIMAGES
+} from "../util/constants/sendToCapture-config";
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -35,7 +44,8 @@ export var results = angular.module('kahuna.search.results', [
     'gr.deleteImage',
     'gr.undeleteImage',
     'gr.panelButton',
-    'gr.toggleButton'
+    'gr.toggleButton',
+    'gr.confirmationModal'
 ]);
 
 
@@ -94,6 +104,10 @@ results.controller('SearchResultsCtrl', [
              globalErrors) {
 
         const ctrl = this;
+
+        ctrl.$onInit = () => {
+          ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+        };
 
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
@@ -383,6 +397,83 @@ results.controller('SearchResultsCtrl', [
             navigator.clipboard.writeText(sharedUrl);
             globalErrors.trigger('clipboard', sharedUrl);
         };
+
+      const validatePhotoSalesSelection = (images) => {
+        let validImages = [];
+        let invalidImages = [];
+        images.forEach( (image) => {
+          if (image.data.usages.data.length === 0) {
+            validImages.push(image);
+          } else {
+            let syndicationExists = false;
+            for (const usage of image.data.usages.data) {
+              if (usage.data.platform === "syndication") {
+                syndicationExists = true;
+                break;
+              }
+            }
+            (syndicationExists === true ? invalidImages : validImages).push(image);
+          }
+        });
+        return [validImages, invalidImages];
+      };
+
+      ctrl.sendToPhotoSales = () => {
+        const [validImages] = validatePhotoSalesSelection(ctrl.selectedImages)[0];
+        validImages.map(image => {
+          mediaApi.syndicateImage(image.data.id, "Capture", "true");
+        });
+        ctrl.clearSelection();
+      };
+
+      ctrl.displayConfirmationModal = () => { // rename to display send to photosales once banner used?
+
+        const [validImages, invalidImages] = validatePhotoSalesSelection(ctrl.selectedImages);
+        const title = sendToCaptureTitle;
+        let eventType; /// required once banner event is in use
+        let detailObj;
+
+        if (validImages.length !== 0 && invalidImages.length === 0) {
+          // All images selected are valid
+          eventType = "displayModal";
+          detailObj = {
+            title: title,
+            message: sendToCaptureAllValid,
+            cancelBtnTxt: sendToCaptureCancelBtnTxt,
+            confirmBtnTxt: sendToCaptureConfirmBtnTxt,
+            okayFn: ctrl.sendToPhotoSales
+          };
+
+        } else if (validImages.length !== 0 && invalidImages.length !== 0) {
+          // Some valid images, some invalid images selected
+          eventType = "displayModal";
+          detailObj = {
+            title: title,
+            message: sendToCaptureMixed.replace(VALIDIMAGES, validImages.length.toString()).replace(INVALIDIMAGES, invalidImages.length.toString()),
+            cancelBtnTxt: sendToCaptureCancelBtnTxt,
+            confirmBtnTxt: sendToCaptureConfirmBtnTxt,
+            okayFn: ctrl.sendToPhotoSales
+          };
+
+        } else if (validImages.length === 0 && invalidImages.length !== 0) {
+          // No valid images selected
+          eventType = "displayModal"; //banner event in final version
+          detailObj = {
+            title: title,
+            message: sendToCaptureInvalid,
+            confirmBtnTxt: sendToCaptureSingleBtnTxt,
+            showSingleBtn: true,
+            okayFn: () => {}
+          };
+        }
+
+        const customEvent = new CustomEvent(eventType, {
+          detail: detailObj,
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+      };
+
 
         const inSelectionMode$ = selection.isEmpty$.map(isEmpty => ! isEmpty);
         inject$($scope, inSelectionMode$, ctrl, 'inSelectionMode');
