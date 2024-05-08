@@ -3,5 +3,6 @@
     "advancedSearchExampleExplanation": "Grid-specific Usage Rights categories.",
     "exampleEmail": "jo.doe@guardian.co.uk",
     "exampleLabel": "Observer",
-    "institution": "The Guardian"      
+    "institution": "The Guardian",
+    "gr-sort-control_uploadNewOld": "Test Label"
 }

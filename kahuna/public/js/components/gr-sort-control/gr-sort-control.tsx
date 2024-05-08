@@ -1,8 +1,8 @@
-import * as React from "react";
 import * as angular from "angular";
+import * as React from "react";
 import { react2angular } from "react2angular";
 import { useEffect, useState, KeyboardEvent } from "react";
-import { DefaultSortOption, CollectionSortOption } from "./gr-sort-control-config";
+import { SortOptions, DefaultSortOption, CollectionSortOption } from "./gr-sort-control-config";
 
 import "./gr-sort-control.css";
 
@@ -41,7 +41,6 @@ export interface SortDropdownOption {
 }
 
 export interface SortDropdownProps {
-  options: SortDropdownOption[];
   selectedOption?: SortDropdownOption | null;
   onSelect: (option: SortDropdownOption) => void;
   query?: string | "";
@@ -69,10 +68,11 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
   return false;
 };
 
+// -- SORT CONTROL --
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const defOptVal:string = DEFAULT_OPTION;
   const [hasCollection, setHasCollection] = useState(false);
-  const options = props.options;
+  const options = SortOptions;
   const defSort:SortDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(defSort);
@@ -133,16 +133,16 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   }, [hasCollection]);
 
   useEffect(() => {
-    if (props.options.filter(o => o.value === props.orderBy).length > 0) {
-      setSelection(props.options.filter(o => o.value === props.orderBy)[0]);
+    if (options.filter(o => o.value === props.orderBy).length > 0) {
+      setSelection(options.filter(o => o.value === props.orderBy)[0]);
     } else {
       setSelection(defSort);
     }
 
     if (props.query) {
       setHasCollection(checkForCollection(props.query));
-    } else if (props.options.filter(o => o.value === props.orderBy).length > 0) {
-      setHasCollection(props.options.filter(o => o.value === props.orderBy)[0].isCollection);
+    } else if (options.filter(o => o.value === props.orderBy).length > 0) {
+      setHasCollection(options.filter(o => o.value === props.orderBy)[0].isCollection);
     } else {
       setHasCollection(false);
     }

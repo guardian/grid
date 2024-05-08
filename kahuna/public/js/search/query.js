@@ -16,8 +16,7 @@ import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import {
   manageSortSelection,
-  DefaultSortOption,
-  SortOptions
+  DefaultSortOption
 } from "../components/gr-sort-control/gr-sort-control-config";
 
 export var query = angular.module('kahuna.search.query', [
@@ -145,7 +144,6 @@ query.controller('SearchQueryCtrl', [
     }
 
     ctrl.sortProps = {
-      options: SortOptions,
       selectedOption: DefaultSortOption,
       onSelect: updateSortChips,
       query: ctrl.filter.query,
