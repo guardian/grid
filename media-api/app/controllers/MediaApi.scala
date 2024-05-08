@@ -382,9 +382,6 @@ class MediaApi(
           Authentication.getIdentity(request.user), Option(partnerName), Option(startPending))
 
         Future.successful(Ok)
-        // Future.successful(
-        //   Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
-        // )
       }
       case _ => {
         Future.successful(ImageNotFound(id))}

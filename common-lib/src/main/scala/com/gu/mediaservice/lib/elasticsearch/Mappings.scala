@@ -280,7 +280,7 @@ object Mappings {
     keywordField("composerUrl")
   ))
 
-  def syndicationUsageMetadata(name: String): ObjectField = dynamicObj(name).copy(properties = Seq(
+  def syndicationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("partnerName"),
     keywordField("syndicatedBy")
   ))
