@@ -29,6 +29,9 @@ object ApiAccessor extends ArgoHelpers {
   def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
     case Internal => true
     case ReadOnly => request.method == "GET"
-    case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
+    case Syndication => {
+      val isMediaApiRequest = request.uri.startsWith(services.apiBaseUri) // TODO check this!
+      request.method == "GET" && isMediaApiRequest && request.path.startsWith("/images")
+    }
   }
 }
