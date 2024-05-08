@@ -78,7 +78,7 @@ protected class SingleHostServices(val hostname: String, val baseport: Int) exte
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
-  val corsAllowedDomains: Set[String] = Set.empty // TODO
+  val corsAllowedDomains: Set[String] = Set(kahunaBaseUri, apiBaseUri, thrallBaseUri)
 
   val redirectUriParam = "redirectUri"
   val redirectUriPlaceholder = s"{?$redirectUriParam}"
