@@ -36,6 +36,19 @@ trait Services {
 
   def loginUriTemplate: String
 
+  def apiInternalBaseUri: String
+
+  def collectionsInternalBaseUri: String
+
+  def cropperInternalBaseUri: String
+
+  def leasesInternalBaseUri: String
+
+  def metadataInternalBaseUri: String
+
+  def projectionInternalBaseUri: String
+
+  def usageInternalBaseUri: String
 }
 
 protected class SingleHostServices(val hostname: String, val baseport: Int) extends Services {
@@ -84,8 +97,16 @@ protected class SingleHostServices(val hostname: String, val baseport: Int) exte
   val redirectUriPlaceholder = s"{?$redirectUriParam}"
   val loginUriTemplate = s"$authBaseUri/login$redirectUriPlaceholder"
 
+  val apiInternalBaseUri: String = baseUri("media-api", 9000)
+  val collectionsInternalBaseUri: String = baseUri("collections", 9000)
+  val cropperInternalBaseUri: String = baseUri("cropper", 9000)
+  val leasesInternalBaseUri: String = baseUri("leases", 9000)
+  val metadataInternalBaseUri: String = baseUri("metadata-editor", 9000)
+  val projectionInternalBaseUri: String = baseUri("projection", 9000)
+  val usageInternalBaseUri: String = baseUri("usages", 9000)
 
   private def baseUri(host: String, port: Int) = s"http://$host:$port"
+
 
 }
 
