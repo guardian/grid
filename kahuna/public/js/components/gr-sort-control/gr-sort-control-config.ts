@@ -32,7 +32,7 @@ export const SortOptions: SortDropdownOption[] = [
   },
   {
     value: "dateAddedToCollection",
-    label: "Added to Collection (recent 1st)",
+    label: "Added to Collection (new to old)",
     isCollection: true
   }
 ];
