@@ -1,0 +1,7 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  dir: 'imgops'
+  args: ['build', '-t', 'eu.gcr.io/$PROJECT_ID/imgops:0.1', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'eu.gcr.io/$PROJECT_ID/imgops:0.1']
+
