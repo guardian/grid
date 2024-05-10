@@ -38,30 +38,30 @@ trait Services {
 
 }
 
-protected class SingleHostServices(val hostname: String, val baseport: Int) extends Services {
-  val kahunaBaseUri: String = baseUri(hostname, baseport + 20)
+protected class SingleHostServices(val rootUrl: String) extends Services {
+  val kahunaBaseUri: String = rootUrl
 
-  val apiBaseUri: String = baseUri(hostname, baseport + 1)
+  val apiBaseUri: String = subpathedServiceBaseUri("media-api")
 
-  val loaderBaseUri: String = baseUri(hostname, baseport + 3)
+  val loaderBaseUri: String = subpathedServiceBaseUri("image-loader")
 
   val projectionBaseUri: String = loaderBaseUri
 
-  val cropperBaseUri: String = baseUri(hostname, baseport + 6)
+  val cropperBaseUri: String = subpathedServiceBaseUri("cropper")
 
-  val metadataBaseUri: String = baseUri(hostname, baseport + 7)
+  val metadataBaseUri: String = subpathedServiceBaseUri("metadata-editor")
 
-  val imgopsBaseUri: String = baseUri(hostname, baseport + 8)
+  val imgopsBaseUri: String = subpathedServiceBaseUri("imgops")
 
-  val usageBaseUri: String = baseUri(hostname, baseport + 9)
+  val usageBaseUri: String =subpathedServiceBaseUri("usage")
 
-  val collectionsBaseUri: String = baseUri(hostname, baseport + 10)
+  val collectionsBaseUri: String = subpathedServiceBaseUri("collections")
 
-  val leasesBaseUri: String = baseUri(hostname, baseport + 12)
+  val leasesBaseUri: String = subpathedServiceBaseUri("leases")
 
-  val authBaseUri: String = baseUri(hostname, baseport + 11)
+  val authBaseUri: String = subpathedServiceBaseUri("auth")
 
-  private val thrallBaseUri: String = baseUri(hostname, baseport + 200)
+  private val thrallBaseUri: String =  subpathedServiceBaseUri("thrall")
 
   val allInternalUris: Seq[String] = Seq(
     kahunaBaseUri,
@@ -84,8 +84,6 @@ protected class SingleHostServices(val hostname: String, val baseport: Int) exte
   val redirectUriPlaceholder = s"{?$redirectUriParam}"
   val loginUriTemplate = s"$authBaseUri/login$redirectUriPlaceholder"
 
-
-  private def baseUri(host: String, port: Int) = s"http://$host:$port"
-
+  private def subpathedServiceBaseUri(serviceName: String): String = s"$rootUrl/$serviceName"
 }
 

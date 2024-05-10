@@ -63,7 +63,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
-  val services = new SingleHostServices("york.local", 32400)
+  private val singleHostUrl: String = string("single.host.url")
+  val services = new SingleHostServices(singleHostUrl)
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:
