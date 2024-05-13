@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
       - name: push-pr
@@ -25,3 +26,9 @@ jobs:
           echo "Pushing PR merge commit for ${PR} to remote pr${PR} branch"
           git fetch -f origin pull/${PR}/merge:pr${PR}
           git push -f origin pr${PR}:pr${PR}
+      - name: trigger CI
+        env:
+          PR: ${{ inputs.prNumber }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref pr${PR}
+
