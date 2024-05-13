@@ -1,10 +1,11 @@
 package com.gu.mediaservice.lib.auth
 
+import akka.stream.Materializer
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, Principal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, PrincipalFilter, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
-import play.api.mvc.{ActionFilter, Result, Results}
+import play.api.mvc.{ActionFilter, Filter, RequestHeader, Result, Results}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -83,4 +84,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
       }
     }
   }
+
+  def hasBasicAccessExplicitly(userEmail: String): Boolean = provider.hasBasicAccessExplicitly(userEmail)
+  def hasAtLeastBasicAccess(userEmail: String): Boolean = provider.hasAtLeastBasicAccess(userEmail)
 }

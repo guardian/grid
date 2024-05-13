@@ -8,6 +8,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, EitherValues}
+import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.inject.ApplicationLifecycle
 import play.api.mvc.DefaultControllerComponents
 import play.api.test.{FakeRequest, WsTestClient}
@@ -32,7 +33,7 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
   )){}
   private val providerConfig = Configuration.empty
   private val controllerComponents: DefaultControllerComponents = DefaultControllerComponents(null, null, null, null, null, global)
-  private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents)
+  private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents, mock[Authorisation])
   private val provider = new ApiKeyAuthenticationProvider(providerConfig, resources) {
     override def initialise(): Unit = { /* do nothing */ }
 

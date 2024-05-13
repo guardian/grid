@@ -30,4 +30,7 @@ trait AuthorisationProvider extends Provider {
     * @return true if the principal has permission, false otherwise
     */
   def hasPermissionTo(permission: SimplePermission, principal: Principal): Boolean
+
+  def hasBasicAccessExplicitly(userEmail: String): Boolean = false // default implementation
+  def hasAtLeastBasicAccess(userEmail: String): Boolean = true // default implementation
 }
