@@ -155,6 +155,7 @@ class PandaAuthenticationProvider(
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
     val isValid = PandaAuthenticationProvider.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
 
+    val hasBasicAccessExplicitly = resources.authorisation.hasBasicAccessExplicitly(authedUser.user.email)
     val hasAnyGridPermission = resources.authorisation.hasAtLeastBasicAccess(authedUser.user.email)
 
     if(!isValid) {
@@ -162,6 +163,9 @@ class PandaAuthenticationProvider(
     }
     else if (!hasAnyGridPermission) {
       logger.warn(s"User ${authedUser.user.email} does not have any grid permissions")
+    }
+    else if (!hasBasicAccessExplicitly) {
+      logger.warn(s"User ${authedUser.user.email} does not have grid_access permission but does have other grid permissions")
     }
 
     isValid

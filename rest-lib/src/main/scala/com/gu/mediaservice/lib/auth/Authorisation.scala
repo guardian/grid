@@ -85,5 +85,6 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     }
   }
 
+  def hasBasicAccessExplicitly(userEmail: String): Boolean = provider.hasBasicAccessExplicitly(userEmail)
   def hasAtLeastBasicAccess(userEmail: String): Boolean = provider.hasAtLeastBasicAccess(userEmail)
 }
