@@ -1,6 +1,5 @@
 package lib
 
-import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -12,13 +11,9 @@ import scala.util.Try
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
 class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources) with GridLogging {
-  val rootUri: String = services.metadataBaseUri
-  val kahunaUri: String = services.kahunaBaseUri
   val usageUri: String = services.usageBaseUri
   val apiUri: String = services.apiBaseUri
-  val loginUriTemplate: String = services.loginUriTemplate
 
-  val defaultPageSize = 100
   val defaultMaxRetries = 4
   val defaultMaxPrintRequestSizeInKb = 500
   val defaultDateLimit = "2016-01-01T00:00:00+00:00"
@@ -29,7 +24,6 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val capiPreviewUrl = string("capi.preview.url")
   val capiPreviewRole = stringOpt("capi.preview.role")
   val capiApiKey = string("capi.apiKey")
-  val capiPageSize: Int = intDefault("capi.page.size", defaultPageSize)
   val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
 
   val usageDateLimit: String = stringDefault("usage.dateLimit", defaultDateLimit)
@@ -41,7 +35,6 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
 
   val usageRecordTable = string("dynamo.tablename.usageRecordTable")
 
-  val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
   val awsRegionName = string("aws.region")
 
   private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()

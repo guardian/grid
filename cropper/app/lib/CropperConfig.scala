@@ -16,8 +16,6 @@ class CropperConfig(resources: GridConfigResources) extends CommonConfig(resourc
 
   val rootUri = services.cropperBaseUri
   val apiUri = services.apiBaseUri
-  val kahunaUri = services.kahunaBaseUri
-  val loginUriTemplate = services.loginUriTemplate
 
   val tempDir: File = new File(stringDefault("crop.output.tmp.dir", "/tmp"))
 
