@@ -198,6 +198,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
     implicit val logMarker: LogMarker = MarkerMap()
 
+    implicit val instance: Instance = Instance(id = "an-instance")
     val gridClient = mock[GridClient]
     when(gridClient.getUsages(id, identity)).thenReturn(Future.successful(Nil))
     when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Nil))

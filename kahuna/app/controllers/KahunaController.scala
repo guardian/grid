@@ -3,13 +3,14 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig}
+import lib.{ExampleSwitch, FeatureSwitches, KahunaClientServiceUrls, KahunaConfig}
 import play.api.mvc.ControllerComponents
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
+import com.gu.mediaservice.model.Instance
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
 
@@ -27,6 +28,7 @@ class KahunaController(
   override def services: Services = config.services
 
   def index(ignored: String) = withOptionalLoginRedirect { request =>
+    implicit val instance: Instance = instanceOf(request)
 
     val maybeUser: Option[Authentication.Principal] = request match {
       case authedRequest: AuthenticatedRequest[_, _] => authedRequest.user match {
@@ -65,6 +67,11 @@ class KahunaController(
         Html("undefined")
     val imageTypes = Json.toJson(config.imageTypes).toString()
 
+
+    val kahunaClientServiceUrls = KahunaClientServiceUrls(
+      mediaApiUri = config.mediaApiUri(instance)
+    )
+
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
       fieldAliases,
@@ -79,7 +86,8 @@ class KahunaController(
       maybeOrgOwnedValue,
       config,
       featureSwitchesJson,
-      imageTypes
+      imageTypes,
+      kahunaClientServiceUrls
     ))
   }
 

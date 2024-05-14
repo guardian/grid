@@ -1,6 +1,7 @@
 @import lib.ScriptToLoad
 
 @import lib.KahunaConfig
+@import lib.KahunaClientServiceUrls
 @(
   reauthUri: String,
   fieldAliases: String,
@@ -16,6 +17,7 @@
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
   imageTypes: String,
+  kahunaClientServiceUrls: KahunaClientServiceUrls
 )
 <!DOCTYPE html>
 <html>
@@ -28,13 +30,13 @@
 
 
     <!-- preconnect to core APIs ahead of JS making the requests -->
-    <link rel="preconnect" href="@kahunaConfig.mediaApiUri"/>
+    <link rel="preconnect" href="@kahunaClientServiceUrls.mediaApiUri"/>
     <link rel="preconnect" href="@kahunaConfig.authUri"/>
 
     <link rel="shortcut icon" type="image/svg+xml" href="@routes.Assets.versioned("images/grid-favicon.svg")"/>
     <link rel="alternate shortcut icon" type="image/png" href="@routes.Assets.versioned("images/grid-favicon-32.png")"/>
     <link rel="assets" href="@routes.Assets.versioned("")"/>
-    <link rel="media-api-uri" href="@kahunaConfig.mediaApiUri" />
+    <link rel="media-api-uri" href="@kahunaClientServiceUrls.mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
     <link rel="auth-uri" href="@kahunaConfig.authUri" />
 
