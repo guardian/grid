@@ -419,7 +419,7 @@ results.controller('SearchResultsCtrl', [
       };
 
       ctrl.sendToPhotoSales = () => {
-        const [validImages] = validatePhotoSalesSelection(ctrl.selectedImages)[0];
+        const validImages = validatePhotoSalesSelection(ctrl.selectedImages)[0];
         validImages.map(image => {
           mediaApi.syndicateImage(image.data.id, "Capture", "true");
         });
