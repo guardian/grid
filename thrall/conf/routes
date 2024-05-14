@@ -39,8 +39,6 @@ POST   /resumeReaper                                  controllers.ReaperControll
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
-GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck(depth: Int)
-GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 GET     /assets/*file                                 controllers.Assets.versioned(path="/public", file: Asset)
 

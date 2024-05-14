@@ -43,7 +43,6 @@ GET     /usage/quotas/:id                                           controllers.
 GET     /management/healthcheck                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
 GET     /management/manifest                                        com.gu.mediaservice.lib.management.Management.manifest
 GET     /management/imageCounts                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
-GET     /management/whoAmI                                          com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
 GET     /robots.txt                                                 com.gu.mediaservice.lib.management.Management.disallowRobots

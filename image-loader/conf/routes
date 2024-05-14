@@ -15,7 +15,6 @@ GET     /uploadStatuses/:userId                       controllers.UploadStatusCo
 # Management
 GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
-GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots
