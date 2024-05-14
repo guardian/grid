@@ -1,5 +1,4 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
-import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
@@ -13,8 +12,6 @@ import scala.concurrent.Future
 
 class MediaApiComponents(context: Context) extends GridComponents(context, new MediaApiConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
-
-  val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
   val mediaApiMetrics = new MediaApiMetrics(config)
