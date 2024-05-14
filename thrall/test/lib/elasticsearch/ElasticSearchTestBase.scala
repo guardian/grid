@@ -41,7 +41,6 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
       migration = "Images_Migration"
     ),
     url = esTestUrl,
-    cluster = "media-service-test",
     shards = 1,
     replicas = 0
   )

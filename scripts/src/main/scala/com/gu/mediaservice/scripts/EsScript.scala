@@ -405,7 +405,6 @@ object DownloadAllEsIds extends EsScript {
 
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
-  final val esCluster = "media-service"
   final val esImagesAlias = "Images_Current"
   final val esImagesReadAlias = "Images_Current"
   final val esShards = 5
@@ -424,7 +423,6 @@ abstract class EsScript {
   }
 
   class EsClient(val url: String) extends ElasticSearchClient {
-    override def cluster = esCluster
     override def imagesCurrentAlias = esImagesAlias
     override def shards = esShards
     override def replicas = esReplicas

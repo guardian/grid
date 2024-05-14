@@ -36,7 +36,6 @@ trait Fixtures {
     "es.index.aliases.current",
     "es.index.aliases.migration",
     "es6.url",
-    "es6.cluster",
     "s3.image.bucket",
     "s3.thumb.bucket",
     "grid.stage",
