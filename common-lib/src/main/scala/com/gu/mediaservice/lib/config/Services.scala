@@ -24,8 +24,6 @@ trait Services {
 
   def authBaseUri: String
 
-  def allInternalUris: Seq[String]
-
   def guardianWitnessBaseUri: String
 
   def corsAllowedDomains: Set[String]
@@ -62,19 +60,6 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
   val authBaseUri: String = subpathedServiceBaseUri("auth")
 
   private val thrallBaseUri: String =  subpathedServiceBaseUri("thrall")
-
-  val allInternalUris: Seq[String] = Seq(
-    kahunaBaseUri,
-    apiBaseUri,
-    loaderBaseUri,
-    cropperBaseUri,
-    metadataBaseUri,
-    usageBaseUri,
-    collectionsBaseUri,
-    leasesBaseUri,
-    authBaseUri,
-    thrallBaseUri
-  )
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 

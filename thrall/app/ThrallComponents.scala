@@ -3,7 +3,6 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
-import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
@@ -86,7 +85,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
   val reaperController = new ReaperController(es, store, authorisation, config, actorSystem.scheduler, maybeCustomReapableEligibility, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, InnerServiceStatusCheckController, assets)
+  override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, assets)
 }

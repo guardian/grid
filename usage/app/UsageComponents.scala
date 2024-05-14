@@ -1,5 +1,4 @@
 import com.gu.contentapi.client.ScheduledExecutor
-import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi
 import lib._
@@ -35,8 +34,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   })
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
-  override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
+  override lazy val router = new Routes(httpErrorHandler, controller, management)
 }
