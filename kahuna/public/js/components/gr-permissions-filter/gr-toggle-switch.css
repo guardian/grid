@@ -44,6 +44,10 @@
   padding-right: 8px;
 }
 
+.ts-toggle-container:hover {
+  color: white;
+}
+
 input:checked + .ts-slider {
   background-color: #4eaae8;
 }
@@ -101,5 +105,9 @@ input:checked + .ts-slider:before {
     padding-left: 12px;
     padding-right: 12px;
     fill: #ccc;
+  }
+
+  .ts-toggle-container-short:hover {
+    color:white;
   }
 }

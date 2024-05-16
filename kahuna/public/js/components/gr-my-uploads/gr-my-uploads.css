@@ -7,6 +7,10 @@
   fill: #ccc;
 }
 
+.my-uploads-container:hover {
+  color: white;
+}
+
 .custom-checkbox {
   cursor: pointer;
 }
