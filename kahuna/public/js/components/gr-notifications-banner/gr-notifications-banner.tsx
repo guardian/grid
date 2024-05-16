@@ -151,6 +151,11 @@ const NotificationsBanner: React.FC = () => {
       });
   };
 
+  const newNotification = (event:any) => {
+    const notification = event.detail;
+    setNotifications(prev_notifs => mergeArraysByKey(prev_notifs, [notification], 'announceId'));
+  };
+
   useEffect(() => {
     const announce = window._clientConfig.announcements;
     const tdy = todayStr();
@@ -169,6 +174,7 @@ const NotificationsBanner: React.FC = () => {
     document.addEventListener("mouseup", autoHideListener);
     document.addEventListener("scroll", autoHideListener);
     document.addEventListener("keydown", autoHideListener);
+    window.addEventListener("newNotification", newNotification);
 
     // clean up cookie
     if (notif_cookie) {
@@ -183,6 +189,7 @@ const NotificationsBanner: React.FC = () => {
       document.removeEventListener("mouseup", autoHideListener);
       document.removeEventListener("scroll", autoHideListener);
       document.removeEventListener("keydown", autoHideListener);
+      window.removeEventListener("newNotification", newNotification);
       clearInterval(checkNotificationsRef);
     };
 
@@ -220,7 +227,7 @@ const NotificationsBanner: React.FC = () => {
                     key={"notification-inner-" + notification.announceId}>
                 {notification.description}&nbsp;
               </span>
-              {(notification.url != "") &&
+              {(notification.url && notification.url != "") &&
                 <span tabIndex={0}
                       key={"notification-url-" + notification.announceId}
                       role="link"
