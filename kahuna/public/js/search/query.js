@@ -140,7 +140,7 @@ query.controller('SearchQueryCtrl', [
           ...structuredQuery,
           orgOwnedChip
         ]);
-      } else if (!filter.orgOwned && queryHasOrgOwned) {
+      } else if (!filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
         // If the checkbox is unticked, ensure chip is no longer in the search bar
         structuredQuery.splice(orgOwnedIndexInQuery, 1);
         ctrl.filter.query = renderQuery(structuredQuery);
