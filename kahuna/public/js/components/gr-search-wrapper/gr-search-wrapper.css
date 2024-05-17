@@ -3,3 +3,7 @@
   display: flex;
   justify-content: flex-end;
 }
+
+.gr-search-wrapper-modifier {
+  top: 40px;
+}

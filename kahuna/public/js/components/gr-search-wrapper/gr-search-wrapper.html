@@ -9,7 +9,7 @@
             <gr-icon class="search__modifier-toggle__icon">filter_list</gr-icon>
             <span class="search__modifier-toggle__text">Search filters</span>
         </button>
-        <ul class="search__modifier search__filter" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
+        <ul class="search__modifier search__filter gr-search-wrapper-modifier" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
             <li class="search__modifier-item">
                 <gu-date-range class="search__date"
                                gu:start-date="searchQuery.dateFilter.since"

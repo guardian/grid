@@ -93,7 +93,7 @@ input:checked + .ts-slider:before {
   content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="white" stroke-width="3"/></svg>');
 }
 
-@media screen and (max-width: 1380px) {
+@media screen and (max-width: 1200px) {
   .ts-toggle-container {
     display: none;
   }
