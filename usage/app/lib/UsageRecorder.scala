@@ -19,7 +19,7 @@ class UsageRecorder(
 ) extends GridLogging {
 
   val usageApiSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
-  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
+  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = usageApiSubject
 
   val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None

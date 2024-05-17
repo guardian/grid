@@ -5,10 +5,8 @@ import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, PublishedUsageStatus, UsageStatus}
-import lib.{ContentHelpers, MD5, MediaUsageBuilder, UsageConfig, UsageMetadataBuilder}
+import lib.{ContentHelpers, MD5, MediaUsageBuilder, UsageConfig}
 import org.joda.time.DateTime
-
-import scala.collection.compat._
 
 case class UsageGroup(
   usages: Set[MediaUsage],
@@ -17,10 +15,9 @@ case class UsageGroup(
   isReindex: Boolean = false,
   maybeStatus: Option[UsageStatus] = None
 )
-class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
+class UsageGroupOps(config: UsageConfig)
   extends GridLogging {
 
-  def buildId(contentWrapper: ContentWrapper) = contentWrapper.id
   def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
     Some(printUsage.mediaId),
     Some(printUsage.printUsageMetadata.pageNumber),
@@ -50,13 +47,6 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
       downloadUsageRequest.dateAdded.getMillis.toString
     ).mkString("_"))
   }"
-
-  def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean)(implicit logMarker: LogMarker) =
-    ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
-      val usages = createUsages(contentWrapper, isReindex)
-      logger.info(logMarker, s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, lastModified, isReindex, maybeStatus = Some(status))
-    })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
     printUsageRecords.map(printUsageRecord => {
@@ -96,41 +86,6 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     )
   }
 
-  def createUsages(contentWrapper: ContentWrapper, isReindex: Boolean)(implicit logMarker: LogMarker) = {
-    // Generate unique UUID to track extract job
-    val uuid = java.util.UUID.randomUUID.toString
-    implicit val extractJobLogMarkers: LogMarker = logMarker ++ Map("extract-job-id" -> uuid)
-
-    val content = contentWrapper.content
-    val usageStatus = contentWrapper.status
-
-    logger.info(extractJobLogMarkers, s"Extracting images from ${content.id}")
-
-    val mediaAtomsUsages = extractMediaAtoms(content, usageStatus, isReindex)(extractJobLogMarkers).flatMap { atom =>
-      getImageId(atom) match {
-        case Some(id) =>
-          val mediaWrapper = mediaWrapperOps.build(mediaId = id, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
-          val usage = MediaUsageBuilder.build(mediaWrapper)
-          Seq(createUsagesLogging(usage)(logMarker))
-        case None => Seq.empty
-      }
-    }
-    val imageElementUsages = extractImageElements(content, usageStatus, isReindex)(extractJobLogMarkers).map { element =>
-      val mediaWrapper = mediaWrapperOps.build(mediaId = element.id, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
-      val usage = MediaUsageBuilder.build(mediaWrapper)
-      createUsagesLogging(usage)(logMarker)
-    }
-    val cartoonElementUsages = extractCartoonUniqueMediaIds(content).map { mediaId =>
-      val mediaWrapper = mediaWrapperOps.build(mediaId, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
-      val usage = MediaUsageBuilder.build(mediaWrapper)
-      createUsagesLogging(usage)(logMarker)
-    }
-
-    // TODO capture images from interactive embeds
-
-    mediaAtomsUsages ++ imageElementUsages ++ cartoonElementUsages
-  }
-
   private def createUsagesLogging(usage: MediaUsage)(implicit logMarker: LogMarker) = {
     logger.info(logMarker, s"Built MediaUsage for ${usage.mediaId}")
 
@@ -153,40 +108,6 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     }
   }
 
-  private def extractMediaAtoms(content: Content, usageStatus: UsageStatus, isReindex: Boolean)(implicit logMarker: LogMarker) = {
-    val isNew = isNewContent(content, usageStatus)
-    val shouldRecordUsages = isNew || isReindex
-
-    if (shouldRecordUsages) {
-      logger.info(logMarker, s"Passed shouldRecordUsages for media atom")
-      val groupedMediaAtoms = groupMediaAtoms(content)
-
-      if (groupedMediaAtoms.isEmpty) {
-        logger.info(logMarker, s"No Matching media atoms found")
-      } else {
-        logger.info(logMarker, s"${groupedMediaAtoms.length} media atoms found")
-        groupedMediaAtoms.foreach(atom => logger.info(logMarker, s"Matching media atom ${atom.id} found"))
-      }
-
-      groupedMediaAtoms
-    } else {
-      logger.info(logMarker, s"Failed shouldRecordUsages for media atoms: isNew-$isNew isReindex-$isReindex")
-      Seq.empty
-    }
-  }
-
-  private def groupMediaAtoms(content: Content) = {
-    val mediaAtoms = content.atoms match {
-      case Some(atoms) =>
-        atoms.media match {
-          case Some(mediaAtoms) => filterOutAtomsWithNoImage(mediaAtoms.toSeq)
-          case _ => Seq.empty
-        }
-      case _ => Seq.empty
-    }
-    mediaAtoms
-  }
-
   private def filterOutAtomsWithNoImage(atoms: Seq[Atom]): Seq[Atom] = {
     for {
       atom <- atoms
@@ -207,7 +128,7 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     }
   }
 
-  private def extractCartoonUniqueMediaIds(content: Content): Set[String] = 
+  private def extractCartoonUniqueMediaIds(content: Content): Set[String] =
     (for {
       elements <- content.elements.toSeq
       cartoonElement <- elements.filter(_.`type` == ElementType.Cartoon)
@@ -260,10 +181,3 @@ case class MediaWrapper(
     contentStatus: UsageStatus,
     usageMetadata: DigitalUsageMetadata,
     lastModified: DateTime)
-
-class MediaWrapperOps(usageMetadataBuilder: UsageMetadataBuilder) {
-  def build(mediaId: String, contentWrapper: ContentWrapper, usageGroupId: String): MediaWrapper = {
-    val usageMetadata = usageMetadataBuilder.build(contentWrapper.content)
-    MediaWrapper(mediaId, usageGroupId, contentWrapper.status, usageMetadata, contentWrapper.lastModified)
-  }
-}
