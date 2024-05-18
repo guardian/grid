@@ -71,13 +71,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val s3 = S3Ops.buildS3Client(config)
-  val syncChecker = new SyncChecker(
-    s3,
-    es,
-    config.imageBucket,
-    actorSystem
-  )
-  val syncCheckerStream: Future[Done] = syncChecker.run()
 
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)
