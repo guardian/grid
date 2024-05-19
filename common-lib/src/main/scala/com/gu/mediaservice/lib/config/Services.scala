@@ -37,7 +37,7 @@ trait Services {
   def loginUriTemplate(instance: Instance): String
 }
 
-protected class SingleHostServices(val rootUrl: String) extends Services {
+protected class SingleHostServices(val domain: String) extends Services {
   override def kahunaBaseUri(instance: Instance): String =  vhostServiceName("", instance)
 
   override def apiBaseUri(instance: Instance): String = vhostServiceName("media-api", instance)
@@ -71,8 +71,8 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
   def loginUriTemplate(instance: Instance): String = s"${authBaseUri(instance)}/login$redirectUriPlaceholder"
 
   private def vhostServiceName(serviceName: String, instance: Instance): String = {
-    val vhostRootUrl = instance.id
-    s"https://$vhostRootUrl/" + serviceName
+    val vhost = instance.id
+    s"https://$vhost.$domain/" + serviceName
   }
 }
 
