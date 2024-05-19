@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getIdentity
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{DynamoDB, InstanceAwareDynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.net.{URI => UriOps}
@@ -24,9 +24,10 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   import CollectionsManager.onlyLatest
 
-  val dynamo = new DynamoDB[Collection](config, config.imageCollectionsTable)
+  val dynamo = new InstanceAwareDynamoDB[Collection](config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
+    implicit val instance: Instance = instanceOf(req)
     dynamo.listGet(id, "collections").map { collections =>
       respond(onlyLatest(collections))
     } recover {
@@ -35,6 +36,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   }
 
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
+    implicit val instance: Instance = instanceOf(req)
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
@@ -45,6 +47,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
 
   def removeCollection(id: String, collectionString: String) = authenticated.async { req =>
+    implicit val instance: Instance = instanceOf(req)
     val path = CollectionsManager.uriToPath(UriOps.encodePlus(collectionString))
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
