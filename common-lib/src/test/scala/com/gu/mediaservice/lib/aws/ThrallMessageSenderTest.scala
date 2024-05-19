@@ -21,7 +21,7 @@ class ThrallMessageSenderTest extends AnyFunSpec with Matchers {
 
     it ("should convert a message from an external source which does not have last modified") {
       val subject = "test"
-      val j = s"""{"subject":"$subject", "instance":"an-instance"}"""
+      val j = s"""{"subject":"$subject", "instance": {"id": "an-instance"}}"""
       val m = Json.parse(j).as[UpdateMessage]
       m.lastModified.getZone.toString should be ("UTC")
     }
