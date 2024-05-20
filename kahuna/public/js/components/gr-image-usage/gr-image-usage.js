@@ -10,8 +10,12 @@ import './gr-image-usage.css';
 import '../../services/image/usages';
 import {deleteUsages} from '../gr-delete-usages/gr-delete-usages';
 
+import '../gr-image-usage-photosales/gr-image-usage-photosales';
+import {sendToCaptureUsagePanelTxt} from "../../util/constants/sendToCapture-config";
+
 export const module = angular.module('gr.imageUsage', [
   'gr.image-usages.service',
+  'gr.imageUsagePhotoSales',
   'util.rx',
   deleteUsages.name
 ]);
@@ -20,15 +24,17 @@ module.controller('grImageUsageCtrl', [
   '$scope',
   '$state',
   'inject$',
+  '$window',
   'imageUsagesService',
 
-  function ($scope, $state, inject$, imageUsagesService) {
+  function ($scope, $state, inject$, $window, imageUsagesService) {
 
     const ctrl = this;
 
     ctrl.$onInit = () => {
-      const usages = imageUsagesService.getUsages(ctrl.image);
+      ctrl.showSendToPhotoSales = $window._clientConfig.showSendToPhotoSales;
 
+      const usages = imageUsagesService.getUsages(ctrl.image);
       const usages$ = usages.groupedByState$.map((u) => u.toJS());
       const usagesCount$ = usages.count$;
 
@@ -50,14 +56,33 @@ module.controller('grImageUsageCtrl', [
         }
       };
 
+      ctrl.photoSalesUsages = () => {
+        const processedUsages = [];
+        ctrl.image.data.usages.data.forEach( (usage)  => {
+          if (usage.data.platform === "syndication" && usage.data.syndicationUsageMetadata.partnerName === "Capture") {
+            processedUsages.push({
+              title: usage.data.syndicationUsageMetadata.syndicatedBy,
+              usageName: sendToCaptureUsagePanelTxt,
+              usageType: "sendToPhotoSales",
+              dateAdded: usage.data.dateAdded
+            });
+          }
+        });
+        return processedUsages;
+      };
+
       ctrl.onUsagesDeleted = () => {
         // a bit nasty - but it updates the state of the page better than trying to do that in
         // the client.
         $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
       };
 
+      const hasSyndicationUsages$ =
+        imageUsagesService.getUsages(ctrl.image).hasSyndicationUsages$;
+
       inject$($scope, usages$, ctrl, 'usages');
       inject$($scope, usagesCount$, ctrl, 'usagesCount');
+      inject$($scope, hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
     };
   }]);
 
