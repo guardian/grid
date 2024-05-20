@@ -7,3 +7,4 @@ export const INVALIDIMAGES = "#INVALIDIMAGES#";
 export const sendToCaptureCancelBtnTxt = "No";
 export const sendToCaptureConfirmBtnTxt = "Yes, send";
 export const sendToCaptureSingleBtnTxt = "Okay";
+export const sendToCaptureUsagePanelTxt = "Added to Photo Sales";

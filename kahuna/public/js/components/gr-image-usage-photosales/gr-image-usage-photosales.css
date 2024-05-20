@@ -1,0 +1,17 @@
+.usageNameStyle {
+  font-weight: bold;
+  color: #999;
+  vertical-align: top;
+  text-align: left;
+}
+.usageRecordStyle {
+  margin-bottom: 10px;
+  width: 90%;
+}
+.usageMoreInfoStyle {
+  position: relative;
+  top: 1px;
+}
+.usageDateAddedStyle {
+  font-size: 11px;
+}

@@ -18,6 +18,7 @@ import play.api.mvc._
 import play.utils.UriEncoding
 import rx.lang.scala.Subject
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -321,19 +322,32 @@ class UsageApi(
       "requestId" -> RequestLoggingFilter.getRequestId(req),
       "image-id" -> mediaId,
     )
-    usageTable.queryByImageId(mediaId).map(usages => {
-      usages.foreach(usageTable.deleteRecord)
-    }).recover {
-      case error: BadInputException =>
-        logger.warn(logMarker, "UsageApi returned an error.", error)
-        respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
-      case error: Exception =>
-        logger.error(logMarker, "UsageApi returned an error.", error)
-        respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
-    }
+    usageTable.queryByImageId(mediaId)
+      .map(usages => {
+        val hasPhotoSalesUsage = (usage: MediaUsage) => usage.syndicationUsageMetadata.exists(_.partnerName == "Capture")
+        val usagesWithoutPhotoSales = usages.filter(!hasPhotoSalesUsage(_))
 
-    val updateMessage = UpdateMessage(subject = DeleteUsages, id = Some(mediaId))
-    notifications.publish(updateMessage)
+        usagesWithoutPhotoSales.foreach(usage => usageTable.deleteRecord(usage))
+
+        if (usages.exists(hasPhotoSalesUsage)) {
+          usagesWithoutPhotoSales foreach { usage =>
+            val usageId = Some(usage.grouping + "_" + usage.usageId.toString)
+            val updateMessage = UpdateMessage(subject = DeleteSingleUsage, id = Some(mediaId), usageId = usageId)
+            notifications.publish(updateMessage)
+          }
+        } else {
+          val updateMessage = UpdateMessage(subject = DeleteUsages, id = Some(mediaId))
+          notifications.publish(updateMessage)
+        }
+      })
+      .recover{
+        case error: BadInputException =>
+          logger.warn(logMarker, "UsageApi returned an error.", error)
+          respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
+        case error: Exception =>
+          logger.error(logMarker, "UsageApi returned an error.", error)
+          respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
+    }
     Future.successful(Ok)
   }
 }
