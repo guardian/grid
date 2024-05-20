@@ -20,6 +20,6 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
 
   override val router = new Routes(httpErrorHandler, collections, imageCollections, management, InnerServiceStatusCheckController)
 
-  override lazy val httpErrorHandler: HttpErrorHandler = customHttpErrorHandler
   val customHttpErrorHandler = new CustomHttpErrorHandler(HttpErrorConfig(), devContext.map(_.sourceMapper), Some(router))
+  override lazy val httpErrorHandler: HttpErrorHandler = customHttpErrorHandler
 }
