@@ -33,7 +33,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
-  private val index = "images"
+  private val index = instance + "_index"
 
   private val applicationLifecycle = new ApplicationLifecycle {
     override def addStopHook(hook: () => Future[_]): Unit = {}
