@@ -1,8 +1,9 @@
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{CollectionsController, ImageCollectionsController}
-import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
+import lib.{CollectionsConfig, CollectionsMetrics, CustomHttpErrorHandler, Notifications}
 import play.api.ApplicationLoader.Context
+import play.api.http.{HttpErrorConfig, HttpErrorHandler}
 import router.Routes
 import store.CollectionsStore
 
@@ -17,6 +18,8 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-
   override val router = new Routes(httpErrorHandler, collections, imageCollections, management, InnerServiceStatusCheckController)
+
+  override lazy val httpErrorHandler: HttpErrorHandler = customHttpErrorHandler
+  val customHttpErrorHandler = new CustomHttpErrorHandler(HttpErrorConfig(), devContext.map(_.sourceMapper), Some(router))
 }
