@@ -26,7 +26,7 @@ class KindeAuthenticationProvider(
   private val clientId = providerConfiguration.get[String]("clientId")
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
 
-  val state = UUID.randomUUID().toString  // TODO!!!
+  val state = UUID.randomUUID().toString // TODO!!!
 
   /**
    * Establish the authentication status of the given request header. This can return an authenticated user or a number
@@ -41,7 +41,7 @@ class KindeAuthenticationProvider(
     request.session.get(loggedInUserSessionAttribute).map { id =>
       logger.info("Found user on session: " + id)
       Authenticated(authedUser = UserPrincipal(id, id, id))
-    }.getOrElse{
+    }.getOrElse {
       NotAuthenticated
     }
   }
@@ -82,14 +82,14 @@ class KindeAuthenticationProvider(
         logger.info(s"Got callback code: $code")
         val url = providerConfiguration.get[String]("domain") + "/oauth2/token"
 
-        val parameters = Map (
+        val parameters = Map(
           "client_id" -> clientId,
           "client_secret" -> clientSecret,
           "grant_type" -> "authorization_code",
           "redirect_uri" -> redirectUrl,
           "code" -> code,
           "state" -> state,
-      )
+        )
         wsClient.url(url).post(parameters).flatMap { r =>
           logger.info(s"Got post response from $url: " + r.status + " / " + r.body)
 
@@ -101,7 +101,7 @@ class KindeAuthenticationProvider(
             logger.info("Got user profile response " + r.status + ": " + r.body)
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
-            play.api.mvc.Results.Ok("Authed").addingToSession((loggedInUserSessionAttribute, userProfile.id))(requestHeader)
+            Ok("Authed").addingToSession((loggedInUserSessionAttribute, userProfile.id))(requestHeader)
           }
         }
 
@@ -116,7 +116,10 @@ class KindeAuthenticationProvider(
    * do that here which will be used to log users out and also if the token is invalid.
    * This function takes the request header and a result to modify and returns the modified result.
    */
-  override def flushToken: Option[(RequestHeader, Result) => Result] = ???
+  override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
+    Ok("Logged out").removingFromSession(loggedInUserSessionAttribute)(request)
+  }
+
 
   /**
    * A function that allows downstream API calls to be made using the credentials of the current principal.
@@ -131,4 +134,5 @@ class KindeAuthenticationProvider(
 }
 
 case class TokenResponse(access_token: String)
+
 case class UserProfile(id: String)
