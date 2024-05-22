@@ -8,7 +8,7 @@ import play.api.Configuration
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.Results._
-import play.api.mvc.{RequestHeader, Result}
+import play.api.mvc.{Cookie, Cookies, RequestHeader, Result}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,6 +26,8 @@ class KindeAuthenticationProvider(
   private val clientId = providerConfiguration.get[String]("clientId")
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
 
+  private val loggedInUserCookieName = "loggedInUser"
+
   val state = UUID.randomUUID().toString // TODO!!!
 
   /**
@@ -38,8 +40,8 @@ class KindeAuthenticationProvider(
    */
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
     // Look for our cookie with we set in the auth app
-    request.session.get(loggedInUserSessionAttribute).map { id =>
-      logger.info("Found user on session: " + id)
+    request.cookies.get(loggedInUserCookieName).map { cookie =>
+      val id = cookie.value
       Authenticated(authedUser = UserPrincipal(id, id, id))
     }.getOrElse {
       NotAuthenticated
@@ -61,9 +63,6 @@ class KindeAuthenticationProvider(
       Future.successful(Redirect(oauthRedirectUrl))
     }
   }
-
-
-  val loggedInUserSessionAttribute = "loggedInUser"
 
   /**
    * If this provider supports sending a user that is not authorised to a federated auth provider then it should
@@ -102,7 +101,7 @@ class KindeAuthenticationProvider(
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
             val exitRedirectUri = redirectUri.get // TODO naked get
-            Redirect(exitRedirectUri).addingToSession((loggedInUserSessionAttribute, userProfile.id))(requestHeader)
+            Redirect(exitRedirectUri).withNewSession.withCookies(Cookie(loggedInUserCookieName, userProfile.id))
           }
         }
 
@@ -118,7 +117,7 @@ class KindeAuthenticationProvider(
    * This function takes the request header and a result to modify and returns the modified result.
    */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
-    Ok("Logged out").removingFromSession(loggedInUserSessionAttribute)(request)
+    Ok("Logged out").removingFromSession(loggedInUserCookieName)(request)
   }
 
 
