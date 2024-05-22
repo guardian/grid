@@ -28,6 +28,7 @@ class KindeAuthenticationProvider(
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
 
   private val loggedInUserCookieName = "loggedInUser"
+  val loginCookieDomain = "griddev.eelpieconsulting.co.uk"  // Seem to have to explicitly set this for the cookie to be sent to subdomains.
 
   val state = UUID.randomUUID().toString // TODO!!!
 
@@ -102,7 +103,8 @@ class KindeAuthenticationProvider(
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
             val exitRedirectUri = redirectUri.getOrElse("/")
-            Redirect(exitRedirectUri).withNewSession.withCookies(Cookie(loggedInUserCookieName, userProfile.id))
+            val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = userProfile.id, domain = Some(loginCookieDomain))
+            Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
           }
         }
 
@@ -120,7 +122,7 @@ class KindeAuthenticationProvider(
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
     // Flush our cookies and session the redirect through Kinde to logout the Kinde session
     val kindeLogoutUrl = kindeDomain + "/logout"  // TODO redirect back when we have a landing site
-    Redirect(kindeLogoutUrl).discardingCookies(DiscardingCookie(loggedInUserCookieName, "/")).withNewSession
+    Redirect(kindeLogoutUrl).discardingCookies(DiscardingCookie(loggedInUserCookieName, "/", domain = Some(loginCookieDomain))).withNewSession
   }
 
   /**
