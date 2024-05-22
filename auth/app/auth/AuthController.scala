@@ -29,7 +29,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
       Link("root",          config.mediaApiUri(instance)),
       Link("login",         config.services.loginUriTemplate(instance)),
       Link("ui:logout",     s"${config.rootUri(instance)}/logout"),
-      Link("session",       s"${config.rootUri(instance)}/session")
+      Link("session",       s"${config.rootInstanceUri(instance)}/session")
     )
     respond(indexData, indexLinks)
   }
