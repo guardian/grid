@@ -12,7 +12,7 @@ userActions.controller('userActionCtrl',
 
             ctrl.$onInit = () => {
               ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
-              ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
+              ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "/logout";
               ctrl.additionalLinks = window._clientConfig.additionalNavigationLinks;
               ctrl.shouldBlurGraphicImages = graphicImageBlurService.shouldBlurGraphicImages;
               ctrl.toggleShouldBlurGraphicImages = graphicImageBlurService.toggleShouldBlurGraphicImages;
