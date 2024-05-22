@@ -121,7 +121,7 @@ class KindeAuthenticationProvider(
    */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
     // Flush our cookies and session the redirect through Kinde to logout the Kinde session
-    val kindeLogoutUrl = kindeDomain + "/logout"  // TODO redirect back when we have a landing site
+    val kindeLogoutUrl = kindeDomain + "/logout?redirect=https://" + loginCookieDomain
     Redirect(kindeLogoutUrl).discardingCookies(DiscardingCookie(loggedInUserCookieName, "/", domain = Some(loginCookieDomain))).withNewSession
   }
 
