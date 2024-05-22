@@ -8,7 +8,7 @@ import play.api.Configuration
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.Results._
-import play.api.mvc.{Cookie, Cookies, RequestHeader, Result}
+import play.api.mvc.{Cookie, Cookies, DiscardingCookie, RequestHeader, Result}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -117,9 +117,8 @@ class KindeAuthenticationProvider(
    * This function takes the request header and a result to modify and returns the modified result.
    */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
-    Ok("Logged out").removingFromSession(loggedInUserCookieName)(request)
+    Ok("Logged out").discardingCookies(DiscardingCookie(loggedInUserCookieName, "/")).withNewSession
   }
-
 
   /**
    * A function that allows downstream API calls to be made using the credentials of the current principal.
