@@ -60,7 +60,7 @@ protected class SingleHostServices(val domain: String) extends Services {
   override def leasesBaseUri(instance: Instance): String = vhostServiceName("leases", instance)
 
   override def authBaseUri(instance: Instance): String = s"https://$domain/auth"
-  override def authBaseInstanceUri(instance: Instance): String = s"https://$domain/auth"
+  override def authBaseInstanceUri(instance: Instance): String = vhostServiceName("auth", instance)
 
   private def thrallBaseUri(instance: Instance): String = vhostServiceName("thrall", instance)
 
