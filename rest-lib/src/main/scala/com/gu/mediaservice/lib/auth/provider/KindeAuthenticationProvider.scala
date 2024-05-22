@@ -8,7 +8,7 @@ import play.api.Configuration
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.Results._
-import play.api.mvc.{Cookie, Cookies, DiscardingCookie, RequestHeader, Result}
+import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,6 +22,7 @@ class KindeAuthenticationProvider(
   private val wsClient: WSClient = resources.wsClient
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
 
+  private val kindeDomain = providerConfiguration.get[String]("domain")
   private val callbackUri = providerConfiguration.get[String]("redirectUri")
   private val clientId = providerConfiguration.get[String]("clientId")
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
@@ -57,7 +58,7 @@ class KindeAuthenticationProvider(
     { requestHeader: RequestHeader =>
       logger.info(s"Requesting Kinde redirect URI with callback uri: $callbackUri")
 
-      val oauthRedirectUrl = providerConfiguration.get[String]("domain") +
+      val oauthRedirectUrl = kindeDomain +
         s"/oauth2/auth?response_type=code&client_id=$clientId&redirect_uri=$callbackUri&scope=openid%20profile%20email&state=" + state
       logger.info(s"Redirecting to Kinde OAuth URL: $oauthRedirectUrl")
       Future.successful(Redirect(oauthRedirectUrl))
@@ -79,7 +80,7 @@ class KindeAuthenticationProvider(
       val code = requestHeader.getQueryString("code")
       code.map { code =>
         logger.info(s"Got callback code: $code")
-        val url = providerConfiguration.get[String]("domain") + "/oauth2/token"
+        val url = kindeDomain + "/oauth2/token"
 
         val parameters = Map(
           "client_id" -> clientId,
@@ -95,7 +96,7 @@ class KindeAuthenticationProvider(
           implicit val trr: Reads[TokenResponse] = Json.reads[TokenResponse]
           val token = Json.parse(r.body).as[TokenResponse]
 
-          val userProfileUrl = providerConfiguration.get[String]("domain") + "/oauth2/user_profile"
+          val userProfileUrl = kindeDomain + "/oauth2/user_profile"
           wsClient.url(userProfileUrl).withHttpHeaders(("Authorization", "Bearer " + token.access_token)).get().map { r =>
             logger.info("Got user profile response " + r.status + ": " + r.body)
             implicit val upr = Json.reads[UserProfile]
@@ -117,7 +118,9 @@ class KindeAuthenticationProvider(
    * This function takes the request header and a result to modify and returns the modified result.
    */
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some { (request, _) =>
-    Ok("Logged out").discardingCookies(DiscardingCookie(loggedInUserCookieName, "/")).withNewSession
+    // Flush our cookies and session the redirect through Kinde to logout the Kinde session
+    val kindeLogoutUrl = kindeDomain + "/logout"  // TODO redirect back when we have a landing site
+    Redirect(kindeLogoutUrl).discardingCookies(DiscardingCookie(loggedInUserCookieName, "/")).withNewSession
   }
 
   /**
