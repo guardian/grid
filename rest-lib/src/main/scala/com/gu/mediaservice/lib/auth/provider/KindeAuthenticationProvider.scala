@@ -7,8 +7,8 @@ import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.ws.{WSClient, WSRequest}
-import play.api.mvc.{RequestHeader, Result}
 import play.api.mvc.Results._
+import play.api.mvc.{RequestHeader, Result}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,7 +22,7 @@ class KindeAuthenticationProvider(
   private val wsClient: WSClient = resources.wsClient
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
 
-  private val redirectUrl = providerConfiguration.get[String]("redirectUri")
+  private val callbackUri = providerConfiguration.get[String]("redirectUri")
   private val clientId = providerConfiguration.get[String]("clientId")
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
 
@@ -53,10 +53,10 @@ class KindeAuthenticationProvider(
    */
   override def sendForAuthentication: Option[RequestHeader => Future[Result]] = Some {
     { requestHeader: RequestHeader =>
-      logger.info(s"Requesting Kinde redirect URI for redirectUri: $redirectUrl")
+      logger.info(s"Requesting Kinde redirect URI with callback uri: $callbackUri")
 
       val oauthRedirectUrl = providerConfiguration.get[String]("domain") +
-        s"/oauth2/auth?response_type=code&client_id=$clientId&redirect_uri=$redirectUrl&scope=openid%20profile%20email&state=" + state
+        s"/oauth2/auth?response_type=code&client_id=$clientId&redirect_uri=$callbackUri&scope=openid%20profile%20email&state=" + state
       logger.info(s"Redirecting to Kinde OAuth URL: $oauthRedirectUrl")
       Future.successful(Redirect(oauthRedirectUrl))
     }
@@ -74,7 +74,7 @@ class KindeAuthenticationProvider(
    * sent to on successful completion of the authentication.
    */
   override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = Some {
-    { (requestHeader, _) =>
+    { (requestHeader, redirectUri) =>
       logger.info("Got auth callback request header: " + requestHeader)
 
       val code = requestHeader.getQueryString("code")
@@ -86,7 +86,7 @@ class KindeAuthenticationProvider(
           "client_id" -> clientId,
           "client_secret" -> clientSecret,
           "grant_type" -> "authorization_code",
-          "redirect_uri" -> redirectUrl,
+          "redirect_uri" -> callbackUri,
           "code" -> code,
           "state" -> state,
         )
@@ -101,7 +101,8 @@ class KindeAuthenticationProvider(
             logger.info("Got user profile response " + r.status + ": " + r.body)
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
-            Ok("Authed").addingToSession((loggedInUserSessionAttribute, userProfile.id))(requestHeader)
+            val exitRedirectUri = redirectUri.get // TODO naked get
+            Redirect(exitRedirectUri).addingToSession((loggedInUserSessionAttribute, userProfile.id))(requestHeader)
           }
         }
 
