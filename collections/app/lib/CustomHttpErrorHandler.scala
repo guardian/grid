@@ -1,10 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.logging.GridLogging
-
 import play.api.http.{DefaultHttpErrorHandler, HttpErrorConfig}
 import play.api.mvc._
-import play.api.mvc.Results._
 import play.api.routing.Router
 import play.core.SourceMapper
 
@@ -17,13 +15,12 @@ class CustomHttpErrorHandler (
 ) extends DefaultHttpErrorHandler(config, sourceMapper, router) with GridLogging {
 
   override def onClientError(request: RequestHeader, statusCode: Int, message: String): Future[Result] = {
-    if (statusCode >= 400 && statusCode < 500) {
-      logger.error(s"[Client error]: $statusCode - ${request.method} ${request.uri} $message")
-      Future.successful(Status(statusCode)("A client error occurred: " + message))
-    } else {
-      throw new IllegalArgumentException(
-        s"onClientError invoked with non client error status code $statusCode: $message"
-      )
-    }
+    logger.error(s"[CLIENT ERROR] $statusCode - ${request.method} ${request.uri} $message")
+    super.onClientError(request, statusCode, message)
+  }
+
+  override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = {
+    logger.error(s"[SERVER ERROR] ${request.method} ${request.uri} ${exception.getMessage}")
+    super.onServerError(request, exception)
   }
 }
