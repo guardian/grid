@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.auth.provider
 
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.UserPrincipal
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.libs.json.{Json, Reads}
-import play.api.libs.ws.{WSClient, WSRequest}
+import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
+import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.Results._
 import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result}
 
@@ -28,7 +28,10 @@ class KindeAuthenticationProvider(
   private val clientSecret = providerConfiguration.get[String]("clientSecret")
 
   private val loggedInUserCookieName = "loggedInUser"
-  val loginCookieDomain = "griddev.eelpieconsulting.co.uk"  // Seem to have to explicitly set this for the cookie to be sent to subdomains.
+
+  val loginCookieDomain = "griddev.eelpieconsulting.co.uk" // Seem to have to explicitly set this for the cookie to be sent to subdomains.
+
+  private val loggedInUserCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
 
   val state = UUID.randomUUID().toString // TODO!!!
 
@@ -44,7 +47,7 @@ class KindeAuthenticationProvider(
     // Look for our cookie with we set in the auth app
     request.cookies.get(loggedInUserCookieName).map { cookie =>
       val id = cookie.value
-      Authenticated(authedUser = UserPrincipal(id, id, id))
+      Authenticated(authedUser = gridUserFrom(id, request))
     }.getOrElse {
       NotAuthenticated
     }
@@ -134,7 +137,28 @@ class KindeAuthenticationProvider(
    * @return Either a function that adds appropriate authentication headers to a WSRequest or an error string explaining
    *         why it wasn't possible to create a function.
    */
-  override def onBehalfOf(principal: Authentication.Principal): Either[String, WSRequest => WSRequest] = ???
+
+  override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] = {
+    request.attributes.get(loggedInUserCookieKey) match {
+      case Some(cookie) => Right { wsRequest: WSRequest =>
+        wsRequest.addCookies(DefaultWSCookie(loggedInUserCookieName, cookie.value))
+      }
+      case None => Left(s"Login cookie $loggedInUserCookieName is missing in principal.")
+    }
+  }
+
+
+  private def gridUserFrom(id: String, request: RequestHeader): UserPrincipal = {
+    val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieKey, _))
+    val attributes = TypedMap.empty + (maybeLoggedInUserCookie.toSeq: _*)
+    UserPrincipal(
+      firstName = id,
+      lastName = id,
+      email = id,
+      attributes = attributes
+    )
+  }
+
 }
 
 case class TokenResponse(access_token: String)
