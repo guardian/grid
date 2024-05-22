@@ -101,7 +101,7 @@ class KindeAuthenticationProvider(
             logger.info("Got user profile response " + r.status + ": " + r.body)
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
-            val exitRedirectUri = redirectUri.get // TODO naked get
+            val exitRedirectUri = redirectUri.getOrElse("/")
             Redirect(exitRedirectUri).withNewSession.withCookies(Cookie(loggedInUserCookieName, userProfile.id))
           }
         }
