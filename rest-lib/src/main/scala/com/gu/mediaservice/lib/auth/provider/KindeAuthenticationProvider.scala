@@ -4,11 +4,12 @@ import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
+import play.api.libs.crypto.CookieSigner
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.Results._
-import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result}
+import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result, UrlEncodedCookieDataCodec}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -16,8 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class KindeAuthenticationProvider(
                                    resources: AuthenticationProviderResources,
                                    providerConfiguration: Configuration
-
-                                 ) extends UserAuthenticationProvider with StrictLogging {
+                                 ) extends UserAuthenticationProvider with StrictLogging with UrlEncodedCookieDataCodec {
 
   private val wsClient: WSClient = resources.wsClient
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
@@ -46,8 +46,8 @@ class KindeAuthenticationProvider(
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
     // Look for our cookie with we set in the auth app
     request.cookies.get(loggedInUserCookieName).map { cookie =>
-      val id = cookie.value
-      Authenticated(authedUser = gridUserFrom(id, request))
+      val id = decode(cookie.value)
+      Authenticated(authedUser = gridUserFrom(id.get("id").get, request))
     }.getOrElse {
       NotAuthenticated
     }
@@ -106,7 +106,12 @@ class KindeAuthenticationProvider(
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
             val exitRedirectUri = redirectUri.getOrElse("/")
-            val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = userProfile.id, domain = Some(loginCookieDomain))
+            val cookieData = Map {
+              "id" -> userProfile.id
+            }
+            val cookieContents = encode(cookieData)
+            logger.info("User profile encoded to signed cookie: " + cookieContents)
+            val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
             Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
           }
         }
@@ -159,6 +164,9 @@ class KindeAuthenticationProvider(
     )
   }
 
+  override def cookieSigner: CookieSigner = resources.cookieSigner
+
+  override def isSigned: Boolean = true
 }
 
 case class TokenResponse(access_token: String)

@@ -24,7 +24,8 @@ case class AuthenticationProviderResources(
   actorSystem: ActorSystem,
   wsClient: WSClient,
   controllerComponents: ControllerComponents,
-  authorisation: Authorisation
+  authorisation: Authorisation,
+  cookieSigner: CookieSigner
 )
 
 sealed trait LoginLink
