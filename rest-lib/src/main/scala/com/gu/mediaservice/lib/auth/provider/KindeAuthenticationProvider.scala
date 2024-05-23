@@ -45,9 +45,17 @@ class KindeAuthenticationProvider(
    */
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
     // Look for our cookie with we set in the auth app
-    request.cookies.get(loggedInUserCookieName).map { cookie =>
-      val id = decode(cookie.value)
-      Authenticated(authedUser = gridUserFrom(id.get("id").get, request))
+    request.cookies.get(loggedInUserCookieName).flatMap { cookie =>
+      val userData = decode(cookie.value)
+      userData.get("id").map { id =>
+        val userProfile = UserProfile(
+          id = id,
+          first_name = userData.get("first_name"),
+          last_name = userData.get("first_name"),
+          preferred_email = userData.get("preferred_email")
+        )
+        Authenticated(authedUser = gridUserFrom(userProfile, request))
+      }
     }.getOrElse {
       NotAuthenticated
     }
@@ -106,9 +114,13 @@ class KindeAuthenticationProvider(
             implicit val upr = Json.reads[UserProfile]
             val userProfile = Json.parse(r.body).as[UserProfile]
             val exitRedirectUri = redirectUri.getOrElse("/")
-            val cookieData = Map {
-              "id" -> userProfile.id
-            }
+            val cookieData = Seq (
+              Some("id" -> userProfile.id),
+              userProfile.first_name.map("first_name" -> _),
+              userProfile.last_name.map("last_name" -> _),
+              userProfile.preferred_email.map("preferred_email" -> _),
+            ).flatten.toMap
+            logger.info("Encoding logged in user cookie data: " + cookieData)
             val cookieContents = encode(cookieData)
             logger.info("User profile encoded to signed cookie: " + cookieContents)
             val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
@@ -153,13 +165,13 @@ class KindeAuthenticationProvider(
   }
 
 
-  private def gridUserFrom(id: String, request: RequestHeader): UserPrincipal = {
+  private def gridUserFrom(userProfile: UserProfile, request: RequestHeader): UserPrincipal = {
     val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieKey, _))
     val attributes = TypedMap.empty + (maybeLoggedInUserCookie.toSeq: _*)
     UserPrincipal(
-      firstName = id,
-      lastName = id,
-      email = id,
+      firstName = userProfile.first_name.getOrElse(""),
+      lastName = userProfile.last_name.getOrElse(""),
+      email = userProfile.preferred_email.getOrElse(userProfile.id),
       attributes = attributes
     )
   }
@@ -171,4 +183,4 @@ class KindeAuthenticationProvider(
 
 case class TokenResponse(access_token: String)
 
-case class UserProfile(id: String)
+case class UserProfile(id: String, first_name: Option[String], last_name: Option[String], preferred_email: Option[String])
