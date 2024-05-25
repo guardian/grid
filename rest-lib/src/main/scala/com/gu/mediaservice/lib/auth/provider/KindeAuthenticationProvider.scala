@@ -33,7 +33,7 @@ class KindeAuthenticationProvider(
 
   private val loggedInUserCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
 
-  val state = UUID.randomUUID().toString // TODO!!!
+  private val stateSessionAttributeName = "kindeState"
 
   /**
    * Establish the authentication status of the given request header. This can return an authenticated user or a number
@@ -70,10 +70,12 @@ class KindeAuthenticationProvider(
     { requestHeader: RequestHeader =>
       logger.info(s"Requesting Kinde redirect URI with callback uri: $callbackUri")
 
+      val state = UUID.randomUUID().toString
+
       val oauthRedirectUrl = kindeDomain +
         s"/oauth2/auth?response_type=code&client_id=$clientId&redirect_uri=$callbackUri&scope=openid%20profile%20email&state=" + state
       logger.info(s"Redirecting to Kinde OAuth URL: $oauthRedirectUrl")
-      Future.successful(Redirect(oauthRedirectUrl))
+      Future.successful(Redirect(oauthRedirectUrl).addingToSession((stateSessionAttributeName, state))(requestHeader))
     }
   }
 
@@ -88,46 +90,46 @@ class KindeAuthenticationProvider(
   override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = Some {
     { (requestHeader, redirectUri) =>
       logger.info("Got auth callback request header: " + requestHeader)
+      requestHeader.session.get(stateSessionAttributeName).flatMap { state =>
+        requestHeader.getQueryString("code").map { code =>
+          logger.info(s"Got callback code: $code")
+          val url = kindeDomain + "/oauth2/token"
 
-      val code = requestHeader.getQueryString("code")
-      code.map { code =>
-        logger.info(s"Got callback code: $code")
-        val url = kindeDomain + "/oauth2/token"
+          val parameters = Map(
+            "client_id" -> clientId,
+            "client_secret" -> clientSecret,
+            "grant_type" -> "authorization_code",
+            "redirect_uri" -> callbackUri,
+            "code" -> code,
+            "state" -> state,
+          )
+          wsClient.url(url).post(parameters).flatMap { r =>
+            logger.info(s"Got post response from $url: " + r.status + " / " + r.body)
 
-        val parameters = Map(
-          "client_id" -> clientId,
-          "client_secret" -> clientSecret,
-          "grant_type" -> "authorization_code",
-          "redirect_uri" -> callbackUri,
-          "code" -> code,
-          "state" -> state,
-        )
-        wsClient.url(url).post(parameters).flatMap { r =>
-          logger.info(s"Got post response from $url: " + r.status + " / " + r.body)
+            implicit val trr: Reads[TokenResponse] = Json.reads[TokenResponse]
+            val token = Json.parse(r.body).as[TokenResponse]
 
-          implicit val trr: Reads[TokenResponse] = Json.reads[TokenResponse]
-          val token = Json.parse(r.body).as[TokenResponse]
-
-          val userProfileUrl = kindeDomain + "/oauth2/user_profile"
-          wsClient.url(userProfileUrl).withHttpHeaders(("Authorization", "Bearer " + token.access_token)).get().map { r =>
-            logger.info("Got user profile response " + r.status + ": " + r.body)
-            implicit val upr = Json.reads[UserProfile]
-            val userProfile = Json.parse(r.body).as[UserProfile]
-            val exitRedirectUri = redirectUri.getOrElse("/")
-            val cookieData = Seq (
-              Some("id" -> userProfile.id),
-              userProfile.first_name.map("first_name" -> _),
-              userProfile.last_name.map("last_name" -> _),
-              userProfile.preferred_email.map("preferred_email" -> _),
-            ).flatten.toMap
-            logger.info("Encoding logged in user cookie data: " + cookieData)
-            val cookieContents = encode(cookieData)
-            logger.info("User profile encoded to signed cookie: " + cookieContents)
-            val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
-            Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
+            val userProfileUrl = kindeDomain + "/oauth2/user_profile"
+            wsClient.url(userProfileUrl).withHttpHeaders(("Authorization", "Bearer " + token.access_token)).get().map { r =>
+              logger.info("Got user profile response " + r.status + ": " + r.body)
+              implicit val upr = Json.reads[UserProfile]
+              val userProfile = Json.parse(r.body).as[UserProfile]
+              val exitRedirectUri = redirectUri.getOrElse("/")
+              val cookieData = Seq(
+                Some("id" -> userProfile.id),
+                userProfile.first_name.map("first_name" -> _),
+                userProfile.last_name.map("last_name" -> _),
+                userProfile.preferred_email.map("preferred_email" -> _),
+              ).flatten.toMap
+              logger.info("Encoding logged in user cookie data: " + cookieData)
+              val cookieContents = encode(cookieData)
+              logger.info("User profile encoded to signed cookie: " + cookieContents)
+              val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
+              Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
+            }
           }
-        }
 
+        }
       }.getOrElse {
         Future.successful(BadRequest)
       }
