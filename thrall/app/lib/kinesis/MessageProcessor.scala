@@ -51,6 +51,7 @@ class MessageProcessor(
       case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
       case message: UpdateUsageStatusMessage => updateUsageStatus(message, logMarker)
       case message: CompleteMigrationMessage => completeMigration(message, logMarker)
+      case message: CreateInstanceMessage => ensureIndex(message, logMarker)
       case _ =>
         logger.info(s"Unmatched ThrallMessage type: ${updateMessage.subject}; ignoring")
         Future.successful(())
@@ -233,4 +234,13 @@ class MessageProcessor(
     implicit val instance: Instance = message.instance
     es.completeMigration(logMarker)
   }
+
+  private def ensureIndex(message: CreateInstanceMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    val instance = message.instance
+    logger.info("Ensuring indexes for create instance message: " + instance)
+    Future.successful {
+      es.ensureIndexExistsAndAliasAssigned(alias = es.imagesCurrentAlias(instance), index = instance.id + "_index")
+    }
+  }
+
 }

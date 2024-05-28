@@ -164,3 +164,5 @@ case class UpsertFromProjectionMessage(id: String, image: Image, lastModified: D
 case class CompleteMigrationMessage(lastModified: DateTime, instance: Instance) extends ExternalThrallMessage {
   val id: String = "N/A"
 }
+
+case class CreateInstanceMessage(instance: Instance) extends InternalThrallMessage
