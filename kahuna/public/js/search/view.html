@@ -20,6 +20,10 @@
     </gr-top-bar-actions>
 </gr-top-bar>
 
+<gr-top-bar ng-if="ctrl.usePermissionsFilter" fixed="true" role="banner" aria-label="Second top bar" style="z-index: 28;">
+    <gr-search-wrapper aria-label="Continued navigation and image search"></gr-search-wrapper>
+</gr-top-bar>
+
 <gr-panels class="search-panels" role="main" aria-label="Image search results">
     <gr-panel gr-left="true" gr-panel="ctrl.collectionsPanel" gr-icon="collections"
               gr-remember-scroll="true" role="region" aria-label="Collections">

@@ -1,0 +1,31 @@
+<div class="gr-search-wrapper" ng-controller="SearchQueryCtrl as searchQuery">
+
+    <permissions-filter class="permissions-filter" props="searchQuery.permissionsProps"></permissions-filter>
+
+    <div class="search__modifier-container">
+        <button class="search__modifier-toggle"
+                type="button"
+                ng-click="filtersShown = !filtersShown ">
+            <gr-icon class="search__modifier-toggle__icon">filter_list</gr-icon>
+            <span class="search__modifier-toggle__text">Search filters</span>
+        </button>
+        <ul class="search__modifier search__filter gr-search-wrapper-modifier" ng-class="filtersShown ? 'search__filter--show' : 'search__filter--hide'">
+            <li class="search__modifier-item">
+                <gu-date-range class="search__date"
+                               gu:start-date="searchQuery.dateFilter.since"
+                               gu:end-date="searchQuery.dateFilter.until"
+                               gu:preset-dates="searchQuery.sinceOptions"
+                               gu:selected-field="searchQuery.dateFilter.field"
+                               gu:fields="searchQuery.filterDateFieldsOptions"
+                               gu:show-extras="true"
+                               gu:first-day="1">
+                </gu-date-range>
+            </li>
+        </ul>
+    </div>
+
+    <my-uploads class="my-uploads" props="searchQuery.myUploadsProps"></my-uploads>
+
+    <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
+
+</div>

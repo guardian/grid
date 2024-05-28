@@ -1,0 +1,93 @@
+.outer-permissions-filters {
+  display: flex;
+  align-items: center;
+  fill: #ccc;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.permissions-dropdown {
+  padding-right: 0px;
+  cursor: pointer;
+}
+
+.permissions-selection {
+  display: flex;
+  align-items: center;
+  fill: #ccc;
+}
+
+.permissions-selection:hover {
+  color: white;
+  fill: #fff;
+}
+
+.permissions-selection-label-short {
+  display: none;
+}
+
+.permissions-selection-icon {
+  padding-top: 3px;
+  transition: fill 0.3s;
+}
+
+.permissions-dropdown-menu {
+  width: 250px;
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+  background-color: #333;
+  position: absolute;
+}
+
+.permissions-dropdown-item {
+  border: 1px solid #ccc;
+}
+
+.permissions-dropdown-highlight {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
+}
+
+.permissions-dropdown-item:hover {
+  background-color: #008fc5;
+  color: white;
+  fill: #fff;
+  cursor: pointer;
+}
+
+.permissions-dropdown-cell {
+  border: 0px;
+}
+
+.permissions-dropdown-cell-tick {
+  border: 0px;
+  stroke: #ccc;
+  transition: stroke 0.3ms;
+}
+
+.permissions-dropdown-cell-tick:hover {
+  stroke: #fff;
+}
+
+@media screen and (max-width: 1200px) {
+  .permissions-selection-label {
+    display: none;
+  }
+
+  .permissions-selection-label-short {
+    display: inline;
+  }
+}
+
+@media screen and (max-width: 880px) {
+  .permissions-selection-label-short {
+    display: none;
+  }
+}
