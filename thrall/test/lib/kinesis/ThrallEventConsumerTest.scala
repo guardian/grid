@@ -1,15 +1,11 @@
 package lib.kinesis
 
-import com.gu.mediaservice.model.Instance
-import lib.elasticsearch.ElasticSearchTestBase
 import org.scalatest.EitherValues
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.UUID
-
-class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar with EitherValues {
-
-  override def instance: Instance = Instance(UUID.randomUUID().toString)
+class ThrallEventConsumerTest extends AnyFreeSpec with MockitoSugar with EitherValues {
 
   "parse message" - {
     "parse minimal message" in {
