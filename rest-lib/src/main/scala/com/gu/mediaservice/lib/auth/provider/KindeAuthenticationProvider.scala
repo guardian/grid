@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth.provider
 
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
+import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.libs.crypto.CookieSigner
@@ -12,7 +13,14 @@ import play.api.mvc.Results._
 import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result, UrlEncodedCookieDataCodec}
 
 import java.util.UUID
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import org.scanamo.generic.auto.genericDerivedFormat
+import org.scanamo.syntax._
+import org.scanamo.{DynamoReadError, ScanamoAsync, Table}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
+
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.{Duration, SECONDS}
 
 class KindeAuthenticationProvider(
                                    resources: AuthenticationProviderResources,
@@ -21,6 +29,9 @@ class KindeAuthenticationProvider(
 
   private val wsClient: WSClient = resources.wsClient
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
+
+  private val asyncClient = dynamoDBAsyncV2Builder().build()
+  private val instancesTable = Table[Instance]("eelpie-grid-instances")
 
   private val kindeDomain = providerConfiguration.get[String]("domain")
   private val callbackUri = providerConfiguration.get[String]("redirectUri")
@@ -114,17 +125,27 @@ class KindeAuthenticationProvider(
               logger.info("Got user profile response " + r.status + ": " + r.body)
               implicit val upr = Json.reads[UserProfile]
               val userProfile = Json.parse(r.body).as[UserProfile]
-              val exitRedirectUri = redirectUri.getOrElse("/")
+
+              // Look up users allowed instances
+              val eventualInstances = ScanamoAsync(asyncClient).exec(instancesTable.index("owner-index").query("owner" === userProfile.id)).map { r: Seq[Either[DynamoReadError, Instance]] =>
+                r.flatMap(_.toOption)
+              }.map { r => r.sortBy(_.id) }
+              val instances: Seq[Instance] = Await.result(eventualInstances, Duration(5, SECONDS))  // TODO Await
+              logger.info("Authenticated user has instances: " + instances)
+
               val cookieData = Seq(
                 Some("id" -> userProfile.id),
                 userProfile.first_name.map("first_name" -> _),
                 userProfile.last_name.map("last_name" -> _),
                 userProfile.preferred_email.map("preferred_email" -> _),
+                Some("instances" -> instances.map(_.id).mkString)
               ).flatten.toMap
               logger.info("Encoding logged in user cookie data: " + cookieData)
               val cookieContents = encode(cookieData)
               logger.info("User profile encoded to signed cookie: " + cookieContents)
               val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
+
+              val exitRedirectUri = redirectUri.getOrElse("/")
               Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
             }
           }
@@ -166,7 +187,6 @@ class KindeAuthenticationProvider(
     }
   }
 
-
   private def gridUserFrom(userProfile: UserProfile, request: RequestHeader): UserPrincipal = {
     val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieKey, _))
     val attributes = TypedMap.empty + (maybeLoggedInUserCookie.toSeq: _*)
@@ -176,6 +196,11 @@ class KindeAuthenticationProvider(
       email = userProfile.preferred_email.getOrElse(userProfile.id),
       attributes = attributes
     )
+  }
+
+  private def dynamoDBAsyncV2Builder(): DynamoDbAsyncClientBuilder = {
+    val e = software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider.create()
+    DynamoDbAsyncClient.builder().region(software.amazon.awssdk.regions.Region.EU_WEST_1).credentialsProvider(e)
   }
 
   override def cookieSigner: CookieSigner = resources.cookieSigner
