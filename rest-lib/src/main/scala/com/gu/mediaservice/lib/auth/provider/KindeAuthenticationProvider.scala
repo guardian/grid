@@ -19,8 +19,11 @@ import org.scanamo.syntax._
 import org.scanamo.{DynamoReadError, ScanamoAsync, Table}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, SECONDS}
+
+object KindeAuthenticationProvider {
+  val instancesTypedKey: TypedKey[Seq[String]] = TypedKey[Seq[String]]("instances")
+}
 
 class KindeAuthenticationProvider(
                                    resources: AuthenticationProviderResources,
@@ -42,7 +45,7 @@ class KindeAuthenticationProvider(
 
   val loginCookieDomain = "griddev.eelpieconsulting.co.uk" // Seem to have to explicitly set this for the cookie to be sent to subdomains.
 
-  private val loggedInUserCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
+  private val loggedInUserCookieTypedKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
 
   private val stateSessionAttributeName = "kindeState"
 
@@ -65,7 +68,8 @@ class KindeAuthenticationProvider(
           last_name = userData.get("first_name"),
           preferred_email = userData.get("preferred_email")
         )
-        Authenticated(authedUser = gridUserFrom(userProfile, request))
+        val instances = userData.get("instances").map( ids => ids.split(",").toSeq).getOrElse(Seq.empty)
+        Authenticated(authedUser = gridUserFrom(userProfile, request, instances))
       }
     }.getOrElse {
       NotAuthenticated
@@ -138,7 +142,7 @@ class KindeAuthenticationProvider(
                 userProfile.first_name.map("first_name" -> _),
                 userProfile.last_name.map("last_name" -> _),
                 userProfile.preferred_email.map("preferred_email" -> _),
-                Some("instances" -> instances.map(_.id).mkString)
+                Some("instances" -> instances.map(_.id).mkString(","))
               ).flatten.toMap
               logger.info("Encoding logged in user cookie data: " + cookieData)
               val cookieContents = encode(cookieData)
@@ -179,7 +183,7 @@ class KindeAuthenticationProvider(
    */
 
   override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] = {
-    request.attributes.get(loggedInUserCookieKey) match {
+    request.attributes.get(loggedInUserCookieTypedKey) match {
       case Some(cookie) => Right { wsRequest: WSRequest =>
         wsRequest.addCookies(DefaultWSCookie(loggedInUserCookieName, cookie.value))
       }
@@ -187,9 +191,11 @@ class KindeAuthenticationProvider(
     }
   }
 
-  private def gridUserFrom(userProfile: UserProfile, request: RequestHeader): UserPrincipal = {
-    val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieKey, _))
-    val attributes = TypedMap.empty + (maybeLoggedInUserCookie.toSeq: _*)
+  private def gridUserFrom(userProfile: UserProfile, request: RequestHeader, instances: Seq[String]): UserPrincipal = {
+    logger.info(s"Creating gridUserFrom $userProfile with instances $instances")
+    val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieTypedKey, _))
+    val instancesAttribute = TypedEntry[Seq[String]](KindeAuthenticationProvider.instancesTypedKey, instances)
+    val attributes = TypedMap.empty.updated(maybeLoggedInUserCookie.toSeq: _*).updated(instancesAttribute)
     UserPrincipal(
       firstName = userProfile.first_name.getOrElse(""),
       lastName = userProfile.last_name.getOrElse(""),
