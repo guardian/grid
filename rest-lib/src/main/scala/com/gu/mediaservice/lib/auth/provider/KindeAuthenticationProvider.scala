@@ -43,7 +43,7 @@ class KindeAuthenticationProvider(
 
   private val loggedInUserCookieName = "loggedInUser"
 
-  val loginCookieDomain = "griddev.eelpieconsulting.co.uk" // Seem to have to explicitly set this for the cookie to be sent to subdomains.
+  val loginCookieDomain = resources.commonConfig.domainRoot
 
   private val loggedInUserCookieTypedKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
 
