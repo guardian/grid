@@ -180,6 +180,9 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
       if (window._clientConfig.recordDownloadAsUsage === true) {
         suggestions.push('download');
       }
+      if (window._clientConfig.showSendToPhotoSales) {
+        suggestions.push('Added to Photo Sales');
+      }
 
       return suggestions;
     }
