@@ -3,6 +3,7 @@ package lib
 import com.gu.mediaservice.lib.auth.Permissions.Pinboard
 import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import play.api.libs.json._
 
 case class ScriptToLoad(
   host: String,
@@ -39,7 +40,11 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val restrictDownload: Option[Boolean] = booleanOpt("restrictDownload")
   val useReaper: Option[Boolean] = booleanOpt("useReaper")
 
+  // interim permissions filter configuration settings
+  val usePermissionsFilter: Option[Boolean] = booleanOpt("usePermissionsFilter")
   val usageRightsSummary: Option[Boolean] = booleanOpt("usageRightsSummary")
+  val permissionsDefault: Option[String] = stringOpt("permissionsDefault").filterNot(_.isEmpty)
+  val interimFilterOptions: Seq[InterimFilterOption] = configuration.getOptional[Seq[InterimFilterOption]]("interimFilterOptions").getOrElse(Seq.empty)
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
 

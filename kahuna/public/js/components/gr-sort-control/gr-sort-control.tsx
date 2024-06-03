@@ -174,7 +174,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   return (
     <div className="outer-sort-container">
-      <span className="sort-selection-title no-select">{CONTROL_TITLE}</span>
+      <div className="sort-selection-title no-select">{CONTROL_TITLE}</div>
       <div className="sort-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleArrowKeys}>
         <div className="sort-dropdown-toggle-advanced" onClick={() => setIsOpen(!isOpen)}>
           <div className="sort-selection">

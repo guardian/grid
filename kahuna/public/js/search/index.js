@@ -15,6 +15,9 @@ import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-permissions-filter/gr-permissions-filter';
+import '../components/gr-my-uploads/gr-my-uploads';
+import '../components/gr-search-wrapper/gr-search-wrapper';
 import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
@@ -38,6 +41,9 @@ export var search = angular.module('kahuna.search', [
     'gr.panels',
     'gr.keyboardShortcut',
     'gr.sortControl',
+    'gr.permissionsFilter',
+    'gr.myUploads',
+    'gr-searchWrapper',
     'grInfoPanel',
     'grCollectionsPanel',
     'ui.router',
@@ -87,6 +93,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             const ctrl = this;
 
             ctrl.canUpload = false;
+            ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
             ctrl.hasNotifications = window._clientConfig.announcements.length > 0;
 
             mediaApi.canUserUpload().then(canUpload => {
@@ -103,6 +110,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   isNonFree: showPaid ? showPaid : false
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+                storage.setJs("logoClick","logoClick", true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
                 window.dispatchEvent(new CustomEvent("logoClick", {
                   detail: "logoClick",

@@ -1,0 +1,113 @@
+.ts-toggle-container {
+  display: flex;
+  align-items: center;
+  fill: #666;
+  height:50px;
+  cursor: pointer;
+}
+
+.ts-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 24px;
+}
+
+.ts-toggle-switch input {
+  display: none;
+}
+
+.ts-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #666;
+  transition: 0.4s;
+}
+
+.ts-slider:before {
+  position: absolute;
+  content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L16.8995 7.10051" stroke="%23000"  stroke-width="2"/><path d="M7 7.00001L16.8995 16.8995" stroke="%23000" stroke-width="2"/></svg>');
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+}
+
+.ts-toggle-label {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.ts-toggle-container:hover {
+  color: white;
+}
+
+input:checked + .ts-slider {
+  background-color: #4eaae8;
+}
+
+input:checked + .ts-slider:before {
+  transform: translateX(14px);
+  content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="%23000" stroke-width="2"/></svg>');
+}
+
+.ts-toggle-container-short {
+  display: none;
+}
+
+.chargeable-checkbox {
+  cursor: pointer;
+}
+
+.chargeable-label-wrapper {
+  display: flex;
+  align-items: center;
+  padding-bottom: 22px;
+}
+
+.chargeable-checkbox input {
+  visibility: hidden;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.chargeable-checkbox .chargeable-label-wrapper .chargeable-span {
+  height: 14px;
+  width: 14px;
+  border: 1px solid grey;
+  display: inline-block;
+  background: white;
+  margin-right: 7px;
+}
+
+[type=checkbox]:checked + .chargeable-label-wrapper .chargeable-span {
+  background: #4eaae8;
+  content: url('data:image/svg+xml,<svg width="18px" height="18px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline fill="none" points="3.7 14.3 9.6 19 20.3 5" stroke="white" stroke-width="3"/></svg>');
+}
+
+@media screen and (max-width: 1200px) {
+  .ts-toggle-container {
+    display: none;
+  }
+
+  .ts-toggle-container-short {
+    display: flex;
+    align-items: center;
+    height: 50px;
+    padding-left: 12px;
+    padding-right: 12px;
+    fill: #ccc;
+  }
+
+  .ts-toggle-container-short:hover {
+    color:white;
+  }
+}
