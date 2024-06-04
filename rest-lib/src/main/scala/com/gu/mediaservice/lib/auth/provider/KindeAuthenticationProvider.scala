@@ -4,22 +4,21 @@ import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
+import org.scanamo.generic.auto.genericDerivedFormat
+import org.scanamo.syntax._
+import org.scanamo.{DynamoReadError, ScanamoAsync, Table}
 import play.api.Configuration
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.json.{Json, Reads}
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.Results._
-import play.api.mvc.{Cookie, DiscardingCookie, RequestHeader, Result, UrlEncodedCookieDataCodec}
-
-import java.util.UUID
-import scala.concurrent.{Await, ExecutionContext, Future}
-import org.scanamo.generic.auto.genericDerivedFormat
-import org.scanamo.syntax._
-import org.scanamo.{DynamoReadError, ScanamoAsync, Table}
+import play.api.mvc._
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
 
+import java.util.UUID
 import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.{ExecutionContext, Future}
 
 object KindeAuthenticationProvider {
   val instancesTypedKey: TypedKey[Seq[String]] = TypedKey[Seq[String]]("instances")
@@ -125,7 +124,11 @@ class KindeAuthenticationProvider(
             val token = Json.parse(r.body).as[TokenResponse]
 
             val userProfileUrl = kindeDomain + "/oauth2/user_profile"
-            wsClient.url(userProfileUrl).withHttpHeaders(("Authorization", "Bearer " + token.access_token)).get().map { r =>
+            logger.info(s"Calling Kinde user_profile: $userProfileUrl")
+            wsClient.url(userProfileUrl).
+              withHttpHeaders(("Authorization", "Bearer " + token.access_token)).
+              withRequestTimeout(Duration(10, SECONDS)).
+              get().flatMap { r =>
               logger.info("Got user profile response " + r.status + ": " + r.body)
               implicit val upr = Json.reads[UserProfile]
               val userProfile = Json.parse(r.body).as[UserProfile]
@@ -134,23 +137,23 @@ class KindeAuthenticationProvider(
               val eventualInstances = ScanamoAsync(asyncClient).exec(instancesTable.index("owner-index").query("owner" === userProfile.id)).map { r: Seq[Either[DynamoReadError, Instance]] =>
                 r.flatMap(_.toOption)
               }.map { r => r.sortBy(_.id) }
-              val instances: Seq[Instance] = Await.result(eventualInstances, Duration(5, SECONDS))  // TODO Await
-              logger.info("Authenticated user has instances: " + instances)
+              eventualInstances.map { instances =>
+                logger.info("Authenticated user has instances: " + instances)
+                val cookieData = Seq(
+                  Some("id" -> userProfile.id),
+                  userProfile.first_name.map("first_name" -> _),
+                  userProfile.last_name.map("last_name" -> _),
+                  userProfile.preferred_email.map("preferred_email" -> _),
+                  Some("instances" -> instances.map(_.id).mkString(","))
+                ).flatten.toMap
+                logger.info("Encoding logged in user cookie data: " + cookieData)
+                val cookieContents = encode(cookieData)
+                logger.info("User profile encoded to signed cookie: " + cookieContents)
+                val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
 
-              val cookieData = Seq(
-                Some("id" -> userProfile.id),
-                userProfile.first_name.map("first_name" -> _),
-                userProfile.last_name.map("last_name" -> _),
-                userProfile.preferred_email.map("preferred_email" -> _),
-                Some("instances" -> instances.map(_.id).mkString(","))
-              ).flatten.toMap
-              logger.info("Encoding logged in user cookie data: " + cookieData)
-              val cookieContents = encode(cookieData)
-              logger.info("User profile encoded to signed cookie: " + cookieContents)
-              val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
-
-              val exitRedirectUri = redirectUri.getOrElse("/")
-              Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
+                val exitRedirectUri = redirectUri.getOrElse("/")
+                Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
+              }
             }
           }
 
