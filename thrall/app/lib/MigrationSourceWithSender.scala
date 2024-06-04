@@ -35,7 +35,7 @@ object MigrationSourceWithSender extends GridLogging {
     // emits MigrationRequest
     val scrollingIdsSource =
       Source.repeat(())
-        .throttle(1, per = 1.second)
+        .throttle(1, per = 1.minute)
         .statefulMapConcat(() => {
           // This Pekko-provided stage is explicitly provided as a way to safely wrap around mutable state.
           // Required here to keep a marker of the current search scroll. Scrolling prevents the
