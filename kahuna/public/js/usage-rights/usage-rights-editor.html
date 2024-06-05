@@ -50,12 +50,11 @@
             ng-repeat="property in ctrl.category.properties"
             ng-class="{ 'form-property--last': $last }">
 
-            <!-- TODO: potentially pull restrictions out from the
-            server request and add it to all properties -->
+            <!-- TODO: potentially pull restrictions out from the server request and add it to all properties -->
             <div ng-if="property.name === 'restrictions' && !!ctrl.category.usageRestrictions && ctrl.usageRights.length == 1">
-                <label>
+                <span>
                     This rights category requires a restriction to the image and the following wording will be applied:
-                </label>
+                </span>
                 <div class="ure__caution warning warning--small">
                     {{ctrl.category.usageRestrictions}}
                 </div>
