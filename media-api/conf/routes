@@ -23,6 +23,7 @@ GET     /images/:imageId/export/:exportId/asset/:width/download     controllers.
 GET     /images/:imageId/export                                     controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                                   controllers.MediaApi.downloadOriginalImage(imageId: String)
 GET     /images/:imageId/downloadOptimised                          controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
+POST    /images/:id/:partnerName/:startPending/syndicateImage       controllers.MediaApi.syndicateImage(id: String, partnerName: String, startPending:String)
 DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
 PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
