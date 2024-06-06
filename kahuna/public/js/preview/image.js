@@ -138,11 +138,11 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.searchWithModifiers = searchWithModifiers;
 
       ctrl.restrictionsText = () => {
-        if (!this.image.data.usageRights) {
-          return "";
-        }
         let rtxt = "";
-        if (this.image.data.usageRights.usageRestrictions && this.image.data.usageRights.usageRestrictions.length > 0) {
+        if (!this.image.data.usageRights) {
+          return rtxt;
+        }
+        if (this.image.data.usageRights.usageRestrictions) {
           rtxt = this.image.data.usageRights.usageRestrictions;
         }
         rtxt = rtxt.trim();

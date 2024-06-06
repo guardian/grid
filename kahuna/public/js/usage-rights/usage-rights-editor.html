@@ -65,7 +65,7 @@
                     <input type="checkbox"
                            ng-model="ctrl.showRestrictions"
                            ng-disabled="ctrl.forceRestrictions" />
-                    <span ng-if="!!!ctrl.category.usageRestrictions">
+                    <span ng-if="!ctrl.category.usageRestrictions">
                         Restricted
                     </span>
                     <span ng-if="!!ctrl.category.usageRestrictions">
