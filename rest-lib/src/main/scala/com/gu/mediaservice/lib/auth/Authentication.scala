@@ -88,14 +88,18 @@ class Authentication(config: CommonConfig,
             val instance = instanceOf(request)
             logger.info(s"Checking that $principal is allowed to access instanc $instance")
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
-            val principalsInstances = principal.attributes.get(KindeAuthenticationProvider.instancesTypedKey).getOrElse(Seq.empty)
-            if (principalsInstances.contains(instance.id)) {
-              logger.debug("Allowing this request!")
-              block(new AuthenticatedRequest(principal, request))
 
-            } else {
-              logger.warn(s"Blocking request ${request.path} on instance $instance")
-              Future.successful(Forbidden("You do not have permission to use this instance"))
+            val eventualPrincipalsInstances = Future.successful(principal.attributes.get(KindeAuthenticationProvider.instancesTypedKey).getOrElse(Seq.empty))
+
+            eventualPrincipalsInstances.flatMap { principalsInstances =>
+              if (principalsInstances.contains(instance.id)) {
+                logger.debug("Allowing this request!")
+                block(new AuthenticatedRequest(principal, request))
+
+              } else {
+                logger.warn(s"Blocking request ${request.path} on instance $instance")
+                Future.successful(Forbidden("You do not have permission to use this instance"))
+              }
             }
         }
       }
