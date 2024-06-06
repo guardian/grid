@@ -245,9 +245,11 @@ class MessageProcessor(
     Future.successful {
       es.ensureIndexExistsAndAliasAssigned(alias = es.imagesCurrentAlias(instance), index = instance.id + "_index")
     }.map { _ =>
-      logger.info("Creating Home collection")
+      logger.info("Creating Home collection for new instance: " + Instance)
       implicit val i: Instance = instance
-      gridClient.createCollection("Home", auth.innerServiceCall)
+      gridClient.createCollection("Home", auth.innerServiceCall).map { r: Option[Collection] =>
+        logger.info("Created collection for new instance: " + Instance)
+      }
     }
   }
 

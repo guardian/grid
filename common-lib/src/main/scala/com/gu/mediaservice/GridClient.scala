@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.LazyLogging
 import play.api.http.HeaderNames
 import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json, Reads}
 
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import play.api.libs.ws.{WSClient, WSRequest, WSResponse}
@@ -181,11 +181,11 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
 
   def createCollection(name: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[Collection]] = {
     val url = new URL(s"${services.collectionsBaseUri(instance)}/collections")
-    val request: WSRequest = wsClient.url(url.toString)
-    // TODO sensible timeout!
+    val request = wsClient.url(url.toString).withRequestTimeout(Duration(10, SECONDS))
     val authorisedRequest = authFn(request)
     val data = Json.obj("data" -> JsString(name))
     authorisedRequest.post(data).map { response =>
+      logger.info("Got new collection response: " + response.body)
       validateResponse(response, url) match {
         case Found(json, _) => (json \ "data" \ "data").toOption.map(_.as[Collection])
         case NotFound(_, _) => None
