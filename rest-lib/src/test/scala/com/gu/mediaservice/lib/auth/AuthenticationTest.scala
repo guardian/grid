@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, EitherValues}
+import org.scalatestplus.mockito.MockitoSugar.mock
 import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
 import play.api.http.Status
@@ -16,7 +17,7 @@ import play.api.inject.ApplicationLifecycle
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.json.{Format, Json}
 import play.api.libs.typedmap.{TypedKey, TypedMap}
-import play.api.libs.ws.{DefaultWSCookie, WSRequest}
+import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.{Cookie, DiscardingCookie, PlayBodyParsers, RequestHeader, Result}
 import play.api.test.Helpers.defaultAwaitTimeout
 import play.api.test.{FakeRequest, Helpers, WsTestClient}
@@ -65,6 +66,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     new Authentication(
       config = config,
       providers = testProviders,
+      mock[WSClient],
       parser = PlayBodyParsers().default,
       executionContext = global
     )

@@ -6,8 +6,9 @@ import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Machi
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.{CommonConfig, InstanceForRequest}
 import com.gu.mediaservice.model.Instance
+import play.api.libs.json.Json
 import play.api.libs.typedmap.TypedMap
-import play.api.libs.ws.WSRequest
+import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -15,6 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class Authentication(config: CommonConfig,
                      providers: AuthenticationProviders,
+                     wsClient: WSClient,
                      override val parser: BodyParser[AnyContent],
                      override val executionContext: ExecutionContext)
   extends ActionBuilder[Authentication.Request, AnyContent] with ArgoHelpers with InstanceForRequest {
@@ -89,10 +91,25 @@ class Authentication(config: CommonConfig,
             logger.info(s"Checking that $principal is allowed to access instanc $instance")
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
 
-            val eventualPrincipalsInstances = Future.successful(principal.attributes.get(KindeAuthenticationProvider.instancesTypedKey).getOrElse(Seq.empty))
+            val eventualPrincipalsInstances = {
+              val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances")  // TODO
+              val onBehalfOfPrincipal: OnBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
+              val authedInstancesRequest: WSRequest = onBehalfOfPrincipal(instancesRequest)
+              authedInstancesRequest.get().map { r =>
+                r.status match {
+                  case 200 =>
+                    logger.info("Got instances response: " + r.body)
+                    implicit val ir = Json.reads[Instance]
+                    Json.parse(r.body).as[Seq[Instance]]
+                  case _ =>
+                    logger.warn("Got non 200 status for instances call: " + r.status)
+                    Seq.empty
+                }
+              }
+            }
 
-            eventualPrincipalsInstances.flatMap { principalsInstances =>
-              if (principalsInstances.contains(instance.id)) {
+            eventualPrincipalsInstances.flatMap { principalsInstances: Seq[Instance] =>
+              if (principalsInstances.exists(_.id == instance.id)) {
                 logger.debug("Allowing this request!")
                 block(new AuthenticatedRequest(principal, request))
 

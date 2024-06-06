@@ -61,5 +61,5 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     innerServiceProvider = new InnerServiceAuthenticationProvider(cookieSigner, serviceName=config.appName)
   )
 
-  val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
+  val auth = new Authentication(config, providers, wsClient, controllerComponents.parsers.default, executionContext)
 }
