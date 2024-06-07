@@ -15,7 +15,7 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {
+class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {  // TODO Not instane aware!
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
