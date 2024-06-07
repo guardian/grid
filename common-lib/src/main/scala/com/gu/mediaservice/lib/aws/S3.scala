@@ -81,6 +81,14 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     legacySigningClient.generatePresignedUrl(request).toExternalForm
   }
 
+  def signUrlTony(bucket: Bucket, url: URI, expiration: DateTime = cachableExpiration()): String = {
+    // get path and remove leading `/`
+    val key: Key = url.getPath.drop(1)
+
+    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
+    legacySigningClient.generatePresignedUrl(request).toExternalForm
+  }
+
   def getObject(bucket: Bucket, url: URI): model.S3Object = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
