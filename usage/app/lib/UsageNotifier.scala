@@ -21,7 +21,7 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
     logger.info(logMarkerWithId, s"Building usage notice for $mediaID")
 
     Observable.from(
-      usageTable.queryByImageId(mediaID)(logMarkerWithId).map((dbUsages: List[MediaUsage]) =>
+      usageTable.queryByImageId(mediaID, instance)(logMarkerWithId).map((dbUsages: List[MediaUsage]) =>
         UsageNotice(
           mediaID,
           Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray],
