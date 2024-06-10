@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.model.Instance
 import model.UsageGroup
 
 class WithLogMarker[T](val logMarker: LogMarker, val value: T) {
@@ -19,9 +20,9 @@ class WithLogMarker[T](val logMarker: LogMarker, val value: T) {
 object WithLogMarker {
   def apply[T](value: T)(implicit logMarker: LogMarker): WithLogMarker[T] = WithLogMarker(logMarker, value)
   def apply[T](logMarker: LogMarker, value: T): WithLogMarker[T] = new WithLogMarker[T](logMarker, value)
-  def includeUsageGroup(group: UsageGroup)(implicit logMarker: LogMarker): WithLogMarker[UsageGroup] = {
+  def includeUsageGroup(group: UsageGroup, instance: Instance)(implicit logMarker: LogMarker): WithLogMarker[(UsageGroup, Instance)] = {
     val groupedContext = logMarker + ("usageGroup" -> group.grouping)
-    WithLogMarker(groupedContext, group)
+    WithLogMarker(groupedContext, (group, instance))
   }
 
   def unapply[T](wc: WithLogMarker[T]): Option[(LogMarker, T)] = Some(wc.logMarker -> wc.value)
