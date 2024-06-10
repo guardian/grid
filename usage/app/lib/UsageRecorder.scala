@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
+import com.gu.mediaservice.model.Instance
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import play.api.libs.json._
@@ -133,7 +134,7 @@ class UsageRecorder(
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
         Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(x => {
-          val instance = ??? // TODO this looks like the Crier listener; can probably be deleted if problematic
+          val instance = Instance(id = "TODO") // TODO this looks like the Crier listener; can probably be deleted if problematic
           usageNotice.build(x, instance)
         })).flatten[UsageNotice].map(WithLogMarker(_))
       }
