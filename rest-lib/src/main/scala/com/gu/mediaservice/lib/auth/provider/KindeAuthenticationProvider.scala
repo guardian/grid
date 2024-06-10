@@ -105,8 +105,6 @@ class KindeAuthenticationProvider(
             "state" -> state,
           )
           wsClient.url(url).post(parameters).flatMap { r =>
-            logger.info(s"Got post response from $url: " + r.status + " / " + r.body)
-
             implicit val trr: Reads[TokenResponse] = Json.reads[TokenResponse]
             val token = Json.parse(r.body).as[TokenResponse]
 
@@ -116,14 +114,12 @@ class KindeAuthenticationProvider(
               withHttpHeaders(("Authorization", "Bearer " + token.access_token)).
               withRequestTimeout(Duration(10, SECONDS)).
               get().flatMap { r =>
-              logger.info("Got user profile response " + r.status + ": " + r.body)
+              logger.info("Got user profile response " + r.status)
               implicit val upr = Json.reads[UserProfile]
               val userProfile = Json.parse(r.body).as[UserProfile]
 
               // Look up users allowed instances
-              val eventualInstances = Future.successful(Seq.empty)
-              eventualInstances.map { instances =>
-                logger.info("Authenticated user has instances: " + instances)
+                Future.successful(Seq.empty).map { instances =>
                 val cookieData = Seq(
                   Some("id" -> userProfile.id),
                   userProfile.first_name.map("first_name" -> _),
@@ -132,7 +128,6 @@ class KindeAuthenticationProvider(
                 ).flatten.toMap
                 logger.info("Encoding logged in user cookie data: " + cookieData)
                 val cookieContents = encode(cookieData)
-                logger.info("User profile encoded to signed cookie: " + cookieContents)
                 val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
 
                 val exitRedirectUri = redirectUri.getOrElse("/")
