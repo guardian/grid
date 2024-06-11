@@ -26,8 +26,8 @@
                 gr-usage-rights-updated-by-template="ctrl.usageRightsUpdatedByTemplate">
             </gr-usage-rights-editor>
 
-            <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
-                <dd ng-if="! ctrl.usageRightsSummary">
+            <div class="image-info__title" ng-if="!ctrl.showUsageRights">
+                <dd ng-if="!ctrl.usageRightsSummary">
                     {{ctrl.usageCategory || 'None'}}
                 </dd>
                 <dd ng-if="ctrl.usageRightsSummary">
@@ -36,7 +36,7 @@
                         props="{'images':ctrl.selectedImages, 'categoryCallback':ctrl.callbackUsageCategory}">
                     </usage-rights-summary>
                 </dd>
-            </dd>
+            </div>
 
             <button
                 data-cy="it-edit-usage-rights-button"

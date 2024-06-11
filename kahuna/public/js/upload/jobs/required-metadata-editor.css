@@ -6,9 +6,14 @@
   border: 1px solid #ffbc01;
 }
 
+.job-info--editor__multiline {
+  padding-top: 6px;
+}
+
 .job-usage-instructions {
-  border: 1px solid yellow;
+  border: 1px solid #ffbc01;
   padding: 2px;
+  line-height: 24px;
 }
 
 .job-additional-special-instructions {

@@ -2,8 +2,8 @@
       novalidate ng-class="{'job-editor__disabled': !ctrl.userCanEdit}"
       aria-label="Image metadata">
     <div class="job-editor__inputs">
-        <label class="job-info--editor__field flex-center">
-            <div class="job-info--editor__label job-info--editor__label flex-center text-small">Description</div>
+        <label class="job-info--editor__field">
+            <div class="job-info--editor__label job-info--editor__multiline text-small">Description</div>
             <textarea
                 name="description"
                 placeholder="eg {{funnyDescription}}…"
@@ -108,12 +108,12 @@
             >⇔</button>
         </label>
 
-        <label class="job-info--editor__field flex-center">
-            <div class="job-info--editor__label text-small job-additional-special-instructions-label">Special Instructions</div>
+        <label class="job-info--editor__field">
+            <div class="job-info--editor__label job-info--editor__multiline text-small">Special Instructions</div>
 
-            <div ng-if="!!ctrl.metadata.usageInstructions">
+            <div ng-if="!!ctrl.metadata.usageInstructions" style="flex:1;">
                 <div class="text-small job-usage-instructions">{{ctrl.metadata.usageInstructions}}</div>
-                <div class="text-small job-additional-special-instructions">Add further special instructions</div>
+                <div class="text-small job-additional-special-instructions">Add further instructions</div>
                 <div class="job-info--editor__field flex-center">
                     <input
                         type="text"

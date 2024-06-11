@@ -45,18 +45,28 @@
             </gr-icon>
         </div>
 
-        <div
-            class="form-property"
-            ng-repeat="property in ctrl.category.properties"
-            ng-class="{ 'form-property--last': $last }">
+        <div class="form-property"
+             ng-repeat="property in ctrl.category.properties"
+             ng-class="{ 'form-property--last': $last }">
 
-            <!-- TODO: potentially pull restrictions out from the server request and add it to all properties -->
-            <div ng-if="property.name === 'restrictions' && !!ctrl.category.usageRestrictions && ctrl.usageRights.length == 1">
-                <span>
+            <div ng-if="property.name === 'restrictions' && !!ctrl.category.usageRestrictions">
+                <span ng-if="ctrl.usageRights.length == 1">
                     This rights category requires a restriction to the image and the following wording will be applied:
                 </span>
+                <span ng-if="1 != ctrl.usageRights.length">
+                    Restricted
+                </span>
                 <div class="ure__caution warning warning--small">
-                    {{ctrl.category.usageRestrictions}}
+                    {{console.log("Usage Rights Length = " + ctrl.usageRights.length); ctrl.category.usageRestrictions}}
+                </div>
+            </div>
+
+            <div ng-if="property.name === 'restrictions' && ctrl.category.usageRestrictions && ctrl.category.usageSpecialInstructions && ctrl.usageRights.length == 1">
+                <span class="ure__description">
+                    Rights special instructions
+                </span>
+                <div class="ure__description">
+                    {{ctrl.category.usageSpecialInstructions}}
                 </div>
             </div>
 
@@ -69,7 +79,7 @@
                         Restricted
                     </span>
                     <span ng-if="!!ctrl.category.usageRestrictions">
-                        I want to add further restrictions
+                        Add further restrictions
                     </span>
                 </label>
 
@@ -84,15 +94,16 @@
                         ng-switch-when="true"
                         ng-model="ctrl.model[property.name]"
                         ng-required="ctrl.showRestrictions"
-                        ng-readonly="ctrl.usageRightsUpdatedByTemplate"></textarea>
+                        ng-readonly="ctrl.usageRightsUpdatedByTemplate">
+                    </textarea>
 
                     <textarea
                         class="text-input form-input-text"
                         disabled="disabled"
-                        ng-switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
-
+                        ng-switch-default>
+                        {{ctrl.category.defaultRestrictions}}
+                    </textarea>
                 </div>
-
             </div>
 
             <div ng-if="property.name !== 'restrictions'"
