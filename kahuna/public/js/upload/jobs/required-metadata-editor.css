@@ -12,8 +12,9 @@
 
 .job-usage-instructions {
   border: 1px solid #ffbc01;
-  padding: 2px;
+  padding: 2px 4px;
   line-height: 24px;
+  background-color: #444;
 }
 
 .job-additional-special-instructions {
