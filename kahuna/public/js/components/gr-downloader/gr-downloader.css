@@ -1,6 +1,7 @@
 gr-downloader .download {
     display: inline-flex;
     height: 100%;
+    padding: 0 10px;
 }
 
 button .download:hover {
@@ -37,5 +38,6 @@ button .download:hover {
 }
 
 .download-button {
-  height: 36px;
+  display: inline-flex;
+  align-items: center;
 }
