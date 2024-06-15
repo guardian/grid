@@ -12,12 +12,13 @@ import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
+import play.api.libs.json.Json
+import play.api.libs.ws.WSRequest
 import router.Routes
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
 
 class ThrallComponents(context: Context) extends GridComponents(context, new ThrallConfig(_)) with StrictLogging with AssetsComponents {
   final override val buildInfo = utils.buildinfo.BuildInfo
@@ -63,6 +64,25 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val s3 = S3Ops.buildS3Client(config)
+
+  Source.repeat(()).throttle(1, per = 10.second).map(_ => {
+    logger.info("!!!! ping")
+    val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances") // TODO
+    val x = instancesRequest.get().map { r =>
+      r.status match {
+        case 200 =>
+          logger.info("Got instances response: " + r.body)
+          implicit val ir = Json.reads[Instance]
+          val instances = Json.parse(r.body).as[Seq[Instance]]
+          logger.info("Got instances: " + instances)
+          instances
+        case _ =>
+          logger.warn("Got non 200 status for instances call: " + r.status)
+          Seq.empty
+      }
+    }
+    // TODO Block?
+  }).run()
 
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)

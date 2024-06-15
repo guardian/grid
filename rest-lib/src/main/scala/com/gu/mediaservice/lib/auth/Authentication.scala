@@ -92,7 +92,7 @@ class Authentication(config: CommonConfig,
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
 
             val eventualPrincipalsInstances = {
-              val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances")  // TODO
+              val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances/my")  // TODO
               val onBehalfOfPrincipal: OnBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
               val authedInstancesRequest: WSRequest = onBehalfOfPrincipal(instancesRequest)
               authedInstancesRequest.get().map { r =>
