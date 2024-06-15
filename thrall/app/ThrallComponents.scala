@@ -3,6 +3,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
 import com.gu.mediaservice.model.Instance
@@ -66,9 +67,11 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val s3 = S3Ops.buildS3Client(config)
 
   Source.repeat(()).throttle(1, per = 10.second).map(_ => {
+    implicit val logMarker: MarkerMap = MarkerMap()
+
     logger.info("!!!! ping")
     val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances") // TODO
-    val x = instancesRequest.get().map { r =>
+    val x: Future[Seq[Instance]] = instancesRequest.get().map { r =>
       r.status match {
         case 200 =>
           logger.info("Got instances response: " + r.body)
@@ -81,7 +84,20 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
           Seq.empty
       }
     }
+
+    x.map { instances =>
+      // Foreach instance; query elastic for number image and total file size
+      instances.foreach { instance =>
+        logger.info("Checking usage for: " + instance)
+        implicit val i = instance
+        val eventualLong = es.countTotal()
+        eventualLong.map { c =>
+          logger.info("Instance " + instance.id + " has " + c + " images")
+        }
+      }
+    }
     // TODO Block?
+
   }).run()
 
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)

@@ -307,6 +307,11 @@ class ElasticSearch(
     s"counting '$deletionType' reapable images"
   ).map(_.result.count)
 
+  def countTotal()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = executeAndLog(
+    ElasticDsl.count(imagesCurrentAlias(instance)),
+    s"counting total images"
+  ).map(_.result.count)
+
   private def softReapableQuery(isReapable: ReapableEligibility) = must(
     isReapable.query,
     filters.existsOrMissing("softDeletedMetadata", exists = false) // not already soft deleted
