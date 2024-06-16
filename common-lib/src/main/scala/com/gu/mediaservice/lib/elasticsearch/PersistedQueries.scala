@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
+import com.sksamuel.elastic4s.ElasticApi.matchNoneQuery
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -33,7 +34,16 @@ object PersistedQueries extends ImageFields {
   val hasIllustratorUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), illustratorCategories))
   val hasAgencyCommissionedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), agencyCommissionedCategories))
 
-  def addedGNMArchiveOrPersistedCollections(persistedRootCollections: List[String]) = filters.bool.must(filters.terms(collectionsField("path"), persistedRootCollections.toNel.get))
+  def isInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[String]]) = maybePersistOnlyTheseCollections match {
+    case None =>
+      filters.exists(NonEmptyList("collections"))
+    case Some(persistedCollections) if persistedCollections.nonEmpty =>
+      filters.bool.must(filters.terms(collectionsField("path"), persistedCollections.toList.toNel.get))
+    case _ =>
+      matchNoneQuery
+  }
+
+
 
   val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
   val hasLabels = filters.exists(NonEmptyList(editsField("labels")))
