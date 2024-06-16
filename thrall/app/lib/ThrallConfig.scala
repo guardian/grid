@@ -83,5 +83,6 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
   }
 
   val instanceUsageQueueName: String = string("instance.usage.queue.name")
+  val instancesEndpoint: String = string("instance.service.instances")
 
 }

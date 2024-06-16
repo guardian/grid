@@ -82,7 +82,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   Source.repeat(()).throttle(1, per = 5.minute).map(_ => {
     implicit val logMarker: MarkerMap = MarkerMap()
-    val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances") // TODO
+    val instancesRequest: WSRequest = wsClient.url(config.instancesEndpoint)
     val eventualAllInstances = instancesRequest.get().map { r =>
       r.status match {
         case 200 =>
