@@ -4,7 +4,7 @@
   "description": "",
   "main": "S3Watcher.js",
   "dependencies": {
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.63",
