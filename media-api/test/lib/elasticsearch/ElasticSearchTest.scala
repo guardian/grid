@@ -16,19 +16,15 @@ import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar
-import org.testcontainers.containers.wait.strategy.Wait
-import org.testcontainers.elasticsearch.ElasticsearchContainer
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
-import scala.compat.java8.DurationConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.jdk.CollectionConverters._
 
 class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
@@ -51,7 +47,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       current = "Images_Current",
       migration = "Images_Migration"
     ),
-    url = es6TestUrl,
+    url = esTestUrl,
     shards = 1,
     replicas = 0
   )

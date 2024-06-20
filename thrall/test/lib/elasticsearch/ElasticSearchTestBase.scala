@@ -3,29 +3,23 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.testlib.ElasticSearchDockerBase
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import helpers.Fixtures
 import org.joda.time.DateTime
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.mockito.MockitoSugar
-import org.testcontainers.containers.wait.strategy.Wait
-import org.testcontainers.elasticsearch.ElasticsearchContainer
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
-import scala.compat.java8.DurationConverters.FiniteDurationops
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.jdk.CollectionConverters.mapAsJavaMapConverter
-import scala.util.Properties
 
-trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with MockitoSugar {
-
-  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
+trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with ElasticSearchDockerBase with BeforeAndAfterEach with Eventually with ScalaFutures with MockitoSugar {
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
@@ -34,30 +28,6 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
   val migrationIndexName = "migration-index"
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(tenSeconds, oneHundredMilliseconds)
-
-  val esContainer: Option[ElasticsearchContainer] = if (useEsDocker) {
-    {
-      val container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.2")
-        .withExposedPorts(9200)
-        .withAccessToHost(true)
-        .withEnv(Map(
-          "cluster.name" -> "media-service",
-          "xpack.security.enabled" -> "false",
-          "discovery.type" -> "single-node",
-          "network.host" -> "0.0.0.0"
-        ).asJava)
-        .waitingFor(Wait.forHttp("/")
-          .forPort(9200)
-          .forStatusCode(200)
-          .withStartupTimeout(180.seconds.toJava)
-        )
-      container.start()
-      Some(container)
-    }
-  } else None
-
-  val esPort = esContainer.map(_.getMappedPort(9200)).getOrElse(9200)
-  val esTestUrl = Properties.envOrElse("ES6_TEST_URL", s"http://localhost:$esPort")
 
   val elasticSearchConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
@@ -68,8 +38,6 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
     shards = 1,
     replicas = 0
   )
-
-
 
   lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 

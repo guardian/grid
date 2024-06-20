@@ -102,7 +102,8 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "scanamo" % "1.0.0-M8",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
-    "org.yaml" % "snakeyaml" % "1.31"
+    "org.yaml" % "snakeyaml" % "1.31",
+    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
 )
@@ -136,28 +137,31 @@ lazy val kahuna = playProject("kahuna", 9005).settings(
 
 lazy val leases = playProject("leases", 9012)
 
-lazy val mediaApi = playProject("media-api", 9001).settings(
-  libraryDependencies ++= Seq(
-    "org.apache.commons" % "commons-email" % "1.5",
-    "org.parboiled" %% "parboiled" % "2.1.5",
-    "org.http4s" %% "http4s-core" % "0.23.17",
-    "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
-    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
+lazy val mediaApi = playProject("media-api", 9001)
+  .dependsOn(commonLib % "compile;test->test")
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.commons" % "commons-email" % "1.5",
+      "org.parboiled" %% "parboiled" % "2.1.5",
+      "org.http4s" %% "http4s-core" % "0.23.17",
+      "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
+    )
   )
-)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
-lazy val thrall = playProject("thrall", 9002).settings(
-  pipelineStages := Seq(digest, gzip),
-  libraryDependencies ++= Seq(
-    "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
-    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
-    "com.google.protobuf" % "protobuf-java" % "3.19.6"
+lazy val thrall = playProject("thrall", 9002)
+  .dependsOn(commonLib % "compile;test->test")
+  .settings(
+    pipelineStages := Seq(digest, gzip),
+    libraryDependencies ++= Seq(
+      "org.codehaus.groovy" % "groovy-json" % "3.0.7",
+      "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
+      "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+      "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
+      "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    )
   )
-)
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
