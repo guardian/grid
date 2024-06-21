@@ -22,6 +22,6 @@ const restrictionsText = (image) => {
       restrictText = restrictText + image.data.usageRights.restrictions;
     }
     return restrictText;
-}
+};
 
 export { restrictionsText };
