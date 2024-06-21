@@ -1,5 +1,6 @@
 import angular from 'angular';
 import {imageService} from '../../image/service';
+import {restrictionsText} from '../../util/rights-categories';
 
 import template from './gr-image-cost-message.html';
 import './gr-image-cost-message.css';
@@ -15,25 +16,8 @@ module.controller('grImageCostMessage', [
     ctrl.$onInit = () => {
       const states = imageService(ctrl.image).states;
       ctrl.messageState = (states.hasRestrictions) ? "conditional" : states.costState;
-
       ctrl.restrictionsText = () => {
-        let rtxt = "";
-        if (!this.image.data.usageRights) {
-          return rtxt;
-        }
-        if (this.image.data.usageRights.usageRestrictions) {
-          rtxt = this.image.data.usageRights.usageRestrictions;
-        }
-        rtxt = rtxt.trim();
-        if (rtxt.length > 0 && rtxt[rtxt.length - 1] != ".") {
-          rtxt = rtxt + ". ";
-        } else {
-          rtxt = rtxt + " ";
-        }
-        if (this.image.data.usageRights.restrictions) {
-          rtxt = rtxt + this.image.data.usageRights.restrictions;
-        }
-        return rtxt;
+        return restrictionsText(this.image);
       };
 
     };

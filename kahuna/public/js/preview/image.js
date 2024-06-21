@@ -3,7 +3,7 @@ import Rx from 'rx';
 
 import '../util/rx';
 import '../util/storage';
-
+import {restrictionsText} from '../util/rights-categories';
 
 import template from './image.html';
 import templateLarge from './image-large.html';
@@ -138,23 +138,7 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.searchWithModifiers = searchWithModifiers;
 
       ctrl.restrictionsText = () => {
-        let rtxt = "";
-        if (!this.image.data.usageRights) {
-          return rtxt;
-        }
-        if (this.image.data.usageRights.usageRestrictions) {
-          rtxt = this.image.data.usageRights.usageRestrictions;
-        }
-        rtxt = rtxt.trim();
-        if (rtxt.length > 0 && rtxt[rtxt.length - 1] != ".") {
-          rtxt = rtxt + ". ";
-        } else {
-          rtxt = rtxt + " ";
-        }
-        if (this.image.data.usageRights.restrictions) {
-          rtxt = rtxt + this.image.data.usageRights.restrictions;
-        }
-        return rtxt;
+        return restrictionsText(this.image);
       };
 
     };
