@@ -24,6 +24,8 @@ class Authentication(config: CommonConfig,
   // make the execution context implicit so it will be picked up appropriately
   implicit val ec: ExecutionContext = executionContext
 
+  private val myInstancesEndpoint = config.myInstancesEndpoint
+
   def loginLinks()(implicit instance: Instance): List[Link] = providers.userProvider.loginLink match {
     case DisableLoginLink => Nil
     case BuiltInAuthService => List(Link("login", config.services.loginUriTemplate(instance)))
@@ -92,7 +94,7 @@ class Authentication(config: CommonConfig,
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
 
             val eventualPrincipalsInstances = {
-              val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances/my")  // TODO
+              val instancesRequest: WSRequest = wsClient.url(myInstancesEndpoint)
               val onBehalfOfPrincipal: OnBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
               val authedInstancesRequest: WSRequest = onBehalfOfPrincipal(instancesRequest)
               authedInstancesRequest.get().map { r =>

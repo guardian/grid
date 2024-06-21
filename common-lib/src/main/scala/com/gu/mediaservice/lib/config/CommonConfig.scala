@@ -106,6 +106,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
   val shortenDownloadFilename: Boolean = boolean("image.download.shorten")
+  val myInstancesEndpoint: String = string("instance.service.my")
 
   /**
    * Load in a list of external staff photographers, internal staff photographers, contracted photographers,
