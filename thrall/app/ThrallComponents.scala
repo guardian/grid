@@ -20,7 +20,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.{GetQueueUrlRequest, SendMessageRequest}
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -47,7 +47,16 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   }
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
-  // TODO restore a reduced non instance specific version of this private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
+  def ensureIndexes(): Future[Unit] = {
+    logger.info("Ensuring indexes")
+    getInstances.map { instances =>
+      instances.foreach{ instance =>
+        logger.info("Ensuing index for: " + instance.id)
+        es.ensureIndexExistsAndAliasAssigned(alias = es.imagesCurrentAlias(instance), index = instance.id + "_index")
+      }
+    }
+  }
+  Await.ready(ensureIndexes(), 60 seconds)
 
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
 
@@ -82,21 +91,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   Source.repeat(()).throttle(1, per = 5.minute).map(_ => {
     implicit val logMarker: MarkerMap = MarkerMap()
-    val instancesRequest: WSRequest = wsClient.url(config.instancesEndpoint)
-    val eventualAllInstances = instancesRequest.get().map { r =>
-      r.status match {
-        case 200 =>
-          implicit val ir = Json.reads[Instance]
-          val instances = Json.parse(r.body).as[Seq[Instance]]
-          logger.info("Got instances: " + instances.map(_.id).mkString(","))
-          instances
-        case _ =>
-          logger.warn("Got non 200 status for instances call: " + r.status)
-          Seq.empty
-      }
-    }
-
-    eventualAllInstances.map { instances =>
+    getInstances.map { instances =>
       // Foreach instance; query elastic for number image and total file size
       instances.foreach { instance =>
         logger.info("Checking usage for: " + instance)
@@ -118,6 +113,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   }).run()
 
+
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)
 
@@ -126,6 +122,23 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, assets)
+
+  private def getInstances: Future[Seq[Instance]] = {
+    val instancesRequest: WSRequest = wsClient.url(config.instancesEndpoint)
+    val eventualAllInstances = instancesRequest.get().map { r =>
+      r.status match {
+        case 200 =>
+          implicit val ir = Json.reads[Instance]
+          val instances = Json.parse(r.body).as[Seq[Instance]]
+          logger.info("Got instances: " + instances.map(_.id).mkString(","))
+          instances
+        case _ =>
+          logger.warn("Got non 200 status for instances call: " + r.status)
+          Seq.empty
+      }
+    }
+    eventualAllInstances
+  }
 }
 
 case class InstanceUsageMessage(instance: String, imageCount: Long, totalImageSize: Long)
