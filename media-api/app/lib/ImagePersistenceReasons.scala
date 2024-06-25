@@ -110,10 +110,7 @@ case class IsInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[
   }
 
   override val query: Query = PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
-  override val reason: String = maybePersistOnlyTheseCollections match {
-    case None => "collection"
-    case Some(_) => "persisted-collection"
-  }
+  override val reason: String = "persisted-collection"
 }
 
 object AddedToPhotoshoot extends PersistenceReason {
