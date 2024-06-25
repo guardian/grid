@@ -31,17 +31,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val gridClient: GridClient = GridClient(config.services)(wsClient)
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
-  private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
-  goodToGoCheckResult.value match {
-    case Some(Success(_)) => // all good
-      logger.info("Passed good to go")
-    case Some(Failure(exception)) =>
-      logger.error("Failed good to go, aborting startup", exception)
-      throw exception
-    case other =>
-      logger.warn(s"Result of good to go was $other, aborting as this result doesn't make sense")
-      throw new IllegalStateException("Good to go test didn't pass or throw exception")
-  }
+  // TODO restore a reduced non instance specific version of this private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
 
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
 
