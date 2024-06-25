@@ -2,25 +2,25 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.filters
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, ReapableEligibility, Running}
+import com.gu.mediaservice.lib.elasticsearch.{filters, _}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
-import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.count.CountRequest
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.SearchResponse
+import com.sksamuel.elastic4s.requests.searches.aggs.SumAggregation
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
+import com.sksamuel.elastic4s.requests.searches.{SearchRequest, SearchResponse}
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
-import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
+import com.sksamuel.elastic4s._
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
-import play.api.libs.json.JsValue.jsValueToJsLookup
 import play.api.libs.json._
 
 import scala.annotation.nowarn
@@ -307,10 +307,25 @@ class ElasticSearch(
     s"counting '$deletionType' reapable images"
   ).map(_.result.count)
 
-  def countTotal()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = executeAndLog(
-    ElasticDsl.count(imagesCurrentAlias(instance)),
-    s"counting total images"
-  ).map(_.result.count)
+  def countTotal()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
+    val request: CountRequest = ElasticDsl.count(imagesCurrentAlias(instance))
+    executeAndLog(
+      request,
+      s"counting total images"
+    ).map(_.result.count)
+  }
+
+  def countTotalSize()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
+    val sourceSize: SumAggregation = ElasticDsl.sumAgg("sourceSize", "source.size")
+    val request: SearchRequest = search(imagesCurrentAlias(instance)).matchAllQuery() aggs sourceSize size 10
+    executeAndLog(request, s"summing source.size").map { r =>
+      if (r.result.aggs.contains("sourceSize")) {
+        r.result.aggs.getAgg("sourceSize").flatMap(_.dataAsMap.get("value")).map(_.asInstanceOf[Double].toLong).getOrElse(0L)
+      } else {
+        0L
+      }
+    }
+  }
 
   private def softReapableQuery(isReapable: ReapableEligibility) = must(
     isReapable.query,

@@ -68,8 +68,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   Source.repeat(()).throttle(1, per = 10.second).map(_ => {
     implicit val logMarker: MarkerMap = MarkerMap()
-
-    logger.info("!!!! ping")
     val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances") // TODO
     val x: Future[Seq[Instance]] = instancesRequest.get().map { r =>
       r.status match {
@@ -91,8 +89,12 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
         logger.info("Checking usage for: " + instance)
         implicit val i = instance
         val eventualLong = es.countTotal()
-        eventualLong.map { c =>
-          logger.info("Instance " + instance.id + " has " + c + " images")
+        val eventualTotalSize = es.countTotalSize()
+        for {
+          count <- eventualLong
+          totalSize <- eventualTotalSize
+        } yield {
+          logger.info("Instance " + instance.id + " has " + count + " images / total size: " + totalSize)
         }
       }
     }
