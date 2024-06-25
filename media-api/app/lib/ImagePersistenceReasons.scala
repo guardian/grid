@@ -5,7 +5,7 @@ import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageM
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 
 
-case class ImagePersistenceReasons(persistedRootCollections: List[String], persistenceIdentifier: String) {
+case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String) {
   val allReasons: List[PersistenceReason] =
     List(
       HasPersistenceIdentifier(persistenceIdentifier),
@@ -16,7 +16,7 @@ case class ImagePersistenceReasons(persistedRootCollections: List[String], persi
       IsIllustratorCategory,
       IsAgencyCommissionedCategory,
       HasLeases,
-      IsInPersistedCollection(persistedRootCollections),
+      IsInPersistedCollection(maybePersistOnlyTheseCollections),
       AddedToPhotoshoot,
       HasLabels,
       HasUserEdits
@@ -100,17 +100,20 @@ object HasLeases extends PersistenceReason {
   override val reason: String = "leases"
 }
 
-case class IsInPersistedCollection(persistedCollections: List[String]) extends PersistenceReason {
-  override def shouldPersist(image: Image): Boolean = {
-    // list of the first element of each collection's `path`, i.e all the root collections
-    val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
-
-    // is image in at least one persisted collection?
-    (collectionPaths diff persistedCollections).length < collectionPaths.length
+case class IsInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[String]]) extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = maybePersistOnlyTheseCollections match {
+    case None =>
+      image.collections.nonEmpty
+    case Some(persistedCollections) if persistedCollections.nonEmpty =>
+      (image.collections.flatMap(_.path) intersect persistedCollections.toList).nonEmpty
+    case _ => false
   }
 
-  override val query: Query = PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedCollections)
-  override val reason: String = "persisted-collection"
+  override val query: Query = PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
+  override val reason: String = maybePersistOnlyTheseCollections match {
+    case None => "collection"
+    case Some(_) => "persisted-collection"
+  }
 }
 
 object AddedToPhotoshoot extends PersistenceReason {
