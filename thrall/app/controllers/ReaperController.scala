@@ -103,14 +103,20 @@ class ReaperController(
 
   private def s3DirNameFromDate(date: DateTime) = date.toString("YYYY-MM-dd")
 
-  private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = config.maybeReaperBucket match {
-    case None => Future.failed(new Exception("Reaper bucket not configured"))
-    case Some(reaperBucket) => doBatchDelete.map { json =>
-      val now = DateTime.now(DateTimeZone.UTC)
-      val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-      store.client.putObject(reaperBucket, key, json.toString())
-      json
-    }
+  private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = {
+    doBatchDelete.map { json =>
+      config.maybeReaperBucket match {
+        case None => {
+          logger.info("Reaper bucket not configured; not persisting results: " + json.toString())
+          json
+        }
+        case Some(reaperBucket) =>
+          val now = DateTime.now(DateTimeZone.UTC)
+          val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
+          store.client.putObject(reaperBucket, key, json.toString())
+          json
+        }
+      }
   }
 
   def doBatchSoftReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchSoftReap)
