@@ -31,10 +31,6 @@ GET    /reaper                                        controllers.ReaperControll
 GET    /reaper/:key                                   controllers.ReaperController.reaperRecord(key: String)
 DELETE /doBatchSoftReap                               controllers.ReaperController.doBatchSoftReap(count: Int)
 DELETE /doBatchHardReap                               controllers.ReaperController.doBatchHardReap(count: Int)
-+nocsrf
-POST   /pauseReaper                                   controllers.ReaperController.pauseReaper
-+nocsrf
-POST   /resumeReaper                                  controllers.ReaperController.resumeReaper
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

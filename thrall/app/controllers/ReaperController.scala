@@ -35,9 +35,8 @@ class ReaperController(
   override val controllerComponents: ControllerComponents,
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging {
 
-  private val CONTROL_FILE_NAME = "PAUSED"
-
   private val INTERVAL = config.reaperInterval //default 15 minutes, based on max of 1000 per reap, this interval will max out at 96,000 images per day
+  private val isPaused = config.reaperPaused
 
   implicit val logMarker: MarkerMap = MarkerMap()
 
@@ -48,14 +47,14 @@ class ReaperController(
     }
   }
 
-  (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
-    case (Some(reaperBucket), Some(countOfImagesToReap)) =>
+  config.maybeReaperCountPerRun match {
+    case Some(countOfImagesToReap) =>
       scheduler.scheduleAtFixedRate(
         initialDelay = DateTimeUtils.timeUntilNextInterval(INTERVAL), // so we always start on multiples of the interval past the hour
         interval = INTERVAL,
       ){ () =>
         try {
-          if (store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+          if (isPaused) {
             logger.info("Reaper is paused")
             es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
             es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
@@ -73,7 +72,7 @@ class ReaperController(
           case NonFatal(e) => logger.error("Reap failed", e)
         }
       }
-    case _ => logger.info("scheduled reaper will not run since 's3.reaper.bucket' and 'reaper.countPerRun' need to be configured in thrall.conf")
+    case _ => logger.info("scheduled reaper will not run because 'reaper.countPerRun' needs to be configured in thrall.conf")
   }
 
   private def batchDeleteWrapper(count: Int)(func: (Int, String) => Future[JsValue]) = auth.async { request =>
@@ -173,7 +172,6 @@ class ReaperController(
     case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
     case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
-      val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
         store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
@@ -195,20 +193,6 @@ class ReaperController(
       Ok(
         store.client.getObjectAsString(reaperBucket, key)
       ).as(JSON)
-  }}
-
-  def pauseReaper = auth { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
-      store.client.putObject(reaperBucket, CONTROL_FILE_NAME, "")
-      Redirect(routes.ReaperController.index)
-  }}
-
-  def resumeReaper = auth { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
-      store.client.deleteObject(reaperBucket, CONTROL_FILE_NAME)
-      Redirect(routes.ReaperController.index)
   }}
 
 }
