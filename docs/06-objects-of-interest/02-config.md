@@ -23,8 +23,6 @@ Anything that's specific to an organisation and to a stage, but is common across
 #### `<configRoot>/<stage>/<service>.conf`
 Service-specific configs. These will override all other config files.
 
-[Documentation](https://docs.google.com/document/d/1CSERbLwbu6nT_ggzzYxdUt9IHpfGUJLIYPnU_9MZbpc/edit) on the existing Grid config options
-
 ## Config documentation
 
 ### Common configuration
@@ -87,6 +85,25 @@ Service-specific configs. These will override all other config files.
     <td>True</td>
     <td>Json Object Array</td>
     <td>[]</td>
+  </tr>
+  <tr>
+    <td><b><code>persistence.identifier</code></b><br>Used by the reaper to retain images which have a particular identifier (e.g. <code>picdarUrn</code> for Guardian)</td>
+    <td>True</td>
+    <td>string</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><b><code>persistence.onlyTheseCollections</code></b><br>Used by the reaper…
+      <ol>
+        <li>If not specified, images in any collection are persisted</li>
+        <li>If specified, but empty array, images are not* persisted based on collection at all </li>
+        <li>If specified and non empty, images are persisted based on the listed collections only* (note that it matches any part of the collection path, but its not possible to match an entire nested collection path</li>
+      </ol>
+* but might be persisted based on other persistence criteria.
+</td>
+    <td>True (see 1.)</td>
+    <td>Array<string></td>
+    <td>None</td>
   </tr>
 </tbody>
 </table>
@@ -867,12 +884,6 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
-    <td><code>persistence.identifier</code></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
     <td><code>es6.url</code></td>
     <td></td>
     <td></td>
@@ -1176,7 +1187,6 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
-    <td><code>persistence.identifier</code></td>
     <td></td>
     <td></td>
     <td></td>

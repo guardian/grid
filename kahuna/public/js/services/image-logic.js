@@ -61,6 +61,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
                 return 'categorised as agency commissioned';
             case 'persisted-collection':
                 return 'added to a persisted collection';
+              case 'collection':
+                return 'added to a collection';
             case 'photoshoot':
                 return 'added to a photoshoot';
             case 'leases':

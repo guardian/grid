@@ -207,12 +207,13 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
-  final def getStringSet(key: String): Set[String] = Try {
-    configuration.get[Seq[String]](key)
+  final def getOptionalStringSet(key: String): Option[Set[String]] = Try {
+    configuration.getOptional[Seq[String]](key)
   }.recover {
-    case _:ConfigException.WrongType => configuration.get[String](key).split(",").toSeq.map(_.trim)
-  }.map(_.toSet)
-   .getOrElse(Set.empty)
+    case _:ConfigException.WrongType => configuration.getOptional[String](key).map(_.split(",").toSeq.map(_.trim))
+  }.toOption.flatten.map(_.toSet)
+
+  final def getStringSet(key: String): Set[String] = getOptionalStringSet(key).getOrElse(Set.empty)
 
   def getConfigList(key:String): List[_ <: Config] =
     if (configuration.has(key)) configuration.underlying.getConfigList(key).asScala.toList
