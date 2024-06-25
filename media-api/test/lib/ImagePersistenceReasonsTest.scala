@@ -14,8 +14,10 @@ class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
     import TestUtils._
 
     val persistedIdentifier = "test-p-id"
-    val persistedRootCollections = List("coll1", "coll2", "coll3")
-    val imgPersistenceReasons = ImagePersistenceReasons(persistedRootCollections, persistedIdentifier)
+    val persistedCollections = Set("coll1", "coll2", "coll3")
+    val imgPersistenceReasons = ImagePersistenceReasons(Some(persistedCollections), persistedIdentifier)
+    val imagePersistenceReasonsWithEmptyListOfPersistedCollections = ImagePersistenceReasons(Some(Set.empty), persistedIdentifier)
+    val imagePersistenceReasonsWhichPersistsAllImagesInCollections = ImagePersistenceReasons(None, persistedIdentifier)
 
     imgPersistenceReasons.reasons(img) shouldBe Nil
     val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
@@ -34,8 +36,10 @@ class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
     imgPersistenceReasons.reasons(imgWithAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
     val imgWithLeases = img.copy(leases = LeasesByMedia.build(List(MediaLease(id = None, leasedBy = None, notes = None, mediaId = "test"))))
     imgPersistenceReasons.reasons(imgWithLeases) shouldBe List("leases")
-    val imgWithPersistedRootCollections = img.copy(collections = List(Collection.build(persistedRootCollections.tail, ActionData("testAuthor", now()))))
-    imgPersistenceReasons.reasons(imgWithPersistedRootCollections) shouldBe List("persisted-collection")
+    val imgInPersistedCollection = img.copy(collections = List(Collection.build(persistedCollections.headOption.toList, ActionData("testAuthor", now()))))
+    imgPersistenceReasons.reasons(imgInPersistedCollection) shouldBe List("persisted-collection")
+    imagePersistenceReasonsWithEmptyListOfPersistedCollections.reasons(imgInPersistedCollection) shouldBe List()
+    imagePersistenceReasonsWhichPersistsAllImagesInCollections.reasons(imgInPersistedCollection) shouldBe List("collection")
 
     val imgWithPhotoshoot = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata.empty, photoshoot = Some(Photoshoot("test")))))
     imgPersistenceReasons.reasons(imgWithPhotoshoot) shouldBe List("photoshoot")
