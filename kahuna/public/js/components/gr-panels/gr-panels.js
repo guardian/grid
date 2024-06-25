@@ -40,11 +40,13 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
         },
         template:
             `<div class="gr-panel" ng:class="{'gr-panel--locked': state.locked}">
-                <div class="gr-panel__content gr-panel-height"
+                <div class="gr-panel__content"
                      ng:class="{
                         'gr-panel__content--hidden': state.hidden,
                         'gr-panel__content--left': left,
-                        'gr-panel__content--right': right
+                        'gr-panel__content--right': right,
+                        'gr-panel-height--single' : !usePermissionsFilter,
+                        'gr-panel-height--double' : usePermissionsFilter
                      }"
                      gr:remember-scroll-top="rememberScroll">
                     <ng:transclude></ng:transclude>
@@ -52,6 +54,7 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
             </div>`,
         link: function(scope) {
             const panel = scope.panel;
+            scope.usePermissionsFilter = $window._clientConfig.usePermissionsFilter;
             const winScroll$ = Rx.DOM.fromEvent($window, 'scroll');
 
             inject$(scope, panel.state$, scope, 'state');
