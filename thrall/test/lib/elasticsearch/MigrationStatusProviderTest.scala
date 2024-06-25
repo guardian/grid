@@ -3,19 +3,24 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, NotRunning}
 import com.gu.mediaservice.lib.logging.LogMarker
 
+import java.util.UUID
+
 class MigrationStatusProviderTest extends ElasticSearchTestBase {
+
+  override def instance: String = UUID.randomUUID().toString
+
   implicit val lm: LogMarker = new LogMarker{
     override def markerContents: Map[String, Any] = Map.empty
   }
 
   "Migration" - {
     "status should return as NotRunning on a clean ES" in {
-      assert(ES.refreshAndRetrieveMigrationStatus() === NotRunning)
+      assert(ES.refreshAndRetrieveMigrationStatus(instance) === NotRunning)
     }
     "starting a migration should change the migration status" in {
-      val newIndexName = "images-test-migration"
-      ES.startMigration(newIndexName)
-      assert(ES.refreshAndRetrieveMigrationStatus() === InProgress(newIndexName))
+      val newIndexName = instance + "_images-test-migration"
+      ES.startMigration(newIndexName, instance)
+      assert(ES.refreshAndRetrieveMigrationStatus(instance) === InProgress(newIndexName))
     }
   }
 

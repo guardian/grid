@@ -22,11 +22,14 @@ import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
+
+  val instance = UUID.randomUUID().toString
 
   implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
@@ -66,12 +69,12 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    ES.ensureIndexExistsAndAliasAssigned(instance = "an-instance")
+    ES.ensureIndexExistsAndAliasAssigned(alias = ES.imagesCurrentAlias(instance), instance + "_index")
     purgeTestImages
 
     Await.ready(saveImages(images), 1.minute)
     // allow the cluster to distribute documents... eventual consistency!
-    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages(instance) shouldBe expectedNumberOfImages)
   }
 
   override def afterAll(): Unit = purgeTestImages
@@ -448,7 +451,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     })
   }
 
-  private def totalImages: Long = Await.result(ES.client.execute(ElasticDsl.search(ES.imagesCurrentAlias)).map {
+  private def totalImages(instance: String): Long = Await.result(ES.client.execute(ElasticDsl.search(ES.imagesCurrentAlias(instance))).map {
     _.result.totalHits
   }, oneHundredMilliseconds)
 
@@ -458,7 +461,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
 
     Await.result(deleteImages, fiveSeconds)
-    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages(instance) shouldBe 0)
   }
 
 }
