@@ -209,8 +209,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   final def getOptionalStringSet(key: String): Option[Set[String]] = Try {
     configuration.getOptional[Seq[String]](key)
-  }.recover {
-    case _:ConfigException.WrongType => configuration.getOptional[String](key).map(_.split(",").toSeq.map(_.trim))
+  }.recover { case e if e.getCause.isInstanceOf[ConfigException.WrongType] =>
+    configuration.getOptional[String](key).map(_.split(",").toSeq.map(_.trim))
   }.toOption.flatten.map(_.toSet)
 
   final def getStringSet(key: String): Set[String] = getOptionalStringSet(key).getOrElse(Set.empty)
