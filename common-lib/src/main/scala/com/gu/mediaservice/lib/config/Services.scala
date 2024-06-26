@@ -49,7 +49,7 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   val metadataBaseUri: String = subpathedServiceBaseUri("metadata-editor")
 
-  val imgopsBaseUri: String = subpathedServiceBaseUri("imgops")
+  val imgopsBaseUri: String = subpathedServiceBaseUri("imgproxy")
 
   val usageBaseUri: String =subpathedServiceBaseUri("usage")
 
