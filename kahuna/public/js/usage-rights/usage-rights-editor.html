@@ -50,22 +50,19 @@
              ng-class="{ 'form-property--last': $last }">
 
             <div ng-if="property.name === 'restrictions' && !!ctrl.category.usageRestrictions">
-                <span ng-if="ctrl.usageRights.length == 1">
-                    This rights category requires a restriction to the image and the following wording will be applied:
-                </span>
-                <span ng-if="1 != ctrl.usageRights.length">
-                    Restricted
+                <span>
+                    This rights category requires a restriction and the following wording will be applied:
                 </span>
                 <div class="ure__caution warning warning--small">
                     {{console.log("Usage Rights Length = " + ctrl.usageRights.length); ctrl.category.usageRestrictions}}
                 </div>
             </div>
 
-            <div ng-if="property.name === 'restrictions' && ctrl.category.usageRestrictions && ctrl.category.usageSpecialInstructions && ctrl.usageRights.length == 1">
+            <div ng-if="property.name === 'restrictions' && ctrl.category.usageRestrictions && ctrl.category.usageSpecialInstructions">
                 <span class="ure__description">
-                    Rights special instructions
+                    the special instructions will be:
                 </span>
-                <div class="ure__description">
+                <div class="ure__description job-usage-instructions">
                     {{ctrl.category.usageSpecialInstructions}}
                 </div>
             </div>
