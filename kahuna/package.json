@@ -19,7 +19,7 @@
     "filehash": "^1.0.0",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
-    "jszip": "3.7.0",
+    "jszip": "^3.8.0",
     "moment": "^2.29.4",
     "p-queue": "^6.6.2",
     "panda-session": "0.1.6",
