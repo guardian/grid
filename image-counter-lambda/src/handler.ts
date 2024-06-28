@@ -50,8 +50,8 @@ export const handler = async (): Promise<{
   // post it to CW as metric
   const client = new CloudWatch({ region: "eu-west-1" });
 
-  for (const key of Object.keys(images)) {
-    const met = metric(key.toUpperCase(), images[key]);
+  for (const [key, value] of Object.entries(images)) {
+    const met = metric(key.toUpperCase(), value as number);
     await client.putMetricData(met).promise();
   }
 
