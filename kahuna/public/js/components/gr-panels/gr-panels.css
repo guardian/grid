@@ -58,6 +58,12 @@
     margin-top: 36px;
 }
 
-.gr-panel-height {
-    height: calc(100vh - 86px); /* 50px search bar, 36px toolbar */
+.gr-panel-height--single {
+    top: 86px; /* 50px single search bar, 36px toolbar */
+    bottom: 0;
+}
+
+.gr-panel-height--double {
+  top: 136px; /* 100px double search bar, 36px toolbar */
+  bottom: 0;
 }
