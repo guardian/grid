@@ -24,12 +24,12 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
   def queryByUsageId(id: String)(implicit instance: Instance): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
-      val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
+      val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, instanceAwareHashKey(tableFullKey.hashKey))
       val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
 
       val queryResult = table.query(keyAttribute, rangeKeyCondition)
 
-      queryResult.asScala.map(ItemToMediaUsage.transform).headOption
+      queryResult.asScala.map(ItemToMediaUsage.transform).map(unwindInstanceAwareHashkey).headOption
     })
   }
 
@@ -43,7 +43,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
+    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).map(unwindInstanceAwareHashkey).toList
 
     logger.info(logMarkerWithId, s"Query of usages table for $id found ${unsortedUsages.size} results")
 
@@ -80,7 +80,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   def matchUsageGroup(usageGroupWithContext: WithLogMarker[(UsageGroup, Instance)]): Observable[WithLogMarker[Set[MediaUsage]]] = {
     implicit val logMarker: LogMarker = usageGroupWithContext.logMarker
     val usageGroup = usageGroupWithContext.value._1
-    val instance = usageGroupWithContext.value._2
+    implicit val instance: Instance = usageGroupWithContext.value._2
 
     logger.info(logMarker, s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
@@ -91,11 +91,12 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       val queryResult = table.query(
         new QuerySpec()
           .withConsistentRead(true)
-          .withHashKey(new KeyAttribute("grouping", grouping))
+          .withHashKey(new KeyAttribute("grouping", instanceAwareHashKey(grouping)))
       )
 
       val usages = queryResult.asScala
         .map(ItemToMediaUsage.transform)
+        .map(unwindInstanceAwareHashkey)
         .toSet
 
       logger.info(logMarker, s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
@@ -118,7 +119,8 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
     val deleteSpec = new DeleteItemSpec()
       .withPrimaryKey(
-        hashKeyName, mediaUsage.grouping,
+        hashKeyName,
+        instanceAwareHashKey(mediaUsage.grouping),
         rangeKeyName, mediaUsage.usageId.toString
       )
 
@@ -130,7 +132,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(
         hashKeyName,
-        record.hashKey,
+        instanceAwareHashKey(record),
         rangeKeyName,
         record.rangeKey
       )
@@ -145,4 +147,16 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     Observable.error(e)
   })
   .map(asJsObject)
+
+  private def unwindInstanceAwareHashkey(mediaUsage: MediaUsage)(implicit instance: Instance): MediaUsage = {
+    mediaUsage.copy(grouping = mediaUsage.grouping.drop(instance.id.length + 1))
+  }
+  private def instanceAwareHashKey(record: UsageRecord)(implicit instance: Instance) = {
+    instance.id + "/" + record.hashKey
+  }
+
+  private def instanceAwareHashKey(hashKey: String)(implicit instance: Instance) = {
+    instance.id + "/" + hashKey
+  }
+
 }
