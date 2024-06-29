@@ -67,7 +67,6 @@ class UsageRecorder(
     dbMatchStream.flatMap((matchedUsageGroupWithContext: WithLogMarker[MatchedUsageGroup]) => {
       implicit val logMarker: LogMarker = matchedUsageGroupWithContext.logMarker
       val matchedUsageGroup = matchedUsageGroupWithContext.value
-      val instance = matchedUsageGroup.instance
 
       val usageGroup = matchedUsageGroup.usageGroup
       val dbUsages = usageGroup.maybeStatus.fold(
@@ -100,18 +99,19 @@ class UsageRecorder(
         resultObservable
       }
 
+      implicit val instance: Instance = matchedUsageGroup.instance
       val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
         .flatMap(dbUsageMap.get)
-        .map(performAndLogDBOperation(mu => usageTable.markAsRemoved(mu, instance), "markAsRemoved"))
+        .map(performAndLogDBOperation(mu => usageTable.markAsRemoved(mu), "markAsRemoved"))
 
       val createOps = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
         .flatMap(streamUsageMap.get)
-        .map(performAndLogDBOperation(mu => usageTable.create(mu, instance), "create"))
+        .map(performAndLogDBOperation(mu => usageTable.create(mu), "create"))
 
       val updateOps = (if (usageGroup.isReindex) Set() else streamUsageKeys.intersect(dbUsageKeys))
         .flatMap(streamUsageMap.get)
         .diff(dbUsages) // to avoid updating to the same data that's already in the DB
-        .map(performAndLogDBOperation(mu => usageTable.update(mu, instance), "update"))
+        .map(performAndLogDBOperation(mu => usageTable.update(mu), "update"))
 
       val mediaIdsImplicatedInDBUpdates =
         (usageGroup.usages ++ dbUsages)

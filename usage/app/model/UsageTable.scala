@@ -22,7 +22,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   val rangeKeyName = "usage_id"
   val imageIndexName = "media_id"
 
-  def queryByUsageId(id: String, instance: Instance): Future[Option[MediaUsage]] = Future {
+  def queryByUsageId(id: String)(implicit instance: Instance): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
       val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
       val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
@@ -33,7 +33,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def queryByImageId(id: String, instance: Instance)(implicit logMarkerWithId: LogMarker): Future[List[MediaUsage]] = Future {
+  def queryByImageId(id: String)(implicit logMarkerWithId: LogMarker, instance: Instance): Future[List[MediaUsage]] = Future {
 
     if (id.trim.isEmpty)
       throw new BadInputException("Empty string received for image id")
@@ -104,16 +104,16 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def create(mediaUsage: MediaUsage, instance: Instance)(implicit logMarker: LogMarker): Observable[JsObject] =
-    upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage), instance)
+  def create(mediaUsage: MediaUsage)(implicit logMarker: LogMarker, instance: Instance): Observable[JsObject] =
+    upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
-  def update(mediaUsage: MediaUsage, instance: Instance)(implicit logMarker: LogMarker): Observable[JsObject] =
-    upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage), instance)
+  def update(mediaUsage: MediaUsage)(implicit logMarker: LogMarker, instance: Instance): Observable[JsObject] =
+    upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def markAsRemoved(mediaUsage: MediaUsage, instance: Instance)(implicit logMarker: LogMarker): Observable[JsObject] =
-    upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage), instance)
+  def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker, instance: Instance): Observable[JsObject] =
+    upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
-  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): DeleteItemOutcome = {
+  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker, instance: Instance): DeleteItemOutcome = {
     logger.info(logMarker, s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
     val deleteSpec = new DeleteItemSpec()
@@ -125,7 +125,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     table.deleteItem(deleteSpec)
   }
 
-  def upsertFromRecord(record: UsageRecord, instance: Instance)(implicit logMarker: LogMarker): Observable[JsObject] = Observable.from(Future {
+  def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker, instance: Instance): Observable[JsObject] = Observable.from(Future {
 
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(
