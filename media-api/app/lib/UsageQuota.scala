@@ -1,7 +1,6 @@
 package lib
 
 import akka.actor.Scheduler
-import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.model.UsageRights
 
 import scala.concurrent.Await
@@ -39,6 +38,5 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
     Await.result(
       usageStore.getUsageStatusForUsageRights(rights),
       waitMillis.millis)
-  }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
+  }.toOption.exists(_.exceeded)
 }
-
