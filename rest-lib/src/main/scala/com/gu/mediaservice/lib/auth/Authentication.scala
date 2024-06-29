@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Machi
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.{CommonConfig, InstanceForRequest}
 import com.gu.mediaservice.model.Instance
-import play.api.libs.json.Json
+import play.api.libs.json.{Json, Reads}
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.Security.AuthenticatedRequest
@@ -90,7 +90,7 @@ class Authentication(config: CommonConfig,
           case _ =>
             // we have an end user principal, so only process the block if the instance is allowed
             val instance = instanceOf(request)
-            logger.info(s"Checking that $principal is allowed to access instanc $instance")
+            logger.info(s"Checking that $principal is allowed to access instance $instance")
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
 
             val eventualPrincipalsInstances = {
@@ -100,8 +100,7 @@ class Authentication(config: CommonConfig,
               authedInstancesRequest.get().map { r =>
                 r.status match {
                   case 200 =>
-                    logger.info("Got instances response: " + r.body)
-                    implicit val ir = Json.reads[Instance]
+                    implicit val ir: Reads[Instance] = Json.reads[Instance]
                     Json.parse(r.body).as[Seq[Instance]]
                   case _ =>
                     logger.warn("Got non 200 status for instances call: " + r.status)
