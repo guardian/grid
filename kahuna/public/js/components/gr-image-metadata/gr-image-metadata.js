@@ -86,6 +86,12 @@ module.controller('grImageMetadataCtrl', [
         ctrl.selectedImages = new List(updatedImages);
       };
 
+      ctrl.hasMultipleSpecialInstructions = function () {
+        const val = ctrl.rawMetadata.specialInstructions;
+        const val2 = ctrl.rawMetadata.usageInstructions;
+        return ((Array.isArray(val) && val.length > 1) || (Array.isArray(val2) && val2.length > 1));
+      };
+
       ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
 
       ctrl.displayDateTakenMetadata = function () {

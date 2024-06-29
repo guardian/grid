@@ -58,9 +58,12 @@
                 </div>
             </div>
 
-            <div ng-if="property.name === 'restrictions' && ctrl.category.usageRestrictions && ctrl.category.usageSpecialInstructions">
-                <span class="ure__description">
-                    the special instructions will be:
+            <div ng-if="property.name === 'restrictions' && ctrl.category.usageSpecialInstructions">
+                <span ng-if="ctrl.category.usageRestrictions" class="ure__description">
+                    The special instructions will be:
+                </span>
+                <span ng-if="!ctrl.category.usageRestrictions" class="ure__description">
+                    This rights category requires special instructions and the following wording will be applied:
                 </span>
                 <div class="ure__description job-usage-instructions">
                     {{ctrl.category.usageSpecialInstructions}}
