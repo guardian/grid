@@ -90,7 +90,7 @@ module.controller('grImageMetadataCtrl', [
           return evt;
         }
 
-        switch(evt.key) {
+        switch (evt.key) {
           case 'Escape':
             return cancelEditForm(evt);
           case 'Enter':
