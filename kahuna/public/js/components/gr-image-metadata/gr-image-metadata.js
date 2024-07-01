@@ -28,6 +28,7 @@ module.controller('grImageMetadataCtrl', [
   '$rootScope',
   '$scope',
   '$window',
+  '$document',
   'editsService',
   'mediaApi',
   'editsApi',
@@ -41,6 +42,7 @@ module.controller('grImageMetadataCtrl', [
   function ($rootScope,
     $scope,
     $window,
+    $document,
     editsService,
     mediaApi,
     editsApi,
@@ -78,6 +80,91 @@ module.controller('grImageMetadataCtrl', [
         }
 
       });
+
+      $document.on('keydown', keydownListener);
+
+      function keydownListener(evt) {
+        if (evt.isDefaultPrevented()
+            || evt.target.type !== 'textarea'
+            || !evt.target.form) {
+          return evt;
+        }
+
+        switch(evt.key) {
+          case 'Escape':
+            return cancelEditForm(evt);
+          case 'Enter':
+            if (evt.ctrlKey || evt.metaKey) {
+              return submitEditForm(evt);
+            } else {
+              return evt;
+            }
+          default:
+            return evt;
+        }
+      };
+
+      function cancelEditForm(evt) {
+        const form = evt.target.form;
+        const cancelableForms = ["specialInstructionsEditForm", "descriptionEditForm"];
+        if (!cancelableForms.includes(form.name)) {
+          return evt;
+        }
+        const cancelBtns = Array.from(form.elements).filter(function(element) {
+          return element.classList.contains('button-cancel');
+        });
+        if (cancelBtns.length > 0) {
+          cancelBtns[0].click();
+        }
+        return;
+      };
+
+      function submitEditForm(evt) {
+        const form = evt.target.form;
+        const submittableForms = ["specialInstructionsEditForm", "descriptionEditForm"];
+        if (!submittableForms.includes(form.name)) {
+          return evt;
+        }
+        const saveBtns = Array.from(form.elements).filter(function(element) {
+          return element.classList.contains('button-save');
+        });
+        if (saveBtns.length > 0) {
+          saveBtns[0].click();
+        }
+        return;
+      };
+
+      ctrl.checkSpecialInstructionsLength = function() {
+        if (ctrl.hasMultipleSpecialInstructions() || ctrl.metadata.specialInstructions.length == 0) {
+          return;
+        }
+        updateTextareaCursor("specialInstructionsEditForm");
+      };
+
+      ctrl.checkDescriptionLength = function() {
+        if (ctrl.hasMultipleValues(ctrl.rawMetadata.description) || ctrl.metadata.description.length == 0) {
+          return;
+        }
+        updateTextareaCursor("descriptionEditForm");
+      };
+
+      function updateTextareaCursor(formName) {
+        try {
+          const form = Array.from($document[0].forms).filter(f => f.name == formName)[0];
+          const txtAreas = Array.from(form.elements).filter(function(element) {
+            return element.classList.contains('editable-input');
+          });
+          if (txtAreas.length > 0) {
+            setTimeout(function(t){
+              t.setSelectionRange(t.value.length, t.value.length);
+            }, 20, txtAreas[0]);
+          }
+        } catch {
+          console.log("ERROR setting textarea cursor");
+        } finally {
+          $scope.$digest();
+        }
+      };
 
       const freeUpdateListener = $rootScope.$on('images-updated',
         (e, updatedImages) => updateHandler(updatedImages));
@@ -474,6 +561,7 @@ module.controller('grImageMetadataCtrl', [
 
       $scope.$on('$destroy', function () {
         freeUpdateListener();
+        $document.off('keydown', keydownListener);
       });
 
       ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {

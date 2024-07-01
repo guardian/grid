@@ -140,7 +140,7 @@
                     <button data-cy="it-edit-description-button"
                             class="image-info__edit"
                             ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                            ng-click="descriptionEditForm.$show()"
+                            ng-click="descriptionEditForm.$show(); ctrl.checkDescriptionLength();"
                             ng-hide="descriptionEditForm.$visible">✎</button>
                     <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
                         <div ng-hide="descriptionEditForm.$visible" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}">
@@ -220,10 +220,9 @@
             <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
                 <button class="image-info__edit"
                         ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                        ng-click="specialInstructionsEditForm.$show()"
+                        ng-click="specialInstructionsEditForm.$show(); ctrl.checkSpecialInstructionsLength();"
                         ng-hide="specialInstructionsEditForm.$visible">✎</button>
-                <form editable-form name="specialInstructionsEditForm"
-                      onaftersave="ctrl.updateSpecialInstructionsField()">
+                <form editable-form name="specialInstructionsEditForm" onaftersave="ctrl.updateSpecialInstructionsField()">
                     <div ng-hide="specialInstructionsEditForm.$visible"
                          ng-class="{'image-info--multiple': ctrl.hasMultipleSpecialInstructions()}">
 
