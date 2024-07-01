@@ -120,6 +120,10 @@ module.controller('grImageMetadataCtrl', [
         ctrl.updateMetadataField('description', ctrl.metadata.description);
       };
 
+      ctrl.updateSpecialInstructionsField = function () {
+        ctrl.updateMetadataField('specialInstructions', ctrl.metadata.specialInstructions);
+      };
+
       ctrl.updateLocationField = function (data, value) {
         Object.keys(value).forEach(key => {
           if (value[key] === undefined) {

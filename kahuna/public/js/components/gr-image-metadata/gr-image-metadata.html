@@ -223,7 +223,7 @@
                         ng-click="specialInstructionsEditForm.$show()"
                         ng-hide="specialInstructionsEditForm.$visible">✎</button>
                 <form editable-form name="specialInstructionsEditForm"
-                      onaftersave="ctrl.updateMetadataField('specialInstructions', $data)">
+                      onaftersave="ctrl.updateSpecialInstructionsField()">
                     <div ng-hide="specialInstructionsEditForm.$visible"
                          ng-class="{'image-info--multiple': ctrl.hasMultipleSpecialInstructions()}">
 
@@ -268,7 +268,7 @@
                     <div
                         class="metadata-line__info"
                         editable-textarea="ctrl.metadata.specialInstructions"
-                        ng-hide="descriptionEditForm.$visible"
+                        ng-hide="specialInstructionsEditForm.$visible"
                         e:msd-elastic
                         e:ng-class="{'image-info__editor--error': $error,
                                      'image-info__editor--saving': specialInstructionsEditForm.$waiting,
