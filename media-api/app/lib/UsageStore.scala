@@ -114,9 +114,15 @@ object UsageStore extends GridLogging {
             throw new IllegalArgumentException("CSV body error. Expected 2 columns")
         }
 
-      case other =>
-        logger.error(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
-        throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
+      case Some(other) =>
+        val message = s"Unexpected CSV headers [${other.mkString(",")}]. Expected [Cpro Name, Id]"
+        logger.error(message)
+        throw new IllegalArgumentException(message)
+
+      case None =>
+        val message = "CSV has no lines"
+        logger.error(message)
+        throw new IllegalArgumentException(message)
     }
   }
 }
