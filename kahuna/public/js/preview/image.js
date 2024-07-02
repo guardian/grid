@@ -3,7 +3,7 @@ import Rx from 'rx';
 
 import '../util/rx';
 import '../util/storage';
-
+import {restrictionsText} from '../util/rights-categories';
 
 import template from './image.html';
 import templateLarge from './image-large.html';
@@ -91,7 +91,7 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.image.isPotentiallyGraphic = graphicImageBlurService.isPotentiallyGraphic(ctrl.image);
 
-      ctrl.flagState = ctrl.states.costState;
+      ctrl.flagState = (ctrl.states.hasRestrictions) ? "conditional" : ctrl.states.costState;
 
       const hasPrintUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
@@ -118,7 +118,7 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
       ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
-      ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
+      ctrl.showWarningOverlay = () => ctrl.flagState === 'conditional' && ctrl.hasActiveAllowLease === undefined;
       ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
 
       ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
@@ -136,6 +136,11 @@ image.controller('uiPreviewImageCtrl', [
       };
 
       ctrl.searchWithModifiers = searchWithModifiers;
+
+      ctrl.restrictionsText = () => {
+        return restrictionsText(this.image);
+      };
+
     };
 }]);
 

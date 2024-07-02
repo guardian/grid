@@ -53,7 +53,7 @@
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
-                 ng-switch="ctrl.image.data.cost">
+                 ng-switch="ctrl.image.data.usageRights.usageRestrictions ? 'conditional' : ctrl.image.data.cost">
                 <span class="result-editor__status status status--invalid"
                       ng-switch-when="pay">Pay to use</span>
 
@@ -136,7 +136,7 @@
     <div class="result-editor__editor">
 
         <section aria-label="Image usage rights">
-            <h1>Image Rights</h1>
+            <h1 class="results-editor__top-heading">Image Rights</h1>
             <div class="result-editor__field-container image-info__wrap">
                 <span class="result-editor__field-label flex-no-shrink text-small">
                     Rights &amp; restrictions
@@ -190,7 +190,7 @@
 
         <section aria-label="Image metadata">
             <span class="edit_metadata__warning" ng-if="!ctrl.userCanEdit">WARNING: This image is already in {{ctrl.systemName}}. Since you're not the original uploader, you are not allowed to edit its metadata.</span>
-            <h1 ng-class="{'section__disabled': !ctrl.userCanEdit}">Image Metadata</h1>
+            <h1 ng-class="{'section__disabled': !ctrl.userCanEdit}" class="results-editor__heading">Image Metadata</h1>
             <ui-required-metadata-editor
                 class="result-editor__metadata-editor"
                 resource="ctrl.image.data.userMetadata.data.metadata"
@@ -202,7 +202,7 @@
         </section>
 
         <section aria-label="Organisation and grouping">
-            <h1>Organisation and Grouping</h1>
+            <h1 class="results-editor__heading">Organisation and Grouping</h1>
             <div class="result-editor__field-container flex-container flex-center">
                 <span class="result-editor__field-label  flex-no-shrink text-small">
                     Collections
@@ -318,7 +318,7 @@
         </section>
 
         <section aria-label="File information">
-            <h1>File information</h1>
+            <h1 class="results-editor__heading">File information</h1>
             <div class="result-editor__field-container" ng-if=":: ctrl.image.data.uploadInfo.filename">
                 <div class="result-editor__field-label text-small">File name</div>
                 <div class="result-editor__field-value">{{:: ctrl.image.data.uploadInfo.filename}}</div>

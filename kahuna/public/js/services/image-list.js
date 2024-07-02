@@ -31,7 +31,7 @@ imageList.factory("imageList", [
     }
 
     function getCostState(images) {
-        return images.map(img => imageService(img).states.costState);
+        return images.map(img => imageService(img).states.hasRestrictions ? "conditional" : imageService(img).states.costState);
     }
 
     function getLabels(images) {

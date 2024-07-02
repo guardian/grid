@@ -23,11 +23,13 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
 
     function getStates(image) {
       const hasRights = !(Object.keys(image.data.usageRights).length === 0);
+      const hasRestrictions = hasRights && Object.keys(image.data.usageRights).includes('usageRestrictions');
       const cost = image.data.cost;
         return {
             cost,
             hasCrops: image.data.exports && image.data.exports.length > 0,
             hasRights,
+            hasRestrictions,
             costState: hasRights ? cost : "no_rights",
             isValid: image.data.valid,
             canDelete: imageLogic.canBeDeleted(image),

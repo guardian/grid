@@ -18,4 +18,11 @@ class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
+
+  val customSpecialInstructions: Map[String, String] =
+    configuration.getOptional[Map[String, String]]("usageInstructions").getOrElse(Map.empty)
+
+  val customUsageRestrictions: Map[String, String] =
+    configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
+
 }

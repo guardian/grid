@@ -81,10 +81,10 @@ object UsageRightsProperty {
       requiredStringField("supplier", "Supplier", Some(sortList(p.freeSuppliers))),
       UsageRightsProperty(
         "suppliersCollection", "Collection", "string", required = false,
-        examples = Some("AFP, FilmMagic, WireImage"))
+        examples = Some("News"))
     )
 
-    case CommissionedAgency => List(requiredStringField("supplier", "Supplier", examples = Some("Demotix")))
+    case CommissionedAgency => List(requiredStringField("supplier", "Supplier", examples = Some("Corbis")))
 
     case StaffPhotographer => List(
       publicationField(required = true, optionsFromPublicationList(p.staffPhotographers)),
