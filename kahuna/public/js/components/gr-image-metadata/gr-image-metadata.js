@@ -81,21 +81,22 @@ module.controller('grImageMetadataCtrl', [
 
       });
 
-      $document.on('keydown', keydownListener);
+      $document.on('keydown', textareaKeydownListener);
 
-      function keydownListener(evt) {
+      function textareaKeydownListener(evt) {
         if (evt.isDefaultPrevented()
             || evt.target.type !== 'textarea'
             || !evt.target.form) {
           return evt;
         }
 
+        const effectiveForms = ["specialInstructionsEditForm", "descriptionEditForm"];
         switch (evt.key) {
           case 'Escape':
-            return cancelEditForm(evt);
+            return formButtonClick(evt, 'button-cancel', effectiveForms);
           case 'Enter':
             if (evt.ctrlKey || evt.metaKey) {
-              return submitEditForm(evt);
+              return formButtonClick(evt, 'button-save', effectiveForms);
             } else {
               return evt;
             }
@@ -104,32 +105,16 @@ module.controller('grImageMetadataCtrl', [
         }
       };
 
-      function cancelEditForm(evt) {
+      function formButtonClick(evt, buttonClass, forms) {
         const form = evt.target.form;
-        const cancelableForms = ["specialInstructionsEditForm", "descriptionEditForm"];
-        if (!cancelableForms.includes(form.name)) {
+        if (!forms.includes(form.name)) {
           return evt;
         }
-        const cancelBtns = Array.from(form.elements).filter(function(element) {
-          return element.classList.contains('button-cancel');
+        const buttons = Array.from(form.elements).filter(function(element) {
+          return element.classList.contains(buttonClass);
         });
-        if (cancelBtns.length > 0) {
-          cancelBtns[0].click();
-        }
-        return;
-      };
-
-      function submitEditForm(evt) {
-        const form = evt.target.form;
-        const submittableForms = ["specialInstructionsEditForm", "descriptionEditForm"];
-        if (!submittableForms.includes(form.name)) {
-          return evt;
-        }
-        const saveBtns = Array.from(form.elements).filter(function(element) {
-          return element.classList.contains('button-save');
-        });
-        if (saveBtns.length > 0) {
-          saveBtns[0].click();
+        if (buttons.length > 0) {
+          buttons[0].click();
         }
         return;
       };
