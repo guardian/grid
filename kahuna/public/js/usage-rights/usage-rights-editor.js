@@ -125,7 +125,7 @@ usageRightsEditor.controller(
           if (property.required) {
               return options;
           } else {
-              return [{key: 'None', value: null}].concat(options);
+              return [{key: 'Other', value: null}].concat(options);
           }
       };
       ctrl.getOptionsMapFor = property => {

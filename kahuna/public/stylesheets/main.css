@@ -1900,6 +1900,15 @@ FIXME: what to do with touch devices
     font-size: 1.4rem;
 }
 
+.results-editor__top-heading {
+  margin-bottom: 15px;
+}
+
+.results-editor__heading {
+  margin-bottom: 15px;
+  margin-top: 15px;
+}
+
 .result-editor__info-item--png-warning {
     position: absolute;
     top: 0px;

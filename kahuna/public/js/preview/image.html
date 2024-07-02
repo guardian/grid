@@ -172,7 +172,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
             <div ng-switch-when="conditional"
                  class="cost bottom-bar__action bottom-bar__action--cost preview__cost preview__bottom-icons-align-right"
                  ng-class="{'cost--conditional': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
-                 title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Restrictions: {{ctrl.image.data.usageRights.restrictions}}">
+                 title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Restrictions: {{ctrl.restrictionsText()}}">
                  <!-- As `conditional` can only be set with usageRights, let's
                  just assume it's here. We might need to revisit this. -->
                 <gr-icon>flag</gr-icon>
