@@ -88,7 +88,10 @@ object UsageStore extends GridLogging {
   }
 
   def csvParser(list: List[String]): List[SupplierUsageSummary] = {
-    def stripQuotes(s: String): String = s.stripSuffix("\"").stripPrefix("\"")
+    def stripQuotes(s: String): String = s
+      .stripSuffix("\"")
+      .stripPrefix("\"")
+      .replaceAll("\\P{ASCII}", "") // strip all non-ascii chars from the CSV
 
     val lines = list
       .map(_.split(","))
