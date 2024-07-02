@@ -546,7 +546,7 @@ module.controller('grImageMetadataCtrl', [
 
       $scope.$on('$destroy', function () {
         freeUpdateListener();
-        $document.off('keydown', keydownListener);
+        $document.off('keydown', textareaKeydownListener);
       });
 
       ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {
