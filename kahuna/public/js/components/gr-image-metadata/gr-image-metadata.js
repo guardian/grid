@@ -119,30 +119,37 @@ module.controller('grImageMetadataCtrl', [
         return;
       };
 
-      ctrl.checkSpecialInstructionsLength = function() {
-        if (ctrl.hasMultipleSpecialInstructions() || ctrl.metadata.specialInstructions.length == 0) {
+      ctrl.checkSpecialInstructionsLength = async function() {
+        if (ctrl.hasMultipleSpecialInstructions() || !ctrl.metadata.specialInstructions) {
           return;
         }
-        updateTextareaCursor("specialInstructionsEditForm");
+        await updateTextareaCursor("specialInstructionsEditForm", ctrl.metadata.specialInstructions);
       };
 
-      ctrl.checkDescriptionLength = function() {
-        if (ctrl.hasMultipleValues(ctrl.rawMetadata.description) || ctrl.metadata.description.length == 0) {
+      ctrl.checkDescriptionLength = async function() {
+        if (ctrl.hasMultipleValues(ctrl.rawMetadata.description) || !ctrl.metadata.description) {
           return;
         }
-        updateTextareaCursor("descriptionEditForm");
+        await updateTextareaCursor("descriptionEditForm", ctrl.metadata.description);
       };
 
-      function updateTextareaCursor(formName) {
+      async function updateTextareaCursor(formName, formText) {
         try {
+          const txtLen = formText.length;
           const form = Array.from($document[0].forms).filter(f => f.name == formName)[0];
           const txtAreas = Array.from(form.elements).filter(function(element) {
             return element.classList.contains('editable-input');
           });
           if (txtAreas.length > 0) {
-            setTimeout(function(t){
-              t.setSelectionRange(t.value.length, t.value.length);
-            }, 20, txtAreas[0]);
+            const t = txtAreas[0];
+            const elapseLimit = 500; /* how many milliseconds we'll wait for content to load before aborting */
+            const startTime = Date.now();
+            let elapsedTime = 0;
+            do {
+              await delay(20); /* pause for 20ms to let content load into text area */
+              elapsedTime = Date.now() - startTime;
+            } while (t.value.length < txtLen && elapsedTime < elapseLimit);
+            t.setSelectionRange(t.value.length, t.value.length);
           }
         } catch {
           console.log("ERROR setting textarea cursor");
@@ -150,6 +157,10 @@ module.controller('grImageMetadataCtrl', [
           $scope.$digest();
         }
       };
+
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
 
       const freeUpdateListener = $rootScope.$on('images-updated',
         (e, updatedImages) => updateHandler(updatedImages));
