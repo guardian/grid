@@ -1,0 +1,77 @@
+Return-Path: <kevin.li@theguardian.com>
+Received: from mail-lf0-f100.google.com (mail-lf0-f100.google.com [209.85.215.100])
+ by inbound-smtp.eu-west-1.amazonaws.com with SMTP id umhkbu40n3jdui68r997gjse23opm9orhn65oog1
+ for usage-report-recipient@mail.media.gutools.co.uk;
+ Fri, 29 Jul 2016 00:04:34 +0000 (UTC)
+X-SES-Spam-Verdict: PASS
+X-SES-Virus-Verdict: PASS
+Received-SPF: pass (spfCheck: domain of theguardian.com designates 209.85.215.100 as permitted sender) client-ip=209.85.215.100; envelope-from=kevin.li@theguardian.com; helo=mail-lf0-f100.google.com;
+Authentication-Results: amazonses.com;
+ spf=pass (spfCheck: domain of theguardian.com designates 209.85.215.100 as permitted sender) client-ip=209.85.215.100; envelope-from=kevin.li@theguardian.com; helo=mail-lf0-f100.google.com;
+ dkim=pass header.i=@theguardian-com.20150623.gappssmtp.com;
+Received: by mail-lf0-f100.google.com with SMTP id p41so4653035lfi.3
+        for <usage-report-recipient@mail.media.gutools.co.uk>; Thu, 28 Jul 2016 17:04:34 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=theguardian-com.20150623.gappssmtp.com; s=20150623;
+        h=message-id:date:from:to:cc:subject:mime-version;
+        bh=ZmfJk7DjFJ0Gbc7Grm++K4BCcNmeW1f78uQBrYDCDmM=;
+        b=E8ZORiexJOkag0bFjaEB8lbuSxgAx3mDHJwv877q+8FBW2SXvs5s3Se74JnSIbkvVf
+         49y15Jen2hWtIM6vrH6uRAVGJ9w1LtJMpbhBmewlgiQBLRf7roPEHMxvSZG9+OvbosHB
+         moBNSjOPdH2BnFdg9OuboIgnaHHVlXHr+w8ii9kJBST9Gj/MnlgThSKuda5lmDuUkCBG
+         ygWgLpQMES611LOeprop/BTKf7u/NfcB1iWACmsm8oArfc3oNE8Uo/Yn/z+MuFZLj9Ht
+         MBy4Vll6wo+1xHdedDHUhlnW69kawYl/SPODWurz2Z+yN43VE1gKMEK2o7x5bGeJPSTL
+         4Kvw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20130820;
+        h=x-gm-message-state:message-id:date:from:to:cc:subject:mime-version;
+        bh=ZmfJk7DjFJ0Gbc7Grm++K4BCcNmeW1f78uQBrYDCDmM=;
+        b=LP4cfNZKIjLbFhPJHd7dwmBdRUpnGMSUiGoMj9j8rUQrg7YoktdA+Sg2H2JogU8Fah
+         pDEGIz8d7jlVSKXzUWJfDRA2Q/eEhQ6aXC15glcc/lyl2k8QDYHetoo0H6lv6cwsKXVy
+         g9epElzrBBgs7ToiK+csMMKD34SLCx3AQNzUfX9Xbc0XqCQJ0+FxHSBjCRZyRgpivFyd
+         GollvwC8q/JfSdmalXwTmkKVLPFDyLsCa/t4fcekjQcNvup9UoKsrxLVVDPgorjUm4G5
+         ObltDYl1OGmmUKYSh0qEjEi67OHVWMr40jGJGzH0mrZS3Q4WrBTDVW2ynRgeHn7JU6vN
+         HK1g==
+X-Gm-Message-State: AEkoousI2jCAE4CdVk5Bhkllp3VmJ8PwSSXq+DNVOxF9bOPRCxpGKoOyQslyYTDLHX5tcRtgtPxJSlaGtfm6oftZx04J+aWE6Q==
+X-Received: by 10.194.118.65 with SMTP id kk1mr35057864wjb.19.1469750674042;
+        Thu, 28 Jul 2016 17:04:34 -0700 (PDT)
+Return-Path: <kevin.li@theguardian.com>
+Received: from theguardian.com ([77.91.253.133])
+        by smtp-relay.gmail.com with ESMTPS id e2sm1395212wjc.3.2016.07.28.17.04.33
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 28 Jul 2016 17:04:34 -0700 (PDT)
+X-Relaying-Domain: theguardian.com
+Received: from dc2-intmta-01.dc2.gnm.int (dc2-intmta-01.dc2.gnm.int [10.236.22.19])
+	by dc2-extmta-02.localdomain (Postfix) with ESMTP id B6D51130;
+	Fri, 29 Jul 2016 01:04:33 +0100 (BST)
+Received: from GNL (unknown [10.235.20.126])
+	by dc2-intmta-01.dc2.gnm.int (Postfix) with ESMTP id A4F8012A;
+	Fri, 29 Jul 2016 01:04:33 +0100 (BST)
+Message-ID: <8776.0.523065841151@dc1-biprod-01.gnm.int>
+Date: 29 Jul 2016 01:04:01 +0100
+From: kevin.li@theguardian.com
+To: usage-report-recipient@mail.media.gutools.co.uk
+Cc: kevin.li@theguardian.com
+Subject: Usage by Supplier daily
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="----_=_next_enterprise_message"
+
+This is a multi-part message in MIME format.
+------_=_next_enterprise_message
+Content-Type: text/plain;
+              charset="UTF-8"
+
+attached Usage by Supplier daily for 2016-07-29-01-00-55
+
+------_=_next_enterprise_message
+Content-Type: text/csv; charset="UTF-8"; name="Usage by Supplier daily.csv"
+Content-Disposition: attachment;
+	filename="Usage by Supplier daily.csv"
+Content-Transfer-Encoding: base64
+Content-ID: <f_ly2u1oy80>
+X-Attachment-Id: f_ly2u1oy80
+
+77u/Q3BybyBOYW1lLElkDQpBbGFteSBJbWFnZXMgTHRkLDEwNTQNCkF1c3RyYWxpYW4gQXNzb2Np
+YXRlZCBQcmVzcyBMaW1pdGVkLDc1Mw0KR2V0dHkgSW1hZ2VzIEludGVybmF0aW9uYWwsNjgwMA0K
+UmV4IEZlYXR1cmVzIEx0ZCwxMzI1DQo=
+------_=_next_enterprise_message--
