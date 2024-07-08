@@ -20,7 +20,7 @@ services:
     ports:
       - "9090:9000"
   localstack:
-    image: localstack/localstack:0.12.3
+    image: localstack/localstack:0.12.20
     platform: 'linux/x86_64'
     ports:
       - "4566:4566" # localstack's service proxy endpoint
