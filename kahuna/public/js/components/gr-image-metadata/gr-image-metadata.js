@@ -28,6 +28,7 @@ module.controller('grImageMetadataCtrl', [
   '$rootScope',
   '$scope',
   '$window',
+  '$document',
   'editsService',
   'mediaApi',
   'editsApi',
@@ -41,6 +42,7 @@ module.controller('grImageMetadataCtrl', [
   function ($rootScope,
     $scope,
     $window,
+    $document,
     editsService,
     mediaApi,
     editsApi,
@@ -79,11 +81,98 @@ module.controller('grImageMetadataCtrl', [
 
       });
 
+      $document.on('keydown', textareaKeydownListener);
+
+      function textareaKeydownListener(evt) {
+        if (evt.isDefaultPrevented()
+            || evt.target.type !== 'textarea'
+            || !evt.target.form) {
+          return evt;
+        }
+
+        const effectiveForms = ["specialInstructionsEditForm", "descriptionEditForm"];
+        switch (evt.key) {
+          case 'Escape':
+            return formButtonClick(evt, 'button-cancel', effectiveForms);
+          case 'Enter':
+            if (evt.ctrlKey || evt.metaKey) {
+              return formButtonClick(evt, 'button-save', effectiveForms);
+            } else {
+              return evt;
+            }
+          default:
+            return evt;
+        }
+      };
+
+      function formButtonClick(evt, buttonClass, forms) {
+        const form = evt.target.form;
+        if (!forms.includes(form.name)) {
+          return evt;
+        }
+        const buttons = Array.from(form.elements).filter(function(element) {
+          return element.classList.contains(buttonClass);
+        });
+        if (buttons.length > 0) {
+          buttons[0].click();
+        }
+        return;
+      };
+
+      ctrl.checkSpecialInstructionsLength = async function() {
+        if (ctrl.hasMultipleSpecialInstructions() || !ctrl.metadata.specialInstructions) {
+          return;
+        }
+        await updateTextareaCursor("specialInstructionsEditForm", ctrl.metadata.specialInstructions);
+      };
+
+      ctrl.checkDescriptionLength = async function() {
+        if (ctrl.hasMultipleValues(ctrl.rawMetadata.description) || !ctrl.metadata.description) {
+          return;
+        }
+        await updateTextareaCursor("descriptionEditForm", ctrl.metadata.description);
+      };
+
+      async function updateTextareaCursor(formName, formText) {
+        try {
+          const txtLen = formText.length;
+          const form = Array.from($document[0].forms).filter(f => f.name == formName)[0];
+          const txtAreas = Array.from(form.elements).filter(function(element) {
+            return element.classList.contains('editable-input');
+          });
+          if (txtAreas.length > 0) {
+            const t = txtAreas[0];
+            const elapseLimit = 500; /* how many milliseconds we'll wait for content to load before aborting */
+            const startTime = Date.now();
+            let elapsedTime = 0;
+            do {
+              await delay(20); /* pause for 20ms to let content load into text area */
+              elapsedTime = Date.now() - startTime;
+            } while (t.value.length < txtLen && elapsedTime < elapseLimit);
+            t.setSelectionRange(t.value.length, t.value.length);
+          }
+        } catch {
+          console.log("ERROR setting textarea cursor");
+        } finally {
+          $scope.$digest();
+        }
+      };
+
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
       const freeUpdateListener = $rootScope.$on('images-updated',
         (e, updatedImages) => updateHandler(updatedImages));
 
       const updateHandler = (updatedImages) => {
         ctrl.selectedImages = new List(updatedImages);
+      };
+
+      ctrl.hasMultipleSpecialInstructions = function () {
+        const val = ctrl.rawMetadata.specialInstructions;
+        const val2 = ctrl.rawMetadata.usageInstructions;
+        return ((Array.isArray(val) && val.length > 1) || (Array.isArray(val2) && val2.length > 1));
       };
 
       ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
@@ -112,6 +201,10 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.updateDescriptionField = function () {
         ctrl.updateMetadataField('description', ctrl.metadata.description);
+      };
+
+      ctrl.updateSpecialInstructionsField = function () {
+        ctrl.updateMetadataField('specialInstructions', ctrl.metadata.specialInstructions);
       };
 
       ctrl.updateLocationField = function (data, value) {
@@ -234,7 +327,7 @@ module.controller('grImageMetadataCtrl', [
         'title', 'description', 'copyright', 'keywords', 'byline',
         'credit', 'subLocation', 'city', 'state', 'country',
         'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
-        'domainMetadata'
+        'domainMetadata', 'usageInstructions'
       ];
 
       function updateSingleImage() {
@@ -464,6 +557,7 @@ module.controller('grImageMetadataCtrl', [
 
       $scope.$on('$destroy', function () {
         freeUpdateListener();
+        $document.off('keydown', textareaKeydownListener);
       });
 
       ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection, leasesWithConfig) => {
