@@ -8,19 +8,30 @@ import './gr-image-cost-message.css';
 export const module = angular.module('gr.imageCostMessage', [imageService.name]);
 
 module.controller('grImageCostMessage', [
-  'imageService',
+  '$rootScope', 'imageService',
 
-  function (imageService) {
+  function ($rootScope, imageService) {
     let ctrl = this;
 
     ctrl.$onInit = () => {
-      const states = imageService(ctrl.image).states;
-      ctrl.messageState = (states.hasRestrictions) ? "conditional" : states.costState;
-      ctrl.restrictionsText = () => {
-        return restrictionsText(this.image);
+      function updateState() {
+        ctrl.image.get().then(image => {
+              const states = imageService(image).states;
+              ctrl.messageState = (states.hasRestrictions) ? "conditional" : states.costState;
+              ctrl.restrictionsText = () => {
+                return restrictionsText(image);
+              };
+        });
       };
 
+      $rootScope.$on('images-updated', () => {
+          updateState();
+      });
+
+      updateState();
+
     };
+
   }
 ]);
 
