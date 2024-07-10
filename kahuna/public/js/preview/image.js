@@ -64,6 +64,8 @@ image.controller('uiPreviewImageCtrl', [
           ctrl.imageAsArray = [newImage];
       });
 
+      ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
       ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
@@ -99,6 +101,9 @@ image.controller('uiPreviewImageCtrl', [
       const hasDigitalUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
 
+      const hasSyndicationUsages$ =
+          imageUsagesService.getUsages(ctrl.image).hasSyndicationUsages$;
+
       const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
 
       $scope.$on('$destroy', function() {
@@ -108,6 +113,7 @@ image.controller('uiPreviewImageCtrl', [
       inject$($scope, recentUsages$, ctrl, 'recentUsages');
       inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
       inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
+      inject$($scope, hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
 
       ctrl.getCollectionStyle = collection => {
           return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
