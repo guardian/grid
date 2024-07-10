@@ -35,6 +35,10 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
           updateState();
       });
 
+      $rootScope.$on('images-updated', () => {
+          updateState();
+      });
+
       updateState();
     };
 }]);
