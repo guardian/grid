@@ -88,7 +88,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "org.im4java" % "im4java" % "1.4.0",
-    "com.gu" % "kinesis-logback-appender" % "1.4.2",
+    "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -105,7 +105,8 @@ lazy val commonLib = project("common-lib").settings(
     "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0"
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0",
+  dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
 
 lazy val restLib = project("rest-lib").settings(
