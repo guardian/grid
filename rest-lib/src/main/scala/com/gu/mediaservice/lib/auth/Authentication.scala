@@ -93,23 +93,7 @@ class Authentication(config: CommonConfig,
             logger.info(s"Checking that $principal is allowed to access instance $instance")
             // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
 
-            val eventualPrincipalsInstances = {
-              val instancesRequest: WSRequest = wsClient.url(myInstancesEndpoint)
-              val onBehalfOfPrincipal: OnBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
-              val authedInstancesRequest: WSRequest = onBehalfOfPrincipal(instancesRequest)
-              authedInstancesRequest.get().map { r =>
-                r.status match {
-                  case 200 =>
-                    implicit val ir: Reads[Instance] = Json.reads[Instance]
-                    Json.parse(r.body).as[Seq[Instance]]
-                  case _ =>
-                    logger.warn("Got non 200 status for instances call: " + r.status)
-                    Seq.empty
-                }
-              }
-            }
-
-            eventualPrincipalsInstances.flatMap { principalsInstances: Seq[Instance] =>
+            getMyInstances(principal).flatMap { principalsInstances: Seq[Instance] =>
               if (principalsInstances.exists(_.id == instance.id)) {
                 logger.debug("Allowing this request!")
                 block(new AuthenticatedRequest(principal, request))
@@ -142,6 +126,20 @@ class Authentication(config: CommonConfig,
   /** Use this for originating calls to other Grid services (this will sign the request and the receiving service will extract an `InnerServicePrincipal`)
     * IMPORTANT: Do not use this for simply making ongoing calls to other Grid services - instead use `getOnBehalfOfPrincipal` */
   def innerServiceCall(wsRequest: WSRequest): WSRequest = providers.innerServiceProvider.signRequest(wsRequest)
+
+  private def getMyInstances(principal: Principal): Future[Seq[Instance]] = {
+    val onBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
+    onBehalfOfPrincipal(wsClient.url(myInstancesEndpoint)).get().map { r =>
+      r.status match {
+        case 200 =>
+          implicit val ir: Reads[Instance] = Json.reads[Instance]
+          Json.parse(r.body).as[Seq[Instance]]
+        case _ =>
+          logger.warn("Got non 200 status for instances call: " + r.status)
+          Seq.empty
+      }
+    }
+  }
 }
 
 object Authentication {
