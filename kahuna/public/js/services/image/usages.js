@@ -84,6 +84,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
 
       const hasPrintUsages$ = hasPlatformUsages('print');
       const hasDigitalUsages$ = hasPlatformUsages('digital');
+      const hasSyndicationUsages$ = hasPlatformUsages('syndication');
       const count$ = usages$.map((usages) => usages.size);
 
       return {
@@ -91,6 +92,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
         groupedByState$,
         hasPrintUsages$,
         hasDigitalUsages$,
+        hasSyndicationUsages$,
         count$,
         recentUsages$
       };

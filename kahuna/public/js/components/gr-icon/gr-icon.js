@@ -9,6 +9,8 @@ import libraryAddedIcon  from './icons/library-added.svg';
 import libraryLockedIcon from './icons/library-locked.svg';
 import libraryRemoveIcon from './icons/library-remove.svg';
 
+import sentToPhotoSalesIcon from './icons/sent-to-photosales.svg';
+
 export var icon = angular.module('grIcon', []);
 
 icon.directive('grIcon', [function() {
@@ -55,3 +57,5 @@ defineIcon('grLibraryAddIcon',    libraryAddIcon);
 defineIcon('grLibraryAddedIcon',  libraryAddedIcon);
 defineIcon('grLibraryLockedIcon', libraryLockedIcon);
 defineIcon('grLibraryRemoveIcon', libraryRemoveIcon);
+
+defineIcon('grSentToPhotosalesIcon', sentToPhotoSalesIcon);
