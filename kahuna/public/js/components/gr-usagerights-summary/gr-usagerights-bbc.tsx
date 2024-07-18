@@ -46,6 +46,10 @@ const usableForAllClause = (image: any) : boolean => {
       image.data.cost.toString().toLowerCase() === "conditional")) {
     hasRestrictions = true;
   }
+  if (image.data.usageRights &&
+      image.data.usageRights.usageRestrictions) {
+    hasRestrictions = true;
+  }
   let bbcOwned = false;
   if (image.data.metadata.credit &&
       image.data.metadata.credit.toString().toLowerCase().includes("bbc")) {
