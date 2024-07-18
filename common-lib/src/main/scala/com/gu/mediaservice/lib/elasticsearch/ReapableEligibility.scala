@@ -12,7 +12,7 @@ trait ReapableEligibility extends Provider{
   def shutdown(): Future[Unit] = Future.successful(())
 
 
-  val persistedRootCollections: List[String] // typically from config
+  val maybePersistOnlyTheseCollections: Option[Set[String]] // typically from config
   val persistenceIdentifier: String // typically from config
 
   private def moreThanTwentyDaysOld =
@@ -30,7 +30,7 @@ trait ReapableEligibility extends Provider{
     PersistedQueries.hasLabels,
     PersistedQueries.hasLeases,
     PersistedQueries.existedPreGrid(persistenceIdentifier),
-    PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedRootCollections)
+    PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   )
 
   def query: Query = filters.and(

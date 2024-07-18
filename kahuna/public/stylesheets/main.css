@@ -1015,6 +1015,9 @@ textarea.ng-invalid {
     cursor: pointer;
 }
 
+.search__advanced-toggle-lbl {
+  margin-right: 6px;
+}
 
 @media screen and (max-width: 850px) {
     .search__advanced-toggle {
@@ -1392,7 +1395,7 @@ textarea.ng-invalid {
     width: 100%;
     border-bottom: 1px solid #565656;
     position: fixed;
-    z-index: 30;
+    z-index: 20;
     left: 0;
 }
 
@@ -1895,6 +1898,15 @@ FIXME: what to do with touch devices
     flex: 1;
     margin-left: 1px;
     font-size: 1.4rem;
+}
+
+.results-editor__top-heading {
+  margin-bottom: 15px;
+}
+
+.results-editor__heading {
+  margin-bottom: 15px;
+  margin-top: 15px;
 }
 
 .result-editor__info-item--png-warning {

@@ -3,7 +3,7 @@ import Rx from 'rx';
 
 import '../util/rx';
 import '../util/storage';
-
+import {restrictionsText} from '../util/rights-categories';
 
 import template from './image.html';
 import templateLarge from './image-large.html';
@@ -64,6 +64,8 @@ image.controller('uiPreviewImageCtrl', [
           ctrl.imageAsArray = [newImage];
       });
 
+      ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
       ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
@@ -91,13 +93,16 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.image.isPotentiallyGraphic = graphicImageBlurService.isPotentiallyGraphic(ctrl.image);
 
-      ctrl.flagState = ctrl.states.costState;
+      ctrl.flagState = (ctrl.states.hasRestrictions) ? "conditional" : ctrl.states.costState;
 
       const hasPrintUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasPrintUsages$;
 
       const hasDigitalUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasDigitalUsages$;
+
+      const hasSyndicationUsages$ =
+          imageUsagesService.getUsages(ctrl.image).hasSyndicationUsages$;
 
       const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
 
@@ -108,6 +113,7 @@ image.controller('uiPreviewImageCtrl', [
       inject$($scope, recentUsages$, ctrl, 'recentUsages');
       inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
       inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
+      inject$($scope, hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
 
       ctrl.getCollectionStyle = collection => {
           return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
@@ -118,7 +124,7 @@ image.controller('uiPreviewImageCtrl', [
       ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
       ctrl.showAlertOverlay = () => Object.keys(ctrl.image.data.invalidReasons).length > 0 && Object.keys(ctrl.image.data.invalidReasons).find(key => key !== 'conditional_paid') !== undefined ;
-      ctrl.showWarningOverlay = () => ctrl.image.data.cost === 'conditional' && ctrl.hasActiveAllowLease === undefined;
+      ctrl.showWarningOverlay = () => ctrl.flagState === 'conditional' && ctrl.hasActiveAllowLease === undefined;
       ctrl.showActiveAllowLeaseOverlay = () => !ctrl.showAlertOverlay() && ctrl.hasActiveAllowLease !== undefined;
 
       ctrl.showOverlay = () => $window._clientConfig.enableWarningFlags && ctrl.isSelected && (ctrl.showAlertOverlay() || ctrl.showWarningOverlay() || ctrl.showActiveAllowLeaseOverlay() );
@@ -136,6 +142,11 @@ image.controller('uiPreviewImageCtrl', [
       };
 
       ctrl.searchWithModifiers = searchWithModifiers;
+
+      ctrl.restrictionsText = () => {
+        return restrictionsText(this.image);
+      };
+
     };
 }]);
 

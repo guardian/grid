@@ -63,9 +63,6 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   }
 
 
-  override def hasBasicAccessExplicitly(userEmail: String): Boolean =
+  override def hasBasicAccess(userEmail: String): Boolean =
     permissions.hasPermission(Permissions.GridAccess, userEmail)
-  override def hasAtLeastBasicAccess(userEmail: String): Boolean = permissions.listPermissions(userEmail).exists {
-    case (PermissionDefinition(_, app), isActive) => app == Permissions.app && isActive
-  }
 }

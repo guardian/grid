@@ -4,14 +4,16 @@
   "description": "",
   "main": "S3Watcher.js",
   "dependencies": {
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.63",
+    "@types/jest": "^26.0.14",
     "@types/node": "^12.12.62",
     "@types/node-fetch": "^2.5.7",
     "@typescript-eslint/eslint-plugin": "^4.3.0",
     "@typescript-eslint/parser": "^4.3.0",
+    "@vercel/ncc": "^0.34.0",
     "aws-sdk": "^2.761.0",
     "eslint": "^7.9.0",
     "eslint-config-prettier": "^6.12.0",
@@ -20,8 +22,7 @@
     "prettier": "2.1.2",
     "ts-jest": "^26.4.1",
     "ts-node": "^9.0.0",
-    "typescript": "^4.0.3",
-    "@vercel/ncc": "^0.24.0"
+    "typescript": "^4.0.3"
   },
   "scripts": {
     "local": "npm run build && node-lambda run -H target/index.handler -j ../event.json -x ../context.json",

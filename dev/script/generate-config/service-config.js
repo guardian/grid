@@ -94,6 +94,11 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
+    const permissionsConfig = stripMargin`
+      |usePermissionsFilter=true
+      |permissionsDefault="allPermissions"
+      `;
+
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
@@ -110,6 +115,7 @@ function getKahunaConfig(config){
         |security.imageSources=["https://*.newslabs.co/"]
         |metrics.request.enabled=false
         |usageRightsSummary=true
+        |${permissionsConfig}
         |${pinboardConfig}
         |`;
 }

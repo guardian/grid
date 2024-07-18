@@ -54,6 +54,12 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val customValidityDescription: Map[String, String] =
     configuration.getOptional[Map[String, String]]("warningText.validityDescription").getOrElse(Map.empty)
 
+  val customSpecialInstructions: Map[String, String] =
+    configuration.getOptional[Map[String, String]]("usageInstructions").getOrElse(Map.empty)
+
+  val customUsageRestrictions: Map[String, String] =
+    configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
+
   val restrictDownload: Boolean = boolean("restrictDownload")
 
 }

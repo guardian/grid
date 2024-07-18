@@ -1,38 +1,22 @@
 package lib.elasticsearch
 
-import java.util.UUID
-import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
-import com.whisk.docker.impl.spotify.DockerKitSpotify
-import com.whisk.docker.scalatest.DockerTestKit
-import com.whisk.docker.{DockerContainer, DockerKit}
+import com.gu.mediaservice.testlib.ElasticSearchDockerBase
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.time.{Milliseconds, Seconds, Span}
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Milliseconds, Seconds, Span}
 import play.api.libs.json.JsString
 
-import scala.concurrent.duration._
-import scala.util.Properties
+import java.util.UUID
 
-trait ElasticSearchTestBase extends AnyFunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
 
+trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with Matchers with ScalaFutures with Fixtures with ConditionFixtures {
 
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
-
-  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
-  val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
-
-  def esContainer: Option[DockerContainer]
-
-  final override def dockerContainers: List[DockerContainer] =
-    esContainer.toList ++ super.dockerContainers
-
-  final override val StartContainersTimeout = 1.minute
 
   lazy val images = Seq(
     createImage("getty-image-1", Agency("Getty Images")),

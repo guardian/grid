@@ -26,8 +26,8 @@
                 gr-usage-rights-updated-by-template="ctrl.usageRightsUpdatedByTemplate">
             </gr-usage-rights-editor>
 
-            <dd class="image-info__title" ng-if="! ctrl.showUsageRights">
-                <dd ng-if="! ctrl.usageRightsSummary">
+            <div class="image-info__title" ng-if="!ctrl.showUsageRights">
+                <dd ng-if="!ctrl.usageRightsSummary">
                     {{ctrl.usageCategory || 'None'}}
                 </dd>
                 <dd ng-if="ctrl.usageRightsSummary">
@@ -36,7 +36,7 @@
                         props="{'images':ctrl.selectedImages, 'categoryCallback':ctrl.callbackUsageCategory}">
                     </usage-rights-summary>
                 </dd>
-            </dd>
+            </div>
 
             <button
                 data-cy="it-edit-usage-rights-button"
@@ -140,7 +140,7 @@
                     <button data-cy="it-edit-description-button"
                             class="image-info__edit"
                             ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                            ng-click="descriptionEditForm.$show()"
+                            ng-click="descriptionEditForm.$show(); ctrl.checkDescriptionLength();"
                             ng-hide="descriptionEditForm.$visible">✎</button>
                     <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
                         <div ng-hide="descriptionEditForm.$visible" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}">
@@ -206,55 +206,85 @@
     </dl>
     </div>
 
-    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions" role="region" aria-label="Special instructions">
+    <div data-cy="metadata-specialInstructions" role="region" class="image-info__group" aria-label="Special instructions">
         <dl class="image-info__wrap">
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
+            <span ng-if="ctrl.metadata.usageInstructions">
+                <span class="metadata-line__info">{{ctrl.metadata.usageInstructions}}</span>
+            </span>
             <span ng-if="ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
                 <div class="metadata-line__info">
-                    <dd class="image-info__special-instructions-preview">{{ctrl.metadata.specialInstructions}}</dd>
+                    <dd class="image-info__description-preview">{{ctrl.metadata.specialInstructions}}</dd>
                 </div>
             </span>
             <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
                 <button class="image-info__edit"
                         ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                        ng-click="specialInstructionsEditForm.$show()"
+                        ng-click="specialInstructionsEditForm.$show(); ctrl.checkSpecialInstructionsLength();"
                         ng-hide="specialInstructionsEditForm.$visible">✎</button>
-                <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
-                     editable-textarea="ctrl.metadata.specialInstructions"
-                     ng-hide="specialInstructionsEditForm.$visible"
-                     onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
-                     e:msd-elastic
-                     e:form="specialInstructionsEditForm"
-                     e:ng-class="{'image-info__editor--error': $error,
-                         'image-info__editor--saving': specialInstructionsEditForm.$waiting,
-                         'text-input': true}">
+                <form editable-form name="specialInstructionsEditForm" onaftersave="ctrl.updateSpecialInstructionsField()">
+                    <div ng-hide="specialInstructionsEditForm.$visible"
+                         ng-class="{'image-info--multiple': ctrl.hasMultipleSpecialInstructions()}">
 
-                    <div ng-if="ctrl.userCanEdit">
-                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                            class="image-info__special-instructions"
-                        >Multiple special instructions (click ✎ to edit <strong>all</strong>)
-                        </dd>
+                        <div ng-if="ctrl.userCanEdit">
+                            <dd class="image-info__special-instructions"
+                                ng-if="ctrl.hasMultipleSpecialInstructions()"
+                            >Multiple special instructions (click ✎ to edit <strong>all</strong>)
+                            </dd>
 
-                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                            class="image-info__special-instructions"
-                        >{{ctrl.metadata.specialInstructions}}
-                        </dd>
+                            <dd class="image-info__special-instructions"
+                                ng-class="{'editable-empty': !ctrl.metadata.specialInstructions}"
+                                ng-if="!ctrl.hasMultipleSpecialInstructions() && !ctrl.metadata.usageInstructions"
+                            >{{ctrl.metadata.specialInstructions || "Unknown (click ✎ to add)"}}
+                            </dd>
+
+                            <dd class="image-info__special-instructions"
+                                ng-class="{'editable-empty': !ctrl.metadata.specialInstructions}"
+                                ng-if="!ctrl.hasMultipleSpecialInstructions() && ctrl.metadata.usageInstructions"
+                            >{{ctrl.metadata.specialInstructions || "Click ✎ to add further instructions"}}
+                            </dd>
+                        </div>
+
+                        <div ng-if="!ctrl.userCanEdit">
+                            <dd class="image-info__special-instructions"
+                                ng-if="ctrl.hasMultipleSpecialInstructions()"
+                            >Multiple special instructions
+                            </dd>
+
+                            <dd class="image-info__special-instructions"
+                                ng-class="{'editable-empty': !ctrl.metadata.specialInstructions}"
+                                ng-if="!ctrl.hasMultipleSpecialInstructions() && ctrl.metadata.usageInstructions"
+                            >{{ctrl.metadata.specialInstructions || ""}}
+                            </dd>
+
+                            <dd class="image-info__special-instructions"
+                                ng-class="{'editable-empty': !ctrl.metadata.specialInstructions}"
+                                ng-if="!ctrl.hasMultipleSpecialInstructions() && !ctrl.metadata.usageInstructions"
+                            >{{ctrl.metadata.specialInstructions || "Unknown"}}
+                            </dd>
+                        </div>
                     </div>
-
-                    <div ng-if="!ctrl.userCanEdit">
-                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                            class="image-info__special-instructions"
-                        >Multiple special instructions
-                        </dd>
-
-                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                            class="image-info__special-instructions"
-                        >{{ctrl.metadata.specialInstructions}}
-                        </dd>
+                    <div
+                        class="metadata-line__info"
+                        editable-textarea="ctrl.metadata.specialInstructions"
+                        ng-hide="specialInstructionsEditForm.$visible"
+                        e:msd-elastic
+                        e:ng-class="{'image-info__editor--error': $error,
+                                     'image-info__editor--saving': specialInstructionsEditForm.$waiting,
+                                     'text-input': true}"
+                    >
                     </div>
-               </div>
+                    <div ng-if="ctrl.userCanEdit && specialInstructionsEditForm.$visible" class="editable-buttons">
+                        <button class="button-cancel" type="button" ng-click="specialInstructionsEditForm.$cancel()">
+                            <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                        </button>
+                        <button class="button-save" type="submit">
+                            <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                        </button>
+                    </div>
+                </form>
             </span>
-       </dl>
+        </dl>
     </div>
 
     <div class="image-info__group" role="region" aria-label="Image metadata">

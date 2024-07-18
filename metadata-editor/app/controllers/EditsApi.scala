@@ -52,21 +52,25 @@ case class CategoryResponse(
   description: String,
   defaultRestrictions: Option[String],
   caution: Option[String],
-  properties: List[UsageRightsProperty] = List()
+  properties: List[UsageRightsProperty] = List(),
+  usageRestrictions: Option[String],
+  usageSpecialInstructions: Option[String]
 )
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromUsageRights(u: UsageRightsSpec, config: EditsConfig): CategoryResponse =
-    CategoryResponse(
-      value               = u.category,
-      name                = u.name(config),
-      cost                = u.defaultCost.getOrElse(Pay).toString,
-      description         = u.description(config),
+
+  def fromUsageRights(u: UsageRightsSpec, config: EditsConfig) = CategoryResponse (
+      value = u.category,
+      name = u.name(config),
+      cost = u.defaultCost.getOrElse(Pay).toString,
+      description = u.description(config),
       defaultRestrictions = u.defaultRestrictions,
-      caution             = u.caution,
-      properties          = UsageRightsProperty.getPropertiesForSpec(u, config.usageRightsConfig)
-    )
+      caution = u.caution,
+      properties = UsageRightsProperty.getPropertiesForSpec(u, config.usageRightsConfig),
+      usageRestrictions = config.customUsageRestrictions.get(u.category),
+      usageSpecialInstructions = config.customSpecialInstructions.get(u.category)
+  )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 

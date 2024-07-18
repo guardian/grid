@@ -219,7 +219,7 @@ object Agency extends UsageRightsSpec {
   val defaultCost = None
   def name(commonConfig: CommonConfig) = "Agency - subscription"
   def description(commonConfig: CommonConfig) =
-    "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
+    "Agencies such as Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
 
   implicit val formats: Format[Agency] =
     UsageRights.subtypeFormat(Agency.category)(Json.format[Agency])
@@ -318,7 +318,7 @@ object OriginalSource extends UsageRightsSpec {
   val defaultCost = Some(Free)
   def name(commonConfig: CommonConfig) = "Original Source"
   def description(commonConfig: CommonConfig) =
-    "Images provided by members of the public to be shared with Journalist who is out collecting material for stories"
+    "Images provided by members of the public to be shared with a journalist who is out collecting material for stories."
 
   implicit val formats: Format[OriginalSource] =
     UsageRights.subtypeFormat(OriginalSource.category)(Json.format[OriginalSource])
@@ -524,7 +524,7 @@ object Composite extends UsageRightsSpec {
   val defaultCost = Some(Free)
   def name(commonConfig: CommonConfig) = "Composite"
   def description(commonConfig: CommonConfig) =
-    "Any restricted images within the composite must be identified."
+    "A composite is an image made from the combination of a variety of stills. Any images within the composite must be listed within the suppliers field."
 
   override val caution = Some("All images should be free to use, or restrictions applied")
 
@@ -542,7 +542,7 @@ object PublicDomain extends UsageRightsSpec {
   def description(commonConfig: CommonConfig) =
     "Images out of copyright or bequeathed to the public."
 
-  override val caution = Some("ONLY use if out of copyright or bequeathed to public")
+  override val caution = Some("ONLY use if you are certain the image is out of copyright or bequeathed to public")
 
   implicit val formats: Format[PublicDomain] =
     UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])
@@ -554,9 +554,9 @@ final case class ProgramPromotional(restrictions: Option[String] = None) extends
 object ProgramPromotional extends UsageRightsSpec {
   val category = "program-promotional"
   val defaultCost = Some(Pay)
-  def name(commonConfig: CommonConfig) = "Program Promotional"
+  def name(commonConfig: CommonConfig) = "Programme Promotional"
   def description(commonConfig: CommonConfig) =
-    "Images supplied for the Promotion of Public broadcast programs"
+    "Images supplied for the promotion of public broadcast programmes."
 
   implicit val formats: Format[ProgramPromotional] =
     UsageRights.subtypeFormat(ProgramPromotional.category)(Json.format[ProgramPromotional])

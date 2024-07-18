@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.elasticsearch.MappingTest
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 
 import scala.collection.TraversableLike
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageModelTest extends ElasticSearchTestBase {
   implicit val logMarker: LogMarker = MarkerMap()

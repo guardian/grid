@@ -12,8 +12,12 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-permissions-filter/gr-permissions-filter';
+import '../components/gr-my-uploads/gr-my-uploads';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
+import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
+import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
 import {
   manageSortSelection,
   DefaultSortOption,
@@ -28,7 +32,9 @@ export var query = angular.module('kahuna.search.query', [
     syntax.name,
     grStructuredQuery.name,
     'util.storage',
-    'gr.sortControl'
+    'gr.sortControl',
+    'gr.permissionsFilter',
+    'gr.myUploads'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -66,17 +72,27 @@ query.controller('SearchQueryCtrl', [
         // filled in by the watcher below
     };
 
-    function watchUploadedBy(filter) {
+    ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
+    ctrl.filterMyUploads = false;
+
+    function watchUploadedBy(filter, sender) {
       // Users should be able to follow URLs with uploadedBy set to another user's name, so only
       // overwrite if:
       //   - uploadedBy is unset, or
       //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
       //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
-      const myUploadsCheckbox = filter.uploadedByMe;
-      const shouldOverwriteUploadedBy =
-        !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
-      if (shouldOverwriteUploadedBy) {
-        filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+      if (!ctrl.usePermissionsFilter) {
+        const myUploadsCheckbox = filter.uploadedByMe;
+        const shouldOverwriteUploadedBy =
+          !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
+        if (shouldOverwriteUploadedBy) {
+          filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        }
+      } else {
+        if (typeof sender === "string") {
+          filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
+          ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
+        }
       }
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
@@ -89,12 +105,12 @@ query.controller('SearchQueryCtrl', [
       window.dispatchEvent(customEvent);
     }
 
-    function watchSearchChange(filter) {
+    function watchSearchChange(filter, sender) {
       const showPaid = ctrl.filter.nonFree ? ctrl.filter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
       ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
-      watchUploadedBy(filter);
+      watchUploadedBy(filter, sender);
       raiseQueryChangeEvent(ctrl.filter.query);
 
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
@@ -124,7 +140,7 @@ query.controller('SearchQueryCtrl', [
           ...structuredQuery,
           orgOwnedChip
         ]);
-      } else if (!filter.orgOwned && queryHasOrgOwned) {
+      } else if (!filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
         // If the checkbox is unticked, ensure chip is no longer in the search bar
         structuredQuery.splice(orgOwnedIndexInQuery, 1);
         ctrl.filter.query = renderQuery(structuredQuery);
@@ -136,6 +152,17 @@ query.controller('SearchQueryCtrl', [
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       $state.go('search.results', filter);
     }
+
+    //-my uploads-
+    function selectMyUploads(myUploadsChecked) {
+      ctrl.filterMyUploads = myUploadsChecked;
+      watchSearchChange(ctrl.filter, "selectMyUploads");
+    }
+
+    ctrl.myUploadsProps = {
+      onChange: selectMyUploads
+    };
+    //-end my uploads
 
     //-sort control-
     function updateSortChips (sortSel) {
@@ -152,6 +179,31 @@ query.controller('SearchQueryCtrl', [
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
+
+    //-permissions filter-
+    function updatePermissionsChips (permissionsSel, showChargeable) {
+      ctrl.permissionsProps.selectedOption = permissionsSel;
+      ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
+      ctrl.filter.nonFree = showChargeable;
+      watchSearchChange(ctrl.filter, "updatePermissionsChips");
+    }
+
+    function chargeableChange (showChargeable) {
+      ctrl.filter.nonFree = showChargeable;
+      watchSearchChange(ctrl.filter, "chargeableChange");
+    }
+
+    let pfOpts = PermissionsConf.permissionsOptions();
+    let defOptVal = PermissionsConf.permissionsDefaultOpt();
+    let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
+    ctrl.permissionsProps = { options: pfOpts,
+                              selectedOption: pfDefPerm,
+                              onSelect: updatePermissionsChips,
+                              onChargeable: chargeableChange,
+                              chargeable: ctrl.filter.nonFree ? ctrl.filter.nonFree : ($stateParams.nonFree == "true"),
+                              query: ctrl.filter.query
+                            };
+    //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;
 

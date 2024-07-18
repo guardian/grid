@@ -17,8 +17,6 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
   val persistenceIdentifier = string("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)
 
-  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
-    case Some(collections) => collections.split(',').toList
-    case None => List(s"${staffPhotographerOrganisation} Archive")
-  }
+  // note this will match any part of the collection path, e.g. "bar" will match "bar", "foo/bar", "bar/baz"
+  val maybePersistOnlyTheseCollections: Option[Set[String]] = getOptionalStringSet("persistence.onlyTheseCollections")
 }

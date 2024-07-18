@@ -14,7 +14,7 @@
         </button>
     </span>
 
-    <button class="search__advanced-toggle"
+    <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
             gr-tooltip="Display advanced search information"
@@ -22,7 +22,7 @@
         <gr-icon>info_outline</gr-icon>
     </button>
 
-    <div class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -84,7 +84,7 @@
         </ul>
     </div>
 
-    <div class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <div class="search__modifier-sort">
             <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
         </div>
