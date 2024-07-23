@@ -1,4 +1,7 @@
 // inspired by https://github.com/panva/node-oidc-provider-example/tree/master/03-oidc-views-accounts
+import { Provider } from "oidc-provider";
+import { findAccountFunc } from "./find-account.js";
+const USER_JSON = require("/etc/grid/users.json")
 
 const Provider = require("oidc-provider");
 
@@ -8,42 +11,7 @@ const port = 9014;
 const issuer = `http://localhost:${port}`;
 const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;
 
-async function findAccount(_, incomingEmail) {
-  if (!incomingEmail.endsWith(`@${EMAIL_DOMAIN}`)) {
-    console.log(`rejecting: ${incomingEmail} doesn't end with @${EMAIL_DOMAIN}`);
-    return;
-  }
-
-  const users = require("/etc/grid/users.json").map(u => {
-    return {
-      ...u,
-      email: `${u.id}@${EMAIL_DOMAIN}`
-    }
-  });
-
-  const user = users.find(u => u.email === incomingEmail);
-
-  if (!user) {
-    console.log(`rejecting: user with email ${incomingEmail} not found`);
-    return;
-  }
-
-  return {
-    accountId: user.email,
-    async claims() {
-      const { id, email, firstName, lastName } = user;
-
-      return {
-        sub: id,
-        email: email,
-        email_verified: true,
-        given_name: firstName,
-        family_name: lastName,
-        name: [firstName, lastName].join(" ")
-      };
-    }
-  }
-}
+const findAccount = findAccountFunc(EMAIL_DOMAIN, USER_JSON);
 
 const oidc = new Provider(issuer, {
   clients: [{
