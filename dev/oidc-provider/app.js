@@ -1,11 +1,15 @@
 // inspired by https://github.com/panva/node-oidc-provider-example/tree/master/03-oidc-views-accounts
-import { Provider } from "oidc-provider";
 import { findAccountFunc } from "./find-account.js";
-const USER_JSON = require("/etc/grid/users.json")
+import { makeProvider } from "./make-provider.js";
 
-const Provider = require("oidc-provider");
+// TO DO - copied the users file to project folder for now - need to do that as part of the setup script?
+// TO DO - is this doomed to fail because of the change in node version??
+import USER_JSON from "/etc/grid/users.json";
+// import USER_JSON from "../config/users.json" assert { type: "json" };;
 
-const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } = process.env;
+
+const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } =
+  process.env;
 
 const port = 9014;
 const issuer = `http://localhost:${port}`;
@@ -13,20 +17,12 @@ const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;
 
 const findAccount = findAccountFunc(EMAIL_DOMAIN, USER_JSON);
 
-const oidc = new Provider(issuer, {
-  clients: [{
-    client_id: OIDC_CLIENT_ID,
-    client_secret: OIDC_CLIENT_SECRET,
-    redirect_uris: [ redirectURI ],
-  }],
-  claims: {
-    openid: [ "sub", "email", "email_verified", "given_name", "family_name", "name" ]
-  },
-  proxy: true,
-  pkce: {
-    required: () => false
-  },
+const oidc = makeProvider(
+  issuer,
+  OIDC_CLIENT_ID,
+  OIDC_CLIENT_SECRET,
+  redirectURI,
   findAccount
-});
+);
 
 oidc.listen(port);
