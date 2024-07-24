@@ -36,12 +36,17 @@ export const findAccountFunc = (emailDomain, userList) => {
       return;
     }
 
+    console.log(`user verified: ${user.email}`)
+
     return {
       accountId: user.email,
       async claims() {
         const { id, email, firstName, lastName } = user;
 
+        console.log('claims running', user)
+
         return {
+          accountId:id,
           sub: id,
           email: email,
           email_verified: true,

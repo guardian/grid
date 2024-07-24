@@ -21,6 +21,10 @@ const USER_JSON = [
 const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } =
   process.env;
 
+console.log({
+  DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET
+})
+
 const port = 9014;
 const issuer = `http://localhost:${port}`;
 const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;
@@ -35,4 +39,6 @@ const oidc = makeProvider(
   findAccount
 );
 
-oidc.listen(port);
+oidc.listen(port, ()=> {
+  console.log(`local oidc provider listening: ${issuer}`)
+});
