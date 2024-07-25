@@ -4,8 +4,8 @@ import com.amazonaws.services.dynamodbv2.model.BatchWriteItemResult
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.ImageStatusRecord
-import com.gu.scanamo._
-import com.gu.scanamo.syntax._
+import org.scanamo._
+import org.scanamo.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
