@@ -15,7 +15,7 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.20",
+  scalaVersion := "2.13.15",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -142,7 +142,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
-      "org.parboiled" %% "parboiled" % "2.1.5",
+      "org.parboiled" %% "parboiled" % "2.5.1",
       "org.http4s" %% "http4s-core" % "0.23.17",
     )
   )
@@ -166,7 +166,7 @@ lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client-default" % "19.0.4",
     "com.gu" %% "content-api-client-aws" % "0.7",
-    "io.reactivex" %% "rxscala" % "0.26.5",
+    "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )

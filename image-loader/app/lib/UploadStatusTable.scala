@@ -1,8 +1,10 @@
 package lib
 
+import com.gu.mediaservice.lib.aws.DynamoDB
 import org.scanamo._
+import org.scanamo.error.DynamoReadError
+import org.scanamo.query.{AndCondition, AttributeExists, Condition, ConditionExpression, KeyEquals}
 import org.scanamo.syntax._
-import org.scanamo.generic.auto._
 import model.StatusType.{Prepared, Queued}
 import model.{UploadStatus, UploadStatusRecord}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
@@ -17,7 +19,7 @@ class UploadStatusTable(config: ImageLoaderConfig) {
   private val uploadStatusTable = Table[UploadStatusRecord](config.uploadStatusTable)
 
   def getStatus(imageId: String) = {
-    scanamo.exec(uploadStatusTable.get("id" === imageId))
+    ScanamoAsync(client)(uploadStatusTable.get('id -> imageId))
   }
 
   def setStatus(uploadStatus: UploadStatusRecord) = {
