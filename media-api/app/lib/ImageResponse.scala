@@ -301,8 +301,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (source \ "usageRights" \ "category") match {
       case JsDefined(category) =>
         if (customUsageRestrictions.contains(category.as[String]) && !writePermissions) {
-          validityMap.updated("conditional_paid", ValidityCheck(true, false, false))
-                     .updated("paid_image", ValidityCheck(true, false, false))
+          validityMap.updated("conditional_paid", ValidityCheck(true, validityMap("conditional_paid").overrideable, validityMap("conditional_paid").shouldOverride))
+                     .updated("paid_image", ValidityCheck(true, validityMap("paid_image").overrideable, validityMap("paid_image").shouldOverride))
         } else {
           validityMap
         }
