@@ -75,13 +75,11 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition {
   // TODO: do we really need these expiration tokens? they kill our ability to cache...
   private def defaultExpiration: DateTime = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
 
-  def useShortenDownloadFilename: Boolean = config.shortenDownloadFilename
-
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration, imageType: ImageType = Source): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
-    val contentDisposition = getContentDisposition(image, imageType)
+    val contentDisposition = getContentDisposition(image, imageType, config.shortenDownloadFilename)
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 

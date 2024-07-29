@@ -46,7 +46,6 @@ class MediaApi(
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
-  val useShortenDownloadFilename: Boolean = config.shortenDownloadFilename
 
   private val searchParamList = List(
     "q",
@@ -247,7 +246,7 @@ class MediaApi(
           s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
           file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
-          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset))
+          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset, config.shortenDownloadFilename))
         } yield {
           if(config.recordDownloadAsUsage) {
             postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))
@@ -358,7 +357,7 @@ class MediaApi(
         }
 
           Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(image, Source))
+            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(image, Source, config.shortenDownloadFilename))
           )
       }
       case _ => Future.successful(ImageNotFound(id))

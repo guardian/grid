@@ -7,9 +7,7 @@ import java.net.URLEncoder
 
 trait ContentDisposition extends GridLogging {
 
-  def useShortenDownloadFilename: Boolean
-
-  def getContentDisposition(image: Image, imageType: ImageType): String = {
+  def getContentDisposition(image: Image, imageType: ImageType, shortenDownloadFilename: Boolean): String = {
     val asset = imageType match {
       case Source => image.source
       case Thumbnail => image.thumbnail.getOrElse(image.source)
@@ -17,16 +15,16 @@ trait ContentDisposition extends GridLogging {
     }
     val extension: String = getExtension(image, asset)
     val filenameSuffix: String = s"(${image.id})$extension"
-    val baseFilename = getBaseFilename(image, filenameSuffix)
+    val baseFilename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
     getContentDisposition(baseFilename, image.id)
   }
 
-  def getContentDisposition(image: Image, crop: Crop, asset: Asset): String = {
+  def getContentDisposition(image: Image, crop: Crop, asset: Asset, shortenDownloadFilename: Boolean): String = {
     val cropId: String = crop.id.map(id => s"($id)").getOrElse("")
     val extension: String = getExtension(image, asset)
     val dimensions: String = asset.dimensions.map(dims => s"(${dims.width} x ${dims.height})").getOrElse("")
     val filenameSuffix: String = s"(${image.id})$cropId$dimensions$extension"
-    val baseFilename = getBaseFilename(image, filenameSuffix)
+    val baseFilename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
 
     getContentDisposition(baseFilename, image.id)
   }
@@ -38,8 +36,8 @@ trait ContentDisposition extends GridLogging {
       ""
   }
 
-  private def getBaseFilename(image: Image, filenameSuffix: String): String = image.uploadInfo.filename match {
-    case Some(_) if useShortenDownloadFilename => s"$filenameSuffix".filter(!"()".contains(_))
+  private def getBaseFilename(image: Image, filenameSuffix: String, shortenDownloadFilename: Boolean): String = image.uploadInfo.filename match {
+    case Some(_) if shortenDownloadFilename => s"$filenameSuffix".filter(!"()".contains(_))
     case Some(f) => s"${removeExtension(f)} $filenameSuffix"
     case _ => filenameSuffix
   }
