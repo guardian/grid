@@ -37,7 +37,7 @@ trait ContentDisposition extends GridLogging {
   }
 
   private def getBaseFilename(image: Image, filenameSuffix: String, shortenDownloadFilename: Boolean): String = image.uploadInfo.filename match {
-    case Some(_) if shortenDownloadFilename => s"$filenameSuffix".filter(!"()".contains(_))
+    case Some(_) if shortenDownloadFilename => filenameSuffix.filter(!"()".contains(_))
     case Some(f) => s"${removeExtension(f)} $filenameSuffix"
     case _ => filenameSuffix
   }
