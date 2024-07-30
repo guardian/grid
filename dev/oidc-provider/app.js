@@ -7,13 +7,6 @@ import USER_JSON from "../../../etc/grid/users.json" assert { type: "json" };
 const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } =
   process.env;
 
-console.log({
-  DOMAIN,
-  EMAIL_DOMAIN,
-  OIDC_CLIENT_ID,
-  OIDC_CLIENT_SECRET,
-});
-
 const port = 9014;
 const issuer = `http://localhost:${port}`;
 const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;

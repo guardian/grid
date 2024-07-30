@@ -1,16 +1,13 @@
 /**
- *
  * @param {string} emailDomain
  * @param {{id:string, firstName:string, lastName:string}[]} userList
  */
 export const findAccountFunc = (emailDomain, userList) => {
   /**
-   *
-   * @param {unknown} _
+   * @param {unknown} _context
    * @param {string} incomingEmail
-   * @returns
    */
-  async function findAccount(_, incomingEmail) {
+  async function findAccount(_context, incomingEmail) {
     if (!incomingEmail.endsWith(`@${emailDomain}`)) {
       console.log(
         `rejecting: ${incomingEmail} doesn't end with @${emailDomain}`
@@ -38,9 +35,6 @@ export const findAccountFunc = (emailDomain, userList) => {
       accountId: user.email,
       async claims() {
         const { id, email, firstName, lastName } = user;
-
-        console.log('claims running', user)
-
         return {
           accountId:id,
           sub: id,
