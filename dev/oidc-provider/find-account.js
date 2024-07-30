@@ -1,7 +1,3 @@
-
-
-// const USER_JSON= require("/etc/grid/users.json")
-
 /**
  *
  * @param {string} emailDomain
