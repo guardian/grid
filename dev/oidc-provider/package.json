@@ -4,11 +4,15 @@
   "description": "A small oidc provider. FOR DEV USE ONLY",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --experimental-vm-modules 'node_modules/.bin/jest'"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "oidc-provider": "^7.14.1"
-  }
+    "oidc-provider": "^8.5.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "type": "module"
 }
