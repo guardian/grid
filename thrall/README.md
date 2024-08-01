@@ -1,4 +1,3 @@
-# thrall
+# Thrall
 
-Thralls pulls messages from an SQS queue, interpret them, and modify an Elasticsearch index accordingly.
-
+Thrall reads messages from a Kinesis stream, interprets them, and modifies an Elasticsearch index accordingly.
