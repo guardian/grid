@@ -1,34 +1,29 @@
 package lib
 
 import com.amazonaws.auth.PEM
-
-import java.io.File
-import java.util.Date
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner
 import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.amazonaws.services.cloudfront.util.SignerUtils.Protocol
-import com.amazonaws.services.s3.model.GetObjectRequest
-import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.aws.{RoundedExpiration, S3}
 import org.joda.time.DateTime
 
 import java.security.PrivateKey
 import scala.util.Try
 
-trait CloudFrontDistributable {
+trait CloudFrontDistributable extends RoundedExpiration{
   val privateKey: PrivateKey
   val keyPairId: Option[String]
 
   val protocol: Protocol = Protocol.https
-  val validForMinutes: Int = 30
 
-  private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate
+  private def expiresAt: DateTime = cachableExpiration
 
   def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): Option[String] = Try {
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
       SignerUtils.generateResourcePath(protocol, cloudFrontDomain, s3ObjectPath),
       keyPairId.get,
       privateKey,
-      expiresAt
+      expiresAt.toDate
     )
   }.toOption
 }
