@@ -60,7 +60,7 @@ object S3Metadata {
 
 case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime])
 
-class S3(config: CommonConfig) extends GridLogging with ContentDisposition {
+class S3(config: CommonConfig) extends GridLogging with ContentDisposition with RoundedExpiration {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
@@ -68,12 +68,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition {
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
-
-  private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
-
-  // Round expiration time to try and hit the cache as much as possible
-  // TODO: do we really need these expiration tokens? they kill our ability to cache...
-  private def defaultExpiration: DateTime = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
 
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration, imageType: ImageType = Source): String = {
     // get path and remove leading `/`
