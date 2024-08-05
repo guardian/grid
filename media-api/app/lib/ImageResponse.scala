@@ -91,9 +91,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap, config.customValidityDescription)
 
-    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
+    val downloadableMap = checkDownloadRestrictions(source, ImageExtras.downloadableMap(image, withWritePermission), withWritePermission)
     val isDownloadable = ImageExtras.isValid(downloadableMap)
-
 
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
@@ -291,6 +290,19 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       case JsDefined(category) =>
         if (customUsageRestrictions.contains(category.as[String])) {
           validityMap.updated("conditional_paid", ValidityCheck(true, validityMap("conditional_paid").overrideable, validityMap("conditional_paid").shouldOverride))
+        } else {
+          validityMap
+        }
+      case _ => validityMap
+    }
+  }
+
+  private def checkDownloadRestrictions(source: JsValue, validityMap: Map[String, ValidityCheck], writePermissions: Boolean) : Map[String, ValidityCheck] = {
+    (source \ "usageRights" \ "category") match {
+      case JsDefined(category) =>
+        if (customUsageRestrictions.contains(category.as[String]) && !writePermissions) {
+          validityMap.updated("conditional_paid", ValidityCheck(true, validityMap("conditional_paid").overrideable, validityMap("conditional_paid").shouldOverride))
+                     .updated("paid_image", ValidityCheck(true, validityMap("paid_image").overrideable, validityMap("paid_image").shouldOverride))
         } else {
           validityMap
         }
