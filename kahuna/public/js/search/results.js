@@ -23,7 +23,8 @@ import '../components/gr-confirmation-modal/gr-confirmation-modal';
 import {
   INVALIDIMAGES,
   sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
-  sendToCaptureMixed, sendToCaptureSingleBtnTxt,
+  sendToCaptureSuccess, sendToCaptureFailure, announcementId,
+  sendToCaptureMixed,
   sendToCaptureTitle,
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
@@ -419,18 +420,42 @@ results.controller('SearchResultsCtrl', [
       };
 
       ctrl.sendToPhotoSales = () => {
-        const validImages = validatePhotoSalesSelection(ctrl.selectedImages)[0];
-        validImages.map(image => {
-          mediaApi.syndicateImage(image.data.id, "Capture", "true");
-        });
-        ctrl.clearSelection();
+        try {
+          const validImages = validatePhotoSalesSelection(ctrl.selectedImages)[0];
+          validImages.map(image => {
+            mediaApi.syndicateImage(image.data.id, "Capture", "true");
+          });
+          ctrl.clearSelection();
+          const notificationEvent = new CustomEvent("newNotification", {
+            detail: {
+              announceId: announcementId,
+              description: sendToCaptureSuccess,
+              category: "success",
+              lifespan: "transient"
+            },
+            bubbles: true
+          });
+          window.dispatchEvent(notificationEvent);
+        } catch (err) {
+          console.log(err);
+          const notificationEvent = new CustomEvent("newNotification", {
+            detail: {
+              announceId: announcementId,
+              description: sendToCaptureFailure,
+              category: "error",
+              lifespan: "transient"
+            },
+            bubbles: true
+          });
+          window.dispatchEvent(notificationEvent);
+        }
       };
 
-      ctrl.displayConfirmationModal = () => { // rename to display send to photosales once banner used?
+      ctrl.displayConfirmationModal = () => {
 
         const [validImages, invalidImages] = validatePhotoSalesSelection(ctrl.selectedImages);
         const title = sendToCaptureTitle;
-        let eventType; /// required once banner event is in use
+        let eventType;
         let detailObj;
 
         if (validImages.length !== 0 && invalidImages.length === 0) {
@@ -457,13 +482,12 @@ results.controller('SearchResultsCtrl', [
 
         } else if (validImages.length === 0 && invalidImages.length !== 0) {
           // No valid images selected
-          eventType = "displayModal"; //banner event in final version
+          eventType = "newNotification";
           detailObj = {
-            title: title,
-            message: sendToCaptureInvalid,
-            confirmBtnTxt: sendToCaptureSingleBtnTxt,
-            showSingleBtn: true,
-            okayFn: () => {}
+            announceId: announcementId,
+            description: sendToCaptureInvalid,
+            category: "warning",
+            lifespan: "transient"
           };
         }
 
