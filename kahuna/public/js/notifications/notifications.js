@@ -13,7 +13,6 @@ notifications.controller('NotificationsCtrl',
       const notifctrl = this;
       notifctrl.$onInit = () => {
         notifctrl.notifications = window._clientConfig.announcements;
-        notifctrl.hasNotifications = notifctrl.notifications.length > 0;
       };
     }
 ]);
