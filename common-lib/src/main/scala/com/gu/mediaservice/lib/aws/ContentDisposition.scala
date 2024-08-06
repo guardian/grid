@@ -15,8 +15,8 @@ trait ContentDisposition extends GridLogging {
     }
     val extension: String = getExtension(image, asset)
     val filenameSuffix: String = s"(${image.id})$extension"
-    val baseFilename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
-    getContentDisposition(baseFilename, image.id)
+    val filename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
+    getContentDisposition(filename, fallbackLatin1Filename(image, extension))
   }
 
   def getContentDisposition(image: Image, crop: Crop, asset: Asset, shortenDownloadFilename: Boolean): String = {
@@ -24,9 +24,9 @@ trait ContentDisposition extends GridLogging {
     val extension: String = getExtension(image, asset)
     val dimensions: String = asset.dimensions.map(dims => s"(${dims.width} x ${dims.height})").getOrElse("")
     val filenameSuffix: String = s"(${image.id})$cropId$dimensions$extension"
-    val baseFilename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
+    val filename = getBaseFilename(image, filenameSuffix, shortenDownloadFilename)
 
-    getContentDisposition(baseFilename, image.id)
+    getContentDisposition(filename, fallbackLatin1Filename(image, extension))
   }
 
   private def getExtension(image: Image, asset: Asset): String = asset.mimeType match {
@@ -41,6 +41,8 @@ trait ContentDisposition extends GridLogging {
     case Some(f) => s"${removeExtension(f)} $filenameSuffix"
     case _ => filenameSuffix
   }
+
+  private def fallbackLatin1Filename(image:Image, extension: String): String = image.id + extension
 
   private def getContentDisposition(filename: String, fallbackLatin1Filename: String): String = {
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
