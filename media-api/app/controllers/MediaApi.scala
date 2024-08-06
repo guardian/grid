@@ -2,14 +2,19 @@ package controllers
 
 import akka.stream.scaladsl.StreamConverters
 import com.google.common.net.HttpHeaders
+import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
@@ -21,18 +26,8 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
-import java.net.{URI, URLDecoder}
-import java.util.concurrent.TimeUnit
-import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.JsonDiff
-import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
-import com.gu.mediaservice.lib.logging.MarkerMap
-import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
-import com.gu.mediaservice.syntax.MessageSubjects
-
-import java.util.Base64
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import java.net.URI
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class MediaApi(
@@ -47,7 +42,7 @@ class MediaApi(
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation
-)(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers {
+)(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
@@ -251,7 +246,7 @@ class MediaApi(
           s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
           file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
-          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(source, export, asset))
+          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset, config.shortenDownloadFilename))
         } yield {
           if(config.recordDownloadAsUsage) {
             postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))
@@ -362,7 +357,7 @@ class MediaApi(
         }
 
           Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(image, Source, config.shortenDownloadFilename))
           )
       }
       case _ => Future.successful(ImageNotFound(id))
