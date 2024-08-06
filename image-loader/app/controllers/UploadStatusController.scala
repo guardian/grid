@@ -6,7 +6,7 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Permissions.UploadImages
 import com.gu.mediaservice.lib.auth._
-import com.gu.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
+import org.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
 import lib._
 import model.{StatusType, UploadStatus}
 import play.api.libs.json.Json

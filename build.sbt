@@ -15,7 +15,7 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.15",
+  scalaVersion := "2.13.14",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -84,9 +84,9 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
-    "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "5.0.2",
-    "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
+    // "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
+    "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
@@ -99,7 +99,7 @@ lazy val commonLib = project("common-lib").settings(
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.9.2",
-    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
     "org.yaml" % "snakeyaml" % "1.31",
@@ -143,9 +143,9 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
-      "org.parboiled" %% "parboiled" % "2.1.5",
+      "org.parboiled" %% "parboiled" % "2.5.1",
       "org.http4s" %% "http4s-core" % "0.23.17",
-      "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
+      "com.softwaremill.quicklens" %% "quicklens" % "1.9.7",
     )
   )
 
@@ -168,7 +168,7 @@ lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client-default" % "19.0.4",
     "com.gu" %% "content-api-client-aws" % "0.7",
-    "io.reactivex" %% "rxscala" % "0.26.5",
+    "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )
