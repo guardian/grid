@@ -13,6 +13,7 @@ const NOTIFICATION_COOKIE = "notification_cookie";
 const cookie_age = 31536000;
 const checkNotificationsUri = window._clientConfig.rootUri + "/notifications";
 const checkNotificationsInterval = 60000; // in ms
+const scrollThreshold = 10;
 
 const tickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -113,12 +114,31 @@ const getIcon = (notification: Notification): JSX.Element => {
   }
 };
 
+const normaliseDeltaY = (event: WheelEvent): number => {
+  let deltaY = event.deltaY;
+  switch (event.deltaMode) {
+    case 1: // Lines
+      deltaY *= 16;
+      break;
+    case 2: // Pages
+      deltaY *= 800;
+      break;
+  }
+  return deltaY;
+};
+
 const NotificationsBanner: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const autoHideListener = (event: any) => {
-    if (event.type === "keydown" && event.key === "Escape") {
+    if (event.type === "keydown" && (event.key === "Escape" || event.key === "ArrowUp" || event.key === "ArrowDown")) {
       setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
+    } else if (event.type === "wheel") {
+      const wheelEvent = event as WheelEvent;
+      const normalisedDeltaY = normaliseDeltaY(wheelEvent);
+      if (Math.abs(normalisedDeltaY) >= scrollThreshold) {
+        setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
+      }
     } else if (event.type !== "keydown") {
       if (event.target.className !== "notification-url") {
         setNotifications(prevNotifs => prevNotifs.filter(n => n.lifespan !== TRANSIENT));
@@ -167,7 +187,7 @@ const NotificationsBanner: React.FC = () => {
     const checkNotificationsRef:NodeJS.Timeout = setInterval(checkNotifications, checkNotificationsInterval);
 
     document.addEventListener("mouseup", autoHideListener);
-    document.addEventListener("scroll", autoHideListener);
+    document.addEventListener("wheel", autoHideListener);
     document.addEventListener("keydown", autoHideListener);
 
     // clean up cookie
@@ -181,7 +201,7 @@ const NotificationsBanner: React.FC = () => {
     // Clean up the event listener when the component unmounts
     return () => {
       document.removeEventListener("mouseup", autoHideListener);
-      document.removeEventListener("scroll", autoHideListener);
+      document.removeEventListener("wheel", autoHideListener);
       document.removeEventListener("keydown", autoHideListener);
       clearInterval(checkNotificationsRef);
     };
@@ -251,3 +271,4 @@ const NotificationsBanner: React.FC = () => {
 
 export const notificationsBanner = angular.module('gr.notificationsBanner', [])
   .component('notificationsBanner', react2angular(NotificationsBanner));
+
