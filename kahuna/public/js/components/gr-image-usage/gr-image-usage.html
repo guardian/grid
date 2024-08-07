@@ -1,6 +1,15 @@
-<div ng-repeat="(type, usages) in ctrl.usages">
-  <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
+<div ng-if="!ctrl.showSendToPhotoSales">
+    <div ng-repeat="(type, usages) in ctrl.usages">
+        <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
+    </div>
 </div>
+<div ng-if="ctrl.showSendToPhotoSales">
+    <image-usage-photo-sales props="{'usages':ctrl.processedReactUsages}"></image-usage-photo-sales>
+    <div ng-repeat="(type, usages) in ctrl.usages" ng-if="type ==='downloaded'">
+        <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
+    </div>
+</div>
+
 
 <gr-delete-usages
   ng-if="ctrl.usagesCount > 0"

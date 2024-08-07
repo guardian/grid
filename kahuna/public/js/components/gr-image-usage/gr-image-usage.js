@@ -10,8 +10,12 @@ import './gr-image-usage.css';
 import '../../services/image/usages';
 import {deleteUsages} from '../gr-delete-usages/gr-delete-usages';
 
+import '../gr-image-usage-photosales/gr-image-usage-photosales';
+import {sendToCaptureUsagePanelTxt} from "../../util/constants/sendToCapture-config";
+
 export const module = angular.module('gr.imageUsage', [
   'gr.image-usages.service',
+  'gr.imageUsagePhotoSales',
   'util.rx',
   deleteUsages.name
 ]);
@@ -20,15 +24,17 @@ module.controller('grImageUsageCtrl', [
   '$scope',
   '$state',
   'inject$',
+  '$window',
   'imageUsagesService',
 
-  function ($scope, $state, inject$, imageUsagesService) {
+  function ($scope, $state, inject$, $window, imageUsagesService) {
 
     const ctrl = this;
 
     ctrl.$onInit = () => {
-      const usages = imageUsagesService.getUsages(ctrl.image);
+      ctrl.showSendToPhotoSales = $window._clientConfig.showSendToPhotoSales;
 
+      const usages = imageUsagesService.getUsages(ctrl.image);
       const usages$ = usages.groupedByState$.map((u) => u.toJS());
       const usagesCount$ = usages.count$;
 
@@ -48,6 +54,23 @@ module.controller('grImageUsageCtrl', [
           default:
             return usageType;
         }
+      };
+
+      ctrl.processedReactUsages = () => {
+        let processedUsages = [];
+        let processedPhotoSalesUsage = {};
+        ctrl.image.data.usages.data.forEach( (usage)  => {
+          if (usage.data.platform === "syndication" && usage.data.syndicationUsageMetadata.partnerName === "Capture") {
+            processedPhotoSalesUsage = {
+              title: usage.data.syndicationUsageMetadata.syndicatedBy,
+              usageName: sendToCaptureUsagePanelTxt,
+              usageType: "sendToPhotoSales",
+              dateAdded: usage.data.dateAdded
+            };
+          }
+        });
+        processedUsages.push(processedPhotoSalesUsage);
+        return processedUsages;
       };
 
       ctrl.onUsagesDeleted = () => {
