@@ -1,5 +1,6 @@
 GET     /                                               controllers.EditsApi.index
 GET     /usage-rights/categories                        controllers.EditsApi.getUsageRights()
+GET     /usage-rights/filtered-categories               controllers.EditsApi.getFilteredUsageRights()
 
 # Image
 GET     /metadata/:id                                   controllers.EditsController.getAllMetadata(id: String)

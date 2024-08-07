@@ -204,6 +204,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    * and the singleton instance added to the list.
    */
   val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
+  val stdUserExcludedUsageRights = getStringSet("usageRights.stdUserExcluded")
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
