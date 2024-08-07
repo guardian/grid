@@ -5,7 +5,6 @@ import com.amazonaws.services.cloudfront.CloudFrontUrlSigner
 import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.amazonaws.services.cloudfront.util.SignerUtils.Protocol
 import com.gu.mediaservice.lib.aws.{RoundedExpiration, S3}
-import org.joda.time.DateTime
 
 import java.security.PrivateKey
 import scala.util.Try
@@ -16,14 +15,12 @@ trait CloudFrontDistributable extends RoundedExpiration{
 
   val protocol: Protocol = Protocol.https
 
-  private def expiresAt: DateTime = cachableExpiration
-
   def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): Option[String] = Try {
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
       SignerUtils.generateResourcePath(protocol, cloudFrontDomain, s3ObjectPath),
       keyPairId.get,
       privateKey,
-      expiresAt.toDate
+      cachableExpiration().toDate
     )
   }.toOption
 }

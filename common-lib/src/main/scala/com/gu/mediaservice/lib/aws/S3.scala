@@ -69,7 +69,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration, imageType: ImageType = Source): String = {
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageType = Source): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
