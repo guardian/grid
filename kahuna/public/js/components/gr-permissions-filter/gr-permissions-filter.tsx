@@ -87,10 +87,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   const handleQueryChange = (e: any ) => {
     const newQuery = e.detail.query ? (" " + e.detail.query) : "";
+    const showPaid = e.detail.showPaid;
 
     //-check chargeable-
     const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
     if (logoClick.includes("logoClick")) {
+      console.log("LogoClick : " + logoClick);
+      console.log("ShowPaid : " + showPaid);
       setIsChargeable(false);
       window.sessionStorage.setItem("logoClick", "");
     }
