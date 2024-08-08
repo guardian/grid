@@ -63,6 +63,16 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
   return false;
 };
 
+//-- query change event --
+interface QueryChangeEventDetail { query: string, showPaid: boolean }
+interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {}
+
+//-- logo click event --
+interface LogoClickEventDetail { showPaid: boolean }
+interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {}
+interface LogoClickProperties {logoClick: boolean, showPaid: boolean}
+
+//-- react control--
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
   const defOptVal:string = PermissionsConf.permissionsDefaultOpt();
@@ -74,6 +84,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [logoClick, setLogoClick] = useState<LogoClickProperties>({logoClick: false, showPaid:false});
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -85,18 +96,24 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     }
   };
 
-  const handleQueryChange = (e: any ) => {
-    const newQuery = e.detail.query ? (" " + e.detail.query) : "";
-    const showPaid = e.detail.showPaid;
+  const handleLogoClick = (event: LogoClickEvent) => {
+    setLogoClick({logoClick: true, showPaid: event.detail.showPaid});
+    console.log("**Handle Logo Click isNonFree=" + event.detail.showPaid);
+  };
 
-    //-check chargeable-
-    const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
-    if (logoClick.includes("logoClick")) {
-      console.log("LogoClick : " + logoClick);
-      console.log("ShowPaid : " + showPaid);
-      setIsChargeable(false);
-      window.sessionStorage.setItem("logoClick", "");
+  useEffect(() => {
+    if (logoClick.logoClick) {
+      setIsChargeable(logoClick.showPaid);
+      setLogoClick({logoClick: false, showPaid: logoClick.showPaid});
+      console.log("**Logo Click Follow Up**");
+      console.log("isNonFree=" + logoClick.showPaid);
     }
+  }, [logoClick]);
+
+  const handleQueryChange = (event: QueryChangeEvent ) => {
+    const newQuery = event.detail.query ? (" " + event.detail.query) : "";
+    const showPaid = event.detail.showPaid;
+    console.log("**QUERY CHANGE** Query=" + newQuery + " ShowPaid=" + showPaid);
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
@@ -118,15 +135,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
-    window.addEventListener("mouseup", autoHideListener);
-    window.addEventListener("scroll", autoHideListener);
-    window.addEventListener("keydown", autoHideListener);
+    window.addEventListener('logoClick', handleLogoClick);
+    window.addEventListener('mouseup', autoHideListener);
+    window.addEventListener('scroll', autoHideListener);
+    window.addEventListener('keydown', autoHideListener);
     setSelection(defPerms);
 
     // Clean up the event listener when the component unmounts
     return () => {
       setCurrentIndex(-1);
       window.removeEventListener('queryChangeEvent', handleQueryChange);
+      window.removeEventListener('logoClick', handleLogoClick);
       window.removeEventListener("mouseup", autoHideListener);
       window.removeEventListener("scroll", autoHideListener);
       window.removeEventListener("keydown", autoHideListener);

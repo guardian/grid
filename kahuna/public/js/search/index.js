@@ -103,6 +103,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             cropSettings.set($stateParams);
 
             ctrl.onLogoClick = () => {
+                console.log("***LOGO CLICK***");
                 mediaApi.getSession().then(session => {
                 const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 const defaultNonFreeFilter = {
@@ -110,10 +111,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   isNonFree: showPaid ? showPaid : false
                 };
                 storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
-                storage.setJs("logoClick",(showPaid ? "logoClickTrue" : "logoClickFalse"), true);
                 $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
                 window.dispatchEvent(new CustomEvent("logoClick", {
-                  detail: "logoClick",
+                  detail: {showPaid: defaultNonFreeFilter.isNonFree},
                   bubbles: true
                 }));
               });
