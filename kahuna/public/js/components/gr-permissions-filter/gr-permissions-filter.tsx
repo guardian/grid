@@ -98,22 +98,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   const handleLogoClick = (event: LogoClickEvent) => {
     setLogoClick({logoClick: true, showPaid: event.detail.showPaid});
-    console.log("**Handle Logo Click isNonFree=" + event.detail.showPaid);
   };
 
   useEffect(() => {
     if (logoClick.logoClick) {
       setIsChargeable(logoClick.showPaid);
       setLogoClick({logoClick: false, showPaid: logoClick.showPaid});
-      console.log("**Logo Click Follow Up**");
-      console.log("isNonFree=" + logoClick.showPaid);
     }
   }, [logoClick]);
 
   const handleQueryChange = (event: QueryChangeEvent ) => {
     const newQuery = event.detail.query ? (" " + event.detail.query) : "";
-    const showPaid = event.detail.showPaid;
-    console.log("**QUERY CHANGE** Query=" + newQuery + " ShowPaid=" + showPaid);
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;

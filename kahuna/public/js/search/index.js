@@ -103,7 +103,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             cropSettings.set($stateParams);
 
             ctrl.onLogoClick = () => {
-                console.log("***LOGO CLICK***");
                 mediaApi.getSession().then(session => {
                 const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
                 const defaultNonFreeFilter = {

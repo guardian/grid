@@ -97,9 +97,9 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
-    function raiseQueryChangeEvent(q, showPaid) {
+    function raiseQueryChangeEvent(q) {
       const customEvent = new CustomEvent('queryChangeEvent', {
-        detail: {query: q, showPaid: showPaid},
+        detail: {query: q},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -111,7 +111,7 @@ query.controller('SearchQueryCtrl', [
 
       ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
       watchUploadedBy(filter, sender);
-      raiseQueryChangeEvent(ctrl.filter.query, showPaid);
+      raiseQueryChangeEvent(ctrl.filter.query);
 
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
