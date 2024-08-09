@@ -83,7 +83,7 @@
 
                 <div class="results-toolbar-item results-toolbar-item--right"
                     tabindex="0"
-                    ng-if="ctrl.showSendToPhotoSales()">
+                    ng-if="ctrl.showSendToPhotoSales() && ctrl.showPaid">
                     <a id="send-to"
                        style="display: contents;"
                        ng-class="{'batch-archive__button--disabled': ctrl.selectionCount >= 45}"
