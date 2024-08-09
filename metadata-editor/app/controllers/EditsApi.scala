@@ -2,17 +2,22 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
 import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
 import com.gu.mediaservice.model._
 import lib.EditsConfig
 import model.UsageRightsProperty
 import play.api.libs.json._
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.Security.AuthenticatedRequest
+import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class EditsApi(auth: Authentication, config: EditsConfig,
+class EditsApi(auth: Authentication,
+               config: EditsConfig,
+               authorisation: Authorisation,
                override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -26,7 +31,8 @@ class EditsApi(auth: Authentication, config: EditsConfig,
       Link("labels",            s"${config.rootUri}/metadata/{id}/labels"),
       Link("usageRights",       s"${config.rootUri}/metadata/{id}/usage-rights"),
       Link("metadata",          s"${config.rootUri}/metadata/{id}/metadata"),
-      Link("usage-rights-list", s"${config.rootUri}/usage-rights/categories")
+      Link("usage-rights-list", s"${config.rootUri}/usage-rights/categories"),
+      Link("filtered-usage-rights-list", s"${config.rootUri}/usage-rights/filtered-categories")
     )
     respond(indexData, indexLinks)
   }
@@ -37,12 +43,28 @@ class EditsApi(auth: Authentication, config: EditsConfig,
     val usageRights = config.applicableUsageRights.toList
 
     val usageRightsData = usageRights
-          .map(u => CategoryResponse.fromUsageRights(u, config))
+      .map(u => CategoryResponse.fromUsageRights(u, config))
 
     respond(usageRightsData)
   }
 
   def getUsageRights = auth { usageRightsResponse }
+
+  def filteredUsageRightsResponse(request: AuthenticatedRequest[AnyContent, Principal]) = {
+    val usageRights = config.applicableUsageRights.toList
+    val stdUsrExcluded = config.stdUserExcludedUsageRights.toList
+    val writePermission = authorisation.isUploaderOrHasPermission(request.user, "", EditMetadata)
+
+    val usageRightsData = usageRights
+          .filter(u => writePermission || !stdUsrExcluded.contains(u.category))
+          .map(u => CategoryResponse.fromUsageRights(u, config))
+
+    respond(usageRightsData)
+  }
+
+  def getFilteredUsageRights() = auth { request =>
+    filteredUsageRightsResponse(request)
+  }
 }
 
 case class CategoryResponse(

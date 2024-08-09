@@ -38,14 +38,21 @@ usageRightsEditor.controller(
 
       // @return Stream.<Array.<Category>>
       const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
+      const filteredCategories$ = Rx.Observable.fromPromise(editsApi.getFilteredUsageRightsCategories());
 
       // @return Stream.<Array.<Category>>
-      const displayCategories$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+      const displayCategories$ = usageRights$.combineLatest(filteredCategories$, categories$, (urs, filCats, allCats) => {
           const uniqueCats = getUniqueCats(urs);
           if (uniqueCats.length === 1) {
-              return cats;
+              const mtchCats = filCats.filter(c => c.value === uniqueCats[0]);
+              const extraCats = allCats.filter(c => c.value === uniqueCats[0]);
+              if (mtchCats.length === 0 && extraCats.length === 1) {
+                return extraCats.concat(filCats);
+              } else {
+                return filCats;
+              }
           } else {
-              return [multiCat].concat(cats);
+              return [multiCat].concat(filCats);
           }
       });
 

@@ -9,6 +9,7 @@ editsApi.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
 
     var root;
     var categories;
+    var filteredCategories;
 
     function getRoot() {
         return root || (root = mediaApi.root.follow('edits'));
@@ -18,7 +19,12 @@ editsApi.factory('editsApi', ['$q', 'mediaApi', function($q, mediaApi) {
         return categories || (categories = getRoot().follow('usage-rights-list').getData());
     }
 
+    function getFilteredUsageRightsCategories() {
+      return filteredCategories || (filteredCategories = getRoot().follow('filtered-usage-rights-list').getData());
+    }
+
     return {
-        getUsageRightsCategories
+        getUsageRightsCategories,
+        getFilteredUsageRightsCategories
     };
 }]);
