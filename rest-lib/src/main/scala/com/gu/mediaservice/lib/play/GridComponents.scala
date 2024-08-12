@@ -27,20 +27,18 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   def buildInfo: BuildInfo
 
   implicit val ec: ExecutionContext = executionContext
+  protected val instanceSpecificCorsFilter = new InstanceSpecificCORSFilter(config, context.initialConfiguration)
+
 
   override def httpFilters: Seq[EssentialFilter] = Seq(
-    //corsFilter TODO needs to be replemented to be request/instance specfic
-    //csrfFilter TODO no longer gets bypassed thanks to preceding CORS check; CORS filter does not appear to tag the request if it passes for same origin.
-    securityHeadersFilter, // TODO needs to be replemented to be request/instance specfic
-    gzipFilter,
-    new RequestLoggingFilter(materializer),
-    new ConnectionBrokenFilter(materializer),
-    new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
-  )
-
-  //final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
-  //    allowedOrigins = Origins.Matching(config.services.corsAllowedDomains(request))
-  //  )
+      instanceSpecificCorsFilter,
+      //csrfFilter TODO no longer gets bypassed thanks to preceding CORS check; CORS filter does not appear to tag the request if it passes for same origin.
+      securityHeadersFilter, // TODO needs to be replemented to be request/instance specfic
+      gzipFilter,
+      new RequestLoggingFilter(materializer),
+      new ConnectionBrokenFilter(materializer),
+      new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
+    )
 
   lazy val management = new Management(controllerComponents, buildInfo)
 
