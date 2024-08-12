@@ -14,7 +14,7 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   override def httpFilters: Seq[EssentialFilter] = Seq(
     instanceSpecificCorsFilter,
-    //csrfFilter TODO no longer gets bypassed thanks to preceding CORS check; CORS filter does not appear to tag the request if it passes for same origin.
+    csrfFilter,
     new InstanceSpecificSecurityHeaderFilter(config, context.initialConfiguration),
     gzipFilter,
     new RequestLoggingFilter(materializer),

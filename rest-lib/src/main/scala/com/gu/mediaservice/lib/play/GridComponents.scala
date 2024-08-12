@@ -32,7 +32,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   override def httpFilters: Seq[EssentialFilter] = Seq(
       instanceSpecificCorsFilter,
-      //csrfFilter TODO no longer gets bypassed thanks to preceding CORS check; CORS filter does not appear to tag the request if it passes for same origin.
+      csrfFilter,
       securityHeadersFilter, // TODO needs to be replemented to be request/instance specfic
       gzipFilter,
       new RequestLoggingFilter(materializer),
