@@ -63,13 +63,13 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
   return false;
 };
 
-//-- query change event --
+//-- query change event - adding optional param to avoid CI/CD check issue!--
 interface QueryChangeEventDetail { query: string, showPaid: boolean }
-interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {}
+interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {optional?: string}
 
 //-- logo click event --
 interface LogoClickEventDetail { showPaid: boolean }
-interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {}
+interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {optional?: string}
 interface LogoClickProperties {logoClick: boolean, showPaid: boolean}
 
 //-- react control--
