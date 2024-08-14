@@ -13,12 +13,20 @@ scrollPosService.factory('scrollPosition',
     let originalContext;
 
     function save(currentContext) {
+        // deal with url ambiguity over nonFree parameter
+        if (!currentContext.nonFree) {
+          currentContext.nonFree = "false";
+        }
         originalContext = currentContext;
         // Accommodate Chrome & Firefox
         positionTop = document.body.scrollTop || document.documentElement.scrollTop;
     }
 
     function resume(currentContext) {
+        // deal with url ambiguity over nonFree parameter
+        if (!currentContext.nonFree) {
+          currentContext.nonFree = "false";
+        }
         if (angular.equals(currentContext, originalContext)) {
             $window.scrollTo(0, positionTop);
         }
