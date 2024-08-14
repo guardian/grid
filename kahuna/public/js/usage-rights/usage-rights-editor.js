@@ -42,7 +42,7 @@ usageRightsEditor.controller(
       const categories$ = usageRights$.combineLatest(filteredCategories$, allCategories$, (urs, filCats, allCats) => {
           const uniqueCats = getUniqueCats(urs);
           if (uniqueCats.length === 1) {
-              if(allCats.length === filCats.length) {
+              if (allCats.length === filCats.length) {
                 return allCats;
               }
               const mtchCats = filCats.filter(c => c.value === uniqueCats[0]);
