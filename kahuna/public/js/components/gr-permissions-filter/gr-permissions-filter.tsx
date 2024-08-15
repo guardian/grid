@@ -84,7 +84,6 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
   const [currentIndex, setCurrentIndex] = useState(-1);
-  const [logoClick, setLogoClick] = useState<LogoClickProperties>({logoClick: false, showPaid:false});
 
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
@@ -97,15 +96,8 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   const handleLogoClick = (event: LogoClickEvent) => {
-    setLogoClick({logoClick: true, showPaid: event.detail.showPaid});
+    setIsChargeable(event.detail.showPaid);
   };
-
-  useEffect(() => {
-    if (logoClick.logoClick) {
-      setIsChargeable(logoClick.showPaid);
-      setLogoClick({logoClick: false, showPaid: logoClick.showPaid});
-    }
-  }, [logoClick]);
 
   const handleQueryChange = (event: QueryChangeEvent ) => {
     const newQuery = event.detail.query ? (" " + event.detail.query) : "";
