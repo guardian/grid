@@ -702,7 +702,10 @@ results.controller('SearchResultsCtrl', [
         });
 
         $scope.$on('$destroy', () => {
-            scrollPosition.save($stateParams);
+            // only save scroll position if we're destroying grid scope (avoids issue regarding ng-if triggering scope refresh)
+            if (0 < $scope.ctrl.images.length) {
+              scrollPosition.save($stateParams);
+            }
             freeUpdatesListener();
             freeImageDeleteListener();
             scopeGone = true;
