@@ -70,7 +70,6 @@ interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {optional
 //-- logo click event --
 interface LogoClickEventDetail { showPaid: boolean }
 interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {optional?: string}
-interface LogoClickProperties {logoClick: boolean, showPaid: boolean}
 
 //-- react control--
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
