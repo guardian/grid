@@ -40,8 +40,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
       // Force AND operator else it will only require *any* of the words, not *all*
-      case Words(value) => matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
-      case Phrase(value) => matchPhraseQuery(resolveFieldPath(field), value)
+      case Words(value) =>
+        matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
+      case Phrase(value) => value match {
+        case "Added to Photo Sales" =>
+          matchPhraseQuery(resolveFieldPath(field), "syndication")
+        case _ => matchPhraseQuery(resolveFieldPath(field), value)
+      }
       case DateRange(start, end) => rangeQuery(resolveFieldPath(field)).gte(printDateTime(start)).lte(printDateTime(end))
       case e => throw InvalidQuery(s"Cannot do single field query on $e")
     }
