@@ -37,13 +37,14 @@ usageRightsEditor.controller(
       const usageRights$ = observe$($scope, () => ctrl.usageRights);
 
       // @return Stream.<Array.<Category>>
-      const categories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
+      const allCategories$ = Rx.Observable.fromPromise(editsApi.getUsageRightsCategories());
       const filteredCategories$ = Rx.Observable.fromPromise(editsApi.getFilteredUsageRightsCategories());
-
-      // @return Stream.<Array.<Category>>
-      const displayCategories$ = usageRights$.combineLatest(filteredCategories$, categories$, (urs, filCats, allCats) => {
+      const categories$ = usageRights$.combineLatest(filteredCategories$, allCategories$, (urs, filCats, allCats) => {
           const uniqueCats = getUniqueCats(urs);
           if (uniqueCats.length === 1) {
+              if (allCats.length === filCats.length) {
+                return allCats;
+              }
               const mtchCats = filCats.filter(c => c.value === uniqueCats[0]);
               const extraCats = allCats.filter(c => c.value === uniqueCats[0]);
               if (mtchCats.length === 0 && extraCats.length === 1) {
@@ -53,6 +54,16 @@ usageRightsEditor.controller(
               }
           } else {
               return [multiCat].concat(filCats);
+          }
+      });
+
+      // @return Stream.<Array.<Category>>
+      const displayCategories$ = usageRights$.combineLatest(categories$, (urs, cats) => {
+          const uniqueCats = getUniqueCats(urs);
+          if (uniqueCats.length === 1) {
+              return cats;
+          } else {
+              return [multiCat].concat(cats);
           }
       });
 
