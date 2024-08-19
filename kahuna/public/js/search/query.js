@@ -126,6 +126,7 @@ query.controller('SearchQueryCtrl', [
       ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
       watchUploadedBy(filter, sender);
       raiseQueryChangeEvent(ctrl.filter.query);
+      raiseFilterChangeEvent(ctrl.filter);
 
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
