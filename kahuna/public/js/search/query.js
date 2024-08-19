@@ -346,18 +346,17 @@ query.controller('SearchQueryCtrl', [
           ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
           ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
           storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
-          raiseFilterChangeEvent(ctrl.filter);
         } else {
           if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
             ctrl.filter.uploadedByMe = true;
             ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
             storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
-            raiseFilterChangeEvent(ctrl.filter);
           } else {
             ctrl.filter.uploadedByMe = isUploadedByMe;
             ctrl.filterMyUploads = isUploadedByMe;
           }
         }
+        raiseFilterChangeEvent(ctrl.filter);
 
         if (isNonFree === null) {
           ctrl.filter.nonFree = $stateParams.nonFree;
