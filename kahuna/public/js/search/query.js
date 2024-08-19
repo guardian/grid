@@ -89,9 +89,15 @@ query.controller('SearchQueryCtrl', [
           filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
         }
       } else {
-        if (typeof sender === "string") {
-          filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
-          ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
+        if (sender === "selectMyUploads") {
+          const shouldOverwriteUploadedBy =
+             !filter.uploadedBy ||
+             filter.uploadedBy === (ctrl.user ? ctrl.user.email : undefined) ||
+             ctrl.filterMyUploads;
+          if (shouldOverwriteUploadedBy) {
+            filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
+            filter.uploadedByMe = ctrl.filterMyUploads;
+          }
         }
       }
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
@@ -100,6 +106,14 @@ query.controller('SearchQueryCtrl', [
     function raiseQueryChangeEvent(q) {
       const customEvent = new CustomEvent('queryChangeEvent', {
         detail: {query: q},
+        bubbles: true
+      });
+      window.dispatchEvent(customEvent);
+    }
+
+    function raiseFilterChangeEvent(filter) {
+      const customEvent = new CustomEvent('filterChangeEvent', {
+        detail: {filter: filter},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -160,6 +174,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     ctrl.myUploadsProps = {
+      myUploads: ctrl.filterMyUploads,
       onChange: selectMyUploads
     };
     //-end my uploads
@@ -328,11 +343,20 @@ query.controller('SearchQueryCtrl', [
         const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
-              ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
-              storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
-        }
-        else {
-          ctrl.filter.uploadedByMe =  isUploadedByMe;
+          ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
+          ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
+          storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+          raiseFilterChangeEvent(ctrl.filter);
+        } else {
+          if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
+            ctrl.filter.uploadedByMe = true;
+            ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
+            storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+            raiseFilterChangeEvent(ctrl.filter);
+          } else {
+            ctrl.filter.uploadedByMe = isUploadedByMe;
+            ctrl.filterMyUploads = isUploadedByMe;
+          }
         }
 
         if (isNonFree === null) {
