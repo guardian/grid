@@ -53,7 +53,7 @@ usageRightsEditor.controller(
                 return filCats;
               }
           } else {
-              return [multiCat].concat(filCats);
+              return filCats;
           }
       });
 
