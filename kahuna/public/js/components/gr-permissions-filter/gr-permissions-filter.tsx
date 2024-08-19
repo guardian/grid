@@ -63,6 +63,15 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
   return false;
 };
 
+//-- query change event - adding optional param to avoid CI/CD check issue!--
+interface QueryChangeEventDetail { query: string, showPaid: boolean }
+interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {optional?: string}
+
+//-- logo click event --
+interface LogoClickEventDetail { showPaid: boolean }
+interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {optional?: string}
+
+//-- react control--
 const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const options:PermissionsDropdownOption[] = props.options;
   const defOptVal:string = PermissionsConf.permissionsDefaultOpt();
@@ -85,15 +94,12 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     }
   };
 
-  const handleQueryChange = (e: any ) => {
-    const newQuery = e.detail.query ? (" " + e.detail.query) : "";
+  const handleLogoClick = (event: LogoClickEvent) => {
+    setIsChargeable(event.detail.showPaid);
+  };
 
-    //-check chargeable-
-    const logoClick = window.sessionStorage.getItem("logoClick") ? window.sessionStorage.getItem("logoClick") : "";
-    if (logoClick.includes("logoClick")) {
-      setIsChargeable(false);
-      window.sessionStorage.setItem("logoClick", "");
-    }
+  const handleQueryChange = (event: QueryChangeEvent ) => {
+    const newQuery = event.detail.query ? (" " + event.detail.query) : "";
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
@@ -115,15 +121,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
 
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
-    window.addEventListener("mouseup", autoHideListener);
-    window.addEventListener("scroll", autoHideListener);
-    window.addEventListener("keydown", autoHideListener);
+    window.addEventListener('logoClick', handleLogoClick);
+    window.addEventListener('mouseup', autoHideListener);
+    window.addEventListener('scroll', autoHideListener);
+    window.addEventListener('keydown', autoHideListener);
     setSelection(defPerms);
 
     // Clean up the event listener when the component unmounts
     return () => {
       setCurrentIndex(-1);
       window.removeEventListener('queryChangeEvent', handleQueryChange);
+      window.removeEventListener('logoClick', handleLogoClick);
       window.removeEventListener("mouseup", autoHideListener);
       window.removeEventListener("scroll", autoHideListener);
       window.removeEventListener("keydown", autoHideListener);
