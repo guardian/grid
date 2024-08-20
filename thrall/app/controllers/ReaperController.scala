@@ -57,8 +57,8 @@ class ReaperController(
         try {
           if (store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
             logger.info("Reaper is paused")
-            es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
-            es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
+            es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
+            es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
           } else {
             val deletedBy = "reaper"
             Future.sequence(Seq(
@@ -107,7 +107,7 @@ class ReaperController(
 
   def doBatchSoftReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("soft"){
 
-    es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _).run)
+    es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
 
     logger.info(s"Soft deleting next $count images...")
 
@@ -124,7 +124,7 @@ class ReaperController(
         )
       ))
     } yield {
-      metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size).run
+      metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size)
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
         val detail = Map(
@@ -143,7 +143,7 @@ class ReaperController(
 
   def doBatchHardReap(count: Int, deletedBy: String): Future[JsValue] = persistedBatchDeleteOperation("hard"){
 
-    es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _).run)
+    es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
 
     logger.info(s"Hard deleting next $count images...")
 
@@ -154,7 +154,7 @@ class ReaperController(
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
       idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
-      metrics.hardReaped.increment(n = esIdsActuallyDeleted.size).run
+      metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
         val detail = Map(
