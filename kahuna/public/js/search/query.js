@@ -73,7 +73,7 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
-    ctrl.filterMyUploads = false;
+    ctrl.filterMyUploads = $stateParams.uploadedBy ? true : false;
 
     function raiseQueryChangeEvent(q) {
       const customEvent = new CustomEvent('queryChangeEvent', {
@@ -121,8 +121,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     function watchSearchChange(newFilter, sender) {
-      //-get nonFree value to use in case of spurious call-
-      const initialShowPaid = storage.getJs("isNonFree", true);
+      const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
@@ -134,6 +133,7 @@ query.controller('SearchQueryCtrl', [
         let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
         if (newNonFree !== newFilter.nonFree){
           storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+          storage.setJs("defaultIsNonFree", newNonFree ? newNonFree : false, true);
           storage.setJs("isUploadedByMe", false, true);
           storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
           ctrl.filter.orgOwned = false;
@@ -166,8 +166,8 @@ query.controller('SearchQueryCtrl', [
       }
 
       const { nonFree, uploadedByMe } = ctrl.filter;
-      const nonFreeCheck = nonFree;
-      ctrl.filter.nonFree = (nonFreeCheck !== undefined) ? nonFreeCheck : initialShowPaid;
+      const nonFreeCheck = (nonFree !== undefined) ? nonFree : defaultShowPaid;
+      ctrl.filter.nonFree = nonFreeCheck;
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       $state.go('search.results', ctrl.filter);
     }
@@ -344,10 +344,8 @@ query.controller('SearchQueryCtrl', [
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
-        const isNonFree = storage.getJs("isNonFree", true);
+        //-uploaded by me-
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
-        const structuredQuery = structureQuery(ctrl.filter.query);
-        const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.user = session.user;
         if (isUploadedByMe === null) {
           ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
@@ -363,17 +361,23 @@ query.controller('SearchQueryCtrl', [
             ctrl.filterMyUploads = isUploadedByMe;
           }
         }
-        raiseFilterChangeEvent(ctrl.filter);
+        //raiseFilterChangeEvent(ctrl.filter);
 
+        //-non free-
+        const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
           ctrl.filter.nonFree = $stateParams.nonFree;
           storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
         }
         else if (isNonFree === true || isNonFree === "true") {
-            ctrl.filter.nonFree = "true";
+          ctrl.filter.nonFree = "true";
         } else {
-          ctrl.filter.nonFree = undefined;
+          ctrl.filter.nonFree = "false";
         }
+
+        //-org owned-
+        const structuredQuery = structureQuery(ctrl.filter.query);
+        const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.filter.orgOwned = orgOwned;
     });
 
