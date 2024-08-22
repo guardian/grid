@@ -128,7 +128,6 @@ query.controller('SearchQueryCtrl', [
 
       ctrl.collectionSearch = newFilter.query ? newFilter.query.indexOf('~') === 0 : false;
       watchUploadedBy(newFilter, sender);
-      raiseQueryChangeEvent(newFilter.query);
 
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
@@ -140,7 +139,10 @@ query.controller('SearchQueryCtrl', [
           ctrl.filter.orgOwned = false;
         }
         Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+        raiseFilterChangeEvent(ctrl.filter);
       }
+
+      raiseQueryChangeEvent(ctrl.filter.query);
 
       const structuredQuery = structureQuery(newFilter.query) || [];
       const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
