@@ -64,7 +64,7 @@ case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
 
 case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   override def query: Query = filters.or(
-    (filters.existsOrMissing("softDeletedMetadata", _))(isDeleted)
+    (filters.existsOrMissing("softDeletedMetadata.deletedTime", _))(isDeleted)
   )
 }
 
