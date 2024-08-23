@@ -419,6 +419,11 @@ results.controller('SearchResultsCtrl', [
         return [validImages, invalidImages];
       };
 
+      ctrl.showPaid = undefined;
+      mediaApi.getSession().then(session => {
+        ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+      });
+
       ctrl.sendToPhotoSales = () => {
         try {
           const validImages = validatePhotoSalesSelection(ctrl.selectedImages)[0];
