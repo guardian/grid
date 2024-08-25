@@ -26,6 +26,10 @@ interface Filter { uploadedByMe: boolean }
 interface FilterChangeEventDetail { filter: Filter }
 interface FilterChangeEvent extends CustomEvent<FilterChangeEventDetail> {optional?: string}
 
+//-- uploadedBy check event --
+interface UploadedByEventDetail { userEmail: string, uploadedBy: string }
+interface UploadedByEvent extends CustomEvent<UploadedByEventDetail> {optional?: string}
+
 //-- payable images event --
 interface PayableImagesEventDetail { showPaid: boolean }
 
@@ -66,12 +70,19 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
     setMyUploads(event.detail.filter.uploadedByMe);
   };
 
+  const handleUploadedBy =  (event: UploadedByEvent) => {
+    const matches: boolean = (event.detail.userEmail === event.detail.uploadedBy);
+    setMyUploads(matches);
+  };
+
   useEffect(() => {
     window.addEventListener('logoClick', handleLogoClick);
     window.addEventListener('filterChangeEvent', handleFilterChange);
+    window.addEventListener('uploadedByEvent', handleUploadedBy);
     return () => {
       window.removeEventListener('logoClick', handleLogoClick);
       window.removeEventListener('filterChangeEvent', handleFilterChange);
+      window.removeEventListener('uploadedByEvent', handleUploadedBy);
     };
   }, []);
 

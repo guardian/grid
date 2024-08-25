@@ -91,6 +91,16 @@ query.controller('SearchQueryCtrl', [
       window.dispatchEvent(customEvent);
     }
 
+    function raiseUploadedByCheckEvent() {
+      if (ctrl.user) {
+        const customEvent = new CustomEvent('uploadedByEvent', {
+          detail: { userEmail: ctrl.user.email, uploadedBy: $stateParams.uploadedBy },
+          bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+      }
+    }
+
     function watchUploadedBy(filter, sender) {
       // Users should be able to follow URLs with uploadedBy set to another user's name, so only
       // overwrite if:
@@ -116,6 +126,7 @@ query.controller('SearchQueryCtrl', [
           }
           raiseFilterChangeEvent(ctrl.filter);
         }
+        raiseUploadedByCheckEvent();
       }
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
@@ -361,7 +372,6 @@ query.controller('SearchQueryCtrl', [
             ctrl.filterMyUploads = isUploadedByMe;
           }
         }
-        //raiseFilterChangeEvent(ctrl.filter);
 
         //-non free-
         const isNonFree = storage.getJs("isNonFree", true);
