@@ -167,7 +167,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       apiImage <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
       _ <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
-      dimensions <- ifDefined(apiImage.source.dimensions, InvalidImage)
+      // We correct for orientation in the cropper UI; so validate against the oriented dimensions.
+      orientedDimensions = Seq(apiImage.source.orientedDimensions, apiImage.source.dimensions).flatten.headOption
+      dimensions <- ifDefined(orientedDimensions, InvalidImage)
       cropSpec = ExportRequest.toCropSpec(exportRequest, dimensions)
       _ <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
       crop = Crop.createFromCropSource(

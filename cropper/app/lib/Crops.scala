@@ -97,6 +97,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
   def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
+    logger.info(s"Validating crop bounds ($bounds) against dimensions: $dimensions")
     val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
     val strictlyPositiveSize = List(bounds.width, bounds.height).forall(_  > 0)
     val withinBounds = (bounds.x + bounds.width  <= dimensions.width ) &&
