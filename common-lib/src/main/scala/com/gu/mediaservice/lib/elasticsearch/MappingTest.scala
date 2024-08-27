@@ -57,7 +57,8 @@ object MappingTest {
     mimeType = Some(Jpeg),
     dimensions = Some(Dimensions(1000, 2000)),
     secureUrl = Some(new URL("http://host/filename.jpg")),
-    orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6)))
+    orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
+    orientedDimensions = Some(Dimensions(2000, 1000)),
   )
 
   val testUploader = "grid-internal-mapping-test-image" // Do not change this, we use it to clean up old test images
