@@ -71,8 +71,15 @@ crop.controller('ImageCropCtrl', [
       ctrl.cropping = false;
 
       const originalDimensions = image.data.source.dimensions;
-      ctrl.originalWidth  = originalDimensions.width;
-      ctrl.originalHeight = originalDimensions.height;
+      const orientedDimensions = image.data.source.orientedDimensions;
+
+      if (orientedDimensions) {
+        ctrl.originalWidth = orientedDimensions.width;
+        ctrl.originalHeight = orientedDimensions.height;
+      } else {
+        ctrl.originalWidth = originalDimensions.width;
+        ctrl.originalHeight = originalDimensions.height;
+      }
 
       ctrl.maxInputX = () =>
         ctrl.originalWidth - ctrl.cropWidth();
