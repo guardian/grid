@@ -55,7 +55,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
 
     ctrl.canUpload = false;
-
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
     });
@@ -73,11 +72,12 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
-    ctrl.filterMyUploads = $stateParams.uploadedBy ? true : false;
+    ctrl.filterMyUploads = false;
 
-    function raiseQueryChangeEvent(q) {
+    function raiseQueryChangeEvent(query, showPaid) {
+      const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
       const customEvent = new CustomEvent('queryChangeEvent', {
-        detail: {query: q},
+        detail: {query: query, showPaid: boolShowPaid},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -101,7 +101,7 @@ query.controller('SearchQueryCtrl', [
       }
     }
 
-    function watchUploadedBy(filter, sender) {
+    function manageUploadedBy(filter, sender) {
       // Users should be able to follow URLs with uploadedBy set to another user's name, so only
       // overwrite if:
       //   - uploadedBy is unset, or
@@ -124,61 +124,74 @@ query.controller('SearchQueryCtrl', [
             ctrl.filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
             ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
           }
-          raiseFilterChangeEvent(ctrl.filter);
         }
         raiseUploadedByCheckEvent();
       }
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
+    function manageDefaultNonFree(filter) {
+        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
+          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
+          if (newNonFree !== filter.nonFree) {
+            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+            storage.setJs("defaultIsNonFree", newNonFree ? newNonFree : false, true);
+            storage.setJs("isUploadedByMe", false, true);
+            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+            ctrl.filter.orgOwned = false;
+          }
+          Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+          raiseFilterChangeEvent(ctrl.filter);
+        }
+    }
+
+    function manageOrgOwnedSetting(filter) {
+        const structuredQuery = structureQuery(filter.query) || [];
+        const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
+        const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
+        if (ctrl.filter.orgOwned && !queryHasOrgOwned){
+          // If the checkbox is ticked, ensure the chip is part of the search bar
+          const orgOwnedChip = {
+            type: "filter",
+            filterType: "inclusion",
+            key : "is",
+            value: ctrl.maybeOrgOwnedValue
+          };
+          ctrl.filter.query = renderQuery([
+            ...structuredQuery,
+            orgOwnedChip
+          ]);
+        } else if (!ctrl.filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
+          // If the checkbox is unticked, ensure chip is no longer in the search bar
+          structuredQuery.splice(orgOwnedIndexInQuery, 1);
+          ctrl.filter.query = renderQuery(structuredQuery);
+        }
+    }
+
+    // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
       ctrl.collectionSearch = newFilter.query ? newFilter.query.indexOf('~') === 0 : false;
-      watchUploadedBy(newFilter, sender);
 
-      const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-      if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-        let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-        if (newNonFree !== newFilter.nonFree){
-          storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-          storage.setJs("defaultIsNonFree", newNonFree ? newNonFree : false, true);
-          storage.setJs("isUploadedByMe", false, true);
-          storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-          ctrl.filter.orgOwned = false;
-        }
-        Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
-        raiseFilterChangeEvent(ctrl.filter);
-      }
-
-      raiseQueryChangeEvent(ctrl.filter.query);
-
-      const structuredQuery = structureQuery(newFilter.query) || [];
-      const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
-      const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
-      if (ctrl.filter.orgOwned && !queryHasOrgOwned){
-        // If the checkbox is ticked, ensure the chip is part of the search bar
-        const orgOwnedChip = {
-          type: "filter",
-          filterType: "inclusion",
-          key : "is",
-          value: ctrl.maybeOrgOwnedValue
-        };
-        ctrl.filter.query = renderQuery([
-          ...structuredQuery,
-          orgOwnedChip
-        ]);
-      } else if (!ctrl.filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
-        // If the checkbox is unticked, ensure chip is no longer in the search bar
-        structuredQuery.splice(orgOwnedIndexInQuery, 1);
-        ctrl.filter.query = renderQuery(structuredQuery);
-      }
+      //--update filter components--
+      manageUploadedBy(newFilter, sender);
+      manageDefaultNonFree(newFilter);
+      manageOrgOwnedSetting(newFilter);
 
       const { nonFree, uploadedByMe } = ctrl.filter;
-      const nonFreeCheck = (nonFree !== undefined) ? nonFree : defaultShowPaid;
+      let nonFreeCheck = nonFree;
+      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        nonFreeCheck = defaultShowPaid;
+      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = undefined;
+      }
       ctrl.filter.nonFree = nonFreeCheck;
+      raiseQueryChangeEvent(ctrl.filter.query, nonFreeCheck);
+
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       $state.go('search.results', ctrl.filter);
     }
@@ -329,8 +342,6 @@ query.controller('SearchQueryCtrl', [
         }
     });
 
-
-    // eslint-disable-next-line complexity
     $scope.$watchCollection(() => ctrl.filter, onValChange(newFilter => {
       watchSearchChange(newFilter, "filterChange");
     }));
@@ -374,15 +385,18 @@ query.controller('SearchQueryCtrl', [
         }
 
         //-non free-
+        const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
+        storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
+
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
           ctrl.filter.nonFree = $stateParams.nonFree;
-          storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
+          storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : (ctrl.usePermissionsFilter ? "false" : undefined), true);
         }
         else if (isNonFree === true || isNonFree === "true") {
           ctrl.filter.nonFree = "true";
         } else {
-          ctrl.filter.nonFree = "false";
+          ctrl.filter.nonFree = (ctrl.usePermissionsFilter ? "false" : undefined);
         }
 
         //-org owned-

@@ -106,8 +106,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     setIsChargeable(event.detail.showPaid);
   };
 
-  const handleQueryChange = (event: QueryChangeEvent ) => {
+  const handleQueryChange = (event: QueryChangeEvent) => {
     const newQuery = event.detail.query ? (" " + event.detail.query) : "";
+    const showPaid =  event.detail.showPaid;
+
+    if (showPaid !== isChargeable) {
+      setIsChargeable(showPaid);
+    }
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
