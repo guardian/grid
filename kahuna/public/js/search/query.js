@@ -393,10 +393,12 @@ query.controller('SearchQueryCtrl', [
           }
         }
 
-        //-non free-
+        //-default non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        raisePayableImagesEvent(defNonFree);
+        if($stateParams.nonFree === undefined && (defNonFree === true || defNonFree === "true")) {
+          raisePayableImagesEvent(defNonFree);
+        }
 
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
