@@ -244,7 +244,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         </div>
         <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
           <label className="chargeable-checkbox">
-            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
+            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
             <div className="chargeable-label-wrapper" >
               <span className="chargeable-span"></span>
               <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
