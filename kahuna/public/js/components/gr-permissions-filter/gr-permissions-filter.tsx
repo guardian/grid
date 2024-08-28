@@ -103,20 +103,11 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   const handleSetPayableImages = (event: PayableImagesEvent) => {
-    console.log("***Control:PermissionsFilter - Method:handleSetPayableImages***")
-    console.log("   showPaid=" + event.detail.showPaid + "(type=" + typeof(event.detail.showPaid) + ")")
     setIsChargeable(event.detail.showPaid);
   };
 
   const handleQueryChange = (event: QueryChangeEvent) => {
-    console.log("***Control:PermissionsFilter - Method:handleQueryChange***")
     const newQuery = event.detail.query ? (" " + event.detail.query) : "";
-    const showPaid =  event.detail.showPaid;
-    console.log("   showPaid=" + showPaid + "(type=" + typeof(showPaid) + ")")
-
-    //if (showPaid !== isChargeable) {
-    //  setIsChargeable(showPaid);
-    //}
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;

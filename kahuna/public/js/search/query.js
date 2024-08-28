@@ -76,9 +76,7 @@ query.controller('SearchQueryCtrl', [
 
     //--react - angular interop events--
     function raiseQueryChangeEvent(query, showPaid) {
-      console.log("***Query - raiseQueryChangeEvent***")
       const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
-      console.log("showPaid=" + boolShowPaid + "(type=" + typeof(boolShowPaid) + ")")
       const customEvent = new CustomEvent('queryChangeEvent', {
         detail: {query: query, showPaid: boolShowPaid},
         bubbles: true
@@ -174,9 +172,6 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      console.log("***Query:watchSearchChange - Sender:" + sender + " ***")
-      console.log("   filter.nonFree=" + newFilter.nonFree)
-
       const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
@@ -196,7 +191,7 @@ query.controller('SearchQueryCtrl', [
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
-      raiseQueryChangeEvent(ctrl.filter.query, nonFreeCheck);
+      raiseQueryChangeEvent(ctrl.filter.query);
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       $state.go('search.results', ctrl.filter);
