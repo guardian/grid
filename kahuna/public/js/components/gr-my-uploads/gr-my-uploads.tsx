@@ -67,18 +67,11 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   };
 
   const handleFilterChange = (event: FilterChangeEvent) => {
-    console.log("***Control:MyUploads - Method:handleFilterChange***")
-    console.log("   uploadedByMe=" + event.detail.filter.uploadedByMe)
-
     setMyUploads(event.detail.filter.uploadedByMe);
   };
 
   const handleUploadedBy =  (event: UploadedByEvent) => {
     const matches: boolean = (event.detail.userEmail === event.detail.uploadedBy);
-
-    console.log("***Control:MyUploads - Method:handleUploadedBy***")
-    console.log("   matches=" + matches)
-
     setMyUploads(matches);
   };
 

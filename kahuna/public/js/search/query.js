@@ -77,7 +77,6 @@ query.controller('SearchQueryCtrl', [
     //--react - angular interop events--
     function raiseQueryChangeEvent(query, showPaid) {
       console.log("***Query - raiseQueryChangeEvent***")
-
       const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
       console.log("showPaid=" + boolShowPaid + "(type=" + typeof(boolShowPaid) + ")")
       const customEvent = new CustomEvent('queryChangeEvent', {
@@ -88,9 +87,6 @@ query.controller('SearchQueryCtrl', [
     }
 
     function raiseFilterChangeEvent(filter) {
-      console.log("***Query - raiseFilterChangeEvent***")
-      console.log("   filter.nonFree=" + filter.nonFree)
-
       const customEvent = new CustomEvent('filterChangeEvent', {
         detail: {filter: filter},
         bubbles: true
@@ -99,11 +95,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     function raiseUploadedByCheckEvent() {
-      console.log("***Query - raiseUploadedByCheckEven***")
-
       if (ctrl.user) {
-        console.log("   userEmail : " + ctrl.user.email)
-        console.log("   uploadedBy : " + $stateParams.uploadedBy)
         const customEvent = new CustomEvent('uploadedByEvent', {
           detail: { userEmail: ctrl.user.email, uploadedBy: $stateParams.uploadedBy },
           bubbles: true
