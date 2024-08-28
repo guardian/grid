@@ -114,9 +114,9 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     const showPaid =  event.detail.showPaid;
     console.log("   showPaid=" + showPaid + "(type=" + typeof(showPaid) + ")")
 
-    if (showPaid !== isChargeable) {
-      setIsChargeable(showPaid);
-    }
+    //if (showPaid !== isChargeable) {
+    //  setIsChargeable(showPaid);
+    //}
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
