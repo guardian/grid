@@ -73,6 +73,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
+    ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined) ? false : true;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -180,7 +181,6 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
@@ -194,6 +194,7 @@ query.controller('SearchQueryCtrl', [
       const { nonFree, uploadedByMe } = ctrl.filter;
       let nonFreeCheck = nonFree;
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
         nonFreeCheck = defaultShowPaid;
       } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
         nonFreeCheck = undefined;
@@ -396,7 +397,8 @@ query.controller('SearchQueryCtrl', [
         //-default non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if ($stateParams.nonFree === undefined && (defNonFree === true || defNonFree === "true")) {
+        if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
+          ctrl.initialShowPaidEvent = true;
           raisePayableImagesEvent(defNonFree);
         }
 
