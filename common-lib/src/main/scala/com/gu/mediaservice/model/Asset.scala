@@ -86,6 +86,7 @@ case class OrientationMetadata(exifOrientation: Option[Int]) {
   }
 
   private def flipsDimensions(): Boolean = exifOrientation.exists(OrientationMetadata.exifOrientationsWhichFlipWidthAndHeight.contains)
+
 }
 
 object OrientationMetadata {
