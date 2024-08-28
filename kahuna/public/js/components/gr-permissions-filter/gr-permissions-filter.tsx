@@ -171,10 +171,14 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   useEffect(() => {
+    console.log("*** Permissions Filter - useEffect-isChargeable ***")
+    console.log("   isChargeable=" + isChargeable)
     props.onChargeable(isChargeable);
   }, [isChargeable]);
 
   const handleToggle = () => {
+    console.log("*** Permissions Filter - handleToggle ***")
+    console.log("   current-toggle=" + isChargeable)
     setIsChargeable(prevState => !prevState);
   };
 
