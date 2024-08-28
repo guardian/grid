@@ -396,7 +396,7 @@ query.controller('SearchQueryCtrl', [
         //-default non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if($stateParams.nonFree === undefined && (defNonFree === true || defNonFree === "true")) {
+        if ($stateParams.nonFree === undefined && (defNonFree === true || defNonFree === "true")) {
           raisePayableImagesEvent(defNonFree);
         }
 
