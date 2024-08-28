@@ -96,7 +96,7 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   return (
     <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard}>
       <label className="custom-checkbox">
-        <input type="checkbox" checked={myUploads} onChange={handleCheckboxClick}/>
+        <input type="checkbox" checked={myUploads} onClick={handleCheckboxClick}/>
         <div className="label-wrapper" >
           <span className="custom-span"></span>
           <span className="custom-label no-select">{MY_UPLOADS}</span>

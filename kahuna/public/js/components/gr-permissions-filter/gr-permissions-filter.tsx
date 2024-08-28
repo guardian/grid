@@ -242,7 +242,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
           <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
+            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
             <span className="ts-slider"></span>
           </label>
         </div>
