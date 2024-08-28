@@ -74,8 +74,12 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
 
+    //--react - angular interop events--
     function raiseQueryChangeEvent(query, showPaid) {
+      console.log("***Query - raiseQueryChangeEvent***")
+
       const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
+      console.log("showPaid=" + boolShowPaid + "(type=" + typeof(boolShowPaid) + ")")
       const customEvent = new CustomEvent('queryChangeEvent', {
         detail: {query: query, showPaid: boolShowPaid},
         bubbles: true
@@ -84,6 +88,9 @@ query.controller('SearchQueryCtrl', [
     }
 
     function raiseFilterChangeEvent(filter) {
+      console.log("***Query - raiseFilterChangeEvent***")
+      console.log("   filter.nonFree=" + filter.nonFree)
+
       const customEvent = new CustomEvent('filterChangeEvent', {
         detail: {filter: filter},
         bubbles: true
@@ -92,7 +99,11 @@ query.controller('SearchQueryCtrl', [
     }
 
     function raiseUploadedByCheckEvent() {
+      console.log("***Query - raiseUploadedByCheckEven***")
+
       if (ctrl.user) {
+        console.log("   userEmail : " + ctrl.user.email)
+        console.log("   uploadedBy : " + $stateParams.uploadedBy)
         const customEvent = new CustomEvent('uploadedByEvent', {
           detail: { userEmail: ctrl.user.email, uploadedBy: $stateParams.uploadedBy },
           bubbles: true
@@ -171,13 +182,16 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
+      console.log("***Query:watchSearchChange - Sender:" + sender + " ***")
+      console.log("   filter.nonFree=" + newFilter.nonFree)
+
       const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
 
       ctrl.collectionSearch = newFilter.query ? newFilter.query.indexOf('~') === 0 : false;
 
-      //--update filter components--
+      //--update filter elements--
       manageUploadedBy(newFilter, sender);
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
