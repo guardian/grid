@@ -75,10 +75,18 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
 
     //--react - angular interop events--
-    function raiseQueryChangeEvent(query, showPaid) {
+    function raisePayableImagesEvent(showPaid) {
       const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
+      const customEvent = new CustomEvent('setPayableImages', {
+        detail: {showPaid: boolShowPaid},
+        bubbles: true
+      });
+      window.dispatchEvent(customEvent);
+    }
+
+    function raiseQueryChangeEvent(query) {
       const customEvent = new CustomEvent('queryChangeEvent', {
-        detail: {query: query, showPaid: boolShowPaid},
+        detail: {query: query},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -388,6 +396,7 @@ query.controller('SearchQueryCtrl', [
         //-non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
+        raisePayableImagesEvent(defNonFree);
 
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {

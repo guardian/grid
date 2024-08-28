@@ -44,9 +44,8 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
 
       //-- raise payable images event --
       const event = new CustomEvent<PayableImagesEventDetail>('setPayableImages', {
-        detail: {
-          showPaid: !prevChkd
-        }
+        detail: { showPaid: !prevChkd },
+        bubbles: true
       });
       window.dispatchEvent(event);
 
