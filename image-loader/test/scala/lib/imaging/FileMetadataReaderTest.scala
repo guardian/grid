@@ -33,6 +33,33 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
     }
   }
 
+  it("should capture exif orientation tag in JPG images") {
+    val image = fileAt("exif-orientated.jpg")
+    val orientationFuture = FileMetadataReader.orientation(image)
+    whenReady(orientationFuture) { orientationOpt =>
+      orientationOpt should be(Symbol("defined"))
+      orientationOpt.get.exifOrientation should be(Some(6))
+    }
+  }
+
+  it("should ignore 0 degree exif orientation tag as it has no material effect") {
+    val image = fileAt("exif-orientated-no-rotation.jpg")
+    val orientationFuture = FileMetadataReader.orientation(image)
+    whenReady(orientationFuture) { orientationOpt =>
+      orientationOpt should be(None)
+    }
+  }
+
+  it("should use uncorrected width and height as dimensions for exif 90 rotations") {
+    val image = fileAt("exif-orientated.jpg")
+    val dimsFuture = FileMetadataReader.dimensions(image, Some(Jpeg))
+    whenReady(dimsFuture) { dimOpt =>
+      dimOpt should be(Symbol("defined"))
+      dimOpt.get.width should be(3456)
+      dimOpt.get.height should be(2304)
+    }
+  }
+
   it("should read the correct dimensions for a tiff image") {
     val image = fileAt("flower.tif")
     val dimsFuture = FileMetadataReader.dimensions(image, Some(Tiff))
