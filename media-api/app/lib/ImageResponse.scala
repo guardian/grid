@@ -15,7 +15,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
-import java.net.URI
+import java.net.{URI, URLEncoder}
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
@@ -118,7 +118,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .get
 
     val links: List[Link] = tier match {
-      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ getDownloadLinks(id, isDownloadable)
+      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid, image.source.orientationMetadata) ++ getDownloadLinks(id, isDownloadable)
       case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
@@ -140,13 +140,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     }
   }
 
-  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean): List[Link] = {
+  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean, orientationMetadata: Option[OrientationMetadata]): List[Link] = {
     import BoolImplicitMagic.BoolToOption
     val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
     val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
-    val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl))) }
+    val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl), orientationMetadata)) }
 
-    val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
+    val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl), orientationMetadata))
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
@@ -253,8 +253,19 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       "aliases" -> JsObject(aliases)
     ))
 
-  def makeImgopsUri(uri: URI): String =
-    config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+  def makeImgopsUri(uri: URI, orientationMetadata: Option[OrientationMetadata]): String = {
+    val resizing = config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+    // imgops rotates counter-clockwise
+    val orientationCorrectionRotation = -orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
+    // and ignores negative values
+    val normalised = if (orientationCorrectionRotation < 0) {
+      orientationCorrectionRotation + 360
+    } else {
+      orientationCorrectionRotation
+    }
+    val orientationCorrection = s"&r=" + URLEncoder.encode(normalised.toString, "UTF-8")
+    resizing + orientationCorrection
+  }
 
   private def updateCustomSpecialInstructions(source: JsValue): Reads[JsObject] = {
      (source \ "usageRights" \ "category") match {

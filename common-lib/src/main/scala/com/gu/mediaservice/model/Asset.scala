@@ -52,7 +52,17 @@ object Dimensions {
 
 case class OrientationMetadata(exifOrientation: Option[Int]) {
   def flipsDimensions(): Boolean = exifOrientation.exists(OrientationMetadata.exifOrientationsWhichFlipWidthAndHeight.contains)
+
   def transformsImage(): Boolean = !exifOrientation.exists(OrientationMetadata.exifOrientationsWhichDoNotTransformTheImage.contains)
+
+  def orientationCorrection(): Int = {
+    exifOrientation match {
+      case Some(6) => 90
+      case Some(8) => -90
+      case Some(3) => 180
+      case _ => 0
+    }
+  }
 }
 object OrientationMetadata {
   private val exifOrientationsWhichDoNotTransformTheImage = Set(1)
