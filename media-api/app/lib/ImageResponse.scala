@@ -61,8 +61,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
               withWritePermission: Boolean,
               withDeleteImagePermission: Boolean,
               withDeleteCropsOrUsagePermission: Boolean,
-              included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
-
+              included: List[String] = List(), tier: Tier)(implicit instance: Instance): (JsValue, List[Link], List[Action]) = {
     val image = imageWrapper.instance
 
     val source = Try {
@@ -130,18 +129,18 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (data, links, actions)
   }
 
-  private def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
-  private def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
+  private def downloadLink(id: String)(implicit instance: Instance) = Link("download", s"${config.rootUri(instance)}/images/$id/download")
+  private def downloadOptimisedLink(id: String)(implicit instance: Instance)  = Link("downloadOptimised", s"${config.rootUri(instance)}/images/$id/downloadOptimised?{&width,height,quality}")
 
 
-  private def getDownloadLinks(id: String, isDownloadable: Boolean): List[Link] = {
+  private def getDownloadLinks(id: String, isDownloadable: Boolean)(implicit instance: Instance): List[Link] = {
     (config.restrictDownload, isDownloadable) match {
       case (true, false) => Nil
-      case (_, _) => List(downloadLink(id), downloadOptimisedLink(id))
+      case (_, _) => List(downloadLink(id)(instance), downloadOptimisedLink(id)(instance))
     }
   }
 
-  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean, orientationMetadata: Option[OrientationMetadata]): List[Link] = {
+  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean, orientationMetadata: Option[OrientationMetadata])(implicit instance: Instance): List[Link] = {
     import BoolImplicitMagic.BoolToOption
     val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
     val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
@@ -151,9 +150,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
-    val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
+    val fileMetadataLink = Link("fileMetadata", s"${config.rootUri(instance)}/images/$id/fileMetadata")
     val projectionLink = Link("loader", s"${config.loaderUri}/images/project/$id")
-    val projectionDiffLink = Link("api", s"${config.rootUri}/images/$id/projection/diff")
+    val projectionDiffLink = Link("api", s"${config.rootUri(instance)}/images/$id/projection/diff")
 
     editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
       List(
@@ -161,10 +160,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         projectionLink, projectionDiffLink)
   }
 
-  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
+  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean)(implicit instance: Instance): List[Action] = {
 
-    val imageUri = URI.create(s"${config.rootUri}/images/$id")
-    val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
+    val imageUri = URI.create(s"${config.rootUri(instance)}/images/$id")
+    val reindexUri = URI.create(s"${config.rootUri(instance)}/images/$id/reindex")
     val addCollectionUri = URI.create(s"${config.collectionsUri}/images/$id")
     val addLeaseUri = URI.create(s"${config.leasesUri}/leases")
     val addLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
@@ -323,7 +322,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   import play.api.libs.json.JodaWrites._
 
-  def imageResponseWrites(id: String, expandFileMetaData: Boolean): OWrites[Image] = (
+  def imageResponseWrites(id: String, expandFileMetaData: Boolean)(implicit instance: Instance): OWrites[Image] = (
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[DateTime] ~
       (__ \ "uploadedBy").write[String] ~
@@ -354,7 +353,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     ) (unlift(Image.unapply))
 
-  def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
+  def fileMetaDataUri(id: String)(implicit instance: Instance) = URI.create(s"${config.rootUri(instance)}/images/$id/fileMetadata")
 
   def usagesUri(id: String) = URI.create(s"${config.usageUri}/usages/media/$id")
 
@@ -384,10 +383,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     ))
   }
 
-  def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
+  def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata)(implicit instance: Instance) = {
     val displayableMetadata = if (expandFileMetaData) Some(fileMetadata) else None
 
-    EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
+    EmbeddedEntity[FileMetadata](fileMetaDataUri(id)(instance), displayableMetadata)
   }
 }
 

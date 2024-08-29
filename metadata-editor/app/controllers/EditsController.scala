@@ -72,7 +72,7 @@ class EditsController(
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
-  def getAllMetadata(id: String) = auth.async {
+  def getAllMetadata(id: String) = auth.async { request =>
     val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
     editsStore.get(id) map { dynamoEntry =>
       dynamoEntry.asOpt[Edits]

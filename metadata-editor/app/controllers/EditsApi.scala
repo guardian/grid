@@ -12,7 +12,7 @@ import model.UsageRightsProperty
 import model.UsageRightsLease
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
-import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
+import play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request}
 
 import scala.concurrent.ExecutionContext
 
@@ -24,7 +24,7 @@ class EditsApi(auth: Authentication,
 
 
     // TODO: add links to the different responses esp. to the reference image
-  val indexResponse = {
+  def indexResponse()(implicit request: Request[AnyContent]) = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
       Link("edits",             s"${config.rootUri}/metadata/{id}"),
@@ -38,9 +38,11 @@ class EditsApi(auth: Authentication,
     respond(indexData, indexLinks)
   }
 
-  def index = auth { indexResponse }
+  def index = auth { request =>
+    indexResponse()(request)
+  }
 
-  val usageRightsResponse = {
+  def usageRightsResponse()(implicit request: Request[AnyContent]) = {
     val usageRights = config.applicableUsageRights.toList
 
     val usageRightsData = usageRights
@@ -49,7 +51,9 @@ class EditsApi(auth: Authentication,
     respond(usageRightsData)
   }
 
-  def getUsageRights = auth { usageRightsResponse }
+  def getUsageRights = auth { request =>
+    usageRightsResponse()(request)
+  }
 
   def filteredUsageRightsResponse(request: AuthenticatedRequest[AnyContent, Principal]) = {
     val usageRights = config.applicableUsageRights.toList
