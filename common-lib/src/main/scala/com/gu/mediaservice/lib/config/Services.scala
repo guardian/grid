@@ -16,7 +16,7 @@ trait Services {
 
   def metadataBaseUri: String
 
-  def imgopsBaseUri: String
+  def imgopsBaseUri(instance: Instance): String
 
   def usageBaseUri: String
 
@@ -51,7 +51,7 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   val metadataBaseUri: String = subpathedServiceBaseUri("metadata-editor")
 
-  val imgopsBaseUri: String = subpathedServiceBaseUri("imgproxy")
+  override def imgopsBaseUri(instance: Instance): String = vhostServiceName("imgproxy", instance)
 
   val usageBaseUri: String =subpathedServiceBaseUri("usage")
 

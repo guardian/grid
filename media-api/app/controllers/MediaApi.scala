@@ -81,7 +81,7 @@ class MediaApi(
   }
 
   private def searchLink()(implicit instance: Instance) = {
-    Link("search", searchLinkHref()(instance))
+    Link("search", searchLinkHref())
   }
 
   private def indexResponse(user: Principal)(implicit instance: Instance) = {
@@ -388,6 +388,7 @@ class MediaApi(
 
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
     implicit val r: Request[AnyContent] = request
+    val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
@@ -406,7 +407,7 @@ class MediaApi(
         }
 
         Future.successful(
-          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
+          Redirect(config.imgopsUri(instance) + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
         )
       }
       case _ => Future.successful(ImageNotFound(id))

@@ -27,7 +27,7 @@ object KahunaSecurityConfig {
       config.services.loaderBaseUri,
       config.services.cropperBaseUri,
       config.services.metadataBaseUri,
-      config.services.imgopsBaseUri,
+      // TODO restore config.services.imgopsBaseUri,
       config.services.usageBaseUri,
       config.services.collectionsBaseUri,
       config.services.leasesBaseUri,
@@ -42,7 +42,7 @@ object KahunaSecurityConfig {
     val imageSources = s"img-src ${List(
       "data:",
       "blob:",
-      URI.ensureSecure(config.services.imgopsBaseUri).toString,
+      // TODO restore URI.ensureSecure(config.services.imgopsBaseUri).toString,
       URI.ensureSecure(config.fullOrigin).toString,
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
