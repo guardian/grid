@@ -466,7 +466,7 @@ class ImageLoaderController(auth: Authentication,
 
     uploadAttempt.transformWith {
         case Failure(uploadFailure) =>
-          logger.error(logMarker, "Image upload failed", uploadFailure)
+          logger.error(logMarker, s"Image upload failed: ${uploadFailure.getMessage}", uploadFailure)
           uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
