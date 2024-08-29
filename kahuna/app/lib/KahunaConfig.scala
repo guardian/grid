@@ -15,9 +15,9 @@ case class ScriptToLoad(
 )
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
-  val rootUri: String = services.kahunaBaseUri
+  val rootUri: Instance => String = services.kahunaBaseUri
   def mediaApiUri: Instance => String = services.apiBaseUri
-  val authUri: String = services.authBaseUri
+  val authUri: Instance => String = services.authBaseUri
 
   val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 

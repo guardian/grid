@@ -572,7 +572,7 @@ class ImageLoaderController(auth: Authentication,
 
           future.map { _ =>
             logger.info(logMarker, s"Restored image $imageId from replica bucket $replicaBucket (key: $s3Key)")
-            Redirect(s"${config.kahunaUri}/images/$imageId")
+            Redirect(s"${config.kahunaUri(instance)}/images/$imageId")
           }
         case _ =>
           Future.successful(NotFound("Image not found in replica bucket"))

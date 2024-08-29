@@ -4,7 +4,7 @@ import com.gu.mediaservice.model.Instance
 
 trait Services {
 
-  def kahunaBaseUri: String
+  def kahunaBaseUri(instance: Instance): String
 
   def apiBaseUri(instance: Instance): String
 
@@ -24,7 +24,7 @@ trait Services {
 
   def leasesBaseUri(instance: Instance): String
 
-  def authBaseUri: String
+  def authBaseUri(instance: Instance): String
 
   def guardianWitnessBaseUri: String
 
@@ -34,12 +34,11 @@ trait Services {
 
   def redirectUriPlaceholder: String
 
-  def loginUriTemplate: String
-
+  def loginUriTemplate(instance: Instance): String
 }
 
 protected class SingleHostServices(val rootUrl: String) extends Services {
-  val kahunaBaseUri: String = rootUrl
+  override def kahunaBaseUri(instance: Instance): String =  vhostServiceName("", instance)
 
   override def apiBaseUri(instance: Instance): String = vhostServiceName("media-api", instance)
 
@@ -59,23 +58,21 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   override def leasesBaseUri(instance: Instance): String = vhostServiceName("leases", instance)
 
-  val authBaseUri: String = subpathedServiceBaseUri("auth")
+  override def authBaseUri(instance: Instance): String = vhostServiceName("auth", instance)
 
-  private val thrallBaseUri: String =  subpathedServiceBaseUri("thrall")
+  private def thrallBaseUri(instance: Instance): String = vhostServiceName("thrall", instance)
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
-  override def corsAllowedDomains(instance: Instance): Set[String] = Set(kahunaBaseUri, apiBaseUri(instance), thrallBaseUri)
+  override def corsAllowedDomains(instance: Instance): Set[String] = Set(kahunaBaseUri(instance), apiBaseUri(instance), thrallBaseUri(instance))
 
   val redirectUriParam = "redirectUri"
   val redirectUriPlaceholder = s"{?$redirectUriParam}"
-  val loginUriTemplate = s"$authBaseUri/login$redirectUriPlaceholder"
+  def loginUriTemplate(instance: Instance): String = s"${authBaseUri(instance)}/login$redirectUriPlaceholder"
 
   private def vhostServiceName(serviceName: String, instance: Instance): String = {
     val vhostRootUrl = instance.id
     s"https://$vhostRootUrl/" + serviceName
   }
-
-  private def subpathedServiceBaseUri(serviceName: String): String = s"$rootUrl/$serviceName"
 }
 

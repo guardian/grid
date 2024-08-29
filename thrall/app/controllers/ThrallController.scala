@@ -80,14 +80,16 @@ class ThrallController(
   }
 
   def migrationFailuresOverview(): Action[AnyContent] = withLoginRedirectAsync { request =>
+    val instance = instanceOf(request)
     es.migrationStatus match {
       case running: Running =>
-        es.getMigrationFailuresOverview(es.imagesCurrentAlias, running.migrationIndexName).map(failuresOverview =>
+        es.getMigrationFailuresOverview(es.imagesCurrentAlias, running.migrationIndexName).map(failuresOverview => {
           Ok(views.html.migrationFailuresOverview(
             failuresOverview,
-            apiBaseUrl = services.apiBaseUri(instanceOf(request)),
-            uiBaseUrl = services.kahunaBaseUri,
+            apiBaseUrl = services.apiBaseUri(instance),
+            uiBaseUrl = services.kahunaBaseUri(instance)
           ))
+        }
         )
       case _ => for {
         currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
@@ -95,22 +97,23 @@ class ThrallController(
         failuresOverview <- es.getMigrationFailuresOverview(es.imagesHistoricalAlias, currentIndexName)
         response = Ok(views.html.migrationFailuresOverview(
           failuresOverview,
-          apiBaseUrl = services.apiBaseUri(instanceOf(request)),
-          uiBaseUrl = services.kahunaBaseUri,
+          apiBaseUrl = services.apiBaseUri(instance),
+          uiBaseUrl = services.kahunaBaseUri(instance),
         ))
       } yield response
     }
   }
 
   def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync { request =>
+    val instance = instanceOf(request)
     Paging.withPaging(maybePage) { paging =>
       es.migrationStatus match {
         case running: Running =>
           es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
             Ok(views.html.migrationFailures(
               failures,
-              apiBaseUrl = services.apiBaseUri(instanceOf(request)),
-              uiBaseUrl = services.kahunaBaseUri,
+              apiBaseUrl = services.apiBaseUri(instance),
+              uiBaseUrl = services.kahunaBaseUri(instance),
               filter,
               paging.page,
               shouldAllowReattempts = true
@@ -122,8 +125,8 @@ class ThrallController(
           failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, paging.from, paging.pageSize, filter)
           response = Ok(views.html.migrationFailures(
             failures,
-            apiBaseUrl = services.apiBaseUri(instanceOf(request)),
-            uiBaseUrl = services.kahunaBaseUri,
+            apiBaseUrl = services.apiBaseUri(instance),
+            uiBaseUrl = services.kahunaBaseUri(instance),
             filter,
             paging.page,
             shouldAllowReattempts = false

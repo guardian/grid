@@ -31,11 +31,12 @@ object KahunaSecurityConfig {
       // TODO Restore config.services.usageBaseUri,
       // TODO Restore config.services.collectionsBaseUri,
       // TODO Restore config.services.leasesBaseUri,
-      config.services.authBaseUri,
+      // TODO Restore config.services.authBaseUri,
       config.services.guardianWitnessBaseUri
     )
 
-    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
+    // TODO restore ${config.services.authBaseUri} ${config.services.kahunaBaseUri}
+    val frameSources = s"frame-src https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
     val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")}"
 

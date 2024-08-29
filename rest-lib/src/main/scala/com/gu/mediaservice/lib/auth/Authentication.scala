@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, OnBehalfOfPrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider._
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, InstanceForRequest}
+import com.gu.mediaservice.model.Instance
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
@@ -16,34 +17,35 @@ class Authentication(config: CommonConfig,
                      providers: AuthenticationProviders,
                      override val parser: BodyParser[AnyContent],
                      override val executionContext: ExecutionContext)
-  extends ActionBuilder[Authentication.Request, AnyContent] with ArgoHelpers {
+  extends ActionBuilder[Authentication.Request, AnyContent] with ArgoHelpers with InstanceForRequest {
 
   // make the execution context implicit so it will be picked up appropriately
   implicit val ec: ExecutionContext = executionContext
 
-  val loginLinks: List[Link] = providers.userProvider.loginLink match {
+  def loginLinks()(implicit instance: Instance): List[Link] = providers.userProvider.loginLink match {
     case DisableLoginLink => Nil
-    case BuiltInAuthService => List(Link("login", config.services.loginUriTemplate))
+    case BuiltInAuthService => List(Link("login", config.services.loginUriTemplate(instance)))
     case ExternalLoginLink(link) => List(Link("login", link))
   }
 
-  def unauthorised(errorMessage: String, throwable: Option[Throwable] = None): Future[Result] = {
+  private def unauthorised(errorMessage: String, throwable: Option[Throwable] = None)(implicit instance: Instance): Future[Result] = {
     logger.info(s"Authentication failure $errorMessage", throwable.orNull)
-    Future.successful(respondError(Unauthorized, "authentication-failure", "Authentication failure", loginLinks))
+    Future.successful(respondError(Unauthorized, "authentication-failure", "Authentication failure", loginLinks()))
   }
 
-  def forbidden(errorMessage: String): Future[Result] = {
+  def forbidden(errorMessage: String)(implicit instance: Instance): Future[Result] = {
     logger.info(s"User not authorised: $errorMessage")
-    Future.successful(respondError(Forbidden, "principal-not-authorised", "Principal not authorised", loginLinks))
+    Future.successful(respondError(Forbidden, "principal-not-authorised", "Principal not authorised", loginLinks()))
   }
 
-  def expired(user: UserPrincipal): Future[Result] = {
+  def expired(user: UserPrincipal)(implicit instance: Instance): Future[Result] = {
     logger.info(s"User token expired for ${user.email}, return 419")
-    Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
+    Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks()))
   }
 
   // gracePeriodCountsAsAuthenticated - if true, then users with valid but recently-expired cookies are considered authenticated, and not required to refresh session for this request
   def authenticationStatus(requestHeader: RequestHeader, gracePeriodCountsAsAuthenticated: Boolean): Either[Future[Result], Principal] = {
+    implicit val instance: Instance = instanceOf(requestHeader)
     def flushToken(resultWhenAbsent: Result): Result = {
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }

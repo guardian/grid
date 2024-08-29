@@ -23,12 +23,13 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   with ArgoHelpers with InstanceForRequest {
 
   def indexResponse()(r: Request[AnyContent]) = {
+    val instance = instanceOf(r)
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
-      Link("root",          config.mediaApiUri(instanceOf(r))),
-      Link("login",         config.services.loginUriTemplate),
-      Link("ui:logout",     s"${config.rootUri}/logout"),
-      Link("session",       s"${config.rootUri}/session")
+      Link("root",          config.mediaApiUri(instance)),
+      Link("login",         config.services.loginUriTemplate(instance)),
+      Link("ui:logout",     s"${config.rootUri(instance)}/logout"),
+      Link("session",       s"${config.rootUri(instance)}/session")
     )
     respond(indexData, indexLinks)
   }

@@ -42,14 +42,14 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val fuzzyMaxExpansions: Int = intOpt("search.fuzziness.maxExpansions").getOrElse(50)
 
   val rootUri: Instance => String = services.apiBaseUri
-  val kahunaUri: String = services.kahunaBaseUri
+  val kahunaUri: Instance => String = services.kahunaBaseUri
   val cropperUri: Instance => String = services.cropperBaseUri
   val loaderUri: Instance => String = services.loaderBaseUri
   val metadataUri: Instance => String = services.metadataBaseUri
   val imgopsUri: Instance => String = services.imgopsBaseUri
   val usageUri: Instance => String = services.usageBaseUri
   val leasesUri: Instance => String = services.leasesBaseUri
-  val authUri: String = services.authBaseUri
+  val authUri: Instance => String = services.authBaseUri
   val collectionsUri: Instance => String = services.collectionsBaseUri
 
   val requiredMetadata = NonEmptyList("credit", "description", "usageRights")
