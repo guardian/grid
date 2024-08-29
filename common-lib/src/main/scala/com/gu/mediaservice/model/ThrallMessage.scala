@@ -25,13 +25,13 @@ sealed trait InternalThrallMessage extends ThrallMessage {}
 
 sealed trait MigrationMessage extends InternalThrallMessage {}
 
-case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)]) extends MigrationMessage
+case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)], instance: String) extends MigrationMessage
 
 object MigrateImageMessage {
-  def apply(imageId: String, maybeProjection: Option[Image], maybeVersion: Option[Long]): MigrateImageMessage = (maybeProjection, maybeVersion) match {
-    case (Some(projection), Some(version)) => MigrateImageMessage(imageId, scala.Right((projection, version)))
-    case (None, _) => MigrateImageMessage(imageId, Left("There was no projection returned"))
-    case _ => MigrateImageMessage(imageId, Left("There was no version returned"))
+  def apply(imageId: String, maybeProjection: Option[Image], maybeVersion: Option[Long], instance: String): MigrateImageMessage = (maybeProjection, maybeVersion) match {
+    case (Some(projection), Some(version)) => MigrateImageMessage(imageId, scala.Right((projection, version)), instance)
+    case (None, _) => MigrateImageMessage(imageId, Left("There was no projection returned"), instance)
+    case _ => MigrateImageMessage(imageId, Left("There was no version returned"), instance)
   }
 }
 

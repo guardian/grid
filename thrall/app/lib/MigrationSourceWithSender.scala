@@ -111,15 +111,15 @@ object MigrationSourceWithSender extends GridLogging {
     val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, preferred =  true)
 
     // project image from MigrationRequest, produce the MigrateImageMessage
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
+    def projectedImageSource(instance: Instance): Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
       case MigrationRequest(imageId, version) =>
         val migrateImageMessageFuture = (
           for {
             maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
             maybeVersion = Some(version)
-          } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
+          } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion, instance.id)
         ).recover {
-          case error => MigrateImageMessage(imageId, Left(error.toString))
+          case error => MigrateImageMessage(imageId, Left(error.toString), instance.id)
         }
         migrateImageMessageFuture.map(message => MigrationRecord(
           payload = message,
@@ -129,7 +129,7 @@ object MigrationSourceWithSender extends GridLogging {
 
     MigrationSourceWithSender(
       send = submitIdForMigration,
-      source = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done)),
+      source = projectedImageSource(instance).mapMaterializedValue(_ => Future.successful(Done)),
     )
   }
 }
