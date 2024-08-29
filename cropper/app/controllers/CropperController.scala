@@ -1,7 +1,7 @@
 package controllers
 
 import _root_.play.api.libs.json._
-import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request, RequestHeader}
+import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link

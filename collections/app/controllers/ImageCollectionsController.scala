@@ -12,7 +12,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents, RequestHeader}
+import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
