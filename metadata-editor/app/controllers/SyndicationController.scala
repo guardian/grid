@@ -3,12 +3,11 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents, RequestHeader}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import play.api.libs.json._
-import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,7 +20,7 @@ class SyndicationController(auth: Authentication,
                             override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with Syndication with MessageSubjects with ArgoHelpers with EditsResponse {
 
-  override val metadataBaseUri: String = config.services.metadataBaseUri
+  override val metadataBaseUri: Instance => String = config.services.metadataBaseUri
 
   def getPhotoshoot(id: String) = auth.async {
     editsStore.jsonGet(id, Edits.Photoshoot).map(dynamoEntry => {

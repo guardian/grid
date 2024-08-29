@@ -94,7 +94,7 @@ class MediaApi(
     val userCanArchive: Boolean = authorisation.hasPermissionTo(ArchiveImages)(user)
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
-    val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri(instance)}/metadata/{id}/archived")).filter(_ => userCanArchive)
     val indexLinks = List(
       searchLink(),
       Link("image",           s"${config.rootUri(instance)}/images/{id}"),
@@ -102,8 +102,8 @@ class MediaApi(
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"${config.rootUri(instance)}/suggest/metadata/{field}{?q}"),
       Link("label-search",    s"${config.rootUri(instance)}/images/edits/label{?q}"),
-      Link("cropper",         config.cropperUri),
-      Link("edits",           config.metadataUri),
+      Link("cropper",         config.cropperUri(instance)),
+      Link("edits",           config.metadataUri(instance)),
       Link("session",         s"${config.authUri}/session"),
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),

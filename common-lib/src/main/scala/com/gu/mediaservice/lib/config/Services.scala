@@ -12,9 +12,9 @@ trait Services {
 
   def projectionBaseUri: String
 
-  def cropperBaseUri: String
+  def cropperBaseUri(instance: Instance): String
 
-  def metadataBaseUri: String
+  def metadataBaseUri(instance: Instance): String
 
   def imgopsBaseUri(instance: Instance): String
 
@@ -47,11 +47,11 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   val projectionBaseUri: String = loaderBaseUri
 
-  val cropperBaseUri: String = subpathedServiceBaseUri("cropper")
+  override def cropperBaseUri(instance: Instance): String = vhostServiceName("cropper", instance)
 
-  val metadataBaseUri: String = subpathedServiceBaseUri("metadata-editor")
+  override def metadataBaseUri(instance: Instance): String = vhostServiceName("metadata-editor", instance)
 
-  override def imgopsBaseUri(instance: Instance): String = vhostServiceName("imgproxy", instance)
+  override def imgopsBaseUri(instance: Instance): String=  vhostServiceName("imgproxy", instance)
 
   val usageBaseUri: String =subpathedServiceBaseUri("usage")
 

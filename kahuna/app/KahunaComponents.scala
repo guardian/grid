@@ -24,9 +24,9 @@ object KahunaSecurityConfig {
 
     val services = List(
       // TODO Restore config.services.apiBaseUri,
-      config.services.loaderBaseUri,
-      config.services.cropperBaseUri,
-      config.services.metadataBaseUri,
+      // TODO Restore config.services.loaderBaseUri,
+      // TODO Restore config.services.cropperBaseUri,
+      // TODO Restore config.services.metadataBaseUri,
       // TODO restore config.services.imgopsBaseUri,
       config.services.usageBaseUri,
       config.services.collectionsBaseUri,

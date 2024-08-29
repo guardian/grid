@@ -179,9 +179,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
+  def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
-    val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
+    val url = new URL(s"${services.metadataBaseUri(instance)}/edits/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[Edits])
       case NotFound(_, _) => None
@@ -209,9 +209,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
+  def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[List[Crop]] = {
     logger.info("attempt to get crops")
-    val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
+    val url = new URL(s"${services.cropperBaseUri(instance)}/crops/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Crop]]
       case NotFound(_, _) => Nil
@@ -255,8 +255,8 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getSyndicationRights(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
-    val url = new URL(s"${services.metadataBaseUri}/metadata/$mediaId/syndication")
+  def getSyndicationRights(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance) = {
+    val url = new URL(s"${services.metadataBaseUri(instance)}/metadata/$mediaId/syndication")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[SyndicationRights])
       case _: NotFound => None

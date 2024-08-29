@@ -2,11 +2,13 @@ package com.gu.mediaservice.model
 
 import java.net.{URI, URLEncoder}
 import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.functional.syntax._
+import play.api.mvc.Request
 
 
 case class Edits(
@@ -54,8 +56,8 @@ object Edits {
 
 }
 
-trait EditsResponse {
-  val metadataBaseUri: String
+trait EditsResponse extends InstanceForRequest {
+  val metadataBaseUri: Instance => String
 
   type ArchivedEntity = EmbeddedEntity[Boolean]
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
@@ -63,11 +65,12 @@ trait EditsResponse {
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
   type PhotoshootEntity = EmbeddedEntity[Photoshoot]
 
-  def editsEmbeddedEntity(id: String, edits: Edits) =
+  def editsEmbeddedEntity(id: String, edits: Edits)(implicit instance: Instance) = {
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
+  }
 
   // the types are in the arguments because of a whining scala compiler
-  def editsEntity(id: String): Writes[Edits] = (
+  def editsEntity(id: String)(implicit instance: Instance): Writes[Edits] = (
       (__ \ Edits.Archived).write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ Edits.Labels).write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ Edits.Metadata).write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
@@ -76,31 +79,31 @@ trait EditsResponse {
       (__ \ Edits.LastModified).writeNullable[DateTime]
     )(unlift(Edits.unapply))
 
-  def photoshootEntity(id: String, photoshoot: Option[Photoshoot]): PhotoshootEntity =
+  def photoshootEntity(id: String, photoshoot: Option[Photoshoot])(implicit instance: Instance): PhotoshootEntity =
     EmbeddedEntity(entityUri(id, "/photoshoot"), photoshoot)
 
-  def archivedEntity(id: String, a: Boolean): ArchivedEntity =
+  def archivedEntity(id: String, a: Boolean)(implicit instance: Instance): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
 
-  def metadataEntity(id: String, m: ImageMetadata): MetadataEntity =
+  def metadataEntity(id: String, m: ImageMetadata)(implicit instance: Instance): MetadataEntity =
     EmbeddedEntity(entityUri(id, "/metadata"), Some(m), actions = List(
       Action("set-from-usage-rights", entityUri(id, "/metadata/set-from-usage-rights"), "POST")
     ))
 
-  def usageRightsEntity(id: String, u: Option[UsageRights]): UsageRightsEntity =
+  def usageRightsEntity(id: String, u: Option[UsageRights])(implicit instance: Instance): UsageRightsEntity =
     u.map(i => EmbeddedEntity(entityUri(id, "/usage-rights"), Some(i)))
      .getOrElse(EmbeddedEntity(entityUri(id, "/usage-rights"), None))
 
-  def setEntity(id: String, setName: String, labels: List[String]): SetEntity =
+  def setEntity(id: String, setName: String, labels: List[String])(implicit instance: Instance): SetEntity =
     EmbeddedEntity(entityUri(id, s"/$setName"), Some(labels.map(setUnitEntity(id, setName, _))))
 
-  def setUnitEntity(id: String, setName: String, name: String): EmbeddedEntity[String] =
+  def setUnitEntity(id: String, setName: String, name: String)(implicit instance: Instance): EmbeddedEntity[String] =
     EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
 
-  private def entityUri(id: String, endpoint: String = ""): URI =
-    URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
+  private def entityUri(id: String, endpoint: String = "")(implicit instance: Instance): URI =
+    URI.create(s"${metadataBaseUri(instance)}/metadata/$id$endpoint")
 
-  def labelsUri(id: String) = entityUri(id, "/labels")
+  def labelsUri(id: String)(implicit instance: Instance) = entityUri(id, "/labels")
 
-  def metadataUri(id: String) = entityUri(id, "/metadata")
+  def metadataUri(id: String)(implicit instance: Instance) = entityUri(id, "/metadata")
 }
