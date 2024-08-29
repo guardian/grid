@@ -9,6 +9,8 @@ import org.scalatestplus.mockito.MockitoSugar
 class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
   import scala.concurrent.ExecutionContext.Implicits.global
 
+  private val instance = Instance(id = "an-instance")
+
   it("should return JPEG when the input type is a JPEG") {
     Crops.cropType(Jpeg, "True Color", hasAlpha = false) shouldBe Jpeg
     Crops.cropType(Jpeg, "Monkey", hasAlpha = false) shouldBe Jpeg
@@ -51,22 +53,22 @@ class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
 
   it("should should construct a correct address for a master jpg") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Jpeg, isMaster = true)
-    outputFilename shouldBe "test/10_20_30_40/master/1234.jpg"
+      .outputFilename(source, bounds, outputWidth, Jpeg, isMaster = true, instance = instance)
+    outputFilename shouldBe "an-instance/test/10_20_30_40/master/1234.jpg"
   }
   it("should should construct a correct address for a non-master jpg") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Jpeg)
-    outputFilename shouldBe "test/10_20_30_40/1234.jpg"
+      .outputFilename(source, bounds, outputWidth, Jpeg, instance = instance)
+    outputFilename shouldBe "an-instance/test/10_20_30_40/1234.jpg"
   }
   it("should should construct a correct address for a non-master tiff") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Tiff)
-    outputFilename shouldBe "test/10_20_30_40/1234.tiff"
+      .outputFilename(source, bounds, outputWidth, Tiff, instance = instance)
+    outputFilename shouldBe "an-instance/test/10_20_30_40/1234.tiff"
   }
   it("should should construct a correct address for a non-master png") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Png)
-    outputFilename shouldBe "test/10_20_30_40/1234.png"
+      .outputFilename(source, bounds, outputWidth, Png, instance = instance)
+    outputFilename shouldBe "an-instance/test/10_20_30_40/1234.png"
   }
 }
