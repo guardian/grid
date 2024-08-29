@@ -189,6 +189,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "The Asahi Shimbun Premium",
     "The Asahi Shimbun Video",
     "Tottenham Hotspur FC",
+    "UEFA Exclusive",
     "ullstein bild Premium",
     "Ulrich Baumgarten",
     "Vision Media",
