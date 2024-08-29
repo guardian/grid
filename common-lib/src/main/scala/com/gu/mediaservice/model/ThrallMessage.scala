@@ -45,6 +45,7 @@ sealed trait ExternalThrallMessage extends ThrallMessage {
   implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites
   val id: String
   val lastModified: DateTime
+  val instance: String
   def toJson: JsValue = Json.toJson(this)(ExternalThrallMessage.writes)
 
   override def markerContents: Map[String, Any] = {
@@ -98,33 +99,33 @@ case class ImageMessage(lastModified: DateTime, image: Image, instance: String) 
   override val id: String = image.id
 }
 
-case class DeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
+case class DeleteImageMessage(id: String, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
-case class SoftDeleteImageMessage(id: String, lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata) extends ExternalThrallMessage
+case class SoftDeleteImageMessage(id: String, lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata, instance: String) extends ExternalThrallMessage
 
-case class UnSoftDeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
+case class UnSoftDeleteImageMessage(id: String, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
-case class DeleteImageExportsMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
+case class DeleteImageExportsMessage(id: String, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
-case class UpdateImageExportsMessage(id: String, lastModified: DateTime, crops: Seq[Crop]) extends ExternalThrallMessage
+case class UpdateImageExportsMessage(id: String, lastModified: DateTime, crops: Seq[Crop], instance: String) extends ExternalThrallMessage
 
-case class UpdateImageUserMetadataMessage(id: String, lastModified: DateTime, edits: Edits) extends ExternalThrallMessage
+case class UpdateImageUserMetadataMessage(id: String, lastModified: DateTime, edits: Edits, instance: String) extends ExternalThrallMessage
 
-case class UpdateImageUsagesMessage(id: String, lastModified: DateTime, usageNotice: UsageNotice) extends ExternalThrallMessage
+case class UpdateImageUsagesMessage(id: String, lastModified: DateTime, usageNotice: UsageNotice, instance: String) extends ExternalThrallMessage
 
-case class ReplaceImageLeasesMessage(id: String, lastModified: DateTime, leases: Seq[MediaLease]) extends ExternalThrallMessage
+case class ReplaceImageLeasesMessage(id: String, lastModified: DateTime, leases: Seq[MediaLease], instance: String) extends ExternalThrallMessage
 
-case class AddImageLeaseMessage(id: String, lastModified: DateTime, lease: MediaLease) extends ExternalThrallMessage
+case class AddImageLeaseMessage(id: String, lastModified: DateTime, lease: MediaLease, instance: String) extends ExternalThrallMessage
 
-case class RemoveImageLeaseMessage(id: String, lastModified: DateTime, leaseId: String) extends ExternalThrallMessage
+case class RemoveImageLeaseMessage(id: String, lastModified: DateTime, leaseId: String, instance: String) extends ExternalThrallMessage
 
-case class SetImageCollectionsMessage(id: String, lastModified: DateTime, collections: Seq[Collection]) extends ExternalThrallMessage
+case class SetImageCollectionsMessage(id: String, lastModified: DateTime, collections: Seq[Collection], instance: String) extends ExternalThrallMessage
 
-case class DeleteSingleUsageMessage(id: String, lastModified: DateTime, usageId: String) extends ExternalThrallMessage
+case class DeleteSingleUsageMessage(id: String, lastModified: DateTime, usageId: String, instance: String) extends ExternalThrallMessage
 
-case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
+case class DeleteUsagesMessage(id: String, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
-case class UpdateUsageStatusMessage(id: String, usageNotice: UsageNotice, lastModified: DateTime) extends ExternalThrallMessage
+case class UpdateUsageStatusMessage(id: String, usageNotice: UsageNotice, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
 object DeleteUsagesMessage {
   implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
@@ -132,9 +133,9 @@ object DeleteUsagesMessage {
   implicit val what: OFormat[DeleteUsagesMessage] = Json.format[DeleteUsagesMessage]
 }
 
-case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, maybeSyndicationRights: Option[SyndicationRights]) extends ExternalThrallMessage
+case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, maybeSyndicationRights: Option[SyndicationRights], instance: String) extends ExternalThrallMessage
 
-case class UpdateImagePhotoshootMetadataMessage(id: String, lastModified: DateTime, edits: Edits) extends ExternalThrallMessage
+case class UpdateImagePhotoshootMetadataMessage(id: String, lastModified: DateTime, edits: Edits, instance: String) extends ExternalThrallMessage
 
 /**
   * Message to start a new 'migration' (for re-index, re-ingestion etc.)
@@ -143,7 +144,8 @@ case class UpdateImagePhotoshootMetadataMessage(id: String, lastModified: DateTi
   */
 case class CreateMigrationIndexMessage(
   migrationStart: DateTime,
-  gitHash: String
+  gitHash: String,
+  instance: String
 ) extends ExternalThrallMessage {
   val id: String = "N/A"
   val lastModified: DateTime = migrationStart
@@ -152,8 +154,8 @@ case class CreateMigrationIndexMessage(
     s"images_${migrationStart.toString(DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss").withZoneUTC())}_${gitHash.take(7)}"
 }
 
-case class UpsertFromProjectionMessage(id: String, image: Image, lastModified: DateTime) extends ExternalThrallMessage
+case class UpsertFromProjectionMessage(id: String, image: Image, lastModified: DateTime, instance: String) extends ExternalThrallMessage
 
-case class CompleteMigrationMessage(lastModified: DateTime) extends ExternalThrallMessage {
+case class CompleteMigrationMessage(lastModified: DateTime, instance: String) extends ExternalThrallMessage {
   val id: String = "N/A"
 }

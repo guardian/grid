@@ -30,53 +30,53 @@ class ExternalThrallMessageTest extends AnyFreeSpec with Matchers with TableDriv
       roundTrip(message)
     }
     "from a DeleteImageMessage" in {
-      val dim = DeleteImageMessage("hey", nowUtc)
+      val dim = DeleteImageMessage("hey", nowUtc, instance = "an-instance")
       roundTrip(dim)
     }
     "from a DeleteImageExportsMessage" in {
-      val diem = DeleteImageExportsMessage("carpe", nowUtc)
+      val diem = DeleteImageExportsMessage("carpe", nowUtc, instance = "an-instance")
       roundTrip(diem)
     }
     "from a UpdateImageExportsMessage" in {
-      val uiem = UpdateImageExportsMessage("id", nowUtc, Seq())
+      val uiem = UpdateImageExportsMessage("id", nowUtc, Seq(), instance = "an-instance")
       roundTrip(uiem)
     }
 
     "from a UpdateImageUserMetadataMessage" in {
-      val msg = UpdateImageUserMetadataMessage("hello", nowUtc, Edits(metadata = ImageMetadata()))
+      val msg = UpdateImageUserMetadataMessage("hello", nowUtc, Edits(metadata = ImageMetadata()), instance = "an-instance")
       roundTrip(msg)
     }
     "from a UpdateImageUsagesMessage" in {
-      val msg = UpdateImageUsagesMessage("hello", nowUtc, UsageNotice("hello", JsArray(), "an-instance"))
+      val msg = UpdateImageUsagesMessage("hello", nowUtc, UsageNotice("hello", JsArray(), instance = "an-instance"), instance = "an-instance")
       roundTrip(msg)
     }
     "from a ReplaceImageLeasesMessage" in {
-      val msg = ReplaceImageLeasesMessage("hello", nowUtc, Seq())
+      val msg = ReplaceImageLeasesMessage("hello", nowUtc, Seq(), instance = "an-instance")
       roundTrip(msg)
     }
 
     "from a AddImageLeaseMessage" in {
-      val msg = AddImageLeaseMessage("hello", nowUtc, MediaLease(None, None, notes = None, mediaId = ""))
+      val msg = AddImageLeaseMessage("hello", nowUtc, MediaLease(None, None, notes = None, mediaId = ""), instance = "an-instance")
       roundTrip(msg)
     }
     "from a RemoveImageLeaseMessage" in {
-      val msg = RemoveImageLeaseMessage("hello", nowUtc, "bye")
+      val msg = RemoveImageLeaseMessage("hello", nowUtc, "bye", instance = "an-instance")
       roundTrip(msg)
     }
     "from a SetImageCollectionsMessage" in {
-      val msg = SetImageCollectionsMessage("hello", nowUtc, Seq())
+      val msg = SetImageCollectionsMessage("hello", nowUtc, Seq(), instance = "an-instance")
       roundTrip(msg)
     }
     "from a DeleteUsagesMessage" in {
-      val msg = DeleteUsagesMessage("hello", nowUtc)
+      val msg = DeleteUsagesMessage("hello", nowUtc, instance = "an-instance")
       roundTrip(msg)
     }
     "from a UpdateImageSyndicationMetadataMessage" in {
-      val msg = UpdateImageSyndicationMetadataMessage("hello", nowUtc, None)
+      val msg = UpdateImageSyndicationMetadataMessage("hello", nowUtc, None, instance = "an-instance")
       roundTrip(msg)
     }
     "from a UpdateImagePhotoshootMetadataMessage" in {
-      val msg = UpdateImagePhotoshootMetadataMessage("hello", nowUtc, Edits(metadata = ImageMetadata()))
+      val msg = UpdateImagePhotoshootMetadataMessage("hello", nowUtc, Edits(metadata = ImageMetadata()), instance = "an-instance")
       roundTrip(msg)
     }
   }
