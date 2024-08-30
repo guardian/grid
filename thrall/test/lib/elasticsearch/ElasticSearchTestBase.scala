@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 
 trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with ElasticSearchDockerBase with BeforeAndAfterEach with Eventually with ScalaFutures with MockitoSugar {
 
-  def instance: String
+  def instance: Instance
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)

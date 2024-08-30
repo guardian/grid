@@ -15,7 +15,7 @@ import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
 
-  override def instance: String = UUID.randomUUID().toString
+  override def instance: Instance = Instance(id = UUID.randomUUID().toString)
 
   "Elasticsearch" - {
      implicit val logMarker: LogMarker = MarkerMap()
