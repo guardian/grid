@@ -8,7 +8,7 @@ import java.util.UUID
 
 class MigrationStatusProviderTest extends ElasticSearchTestBase {
 
-  override def instance: Instance = Instance(UUID.randomUUID().toString)
+  override val instance: Instance = Instance(UUID.randomUUID().toString)
 
   implicit val lm: LogMarker = new LogMarker{
     override def markerContents: Map[String, Any] = Map.empty

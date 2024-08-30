@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageModelTest extends ElasticSearchTestBase {
 
-  override def instance: Instance = Instance(UUID.randomUUID().toString)
+  override val instance: Instance = Instance(UUID.randomUUID().toString)
 
   implicit val logMarker: LogMarker = MarkerMap()
   "the image model matches the mapping" - {
