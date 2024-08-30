@@ -31,14 +31,14 @@
 
     <!-- preconnect to core APIs ahead of JS making the requests -->
     <link rel="preconnect" href="@kahunaClientServiceUrls.mediaApiUri"/>
-    <link rel="preconnect" href="@kahunaConfig.authUri"/>
+    <link rel="preconnect" href="@kahunaClientServiceUrls.authUri"/>
 
     <link rel="shortcut icon" type="image/svg+xml" href="@routes.Assets.versioned("images/grid-favicon.svg")"/>
     <link rel="alternate shortcut icon" type="image/png" href="@routes.Assets.versioned("images/grid-favicon-32.png")"/>
     <link rel="assets" href="@routes.Assets.versioned("")"/>
     <link rel="media-api-uri" href="@kahunaClientServiceUrls.mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
-    <link rel="auth-uri" href="@kahunaConfig.authUri" />
+    <link rel="auth-uri" href="@kahunaClientServiceUrls.authUri" />
 
     @kahunaConfig.sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />

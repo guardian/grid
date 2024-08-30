@@ -1,3 +1,3 @@
 package lib
 
-case class KahunaClientServiceUrls(rootUri: String, mediaApiUri: String)
+case class KahunaClientServiceUrls(rootUri: String, mediaApiUri: String, authUri: String)
