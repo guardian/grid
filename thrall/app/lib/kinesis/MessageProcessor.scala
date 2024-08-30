@@ -1,9 +1,11 @@
 package lib.kinesis
 
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
-import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
@@ -26,6 +28,8 @@ class MessageProcessor(
   es: ElasticSearch,
   store: ThrallStore,
   metadataEditorNotifications: MetadataEditorNotifications,
+  gridClient: GridClient,
+  auth: Authentication
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -51,7 +55,7 @@ class MessageProcessor(
       case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
       case message: UpdateUsageStatusMessage => updateUsageStatus(message, logMarker)
       case message: CompleteMigrationMessage => completeMigration(message, logMarker)
-      case message: CreateInstanceMessage => ensureIndex(message, logMarker)
+      case message: CreateInstanceMessage => setupNewInstance(message, logMarker)
       case _ =>
         logger.info(s"Unmatched ThrallMessage type: ${updateMessage.subject}; ignoring")
         Future.successful(())
@@ -235,11 +239,15 @@ class MessageProcessor(
     es.completeMigration(logMarker)
   }
 
-  private def ensureIndex(message: CreateInstanceMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+  private def setupNewInstance(message: CreateInstanceMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
     val instance = message.instance
     logger.info("Ensuring indexes for create instance message: " + instance)
     Future.successful {
       es.ensureIndexExistsAndAliasAssigned(alias = es.imagesCurrentAlias(instance), index = instance.id + "_index")
+    }.map { _ =>
+      logger.info("Creating Home collection")
+      implicit val i: Instance = instance
+      gridClient.createCollection("Home", auth.innerServiceCall)
     }
   }
 

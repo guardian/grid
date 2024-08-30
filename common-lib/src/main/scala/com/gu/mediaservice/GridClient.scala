@@ -8,7 +8,7 @@ import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
 import play.api.http.HeaderNames
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
+import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json, Reads}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -176,6 +176,21 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
       case Found(json, _) => (json \ "data").as[List[Collection]]
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def createCollection(name: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[Collection]] = {
+    val url = new URL(s"${services.collectionsBaseUri(instance)}/collections")
+    val request: WSRequest = wsClient.url(url.toString)
+    // TODO sensible timeout!
+    val authorisedRequest = authFn(request)
+    val data = Json.obj("data" -> JsString(name))
+    authorisedRequest.post(data).map { response =>
+      validateResponse(response, url) match {
+        case Found(json, _) => (json \ "data" \ "data").toOption.map(_.as[Collection])
+        case NotFound(_, _) => None
+        case e@Error(_, _, _) => e.logErrorAndThrowException()
+      }
     }
   }
 
