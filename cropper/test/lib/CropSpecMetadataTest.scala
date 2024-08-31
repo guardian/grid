@@ -37,7 +37,7 @@ class CropSpecMetadataTest extends AnyFunSpec with Matchers with CropSpecMetadat
       val metadata = metadataForCrop(crop.copy(specification = withEmptyField, author = None), dimensions)
 
       metadata.get("aspect-ratio") shouldBe None
-      metadata.get("author") shouldBe Some("None")  // TODO this does not look intentional!
+      metadata.get("author") shouldBe None
     }
 
     it("should round trip metadata back to crop spec") {
