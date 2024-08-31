@@ -170,7 +170,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       // We correct for orientation in the cropper UI; so validate against the oriented dimensions.
       orientedDimensions = Seq(apiImage.source.orientedDimensions, apiImage.source.dimensions).flatten.headOption
       dimensions <- ifDefined(orientedDimensions, InvalidImage)
-      cropSpec = ExportRequest.toCropSpec(exportRequest, dimensions)
+      cropSpec = ExportRequest.toCropSpec(exportRequest, dimensions, apiImage.source.orientationMetadata)
       _ <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
       crop = Crop.createFromCropSource(
         by = Some(Authentication.getIdentity(user)),
