@@ -86,7 +86,7 @@ trait Fixtures {
   def imageWithPhotoshoot(photoshoot: Photoshoot): Image = createImage(id = UUID.randomUUID().toString, StaffPhotographer("Tom Jenkins", "The Guardian"), optPhotoshoot = Some(photoshoot))
 
   def crop = {
-    val cropSpec = CropSpec("/test", Bounds(0,0,0,0), None)
+    val cropSpec = CropSpec("/test", Bounds(0,0,0,0), None, rotation = None)
     Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
   }
 
