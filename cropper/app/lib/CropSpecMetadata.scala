@@ -17,13 +17,18 @@ trait CropSpecMetadata {
       "date" -> crop.date.map(printDateTime),
       "width" -> dimensions.width,
       "height" -> dimensions.height,
-    ) ++ r.map("aspect-ratio" -> _)
+      "aspect-ratio" -> r)
 
-    val filteredMetadata = metadata.collect {
+    val nonEmptyMetadata = metadata.filter {
+      case (_, None) => false
+      case _ => true
+    }
+
+    val flattenedMetadata = nonEmptyMetadata.collect {
       case (key, Some(value)) => key -> value
       case (key, value) => key -> value
     }.mapValues(_.toString)
-    filteredMetadata
+    flattenedMetadata
   }
 
   def cropSpecFromMetadata(userMetadata: Map[String, String]): Option[CropSpec] = {
