@@ -32,16 +32,18 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private val index = "images"
 
+  private val applicationLifecycle = new ApplicationLifecycle {
+    override def addStopHook(hook: () => Future[_]): Unit = {}
+    override def stop(): Future[_] = Future.successful(())
+  }
+
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
     Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
     null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
+    applicationLifecycle
   ))
   private val actorSystem: ActorSystem = ActorSystem()
-  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig, actorSystem)
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig, actorSystem, applicationLifecycle)
   val elasticConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
       current = "Images_Current",

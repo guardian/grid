@@ -35,7 +35,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     gzipFilter,
     new RequestLoggingFilter(materializer),
     new ConnectionBrokenFilter(materializer),
-    new RequestMetricFilter(config, materializer, actorSystem)
+    new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
   )
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
