@@ -177,7 +177,7 @@ class MessageProcessor(
             store.deleteOriginal(message.id, message.instance)
             store.deleteThumbnail(message.id, message.instance)
             store.deletePNG(message.id, message.instance)
-            metadataEditorNotifications.publishImageDeletion(message.id)
+            metadataEditorNotifications.publishImageDeletion(message.id, message.instance)
             EsResponse(s"Image deleted: ${message.id}")
         } recoverWith {
           case ImageNotDeletable =>
