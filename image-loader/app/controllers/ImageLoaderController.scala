@@ -80,7 +80,7 @@ class ImageLoaderController(auth: Authentication,
               }
               .recover {
                 case t: Throwable =>
-                  metrics.failedIngestsFromQueue.increment().run
+                  metrics.failedIngestsFromQueue.increment()
                   logger.error(logMarker, s"Failed to process message", t)
               }
         }
@@ -119,7 +119,7 @@ class ImageLoaderController(auth: Authentication,
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
       case Failure(exception) =>
-        metrics.failedIngestsFromQueue.increment().run
+        metrics.failedIngestsFromQueue.increment()
         logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
@@ -142,7 +142,7 @@ class ImageLoaderController(auth: Authentication,
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if (approximateReceiveCount > 2) {
-          metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+          metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
@@ -154,16 +154,16 @@ class ImageLoaderController(auth: Authentication,
           Future.unit
         } else {
           attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
-            metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+            metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
           } recover {
             case _: UnsupportedMimeTypeException =>
-              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
               logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
               store.moveObjectToFailedBucket(s3IngestObject.key)
             case t: Throwable =>
-              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions).run
+              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
               logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
               store.moveObjectToFailedBucket(s3IngestObject.key)
           }

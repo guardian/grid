@@ -1,10 +1,14 @@
 package lib
 
+import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.gu.mediaservice.lib.auth.{ApiAccessor, Syndication}
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
-class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${config.stage}/MediaApi", config) {
+import scala.concurrent.ExecutionContext
+
+class MediaApiMetrics(config: MediaApiConfig, actorSystem: ActorSystem)(implicit ec: ExecutionContext)
+  extends CloudWatchMetrics(s"${config.stage}/MediaApi", config, actorSystem) {
 
   val searchQueries = new TimeMetric("ElasticSearch")
 
@@ -33,6 +37,6 @@ class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${conf
 
     val dimension = new Dimension().withName(downloadType.metricName).withValue(dimensionValue)
 
-    metric.increment(List(dimension)).run
+    metric.increment(List(dimension))
   }
 }
