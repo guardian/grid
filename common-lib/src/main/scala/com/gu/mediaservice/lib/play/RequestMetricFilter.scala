@@ -4,16 +4,17 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
+import play.api.inject.ApplicationLifecycle
 import play.api.mvc.{Filter, RequestHeader, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class RequestMetricFilter(val config: CommonConfig, override val mat: Materializer, actorSystem: ActorSystem)(implicit ec: ExecutionContext) extends Filter {
+class RequestMetricFilter(val config: CommonConfig, override val mat: Materializer, actorSystem: ActorSystem, applicationLifecycle: ApplicationLifecycle)(implicit ec: ExecutionContext) extends Filter {
   val namespace: String = s"${config.stage}/${config.appName.split('-').map(_.toLowerCase.capitalize).mkString("")}"
   val enabled: Boolean = config.requestMetricsEnabled
 
-  object RequestMetrics extends CloudWatchMetrics(namespace, config, actorSystem) {
+  object RequestMetrics extends CloudWatchMetrics(namespace, config, actorSystem, applicationLifecycle) {
     val totalRequests = new CountMetric("TotalRequests")
     val successfulRequests = new CountMetric("SuccessfulRequests")
     val failedRequests = new CountMetric("FailedRequests")

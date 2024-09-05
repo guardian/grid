@@ -1,10 +1,13 @@
 package com.gu.mediaservice.lib.metrics
 
 import akka.actor.{Actor, ActorSystem, Props, Timers}
+import akka.pattern.ask
+import akka.util.Timeout
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
 import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit, StatisticSet}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
+import play.api.inject.ApplicationLifecycle
 
 import java.util.Date
 import scala.collection.JavaConverters._
@@ -20,7 +23,8 @@ trait Metric[A] {
 abstract class CloudWatchMetrics(
   namespace: String,
   config: CommonConfig,
-  actorSystem: ActorSystem
+  actorSystem: ActorSystem,
+  applicationLifecycle: ApplicationLifecycle
 ) extends GridLogging {
 
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
@@ -42,6 +46,8 @@ abstract class CloudWatchMetrics(
   private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
 
   private[CloudWatchMetrics] val metricsActor = actorSystem.actorOf(MetricsActor.props(namespace, client), "metricsactor")
+
+  applicationLifecycle.addStopHook(() => (metricsActor ? MetricsActor.Shutdown)(Timeout(5.seconds)))
 
   abstract class CloudWatchMetric[A](val name: String) extends Metric[A] {
     final def recordOne(value: A, dimensions: List[Dimension] = Nil): Unit =
@@ -74,6 +80,7 @@ object MetricsActor {
     Props(new MetricsActor(namespace, client))
 
   private final case object Tick
+  final case object Shutdown
   final case class AddMetrics(values: Seq[MetricDatum])
 }
 private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends Actor with Timers with GridLogging {
@@ -124,11 +131,18 @@ private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends 
 
   def receive: Receive = {
     case AddMetrics(metrics) => become(queued(metrics))
+    case Shutdown => become(shutdown)
+  }
+  private def shutdown: Receive = {
+    case message => logger.error(s"metrics actor has shut down, cannot respond to message $message")
   }
   private def queued(queuedMetrics: Seq[MetricDatum]): Receive = {
     case Tick =>
       putData(queuedMetrics) // send metrics off
       become(receive)
+    case Shutdown =>
+      putData(queuedMetrics)
+      become(shutdown)
     case AddMetrics(metrics) =>
       become(queued(queuedMetrics ++ metrics))
   }
