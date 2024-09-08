@@ -1,7 +1,7 @@
 package controllers
 
 import _root_.play.api.libs.json._
-import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request}
+import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request, RequestHeader}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -167,6 +167,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
     request: Authentication.Request[JsValue]
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
+    implicit val r: Authentication.Request[JsValue] = request
     implicit val instance: Instance = instanceOf(request)
     for {
       _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri(instanceOf(request))), InvalidSource)

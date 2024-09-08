@@ -21,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, JsString}
+import play.api.mvc.RequestHeader
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global

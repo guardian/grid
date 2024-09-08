@@ -20,7 +20,7 @@ import lib.Edit
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{BaseController, ControllerComponents, RequestHeader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.compat._
@@ -180,7 +180,7 @@ class EditsController(
     )
   }
 
-  def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
+  def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { implicit req =>
     implicit val instance: Instance = instanceOf(req)
     editsStore.get(id) flatMap { dynamoEntry =>
       gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>

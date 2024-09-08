@@ -115,7 +115,7 @@ object MigrationSourceWithSender extends GridLogging {
       case MigrationRequest(imageId, version) =>
         val migrateImageMessageFuture = (
           for {
-            maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
+            maybeProjection <- Future.successful(None) // TODO gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall) needs a request to infer instance
             maybeVersion = Some(version)
           } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion, instance.id)
         ).recover {

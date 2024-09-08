@@ -1,7 +1,6 @@
 package model
 
 import java.io.{File, FileOutputStream}
-import java.util.UUID
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
@@ -9,7 +8,6 @@ import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Obje
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
-import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -20,7 +18,6 @@ import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.Logger
 import play.api.libs.ws.WSRequest
 
 import scala.jdk.CollectionConverters._
