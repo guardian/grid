@@ -1,0 +1,64 @@
+options:
+  machineType: 'N1_HIGHCPU_8'
+steps:
+  - name: 'node:24-alpine'
+    entrypoint: 'npm'
+    dir: 'kahuna'
+    args: [ 'install' ]
+  - name: 'node:24-alpine'
+    entrypoint: 'npm'
+    dir: 'kahuna'
+    args: [ 'run', 'dist' ]
+
+  - name: 'gcr.io/$PROJECT_ID/scala-sbt:1.6.2-jdk-11'
+    args: ['docker:publishLocal']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'auth:0.1', 'eu.gcr.io/$PROJECT_ID/auth:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/auth:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'cropper:0.1', 'eu.gcr.io/$PROJECT_ID/cropper:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/cropper:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'collections:0.1', 'eu.gcr.io/$PROJECT_ID/collections:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/collections:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'image-loader:0.1', 'eu.gcr.io/$PROJECT_ID/image-loader:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/image-loader:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'kahuna:0.1', 'eu.gcr.io/$PROJECT_ID/kahuna:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/kahuna:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'leases:0.1', 'eu.gcr.io/$PROJECT_ID/leases:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/leases:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'media-api:0.1', 'eu.gcr.io/$PROJECT_ID/media-api:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/media-api:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'metadata-editor:0.1', 'eu.gcr.io/$PROJECT_ID/metadata-editor:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/metadata-editor:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'thrall:0.1', 'eu.gcr.io/$PROJECT_ID/thrall:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/thrall:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['tag', 'usage:0.1', 'eu.gcr.io/$PROJECT_ID/usage:$BRANCH_NAME']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/usage:$BRANCH_NAME']
