@@ -43,14 +43,14 @@
             <gr-icon-label gr-icon="file_download">Download selected crop</gr-icon-label>
         </a>
     </button>
-    <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
-          aria-label="Cannot download">
+    <span ng-if="ctrl.multipleSelectedNoneValid||ctrl.singleSelectedInvalid"
+          aria-label="Cannotdownload">
         <gr-icon-label
             gr-icon="file_download"
-            class="download-icon-label"
-            gr-tooltip="Downloading non-free images requires a lease"
+            class="cannot-download-icon-label"
+            gr-tooltip="Downloadingnon-freeimagesrequiresalease"
         >
-            Cannot download
+            Cannotdownload
         </gr-icon-label>
     </span>
 </span>
