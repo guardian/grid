@@ -1407,7 +1407,7 @@ textarea.ng-invalid {
   padding: 0px;
 }
 
-.results-toolbar__rightgr-downloader.cannot-download-icon-label{
+.results-toolbar__right gr-downloader .cannot-download-icon-label {
   padding:8px;
 }
 
