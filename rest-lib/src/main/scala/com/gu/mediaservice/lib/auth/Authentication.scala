@@ -99,7 +99,7 @@ class Authentication(config: CommonConfig,
                 block(new AuthenticatedRequest(principal, request))
 
               } else {
-                logger.warn(s"Blocking request ${request.path} on instance $instance")
+                logger.warn(s"Blocking request ${request.path} on instance $instance for principal: " + principal)
                 Future.successful(Forbidden("You do not have permission to use this instance"))
               }
             }
