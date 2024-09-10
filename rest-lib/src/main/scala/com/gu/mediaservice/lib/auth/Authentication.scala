@@ -129,15 +129,19 @@ class Authentication(config: CommonConfig,
 
   private def getMyInstances(principal: Principal): Future[Seq[Instance]] = {
     val onBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
-    onBehalfOfPrincipal(wsClient.url(myInstancesEndpoint)).get().map { r =>
-      r.status match {
-        case 200 =>
-          implicit val ir: Reads[Instance] = Json.reads[Instance]
-          Json.parse(r.body).as[Seq[Instance]]
-        case _ =>
-          logger.warn("Got non 200 status for instances call: " + r.status)
-          Seq.empty
-      }
+    principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
+      onBehalfOfPrincipal(wsClient.url(myInstancesEndpoint).withQueryStringParameters("owner" -> owner)).get().map { r =>
+          r.status match {
+            case 200 =>
+              implicit val ir: Reads[Instance] = Json.reads[Instance]
+              Json.parse(r.body).as[Seq[Instance]]
+            case _ =>
+              logger.warn("Got non 200 status for instances call: " + r.status)
+              Seq.empty
+          }
+        }
+    }.getOrElse {
+      Future.successful(Seq.empty)
     }
   }
 }
