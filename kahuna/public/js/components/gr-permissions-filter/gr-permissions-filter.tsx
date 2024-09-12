@@ -63,6 +63,10 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
   return false;
 };
 
+//-- payable images event (optional param to avoid CI check issues) --
+interface PayableImagesEventDetail { showPaid: boolean }
+interface PayableImagesEvent extends CustomEvent<PayableImagesEventDetail> {optional?: string}
+
 //-- query change event - adding optional param to avoid CI/CD check issue!--
 interface QueryChangeEventDetail { query: string, showPaid: boolean }
 interface QueryChangeEvent extends CustomEvent<QueryChangeEventDetail> {optional?: string}
@@ -98,7 +102,11 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     setIsChargeable(event.detail.showPaid);
   };
 
-  const handleQueryChange = (event: QueryChangeEvent ) => {
+  const handleSetPayableImages = (event: PayableImagesEvent) => {
+    setIsChargeable(event.detail.showPaid);
+  };
+
+  const handleQueryChange = (event: QueryChangeEvent) => {
     const newQuery = event.detail.query ? (" " + event.detail.query) : "";
 
     if (propsRef.current.query !== newQuery) {
@@ -122,6 +130,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
     window.addEventListener('logoClick', handleLogoClick);
+    window.addEventListener('setPayableImages', handleSetPayableImages);
     window.addEventListener('mouseup', autoHideListener);
     window.addEventListener('scroll', autoHideListener);
     window.addEventListener('keydown', autoHideListener);
@@ -132,9 +141,10 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
       setCurrentIndex(-1);
       window.removeEventListener('queryChangeEvent', handleQueryChange);
       window.removeEventListener('logoClick', handleLogoClick);
-      window.removeEventListener("mouseup", autoHideListener);
-      window.removeEventListener("scroll", autoHideListener);
-      window.removeEventListener("keydown", autoHideListener);
+      window.removeEventListener('setPayableImages', handleSetPayableImages);
+      window.removeEventListener('mouseup', autoHideListener);
+      window.removeEventListener('scroll', autoHideListener);
+      window.removeEventListener('keydown', autoHideListener);
     };
   }, []);
 
@@ -223,13 +233,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
           <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
+            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
             <span className="ts-slider"></span>
           </label>
         </div>
         <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
           <label className="chargeable-checkbox">
-            <input type="checkbox" checked={isChargeable} onChange={handleToggle}/>
+            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
             <div className="chargeable-label-wrapper" >
               <span className="chargeable-span"></span>
               <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
