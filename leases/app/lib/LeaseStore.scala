@@ -2,8 +2,8 @@ package lib
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.leases.{MediaLease, MediaLeaseType}
-import com.gu.scanamo._
-import com.gu.scanamo.syntax._
+import org.scanamo._
+import org.scanamo.syntax._
 import org.joda.time.DateTime
 
 import scala.concurrent.ExecutionContext
