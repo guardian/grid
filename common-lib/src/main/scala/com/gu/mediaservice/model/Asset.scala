@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.aws.S3Object
 case class Asset(file: URI, size: Option[Long], mimeType: Option[MimeType], dimensions: Option[Dimensions], secureUrl: Option[URL] = None,
                  orientationMetadata: Option[OrientationMetadata] = None,
                  orientedDimensions: Option[Dimensions] = None,
+                 orientation: Option[String] = None
                 )
 
 object Asset {
@@ -26,6 +27,13 @@ object Asset {
       orientationMetadata.correctedDimensions(dimensions)
     }
 
+    val orientation = for {
+      dimensions <- dims
+      orientationMetadata <- orientationMetadata
+    } yield {
+      orientationMetadata.correctedOrientation(dimensions)
+    }
+
     Asset(
       file       = s3Object.uri,
       size       = Some(s3Object.size),
@@ -34,6 +42,7 @@ object Asset {
       secureUrl  = None,
       orientationMetadata = orientationMetadata,
       orientedDimensions = orientedDimensions,
+      orientation = orientation
     )
   }
 
@@ -44,7 +53,8 @@ object Asset {
       (__ \ "dimensions").readNullable[Dimensions] ~
       (__ \ "secureUrl").readNullable[String].map(_.map(new URL(_)))  ~
       (__ \ "orientationMetadata").readNullable[OrientationMetadata] ~
-      (__ \ "orientedDimensions").readNullable[Dimensions]
+      (__ \ "orientedDimensions").readNullable[Dimensions] ~
+      (__ \ "orientation").readNullable[String]
       )(Asset.apply _)
 
   implicit val assetWrites: Writes[Asset] =
@@ -54,7 +64,8 @@ object Asset {
       (__ \ "dimensions").writeNullable[Dimensions] ~
       (__ \ "secureUrl").writeNullable[String].contramap((_: Option[URL]).map(_.toString)) ~
       (__ \ "orientationMetadata").writeNullable[OrientationMetadata] ~
-      (__ \ "orientedDimensions").writeNullable[Dimensions]
+      (__ \ "orientedDimensions").writeNullable[Dimensions] ~
+      (__ \ "orientation").writeNullable[String]
       )(unlift(Asset.unapply))
 }
 
@@ -82,6 +93,15 @@ case class OrientationMetadata(exifOrientation: Option[Int]) {
       Dimensions(width = sourceDimensions.height, height = sourceDimensions.width)
     } else {
       sourceDimensions
+    }
+  }
+
+  def correctedOrientation(sourceDimensions: Dimensions): String = {
+    val orientedDimensions = correctedDimensions(sourceDimensions)
+    if (orientedDimensions.width < orientedDimensions.height) {
+      "portrait"
+    } else {
+      "landscape"
     }
   }
 
