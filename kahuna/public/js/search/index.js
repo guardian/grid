@@ -10,6 +10,7 @@ import './results';
 import '../preview/image';
 import '../lib/data-structure/list-factory';
 import '../lib/data-structure/ordered-set-factory';
+import '../services/scroll-position';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
@@ -35,6 +36,7 @@ export var search = angular.module('kahuna.search', [
     'kahuna.search.query',
     'kahuna.search.results',
     'kahuna.preview.image',
+    'kahuna.services.scroll-position',
     'data-structure.list-factory',
     'data-structure.ordered-set-factory',
     'gr.topBar',
@@ -85,9 +87,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         },
         controllerAs: 'ctrl',
         controller: [
-            '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
+            '$scope', '$window', '$stateParams', 'scrollPosition', 'panels', 'shortcutKeys', 'keyboardShortcut',
             'panelService', 'cropSettings', 'mediaApi', 'storage', '$state',
-            function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
+            function($scope, $window, $stateParams, scrollPosition, panels, shortcutKeys, keyboardShortcut,
                      panelService, cropSettings, mediaApi, storage, $state) {
 
             const ctrl = this;
@@ -115,6 +117,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                   detail: {showPaid: defaultNonFreeFilter.isNonFree},
                   bubbles: true
                 }));
+                scrollPosition.resetToTop();
               });
             };
 
