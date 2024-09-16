@@ -92,6 +92,7 @@ object Mappings {
     dimensionsMapping("dimensions"),
     dynamicObj("orientationMetadata"),
     dimensionsMapping("orientedDimensions"),
+    keywordField("orientation"),
   ))
 
   def metadataMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
