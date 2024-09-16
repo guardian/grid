@@ -12,6 +12,9 @@ scrollPosService.factory('scrollPosition',
     // The original context where the position was saved
     let originalContext;
 
+    // Enable reset to top on next save
+    let forceReset = false;
+
     function save(currentContext) {
         // deal with url ambiguity over nonFree parameter
         if (!currentContext.nonFree) {
@@ -19,7 +22,12 @@ scrollPosService.factory('scrollPosition',
         }
         originalContext = currentContext;
         // Accommodate Chrome & Firefox
-        positionTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (forceReset) {
+          forceReset = false;
+          positionTop = 0;
+        } else {
+          positionTop = document.body.scrollTop || document.documentElement.scrollTop;
+        }
     }
 
     function resume(currentContext) {
@@ -41,11 +49,16 @@ scrollPosService.factory('scrollPosition',
         originalContext = undefined;
     }
 
+    function resetToTop() {
+      forceReset = true;
+    }
+
     return {
         save,
         resume,
         getSaved,
-        clear
+        clear,
+        resetToTop
     };
 }]);
 
