@@ -20,7 +20,7 @@ trait MetadataHelper {
       lastModified = None,
       identifiers = Map(),
       uploadInfo = UploadInfo(),
-      source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None),
+      source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None, None, None),
       thumbnail = None,
       optimisedPng = None,
       fileMetadata = FileMetadata(),
