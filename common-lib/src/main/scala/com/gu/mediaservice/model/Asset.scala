@@ -27,12 +27,24 @@ object Asset {
       orientationMetadata.correctedDimensions(dimensions)
     }
 
-    val orientation = for {
+    val maybeCorrectedOrientation = for {
       dimensions <- dims
       orientationMetadata <- orientationMetadata
     } yield {
       orientationMetadata.correctedOrientation(dimensions)
     }
+
+    val maybeDimensionsOrientation = for {
+      dimensions <- dims
+    } yield {
+      if (dimensions.width < dimensions.height) {
+        "portrait"
+      } else {
+        "landscape"
+      }
+    }
+
+    val maybeOrientation = Seq(maybeCorrectedOrientation, maybeDimensionsOrientation).flatten.headOption
 
     Asset(
       file       = s3Object.uri,
@@ -42,7 +54,7 @@ object Asset {
       secureUrl  = None,
       orientationMetadata = orientationMetadata,
       orientedDimensions = orientedDimensions,
-      orientation = orientation
+      orientation = maybeOrientation
     )
   }
 
