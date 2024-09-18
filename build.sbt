@@ -15,11 +15,11 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.15",
+  scalaVersion := "2.12.20",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
-  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
+  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:11"),
 
   // The Java SDK uses CBOR protocol
   // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
@@ -220,7 +220,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
-      debianPackageDependencies := Seq("openjdk-8-jre-headless"),
+      debianPackageDependencies := Seq("java11-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
@@ -244,9 +244,8 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
         s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
-        "-J-XX:+PrintGCDetails",
-        "-J-XX:+PrintGCDateStamps",
-        s"-J-Xloggc:/var/log/$projectName/gc.log",
+        "-J-Xlog:gc*",
+        s"-J-Xlog:gc:/var/log/$projectName/gc.log",
         "-J-XX:+UseGCLogFileRotation",
         "-J-XX:NumberOfGCLogFiles=5",
         "-J-XX:GCLogFileSize=2M"
