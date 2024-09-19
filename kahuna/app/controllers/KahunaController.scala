@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, ShowCroppingGuttersSwitch}
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig}
 import play.api.mvc.ControllerComponents
 import play.api.libs.json._
 
@@ -38,14 +38,7 @@ class KahunaController(
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
     val featureSwitches = new FeatureSwitches(
-      List(
-        if (maybeUser.map(_.accessor.identity).exists(config.displayCropGutterByDefaultTo.contains))
-          ShowCroppingGuttersSwitch.copy(default = true)
-        else if(config.staffPhotographerOrganisation == "GNM")
-          ShowCroppingGuttersSwitch
-        else
-          ExampleSwitch
-      )
+      List(ExampleSwitch)
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
