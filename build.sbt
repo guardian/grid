@@ -245,10 +245,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
         s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
         "-J-Xlog:gc*",
-        s"-J-Xlog:gc:/var/log/$projectName/gc.log",
-        "-J-XX:+UseGCLogFileRotation",
-        "-J-XX:NumberOfGCLogFiles=5",
-        "-J-XX:GCLogFileSize=2M"
+        s"-J-Xlog:gc:/var/log/$projectName/gc.log"
       )
     ))
   //Add the BBC library dependency if defined
