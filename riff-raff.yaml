@@ -93,7 +93,7 @@ deployments:
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-ARM
+          Recipe: grid-imaging-java11-ARM
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
