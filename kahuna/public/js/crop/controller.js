@@ -78,12 +78,17 @@ crop.controller('ImageCropCtrl', [
       ctrl.maxInputY = () =>
         ctrl.originalHeight - ctrl.cropHeight();
 
+      const maybeSeedCropId = $stateParams.seedCropId;
+      const [maybeSeedX1, maybeSeedY1, maybeSeedX2, maybeSeedY2] = maybeSeedCropId?.split("_") || [];
+
+      // TODO attempt centering if seed crop dimensions don't fit
+
       ctrl.coords = {
-        x1: ctrl.inputX,
-        y1: ctrl.inputY,
+        x1: maybeSeedX1 || ctrl.inputX,
+        y1: maybeSeedY1 || ctrl.inputY,
         // fill the image with the selection
-        x2: ctrl.originalWidth,
-        y2: ctrl.originalHeight
+        x2: maybeSeedX2 || ctrl.originalWidth,
+        y2: maybeSeedY2 || ctrl.originalHeight
       };
 
       // If we have a square crop, remove any jitter introduced by client lib by using only one side
