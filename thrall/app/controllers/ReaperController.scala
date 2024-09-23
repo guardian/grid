@@ -171,6 +171,7 @@ class ReaperController(
       _ <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
       // TODO No one has issued an image-deleted notification to metadata-editor? Metadata will persist forever?
     } yield {
+      logger.info(s"Hard deleted actually deleted size: ${esIdsActuallyDeleted.size}")
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
