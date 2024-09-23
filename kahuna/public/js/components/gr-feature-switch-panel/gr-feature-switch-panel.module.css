@@ -40,7 +40,7 @@ th {
   position: fixed;
   top: 50px;
   right: 0px;
-  width: 400px;
+  width: 400px !important;
   background-color: #333;
   box-shadow: 2px 2px 10px rgba(0,0,0, 0.8);
 }

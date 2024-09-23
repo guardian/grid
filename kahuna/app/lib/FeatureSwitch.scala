@@ -10,6 +10,12 @@ object ExampleSwitch extends FeatureSwitch(
   default = false
 )
 
+object ShowCroppingGuttersSwitch extends FeatureSwitch(
+  key = "show-cropping-gutters-switch",
+  title = "Display gutters on 5:3 crops to show what would be clipped if used in a 5:4 space",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".

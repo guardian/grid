@@ -902,6 +902,10 @@ textarea.ng-invalid {
     background-color: orange;
 }
 
+.status--info {
+  background-color: #5E9ED6;
+}
+
 .status--valid {
     background-color: green;
 }

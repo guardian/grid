@@ -41,3 +41,28 @@
   background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
 }
 
+
+
+/* GUTTERS to show what will be clipped if the 5:3 crop is used in 5:4 space */
+.easel.vertical-warning-gutters .cropper-view-box::before,
+.easel.vertical-warning-gutters .cropper-view-box::after {
+  display: block;
+  content: '';
+  position: absolute;
+  z-index: 999;
+  width: 12.5%;
+  top: 0;
+  bottom: 0;
+  mix-blend-mode: difference;
+}
+.easel.vertical-warning-gutters .cropper-view-box::before { /* left gutter */
+  left: 0;
+  background: repeating-linear-gradient(-45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
+}
+.easel.vertical-warning-gutters .cropper-view-box::after { /* right gutter */
+  right: 0;
+  background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
+}
+.easel.vertical-warning-gutters .easel__canvas {
+  height: calc(100vh - 115px);
+}

@@ -3,6 +3,8 @@ import angular from 'angular';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from "../util/crop";
+import {cropOptions} from "../util/constants/cropOptions";
+import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 const crop = angular.module('kahuna.crop.controller', [
   'gr.keyboardShortcut',
@@ -177,6 +179,12 @@ crop.controller('ImageCropCtrl', [
 
       $scope.$watch('ctrl.cropType', (newCropType, oldCropType) => {
         const isCropTypeDisabled = ctrl.cropOptions.find(_ => _.key === newCropType).disabled;
+
+        const maybeCropRatioIfStandard = cropOptions.find(_ => _.key === ctrl.cropType)?.ratioString;
+        ctrl.shouldShowVerticalWarningGutters =
+          getFeatureSwitchActive("show-cropping-gutters-switch")
+          && window._clientConfig.staffPhotographerOrganisation === "GNM"
+          && maybeCropRatioIfStandard === "5:3";
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;
