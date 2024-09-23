@@ -10,7 +10,6 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.count.CountRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.aggs.SumAggregation
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -307,15 +306,14 @@ class ElasticSearch(
     s"counting '$deletionType' reapable images"
   ).map(_.result.count)
 
-  def countTotal()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
-    val request: CountRequest = ElasticDsl.count(imagesCurrentAlias(instance))
+  def countTotal(isSoftedDeleted: Boolean)(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
     executeAndLog(
-      request,
-      s"counting total images"
+      ElasticDsl.count(imagesCurrentAlias(instance)).query(filters.existsOrMissing("softDeletedMetadata", exists = isSoftedDeleted)),
+      s"counting total images with soft deleted: $isSoftedDeleted"
     ).map(_.result.count)
   }
 
-  def countTotalSize()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
+  def countTotalImageSize()(implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] = {
     val sourceSize: SumAggregation = ElasticDsl.sumAgg("sourceSize", "source.size")
     val request: SearchRequest = search(imagesCurrentAlias(instance)).matchAllQuery() aggs sourceSize size 10
     executeAndLog(request, s"summing source.size").map { r =>

@@ -97,14 +97,16 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
       instances.foreach { instance =>
         logger.info("Checking usage for: " + instance)
         implicit val i = instance
-        val eventualLong = es.countTotal()
-        val eventualTotalSize = es.countTotalSize()
+        val eventualImagesCount = es.countTotal(isSoftedDeleted = false)
+        val eventualSoftDeletedCount = es.countTotal(isSoftedDeleted = true)
+        val eventualTotalImageSize = es.countTotalImageSize()
         for {
-          count <- eventualLong
-          totalSize <- eventualTotalSize
+          imageCount <- eventualImagesCount
+          softDeletedCount <- eventualSoftDeletedCount
+          totalImageSize <- eventualTotalImageSize
         } yield {
-          logger.info("Instance " + instance.id + " has " + count + " images / total size: " + totalSize)
-          val message = InstanceUsageMessage(instance = instance.id, imageCount = count, totalImageSize = totalSize)
+          logger.info(s"Instance ${instance.id} has $imageCount/$softDeletedCount images with total size: " + totalImageSize)
+          val message = InstanceUsageMessage(instance = instance.id, imageCount = imageCount, softDeletedCount = softDeletedCount, totalImageSize = totalImageSize)
           implicit val iumw = Json.writes[InstanceUsageMessage]
           sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.toJson(message).toString()).build)
         }
@@ -125,4 +127,4 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, assets)
 }
 
-case class InstanceUsageMessage(instance: String, imageCount: Long, totalImageSize: Long)
+case class InstanceUsageMessage(instance: String, imageCount: Long, totalImageSize: Long, softDeletedCount: Long)
