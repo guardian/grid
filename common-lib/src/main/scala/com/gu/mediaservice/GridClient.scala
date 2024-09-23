@@ -150,8 +150,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
 
   def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
-    logger.info("attempt to get image projection from image-loader")
-    val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
+    val projectUrl = s"$imageLoaderEndpoint/images/project/$mediaId"
+    logger.info(s"attempt to get image projection from image-loader: $projectUrl")
+    val url = new URL(projectUrl)
     makeGetRequestAsync(url, authFn, requestTimeout = Some(300.seconds)) map {
       case Found(json, _) => Some(json.as[Image])
       case NotFound(_, _) => None

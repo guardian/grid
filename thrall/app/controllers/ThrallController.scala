@@ -3,13 +3,16 @@ package controllers
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.ListObjectsRequest
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
-import com.gu.mediaservice.lib.aws.ThrallMessageSender
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, Instance, UpsertFromProjectionMessage}
+import com.gu.mediaservice.syntax.MessageSubjects.Image
 import lib.elasticsearch.ElasticSearch
 import lib.{MigrationRequest, OptionalFutureRunner, Paging, ThrallStore}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -18,8 +21,11 @@ import play.api.data.Forms._
 import play.api.libs.json.Json
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
-import scala.concurrent.duration.DurationInt
+import java.util.concurrent.TimeUnit
+import scala.annotation.tailrec
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.language.postfixOps
 
 case class MigrateSingleImageForm(id: String)
@@ -33,7 +39,9 @@ class ThrallController(
   override val auth: Authentication,
   override val services: Services,
   override val controllerComponents: ControllerComponents,
-  gridClient: GridClient
+  gridClient: GridClient,
+  s3: AmazonS3,
+  imageBucket: String,
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging with InstanceForRequest {
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
@@ -291,4 +299,55 @@ class ThrallController(
       "id" -> text
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)
   )
+
+  def reindex(): Action[AnyContent] = withLoginRedirect { implicit request =>
+    implicit val instance: Instance = instanceOf(request)
+
+    @tailrec
+    def getMediaIdsFromS3(all: Seq[String], nextMarker: Option[String])(implicit instance: Instance): Seq[String] = {
+      val baseRequest = new ListObjectsRequest().withBucketName(imageBucket).withPrefix(instance.id + "/")
+      val request = nextMarker.map { marker =>
+        baseRequest.withMarker(marker)
+      }.getOrElse {
+        baseRequest
+      }
+
+      val listing = s3.listObjects(request)
+      val keys = listing.getObjectSummaries.asScala.flatMap { s3Object =>
+        logger.info("Reindexing s3 key: " + s3Object.getKey)
+        s3Object.getKey.split("/").lastOption
+      }
+
+      if (listing.isTruncated) {
+        getMediaIdsFromS3(all ++ keys, Some(listing.getNextMarker))
+      } else {
+        all ++ keys
+      }
+    }
+
+    val mediaIds = getMediaIdsFromS3(Seq.empty, None)
+    mediaIds.foreach { mediaId =>
+      Await.result(reindexImage(mediaId), Duration(10, TimeUnit.SECONDS))
+    }
+    Ok("ok")
+  }
+
+  private def reindexImage(mediaId: String)(implicit instance: Instance) = {
+    logger.info(s"Reindexing from s3 ${instance.id} / $mediaId")
+
+    gridClient.getImageLoaderProjection(mediaId, auth.innerServiceCall).map { maybeImage =>
+      logger.info(s"Projected ${instance.id} / $mediaId to $maybeImage}")
+      maybeImage.exists { image =>
+        val updateMessage = UpdateMessage(subject = Image, image = Some(image), instance = instance)
+        logger.info(s"Publishing projected image as a thrall image message: ${updateMessage.id}")
+        messageSender.publish(updateMessage)
+        true
+      }
+    }.recover {
+      case _: Throwable =>
+        logger.warn(s"Error while reindexing ${instance.id} / $mediaId - Image has not been reindexed!")
+        false
+    }
+  }
+
 }

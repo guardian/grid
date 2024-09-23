@@ -45,7 +45,7 @@ protected class SingleHostServices(val domain: String) extends Services {
 
   override def loaderBaseUri(instance: Instance): String = vhostServiceName("image-loader", instance)
 
-  override def projectionBaseUri(instance: Instance): String = vhostServiceName("projection", instance)
+  override def projectionBaseUri(instance: Instance): String = vhostServiceName("image-loader", instance)
 
   override def cropperBaseUri(instance: Instance): String = vhostServiceName("cropper", instance)
 
