@@ -135,8 +135,11 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     window.addEventListener('scroll', autoHideListener);
     window.addEventListener('keydown', autoHideListener);
     setSelection(defPerms);
-    if (sessionStorage && sessionStorage.getItem("defaultIsNonFree")) {
-      setIsChargeable("true" == sessionStorage.getItem("defaultIsNonFree"));
+    if (sessionStorage && sessionStorage.getItem("defaultIsNonFree") && sessionStorage.getItem("payableImagesEvent")) {
+      if ("true" == sessionStorage.getItem("payableImagesEvent")) {
+        sessionStorage.setItem("payableImagesEvent", "false");
+        setIsChargeable("true" == sessionStorage.getItem("defaultIsNonFree"));
+      }
     }
 
     // Clean up the event listener when the component unmounts
