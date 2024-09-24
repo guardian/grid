@@ -135,10 +135,14 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     window.addEventListener('scroll', autoHideListener);
     window.addEventListener('keydown', autoHideListener);
     setSelection(defPerms);
-    if (sessionStorage && sessionStorage.getItem("defaultIsNonFree") && sessionStorage.getItem("payableImagesEvent")) {
-      if ("true" == sessionStorage.getItem("payableImagesEvent")) {
+    if (sessionStorage) {
+      const defNonFree = sessionStorage.getItem("defaultIsNonFree");
+      const payEvent = sessionStorage.getItem("payableImagesEvent");
+      console.log("SessionStorage values defNonFree = " + defNonFree + " payEvent = " + payEvent);
+      if ("true" == payEvent) {
+        console.log("Setting Chargeable by PayEvent");
         sessionStorage.setItem("payableImagesEvent", "false");
-        setIsChargeable("true" == sessionStorage.getItem("defaultIsNonFree"));
+        setIsChargeable("true" == defNonFree);
       }
     }
 
