@@ -89,11 +89,11 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-focal-java8-ARM-WITH-cdk-base
+          Recipe: editorial-tools-focal-java11-ARM-WITH-cdk-base
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-ARM
+          Recipe: grid-imaging-java11-ARM
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
