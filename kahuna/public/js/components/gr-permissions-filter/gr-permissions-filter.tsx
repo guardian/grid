@@ -138,10 +138,8 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     if (sessionStorage) {
       const defNonFree = sessionStorage.getItem("defaultIsNonFree");
       const payEvent = sessionStorage.getItem("payableImagesEvent");
-      console.log("SessionStorage values defNonFree = " + defNonFree + " payEvent = " + payEvent);
       if ("true" == payEvent) {
-        console.log("Setting Chargeable by PayEvent");
-        sessionStorage.setItem("payableImagesEvent", "false");
+        sessionStorage.setItem("payableImagesEvent", 'false');
         setIsChargeable("true" == defNonFree);
       }
     }
