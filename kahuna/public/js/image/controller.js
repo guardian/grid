@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../util/rx';
 import '../services/image/usages';
+import '../services/scroll-position';
 import '../image/service';
 import '../edits/service';
 
@@ -30,6 +31,7 @@ import { List } from 'immutable';
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'kahuna.edits.service',
+  'kahuna.services.scroll-position',
   'gr.image.service',
   'gr.image-usages.service',
 
@@ -74,6 +76,7 @@ image.controller('ImageCtrl', [
   'imageService',
   'imageUsagesService',
   'editsService',
+  'scrollPosition',
   'keyboardShortcut',
   'cropSettings',
   'globalErrors',
@@ -96,6 +99,7 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             editsService,
+            scrollPosition,
             keyboardShortcut,
             cropSettings,
             globalErrors) {
@@ -212,6 +216,10 @@ image.controller('ImageCtrl', [
       // a bit nasty - but it updates the state of the page better than trying to do that in
       // the client.
       $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
+    };
+
+    ctrl.onLogoClick = () => {
+      scrollPosition.resetToTop();
     };
 
     // TODO: move this to a more sensible place.

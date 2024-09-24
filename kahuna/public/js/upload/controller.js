@@ -2,13 +2,15 @@ import angular from 'angular';
 import './controller.css';
 import './prompt/prompt';
 import './recent/recent-uploads';
+import '../services/scroll-position';
 
 var upload = angular.module('kahuna.upload.controller', [
     'kahuna.upload.prompt',
-    'kahuna.upload.recent'
+    'kahuna.upload.recent',
+    'kahuna.services.scroll-position'
 ]);
 
-upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function (uploadManager, mediaApi, $scope) {
+upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', function (uploadManager, mediaApi, scrollPosition, $scope) {
     var ctrl = this;
 
     const isOngoingUploadJobs = () => {
@@ -46,5 +48,9 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
         }
         return "";
       }
+    };
+
+    ctrl.onLogoClick = () => {
+      scrollPosition.resetToTop();
     };
 }]);
