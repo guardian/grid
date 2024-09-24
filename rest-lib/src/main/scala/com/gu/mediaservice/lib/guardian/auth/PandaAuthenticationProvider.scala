@@ -49,7 +49,7 @@ class PandaAuthenticationProvider(
     val pandaStatus = extractAuth(request)
     val providerStatus = pandaStatus match {
       case PandaNotAuthenticated => NotAuthenticated
-      case PandaInvalidCookie(e) => Invalid("error checking user's auth, clear cookie and re-auth", Some(e))
+      case PandaInvalidCookie(e) => Invalid(s"error checking user's auth, clear cookie and re-auth (${e.getClass.getSimpleName})")
       case PandaExpired(authedUser) => Expired(gridUserFrom(authedUser.user, request))
       case PandaGracePeriod(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
       case PandaNotAuthorised(authedUser) => NotAuthorised(s"${authedUser.user.email} not authorised to use application")
