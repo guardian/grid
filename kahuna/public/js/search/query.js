@@ -152,6 +152,7 @@ query.controller('SearchQueryCtrl', [
             ctrl.filter.orgOwned = false;
           }
           Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+          console.log("(155) Assigning nonFree to " + newNonFree);
           raiseFilterChangeEvent(ctrl.filter);
         }
     }
@@ -200,6 +201,7 @@ query.controller('SearchQueryCtrl', [
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
+      console.log("(204) Setting nonFree to " + nonFreeCheck);
       raiseQueryChangeEvent(ctrl.filter.query);
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
@@ -239,11 +241,13 @@ query.controller('SearchQueryCtrl', [
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
       ctrl.filter.nonFree = showChargeable;
+      console.log("(244) Permissions Filter : Nonfree = " + showChargeable);
       watchSearchChange(ctrl.filter, "updatePermissionsChips");
     }
 
     function chargeableChange (showChargeable) {
       ctrl.filter.nonFree = showChargeable;
+      console.log("(250) Chargeable change : Nonfree = " + showChargeable);
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
@@ -405,12 +409,14 @@ query.controller('SearchQueryCtrl', [
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
           ctrl.filter.nonFree = $stateParams.nonFree;
+          console.log("(412) Setting nonFree from stateParams = " + $stateParams.nonFree);
           storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : (ctrl.usePermissionsFilter ? "false" : undefined), true);
         }
         else if (isNonFree === true || isNonFree === "true") {
           ctrl.filter.nonFree = "true";
         } else {
           ctrl.filter.nonFree = (ctrl.usePermissionsFilter ? "false" : undefined);
+          console.log("(419) From isNonFree = false");
         }
 
         //-org owned-
