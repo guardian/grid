@@ -401,6 +401,9 @@ query.controller('SearchQueryCtrl', [
           ctrl.initialShowPaidEvent = true;
           raisePayableImagesEvent(defNonFree);
           storage.setJs("payableImagesEvent", true, true);
+          if (!ctrl.usePermissionsFilter) {
+            storage.setJs("isNonFree", true, true);
+          }
         }
 
         const isNonFree = storage.getJs("isNonFree", true);
