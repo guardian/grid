@@ -73,7 +73,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
-    ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined) ? false : true;
+    ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -177,6 +177,11 @@ query.controller('SearchQueryCtrl', [
           structuredQuery.splice(orgOwnedIndexInQuery, 1);
           ctrl.filter.query = renderQuery(structuredQuery);
         }
+    }
+
+    function resetQuery() {
+        ctrl.filter.query = undefined;
+        ctrl.filter.orgOwned = false;
     }
 
     // eslint-disable-next-line complexity
@@ -397,7 +402,7 @@ query.controller('SearchQueryCtrl', [
         //-default non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if (ctrl.usePermissionsFilter && !ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
+        if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
           ctrl.initialShowPaidEvent = true;
           raisePayableImagesEvent(defNonFree);
         }
@@ -417,13 +422,11 @@ query.controller('SearchQueryCtrl', [
         const structuredQuery = structureQuery(ctrl.filter.query);
         const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.filter.orgOwned = orgOwned;
+
         watchSearchChange(ctrl.filter, "userPermissions");
     });
 
-    function resetQuery() {
-        ctrl.filter.query = undefined;
-        ctrl.filter.orgOwned = false;
-    }
+
 
     const { nonFree, uploadedByMe } = ctrl.filter;
     sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
