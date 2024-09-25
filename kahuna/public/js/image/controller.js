@@ -30,6 +30,7 @@ import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
+  'util.storage',
   'kahuna.edits.service',
   'kahuna.services.scroll-position',
   'gr.image.service',
@@ -67,6 +68,7 @@ image.controller('ImageCtrl', [
   '$window',
   '$filter',
   'inject$',
+  'storage',
   'image',
   'mediaApi',
   'optimisedImageUri',
@@ -90,6 +92,7 @@ image.controller('ImageCtrl', [
             $window,
             $filter,
             inject$,
+            storage,
             image,
             mediaApi,
             optimisedImageUri,
@@ -219,7 +222,19 @@ image.controller('ImageCtrl', [
     };
 
     ctrl.onLogoClick = () => {
-      scrollPosition.resetToTop();
+      mediaApi.getSession().then(session => {
+        const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+        const defaultNonFreeFilter = {
+          isDefault: true,
+          isNonFree: showPaid ? showPaid : false
+        };
+        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        window.dispatchEvent(new CustomEvent("logoClick", {
+          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          bubbles: true
+        }));
+        scrollPosition.resetToTop();
+      });
     };
 
     // TODO: move this to a more sensible place.

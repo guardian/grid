@@ -397,13 +397,10 @@ query.controller('SearchQueryCtrl', [
         //-default non free-
         const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
         storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
+        if (ctrl.usePermissionsFilter && !ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
           ctrl.initialShowPaidEvent = true;
           raisePayableImagesEvent(defNonFree);
-          storage.setJs("payableImagesEvent", true, true);
-          if (!ctrl.usePermissionsFilter) {
-            storage.setJs("isNonFree", true, true);
-          }
+          //storage.setJs("payableImagesEvent", true, true);
         }
 
         const isNonFree = storage.getJs("isNonFree", true);
@@ -421,6 +418,7 @@ query.controller('SearchQueryCtrl', [
         const structuredQuery = structureQuery(ctrl.filter.query);
         const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
         ctrl.filter.orgOwned = orgOwned;
+        watchSearchChange(ctrl.filter, "userPermissions");
     });
 
     function resetQuery() {
