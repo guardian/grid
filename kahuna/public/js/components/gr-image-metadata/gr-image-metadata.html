@@ -45,6 +45,39 @@
                 class="image-info__edit">✎</button>
         </dl>
     </div>
+
+    <div class="image-info__group" role="region" aria-label="Image type">
+        <dl class="image-info__wrap metadata-line image-info__image-type">
+            <dt class="metadata-line__key">Image type</dt>
+
+            <button
+                data-cy="it-edit-image-type-button"
+                class="image-info__edit"
+                ng-click="imageTypeEditForm.$show()"
+                ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                ng-hide="imageTypeEditForm.$visible">✎</button>
+
+            <span class="image-info__image-type"
+                editable-select="ctrl.metadata.imageType"
+                e-placeholder="-- choose type --"
+                e-ng-options="option for option in ctrl.validImageTypes"
+                ng-hide="imageTypeEditForm.$visible"
+                onbeforesave="ctrl.updateMetadataField('imageType', $data)"
+                e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': imageTypeEditForm.$waiting,
+                               'text-input': true}"
+                e:form="imageTypeEditForm">
+
+                <span ng-if="ctrl.metadata.imageType">
+                    {{ctrl.metadata.imageType}}
+                </span>
+                <span class="editable-empty" ng-if="!ctrl.metadata.imageType && ctrl.userCanEdit">
+                    Unknown (click ✎ to add)
+                </span>
+            </span>
+        </dl>
+    </div>
+
     <div class="image-info__group" ng-if="ctrl.displayLeases()" role="region" aria-label="Leases">
         <dl class="image-info__wrap image-info__leases">
             <div class="image-info__heading image-info__heading--lease"

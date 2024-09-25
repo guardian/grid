@@ -112,7 +112,8 @@ object Mappings {
     standardAnalysed("country").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("peopleInImage").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     sStemmerAnalysed("englishAnalysedCatchAll"),
-    dynamicObj("domainMetadata")
+    dynamicObj("domainMetadata"),
+    keywordField("imageType")
   ))
 
   def originalMetadataMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
@@ -134,7 +135,8 @@ object Mappings {
     standardAnalysed("state"),
     standardAnalysed("country"),
     standardAnalysed("peopleInImage"),
-    dynamicObj("domainMetadata")
+    dynamicObj("domainMetadata"),
+    keywordField("imageType")
   ))
 
   def usageRightsMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(

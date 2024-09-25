@@ -15,6 +15,7 @@ import '../../services/label';
 import '../../search/query-filter';
 import '../gr-usagerights-summary/gr-usagerights-summary';
 import { List } from 'immutable';
+import { validImageTypes } from "../../util/constants/imageTypes";
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
@@ -62,6 +63,8 @@ module.controller('grImageMetadataCtrl', [
     ctrl.showUsageRights = false;
     ctrl.usageRightsSummary = window._clientConfig.usageRightsSummary;
     ctrl.metadataUpdatedByTemplate = [];
+
+    ctrl.validImageTypes = validImageTypes;
 
     ctrl.$onInit = () => {
       $scope.$watchCollection('ctrl.selectedImages', function () {

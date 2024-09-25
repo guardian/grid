@@ -2186,6 +2186,9 @@ FIXME: what to do with touch devices
     margin-top: 0;
 }
 
+.image-info__image-type {
+  color: #eee;
+}
 .image-info__description,
 .image-info__special-instructions {
     /* respect newlines in text */

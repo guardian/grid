@@ -8,6 +8,7 @@ import '../../forms/datalist';
 import '../../components/gr-description-warning/gr-description-warning';
 
 import strings from '../../strings.json';
+import {validImageTypes} from "../../util/constants/imageTypes";
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
@@ -35,6 +36,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
       // if we set it to "".
       ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
       ctrl.metadataUpdatedByTemplate = [];
+      ctrl.validImageTypes = validImageTypes;
 
       ctrl.save = function() {
           ctrl.saving = true;
@@ -58,6 +60,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
               update(ctrl.resource, cleanMetadata, ctrl.image).
               then(resource => {
                   ctrl.resource = resource;
+                  setInterval(() => {console.log(ctrl.metadata);}, 5000);
               }).
               finally(() => ctrl.saving = false);
       };
@@ -67,6 +70,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
               return resource.data.map(d => d.key);
           });
       };
+
 
       ctrl.currentMetadata = () => {
         let cleanMetadata = {};
@@ -125,7 +129,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
               specialInstructions: originalMetadata.specialInstructions,
               description: originalMetadata.description,
               domainMetadata: originalMetadata.domainMetadata,
-              usageInstructions: originalMetadata.usageInstructions
+              usageInstructions: originalMetadata.usageInstructions,
+              imageType: originalMetadata.imageType
           };
       }
     };

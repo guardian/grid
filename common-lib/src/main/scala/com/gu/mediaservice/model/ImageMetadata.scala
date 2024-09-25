@@ -26,7 +26,8 @@ case class ImageMetadata(
   country:             Option[String]   = None,
   subjects:            Option[List[String]] = None,
   peopleInImage:       Option[Set[String]] = None,
-  domainMetadata:      Map[String, Map[String, JsValue]] = Map()
+  domainMetadata:      Map[String, Map[String, JsValue]] = Map(),
+  imageType:           Option[String]   = None,
 ) {
   def merge(that: ImageMetadata) = this.copy(
     dateTaken = that.dateTaken orElse this.dateTaken,
@@ -47,7 +48,8 @@ case class ImageMetadata(
     country = that.country orElse this.country,
     subjects = that.subjects orElse this.subjects,
     peopleInImage = that.peopleInImage orElse this.peopleInImage,
-    domainMetadata = that.domainMetadata ++ this.domainMetadata
+    domainMetadata = that.domainMetadata ++ this.domainMetadata,
+    imageType = that.imageType orElse this.imageType,
   )
 
 }
@@ -74,7 +76,8 @@ object ImageMetadata {
       (__ \ "country").readNullable[String] ~
       (__ \ "subjects").readNullable[List[String]] ~
       (__ \ "peopleInImage").readNullable[Set[String]] ~
-      (__ \ "domainMetadata").readNullable[Map[String, Map[String, JsValue]]].map(_ getOrElse Map())
+      (__ \ "domainMetadata").readNullable[Map[String, Map[String, JsValue]]].map(_ getOrElse Map()) ~
+      (__ \ "imageType").readNullable[String]
     )(ImageMetadata.apply _)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
@@ -96,7 +99,8 @@ object ImageMetadata {
       (__ \ "country").writeNullable[String] ~
       (__ \ "subjects").writeNullable[List[String]] ~
       (__ \ "peopleInImage").writeNullable[Set[String]] ~
-      (__ \ "domainMetadata").writeNullable[Map[String, Map[String, JsValue]]].contramap((l: Map[String, Map[String, JsValue]]) => if (l.isEmpty) None else Some(l))
+      (__ \ "domainMetadata").writeNullable[Map[String, Map[String, JsValue]]].contramap((l: Map[String, Map[String, JsValue]]) => if (l.isEmpty) None else Some(l)) ~
+      (__ \ "imageType").writeNullable[String]
     )(unlift(ImageMetadata.unapply))
 
 }

@@ -98,7 +98,8 @@ object ImageMetadataConverter extends GridLogging {
                             fileMetadata.readXmpHeadStringProp("Iptc4xmpCore:CountryCode") orElse
                             fileMetadata.iptc.get("Country/Primary Location Code"),
       subjects            = extractSubjects(fileMetadata),
-      peopleInImage       = extractPeople(fileMetadata)
+      peopleInImage       = extractPeople(fileMetadata),
+      imageType           = None // FIXME add extractor for imageType https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#digital-source-type
     )
   }
 
