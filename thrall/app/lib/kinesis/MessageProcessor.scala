@@ -249,6 +249,8 @@ class MessageProcessor(
       implicit val i: Instance = instance
       gridClient.createCollection("Home", auth.innerServiceCall).map { r: Option[Collection] =>
         logger.info("Created collection for new instance: " + Instance)
+        // Notify instances service that this instance can be marked as ready to use
+
       }
     }
   }

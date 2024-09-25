@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallController}
-import instances.Instances
+import instances.{InstanceMessageSender, Instances}
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
@@ -36,16 +36,18 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val gridClient: GridClient = GridClient(config.services)(wsClient)
 
-  private val sqsClient = SqsClient.builder()
+   val sqsClient: SqsClient = SqsClient.builder()
     .region(Region.EU_WEST_1)
     .build()
 
-  private val queueUrl = {
+   val instanceUsageQueueUrl: String = {
     val getQueueRequest = GetQueueUrlRequest.builder()
       .queueName(config.instanceUsageQueueName)
       .build();
     sqsClient.getQueueUrl(getQueueRequest).queueUrl
   }
+
+  private val instanceMessageSender = new InstanceMessageSender(sqsClient, instanceUsageQueueUrl)
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
   def ensureIndexes(): Future[Unit] = {
@@ -108,7 +110,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
           logger.info(s"Instance ${instance.id} has $imageCount/$softDeletedCount images with total size: " + totalImageSize)
           val message = InstanceUsageMessage(instance = instance.id, imageCount = imageCount, softDeletedCount = softDeletedCount, totalImageSize = totalImageSize)
           implicit val iumw = Json.writes[InstanceUsageMessage]
-          sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.toJson(message).toString()).build)
+          instanceMessageSender.send(Json.toJson(message).toString())
         }
       }
     }
