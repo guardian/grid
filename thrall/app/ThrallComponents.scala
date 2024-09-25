@@ -14,11 +14,10 @@ import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
-import play.api.libs.json.{Json, OWrites}
 import router.Routes
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
-import software.amazon.awssdk.services.sqs.model.{GetQueueUrlRequest, SendMessageRequest}
+import software.amazon.awssdk.services.sqs.model.{GetQueueUrlRequest}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -109,8 +108,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
           totalImageSize <- eventualTotalImageSize
         } yield {
           logger.info(s"Instance ${instance.id} has $imageCount/$softDeletedCount images with total size: " + totalImageSize)
-          val message = InstanceUsageMessage(instance = instance.id, imageCount = imageCount, softDeletedCount = softDeletedCount, totalImageSize = totalImageSize)
-          instanceMessageSender.send(Json.toJson(message).toString())
+          instanceMessageSender.send(InstanceUsageMessage(instance = instance.id, imageCount = imageCount, softDeletedCount = softDeletedCount, totalImageSize = totalImageSize))
         }
       }
     }
