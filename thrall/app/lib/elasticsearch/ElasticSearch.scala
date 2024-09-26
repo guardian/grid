@@ -361,11 +361,14 @@ class ElasticSearch(
     }
   }
 
-  private def hardReapableQuery(isReapable: ReapableEligibility, daysInSoftDeletedState: Int) = must(
-    isReapable.query,
-    filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
-    rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusDays(daysInSoftDeletedState).toString) // soft deleted more than 2 weeks ago (default)
-  )
+  private def hardReapableQuery(isReapable: ReapableEligibility, daysInSoftDeletedState: Int) = {
+    logger.info(s"Building hard reapable query for daysInSoftDeletedState $daysInSoftDeletedState")
+    must(
+      isReapable.query, // TODO should be able to hard reap anything which got into a soft reaped state; other wise manual deletes will not work!
+      filters.existsOrMissing("softDeletedMetadata", exists = true), // already soft deleted
+      rangeQuery("softDeletedMetadata.deleteTime").lt(DateTime.now.minusDays(daysInSoftDeletedState).toString) // soft deleted more than 2 weeks ago (default)
+    )
+  }
 
   def countTotalHardReapable(isReapable: ReapableEligibility, daysInSoftDeletedState: Int)
                             (implicit ex: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Long] =
