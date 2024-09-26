@@ -403,17 +403,21 @@ results.controller('SearchResultsCtrl', [
         let validImages = [];
         let invalidImages = [];
         images.forEach( (image) => {
-          if (image.data.usages.data.length === 0) {
-            validImages.push(image);
+          if (image.data.uploadedBy === "Capture_AutoIngest") {
+            invalidImages.push(image);
           } else {
-            let syndicationExists = false;
-            for (const usage of image.data.usages.data) {
-              if (usage.data.platform === "syndication") {
-                syndicationExists = true;
-                break;
+            if (image.data.usages.data.length === 0) {
+              validImages.push(image);
+            } else {
+              let syndicationExists = false;
+              for (const usage of image.data.usages.data) {
+                if (usage.data.platform === "syndication") {
+                  syndicationExists = true;
+                  break;
+                }
               }
+              (syndicationExists === true ? invalidImages : validImages).push(image);
             }
-            (syndicationExists === true ? invalidImages : validImages).push(image);
           }
         });
         return [validImages, invalidImages];
