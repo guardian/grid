@@ -18,7 +18,7 @@ export const getFeatureSwitchActive = (key: string): boolean => {
   if (match) {
     return match[2] === "true";
   }
-  return false;
+  return window._clientConfig.featureSwitches.find((featureSwitch) => featureSwitch.key === key)?.value === "true";
 };
 
 const CloseIcon = () =>
