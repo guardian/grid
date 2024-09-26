@@ -161,7 +161,7 @@ class ReaperController(
     implicit val i: Instance = instance
     es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
 
-    logger.info(s"Hard deleting next $count images...")
+    logger.info(s"Hard deleting next $count images for instance ${instance.id}...")
 
     (for {
       BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge)
@@ -171,7 +171,7 @@ class ReaperController(
       _ <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
       // TODO No one has issued an image-deleted notification to metadata-editor? Metadata will persist forever?
     } yield {
-      logger.info(s"Hard deleted actually deleted size: ${esIdsActuallyDeleted.size}")
+      logger.info(s"Hard deleted actually deleted size for instance ${instance.id}: ${esIdsActuallyDeleted.size}")
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
