@@ -359,7 +359,12 @@ object PaParser extends ImageProcessor {
       paCredits.contains(creditOrSource.toLowerCase)
     }
     if (isPa) {
-      image.copy(usageRights = Agency("PA"))
+      image.copy(
+        usageRights = Agency("PA"),
+        metadata = image.metadata.copy(
+          credit = Some("PA")
+        )
+      )
     } else image
   }
 }
