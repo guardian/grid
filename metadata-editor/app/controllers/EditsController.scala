@@ -184,7 +184,8 @@ class EditsController(
           val mergedMetadata = originalUserMetadata.copy(
             byline = metadata.byline orElse originalUserMetadata.byline,
             credit = metadata.credit orElse originalUserMetadata.credit,
-            copyright = metadata.copyright orElse originalUserMetadata.copyright
+            copyright = metadata.copyright orElse originalUserMetadata.copyright,
+            imageType = metadata.imageType orElse originalUserMetadata.imageType
           )
 
           editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
