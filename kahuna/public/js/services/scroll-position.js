@@ -22,18 +22,17 @@ scrollPosService.factory('scrollPosition',
         }
         originalContext = currentContext;
         // Accommodate Chrome & Firefox
-        if (forceReset) {
-          forceReset = false;
-          positionTop = 0;
-        } else {
-          positionTop = document.body.scrollTop || document.documentElement.scrollTop;
-        }
+        positionTop = document.body.scrollTop || document.documentElement.scrollTop;
     }
 
     function resume(currentContext) {
         // deal with url ambiguity over nonFree parameter
         if (!currentContext.nonFree) {
           currentContext.nonFree = "false";
+        }
+        if (forceReset) {
+          forceReset = false;
+          positionTop = 0;
         }
         if (angular.equals(currentContext, originalContext)) {
             $window.scrollTo(0, positionTop);

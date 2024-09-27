@@ -2,13 +2,17 @@ import angular from 'angular';
 import './controller.css';
 import './prompt/prompt';
 import './recent/recent-uploads';
+import '../services/scroll-position';
 
 var upload = angular.module('kahuna.upload.controller', [
     'kahuna.upload.prompt',
-    'kahuna.upload.recent'
+    'kahuna.upload.recent',
+    'kahuna.services.scroll-position',
+    'util.storage'
 ]);
 
-upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function (uploadManager, mediaApi, $scope) {
+upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', 'storage',
+  function (uploadManager, mediaApi, scrollPosition, $scope, storage) {
     var ctrl = this;
 
     const isOngoingUploadJobs = () => {
@@ -23,11 +27,11 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
       }
     });
 
-  window.onbeforeunload = function () {
-    if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
-      return "";
-    }
-  };
+    window.onbeforeunload = function () {
+      if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
+        return "";
+      }
+    };
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
     ctrl.systemName = window._clientConfig.systemName;
@@ -46,5 +50,21 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', '$scope', function
         }
         return "";
       }
+    };
+
+    ctrl.onLogoClick = () => {
+      mediaApi.getSession().then(session => {
+        const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+        const defaultNonFreeFilter = {
+          isDefault: true,
+          isNonFree: showPaid ? showPaid : false
+        };
+        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        window.dispatchEvent(new CustomEvent("logoClick", {
+          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          bubbles: true
+        }));
+        scrollPosition.resetToTop();
+      });
     };
 }]);

@@ -1,9 +1,9 @@
 <gr-top-bar role="banner" aria-label="Top bar">
     <gr-top-bar-nav role="navigation" aria-label="Primary">
-        <a class="top-bar-item side-padded"
-           ng-href="/search" role="link"
-           aria-label="Go to image search"><gr-icon>search</gr-icon>
-           <span class="top-bar-item__label">Search</span></a>
+        <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search"
+           aria-label="Go to image search">
+            <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
+        </a>
     </gr-top-bar-nav>
     <gr-top-bar-actions></gr-top-bar-actions>
 </gr-top-bar>
