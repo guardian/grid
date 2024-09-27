@@ -38,7 +38,14 @@ class KahunaController(
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
     val featureSwitches = new FeatureSwitches(
-      List(if(config.staffPhotographerOrganisation == "GNM") ShowCroppingGuttersSwitch else ExampleSwitch)
+      List(
+        if (maybeUser.map(_.accessor.identity).exists(config.displayCropGutterByDefaultTo.contains))
+          ShowCroppingGuttersSwitch.copy(default = true)
+        else if(config.staffPhotographerOrganisation == "GNM")
+          ShowCroppingGuttersSwitch
+        else
+          ExampleSwitch
+      )
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
