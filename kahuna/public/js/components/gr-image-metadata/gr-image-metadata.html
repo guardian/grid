@@ -50,31 +50,61 @@
         <dl class="image-info__wrap metadata-line image-info__image-type">
             <dt class="metadata-line__key">Image type</dt>
 
-            <button
-                data-cy="it-edit-image-type-button"
-                class="image-info__edit"
-                ng-click="imageTypeEditForm.$show()"
-                ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
-                ng-hide="imageTypeEditForm.$visible">✎</button>
+            <span ng-if="ctrl.metadataUpdatedByTemplate.includes('imageType')">
+                <div class="metadata-line__info">
+                    <dd class="image-info__image-type-preview">{{ctrl.metadata.imageType}}</dd>
+                </div>
+            </span>
 
-            <span class="image-info__image-type"
-                editable-select="ctrl.metadata.imageType"
-                e-placeholder="-- choose type --"
-                e-ng-options="option for option in ctrl.validImageTypes"
-                ng-hide="imageTypeEditForm.$visible"
-                onbeforesave="ctrl.updateMetadataField('imageType', $data)"
-                e:ng-class="{'image-info__editor--error': $error,
-                               'image-info__editor--saving': imageTypeEditForm.$waiting,
-                               'text-input': true}"
-                e:form="imageTypeEditForm">
+            <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('imageType')">
+                <button
+                    data-cy="it-edit-image-type-button"
+                    class="image-info__edit"
+                    ng-click="imageTypeEditForm.$show()"
+                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                    ng-hide="imageTypeEditForm.$visible">✎</button>
 
-                <span ng-if="ctrl.metadata.imageType">
-                    {{ctrl.metadata.imageType}}
-                </span>
-                <span class="editable-empty" ng-if="!ctrl.metadata.imageType && ctrl.userCanEdit">
-                    Unknown (click ✎ to add)
+                <span class="image-info__image-type"
+                    editable-select="ctrl.metadata.imageType"
+                    e-placeholder="-- choose type --"
+                    e-ng-options="option for option in ctrl.validImageTypes"
+                    ng-hide="imageTypeEditForm.$visible"
+                    onbeforesave="ctrl.updateMetadataField('imageType', $data)"
+                    e:ng-class="{'image-info__editor--error': $error,
+                                   'image-info__editor--saving': imageTypeEditForm.$waiting,
+                                   'text-input': true}"
+                    e:form="imageTypeEditForm">
+
+                    <span ng-if="ctrl.userCanEdit">
+                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
+                            class="image-info__image-type"
+                        >
+                            Multiple image types (click ✎ to edit <strong>all</strong>)
+                        </dd>
+                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
+                            class="image-info__image-type"
+                            ng-class="{'editable-empty': !ctrl.metadata.imageType}"
+                        >
+                            {{ctrl.metadata.imageType || "Unknown (click ✎ to add)"}}
+                        </dd>
+                    </span>
+
+                    <span ng-if="!ctrl.userCanEdit">
+                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
+                            class="image-info__image-type"
+                        >
+                            Multiple image types
+                        </dd>
+                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
+                            class="image-info__image-type"
+                            ng-class="{'editable-empty': !ctrl.metadata.imageType}"
+                        >
+                            {{ctrl.metadata.imageType || "Unknown"}}
+                        </dd>
+                    </span>
                 </span>
             </span>
+
         </dl>
     </div>
 

@@ -1,7 +1,6 @@
 package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.ImageType._
 
 object UsageRightsMetadataMapper {
 
@@ -20,19 +19,19 @@ object UsageRightsMetadataMapper {
           byline = Some(u.photographer),
           credit = Some(u.publication),
           copyright = copyright,
-          imageType = Some(Photograph)
+          imageType = Some(ImageType.Photograph)
         )
       case u: ContractPhotographer     =>
-        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(Photograph))
+        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(ImageType.Photograph))
       case u: CommissionedPhotographer =>
-        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(Photograph))
+        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(ImageType.Photograph))
       case u: ContractIllustrator      =>
-        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(Illustration))
+        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(ImageType.Illustration))
       case u: StaffIllustrator         =>
-        ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator), imageType = Some(Illustration))
+        ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator), imageType = Some(ImageType.Illustration))
       case u: CommissionedIllustrator  =>
-        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(Illustration))
-      case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some(Composite))
+        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(ImageType.Illustration))
+      case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some(ImageType.Composite))
       case u: Screengrab               => ImageMetadata(credit = u.source)
     }
 
