@@ -6,6 +6,7 @@
             <div class="job-info--editor__label job-info--editor__multiline text-small">Image type</div>
             <select
                 name="imageType"
+                class="text-input"
                 ng-model="ctrl.metadata.imageType"
                 ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                 ng-change="ctrl.save()"
