@@ -7,7 +7,7 @@ import java.net.URLEncoder
 
 trait ContentDisposition extends GridLogging {
 
-  def getContentDisposition(image: Image, imageType: ImageType, shortenDownloadFilename: Boolean): String = {
+  def getContentDisposition(image: Image, imageType: ImageFileType, shortenDownloadFilename: Boolean): String = {
     val asset = imageType match {
       case Source => image.source
       case Thumbnail => image.thumbnail.getOrElse(image.source)
