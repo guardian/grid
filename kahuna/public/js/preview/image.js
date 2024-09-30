@@ -67,8 +67,7 @@ image.controller('uiPreviewImageCtrl', [
       });
 
       ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
-      ctrl.uploadedByCapture = (ctrl) => ctrl.image.data.uploadedBy === "Capture_AutoIngest";
-      ctrl.showPaid = undefined;
+      ctrl.uploadedByCapture = ctrl.image.data.uploadedBy === "Capture_AutoIngest"
       mediaApi.getSession().then(session => {
         ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
       });
