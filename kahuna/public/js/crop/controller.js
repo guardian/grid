@@ -177,6 +177,13 @@ crop.controller('ImageCropCtrl', [
         }
       };
 
+      const gutterOpacityCssVarName = "--crop-gutter-opacity";
+      const rootCss = document.querySelector(':root');
+      ctrl.gutterTransparency = parseFloat(getComputedStyle(rootCss)?.getPropertyValue(gutterOpacityCssVarName) || "0.5");
+      ctrl.changeGutterTransparency = (newOpacity) => {
+        rootCss.style.setProperty(gutterOpacityCssVarName, newOpacity);
+      };
+
       $scope.$watch('ctrl.cropType', (newCropType, oldCropType) => {
         const isCropTypeDisabled = ctrl.cropOptions.find(_ => _.key === newCropType).disabled;
 

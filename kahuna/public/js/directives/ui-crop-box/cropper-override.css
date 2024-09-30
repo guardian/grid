@@ -41,7 +41,9 @@
   background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
 }
 
-
+:root {
+  --crop-gutter-opacity: 0.5; /* default, set in crop/controller.js based on slider */
+}
 
 /* GUTTERS to show what will be clipped if the 5:3 crop is used in 5:4 space */
 .easel.vertical-warning-gutters .cropper-view-box::before,
@@ -54,6 +56,7 @@
   top: 0;
   bottom: 0;
   mix-blend-mode: difference;
+  opacity: var(--crop-gutter-opacity);
 }
 .easel.vertical-warning-gutters .cropper-view-box::before { /* left gutter */
   left: 0;
@@ -64,5 +67,5 @@
   background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
 }
 .easel.vertical-warning-gutters .easel__canvas {
-  height: calc(100vh - 115px);
+  height: calc(100vh - 135px);
 }
