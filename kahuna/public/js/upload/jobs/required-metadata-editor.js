@@ -8,7 +8,6 @@ import '../../forms/datalist';
 import '../../components/gr-description-warning/gr-description-warning';
 
 import strings from '../../strings.json';
-import {validImageTypes} from "../../util/constants/imageTypes";
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
@@ -36,7 +35,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
       // if we set it to "".
       ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
       ctrl.metadataUpdatedByTemplate = [];
-      ctrl.validImageTypes = validImageTypes;
+      ctrl.validImageTypes = window._clientConfig.imageTypes || [];
 
       ctrl.save = function() {
           ctrl.saving = true;

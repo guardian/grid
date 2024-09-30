@@ -15,6 +15,7 @@
   maybeOrgOwnedValueHtml: Html,
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
+  imageTypes: String,
 )
 <!DOCTYPE html>
 <html>
@@ -85,6 +86,7 @@
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
           announcements: @Html(announcements),
+          imageTypes: @Html(imageTypes),
         }
     </script>
 

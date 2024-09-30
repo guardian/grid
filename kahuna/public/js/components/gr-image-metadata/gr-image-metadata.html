@@ -46,7 +46,9 @@
         </dl>
     </div>
 
-    <div class="image-info__group" role="region" aria-label="Image type">
+    <div class="image-info__group" role="region" aria-label="Image type"
+         ng-if="ctrl.validImageTypes.length > 0"
+    >
         <dl class="image-info__wrap metadata-line image-info__image-type">
             <dt class="metadata-line__key">Image type</dt>
 

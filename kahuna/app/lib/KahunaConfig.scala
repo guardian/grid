@@ -70,6 +70,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val announcements: Seq[Announcement] = configuration.getOptional[Seq[Announcement]]("announcements").getOrElse(Seq.empty)
 
+  val imageTypes: Seq[String] = configuration.getOptional[Seq[String]]("imageTypes").getOrElse(Seq.empty)
+
   //BBC custom warning text
   val warningTextHeader: String = configuration.getOptional[String]("warningText.header")
     .getOrElse("This image can be used, but has warnings:")
