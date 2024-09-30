@@ -77,7 +77,7 @@
 
                     <span ng-if="ctrl.userCanEdit">
                         <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
-                            class="image-info__image-type"
+                            class="image-info__image-type image-info--multiple"
                         >
                             Multiple image types (click ✎ to edit <strong>all</strong>)
                         </dd>
@@ -91,7 +91,7 @@
 
                     <span ng-if="!ctrl.userCanEdit">
                         <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.imageType)"
-                            class="image-info__image-type"
+                            class="image-info__image-type image-info--multiple"
                         >
                             Multiple image types
                         </dd>
