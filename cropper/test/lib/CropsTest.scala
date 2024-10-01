@@ -46,27 +46,27 @@ class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
   private val store = mock[CropStore]
   private val imageOperations: ImageOperations = mock[ImageOperations]
   private val source: SourceImage = SourceImage("test", mock[Asset], valid = true, mock[ImageMetadata], mock[FileMetadata])
-  private val bounds: Bounds = Bounds(10, 20, 30, 40)
+  private val cropId: String = "10_20_30_40"
   private val outputWidth = 1234
 
   it("should should construct a correct address for a master jpg") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Jpeg, isMaster = true)
+      .outputFilename(source, cropId, outputWidth, Jpeg, isMaster = true)
     outputFilename shouldBe "test/10_20_30_40/master/1234.jpg"
   }
   it("should should construct a correct address for a non-master jpg") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Jpeg)
+      .outputFilename(source, cropId, outputWidth, Jpeg)
     outputFilename shouldBe "test/10_20_30_40/1234.jpg"
   }
   it("should should construct a correct address for a non-master tiff") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Tiff)
+      .outputFilename(source, cropId, outputWidth, Tiff)
     outputFilename shouldBe "test/10_20_30_40/1234.tiff"
   }
   it("should should construct a correct address for a non-master png") {
     val outputFilename = new Crops(config, store, imageOperations)
-      .outputFilename(source, bounds, outputWidth, Png)
+      .outputFilename(source, cropId, outputWidth, Png)
     outputFilename shouldBe "test/10_20_30_40/1234.png"
   }
 }

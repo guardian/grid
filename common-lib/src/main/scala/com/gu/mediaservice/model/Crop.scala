@@ -15,7 +15,14 @@ object Crop {
   def getCropId(b: Bounds) = List(b.x, b.y, b.width, b.height).mkString("_")
 
   def createFromCropSource(by: Option[String], timeRequested: Option[DateTime], specification: CropSpec, master: Option[Asset] = None, cropSizings: List[Asset] = Nil): Crop =
-    Crop(Some(getCropId(specification.bounds)), by, timeRequested, specification, master, cropSizings)
+   Crop(
+      id = Some(getCropId(specification.bounds)),
+      author = by,
+      date = timeRequested,
+      specification = specification,
+      master = master,
+      assets = cropSizings
+    )
 
   def createFromCrop(crop: Crop, master: Asset, assets: List[Asset]): Crop =
     Crop(crop.id, crop.author, crop.date, crop.specification, Some(master), assets)
@@ -43,6 +50,7 @@ object Crop {
 sealed trait ExportType { val name: String }
 case object CropExport extends ExportType { val name = "crop" }
 case object FullExport extends ExportType { val name = "full" }
+case object PointsOfInterestExport extends ExportType { val name = "poi" }
 
 object ExportType {
 
@@ -51,6 +59,7 @@ object ExportType {
   def valueOf(name: String): ExportType = name match {
     case "crop" => CropExport
     case "full" => FullExport
+    case "poi" => PointsOfInterestExport
   }
 
   implicit val exportTypeWrites: Writes[ExportType] = Writes[ExportType](t => JsString(t.name))
