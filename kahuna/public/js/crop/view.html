@@ -104,6 +104,14 @@
 <div class="warning status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
     Although this is a 5:3 crop, it might be used in a 5:4 space, so please ensure
     there is nothing important in the striped sides as these might be clipped.
+    <div style="display: flex; align-items: center; justify-content: center">
+        <small>STRIPE TRANSPARENCY</small>
+        <input type="range" min="0.3" max="1"
+               ng-model="ctrl.gutterTransparency"
+               ng-change="ctrl.changeGutterTransparency($event.target.value)"
+               (input)="ctrl.changeGutterTransparency($event.target.value)"
+        >
+    </div>
 </div>
 
 <div class="easel" role="main" aria-label="Image cropper"
