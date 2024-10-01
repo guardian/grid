@@ -3,7 +3,7 @@ import angular from 'angular';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from "../util/crop";
-import {cropOptions} from "../util/constants/cropOptions";
+import {cropOptions, pointsOfInterestBeta} from "../util/constants/cropOptions";
 import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 const crop = angular.module('kahuna.crop.controller', [
@@ -185,6 +185,8 @@ crop.controller('ImageCropCtrl', [
           getFeatureSwitchActive("show-cropping-gutters-switch")
           && window._clientConfig.staffPhotographerOrganisation === "GNM"
           && maybeCropRatioIfStandard === "5:3";
+
+        ctrl.isPointsOfInterestCrop = newCropType === pointsOfInterestBeta.key; /* TODO adjust the height of easel to avoid scrollbar from explainer */
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;

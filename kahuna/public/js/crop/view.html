@@ -106,6 +106,12 @@
     there is nothing important in the striped sides as these might be clipped.
 </div>
 
+
+<div class="warning status--info" ng-if="ctrl.isPointsOfInterestCrop">
+    This is a 'Points of Interest ᴮᴱᵀᴬ` crop. Use the crop rectangle to cover all the vital points of interest, but nothing more.
+    The frontend can use the crop in spaces of different shapes/ratios ensuring the important parts are always visible.
+</div>
+
 <div class="easel" role="main" aria-label="Image cropper"
      ng-class="{'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters}">
     <div class="easel__canvas">

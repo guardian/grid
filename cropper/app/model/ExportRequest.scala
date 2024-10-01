@@ -16,6 +16,8 @@ case class FullExportRequest(uri: String) extends ExportRequest
 
 case class CropRequest(uri: String, bounds: Bounds, aspectRatio: Option[String]) extends ExportRequest
 
+case class PointsOfInterest(uri: String, bounds: Bounds) extends ExportRequest
+
 
 object ExportRequest {
 
@@ -26,6 +28,11 @@ object ExportRequest {
     __.read[Bounds] ~
     (__ \ "aspectRatio").readNullable[String](pattern(aspectRatioLike))
   )(CropRequest.apply _)
+
+  private val readPointsOfInterestRequest: Reads[PointsOfInterest] = (
+    (__ \ "source").read[String] ~
+    __.read[Bounds]
+  )(PointsOfInterest.apply _)
 
   private val readFullExportRequest: Reads[FullExportRequest] =
     (__ \ "source").read[String].map(FullExportRequest.apply)
