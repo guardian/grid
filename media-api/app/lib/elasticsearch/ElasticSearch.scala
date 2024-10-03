@@ -139,7 +139,7 @@ class ElasticSearch(
     val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
     // we only inject filters if there are actual date parameters
     val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
+    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list.toList: _*))
 
     val idsFilter = params.ids.map(filters.ids)
     val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
@@ -161,16 +161,16 @@ class ElasticSearch(
 
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
-    val validityFilter = params.valid.flatMap(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
+    val validityFilter = params.valid.map(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
 
     val persistFilter = params.persisted map {
       case true => searchFilters.persistedFilter
       case false => searchFilters.nonPersistedFilter
     }
 
-    val usageFilter =
-      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
-        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
+    val usageFilter: Iterable[Query] =
+      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))).toOption ++
+        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _)).toOption
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
@@ -192,9 +192,9 @@ class ElasticSearch(
     }
 
     val filterOpt = (
-      metadataFilter.toList
+      metadataFilter.toOption.toList
         ++ persistFilter
-        ++ labelFilter
+        ++ labelFilter.toOption
         ++ archivedFilter
         ++ uploadedByFilter
         ++ idsFilter
@@ -204,14 +204,14 @@ class ElasticSearch(
         ++ hasExports
         ++ hasIdentifier
         ++ missingIdentifier
-        ++ dateFilter
+        ++ dateFilter.toOption
         ++ usageFilter
         ++ hasRightsCategory
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
         ++ printUsageFilter
-      ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
+      ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
 
     val withFilter = filterOpt.map { f =>
       boolQuery must (query) filter f

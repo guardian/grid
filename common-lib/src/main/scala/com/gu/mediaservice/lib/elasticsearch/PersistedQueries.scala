@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticApi.matchNoneQuery
 import scalaz.NonEmptyList
-import scalaz.syntax.std.list._
 
 object PersistedQueries extends ImageFields {
   val photographerCategories = NonEmptyList(
@@ -34,15 +33,14 @@ object PersistedQueries extends ImageFields {
   val hasIllustratorUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), illustratorCategories))
   val hasAgencyCommissionedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), agencyCommissionedCategories))
 
-  def isInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[String]]) = maybePersistOnlyTheseCollections match {
-    case None =>
-      filters.exists(NonEmptyList("collections"))
-    case Some(persistedCollections) if persistedCollections.nonEmpty =>
-      filters.bool.must(filters.terms(collectionsField("path"), persistedCollections.toList.toNel.get))
-    case _ =>
-      matchNoneQuery
-  }
-
+  def isInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[String]]) =
+    maybePersistOnlyTheseCollections.map(_.toList) match {
+      case None =>
+        filters.exists(NonEmptyList("collections"))
+      case Some(Nil) => matchNoneQuery()
+      case Some(head :: tail) =>
+        filters.bool().must(filters.terms(collectionsField("path"), NonEmptyList.fromSeq(head, tail)))
+    }
 
 
   val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))

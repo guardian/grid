@@ -112,7 +112,7 @@ object PayType extends Enumeration {
 
 object SearchParams {
   def commasToList(s: String): List[String] = s.trim.split(',').toList
-  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.toList.mkString(",")).toOption
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption

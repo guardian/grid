@@ -6,6 +6,7 @@ import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.scalalogging.StrictLogging
 import play.api.ConfigLoader
 import play.api.libs.json._
+import scalaz.NonEmptyList
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
 import scala.reflect.runtime.universe
@@ -52,9 +53,9 @@ object UsageRightsSpec extends StrictLogging {
 
 object UsageRights {
 
-  val photographer: List[UsageRightsSpec] = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
-  val illustrator: List[UsageRightsSpec] = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
-  val whollyOwned: List[UsageRightsSpec] = photographer ++ illustrator
+  val photographer: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
+  val illustrator: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
+  val whollyOwned: NonEmptyList[UsageRightsSpec] = photographer append illustrator
 
   // this is a convenience method so that we use the same formatting for all subtypes
   // i.e. use the standard `Json.writes`. I still can't find a not have to pass the `f:Format[T]`

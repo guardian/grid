@@ -19,13 +19,13 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
-  val validFilter: Option[Query] = config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
-  val invalidFilter: Option[Query] = config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
+  val validFilter: Query = filters.exists(config.requiredMetadata.map(metadataField))
+  val invalidFilter: Query = filters.anyMissing(config.requiredMetadata.map(metadataField))
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters: List[Query] = for {
     supplier            <- suppliersWithExclusions
-    excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
+    excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel.toOption)
   } yield {
     filters.mustWithMustNot(
       filters.term(usageRightsField("supplier"), supplier),
@@ -33,14 +33,14 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     )
   }
 
-  val suppliersWithExclusionsFilter: Option[Query] = suppliersWithExclusionsFilters.toNel.map(filters.or)
-  val suppliersNoExclusionsFilter: Option[Query] = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
+  val suppliersWithExclusionsFilter: Option[Query] = suppliersWithExclusionsFilters.toNel.map(filters.or).toOption
+  val suppliersNoExclusionsFilter: Option[Query] = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _)).toOption
   val freeSupplierFilter: Option[Query] = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
 
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
   // that could take a comma separated list e.g. `cost=free,conditional`.
-  val freeUsageRightsFilter: Option[Query] = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _))
+  val freeUsageRightsFilter: Option[Query] = freeToUseCategories.toNel.map(filters.terms(usageRightsField("category"), _)).toOption
 
   val hasRightsCategoryFilter: Query = filters.existsOrMissing(usageRightsField("category"), exists = true)
 

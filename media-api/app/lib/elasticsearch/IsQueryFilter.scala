@@ -40,19 +40,19 @@ object IsQueryFilter {
 
 case class IsOwnedPhotograph(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.photographer.toNel.get.map(_.category))
+    filters.terms(usageRightsField("category"), UsageRights.photographer.map(_.category))
   )
 }
 
 case class IsOwnedIllustration(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.illustrator.toNel.get.map(_.category))
+    filters.terms(usageRightsField("category"), UsageRights.illustrator.map(_.category))
   )
 }
 
 case class IsOwnedImage(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.whollyOwned.toNel.get.map(_.category))
+    filters.terms(usageRightsField("category"), UsageRights.whollyOwned.map(_.category))
   )
 }
 

@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import org.joda.time.DateTime
+import scalaz.NonEmptyList
 
 import java.security.PrivateKey
 import scala.util.Try
@@ -43,7 +44,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val loginUriTemplate: String = services.loginUriTemplate
   val collectionsUri: String = services.collectionsBaseUri
 
-  val requiredMetadata = List("credit", "description", "usageRights")
+  val requiredMetadata = NonEmptyList("credit", "description", "usageRights")
 
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
