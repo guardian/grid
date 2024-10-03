@@ -477,8 +477,7 @@ class MediaApi(
     SearchParams.validate(searchParams).fold(
       // TODO: respondErrorCollection?
       errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
-        errors.map(_.message).list.toList.mkString(", ")) //.reduce(_+ ", " +_), List(searchLink))
+        errors.map(_.message).mkString(", "))
       ),
       params => respondSuccess(params)
     )
