@@ -2,6 +2,7 @@ import angular from 'angular';
 
 import '../util/rx';
 import '../services/image/usages';
+import '../services/scroll-position';
 import '../image/service';
 import '../edits/service';
 
@@ -29,7 +30,9 @@ import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
+  'util.storage',
   'kahuna.edits.service',
+  'kahuna.services.scroll-position',
   'gr.image.service',
   'gr.image-usages.service',
 
@@ -65,6 +68,7 @@ image.controller('ImageCtrl', [
   '$window',
   '$filter',
   'inject$',
+  'storage',
   'image',
   'mediaApi',
   'optimisedImageUri',
@@ -74,6 +78,7 @@ image.controller('ImageCtrl', [
   'imageService',
   'imageUsagesService',
   'editsService',
+  'scrollPosition',
   'keyboardShortcut',
   'cropSettings',
   'globalErrors',
@@ -87,6 +92,7 @@ image.controller('ImageCtrl', [
             $window,
             $filter,
             inject$,
+            storage,
             image,
             mediaApi,
             optimisedImageUri,
@@ -96,6 +102,7 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             editsService,
+            scrollPosition,
             keyboardShortcut,
             cropSettings,
             globalErrors) {
@@ -212,6 +219,22 @@ image.controller('ImageCtrl', [
       // a bit nasty - but it updates the state of the page better than trying to do that in
       // the client.
       $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
+    };
+
+    ctrl.onLogoClick = () => {
+      mediaApi.getSession().then(session => {
+        const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+        const defaultNonFreeFilter = {
+          isDefault: true,
+          isNonFree: showPaid ? showPaid : false
+        };
+        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        window.dispatchEvent(new CustomEvent("logoClick", {
+          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          bubbles: true
+        }));
+        scrollPosition.resetToTop();
+      });
     };
 
     // TODO: move this to a more sensible place.
