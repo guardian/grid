@@ -63,6 +63,8 @@ module.controller('grImageMetadataCtrl', [
     ctrl.usageRightsSummary = window._clientConfig.usageRightsSummary;
     ctrl.metadataUpdatedByTemplate = [];
 
+    ctrl.validImageTypes = window._clientConfig.imageTypes || [];
+
     ctrl.$onInit = () => {
       $scope.$watchCollection('ctrl.selectedImages', function () {
         ctrl.singleImage = singleImage();
@@ -327,7 +329,7 @@ module.controller('grImageMetadataCtrl', [
         'title', 'description', 'copyright', 'keywords', 'byline',
         'credit', 'subLocation', 'city', 'state', 'country',
         'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
-        'domainMetadata', 'usageInstructions'
+        'domainMetadata', 'usageInstructions', 'imageType'
       ];
 
       function updateSingleImage() {

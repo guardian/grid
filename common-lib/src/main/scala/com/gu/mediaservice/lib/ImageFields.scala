@@ -20,7 +20,8 @@ trait ImageFields {
     "city",
     "state",
     "country",
-    "peopleInImage"
+    "peopleInImage",
+    "imageType"
   )
 
   val sourceFields = List("mimeType")

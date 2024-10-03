@@ -1,6 +1,8 @@
 package com.gu.mediaservice.model
 
-sealed trait ImageType
-case object Source extends ImageType
-case object Thumbnail extends ImageType
-case object OptimisedPng extends ImageType
+// The collection of valid values for the imageType metadata field
+object ImageType {
+  val Photograph = "Photograph"
+  val Illustration = "Illustration"
+  val Composite = "Composite"
+}

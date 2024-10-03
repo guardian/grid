@@ -15,49 +15,49 @@ class UsageRightsMetadataMapperTest extends AnyFunSpec with Matchers {
     it("should convert StaffPhotographers adding copyright when original metadata doesn't have it") {
       val ur = StaffPhotographer("Alicia Canter", "The Guardian")
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
-      Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian")))
+      Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian"), imageType = Some(ImageType.Photograph)))
     }
 
     it ("should convert StaffPhotographers changing copyright when original copyright is a publication") {
       val ur = StaffPhotographer("Alicia Canter", "The Guardian")
       usageRightsToMetadata(ur, metadataWithCopyright, Set("The Observer", "BBC")) should be
-        Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian")))
+        Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian"), imageType = Some(ImageType.Photograph)))
     }
 
     it ("should convert StaffPhotographers keeping original copyright when original copyright is not a publication") {
       val ur = StaffPhotographer("Alicia Canter", "The Guardian")
       usageRightsToMetadata(ur, metadataWithCopyright, Set("The Observer", "BBC Studio")) should be
-      Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("BBC")))
+      Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("BBC"), imageType = Some(ImageType.Photograph)))
     }
 
     it ("should convert ContractPhotographers") {
       val ur = ContractPhotographer("Andy Hall", Some("The Observer"), None)
       usageRightsToMetadata(ur, metadataWithCopyright) should be
-        Some(ImageMetadata(credit = Some("The Observer"), byline = Some("Andy Hall")))
+        Some(ImageMetadata(credit = Some("The Observer"), byline = Some("Andy Hall"), imageType = Some(ImageType.Photograph)))
     }
 
     it ("should convert CommissionedPhotographers") {
       val ur = CommissionedPhotographer("Mr. Photo", Some("Weekend Magazine"))
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
-        Some(ImageMetadata(credit = Some("Weekend Magazine"), byline = Some("Mr. Photo")))
+        Some(ImageMetadata(credit = Some("Weekend Magazine"), byline = Some("Mr. Photo"), imageType = Some(ImageType.Photograph)))
     }
 
     it ("should convert ContractIllustrators") {
       val ur = ContractIllustrator("First Dog on the Moon Institute")
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
-        Some(ImageMetadata(credit = Some("First Dog on the Moon Institute")))
+        Some(ImageMetadata(credit = Some("First Dog on the Moon Institute"), imageType = Some(ImageType.Illustration)))
     }
 
     it ("should convert CommissionedIllustrators") {
       val ur = CommissionedIllustrator("Roger Rabbit")
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
-        Some(ImageMetadata(credit = Some("Roger Rabit")))
+        Some(ImageMetadata(credit = Some("Roger Rabit"), imageType = Some(ImageType.Illustration)))
     }
 
     it ("should convert Composites") {
       val ur = Composite("REX/Getty Images")
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
-        Some(ImageMetadata(credit = Some("REX/Getty Images")))
+        Some(ImageMetadata(credit = Some("REX/Getty Images"), imageType = Some(ImageType.Composite)))
     }
 
     it ("should convert Screengrabs") {

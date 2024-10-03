@@ -2186,6 +2186,9 @@ FIXME: what to do with touch devices
     margin-top: 0;
 }
 
+.image-info__image-type {
+  color: #eee;
+}
 .image-info__description,
 .image-info__special-instructions {
     /* respect newlines in text */
@@ -2209,6 +2212,7 @@ FIXME: what to do with touch devices
 
 .image-info--editor__input-preview,
 .image-info__description-preview,
+.image-info__image-type-preview
 .image-info__title-preview,
 .image-info__special-instructions-preview{
   border: 1px solid #ffbc01;

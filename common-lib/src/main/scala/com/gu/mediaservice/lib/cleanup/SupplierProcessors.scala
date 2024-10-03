@@ -36,7 +36,8 @@ case class UsageRightsToMetadataParser(resources: ImageProcessorResources) exten
       metadata = image.metadata.copy(
         byline = maybeNewMetadata.flatMap(_.byline) orElse image.metadata.byline,
         credit = maybeNewMetadata.flatMap(_.credit) orElse image.metadata.credit,
-        copyright = maybeNewMetadata.flatMap(_.copyright) orElse image.metadata.copyright
+        copyright = maybeNewMetadata.flatMap(_.copyright) orElse image.metadata.copyright,
+        imageType = maybeNewMetadata.flatMap(_.imageType) orElse image.metadata.imageType
       )
     )
   }

@@ -47,7 +47,8 @@ object MappingTest {
         "foo" -> JsString("bar"),
         "size" -> JsNumber(12345)
       )
-    )
+    ),
+    imageType = Some("photograph")
   )
 
   private val testAsset: Asset = Asset(

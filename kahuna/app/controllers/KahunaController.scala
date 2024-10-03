@@ -70,6 +70,7 @@ class KahunaController(
         Html(s""""${config.staffPhotographerOrganisation}-owned"""")
       else
         Html("undefined")
+    val imageTypes = Json.toJson(config.imageTypes).toString()
 
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
@@ -84,7 +85,8 @@ class KahunaController(
       costFilterChargeable,
       maybeOrgOwnedValue,
       config,
-      featureSwitchesJson
+      featureSwitchesJson,
+      imageTypes
     ))
   }
 
