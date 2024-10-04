@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import instances.{InstanceMessageSender, InstanceStatusMessage}
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -29,7 +30,8 @@ class MessageProcessor(
   store: ThrallStore,
   metadataEditorNotifications: MetadataEditorNotifications,
   gridClient: GridClient,
-  auth: Authentication
+  auth: Authentication,
+  instanceMessageSender: InstanceMessageSender,
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -244,13 +246,14 @@ class MessageProcessor(
     logger.info("Ensuring indexes for create instance message: " + instance)
     Future.successful {
       es.ensureIndexExistsAndAliasAssigned(alias = es.imagesCurrentAlias(instance), index = instance.id + "_index")
-    }.map { _ =>
-      logger.info("Creating Home collection for new instance: " + Instance)
+    }.flatMap { _ =>
+      logger.info("Creating Home collection for new instance: " + instance)
       implicit val i: Instance = instance
       gridClient.createCollection("Home", auth.innerServiceCall).map { r: Option[Collection] =>
-        logger.info("Created collection for new instance: " + Instance)
+        logger.info("Created collection for new instance: " + instance)
         // Notify instances service that this instance can be marked as ready to use
-
+        val instanceReadyMessage = InstanceStatusMessage(instance = instance.id, status = "ready")
+        instanceMessageSender.send(Json.toJson(instanceReadyMessage).toString())
       }
     }
   }

@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallController}
-import instances.{InstanceMessageSender, Instances}
+import instances.{InstanceMessageSender, InstanceUsageMessage, Instances}
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
@@ -77,7 +77,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     metadataEditorNotifications,
     actorSystem,
     gridClient,
-    auth
+    auth,
+    instanceMessageSender
   )
 
   val thrallStreamProcessor = new ThrallStreamProcessor(
@@ -126,9 +127,4 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, assets)
-}
-
-case class InstanceUsageMessage(instance: String, imageCount: Long, totalImageSize: Long, softDeletedCount: Long)
-object InstanceUsageMessage {
-  implicit val iumw: OWrites[InstanceUsageMessage] = Json.writes[InstanceUsageMessage]
 }
