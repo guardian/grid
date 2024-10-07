@@ -141,17 +141,16 @@ class UsageStore(
     }
   }
 
-  def getUsageStatus(): Future[StoreAccess] = Future.successful((for {
-      s <- store
-      l <- lastUpdated
-    } yield StoreAccess(s,l)).get())
+  def getUsageStatus(): Future[StoreAccess] = {
+    Future.successful(StoreAccess(store.get(), lastUpdated.get()))
+  }
 
   def overQuotaAgencies: List[Agency] = store.get.collect {
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
   def update(): Unit = {
-    store.send(fetchUsage)
+    store.set(fetchUsage)
   }
 
   private def fetchUsage: Map[String, UsageStatus] = {
@@ -208,7 +207,7 @@ class QuotaStore(
   def getQuota: Map[String, SupplierUsageQuota] = store.get()
 
   def update(): Unit = {
-    store.send(fetchQuota)
+    store.set(fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

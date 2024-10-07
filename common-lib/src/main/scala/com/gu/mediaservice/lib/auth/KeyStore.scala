@@ -14,7 +14,7 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
   def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
   def update(): Unit = {
-    store.send(fetchAll)
+    store.set(fetchAll)
   }
 
   private def fetchAll: Map[String, ApiAccessor] = {
