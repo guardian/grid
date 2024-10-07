@@ -55,6 +55,7 @@
   bottom: 0;
   mix-blend-mode: difference;
   opacity: 0.5;
+  pointer-events: none;
 }
 .easel.vertical-warning-gutters .cropper-view-box::before { /* left gutter */
   left: 0;
