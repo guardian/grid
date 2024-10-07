@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
-import com.softwaremill.quicklens._
 import lib.ImageResponse.extractAliasFieldValues
 import lib.elasticsearch.SourceWrapper
 import lib.usagerights.CostCalculator
@@ -386,12 +385,12 @@ object ImageResponse {
     Json.toJson(normaliseNewLinesInImageMeta(input))
   }
 
-  def normaliseNewLinesInImageMeta(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
-    _.description,
-    _.copyright,
-    _.specialInstructions,
-    _.suppliersReference
-  ).using(_.map(ImageResponse.normaliseNewlineChars))
+  def normaliseNewLinesInImageMeta(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.copy(
+    description = imageMetadata.description.map(ImageResponse.normaliseNewlineChars),
+    copyright = imageMetadata.copyright.map(ImageResponse.normaliseNewlineChars),
+    specialInstructions = imageMetadata.specialInstructions.map(ImageResponse.normaliseNewlineChars),
+    suppliersReference = imageMetadata.suppliersReference.map(ImageResponse.normaliseNewlineChars),
+  )
 
   private val pattern = """[\r\n]+""".r
 
