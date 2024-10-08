@@ -23,7 +23,7 @@ image.config(['$stateProvider',
               function($stateProvider) {
 
     $stateProvider.state('image', {
-        url: '/images/:imageId?crop?cropType&customRatio',
+        url: '/images/:imageId?crop?cropType&customRatio&shouldShowCropGuttersIfApplicable',
         template: imageTemplate,
         controller: 'ImageCtrl',
         controllerAs: 'ctrl',

@@ -73,7 +73,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
-        url: '/?cropType&customRatio',
+        url: '/?cropType&customRatio&shouldShowCropGuttersIfApplicable',
         template: searchTemplate,
         deepStateRedirect: {
             // Inject a transient $stateParams for the results state
