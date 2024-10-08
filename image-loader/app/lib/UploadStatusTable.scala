@@ -1,50 +1,51 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.scanamo._
-import com.gu.scanamo.error.DynamoReadError
-import com.gu.scanamo.query.{AndCondition, AttributeExists, Condition, ConditionExpression, KeyEquals}
-import com.gu.scanamo.syntax._
+import org.scanamo._
+import org.scanamo.syntax._
+import org.scanamo.generic.auto._
 import model.StatusType.{Prepared, Queued}
 import model.{UploadStatus, UploadStatusRecord}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, config.uploadStatusTable) {
+class UploadStatusTable(config: ImageLoaderConfig) {
 
+  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  val scanamo = ScanamoAsync(client)
   private val uploadStatusTable = Table[UploadStatusRecord](config.uploadStatusTable)
 
   def getStatus(imageId: String) = {
-    ScanamoAsync.exec(client)(uploadStatusTable.get('id -> imageId))
+    scanamo.exec(uploadStatusTable.get("id" === imageId))
   }
 
   def setStatus(uploadStatus: UploadStatusRecord) = {
-    ScanamoAsync.exec(client)(uploadStatusTable.put(uploadStatus))
+    scanamo.exec(uploadStatusTable.put(uploadStatus))
   }
 
   def updateStatus(imageId: String, updateRequest: UploadStatus) = {
     val updateExpression = updateRequest.errorMessage match {
-      case Some(error) => set('status -> updateRequest.status) and set('errorMessages -> error)
-      case None => set('status -> updateRequest.status)
+      case Some(error) => set("status", updateRequest.status) and set("errorMessages", error)
+      case None => set("status", updateRequest.status)
     }
     val uploadStatusTableWithCondition =
       if(updateRequest.status == Queued) // can only transition to Queued status from Prepared status
-        uploadStatusTable.given(attributeExists('id) and ('status -> Prepared.toString))
+        uploadStatusTable.when(attributeExists("id") and ("status" === Prepared.toString))
       else
-        uploadStatusTable.given(attributeExists('id))
+        uploadStatusTable.when(attributeExists("id"))
 
-    ScanamoAsync.exec(client)(
+    scanamo.exec(
       uploadStatusTableWithCondition
         .update(
-          'id -> imageId,
+          key = "id" === imageId,
           update = updateExpression
         )
     )
   }
 
   def queryByUser(user: String): Future[List[UploadStatusRecord]] = {
-    ScanamoAsync.exec(client)(uploadStatusTable.scan()).map {
+    scanamo.exec(uploadStatusTable.scan()).map {
       case Nil => List.empty[UploadStatusRecord]
       case recordsAndErrors => {
         recordsAndErrors

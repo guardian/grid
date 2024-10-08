@@ -98,7 +98,7 @@ lazy val commonLib = project("common-lib").settings(
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.9.2",
-    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
     "org.yaml" % "snakeyaml" % "1.31",
