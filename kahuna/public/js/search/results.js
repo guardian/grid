@@ -400,21 +400,33 @@ results.controller('SearchResultsCtrl', [
         };
 
       const validatePhotoSalesSelection = (images) => {
-        let validImages = [];
-        let invalidImages = [];
-        images.forEach( (image) => {
-          if (image.data.usages.data.length === 0) {
-            validImages.push(image);
-          } else {
-            let syndicationExists = false;
-            for (const usage of image.data.usages.data) {
-              if (usage.data.platform === "syndication") {
-                syndicationExists = true;
-                break;
-              }
+        const validImages = [];
+        const invalidImages = [];
+
+        const filteredImages = images
+          .filter(image => {
+            if (image.data.uploadedBy === "Capture_AutoIngest") {
+              invalidImages.push(image);
+              return false;
             }
-            (syndicationExists === true ? invalidImages : validImages).push(image);
+            return true;
+          })
+          .filter(image => {
+            if (image.data.usages.data.length === 0) {
+              validImages.push(image);
+              return false;
+            }
+            return true;
+          });
+        filteredImages.forEach((image) => {
+          let syndicationExists = false;
+          for (const usage of image.data.usages.data) {
+            if (usage.data.platform === "syndication") {
+              syndicationExists = true;
+              break;
+            }
           }
+          (syndicationExists === true ? invalidImages : validImages).push(image);
         });
         return [validImages, invalidImages];
       };

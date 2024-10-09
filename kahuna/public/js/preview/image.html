@@ -192,7 +192,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
 
         <span class="bottom-bar__meta-item preview__has-syndication-usages preview__bottom-icons-align-right"
               title="This image exists in BBC Photo Sales"
-              ng-if="ctrl.hasSyndicationUsages && ctrl.showSendToPhotoSales()">
+              ng-if="(ctrl.hasSyndicationUsages || ctrl.uploadedByCapture) && ctrl.showSendToPhotoSales() && ctrl.showPaid">
               <gr-sent-to-photosales-icon class="gr-sent-to-photosales-icon"></gr-sent-to-photosales-icon>
         </span>
     </div>
