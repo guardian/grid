@@ -18,7 +18,7 @@ case class KinesisSenderConfig(
   override val awsLocalEndpoint: Option[String],
   override val isDev: Boolean,
   streamName: String
-) extends AwsClientBuilderUtils
+) extends AwsClientV1BuilderUtils
 
 class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 

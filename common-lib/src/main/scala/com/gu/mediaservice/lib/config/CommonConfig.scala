@@ -1,16 +1,17 @@
 package com.gu.mediaservice.lib.config
 
-import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
+import com.gu.mediaservice.lib.aws.{AwsClientV1BuilderUtils, AwsClientV2BuilderUtils, KinesisSenderConfig}
 import com.gu.mediaservice.model.UsageRightsSpec
-import com.typesafe.config.{Config, ConfigException}
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import play.api.{ConfigLoader, Configuration}
 
+import java.net.URI
 import java.util.UUID
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
-abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBuilderUtils with StrictLogging {
+abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1BuilderUtils with AwsClientV2BuilderUtils with StrictLogging {
   val configuration: Configuration = resources.configuration
   final val stackName = "media-service"
 
@@ -25,6 +26,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   override val awsRegion: String = stringDefault("aws.region", "eu-west-1")
 
   override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint").filter(_.nonEmpty) else None
+  override val awsLocalEndpointUri: Option[URI] = awsLocalEndpoint.map(new URI(_))
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
