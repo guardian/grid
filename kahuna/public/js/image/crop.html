@@ -20,5 +20,7 @@
     data-source-type="crop"
     data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
     data-embeddable-url="{{:: ctrl.image.data.id | embeddableUrl:crop.id}}"
+    data-aspect-ratio="{{:: crop.specification.aspectRatio}}"
+    data-crop-type="{{:: crop.specification.aspectRatio | asCropType}}"
   ></asset-handle>
 </div>
