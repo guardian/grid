@@ -90,7 +90,5 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     .getOrElse("Not configured")
 
   val shouldUploadStraightToBucket: Boolean = maybeIngestBucket.isDefined
-
-  val displayCropGutterByDefaultTo: Set[String] = getStringSet("displayCropGutterByDefaultTo")
 }
 
