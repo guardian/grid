@@ -112,7 +112,7 @@ object PayType extends Enumeration {
 
 object SearchParams {
   def commasToList(s: String): List[String] = s.trim.split(',').toList
-  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.toList.mkString(",")).toOption
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
@@ -202,24 +202,25 @@ object SearchParams {
       case (acc, (_,   None))        => acc
     }
 
-  type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
-  type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
-
   // Also adjust in gu-lazy-table.js
   val maxSize = 200
 
-  def validate(searchParams: SearchParams): SearchParamValidations = {
+  def validate(searchParams: SearchParams): Either[List[InvalidUriParams], SearchParams] = {
     // we just need to return the first `searchParams` as we don't need to manipulate them
-    // TODO: try reduce these
-    (validateLength(searchParams).toValidationNel |@| validateOffset(searchParams).toValidationNel)((s1, s2) => s1)
+    (validateLength(searchParams), validateOffset(searchParams)) match {
+      case (Right(_), Right(_)) => Right(searchParams)
+      case (Left(invalidLength), Left(invalidOffset)) => Left(List(invalidLength, invalidOffset))
+      case (Left(invalidLength), _) => Left(List(invalidLength))
+      case (_, Left(invalidOffset)) => Left(List(invalidOffset))
+    }
   }
 
-  def validateOffset(searchParams: SearchParams): SearchParamValidation = {
-    if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
+  def validateOffset(searchParams: SearchParams): Either[InvalidUriParams, SearchParams] = {
+    if (searchParams.offset < 0) Left(InvalidUriParams("offset cannot be less than 0")) else Right(searchParams)
   }
 
-  def validateLength(searchParams: SearchParams): SearchParamValidation = {
-    if (searchParams.length > maxSize) InvalidUriParams(s"length cannot exceed $maxSize").failure else searchParams.success
+  def validateLength(searchParams: SearchParams): Either[InvalidUriParams, SearchParams] = {
+    if (searchParams.length > maxSize) Left(InvalidUriParams(s"length cannot exceed $maxSize")) else Right(searchParams)
   }
 
 }

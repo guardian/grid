@@ -17,7 +17,7 @@ object filters {
   def or(queries: Query*): Query = should(queries)
 
   def or(queries: NonEmptyList[Query]): Query = {
-    should(queries.list: _*)
+    should(queries.toList: _*)
   }
 
   def boolTerm(field: String, value: Boolean): TermQuery = termQuery(field, value)
@@ -64,7 +64,7 @@ object filters {
   def term(field: String, term: Int): Query = termQuery(field, term)
 
   def terms(field: String, terms: NonEmptyList[String]): Query = {
-    termsQuery(field, terms.list)
+    termsQuery(field, terms.list.toList)
   }
 
   def existsOrMissing(field: String, exists: Boolean): Query = if (exists) {

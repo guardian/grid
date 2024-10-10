@@ -173,7 +173,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       val expected = UsageRights.photographer.map(_.category)
 
-      termQuery.values shouldEqual expected
+      termQuery.values shouldEqual expected.list.toList
     }
 
     it("should correctly construct an is owned illustration query") {
@@ -189,7 +189,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       val expected = UsageRights.illustrator.map(_.category)
 
-      termQuery.values shouldEqual expected
+      termQuery.values shouldEqual expected.list.toList
     }
 
     it("should correctly construct an is owned image query") {
@@ -205,7 +205,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       val expected = UsageRights.whollyOwned.map(_.category)
 
-      termQuery.values shouldEqual expected
+      termQuery.values shouldEqual expected.list.toList
     }
 
     it("should return the match none query on an invalid is query") {

@@ -85,7 +85,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
     "com.gu" %% "thrift-serializer" % "5.0.2",
-    "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
+    "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",

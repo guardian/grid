@@ -1,24 +1,20 @@
 package com.gu.mediaservice.lib.aws
 
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicReference
 
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
-import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
+import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import scalaz.syntax.id._
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,7 +40,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
             _.apply(message.body))
         _ = recordMessageCount(message)
       } yield ()
-      future |> deleteOnSuccess(msg)
+      deleteOnSuccess(msg)(future)
     }
 
     processMessages()
@@ -61,8 +57,11 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.foreach { _ => deleteMessage(msg) }
 
-  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
-    Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
+  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {
+    val result = Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody))
+    logParseErrors(result)
+    result.asOpt
+  }
 
 }
 
