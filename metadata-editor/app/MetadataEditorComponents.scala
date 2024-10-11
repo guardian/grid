@@ -1,4 +1,3 @@
-import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{EditsApi, EditsController, SyndicationController}
@@ -12,7 +11,6 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
   val editsStore = new EditsStore(config)
   val syndicationStore = new SyndicationStore(config)
   val notifications = new Notifications(config)
-  val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val metrics = new MetadataEditorMetrics(config, actorSystem, applicationLifecycle)
   val messageConsumer = new MetadataSqsMessageConsumer(config, metrics, editsStore)

@@ -8,6 +8,4 @@ class CollectionsConfig(resources: GridConfigResources) extends CommonConfig(res
   val imageCollectionsTable = string("dynamo.table.imageCollections")
 
   val rootUri = services.collectionsBaseUri
-  val kahunaUri = services.kahunaBaseUri
-  val loginUriTemplate = services.loginUriTemplate
 }

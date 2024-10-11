@@ -10,8 +10,6 @@ class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resource
   val leasesTable = string("dynamo.tablename.leasesTable")
 
   val rootUri: String = services.leasesBaseUri
-  val kahunaUri: String = services.kahunaBaseUri
-  val loginUriTemplate: String = services.loginUriTemplate
 
   private def uri(u: String) = URI.create(u)
 
