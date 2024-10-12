@@ -19,19 +19,19 @@ object UsageRightsMetadataMapper {
           byline = Some(u.photographer),
           credit = Some(u.publication),
           copyright = copyright,
-          imageType = Some(ImageType.Photograph)
+          imageType = Some("Photograph")
         )
       case u: ContractPhotographer     =>
-        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(ImageType.Photograph))
+        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some("Photograph"))
       case u: CommissionedPhotographer =>
-        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some(ImageType.Photograph))
+        ImageMetadata(byline = Some(u.photographer), credit = u.publication, imageType = Some("Photograph"))
       case u: ContractIllustrator      =>
-        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(ImageType.Illustration))
+        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some("Illustration"))
       case u: StaffIllustrator         =>
-        ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator), imageType = Some(ImageType.Illustration))
+        ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator), imageType = Some("Illustration"))
       case u: CommissionedIllustrator  =>
-        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(ImageType.Illustration))
-      case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some(ImageType.Composite))
+        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some("Illustration"))
+      case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some("Composite"))
       case u: Screengrab               => ImageMetadata(credit = u.source)
     }
 
