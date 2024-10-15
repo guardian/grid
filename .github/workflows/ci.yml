@@ -7,7 +7,7 @@ on:
       - main
 jobs:
   CI:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       # required by aws-actions/configure-aws-credentials
       id-token: write
