@@ -56,7 +56,10 @@ object MappingTest {
     size = Some(12345L),
     mimeType = Some(Jpeg),
     dimensions = Some(Dimensions(1000, 2000)),
-    secureUrl = Some(new URL("http://host/filename.jpg"))
+    secureUrl = Some(new URL("http://host/filename.jpg")),
+    orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
+    orientedDimensions = Some(Dimensions(2000, 1000)),
+    orientation = Some("landscape")
   )
 
   val testUploader = "grid-internal-mapping-test-image" // Do not change this, we use it to clean up old test images
@@ -77,14 +80,21 @@ object MappingTest {
       size = Some(1234L),
       mimeType = Some(Jpeg),
       dimensions = Some(Dimensions(500, 1000)),
-      secureUrl = Some(new URL("http://host/thumb.jpg"))
+      secureUrl = Some(new URL("http://host/thumb.jpg")),
+      orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
+      orientedDimensions = Some(Dimensions(2000, 1000)),
+      orientation = Some("landscape")
+
     )),
     optimisedPng = Some(Asset(
       file = new URI("file://filename.png"),
       size = Some(1245L),
       mimeType = Some(Png),
       dimensions = Some(Dimensions(1000, 2000)),
-      secureUrl = Some(new URL("http://host/filename.jpg"))
+      secureUrl = Some(new URL("http://host/filename.jpg")),
+      orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
+      orientedDimensions = Some(Dimensions(2000, 1000)),
+      orientation = Some("landscape")
     )),
     fileMetadata = FileMetadata(
       iptc = Map("iptc1" -> "value1"),
@@ -131,7 +141,8 @@ object MappingTest {
             x = 100, y = 100, width = 500, height = 300
           ),
           aspectRatio = Some("5:3"),
-          `type` = CropExport
+          `type` = CropExport,
+          rotation = Some(90),
         ),
         master = Some(testAsset),
         assets = List(testAsset)
