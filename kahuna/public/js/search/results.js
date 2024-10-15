@@ -399,37 +399,27 @@ results.controller('SearchResultsCtrl', [
             globalErrors.trigger('clipboard', sharedUrl);
         };
 
+      const imageHasSyndicationUsage = (image) => {
+        return image.data.usages.data.some(usage =>
+          usage.data.platform === 'syndication'
+        );
+      };
+
       const validatePhotoSalesSelection = (images) => {
         const validImages = [];
         const invalidImages = [];
 
-        const filteredImages = images
-          .filter(image => {
-            if (image.data.uploadedBy === "Capture_AutoIngest") {
-              invalidImages.push(image);
-              return false;
-            }
-            return true;
-          })
-          .filter(image => {
-            if (image.data.usages.data.length === 0) {
-              validImages.push(image);
-              return false;
-            }
-            return true;
-          });
-        filteredImages.forEach((image) => {
-          let syndicationExists = false;
-          for (const usage of image.data.usages.data) {
-            if (usage.data.platform === "syndication") {
-              syndicationExists = true;
-              break;
-            }
+        images.forEach(image => {
+          if (image.data.uploadedBy === 'Capture_AutoIngest' || imageHasSyndicationUsage(image)) {
+            invalidImages.push(image);
+          } else {
+            validImages.push(image);
           }
-          (syndicationExists === true ? invalidImages : validImages).push(image);
         });
+
         return [validImages, invalidImages];
       };
+
 
       ctrl.showPaid = undefined;
       mediaApi.getSession().then(session => {
