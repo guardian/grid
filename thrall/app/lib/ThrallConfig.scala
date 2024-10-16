@@ -2,7 +2,7 @@ package lib
 
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
-import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
+import com.gu.mediaservice.lib.aws.AwsClientV1BuilderUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources, ReapableEligibilityLoader}
 import com.gu.mediaservice.lib.cleanup.ReapableEligibiltyResources
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
@@ -20,7 +20,7 @@ case class KinesisReceiverConfig(
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
-) extends AwsClientBuilderUtils
+) extends AwsClientV1BuilderUtils
 
 object KinesisReceiverConfig {
   def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
