@@ -7,6 +7,7 @@ import {imageService} from '../image/service';
 import '../services/label';
 import {imageAccessor} from '../services/image-accessor';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
+import { createCategoryLeases } from '../common/usageRightsUtils.js';
 import {metadataTemplates} from "../metadata-templates/metadata-templates";
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
@@ -317,9 +318,24 @@ imageEditor.controller('ImageEditorCtrl', [
     }
 
     function batchApplyUsageRights() {
-        $rootScope.$broadcast(batchApplyUsageRightsEvent, {
-            data: ctrl.usageRights.data
-        });
+      $rootScope.$broadcast(batchApplyUsageRightsEvent, {
+          data: ctrl.usageRights.data
+      });
+
+      //-rights category derived leases-
+      const mtchingRightsCats = ctrl.categories.filter(c => c.value == ctrl.usageRights.data.category);
+      if (mtchingRightsCats.length > 0) {
+        const rightsCat = mtchingRightsCats[0];
+        if (rightsCat.leases.length > 0) {
+          const catLeases = createCategoryLeases(rightsCat.leases, ctrl.image);
+          if (catLeases.length > 0) {
+            $rootScope.$broadcast('events:rights-category:add-leases', {
+              catLeases: catLeases,
+              batch: true
+            });
+          }
+        }
+      }
     }
 
     function openCollectionTree() {

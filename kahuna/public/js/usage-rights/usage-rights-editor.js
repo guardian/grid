@@ -8,6 +8,8 @@ import {List} from 'immutable';
 
 import '../services/image-list';
 
+import { createCategoryLeases } from '../common/usageRightsUtils.js';
+
 import template from './usage-rights-editor.html';
 import './usage-rights-editor.css';
 
@@ -202,6 +204,7 @@ usageRightsEditor.controller(
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image, true);
           },
+          ({ image }) => setLeasesFromUsageRights(image),
           ({ image }) => setMetadataFromUsageRights(image, true),
           ({ image }) => image.get()
         ],'images-updated');
@@ -225,6 +228,20 @@ usageRightsEditor.controller(
           // ♫ Very superstitious ♫
           ctrl.error = error && error.body && error.body.errorMessage ||
               'Unexpected error';
+      }
+
+      function setLeasesFromUsageRights(image) {
+        if (ctrl.category.leases.length === 0) {
+          return;
+        }
+        const catLeases = createCategoryLeases(ctrl.category.leases, image);
+        if (catLeases.length === 0) {
+          return;
+        }
+        $rootScope.$broadcast('events:rights-category:add-leases', {
+          catLeases: catLeases,
+          batch: false
+        });
       }
 
       // HACK: This should probably live somewhere else, but it's the least intrusive

@@ -2,7 +2,7 @@ package lib
 
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-
+import model.UsageRightsLease
 
 class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
@@ -18,6 +18,8 @@ class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
+
+  val usageRightsLeases: Seq[UsageRightsLease] = configuration.getOptional[Seq[UsageRightsLease]]("usageRights.leases").getOrElse(Seq.empty)
 
   val customSpecialInstructions: Map[String, String] =
     configuration.getOptional[Map[String, String]]("usageInstructions").getOrElse(Map.empty)
