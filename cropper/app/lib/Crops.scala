@@ -60,7 +60,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
     logger.info(logMarker, s"creating crops for ${apiImage.id}")
 
-    Future.sequence[Asset, List](dimensionList.map { dimensions =>
+    Future.sequence(dimensionList.map { dimensions =>
       for {
         file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
         optimisedFile = imageOperations.optimiseImage(file, cropType)

@@ -43,7 +43,7 @@ class SyncChecker(
         case None => request
       }
       val result = s3.listObjectsV2(fullRequest)
-      val keys = result.getObjectSummaries.asScala.map(_.getKey.split("/").last)
+      val keys = result.getObjectSummaries.asScala.toSeq.map(_.getKey.split("/").last)
       val nextContinuationToken = Option(result.getNextContinuationToken)
       keys -> nextContinuationToken
     } flatMap {

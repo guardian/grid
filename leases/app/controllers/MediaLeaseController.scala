@@ -43,7 +43,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     })
   }
 
-  private def badRequest(e:  Seq[(JsPath, Seq[JsonValidationError])]) =
+  private def badRequest(e: collection.Seq[(JsPath, collection.Seq[JsonValidationError])]) =
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
   private def prepareLeaseForSave(mediaLease: MediaLease, userId: Option[String]): MediaLease =
