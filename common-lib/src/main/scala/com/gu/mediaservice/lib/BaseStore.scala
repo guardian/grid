@@ -11,6 +11,7 @@ import java.io.InputStream
 import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
@@ -48,8 +49,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
         update()
         lastUpdated.set(DateTime.now())
       } catch {
-        case e: Exception => logger.error("Store update failed", e)
-        case e: RuntimeException => logger.error("Store update failed", e)
+        case NonFatal(e) => logger.error("Store update failed", e)
       }
     }))
   }
