@@ -11,7 +11,7 @@ import scala.collection.JavaConverters._
 
 object LoadFromS3Bucket {
 
-  def apply(args: List[String]) {
+  def apply(args: List[String]): Unit = {
 
     val (bucket, loaderEndpoint) = args match {
       case List(b, l) => (b, l)
