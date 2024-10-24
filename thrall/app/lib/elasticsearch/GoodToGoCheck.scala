@@ -9,7 +9,6 @@ import com.sksamuel.elastic4s.requests.delete.{DeleteByQueryResponse, DeleteResp
 import com.typesafe.scalalogging.StrictLogging
 import org.joda.time.{DateTime, Period}
 
-import scala.collection.{GenIterable, GenIterableLike, IterableLike, TraversableLike}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -115,7 +114,7 @@ object GoodToGoCheck extends StrictLogging {
     */
   def approximatelyEqual(a: Any, b: Any): Boolean = {
     (a, b) match {
-      case (aTrav: GenIterable[_], bTrav: GenIterable[_]) =>
+      case (aTrav: Iterable[_], bTrav: Iterable[_]) =>
         aTrav.zip(bTrav)
           .forall { case (aVal, bVal) => approximatelyEqual(aVal, bVal) }
       case (aProduct: Product, bProduct: Product) =>
