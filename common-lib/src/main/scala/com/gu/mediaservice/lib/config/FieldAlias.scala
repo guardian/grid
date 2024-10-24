@@ -36,6 +36,6 @@ object FieldAlias {
             searchHintOptions
           )
         }
-      )
+      ).toSeq
     )
 }

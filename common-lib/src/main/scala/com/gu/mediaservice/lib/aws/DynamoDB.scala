@@ -343,7 +343,7 @@ object DynamoDB {
         case v: JsArray   => valueMap.withList(key, v.value.map {
           case i: JsString => i.value
           case i: JsValue => i.toString
-        }: _*)
+        }.asJava)
         case _ => valueMap
       }
     }

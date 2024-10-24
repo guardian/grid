@@ -113,7 +113,7 @@ object FileMetadataAggregator {
       }
     }
 
-    val initialMetadataStructure = toInitialEntriesWithIndexes(flatProperties.mapValues(JsString))
+    val initialMetadataStructure = toInitialEntriesWithIndexes(flatProperties.view.mapValues(JsString).toMap)
 
     var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure)
 
@@ -123,7 +123,7 @@ object FileMetadataAggregator {
 
     while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata)
 
-    aggMetadata.mapValues(_.jsValue)
+    aggMetadata.view.mapValues(_.jsValue).toMap
   }
 
 }
