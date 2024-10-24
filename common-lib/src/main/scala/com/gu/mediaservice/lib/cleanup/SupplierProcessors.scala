@@ -140,7 +140,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   }
 
   def getCanonicalName(): String
-  lazy val canonicalName = getCanonicalName
+  lazy val canonicalName = getCanonicalName()
 
   private def matches(image: Image):Boolean = {
     List(image.metadata.byline, image.metadata.credit).flatten.mkString.contains(canonicalName)
@@ -148,7 +148,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
   def getPrefixAndSuffix(s:Option[String]): Option[RegexResult]
 
-  lazy val agencyName = getAgencyName
+  lazy val agencyName = getAgencyName()
 
   def getAgencyName(): String
 
