@@ -41,7 +41,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
 
   lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 
-  override def beforeAll: Unit = {
+  override def beforeAll(): Unit = {
     super.beforeAll()
     ES.ensureIndexExistsAndAliasAssigned()
     ES.createIndexIfMissing(migrationIndexName)
@@ -66,7 +66,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
     }
   }
 
-  override def afterAll: Unit = {
+  override def afterAll(): Unit = {
     super.afterAll()
 
     esContainer foreach { _.stop() }
