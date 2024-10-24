@@ -58,17 +58,19 @@ object ExportType {
 }
 
 
-case class CropSpec(uri: String, bounds: Bounds, aspectRatio: Option[String], `type`: ExportType = ExportType.default)
+case class CropSpec(uri: String, bounds: Bounds, aspectRatio: Option[String], `type`: ExportType = ExportType.default,
+                    rotation: Option[Int])
 
 object CropSpec {
 
   implicit val cropSpecWrites: Writes[CropSpec] = Json.writes[CropSpec]
   implicit val cropSpecReads: Reads[CropSpec] = (
     (__ \ "uri").read[String] ~
-    (__ \ "bounds").read[Bounds] ~
-    (__ \ "aspectRatio").readNullable[String] ~
-    (__ \ "type").readNullable[ExportType].map(_.getOrElse(ExportType.default))
-  )(CropSpec.apply _)
+      (__ \ "bounds").read[Bounds] ~
+      (__ \ "aspectRatio").readNullable[String] ~
+      (__ \ "type").readNullable[ExportType].map(_.getOrElse(ExportType.default)) ~
+      (__ \ "rotation").readNullable[Int]
+    )(CropSpec.apply _)
 }
 
 
