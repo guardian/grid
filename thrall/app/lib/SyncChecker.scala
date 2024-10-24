@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import lib.elasticsearch.ElasticSearch
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
@@ -29,7 +29,7 @@ class SyncChecker(
   private val mat = Materializer.matFromSystem(actorSystem)
   private implicit val dispatcher: ExecutionContext = actorSystem.getDispatcher
 
-  private val expectedAlphabet = "0123456789abcdef".split("")
+  private val expectedAlphabet = "0123456789abcdef".split("").toSeq
   private val prefixes: Seq[SyncCheckJob] = (for {
     x <- expectedAlphabet
     y <- expectedAlphabet
@@ -43,7 +43,7 @@ class SyncChecker(
         case None => request
       }
       val result = s3.listObjectsV2(fullRequest)
-      val keys = result.getObjectSummaries.asScala.map(_.getKey.split("/").last)
+      val keys = result.getObjectSummaries.asScala.toSeq.map(_.getKey.split("/").last)
       val nextContinuationToken = Option(result.getNextContinuationToken)
       keys -> nextContinuationToken
     } flatMap {
@@ -119,7 +119,7 @@ class SyncChecker(
   )
 
   private def createStream() = RestartSource.onFailuresWithBackoff(restartSettings)(() =>
-    Source.cycle(() => prefixes.toIterator)
+    Source.cycle(() => prefixes.iterator)
       .throttle(1, per = 5.seconds)
       .filterNot(_ => es.migrationIsInProgress)
       .mapAsync(parallelism = 1) {

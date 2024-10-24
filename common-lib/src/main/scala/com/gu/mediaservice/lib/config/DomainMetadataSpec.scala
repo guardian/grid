@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.config
 import play.api.ConfigLoader
 import play.api.libs.json.{Json, Writes}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class DomainMetadataField(
   name: String,
@@ -39,7 +39,7 @@ object DomainMetadataSpec {
             config.getString("type"),
             fieldOptions
           )
-        })
+        }).toSeq
 
         DomainMetadataSpec(
           config.getString("name"),
@@ -47,6 +47,6 @@ object DomainMetadataSpec {
           description,
           fields
         )
-      })
+      }).toSeq
     )
 }

@@ -27,7 +27,7 @@ class InnerServiceStatusCheckController(
   private def callAllInternalServices(depth: Int, authenticator: WSRequest => WSRequest) = {
     val nextDepth = depth - 1
     val whoAmIFutures = services.allInternalUris.map { baseUri =>
-        authenticator(ws.url(s"$baseUri/management/whoAmI").addQueryStringParameters("depth" -> nextDepth.toString)).get
+        authenticator(ws.url(s"$baseUri/management/whoAmI").addQueryStringParameters("depth" -> nextDepth.toString)).get()
           .map(resp => WhoAmIResponse(baseUri, resp.status, safeJsonParse(resp.body)))
           .recover{
             case throwable: Throwable => WhoAmIResponse(baseUri, SERVICE_UNAVAILABLE, Json.obj(

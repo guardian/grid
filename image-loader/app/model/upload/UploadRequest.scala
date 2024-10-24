@@ -9,7 +9,7 @@ import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class UploadRequest(
                           imageId: String,

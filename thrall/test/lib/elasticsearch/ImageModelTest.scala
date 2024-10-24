@@ -3,7 +3,6 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.MappingTest
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 
-import scala.collection.TraversableLike
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -23,12 +22,12 @@ class ImageModelTest extends ElasticSearchTestBase {
         maybeProduct match {
           case None =>
             List(Left("Empty Option"))
-          case collection: TraversableLike[_, _] if collection.isEmpty =>
+          case collection: Iterable[_] if collection.isEmpty =>
             // this should pick up most collections including List, Map, Set, Seq etc.
             List(Left(s"Empty ${collection.getClass.getName}"))
           case string: String =>
             List(scala.util.Right(string))
-          case list: TraversableLike[_, _] =>
+          case list: Iterable[_] =>
             list.toList.flatMap(check)
           case product: Product => product.productIterator.flatMap(check).toList
           case other =>

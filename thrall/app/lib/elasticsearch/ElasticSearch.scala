@@ -384,14 +384,14 @@ class ElasticSearch(
     val inferredSyndicationRights = not(termQuery("syndicationRights.isInferred", false)) // Using 'not' to include nulls
 
     val filter = excludedImageId match {
-      case Some(imageId) => boolQuery must(
+      case Some(imageId) => boolQuery() must(
         inferredSyndicationRights,
         not(idsQuery(imageId))
       )
       case _ => inferredSyndicationRights
     }
 
-    val filteredMatches: BoolQuery = boolQuery must(
+    val filteredMatches: BoolQuery = boolQuery() must(
       matchQuery(photoshootField("title"), photoshoot.title),
       filter
     )
@@ -410,14 +410,14 @@ class ElasticSearch(
     val nonInferredSyndicationRights = termQuery("syndicationRights.isInferred", false)
 
     val filter = excludedImageId match {
-      case Some(imageId) => boolQuery must(
+      case Some(imageId) => boolQuery() must(
         nonInferredSyndicationRights,
         not(idsQuery(imageId))
       )
       case _ => nonInferredSyndicationRights
     }
 
-    val filteredMatches = boolQuery must(
+    val filteredMatches = boolQuery() must(
       matchQuery(photoshootField("title"), photoshoot.title),
       filter
     )
@@ -451,7 +451,7 @@ class ElasticSearch(
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
 
-    val deletableImage = boolQuery.withMust(
+    val deletableImage = boolQuery().withMust(
       idsQuery(id)).withNot(
       existsQuery("exports"),
       nestedQuery(path = "usages", query = existsQuery("usages"))
@@ -689,7 +689,7 @@ class ElasticSearch(
   private def handleImageIdScrollResponse(
     message: String, response: Response[SearchResponse]
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
-    val ids = response.result.hits.hits.map(_.id)
+    val ids = response.result.hits.hits.toSeq.map(_.id)
     if (response.result.hits.size >= scrollPageSize && response.result.scrollId.isDefined) {
       continueScrollingImageIds(message, response.result.scrollId.get).map(ids ++ _)
     } else {

@@ -127,12 +127,12 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should return user when valid" in {
       val request = FakeRequest().withCookies(makeCookie())
       val authStatus = auth.authenticationStatus(request)
-      authStatus.right.value shouldBe UserPrincipal("Test", "User", "test@user")
+      authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return user when expired but in grace period" in {
       val request = FakeRequest().withCookies(makeCookie(expired = true))
       val authStatus = auth.authenticationStatus(request)
-      authStatus.right.value shouldBe UserPrincipal("Test", "User", "test@user")
+      authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return 419 when expired" in {
       val request = FakeRequest().withCookies(makeCookie(veryExpired = true))
@@ -153,7 +153,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should authenticate with an API key" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "key-client")
       val authStatus = auth.authenticationStatus(request)
-      authStatus.right.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
+      authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
     "should return unauthorised when the API key is garbage" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "garbage")
@@ -174,7 +174,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     "should prioritise machine authentication over user authentication" in {
       val request = FakeRequest().withCookies(makeCookie()).withHeaders(HEADER_NAME -> "key-client")
       val authStatus = auth.authenticationStatus(request)
-      authStatus.right.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
+      authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
   }
 
@@ -190,6 +190,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case UserPrincipal(_,_,_,attributes) if attributes.contains(CookieKey) => Right(req => req.addCookies(DefaultWSCookie(COOKIE_NAME, attributes.get(CookieKey).get.value)))
           case UserPrincipal(_, _, email, _) => Left(s"Unable to build onBehalfOf function for $email")
+          case _ => throw new RuntimeException("Unexpected onBehalfOf case for test UserAuthenticationProvider")
         }
       },
       new MachineAuthenticationProvider {
@@ -197,6 +198,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case MachinePrincipal(_, attributes) if attributes.contains(HeaderKey) => Right(req => req.addHttpHeaders(attributes.get(HeaderKey).get))
           case MachinePrincipal(ApiAccessor(identity, _), _) => Left(s"Unable to build onBehalfOf function for $identity")
+          case _ => throw new RuntimeException("Unexpected onBehalfOf case for test MachineAuthenticationProvider")
         }
       },
       new InnerServiceAuthenticationProvider(signer, serviceName = "tests")

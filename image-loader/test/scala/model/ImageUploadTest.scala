@@ -74,7 +74,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     val uploadRequest = UploadRequest(
       randomId,
       tempFile,
-      MimeTypeDetection.guessMimeType(tempFile).right.toOption,
+      MimeTypeDetection.guessMimeType(tempFile).toOption,
       DateTime.now(),
       "uploadedBy",
       Map(),

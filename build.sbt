@@ -28,6 +28,7 @@ val commonSettings = Seq(
 
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
+    "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
@@ -68,6 +69,9 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
+    // FIXME - added temporarily to assist code compatible with scala 2.12 and 2.13
+    // remove ASAP after completing 2.13 upgrade!!!
+    "org.scala-lang.modules" %% "scala-collection-compat" % "2.12.0",
     "com.gu" %% "editorial-permissions-client" % "3.0.0",
     "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
@@ -142,7 +146,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
-      "org.parboiled" %% "parboiled" % "2.1.5",
+      "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
     )
   )
@@ -166,7 +170,7 @@ lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client-default" % "19.0.4",
     "com.gu" %% "content-api-client-aws" % "0.7",
-    "io.reactivex" %% "rxscala" % "0.26.5",
+    "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )

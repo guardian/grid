@@ -2,7 +2,7 @@ package lib
 
 import play.api.ConfigLoader
 import play.api.libs.json._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Try, Success, Failure}
 import java.time.{LocalDate, Period}
 
@@ -25,7 +25,7 @@ object Announcement {
 
   implicit val configLoader: ConfigLoader[Seq[Announcement]] = {
       ConfigLoader(_.getConfigList).map(
-        _.asScala.map(config => {
+        _.asScala.toSeq.map(config => {
 
           val endDate = if (config.hasPath("endDate")) {
             val dte = Try(LocalDate.parse(config.getString("endDate")))

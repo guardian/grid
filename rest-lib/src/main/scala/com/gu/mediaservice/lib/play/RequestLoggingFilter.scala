@@ -8,7 +8,7 @@ import play.api.mvc.{Filter, RequestHeader, Result, WrappedRequest}
 import play.api.{Logger, MarkerContext}
 
 import java.util.UUID
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 

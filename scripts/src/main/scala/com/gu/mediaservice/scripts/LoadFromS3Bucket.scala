@@ -7,11 +7,11 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
 import org.apache.http.impl.client.HttpClients
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object LoadFromS3Bucket {
 
-  def apply(args: List[String]) {
+  def apply(args: List[String]): Unit = {
 
     val (bucket, loaderEndpoint) = args match {
       case List(b, l) => (b, l)

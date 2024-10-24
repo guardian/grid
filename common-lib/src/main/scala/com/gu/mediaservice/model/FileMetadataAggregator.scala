@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import scala.collection.compat._
 import play.api.libs.json._
 
 object FileMetadataAggregator {
@@ -66,9 +67,9 @@ object FileMetadataAggregator {
         }
     }
 
-    val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues {
+    val mapWithSortedValuesAtCurrentLevel = mutableMap.view.mapValues {
       case scala.util.Left(value) => value
-      case scala.util.Right(value) => {
+      case scala.util.Right(value) =>
         val sortedList = value.sortBy(_.index)
 
         val (jsArrays, jsStrings) = sortedList.map(_.jsValue).partition(_.isInstanceOf[JsArray])
@@ -78,7 +79,6 @@ object FileMetadataAggregator {
 
         val sorted: JsArray =  aggJsArrays ++ aggJsStrings
         MetadataEntry(sortedList.head.index, sorted)
-      }
     }
     mapWithSortedValuesAtCurrentLevel.toMap
   }
@@ -113,7 +113,7 @@ object FileMetadataAggregator {
       }
     }
 
-    val initialMetadataStructure = toInitialEntriesWithIndexes(flatProperties.mapValues(JsString))
+    val initialMetadataStructure = toInitialEntriesWithIndexes(flatProperties.view.mapValues(JsString).toMap)
 
     var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure)
 
@@ -123,7 +123,7 @@ object FileMetadataAggregator {
 
     while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata)
 
-    aggMetadata.mapValues(_.jsValue)
+    aggMetadata.view.mapValues(_.jsValue).toMap
   }
 
 }

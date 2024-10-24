@@ -2,7 +2,7 @@ package lib
 
 import play.api.ConfigLoader
 import play.api.libs.json._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class InterimFilterOption(
         id: String,
@@ -17,7 +17,7 @@ object InterimFilterOption {
 
   implicit val configLoader: ConfigLoader[Seq[InterimFilterOption]] = {
     ConfigLoader(_.getConfigList).map(
-      _.asScala.map(config => {
+      _.asScala.toSeq.map(config => {
         InterimFilterOption(
           id = config.getString("id"),
           label = config.getString("label"),

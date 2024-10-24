@@ -64,7 +64,7 @@ object JsonValueCodecJsValue {
 
               underlying
             }
-          import scala.collection.JavaConverters._
+          import scala.jdk.CollectionConverters._
           JsObject(kvs.asScala)
         } else {
           in.decodeError("expected JSON value")

@@ -3,7 +3,7 @@ package lib
 import play.api.ConfigLoader
 import play.api.libs.json.{Json, Writes}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object LinkTarget extends Enumeration {
   val blank = Value("_blank")
@@ -19,7 +19,7 @@ object AdditionalLink {
 
   implicit val configLoader: ConfigLoader[Seq[AdditionalLink]] =
     ConfigLoader(_.getConfigList).map(
-      _.asScala.map(config => {
+      _.asScala.toSeq.map(config => {
         val linkTarget = if (config.hasPath("target")) LinkTarget.withName(config.getString("target")) else LinkTarget.blank
 
         AdditionalLink(

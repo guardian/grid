@@ -11,7 +11,7 @@ import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 

@@ -28,7 +28,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
-  def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]) {
+  def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]): Unit = {
     val partitionKey = UUID.randomUUID().toString
 
     implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites

@@ -38,7 +38,7 @@ case class TaggedRecord[+P](payload: P,
                            markProcessed: () => Unit) extends LogMarker {
   override def markerContents: Map[String, Any] = (payload match {
     case withMarker:LogMarker => withMarker.markerContents
-    case _ => Map()
+    case _ => Map.empty[String, Any]
   }) ++ Map(
     "recordPriority" -> priority.toString,
     "recordArrivalTime" -> DateTimeUtils.toString (arrivalTimestamp)

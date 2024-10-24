@@ -214,7 +214,7 @@ class ElasticSearch(
       ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
 
     val withFilter = filterOpt.map { f =>
-      boolQuery must (query) filter f
+      boolQuery() must (query) filter f
     }.getOrElse(query)
 
     val sort = params.orderBy match {
@@ -288,12 +288,12 @@ class ElasticSearch(
       .gte(s"now-${numDays}d/d")
       .lt("now/d")
 
-    val haveUsageInLastPeriod = boolQuery.must(bePublished, beInLastPeriod)
+    val haveUsageInLastPeriod = boolQuery().must(bePublished, beInLastPeriod)
 
     val beSupplier = termQuery("usageRights.supplier", supplierName)
     val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
 
-    val query = boolQuery.must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveNestedUsage))
+    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveNestedUsage))
 
     val search = prepareSearch(query) size 0
 

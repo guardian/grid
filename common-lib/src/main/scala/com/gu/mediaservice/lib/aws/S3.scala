@@ -11,7 +11,7 @@ import org.joda.time.{DateTime, Duration}
 
 import java.io.File
 import java.net.URI
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)

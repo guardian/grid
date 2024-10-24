@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbClient, DynamoDbClientB
 import software.amazon.awssdk.services.s3.S3Client
 
 import java.io.{File, FileOutputStream, PrintWriter}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.io.Source
 import scala.util.Try
 

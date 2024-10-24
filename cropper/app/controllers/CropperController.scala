@@ -48,7 +48,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   def index = auth { indexResponse }
 
-  def export = auth.async(parse.json) { httpRequest =>
+  def addExport = auth.async(parse.json) { httpRequest =>
     httpRequest.body.validate[ExportRequest] map { exportRequest =>
       implicit val logMarker: LogMarker = MarkerMap(
         "requestType" -> "export",
@@ -176,7 +176,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         specification = cropSpec
       )
       markersWithCropDetails = logMarker ++ Map("imageId" -> apiImage.id, "cropId" -> Crop.getCropId(cropSpec.bounds))
-      ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop)(markersWithCropDetails)
+      ExportResult(id, masterSizing, sizings) <- crops.makeExport(apiImage, crop)(markersWithCropDetails)
       finalCrop = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
   }
@@ -193,7 +193,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     val request = onBehalfOfPrincipal(baseRequest)
 
-    val responseFuture = request.get.map { r =>
+    val responseFuture = request.get().map { r =>
       HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
     }
 
