@@ -190,6 +190,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case UserPrincipal(_,_,_,attributes) if attributes.contains(CookieKey) => Right(req => req.addCookies(DefaultWSCookie(COOKIE_NAME, attributes.get(CookieKey).get.value)))
           case UserPrincipal(_, _, email, _) => Left(s"Unable to build onBehalfOf function for $email")
+          case _ => throw new RuntimeException("Unexpected onBehalfOf case for test UserAuthenticationProvider")
         }
       },
       new MachineAuthenticationProvider {
@@ -197,6 +198,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case MachinePrincipal(_, attributes) if attributes.contains(HeaderKey) => Right(req => req.addHttpHeaders(attributes.get(HeaderKey).get))
           case MachinePrincipal(ApiAccessor(identity, _), _) => Left(s"Unable to build onBehalfOf function for $identity")
+          case _ => throw new RuntimeException("Unexpected onBehalfOf case for test MachineAuthenticationProvider")
         }
       },
       new InnerServiceAuthenticationProvider(signer, serviceName = "tests")
