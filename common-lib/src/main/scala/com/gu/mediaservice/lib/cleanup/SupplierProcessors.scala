@@ -174,7 +174,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
             val (creditList, foundFlag) = acc
             getPrefixAndSuffix(Some(s)) match {
               case Some(_) if !foundFlag => (creditList :+ canonicalName, true)
-              case Some(_) if foundFlag => acc
+              case Some(_) => acc
               case None => (creditList :+ s, foundFlag)
             }
           })
