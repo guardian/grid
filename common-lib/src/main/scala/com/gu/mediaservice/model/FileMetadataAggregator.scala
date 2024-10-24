@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import scala.collection.compat._
 import play.api.libs.json._
 
 object FileMetadataAggregator {
