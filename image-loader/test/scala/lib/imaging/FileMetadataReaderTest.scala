@@ -27,7 +27,7 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
     val image = fileAt("getty.jpg")
     val dimsFuture = FileMetadataReader.dimensions(image, Some(Jpeg))
     whenReady(dimsFuture) { dimOpt =>
-      dimOpt should be('defined)
+      dimOpt should be(Symbol("defined"))
       dimOpt.get.width should be(100)
       dimOpt.get.height should be(60)
     }
@@ -37,7 +37,7 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
     val image = fileAt("flower.tif")
     val dimsFuture = FileMetadataReader.dimensions(image, Some(Tiff))
     whenReady(dimsFuture) { dimOpt =>
-      dimOpt should be('defined)
+      dimOpt should be(Symbol("defined"))
       dimOpt.get.width should be(73)
       dimOpt.get.height should be(43)
     }
@@ -47,7 +47,7 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
     val image = fileAt("schaik.com_pngsuite/basn0g08.png")
     val dimsFuture = FileMetadataReader.dimensions(image, Some(Png))
     whenReady(dimsFuture) { dimOpt =>
-      dimOpt should be('defined)
+      dimOpt should be(Symbol("defined"))
       dimOpt.get.width should be(32)
       dimOpt.get.height should be(32)
     }
