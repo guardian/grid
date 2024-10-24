@@ -41,7 +41,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
 
   lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 
-  override def beforeAll {
+  override def beforeAll: Unit = {
     super.beforeAll()
     ES.ensureIndexExistsAndAliasAssigned()
     ES.createIndexIfMissing(migrationIndexName)

@@ -63,7 +63,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
 
-  override def beforeAll {
+  override def beforeAll: Unit = {
     super.beforeAll()
 
     ES.ensureIndexExistsAndAliasAssigned()
