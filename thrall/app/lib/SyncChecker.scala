@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import lib.elasticsearch.ElasticSearch
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}

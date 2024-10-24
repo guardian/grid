@@ -3,7 +3,7 @@ package com.gu.mediaservice.model.usage
 import play.api.libs.json._
 import org.joda.time.DateTime
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class PrintImageSize(
   x: Int,

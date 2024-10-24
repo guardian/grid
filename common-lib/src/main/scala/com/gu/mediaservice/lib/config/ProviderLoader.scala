@@ -7,7 +7,7 @@ import play.api.inject.ApplicationLifecycle
 import play.api.{ConfigLoader, Configuration}
 
 import java.lang.reflect.{Constructor, InvocationTargetException}
-import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.util.Try

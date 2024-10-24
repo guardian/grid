@@ -5,7 +5,7 @@ import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
 

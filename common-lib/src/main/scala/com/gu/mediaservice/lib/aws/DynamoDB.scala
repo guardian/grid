@@ -14,7 +14,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 object NoItemFound extends Throwable("item not found")

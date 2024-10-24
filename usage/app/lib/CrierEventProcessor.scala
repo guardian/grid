@@ -16,7 +16,7 @@ import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
 import java.util.{UUID, List => JList}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 

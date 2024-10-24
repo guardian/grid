@@ -5,7 +5,7 @@ import net.logstash.logback.marker.Markers
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class FileMetadata(
   iptc: Map[String, String]                     = Map(),

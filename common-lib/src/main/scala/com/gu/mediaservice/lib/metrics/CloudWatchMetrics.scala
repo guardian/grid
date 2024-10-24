@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.inject.ApplicationLifecycle
 
 import java.util.Date
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random

@@ -8,7 +8,7 @@ import play.api.{ConfigLoader, Configuration}
 
 import java.net.URI
 import java.util.UUID
-import scala.collection.JavaConverters.collectionAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1BuilderUtils with AwsClientV2BuilderUtils with StrictLogging {

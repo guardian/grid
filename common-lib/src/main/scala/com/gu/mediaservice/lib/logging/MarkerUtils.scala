@@ -4,7 +4,7 @@ import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import play.api.MarkerContext
 import scala.language.implicitConversions
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait LogMarker {
   def toLogMarker: LogstashMarker = appendEntries(markerContents.asJava)
