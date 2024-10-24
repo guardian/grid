@@ -10,8 +10,7 @@ import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
 
 import scala.concurrent.Future
-
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object ImageIngestOperations {
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id

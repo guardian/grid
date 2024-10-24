@@ -3,7 +3,7 @@ package model
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.storage.ImageLoaderStore
 
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 
 case class S3IngestObject (
   key: String,

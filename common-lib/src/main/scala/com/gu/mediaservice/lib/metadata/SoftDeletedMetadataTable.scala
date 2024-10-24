@@ -9,7 +9,6 @@ import org.scanamo.generic.auto._
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
 
 class SoftDeletedMetadataTable(config: CommonConfig) {
   val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
