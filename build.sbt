@@ -34,6 +34,7 @@ val commonSettings = Seq(
 
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
+    "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
