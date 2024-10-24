@@ -165,24 +165,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }
   }
 
-  def getCurrentIndices: List[String] = {
-    Await.result(client.execute( {
-      catIndices()
-    }) map { response =>
-      response.result.toList.map(_.index)
-    }, tenSeconds)
-  }
-
-  def getCurrentAliases(): Map[String, Seq[String]] = {
-    Await.result(client.execute( {
-        getAliases()
-    }) map {response =>
-      response.result.mappings.toList.flatMap { case (index, aliases) =>
-        aliases.map(index.name -> _.name)
-      }.groupBy(_._2).mapValues(_.map(_._1))
-    }, tenSeconds)
-  }
-
   def assignAliasTo(index: String, alias: String): Either[ElasticError, Boolean] = {
     logger.info(s"Assigning alias $alias to $index")
     val aliasActionResponse = Await.result(client.execute {
