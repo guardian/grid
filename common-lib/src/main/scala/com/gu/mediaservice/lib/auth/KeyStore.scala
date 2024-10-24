@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.config.CommonConfig
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext
 
 class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)

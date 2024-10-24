@@ -12,7 +12,7 @@ import play.api.{Logger, MarkerContext}
 import play.api.libs.json.{JsValue, Json}
 import net.logstash.logback.marker.Markers.appendEntries
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ElasticSearchSyntax extends GridLogging {

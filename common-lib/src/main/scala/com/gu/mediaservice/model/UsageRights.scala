@@ -8,7 +8,7 @@ import play.api.ConfigLoader
 import play.api.libs.json._
 import scalaz.NonEmptyList
 
-import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 

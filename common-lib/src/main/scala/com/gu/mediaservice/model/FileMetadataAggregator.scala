@@ -67,9 +67,9 @@ object FileMetadataAggregator {
         }
     }
 
-    val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues {
+    val mapWithSortedValuesAtCurrentLevel = mutableMap.view.mapValues {
       case scala.util.Left(value) => value
-      case scala.util.Right(value) => {
+      case scala.util.Right(value) =>
         val sortedList = value.sortBy(_.index)
 
         val (jsArrays, jsStrings) = sortedList.map(_.jsValue).partition(_.isInstanceOf[JsArray])
@@ -79,7 +79,6 @@ object FileMetadataAggregator {
 
         val sorted: JsArray =  aggJsArrays ++ aggJsStrings
         MetadataEntry(sortedList.head.index, sorted)
-      }
     }
     mapWithSortedValuesAtCurrentLevel.toMap
   }

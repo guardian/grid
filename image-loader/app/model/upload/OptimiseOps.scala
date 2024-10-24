@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.logging.MarkerMap
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait OptimiseOps {
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)

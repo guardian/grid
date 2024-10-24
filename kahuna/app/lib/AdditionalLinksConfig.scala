@@ -3,7 +3,7 @@ package lib
 import play.api.ConfigLoader
 import play.api.libs.json.{Json, Writes}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object LinkTarget extends Enumeration {
   val blank = Value("_blank")

@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.config
 import java.io.{File, FileInputStream, InputStream}
 import java.net.URL
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Properties {
 

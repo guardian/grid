@@ -8,7 +8,7 @@ import com.gu.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 
 import scala.util.Try
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object ConvertConfig {
   case class Conversion(input: File, output: File)

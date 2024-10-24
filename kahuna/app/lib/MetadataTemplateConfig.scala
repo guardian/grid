@@ -4,7 +4,7 @@ import lib.MetadataTemplate.CollectionFullPath
 import lib.MetadataTemplateLease.LeaseDurationInMillis
 import play.api.ConfigLoader
 import play.api.libs.json._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object FieldResolveStrategy extends Enumeration {
   val replace = Value("replace")

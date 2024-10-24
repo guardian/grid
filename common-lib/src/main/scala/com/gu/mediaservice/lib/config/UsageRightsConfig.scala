@@ -4,7 +4,7 @@ import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhoto
 import com.typesafe.config.Config
 import play.api.{ConfigLoader, Configuration}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 case class PublicationPhotographers(name: String, photographers: List[String])
