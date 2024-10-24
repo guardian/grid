@@ -39,7 +39,7 @@ object DomainMetadataSpec {
             config.getString("type"),
             fieldOptions
           )
-        })
+        }).toSeq
 
         DomainMetadataSpec(
           config.getString("name"),
@@ -47,6 +47,6 @@ object DomainMetadataSpec {
           description,
           fields
         )
-      })
+      }).toSeq
     )
 }
