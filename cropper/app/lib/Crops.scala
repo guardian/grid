@@ -89,7 +89,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
+  def makeExport(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
     val source    = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
