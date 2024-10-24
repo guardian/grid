@@ -503,7 +503,7 @@ class ImageLoaderController(auth: Authentication,
       mapping(
         "imageId" -> text
       )(RestoreFromReplicaForm.apply)(RestoreFromReplicaForm.unapply)
-    ).bindFromRequest.get.imageId
+    ).bindFromRequest().get.imageId
 
     implicit val logMarker: LogMarker = MarkerMap(
       "imageId" -> imageId,

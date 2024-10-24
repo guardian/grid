@@ -59,7 +59,7 @@ case class IsOwnedImage(staffPhotographerOrg: String) extends IsQueryFilter {
 case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
   override def query: Query = overQuotaAgencies.toNel
     .map(agency => filters.mustNot(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
-    .getOrElse(matchAllQuery)
+    .getOrElse(matchAllQuery())
 }
 
 case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {

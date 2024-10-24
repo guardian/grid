@@ -41,7 +41,7 @@ class LeaseStore(config: LeasesConfig) {
   }
 
   def forEach[T](run: List[MediaLease] => T)(implicit ec: ExecutionContext) = ScanamoAsync(client).exec(
-    leasesTable.scan
+    leasesTable.scan()
       .map(ops => ops.flatMap(_.toOption))
       .map(run)
   )
