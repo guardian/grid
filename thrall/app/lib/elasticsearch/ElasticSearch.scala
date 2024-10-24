@@ -689,7 +689,7 @@ class ElasticSearch(
   private def handleImageIdScrollResponse(
     message: String, response: Response[SearchResponse]
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
-    val ids = response.result.hits.hits.map(_.id)
+    val ids = response.result.hits.hits.toSeq.map(_.id)
     if (response.result.hits.size >= scrollPageSize && response.result.scrollId.isDefined) {
       continueScrollingImageIds(message, response.result.scrollId.get).map(ids ++ _)
     } else {
