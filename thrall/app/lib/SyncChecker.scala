@@ -29,7 +29,7 @@ class SyncChecker(
   private val mat = Materializer.matFromSystem(actorSystem)
   private implicit val dispatcher: ExecutionContext = actorSystem.getDispatcher
 
-  private val expectedAlphabet = "0123456789abcdef".split("")
+  private val expectedAlphabet = "0123456789abcdef".split("").toSeq
   private val prefixes: Seq[SyncCheckJob] = (for {
     x <- expectedAlphabet
     y <- expectedAlphabet
@@ -119,7 +119,7 @@ class SyncChecker(
   )
 
   private def createStream() = RestartSource.onFailuresWithBackoff(restartSettings)(() =>
-    Source.cycle(() => prefixes.toIterator)
+    Source.cycle(() => prefixes.iterator)
       .throttle(1, per = 5.seconds)
       .filterNot(_ => es.migrationIsInProgress)
       .mapAsync(parallelism = 1) {
