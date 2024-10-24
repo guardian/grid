@@ -29,7 +29,7 @@ abstract class CloudWatchMetrics(
 ) extends GridLogging {
 
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Count, value, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Count, value.toDouble, dimensions)
 
     def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Unit = recordOne(n, dimensions)
 
@@ -41,7 +41,7 @@ abstract class CloudWatchMetrics(
   }
 
   class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Milliseconds, value, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Milliseconds, value.toDouble, dimensions)
   }
 
   private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
