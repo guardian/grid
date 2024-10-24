@@ -22,16 +22,16 @@ object PersistedQueries extends ImageFields {
     CommissionedAgency.category
   )
 
-  val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
+  val hasCrops = filters.bool().must(filters.existsOrMissing("exports", exists = true))
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
 
   def existedPreGrid(persistenceIdentifier: String) = filters.exists(NonEmptyList(identifierField(persistenceIdentifier)))
 
-  val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
+  val addedToLibrary = filters.bool().must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
-  val hasPhotographerUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), photographerCategories))
-  val hasIllustratorUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), illustratorCategories))
-  val hasAgencyCommissionedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), agencyCommissionedCategories))
+  val hasPhotographerUsageRights = filters.bool().must(filters.terms(usageRightsField("category"), photographerCategories))
+  val hasIllustratorUsageRights = filters.bool().must(filters.terms(usageRightsField("category"), illustratorCategories))
+  val hasAgencyCommissionedUsageRights = filters.bool().must(filters.terms(usageRightsField("category"), agencyCommissionedCategories))
 
   def isInPersistedCollection(maybePersistOnlyTheseCollections: Option[Set[String]]) =
     maybePersistOnlyTheseCollections.map(_.toList) match {

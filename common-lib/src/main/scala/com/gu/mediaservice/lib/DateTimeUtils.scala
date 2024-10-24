@@ -20,7 +20,7 @@ object DateTimeUtils {
   // TODO move this to a LocalDateTime
   def fromValueOrNow(value: Option[String]): DateTime = Try{new DateTime(value.get)}.getOrElse(DateTime.now)
 
-  def timeUntilNextInterval(interval: FiniteDuration, now: ZonedDateTime = now): FiniteDuration = {
+  def timeUntilNextInterval(interval: FiniteDuration, now: ZonedDateTime = now()): FiniteDuration = {
     val nowRoundedDownToTheHour = now.truncatedTo(ChronoUnit.HOURS)
     val millisSinceTheHour = ChronoUnit.MILLIS.between(nowRoundedDownToTheHour, now).toDouble
     val numberOfIntervals = (millisSinceTheHour / interval.toMillis).ceil.toLong
