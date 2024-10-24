@@ -22,6 +22,7 @@ import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.JsValue
 
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 object FileMetadataReader extends GridLogging {
@@ -114,10 +115,10 @@ object FileMetadataReader extends GridLogging {
 
   private val datePattern = "(.*[Dd]ate.*)".r
   private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
-    directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+    directory.getXmpProperties.asScala.view.mapValues(nonEmptyTrimmed).collect {
       case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
       case (key, Some(value)) => key -> value
-    }
+    }.toMap
   }
 
   private val redactionThreshold = 5000
@@ -144,7 +145,7 @@ object FileMetadataReader extends GridLogging {
       // A property can be repeated across directories and its value may not be unique.
       // Keep the first value encountered on the basis that there will only be multiple directories
       // if there is no space in the previous one as directories have a maximum size.
-      acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
+      acc ++ xmpDirectoryToMap(dir, imageId).view.filterKeys(k => !acc.contains(k)).toMap
     })
     redactLongFieldValues(imageId, "XMP", allowedLongXmpFields)(props)
   }

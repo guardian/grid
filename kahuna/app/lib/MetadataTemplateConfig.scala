@@ -74,7 +74,7 @@ object MetadataTemplate {
         } else Nil
 
         val collectionFullPath = if (config.hasPath("collectionFullPath")) {
-          config.getStringList("collectionFullPath").asScala.seq
+          config.getStringList("collectionFullPath").asScala.toList
         } else Nil
 
         val templateLeases = if (config.hasPath("templateLeases")) {
@@ -92,7 +92,7 @@ object MetadataTemplate {
 
           Some(TemplateLeases(
             replace = templateLeasesConfig.getBoolean("replace"),
-            leases = leases
+            leases = leases.toSeq
           ))
         } else None
 
@@ -116,6 +116,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, templateLeases, usageRights)
-      }))
+        MetadataTemplate(config.getString("templateName"), metadataFields.toSeq, collectionFullPath, templateLeases, usageRights)
+      }).toSeq)
 }

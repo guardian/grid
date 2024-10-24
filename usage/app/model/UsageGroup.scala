@@ -8,6 +8,8 @@ import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, Publis
 import lib.{ContentHelpers, MD5, MediaUsageBuilder, UsageConfig, UsageMetadataBuilder}
 import org.joda.time.DateTime
 
+import scala.collection.compat._
+
 case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
@@ -172,7 +174,7 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     val mediaAtoms = content.atoms match {
       case Some(atoms) =>
         atoms.media match {
-          case Some(mediaAtoms) => filterOutAtomsWithNoImage(mediaAtoms)
+          case Some(mediaAtoms) => filterOutAtomsWithNoImage(mediaAtoms.toSeq)
           case _ => Seq.empty
         }
       case _ => Seq.empty
@@ -230,7 +232,7 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     content.elements.map(elements => {
       elements.filter(_.`type` == ElementType.Image)
         .groupBy(_.id)
-        .map(_._2.head).to[collection.immutable.Seq]
+        .map(_._2.head).to(collection.immutable.Seq)
     })
   }
 }

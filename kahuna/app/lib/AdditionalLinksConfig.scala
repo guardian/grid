@@ -19,7 +19,7 @@ object AdditionalLink {
 
   implicit val configLoader: ConfigLoader[Seq[AdditionalLink]] =
     ConfigLoader(_.getConfigList).map(
-      _.asScala.map(config => {
+      _.asScala.toSeq.map(config => {
         val linkTarget = if (config.hasPath("target")) LinkTarget.withName(config.getString("target")) else LinkTarget.blank
 
         AdditionalLink(

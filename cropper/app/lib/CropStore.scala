@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 
-import scala.util.Try
+import scala.collection.compat._
 
 class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   import com.gu.mediaservice.lib.formatting._
@@ -32,7 +32,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
     val filteredMetadata = metadata.collect {
       case (key, Some(value)) => key -> value
       case (key, value)       => key -> value
-    }.mapValues(_.toString)
+    }.view.mapValues(_.toString).toMap
 
     storeImage(config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata, overwrite = true) map { s3Object =>
       Asset(

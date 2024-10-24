@@ -17,7 +17,7 @@ object InterimFilterOption {
 
   implicit val configLoader: ConfigLoader[Seq[InterimFilterOption]] = {
     ConfigLoader(_.getConfigList).map(
-      _.asScala.map(config => {
+      _.asScala.toSeq.map(config => {
         InterimFilterOption(
           id = config.getString("id"),
           label = config.getString("label"),
