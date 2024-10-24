@@ -193,7 +193,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     val request = onBehalfOfPrincipal(baseRequest)
 
-    val responseFuture = request.get.map { r =>
+    val responseFuture = request.get().map { r =>
       HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
     }
 
