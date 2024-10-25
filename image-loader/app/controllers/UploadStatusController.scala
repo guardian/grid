@@ -3,6 +3,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth._
+import org.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
 import lib._
 import model.{StatusType, UploadStatus}
 import org.scanamo.{ConditionNotMet, ScanamoError}

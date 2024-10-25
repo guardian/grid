@@ -21,7 +21,7 @@ import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
-import org.scanamo.{ConditionNotMet, ScanamoError}
+import org.scanamo.error.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
