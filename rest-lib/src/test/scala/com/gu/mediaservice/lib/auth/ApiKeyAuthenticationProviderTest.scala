@@ -4,6 +4,7 @@ import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
 import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.model.Instance
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -42,7 +43,7 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
     }
 
     override def keyStore: KeyStore = new KeyStore("not-used", resources.commonConfig) {
-      override def lookupIdentity(key: String): Option[ApiAccessor] = {
+      override def lookupIdentity(key: String)(implicit instance: Instance): Option[ApiAccessor] = {
         key match {
           case "key-chuckle" => Some(ApiAccessor("brothers", Internal))
           case "key-limited" => Some(ApiAccessor("locked-down", ReadOnly))
