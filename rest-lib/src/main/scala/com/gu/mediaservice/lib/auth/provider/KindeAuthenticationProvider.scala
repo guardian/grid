@@ -113,26 +113,24 @@ class KindeAuthenticationProvider(
             wsClient.url(userProfileUrl).
               withHttpHeaders(("Authorization", "Bearer " + token.access_token)).
               withRequestTimeout(Duration(10, SECONDS)).
-              get().flatMap { r =>
+              get().map { r =>
               logger.info("Got user profile response " + r.status)
               implicit val upr = Json.reads[UserProfile]
               val userProfile = Json.parse(r.body).as[UserProfile]
 
-              // Look up users allowed instances
-                Future.successful(Seq.empty).map { instances =>
-                val cookieData = Seq(
-                  Some("id" -> userProfile.id),
-                  userProfile.first_name.map("first_name" -> _),
-                  userProfile.last_name.map("last_name" -> _),
-                  userProfile.preferred_email.map("preferred_email" -> _)
-                ).flatten.toMap
-                logger.info("Encoding logged in user cookie data: " + cookieData)
-                val cookieContents = encode(cookieData)
-                val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
+              val cookieData = Seq( // TODO need to obsecure and sign this
+                Some("id" -> userProfile.id),
+                userProfile.first_name.map("first_name" -> _),
+                userProfile.last_name.map("last_name" -> _),
+                userProfile.preferred_email.map("preferred_email" -> _)
+              ).flatten.toMap
 
-                val exitRedirectUri = redirectUri.getOrElse("/")
-                Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
-              }
+              logger.info("Encoding logged in user cookie data: " + cookieData)
+              val cookieContents = encode(cookieData)
+              val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
+
+              val exitRedirectUri = redirectUri.getOrElse("/")
+              Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)
             }
           }
 
