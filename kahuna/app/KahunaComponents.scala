@@ -14,7 +14,7 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   override def httpFilters: Seq[EssentialFilter] = Seq(
     instanceSpecificCorsFilter,
-    csrfFilter,
+    // csrfFilter,  TODO Ineffective as gateway is not setting correct hostname headers!
     new InstanceSpecificSecurityHeaderFilter(config, context.initialConfiguration),
     gzipFilter,
     new RequestLoggingFilter(materializer),

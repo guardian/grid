@@ -32,7 +32,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   override def httpFilters: Seq[EssentialFilter] = Seq(
       instanceSpecificCorsFilter,
-      csrfFilter,
+    // csrfFilter,  TODO Ineffective as gateway is not setting correct hostname headers!
       securityHeadersFilter, // TODO needs to be replemented to be request/instance specfic
       gzipFilter,
       new RequestLoggingFilter(materializer),
