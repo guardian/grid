@@ -14,6 +14,12 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 // Setting as a packageOption seems to bypass that problem, wherever it lies
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
+// Currently multiple modules depend on scala-java8-compat, some on 0.8.x, 0.9.x and 1.x.y
+// These may be binary incompatible, but force the checker to accept them
+// In the future, check if this override can be removed
+ThisBuild / libraryDependencySchemes +=
+  "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
+
 val commonSettings = Seq(
   scalaVersion := "2.12.20",
   description := "grid",
