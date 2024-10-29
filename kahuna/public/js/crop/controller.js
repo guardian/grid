@@ -50,6 +50,7 @@ crop.controller('ImageCropCtrl', [
       const allCropOptions = cropSettings.getCropOptions();
 
       const storageCropType = cropSettings.getCropType();
+      const storageDefaultCropType = cropSettings.getDefaultCropType();
 
       const cropOptionDisplayValue = cropOption => cropOption.ratioString
         ? `${cropOption.key} (${cropOption.ratioString})`
@@ -63,7 +64,7 @@ crop.controller('ImageCropCtrl', [
           disabled: storageCropType && storageCropType !== option.key
         }));
 
-      ctrl.cropType = storageCropType || defaultCrop.key;
+      ctrl.cropType = storageCropType || storageDefaultCropType || defaultCrop.key;
 
       ctrl.image = image;
       ctrl.optimisedImageUri = optimisedImageUri;
