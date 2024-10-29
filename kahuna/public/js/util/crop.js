@@ -90,7 +90,7 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
     }
 
     if (defaultCropType) {
-      setDefaultCropType(defaultCropType)
+      setDefaultCropType(defaultCropType);
     }
 
     if (shouldShowCropGuttersIfApplicable) {

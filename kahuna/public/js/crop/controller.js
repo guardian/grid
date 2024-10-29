@@ -64,7 +64,7 @@ crop.controller('ImageCropCtrl', [
           disabled: storageCropType && storageCropType !== option.key
         }));
 
-      ctrl.cropType = storageCropType || storageDefaultCropType ||defaultCrop.key;
+      ctrl.cropType = storageCropType || storageDefaultCropType || defaultCrop.key;
 
       ctrl.image = image;
       ctrl.optimisedImageUri = optimisedImageUri;
