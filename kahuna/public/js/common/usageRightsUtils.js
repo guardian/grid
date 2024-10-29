@@ -49,3 +49,26 @@ export function createCategoryLeases(leaseDefs, image) {
   });
   return leases;
 }
+
+/* ******************************************************************************
+Remove any leases from image that have same type as any rights-cat applied leases
+********************************************************************************* */
+export function removeCategoryLeases(categories, image, removeRights) {
+  const mtchCats = categories.filter(cat => cat.value === removeRights);
+  if (mtchCats.length === 0) {
+    return [];
+  }
+  const removeCat = mtchCats[0];
+  if (removeCat.leases.length === 0) {
+    return [];
+  }
+  const removeLeases = [];
+  image.data.leases.data.leases.forEach(lease => {
+    const mtches = removeCat.leases.filter(catLease => catLease.type === lease.access);
+    if (mtches.length > 0) {
+      removeLeases.push(lease);
+    }
+  });
+
+  return removeLeases;
+}

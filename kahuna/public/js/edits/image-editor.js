@@ -7,7 +7,7 @@ import {imageService} from '../image/service';
 import '../services/label';
 import {imageAccessor} from '../services/image-accessor';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
-import { createCategoryLeases } from '../common/usageRightsUtils.js';
+import { createCategoryLeases, removeCategoryLeases } from '../common/usageRightsUtils.js';
 import {metadataTemplates} from "../metadata-templates/metadata-templates";
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
@@ -274,6 +274,7 @@ imageEditor.controller('ImageEditorCtrl', [
             const image = ctrl.image;
             const resource = image.data.userMetadata.data.usageRights;
             editsService.update(resource, data, image);
+            batchSetLeasesFromUsageRights(image, data.category);
         });
     }
 
@@ -315,6 +316,35 @@ imageEditor.controller('ImageEditorCtrl', [
         let category = ctrl.categories.find(cat => cat.value === ctrl.usageRights.data.category);
         ctrl.usageRightsCategory = category && category.name;
         ctrl.showUsageRights = ctrl.usageRightsCategory === undefined;
+    }
+
+    function batchSetLeasesFromUsageRights(image, rightsCat) {
+      const category = ctrl.categories.find(cat => cat.value === rightsCat);
+      if (!category || (image.data.usageRights.category && image.data.usageRights.category === rightsCat )) {
+        return;
+      }
+      if (category.leases.length === 0) {
+        // possibility of removal only
+        if(!image.data.usageRights.category) {
+          return;
+        }
+        const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
+        if (removeLeases && removeLeases.length > 0) {
+          $rootScope.$broadcast('events:rights-category:delete-leases', {
+            catLeases: removeLeases,
+            batch: false
+          });
+        }
+        return;
+      }
+      const catLeases = createCategoryLeases(category.leases, image);
+      if (catLeases.length === 0) {
+        return;
+      }
+      $rootScope.$broadcast('events:rights-category:add-leases', {
+        catLeases: catLeases,
+        batch: false
+      });
     }
 
     function batchApplyUsageRights() {
