@@ -38,7 +38,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
       sequenceNumber = "",
       subSequenceNumber = None,
       approximateArrivalTimestamp = OffsetDateTime.now().toInstant,
-      encryptionType = ""
+      None
     )
 
     def createMigrationRecord: MigrationRecord = MigrationRecord(
