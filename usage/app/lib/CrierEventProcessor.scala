@@ -10,6 +10,7 @@ import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
 import com.gu.thrift.serializer.ThriftDeserializer
+import com.twitter.scrooge.ThriftStructCodec
 import model.{UsageGroup, UsageGroupOps}
 import org.joda.time.DateTime
 import rx.lang.scala.Subject
@@ -66,7 +67,7 @@ case class PreviewContentItem(content: Content, lastModified: DateTime, isReinde
 
 abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends IRecordProcessor with GridLogging {
 
-  implicit val codec = Event
+  implicit val codec: ThriftStructCodec[Event] = Event
 
   val contentApiClient: UsageContentApiClient
 

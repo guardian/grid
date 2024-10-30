@@ -73,7 +73,7 @@ class ElasticSearch(
   )(
     implicit ex: ExecutionContext
   ): Future[Option[T]] = {
-    implicit val logMarker = MarkerMap("id" -> id)
+    implicit val logMarker: MarkerMap = MarkerMap("id" -> id)
 
     def getFromCurrentIndex = executeAndLog(
       request = requestFromIndexName(imagesCurrentAlias),
@@ -279,7 +279,7 @@ class ElasticSearch(
   }
 
   def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SupplierUsageSummary] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -330,7 +330,7 @@ class ElasticSearch(
     buckets.map(b => BucketResult(b.key, b.docCount))
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareSearch(query) aggregations aggregation size 0
@@ -348,7 +348,7 @@ class ElasticSearch(
   }
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val completionSuggestion =
       ElasticDsl.completionSuggestion(name, name).text(q).skipDuplicates(true)
     val search = ElasticDsl.search(imagesCurrentAlias) suggestions completionSuggestion

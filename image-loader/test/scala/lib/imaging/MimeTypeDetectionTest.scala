@@ -10,7 +10,7 @@ import org.scalatest.matchers.should.Matchers
 class MimeTypeDetectionTest extends AnyFunSpec with Matchers with ScalaFutures {
   import test.lib.ResourceHelpers._
 
-  implicit val markers = MarkerMap()
+  implicit val markers: MarkerMap = MarkerMap()
 
   it("should detect jpeg mime types for images") {
     for (fileName <- List("getty.jpg", "corbis.jpg", "guardian-turner.jpg", "pa.jpg")) {

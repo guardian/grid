@@ -65,7 +65,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   def healthCheck(): Future[Boolean] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val request = search(imagesCurrentAlias) limit 0
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
@@ -81,7 +81,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   def countImages(indexName: String = imagesCurrentAlias): Future[ElasticSearchImageCounts] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search(indexName) trackTotalHits true limit 0 // hits that match the query defined in the request
     val uploadedInLastFiveMinutes = count(indexName) query rangeQuery("uploadTime").gte("now-5m")

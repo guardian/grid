@@ -12,7 +12,7 @@ import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.{ExternalThrallMessage, InternalThrallMessage, ThrallMessage}
 import lib.kinesis.{MessageTranslator, ThrallEventConsumer}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 sealed trait Priority
@@ -55,8 +55,8 @@ class ThrallStreamProcessor(
   actorSystem: ActorSystem
  ) extends GridLogging {
 
-  implicit val mat = Materializer.matFromSystem(actorSystem)
-  implicit val dispatcher = actorSystem.getDispatcher
+  implicit val mat: Materializer = Materializer.matFromSystem(actorSystem)
+  implicit val dispatcher: ExecutionContextExecutor = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord[ThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
     import GraphDSL.Implicits._

@@ -181,7 +181,7 @@ class ImageLoaderController(auth: Authentication,
       tempFile,
       expectedSize = s3IngestObject.contentLength
     )
-    implicit val logMarker = initialLogMarker ++ Map(
+    implicit val logMarker: LogMarker = initialLogMarker ++ Map(
       "mediaId" -> digestedFile.digest
     )
 

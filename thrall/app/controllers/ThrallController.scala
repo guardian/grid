@@ -132,7 +132,7 @@ class ThrallController(
     }
   }
 
-  implicit val pollingMaterializer = Materializer.matFromSystem(actorSystem)
+  implicit val pollingMaterializer: Materializer = Materializer.matFromSystem(actorSystem)
 
   def startMigration = withLoginRedirectAsync { implicit request =>
 
