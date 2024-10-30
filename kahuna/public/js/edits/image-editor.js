@@ -325,7 +325,7 @@ imageEditor.controller('ImageEditorCtrl', [
       }
       if (category.leases.length === 0) {
         // possibility of removal only
-        if(!image.data.usageRights.category) {
+        if (!image.data.usageRights.category) {
           return;
         }
         const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
