@@ -25,9 +25,6 @@ export function createCategoryLeases(leaseDefs, image) {
           startDate = new Date(image.data.metadata.domainMetadata.programmes.originalTxDate);
         }
         break;
-      default:
-        startDate = undefined;
-        break;
     }
     // -check we have acceptable type and startDate-
     if (leaseTypes.includes(leaseDef.type ?? "") && startDate) {

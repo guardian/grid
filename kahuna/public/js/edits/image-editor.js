@@ -320,7 +320,7 @@ imageEditor.controller('ImageEditorCtrl', [
 
     function batchSetLeasesFromUsageRights(image, rightsCat) {
       const category = ctrl.categories.find(cat => cat.value === rightsCat);
-      if (!category || (image.data.usageRights.category && image.data.usageRights.category === rightsCat )) {
+      if (!category || image.data.usageRights.category === rightsCat) {
         return;
       }
       if (category.leases.length === 0) {
@@ -329,7 +329,7 @@ imageEditor.controller('ImageEditorCtrl', [
           return;
         }
         const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
-        if (removeLeases && removeLeases.length > 0) {
+        if (removeLeases.length > 0) {
           $rootScope.$broadcast('events:rights-category:delete-leases', {
             catLeases: removeLeases,
             batch: false
