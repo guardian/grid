@@ -120,8 +120,6 @@ lazy val restLib = project("rest-lib").settings(
     "com.typesafe.play" %% "filters-helpers" % "2.8.11",
     akkaHttpServer,
   ),
-
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).dependsOn(commonLib % "compile->compile;test->test")
 
 lazy val auth = playProject("auth", 9011)
