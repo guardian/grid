@@ -110,7 +110,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0",
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
 
