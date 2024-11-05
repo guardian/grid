@@ -247,6 +247,14 @@ usageRightsEditor.controller(
         }
         const catLeases = createCategoryLeases(ctrl.category.leases, image);
         if (catLeases.length === 0) {
+          // possibility of removal only - missing tx date etc.
+          const removeLeases = removeCategoryLeases(ctrl.categories, image, prevRights);
+          if (removeLeases && removeLeases.length > 0) {
+            $rootScope.$broadcast('events:rights-category:delete-leases', {
+              catLeases: removeLeases,
+              batch: false
+            });
+          }
           return;
         }
         $rootScope.$broadcast('events:rights-category:add-leases', {
