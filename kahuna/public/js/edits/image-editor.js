@@ -339,6 +339,17 @@ imageEditor.controller('ImageEditorCtrl', [
       }
       const catLeases = createCategoryLeases(category.leases, image);
       if (catLeases.length === 0) {
+        // possibility of remove only of leases due to missing date info on image
+        if (!image.data.usageRights.category) {
+          return;
+        }
+        const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
+        if (removeLeases.length > 0) {
+          $rootScope.$broadcast('events:rights-category:delete-leases', {
+            catLeases: removeLeases,
+            batch: false
+          });
+        }
         return;
       }
       $rootScope.$broadcast('events:rights-category:add-leases', {
