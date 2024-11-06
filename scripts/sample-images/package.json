@@ -6,7 +6,7 @@
   "dependencies": {
     "es6-promise": "^4.2.8",
     "isomorphic-fetch": "^3.0.0",
-    "unsplash-js": "^7.0.15"
+    "unsplash-js": "^7.0.19"
   },
   "devDependencies": {},
   "scripts": {
