@@ -91,8 +91,6 @@ class Authentication(config: CommonConfig,
             // we have an end user principal, so only process the block if the instance is allowed
             val instance = instanceOf(request)
             logger.info(s"Checking that $principal is allowed to access instance $instance")
-            // Use the cookie instances for now but we are in a Future so are able to call the instances service for a canonical answer if we need to
-
             getMyInstances(principal).flatMap { principalsInstances: Seq[Instance] =>
               if (principalsInstances.exists(_.id == instance.id)) {
                 logger.debug("Allowing this request!")
