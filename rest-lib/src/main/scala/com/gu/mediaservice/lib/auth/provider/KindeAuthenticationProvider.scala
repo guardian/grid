@@ -30,7 +30,7 @@ class KindeAuthenticationProvider(
 
   private val loggedInUserCookieName = "loggedInUser"
 
-  val loginCookieDomain = resources.commonConfig.domainRoot
+  private val loginCookieDomain = resources.commonConfig.domainRoot
 
   private val loggedInUserCookieTypedKey: TypedKey[Cookie] = TypedKey[Cookie]("loggedInUserCookie")
 
