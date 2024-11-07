@@ -118,7 +118,7 @@ class KindeAuthenticationProvider(
               implicit val upr = Json.reads[UserProfile]
               val userProfile = Json.parse(r.body).as[UserProfile]
 
-              val cookieData = Seq( // TODO need to obsecure and sign this
+              val cookieData = Seq( // TODO need to obscure this. It is already signed
                 Some("id" -> userProfile.id),
                 userProfile.first_name.map("first_name" -> _),
                 userProfile.last_name.map("last_name" -> _),
