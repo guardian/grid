@@ -88,16 +88,18 @@ class Authentication(config: CommonConfig,
             block(new AuthenticatedRequest(innerServicePrincipal, request))
 
           case _ =>
-            // we have an end user principal, so only process the block if the instance is allowed
             val instance = instanceOf(request)
-            logger.info(s"Checking that $principal is allowed to access instance $instance")
-            getMyInstances(principal).flatMap { principalsInstances: Seq[Instance] =>
-              if (principalsInstances.exists(_.id == instance.id)) {
+            getMyInstances(principal).flatMap { principalsInstances =>
+              // we have an end user principal, and a list of the instances they are allowed to access.
+              // Only process the block if the instance is allowed.
+              val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
+              logger.info(s"$principal is allowed to access instance $instance: $isAllowedToAccessThisInstance")
+              if (isAllowedToAccessThisInstance) {
                 logger.debug("Allowing this request!")
                 block(new AuthenticatedRequest(principal, request))
 
               } else {
-                logger.warn(s"Blocking request ${request.path} on instance $instance for principal: " + principal)
+                logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
                 Future.successful(Forbidden("You do not have permission to use this instance"))
               }
             }
