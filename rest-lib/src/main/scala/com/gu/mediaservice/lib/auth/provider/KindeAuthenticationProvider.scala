@@ -179,7 +179,6 @@ class KindeAuthenticationProvider(
   }
 
   private def gridUserFrom(userProfile: UserProfile, request: RequestHeader): UserPrincipal = {
-    logger.info(s"Creating gridUserFrom $userProfile")
     val maybeLoggedInUserCookie: Option[TypedEntry[Cookie]] = request.cookies.get(loggedInUserCookieName).map(TypedEntry[Cookie](loggedInUserCookieTypedKey, _))
     val attributes = TypedMap.empty.updated(maybeLoggedInUserCookie.toSeq: _*)
     UserPrincipal(
