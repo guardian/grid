@@ -35,7 +35,8 @@ class QuarantineUploader(val store: QuarantineStore,
       uploadRequest.imageId,
       uploadRequest.tempFile,
       uploadRequest.mimeType,
-      meta
+      meta,
+      uploadRequest.instance
     )
   }
 

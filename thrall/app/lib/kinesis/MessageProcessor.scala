@@ -174,9 +174,9 @@ class MessageProcessor(
       es.deleteImage(message.id).map { requests =>
         requests.map {
           _: ElasticSearchDeleteResponse =>
-            store.deleteOriginal(message.id)
-            store.deleteThumbnail(message.id)
-            store.deletePNG(message.id)
+            store.deleteOriginal(message.id, message.instance)
+            store.deleteThumbnail(message.id, message.instance)
+            store.deletePNG(message.id, message.instance)
 //            metadataEditorNotifications.publishImageDeletion(message.id) // let's not delete from Dynamo as user edits might be useful if we restore from replica
             EsResponse(s"Image deleted: ${message.id}")
         } recoverWith {
