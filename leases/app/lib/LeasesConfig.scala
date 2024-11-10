@@ -14,7 +14,7 @@ class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   private def uri(u: String) = URI.create(u)
 
-  private def leasesUri(implicit instance: Instance) = uri(s"${rootUri(instance)}/leases")
+  private def leasesUri(instance: Instance) = uri(s"${rootUri(instance)}/leases")
 
   def leaseUri(leaseId: String)(implicit instance: Instance): Option[URI] = Try { URI.create(s"${leasesUri(instance)}/$leaseId") }.toOption
   def leasesMediaUri(mediaId: String)(implicit instance: Instance) = Try { URI.create(s"${leasesUri(instance)}/media/$mediaId") }.toOption

@@ -56,7 +56,7 @@ object Edits {
 
 }
 
-trait EditsResponse extends InstanceForRequest {
+trait EditsResponse {
   val metadataBaseUri: Instance => String
 
   type ArchivedEntity = EmbeddedEntity[Boolean]
@@ -65,9 +65,8 @@ trait EditsResponse extends InstanceForRequest {
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
   type PhotoshootEntity = EmbeddedEntity[Photoshoot]
 
-  def editsEmbeddedEntity(id: String, edits: Edits)(implicit instance: Instance) = {
+  def editsEmbeddedEntity(id: String, edits: Edits)(implicit instance: Instance) =
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
-  }
 
   // the types are in the arguments because of a whining scala compiler
   def editsEntity(id: String)(implicit instance: Instance): Writes[Edits] = (

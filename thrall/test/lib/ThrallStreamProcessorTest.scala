@@ -42,7 +42,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     )
 
     def createMigrationRecord: MigrationRecord = MigrationRecord(
-      payload = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L)), instance = "an-instance"),
+      payload = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L)), instance = Instance("an-instance")),
       approximateArrivalTimestamp = OffsetDateTime.now().toInstant
     )
 

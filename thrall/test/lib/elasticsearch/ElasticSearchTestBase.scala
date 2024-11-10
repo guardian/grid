@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase
 import com.gu.mediaservice.model.Instance
 import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl._
 import helpers.Fixtures
 import org.joda.time.DateTime
 import org.scalatest.BeforeAndAfterEach

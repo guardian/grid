@@ -1,7 +1,7 @@
 package controllers
 
 import _root_.play.api.libs.json._
-import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request, RequestHeader}
+import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -40,7 +40,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   val AuthenticatedAndAuthorisedToDeleteCrops = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
-  private def indexResponse()(implicit instance: Instance) = {
+  private def indexResponse(instance: Instance) = {
     val indexData = Map("description" -> "This is the Cropper Service")
     val indexLinks = List(
       Link("crop", s"${config.rootUri(instance)}/crops")
@@ -49,8 +49,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def index = auth { request =>
-    implicit val instance: Instance = instanceOf(request)
-    indexResponse()
+    indexResponse(instanceOf(request))
   }
 
   def addExport = auth.async(parse.json) { httpRequest =>
@@ -110,7 +109,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   private def downloadExportLink(imageId: String, exportId: String, width: Int) = Link(s"crop-download-$exportId-$width", s"${config.apiUri}/images/$imageId/export/$exportId/asset/$width/download")
 
   def getCrops(id: String) = auth.async { httpRequest =>
-    val instance = instanceOf(httpRequest)
+    implicit val instance: Instance = instanceOf(httpRequest)
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "getCrops",
       "requestId" -> RequestLoggingFilter.getRequestId(httpRequest),
@@ -167,10 +166,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
     request: Authentication.Request[JsValue]
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
-    implicit val r: Authentication.Request[JsValue] = request
-    implicit val instance: Instance = instanceOf(request)
+    implicit val instance = instanceOf(request)
     for {
-      _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri(instanceOf(request))), InvalidSource)
+      _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri(instance)), InvalidSource)
       apiImage <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
       _ <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option

@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.InstanceForRequest
+import com.gu.mediaservice.model.Instance
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.{AuthenticatedUser, User, Authenticated => PandaAuthenticated, Expired => PandaExpired, GracePeriod => PandaGracePeriod, InvalidCookie => PandaInvalidCookie, NotAuthenticated => PandaNotAuthenticated, NotAuthorized => PandaNotAuthorised}
@@ -37,8 +38,8 @@ class PandaAuthenticationProvider(
 
   override def apiGracePeriod: Long = Duration(24, HOURS).toMillis
 
-  def loginLinks(request: RequestHeader) = List(
-    Link("login", resources.commonConfig.services.loginUriTemplate(instanceOf(request)))
+  def loginLinks(implicit instance: Instance): List[Link] = List(
+    Link("login", resources.commonConfig.services.loginUriTemplate(instance))
   )
 
   /**
@@ -85,18 +86,20 @@ class PandaAuthenticationProvider(
     */
   override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
     Some({ (requestHeader: RequestHeader, maybeUri: Option[RedirectUri]) =>
+      implicit val instance: Instance = instanceOf(requestHeader)
+
       // We use the `Try` here as the `GoogleAuthException` are thrown before we
       // get to the asynchronicity of the `Future` it returns.
       // We then have to flatten the Future[Future[T]]. Fiddly...
       Future.fromTry(Try(processOAuthCallback()(requestHeader))).flatten.recover {
         // This is when session session args are missing
-        case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks(requestHeader))
+        case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
 
         // Class `missing anti forgery token` as a 4XX
         // see https://github.com/guardian/pan-domain-authentication/blob/master/pan-domain-auth-play_2-6/src/main/scala/com/gu/pandomainauth/service/GoogleAuth.scala#L63
         case e: IllegalArgumentException if e.getMessage == "The anti forgery token did not match" => {
           logger.error("Anti-forgery exception encountered", e)
-          respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks(requestHeader))
+          respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
         }
       }.map {
         // not very elegant, but this will override the redirect from panda with any alternative destination

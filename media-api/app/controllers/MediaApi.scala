@@ -346,7 +346,6 @@ class MediaApi(
   }
 
   def downloadOriginalImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
     implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
@@ -372,7 +371,6 @@ class MediaApi(
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
     implicit val instance: Instance = instanceOf(request)
-    implicit val r: Request[AnyContent] = request
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
@@ -391,7 +389,6 @@ class MediaApi(
   }
 
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
     implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
@@ -419,11 +416,11 @@ class MediaApi(
   }
 
   def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String,
-                   partnerName: Option[String] = None, startPending: Option[String] = None)(implicit r: Request[AnyContent]) = {
+                   partnerName: Option[String] = None, startPending: Option[String] = None)(implicit instance: Instance) = {
 
     val baseRequest = ws.url(uri)
       .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
-        HttpHeaders.ORIGIN -> config.rootUri(instanceOf(r)),
+        HttpHeaders.ORIGIN -> config.rootUri(instance),
         HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
 
     val request = onBehalfOfPrincipal(baseRequest)

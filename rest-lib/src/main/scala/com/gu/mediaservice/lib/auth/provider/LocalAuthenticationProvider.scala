@@ -27,7 +27,7 @@ class LocalAuthenticationProvider (resources: AuthenticationProviderResources)
 
   override def sendForAuthentication: Option[RequestHeader => Future[Result]] = Some({requestHeader: RequestHeader =>
     implicit val instance: Instance = instanceOf(requestHeader)
-    Future(redirectToSource(requestHeader)(instance))
+    Future(redirectToSource(requestHeader))
   })
 
   override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = None

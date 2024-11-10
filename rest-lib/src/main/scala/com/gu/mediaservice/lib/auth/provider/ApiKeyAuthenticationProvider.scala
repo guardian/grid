@@ -1,6 +1,8 @@
 package com.gu.mediaservice.lib.auth.provider
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
+import com.gu.mediaservice.lib.config.InstanceForRequest
+import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.libs.typedmap.{TypedKey, TypedMap}
@@ -13,7 +15,8 @@ object ApiKeyAuthenticationProvider extends ApiKeyAuthentication {
   val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
 }
 
-class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
+class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging
+  with InstanceForRequest {
   implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
   var keyStorePlaceholder: Option[KeyStore] = _
 
@@ -38,6 +41,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
     * @return An authentication status expressing whether the
     */
   override def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus = {
+    implicit val instance: Instance = instanceOf(request)
     request.headers.get(ApiKeyAuthenticationProvider.apiKeyHeaderName) match {
       case Some(key) =>
         keyStore.lookupIdentity(key) match {

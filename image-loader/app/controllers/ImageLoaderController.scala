@@ -306,7 +306,7 @@ class ImageLoaderController(auth: Authentication,
         )
         _ <- uploadStatusTable.setStatus(record)
 
-        result <- quarantineOrStoreImage(uploadRequest)(context, instanceOf(req))
+        result <- quarantineOrStoreImage(uploadRequest)(context, instance)
 
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
@@ -331,6 +331,7 @@ class ImageLoaderController(auth: Authentication,
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
+
     val initialContext = MarkerMap(
       "imageId" -> imageId,
       "requestType" -> "image-projection"
@@ -371,7 +372,7 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     AuthenticatedAndAuthorised.async { request =>
-      val instance = instanceOf(request)
+      implicit val instance: Instance = instanceOf(request)
 
       implicit val context: MarkerMap = MarkerMap(
         "requestType" -> "import-image",
@@ -394,7 +395,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           uploadTime,
           filename
-      )(context, instance)
+      )
 
       // under all circumstances, remove the temp files
       uploadResultFuture.onComplete { _ =>

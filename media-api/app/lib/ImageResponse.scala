@@ -99,7 +99,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val aliases = extractAliasFieldValues(config, imageWrapper)
 
     val data = source.transform(addSecureSourceUrl(imageUrl))
-      .flatMap(_.transform(wrapUserMetadata(id)(instance)))
+      .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
       .flatMap(_.transform(
         pngUrl
@@ -136,7 +136,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   private def getDownloadLinks(id: String, isDownloadable: Boolean)(implicit instance: Instance): List[Link] = {
     (config.restrictDownload, isDownloadable) match {
       case (true, false) => Nil
-      case (_, _) => List(downloadLink(id)(instance), downloadOptimisedLink(id)(instance))
+      case (_, _) => List(downloadLink(id), downloadOptimisedLink(id))
     }
   }
 
@@ -222,7 +222,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         "value" -> isPersisted,
         "reasons" -> persistenceReasons)))
 
-  def wrapUserMetadata(id: String)(instance: Instance): Reads[JsObject] =
+  def wrapUserMetadata(id: String)(implicit instance: Instance): Reads[JsObject] =
     __.read[JsObject].map { root =>
       val edits = (root \ "userMetadata").asOpt[Edits].getOrElse(Edits.getEmpty)
       val editsJson = Json.toJson(editsEmbeddedEntity(id, edits)(instance))
@@ -368,10 +368,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def usageEntity(usage: Usage)(implicit instance: Instance) = EmbeddedEntity[Usage](usageUri(usage.id)(instance), Some(usage))
 
   def usagesEntity(id: String, usages: List[Usage])(implicit instance: Instance) =
-    EmbeddedEntity[List[UsageEntity]](usagesUri(id)(instance), Some(usages.map(u => usageEntity(u)(instance))))
+    EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(u => usageEntity(u))))
 
   def leasesEntity(id: String, leaseByMedia: LeasesByMedia)(implicit instance: Instance) =
-    EmbeddedEntity[LeasesByMedia](leasesUri(id)(instance), Some(leaseByMedia))
+    EmbeddedEntity[LeasesByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection)(implicit instance: Instance): EmbeddedEntity[CollectionResponse] =
     collectionEntity(config.collectionsUri(instance), id, c)
