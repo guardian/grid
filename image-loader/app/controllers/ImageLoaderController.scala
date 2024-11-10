@@ -2,10 +2,8 @@ package controllers
 
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -23,9 +21,9 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{Instance, UnsupportedMimeTypeException, UploadInfo}
 import lib.FailureResponse.Response
-import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
-import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
+import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.storage.ImageLoaderStore
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
 import org.scanamo.{ConditionNotMet, ScanamoError}

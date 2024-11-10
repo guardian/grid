@@ -5,6 +5,7 @@ import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, 
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.gu.mediaservice.lib.logging.GridLogging
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder, DynamoDbClient, DynamoDbClientBuilder}
 
 trait AwsClientV1BuilderUtils extends GridLogging {
   def awsLocalEndpoint: Option[String]
@@ -29,5 +30,15 @@ trait AwsClientV1BuilderUtils extends GridLogging {
       }
       case _ => builder.withCredentials(awsCredentials).withRegion(maybeRegionOverride.getOrElse(awsRegion))
     }
+  }
+
+  final def dynamoDBV2Builder(): DynamoDbClientBuilder = {
+    val e = software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider.create()
+    DynamoDbClient.builder().region(software.amazon.awssdk.regions.Region.EU_WEST_1).credentialsProvider(e)
+  }
+
+  final def dynamoDBAsyncV2Builder(): DynamoDbAsyncClientBuilder = {
+    val e = software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider.create()
+    DynamoDbAsyncClient.builder().region(software.amazon.awssdk.regions.Region.EU_WEST_1).credentialsProvider(e)
   }
 }
