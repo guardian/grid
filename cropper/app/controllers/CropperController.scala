@@ -1,7 +1,7 @@
 package controllers
 
 import _root_.play.api.libs.json._
-import _root_.play.api.mvc.{BaseController, ControllerComponents}
+import _root_.play.api.mvc.{BaseController, ControllerComponents, Request}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCropsOrUsages, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -32,7 +33,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
                         override val controllerComponents: ControllerComponents,
                         authorisation: Authorisation,
                         gridClient: GridClient)(implicit val ec: ExecutionContext)
-  extends BaseController with MessageSubjects with ArgoHelpers with MediaApiUrls {
+  extends BaseController with MessageSubjects with ArgoHelpers with MediaApiUrls with InstanceForRequest {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -59,7 +60,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       val user = httpRequest.user
       val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
-      executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
+      executeRequest(exportRequest, user, onBehalfOfPrincipal, httpRequest).map { case (imageId, export) =>
 
         val cropJson = Json.toJson(export).as[JsObject]
         val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)))
@@ -160,11 +161,12 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def executeRequest(
-    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal
+    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
+    request: Authentication.Request[JsValue]
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
-
+    implicit val instance: Instance = instanceOf(request)
     for {
-      _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri), InvalidSource)
+      _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri(instanceOf(request))), InvalidSource)
       apiImage <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
       _ <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
@@ -184,7 +186,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     } yield (id, finalCrop)
   }
 
-  private def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[SourceImage] = {
+  private def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal)(implicit instance: Instance): Future[SourceImage] = {
     gridClient.getSourceImage(imageIdFrom(uri), onBehalfOfPrincipal)
   }
 

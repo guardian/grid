@@ -23,7 +23,7 @@ object KahunaSecurityConfig {
     val base = SecurityHeadersConfig.fromConfiguration(playConfig)
 
     val services = List(
-      config.services.apiBaseUri,
+      // TODO Restore config.services.apiBaseUri,
       config.services.loaderBaseUri,
       config.services.cropperBaseUri,
       config.services.metadataBaseUri,

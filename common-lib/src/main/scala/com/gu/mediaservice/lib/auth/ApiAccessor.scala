@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import play.api.mvc.{RequestHeader, Result}
 
 sealed trait Tier
@@ -18,7 +18,7 @@ object Tier {
 }
 
 case class ApiAccessor(identity: String, tier: Tier)
-object ApiAccessor extends ArgoHelpers {
+object ApiAccessor extends ArgoHelpers with InstanceForRequest {
   def apply(content: String): ApiAccessor = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
@@ -30,7 +30,7 @@ object ApiAccessor extends ArgoHelpers {
     case Internal => true
     case ReadOnly => request.method == "GET"
     case Syndication => {
-      val isMediaApiRequest = request.uri.startsWith(services.apiBaseUri) // TODO check this!
+      val isMediaApiRequest = request.uri.startsWith(services.apiBaseUri(instanceOf(request))) // TODO check this!
       request.method == "GET" && isMediaApiRequest && request.path.startsWith("/images")
     }
   }

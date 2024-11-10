@@ -9,7 +9,7 @@ import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
-import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
 
@@ -20,7 +20,7 @@ class KahunaController(
   authorisation: Authorisation
 )(
   implicit val ec: ExecutionContext
-) extends BaseControllerWithLoginRedirects with ArgoHelpers {
+) extends BaseControllerWithLoginRedirects with ArgoHelpers with InstanceForRequest {
 
   override def auth: Authentication = authentication
 
@@ -84,7 +84,7 @@ class KahunaController(
   }
 
   def quotas = authentication { req =>
-    Ok(views.html.quotas(config.mediaApiUri))
+    Ok(views.html.quotas(config.mediaApiUri(instanceOf(req))))
   }
 
   def notifications = authentication { req =>

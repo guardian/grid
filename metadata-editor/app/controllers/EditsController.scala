@@ -12,6 +12,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import com.gu.mediaservice.lib.aws.NoItemFound
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
@@ -52,7 +53,7 @@ class EditsController(
                        authorisation: Authorisation,
                        override val controllerComponents: ControllerComponents
                      )(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with EditsResponse with MessageSubjects with Edit {
+  extends BaseController with ArgoHelpers with EditsResponse with MessageSubjects with Edit with InstanceForRequest {
 
   import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 
@@ -61,7 +62,10 @@ class EditsController(
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
 
-  private def getUploader(imageId: String, user: Principal): Future[Option[String]] = gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
+  private def getUploader(imageId: String, user: Principal, instance: Instance): Future[Option[String]] = {
+    implicit val i: Instance = instance
+    gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
+  }
 
   private def authorisedForEditMetadataOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, EditMetadata, getUploader)
 
@@ -173,6 +177,7 @@ class EditsController(
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
+    implicit val instance: Instance = instanceOf(req)
     editsStore.get(id) flatMap { dynamoEntry =>
       gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
         val edits = dynamoEntry.as[Edits]

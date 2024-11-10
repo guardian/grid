@@ -16,18 +16,19 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
-import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
-import org.scanamo.{ConditionNotMet, ScanamoError}
+import com.gu.mediaservice.model.{Instance, UnsupportedMimeTypeException, UploadInfo}
 import lib.FailureResponse.Response
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
+import org.scanamo.{ConditionNotMet, ScanamoError}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.Json
@@ -55,7 +56,7 @@ class ImageLoaderController(auth: Authentication,
                             authorisation: Authorisation,
                             metrics: ImageLoaderMetrics)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
-  extends BaseController with ArgoHelpers with SqsHelpers {
+  extends BaseController with ArgoHelpers with SqsHelpers with InstanceForRequest {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
@@ -317,6 +318,7 @@ class ImageLoaderController(auth: Authentication,
     )
     val tempFile = createTempFile(s"projection-$imageId")(initialContext)
     auth.async { req =>
+      implicit val instance: Instance = instanceOf(req)
       implicit val context: LogMarker = initialContext ++ Map(
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
@@ -503,7 +505,7 @@ class ImageLoaderController(auth: Authentication,
 
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
-
+    implicit val instance: Instance = instanceOf(request)
     val imageId = Form(
       mapping(
         "imageId" -> text

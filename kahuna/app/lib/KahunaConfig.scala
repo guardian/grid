@@ -3,6 +3,7 @@ package lib
 import com.gu.mediaservice.lib.auth.Permissions.Pinboard
 import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.model.Instance
 import play.api.libs.json._
 
 case class ScriptToLoad(
@@ -15,7 +16,7 @@ case class ScriptToLoad(
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val rootUri: String = services.kahunaBaseUri
-  val mediaApiUri: String = services.apiBaseUri
+  def mediaApiUri: Instance => String = services.apiBaseUri
   val authUri: String = services.authBaseUri
 
   val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)

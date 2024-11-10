@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.usage.UsageBuilder
@@ -33,7 +34,7 @@ class UsageApi(
   playBodyParsers: PlayBodyParsers
 )(
   implicit val ec: ExecutionContext
-) extends BaseController with MessageSubjects with ArgoHelpers {
+) extends BaseController with MessageSubjects with ArgoHelpers with InstanceForRequest {
 
   private val AuthenticatedAndAuthorisedToDelete = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
@@ -83,7 +84,7 @@ class UsageApi(
 
         val uri = usageUri(usage.id)
         val links = List(
-          Link("media", s"${config.services.apiBaseUri}/images/$mediaId"),
+          Link("media", s"${config.services.apiBaseUri(instanceOf(req))}/images/$mediaId"),
           Link("media-usage", s"${config.services.usageBaseUri}/usages/media/$mediaId")
         )
 
@@ -113,7 +114,7 @@ class UsageApi(
         case _ =>
           val uri = Try { URI.create(s"${config.services.usageBaseUri}/usages/media/$mediaId") }.toOption
           val links = List(
-            Link("media", s"${config.services.apiBaseUri}/images/$mediaId")
+            Link("media", s"${config.services.apiBaseUri(instanceOf(req))}/images/$mediaId")
           )
 
           respondCollection[EntityResponse[Usage]](

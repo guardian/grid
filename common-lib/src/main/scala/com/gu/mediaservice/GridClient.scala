@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.net.URL
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SourceImage, SyndicationRights}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, Instance, SourceImage, SyndicationRights}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -134,8 +134,8 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getProjectionDiff(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/projection/diff")
+  def getProjectionDiff(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[JsValue]] = {
+    val url = new URL(s"${services.apiBaseUri(instance)}/images/$mediaId/projection/diff")
     makeGetRequestAsync(url, authFn, requestTimeout = Some(120.seconds)).map {
       case Found(json, _) => Some(json)
       case NotFound(_, _) => None
@@ -189,9 +189,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getSoftDeletedMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[ImageStatusRecord]] = {
+  def getSoftDeletedMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[ImageStatusRecord]] = {
     logger.info("attempt to get soft deleted metadata")
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/softDeletedMetadata")
+    val url = new URL(s"${services.apiBaseUri(instance)}/images/$mediaId/softDeletedMetadata")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[ImageStatusRecord])
       case NotFound(_, _) => None
@@ -199,9 +199,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getUploadedBy(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[String]] = {
+  def getUploadedBy(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[Option[String]] = {
     logger.info("attempt to get uploadedBy")
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/uploadedBy")
+    val url = new URL(s"${services.apiBaseUri(instance)}/images/$mediaId/uploadedBy")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[String])
       case NotFound(_, _) => None
@@ -235,9 +235,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getSourceImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[SourceImage] = {
+  def getSourceImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[SourceImage] = {
     logger.info("attempt to get image")
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
+    val url = new URL(s"${services.apiBaseUri(instance)}/images/$mediaId")
     makeGetRequestAsync(url, authFn, queryStringParameters = Some(Seq("include" -> "fileMetadata"))) map {
       case Found(json, _) => json.as[SourceImage]
       case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
@@ -245,9 +245,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {
+  def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[ImageMetadata] = {
     logger.info("attempt to get metadata")
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
+    val url = new URL(s"${services.apiBaseUri(instance)}/images/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data" \ "metadata").as[ImageMetadata]
       case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
