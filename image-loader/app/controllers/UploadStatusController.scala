@@ -35,6 +35,7 @@ class UploadStatusController(auth: Authentication,
   }
 
   def updateUploadStatus(imageId: String) = (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async(parse.json[UploadStatus]) { request =>
+    implicit val instance: Instance = instanceOf(request)
     request.body match {
       case UploadStatus(StatusType.Failed, None) =>
         Future.successful(respondError(
@@ -58,6 +59,7 @@ class UploadStatusController(auth: Authentication,
   def getUploadsBy(user:String): Action[AnyContent] = getUploads(Some(user))
 
   private def getUploads(maybeUser: Option[String]): Action[AnyContent] = auth.async { req =>
+    implicit val instance: Instance = instanceOf(req)
     store.queryByUser(maybeUser.getOrElse(req.user.accessor.identity))
       .map(list => respond(list))
   }

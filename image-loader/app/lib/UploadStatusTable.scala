@@ -1,5 +1,6 @@
 package lib
 
+import com.gu.mediaservice.model.Instance
 import org.scanamo._
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._
@@ -16,15 +17,15 @@ class UploadStatusTable(config: ImageLoaderConfig) {
   val scanamo = ScanamoAsync(client)
   private val uploadStatusTable = Table[UploadStatusRecord](config.uploadStatusTable)
 
-  def getStatus(imageId: String) = {
-    scanamo.exec(uploadStatusTable.get("id" === imageId))
+  def getStatus(imageId: String)(implicit instance: Instance) = {
+    scanamo.exec(uploadStatusTable.get("instance" === instance.id and "id" === imageId))
   }
 
-  def setStatus(uploadStatus: UploadStatusRecord) = {
+  def setStatus(uploadStatus: UploadStatusRecord)(implicit instance: Instance) = {
     scanamo.exec(uploadStatusTable.put(uploadStatus))
   }
 
-  def updateStatus(imageId: String, updateRequest: UploadStatus) = {
+  def updateStatus(imageId: String, updateRequest: UploadStatus)(implicit instance: Instance) = {
     val updateExpression = updateRequest.errorMessage match {
       case Some(error) => set("status", updateRequest.status) and set("errorMessages", error)
       case None => set("status", updateRequest.status)
@@ -38,14 +39,14 @@ class UploadStatusTable(config: ImageLoaderConfig) {
     scanamo.exec(
       uploadStatusTableWithCondition
         .update(
-          key = "id" === imageId,
+          "id" === imageId and "instance" === instance.id,
           update = updateExpression
         )
     )
   }
 
-  def queryByUser(user: String): Future[List[UploadStatusRecord]] = {
-    scanamo.exec(uploadStatusTable.scan()).map {
+  def queryByUser(user: String)(implicit instance: Instance): Future[List[UploadStatusRecord]] = {
+    scanamo.exec(uploadStatusTable.query("instance" === instance.id)).map {
       case Nil => List.empty[UploadStatusRecord]
       case recordsAndErrors => {
         recordsAndErrors

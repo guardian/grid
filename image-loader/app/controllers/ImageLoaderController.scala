@@ -119,7 +119,7 @@ class ImageLoaderController(auth: Authentication,
   }
 
   private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(basicLogMarker: LogMarker, request: Request[AnyContent]): Future[Unit] = Future[Future[Unit]]{
-    val instance = ???  // TODO has to be on the message!
+    implicit val instance = ???  // TODO has to be on the message!
 
     logger.info(basicLogMarker, sqsMessage.toString)
 
@@ -171,7 +171,7 @@ class ImageLoaderController(auth: Authentication,
           }
           Future.unit
         } else {
-          attemptToProcessIngestedFile(s3IngestObject, isUiUpload, instance)(logMarker, request) map { digestedFile =>
+          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(instance) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
@@ -189,7 +189,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean, instance: Instance)(initialLogMarker:LogMarker, request: Request[AnyContent]): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker)(implicit instance: Instance): Future[DigestedFile] = {
 
     logger.info(initialLogMarker, "Attempting to process file")
     val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
@@ -203,7 +203,6 @@ class ImageLoaderController(auth: Authentication,
       "mediaId" -> digestedFile.digest
     )
 
-    implicit val instance: Instance = instanceOf(request)
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
         uploadedBy = s3IngestObject.uploadedBy,
@@ -225,7 +224,7 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
-    val instance = instanceOf(request)
+    implicit val instance: Instance = instanceOf(request)
 
     val expiration = DateTimeUtils.now().plusHours(1)
 
@@ -278,7 +277,7 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
-      val instance = instanceOf(req)
+      implicit val instance: Instance = instanceOf(req)
 
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
@@ -444,7 +443,7 @@ class ImageLoaderController(auth: Authentication,
   private def resolveUploadAndUpdateStatus (
    uploadResultFuture: Future[UploadStatusUri],
    digestedFileFuture: Future[DigestedFile],
-  )(implicit logMarker:LogMarker):Future[Either[Response,UploadStatusUri]] = {
+  )(implicit logMarker:LogMarker, instance: Instance):Future[Either[Response,UploadStatusUri]] = {
     // combine the import result and digest file together into a single future
     uploadResultFuture.transformWith { // note that we use transformWith instead of zip here as we are still interested in value of digestedFile even if the import fails
       maybeImportResult =>
@@ -483,7 +482,7 @@ class ImageLoaderController(auth: Authentication,
   private def updateUploadStatusTable(
     uploadAttempt: Future[UploadStatusUri],
     digestedFile: DigestedFile
-  )(implicit logMarker: LogMarker): Future[Unit] = {
+  )(implicit logMarker: LogMarker, instance: Instance): Future[Unit] = {
 
     def reportFailure(error: Throwable): Unit = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
@@ -527,6 +526,7 @@ class ImageLoaderController(auth: Authentication,
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
     implicit val instance: Instance = instanceOf(request)
+
     val imageId = Form(
       mapping(
         "imageId" -> text
