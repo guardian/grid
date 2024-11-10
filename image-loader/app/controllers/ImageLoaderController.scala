@@ -2,6 +2,7 @@ package controllers
 
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
@@ -23,13 +24,15 @@ import com.gu.mediaservice.model.{Instance, UnsupportedMimeTypeException, Upload
 import lib.FailureResponse.Response
 import lib._
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
-import lib.storage.ImageLoaderStore
+import lib.instances.Instances
+import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
 import org.scanamo.{ConditionNotMet, ScanamoError}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.Json
+import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import java.io.{File, FileOutputStream}
@@ -44,23 +47,20 @@ class ImageLoaderController(auth: Authentication,
                             store: ImageLoaderStore,
                             maybeIngestQueue: Option[SimpleSqsMessageConsumer],
                             uploadStatusTable: UploadStatusTable,
-                            notifications: Notifications,
-                            config: ImageLoaderConfig,
+                            val config: ImageLoaderConfig,
                             uploader: Uploader,
                             quarantineUploader: Option[QuarantineUploader],
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
                             authorisation: Authorisation,
-                            metrics: ImageLoaderMetrics)
+                            metrics: ImageLoaderMetrics,
+                            val wsClient: WSClient)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
-  extends BaseController with ArgoHelpers with SqsHelpers with InstanceForRequest {
+  extends BaseController with ArgoHelpers with SqsHelpers with InstanceForRequest with Instances {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
-  //TODO first example of a non user facing message which needs to be made instance aware!
-  val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = None
-  /*
   val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
     val processor = Source.repeat(())
       .mapAsyncUnordered(parallelism=1)(_ => {
@@ -96,7 +96,6 @@ class ImageLoaderController(auth: Authentication,
 
     (ingestQueue, processor)
   }
-  */
 
   private def indexResponse(instance: Instance): Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -118,9 +117,8 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)(instance)).getOrElse(for { uploadStatusUri <- uploader.storeFile(uploadRequest)} yield{uploadStatusUri.toJsObject})
   }
 
-  private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(basicLogMarker: LogMarker, request: Request[AnyContent]): Future[Unit] = Future[Future[Unit]]{
-    implicit val instance = ???  // TODO has to be on the message!
-
+  private def handleMessageFromIngestBucket(sqsMessage: SQSMessage)(basicLogMarker: LogMarker): Future[Unit] = {
+    logger.info("Received ingest bucket notification: " + sqsMessage.toString)
     logger.info(basicLogMarker, sqsMessage.toString)
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
@@ -129,65 +127,88 @@ class ImageLoaderController(auth: Authentication,
         logger.error(basicLogMarker, s"Failed to parse s3 data from SQS message", exception)
         Future.unit
       case Success(key) =>
-        val s3IngestObject = S3IngestObject(key, store)(basicLogMarker)
+        val pathComponents = key.split("/")
+        val instanceId = pathComponents.head
+        val path = pathComponents.drop(1).mkString("/")
+        logger.info(s"Instance and key: $instanceId / $path")
 
-        val isUiUpload = s3IngestObject.maybeMediaIdFromUiUpload.isDefined
-
-        implicit val logMarker: LogMarker = basicLogMarker ++ Map(
-          "uploadedBy" -> s3IngestObject.uploadedBy,
-          "uploadedTime" -> s3IngestObject.uploadTime,
-          "contentLength" -> s3IngestObject.contentLength,
-          "filename" -> s3IngestObject.filename,
-          "isUiUpload" -> isUiUpload,
-        ) ++ s3IngestObject.maybeMediaIdFromUiUpload.map("mediaId" -> _).toMap
-        val metricDimensions = List(
-          new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy),
-          new Dimension().withName("IsUiUpload").withValue(isUiUpload.toString),
-        )
-
-        val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
-
-        if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
-          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
-          logger.warn(logMarker, errorMessage)
-          store.moveObjectToFailedBucket(s3IngestObject.key)
-          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
-            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
-              imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
-            )
-          }
-          metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-          Future.unit
+        val eventualIsValidInstanceId = getInstances().map { instances =>
+          instances.map(_.id).contains(instanceId)
         }
-        else if (approximateReceiveCount > 2) {
-          metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-          val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
-          logger.warn(logMarker, errorMessage)
-          store.moveObjectToFailedBucket(s3IngestObject.key)
-          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
-            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
-              imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
-            )
-          }
-          Future.unit
-        } else {
-          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(instance) map { digestedFile =>
-            metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-            logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
-            store.deleteObjectFromIngestBucket(s3IngestObject.key)
-          } recover {
-            case _: UnsupportedMimeTypeException =>
-              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
-              store.moveObjectToFailedBucket(s3IngestObject.key)
-            case t: Throwable =>
-              metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
-              store.moveObjectToFailedBucket(s3IngestObject.key)
+
+        eventualIsValidInstanceId.flatMap { isValidInstanceSpecificKey =>
+          if (isValidInstanceSpecificKey) {
+            try {
+              implicit val instance: Instance = Instance(id = instanceId)
+
+              val s3IngestObject = S3IngestObject(key, store)(basicLogMarker)
+              val isUiUpload = s3IngestObject.maybeMediaIdFromUiUpload.isDefined
+
+              implicit val logMarker: LogMarker = basicLogMarker ++ Map(
+                "uploadedBy" -> s3IngestObject.uploadedBy,
+                "uploadedTime" -> s3IngestObject.uploadTime,
+                "contentLength" -> s3IngestObject.contentLength,
+                "filename" -> s3IngestObject.filename,
+                "isUiUpload" -> isUiUpload,
+              ) ++ s3IngestObject.maybeMediaIdFromUiUpload.map("mediaId" -> _).toMap
+              val metricDimensions = List(
+                new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy),
+                new Dimension().withName("IsUiUpload").withValue(isUiUpload.toString),
+              )
+
+              val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
+
+              if (config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)) {
+                val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
+                logger.warn(logMarker, errorMessage)
+                store.moveObjectToFailedBucket(s3IngestObject.key)
+                s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+                  uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
+                    imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
+                  )
+                }
+                metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+                Future.unit
+              }
+              else if (approximateReceiveCount > 2) {
+                metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+                val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
+                logger.warn(logMarker, errorMessage)
+                store.moveObjectToFailedBucket(s3IngestObject.key)
+                s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+                  uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
+                    imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
+                  )
+                }
+                Future.unit
+              } else {
+                attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker)(instance) map { digestedFile =>
+                  metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+                  logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
+                  store.deleteObjectFromIngestBucket(s3IngestObject.key)
+                } recover {
+                  case _: UnsupportedMimeTypeException =>
+                    metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+                    logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
+                    store.moveObjectToFailedBucket(s3IngestObject.key)
+                  case t: Throwable =>
+                    metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+                    logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+                    store.moveObjectToFailedBucket(s3IngestObject.key)
+                }
+              }
+            }
+            catch {
+              case t: Throwable =>
+                logger.error("Uncaught throw:", t)
+                Future.unit
+            }
+          } else {
+            Future.unit
           }
         }
     }
-  }.flatten
+  }
 
   private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker)(implicit instance: Instance): Future[DigestedFile] = {
 
@@ -203,12 +224,13 @@ class ImageLoaderController(auth: Authentication,
       "mediaId" -> digestedFile.digest
     )
 
+    val filename = s3IngestObject.filename
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
         uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = Some(s3IngestObject.filename),
+        filename = Some(filename),
     )
 
     // under all circumstances, remove the temp files
