@@ -7,6 +7,7 @@ import org.scanamo._
 import org.scanamo.generic.auto.Typeclass
 import org.scanamo.generic.semiauto.deriveDynamoFormat
 import org.scanamo.syntax._
+import org.scanamo.generic.auto._
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
@@ -22,8 +23,6 @@ class LeaseStore(config: LeasesConfig) {
   implicit val enumFormat: Typeclass[MediaLeaseType] =
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_), _.toString)
 
-  implicit val formatLeases: DynamoFormat[com.gu.mediaservice.model.leases.MediaLease] = deriveDynamoFormat[com.gu.mediaservice.model.leases.MediaLease]
-
   private val leasesTable = Table[MediaLease](config.leasesTable)
 
   def get(id: String)(implicit ec: ExecutionContext, instance: Instance): Future[Option[MediaLease]] = {
@@ -36,6 +35,7 @@ class LeaseStore(config: LeasesConfig) {
 
   def put(lease: MediaLease)(implicit ec: ExecutionContext, instance: Instance) = {
     // TODO bypass scanomo to put on composite key
+    implicit val formatLeases: DynamoFormat[com.gu.mediaservice.model.leases.MediaLease] = deriveDynamoFormat[com.gu.mediaservice.model.leases.MediaLease]
     val map: util.Map[String, model.AttributeValue] = formatLeases.write(lease).asObject.get.toJavaMap
     map.put("instance", AttributeValue.fromS(instance.id))
     val putRequest = PutItemRequest.builder().
