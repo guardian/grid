@@ -6,7 +6,8 @@ case class ImageStatusRecord(
                                id: String,
                                deletedBy: String,
                                deleteTime: String,
-                               isDeleted: Boolean
+                               isDeleted: Boolean,
+                               instance: String
                              )
 
 object ImageStatusRecord {

@@ -227,7 +227,8 @@ class MediaApi(
 
   }
 
-  def getSoftDeletedMetadata(id: String) = auth.async {
+  def getSoftDeletedMetadata(id: String) = auth.async { request =>
+    implicit val instance: Instance = instanceOf(request)
     softDeletedMetadataTable.getStatus(id)
       .map {
         case Some(scala.Right(record)) => respond(record)
@@ -295,7 +296,7 @@ class MediaApi(
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, isDeleted = true, instance.id)
             softDeletedMetadataTable.setStatus(imageStatusRecord)
             .map { _ =>
               messageSender.publish(
