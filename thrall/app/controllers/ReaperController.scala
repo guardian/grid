@@ -169,6 +169,7 @@ class ReaperController(
       thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted, i)
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted, i)
       _ <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
+      // TODO No one has issued an image-deleted notification to metadata-editor? Metadata will persist forever?
     } yield {
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
