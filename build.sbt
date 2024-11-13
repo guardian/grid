@@ -157,7 +157,6 @@ lazy val thrall = playProject("thrall", 9002)
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-      "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
       "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
