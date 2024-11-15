@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.Image
 
 // Note this is a Processor, not a Cleaner!
 // This really ought to live in the ImageMetadataConverter, but unfortunately
-// that cannot be configured to behave differently per deployer
+// that cannot be configured to behave differently per organisation
 object InsertGuardianImageType extends ImageProcessor with GridLogging {
 
   override def apply(image: Image): Image = {
