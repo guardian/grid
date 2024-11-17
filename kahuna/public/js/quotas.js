@@ -1,5 +1,5 @@
 const mediaApiUri = document.querySelector('link[rel="media-api-uri"').href;
-const usageUri = mediaApiUri + 'usage/quotas';
+const usageUri = mediaApiUri + '/usage/quotas';
 
 const show = (content) => {
     document.getElementById("root").innerHTML = content;
