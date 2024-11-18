@@ -882,7 +882,13 @@ textarea.ng-invalid {
     text-align: center;
 }
 .warning--small {
-    padding: 5px 10px;
+  padding: 5px 10px;
+}
+.warning--multiline {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 }
 
 .full-error {
