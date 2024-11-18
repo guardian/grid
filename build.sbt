@@ -75,9 +75,6 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    // FIXME - added temporarily to assist code compatible with scala 2.12 and 2.13
-    // remove ASAP after completing 2.13 upgrade!!!
-    "org.scala-lang.modules" %% "scala-collection-compat" % "2.12.0",
     "com.gu" %% "editorial-permissions-client" % "3.0.0",
     "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
