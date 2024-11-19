@@ -4,13 +4,12 @@ import java.io.{File, FileOutputStream}
 import java.net.URL
 import java.nio.channels.Channels
 import java.util.concurrent.Executors
-
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 
 object Files {
 
-  private implicit val ctx = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
+  private implicit val ctx: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def createTempFile(prefix: String, suffix: String, tempDir: File): Future[File] =
     Future {

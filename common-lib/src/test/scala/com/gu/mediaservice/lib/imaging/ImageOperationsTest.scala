@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 @Ignore
 class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
 
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
   implicit val logMarker: LogMarker = MarkerMap()
 
   describe("identifyColourModel") {

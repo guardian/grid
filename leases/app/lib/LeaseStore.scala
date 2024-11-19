@@ -13,9 +13,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class LeaseStore(config: LeasesConfig) {
   val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
 
-  implicit val dateTimeFormat =
+  implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
-  implicit val enumFormat =
+  implicit val enumFormat: Typeclass[MediaLeaseType] =
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_), _.toString)
 
   private val leasesTable = Table[MediaLease](config.leasesTable)
@@ -41,7 +41,7 @@ class LeaseStore(config: LeasesConfig) {
   }
 
   def forEach[T](run: List[MediaLease] => T)(implicit ec: ExecutionContext) = ScanamoAsync(client).exec(
-    leasesTable.scan
+    leasesTable.scan()
       .map(ops => ops.flatMap(_.toOption))
       .map(run)
   )

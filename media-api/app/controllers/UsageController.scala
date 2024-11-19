@@ -19,7 +19,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
   val numberOfDayInPeriod = 30
 
   def bySupplier = auth.async { request =>
-    implicit val r = request
+    implicit val r: Authentication.Request[AnyContent] = request
 
     Future.sequence(
       Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
@@ -31,7 +31,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
   }
 
   def forSupplier(id: String) = auth.async { request =>
-    implicit val r = request
+    implicit val r: Authentication.Request[AnyContent] = request
 
     elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
       .map((s: SupplierUsageSummary) => respond(s))
@@ -53,7 +53,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
 
 
   def quotaForImage(id: String) = auth.async { request =>
-    implicit val r = request
+    implicit val r: Authentication.Request[AnyContent] = request
 
     usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))

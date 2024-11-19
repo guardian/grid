@@ -11,7 +11,7 @@ class AggregationController(auth: Authentication, elasticSearch: ElasticSearch,
   extends BaseController with AggregateResponses {
 
   def dateHistogram(field: String, q: Option[String]) = auth.async { request =>
-    implicit val r = request
+    implicit val r: Authentication.Request[AnyContent] = request
 
     elasticSearch.dateHistogramAggregate(AggregateSearchParams(field, request))
       .map(aggregateResponse)

@@ -181,7 +181,7 @@ class ImageLoaderController(auth: Authentication,
       tempFile,
       expectedSize = s3IngestObject.contentLength
     )
-    implicit val logMarker = initialLogMarker ++ Map(
+    implicit val logMarker: LogMarker = initialLogMarker ++ Map(
       "mediaId" -> digestedFile.digest
     )
 
@@ -423,6 +423,7 @@ class ImageLoaderController(auth: Authentication,
         case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
         case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
         case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
+        case Failure(e) => throw e // this is a "fatal" error - let it be fatal
         case Success(uploadStatusUri) => Right(uploadStatusUri)
       }
       // build a Failed StatusType from the failure response or Completed if successful
@@ -503,7 +504,7 @@ class ImageLoaderController(auth: Authentication,
       mapping(
         "imageId" -> text
       )(RestoreFromReplicaForm.apply)(RestoreFromReplicaForm.unapply)
-    ).bindFromRequest.get.imageId
+    ).bindFromRequest().get.imageId
 
     implicit val logMarker: LogMarker = MarkerMap(
       "imageId" -> imageId,

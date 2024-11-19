@@ -22,7 +22,7 @@ import scala.util.{Failure, Try}
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
   extends EditsResponse with GridLogging {
 
-  implicit val usageQuotas = usageQuota
+  implicit val usageQuotas: UsageQuota = usageQuota
 
   object Costing extends CostCalculator {
     override val freeSuppliers: List[String] = config.usageRightsConfig.freeSuppliers
@@ -33,7 +33,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   val customSpecialInstructions: Map[String, String] = config.customSpecialInstructions
   val customUsageRestrictions: Map[String, String] = config.customUsageRestrictions
 
-  implicit val costing = Costing
+  implicit val costing: CostCalculator = Costing
 
   val metadataBaseUri: String = config.services.metadataBaseUri
 

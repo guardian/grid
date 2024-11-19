@@ -5,8 +5,8 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.functional.syntax.{toFunctionalBuilderOps}
-import play.api.libs.json.{JodaReads, JodaWrites, Json, __}
+import play.api.libs.functional.syntax.toFunctionalBuilderOps
+import play.api.libs.json.{JodaReads, JodaWrites, Json, OWrites, Reads, Writes, __}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
 class ThrallMessageSender(config: KinesisSenderConfig) {
@@ -27,17 +27,17 @@ case class BulkIndexRequest(
 )
 
 object BulkIndexRequest {
-  implicit val reads = Json.reads[BulkIndexRequest]
-  implicit val writes = Json.writes[BulkIndexRequest]
+  implicit val reads: Reads[BulkIndexRequest] = Json.reads[BulkIndexRequest]
+  implicit val writes: OWrites[BulkIndexRequest] = Json.writes[BulkIndexRequest]
 }
 
 object UpdateMessage extends GridLogging {
-  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
-  implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-  implicit val unw = Json.writes[UsageNotice]
-  implicit val unr = Json.reads[UsageNotice]
-  implicit val writes = Json.writes[UpdateMessage]
-  implicit val reads =
+  implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
+  implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites
+  implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
+  implicit val unr: Reads[UsageNotice] = Json.reads[UsageNotice]
+  implicit val writes: OWrites[UpdateMessage] = Json.writes[UpdateMessage]
+  implicit val reads: Reads[UpdateMessage] =
     (
       (__ \ "subject").read[String] ~
         (__ \ "image").readNullable[Image] ~

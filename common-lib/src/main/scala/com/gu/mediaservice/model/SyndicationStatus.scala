@@ -23,7 +23,7 @@ object SyndicationStatus {
 
   implicit val reads: Reads[SyndicationStatus] = JsPath.read[String].map(SyndicationStatus(_))
 
-  implicit val writer = new Writes[SyndicationStatus] {
+  implicit val writer: Writes[SyndicationStatus] = new Writes[SyndicationStatus] {
     def writes(status: SyndicationStatus) = JsString(status.toString)
   }
 }

@@ -63,18 +63,18 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         case Some(isQuery) => isQuery.query
         case _ => {
           logger.info(s"Cannot perform IS query on ${condition.value}")
-          matchNoneQuery
+          matchNoneQuery()
         }
       }
       case _ => {
         logger.info(s"Cannot perform IS query on ${condition.value}")
-        matchNoneQuery
+        matchNoneQuery()
       }
     }
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
-    case Nil => matchAllQuery
+    case Nil => matchAllQuery()
     case condList => {
 
       val (nested: List[Nested], normal: List[Condition]) = (
@@ -82,7 +82,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         condList collect { case c: Condition => c }
       )
 
-      val query = normal.foldLeft(boolQuery) {
+      val query = normal.foldLeft(boolQuery()) {
         case (query, Negation(cond)) => query.withNot(makeQueryBit(cond))
         case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
         case (query, _) => query
@@ -93,7 +93,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         .map {
           case (parent: SingleField, n: List[Nested]) => {
 
-            val nested = n.foldLeft(boolQuery) {
+            val nested = n.foldLeft(boolQuery()) {
               case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
               case (query, _) => query
             }
