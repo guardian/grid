@@ -40,7 +40,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.14.3",
+  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.17.2",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -75,7 +75,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "editorial-permissions-client" % "3.0.0",
+    "com.gu" %% "editorial-permissions-client" % "4.0.0",
     "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
