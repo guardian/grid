@@ -9,14 +9,14 @@ import org.scanamo.generic.semiauto.deriveDynamoFormat
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest}
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbClient, model}
 
 import java.util
 import scala.concurrent.{ExecutionContext, Future}
 
 class LeaseStore(config: LeasesConfig) {
   val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
-  val syncClient = config.dynamoDBV2Builder().build()
+  val syncClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
 
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
