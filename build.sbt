@@ -40,7 +40,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.14.3",
+  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.17.2",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -75,7 +75,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "editorial-permissions-client" % "3.0.0",
+    "com.gu" %% "editorial-permissions-client" % "4.0.0",
     "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -94,7 +94,8 @@ lazy val commonLib = project("common-lib").settings(
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
-    "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
+    "net.logstash.logback" % "logstash-logback-encoder" % "7.4",
+    "ch.qos.logback" % "logback-classic" % "1.3.7", // this must be kept in sync with logstash-logback-encoder: see https://github.com/logfellow/logstash-logback-encoder/tree/main?tab=readme-ov-file#including-it-in-your-project for more
     "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
@@ -110,7 +111,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
-  dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
 
 lazy val restLib = project("rest-lib").settings(
