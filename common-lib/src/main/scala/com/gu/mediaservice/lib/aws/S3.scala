@@ -17,16 +17,16 @@ import scala.concurrent.{ExecutionContext, Future}
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
 object S3Object {
-  def objectUrl(bucket: String, key: String): URI = {
-    val bucketUrl = s"$bucket.${S3Ops.s3Endpoint}"
+  private def objectUrl(bucket: String, key: String, s3Endpoint: String): URI = {
+    val bucketUrl = s"$bucket.$s3Endpoint"
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def apply(bucket: String, key: String, size: Long, metadata: S3Metadata): S3Object =
-    apply(objectUrl(bucket, key), size, metadata)
+  def apply(bucket: String, key: String, size: Long, metadata: S3Metadata, s3Endpoint: String): S3Object =
+    apply(objectUrl(bucket, key, s3Endpoint), size, metadata)
 
   def apply(bucket: String, key: String, file: File, mimeType: Option[MimeType], lastModified: Option[DateTime],
-            meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+            meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String): S3Object = {
     S3Object(
       bucket,
       key,
@@ -38,7 +38,8 @@ object S3Object {
           cacheControl,
           lastModified
         )
-      )
+      ),
+      s3Endpoint
     )
   }
 }
@@ -65,6 +66,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type Key = String
   type UserMetadata = Map[String, String]
 
+  private val s3Endpoint: String = config.s3Endpoint
   private lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
@@ -184,7 +186,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
         client.putObject(req)
         // once we've completed the PUT read back to ensure that we are returning reality
         val metadata = client.getObjectMetadata(bucket, id)
-        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata))
+        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata), s3Endpoint)
       }(markers)
     }
 
@@ -198,7 +200,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }.flatMap {
       case Some(objectMetadata) =>
         logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
-        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata)))
+        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata) ,s3Endpoint))
       case None =>
         store(bucket, id, file, mimeType, meta, cacheControl)
     }
@@ -212,7 +214,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key)) :: memo
+          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key), s3Endpoint) :: memo
       }
     }
 
@@ -234,10 +236,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 }
 
 object S3Ops {
-  // TODO make this localstack friendly
-  // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
-  val s3Endpoint = "s3.amazonaws.com"
-
   def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
 
     val clientConfig = new ClientConfiguration()

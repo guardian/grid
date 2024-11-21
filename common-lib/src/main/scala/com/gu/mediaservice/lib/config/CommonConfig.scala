@@ -58,6 +58,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val maybeUploadLimitInBytes: Option[Int] = intOpt("upload.limit.mb").map(_ * 1024 * 1024)
 
+  val s3Endpoint: String= stringOpt("s3.serviceEndpoint").getOrElse("s3.amazonaws.com")
+
   val instancesEndpoint: String = string("instance.service.instances")
 
   // Note: had to make these lazy to avoid init order problems ;_;
