@@ -639,7 +639,7 @@ class ElasticSearch(
     val exportsParameter = JsDefined(Json.toJson(exports)).toOption.map { cs: JsValue =>  // TODO deduplicate with set collections
       cs.as[JsArray].value.map { c =>
         asNestedMap(c)
-      }
+      }.toSeq
     }.orNull
 
     val eventualUpdateResponse = migrationAwareUpdater(
@@ -673,7 +673,7 @@ class ElasticSearch(
     val collectionsParameter = JsDefined(Json.toJson(collections)).toOption.map { cs: JsValue =>
       cs.as[JsArray].value.map { c =>
         asNestedMap(c)
-      }
+      }.toSeq
     }.orNull
 
     val eventualUpdateResponse = migrationAwareUpdater(
