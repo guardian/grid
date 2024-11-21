@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.aws
 
 import com.gu.mediaservice.lib.logging.GridLogging
-import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, DefaultCredentialsProvider}
+import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, EnvironmentVariableCredentialsProvider}
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder
 import software.amazon.awssdk.regions.Region
 
@@ -13,7 +13,7 @@ trait AwsClientV2BuilderUtils extends GridLogging {
 
   def awsRegionV2: Region = Region.EU_WEST_1
 
-  def awsCredentialsV2: AwsCredentialsProvider = DefaultCredentialsProvider.builder().profileName("media-service").build()
+  def awsCredentialsV2: AwsCredentialsProvider = EnvironmentVariableCredentialsProvider.create()
 
   final def withAWSCredentialsV2[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S = {
     val credentialedBuilder = builder.credentialsProvider(awsCredentialsV2).region(maybeRegionOverride.getOrElse(awsRegionV2))
