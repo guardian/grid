@@ -38,4 +38,10 @@ object UsageIdBuilder {
     Some(downloadUsageRequest.metadata.downloadedBy),
     Some(downloadUsageRequest.status)
   ))
+
+  def build(integrationUsageRequest: IntegrationUsageRequest) = buildId(List(
+    Some(integrationUsageRequest.mediaId),
+    Some(integrationUsageRequest.metadata.integrationTool),
+    Some(integrationUsageRequest.status)
+  ))
 }

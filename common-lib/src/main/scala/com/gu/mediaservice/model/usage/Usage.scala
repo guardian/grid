@@ -19,7 +19,8 @@ case class Usage(
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
   syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
   frontUsageMetadata: Option[FrontUsageMetadata] = None,
-  downloadUsageMetadata: Option[DownloadUsageMetadata] = None
+  downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
+  integrationUsageMetadata: Option[IntegrationUsageMetadata] = None
 )
 object Usage {
   import com.gu.mediaservice.lib.formatting._
@@ -37,7 +38,8 @@ object Usage {
       (__ \ "digitalUsageMetadata").writeNullable[DigitalUsageMetadata] ~
       (__ \ "syndicationUsageMetadata").writeNullable[SyndicationUsageMetadata] ~
       (__ \ "frontUsageMetadata").writeNullable[FrontUsageMetadata] ~
-      (__ \ "downloadUsageMetadata").writeNullable[DownloadUsageMetadata]
+      (__ \ "downloadUsageMetadata").writeNullable[DownloadUsageMetadata] ~
+      (__ \ "integrationUsageMetadata").writeNullable[IntegrationUsageMetadata]
     )(unlift(Usage.unapply))
 
   implicit val reads: Reads[Usage] = (
@@ -53,6 +55,7 @@ object Usage {
       (__ \ "digitalUsageMetadata").readNullable[DigitalUsageMetadata] ~
       (__ \ "syndicationUsageMetadata").readNullable[SyndicationUsageMetadata] ~
       (__ \ "frontUsageMetadata").readNullable[FrontUsageMetadata] ~
-      (__ \ "downloadUsageMetadata").readNullable[DownloadUsageMetadata]
+      (__ \ "downloadUsageMetadata").readNullable[DownloadUsageMetadata] ~
+      (__ \ "integrationUsageMetadata").readNullable[IntegrationUsageMetadata]
     )(Usage.apply _)
 }

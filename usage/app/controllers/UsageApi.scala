@@ -256,6 +256,30 @@ class UsageApi(
     )
   }}
 
+  def setIntegrationUsages() = auth(parse.json) { req =>
+
+    val request = (req.body \ "data").validate[IntegrationUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "integration-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      usageRequest => {
+        implicit val logMarker: LogMarker = MarkerMap(
+          "requestType" -> "set-integration-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> usageRequest.mediaId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+        logger.info(logMarker, "recording integration usage")
+        val group = usageGroupOps.build(usageRequest)
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
+        Accepted
+      }
+    )
+
+  }
+
   def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(

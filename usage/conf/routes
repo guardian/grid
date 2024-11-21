@@ -7,8 +7,9 @@ DELETE  /usages/media/:mediaId/*usageId                 controllers.UsageApi.del
 POST    /usages/print                                   controllers.UsageApi.setPrintUsages
 POST    /usages/syndication                             controllers.UsageApi.setSyndicationUsages
 POST    /usages/front                                   controllers.UsageApi.setFrontUsages
-POST    /usages/download                                controllers.UsageApi.setDownloadUsages
-PUT     /usages/status/update/:mediaId/*usageId         controllers.UsageApi.updateUsageStatus(mediaId: String, usageId: String)
+POST    /usages/download                               controllers.UsageApi.setDownloadUsages
+POST    /usages/integration                            controllers.UsageApi.setIntegrationUsages
+PUT     /usages/status/update/:mediaId/*usageId        controllers.UsageApi.updateUsageStatus(mediaId: String, usageId: String)
 GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 
 # Management

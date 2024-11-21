@@ -22,6 +22,7 @@ case class MediaUsage(
   syndicationUsageMetadata: Option[SyndicationUsageMetadata],
   frontUsageMetadata: Option[FrontUsageMetadata],
   downloadUsageMetadata: Option[DownloadUsageMetadata],
+  integrationUsageMetadata: Option[IntegrationUsageMetadata],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -60,7 +61,8 @@ case class MediaUsage(
     digitalUsageMetadata,
     syndicationUsageMetadata,
     frontUsageMetadata,
-    downloadUsageMetadata
+    downloadUsageMetadata,
+    integrationUsageMetadata
     // NOTE that we don't compare any date fields
   )
 

@@ -8,6 +8,7 @@ trait UsageType {
     case DigitalUsage => "digital"
     case SyndicationUsage => "syndication"
     case DownloadUsage => "download"
+    case IntegrationUsage => "integration"
   }
 }
 
@@ -20,6 +21,7 @@ object UsageType {
     case "digital" => DigitalUsage
     case "syndication" => SyndicationUsage
     case "download" => DownloadUsage
+    case "integration" => IntegrationUsage
   }
 }
 
@@ -27,3 +29,4 @@ object PrintUsage extends UsageType
 object DigitalUsage extends UsageType
 object SyndicationUsage extends UsageType
 object DownloadUsage extends UsageType
+object IntegrationUsage extends UsageType
