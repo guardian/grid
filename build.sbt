@@ -95,6 +95,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "7.4",
+    "ch.qos.logback" % "logback-classic" % "1.3.7", // this must be kept in sync with logstash-logback-encoder: see https://github.com/logfellow/logstash-logback-encoder/tree/main?tab=readme-ov-file#including-it-in-your-project for more
     "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
@@ -110,7 +111,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
-  dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
 
 lazy val restLib = project("rest-lib").settings(
