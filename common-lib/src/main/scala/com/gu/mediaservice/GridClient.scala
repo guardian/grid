@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.net.URL
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SyndicationRights}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SourceImage, SyndicationRights}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -104,12 +104,13 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
    * process before returning data.
    * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
    */
-  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
+  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None,
+                          queryStringParameters: Option[Seq[(String, String)]] = None)
                          (implicit ec: ExecutionContext): Future[Response] = {
-    val request: WSRequest = wsClient.url(url.toString)
+    val request: WSRequest = wsClient.url(url.toString).withQueryStringParameters(queryStringParameters.getOrElse(Seq.empty): _*)
     val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
     val authorisedRequest = authFn(requestWithTimeout)
-    authorisedRequest.get().map { response => validateResponse(response, url)}
+    authorisedRequest.get().map { response => validateResponse(response, url) }
   }
 
   private def validateResponse(
@@ -230,6 +231,16 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def getSourceImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[SourceImage] = {
+    logger.info("attempt to get image")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
+    makeGetRequestAsync(url, authFn, queryStringParameters = Some(Seq("include" -> "fileMetadata"))) map {
+      case Found(json, _) => json.as[SourceImage]
+      case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
       case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
