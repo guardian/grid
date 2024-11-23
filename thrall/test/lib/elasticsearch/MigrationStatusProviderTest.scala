@@ -19,7 +19,7 @@ class MigrationStatusProviderTest extends ElasticSearchTestBase {
       assert(ES.refreshAndRetrieveMigrationStatus(instance) === NotRunning)
     }
     "starting a migration should change the migration status" in {
-      val newIndexName = instance + "_images-test-migration"
+      val newIndexName = instance.id + "_images-test-migration"
       implicit val i: Instance = instance
       ES.startMigration(newIndexName)
       assert(ES.refreshAndRetrieveMigrationStatus(instance) === InProgress(newIndexName))
