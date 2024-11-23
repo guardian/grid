@@ -14,7 +14,7 @@ class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, confi
 
   override def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
-      val problems = esHealth ++ streamRunningHealth ++ elasticsearch.migrationStatusRefresherHealth
+      val problems = esHealth ++ streamRunningHealth // TODO ++ elasticsearch.migrationStatusRefresherHealth
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
         logger.warn("Healthcheck failed with problems: " + problemsMessage)

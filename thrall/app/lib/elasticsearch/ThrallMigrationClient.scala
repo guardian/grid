@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationNotRunningError, MigrationStatus, MigrationStatusProvider, NotRunning, Paused, Running}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Image, Instance}
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl.{addAlias, aliases, removeAlias, _}
@@ -24,9 +24,9 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   private val scrollKeepAlive = 5.minutes
 
-  def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+  def startScrollingImageIdsToMigrate(migrationIndexName: String, instance: Instance)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
-    val query = search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive).size(100) query not(
+    val query = search(imagesCurrentAlias(instance)).version(true).scroll(scrollKeepAlive).size(100) query not(
       matchQuery("esInfo.migration.migratedTo", migrationIndexName),
       existsQuery(s"esInfo.migration.failures.$migrationIndexName")
     )
@@ -47,9 +47,9 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     }
   }
 
-  private def adjustMigrationAlias(action: String)(handleIfApplicable: PartialFunction[MigrationStatus, Unit]): Unit = {
+  private def adjustMigrationAlias(action: String, instance: Instance)(handleIfApplicable: PartialFunction[MigrationStatus, Unit]): Unit = {
     handleIfApplicable.applyOrElse(
-      refreshAndRetrieveMigrationStatus(),
+      refreshAndRetrieveMigrationStatus(instance),
       (currentStatus: MigrationStatus) => {
         logger.error(s"Could not $action migration when migration status is $currentStatus")
         throw new MigrationNotRunningError
@@ -57,26 +57,26 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     )
   }
 
-  def pauseMigration(): Unit = adjustMigrationAlias("pause") {
+  def pauseMigration(instance: Instance): Unit = adjustMigrationAlias("pause", instance) {
     case InProgress(migrationIndexName) =>
       assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
   }
-  def resumeMigration(): Unit = adjustMigrationAlias("resume") {
+  def resumeMigration(instance: Instance): Unit = adjustMigrationAlias("resume", instance) {
     case Paused(migrationIndexName) =>
       removeAliasFrom(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
   }
 
-  def previewMigrationCompletion(): Unit = adjustMigrationAlias("preview complete") {
+  def previewMigrationCompletion(instance: Instance): Unit = adjustMigrationAlias("preview complete", instance) {
     case running: Running =>
       assignAliasTo(running.migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
   }
-  def unPreviewMigrationCompletion(): Unit = adjustMigrationAlias("unpreview complete") {
+  def unPreviewMigrationCompletion(instance: Instance): Unit = adjustMigrationAlias("unpreview complete", instance) {
     case CompletionPreview(migrationIndexName) =>
       removeAliasFrom(migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
   }
 
-  def startMigration(newIndexName: String)(implicit logMarker: LogMarker): Unit = {
-    val currentStatus = refreshAndRetrieveMigrationStatus()
+  def startMigration(newIndexName: String, instance: Instance)(implicit logMarker: LogMarker): Unit = {
+    val currentStatus = refreshAndRetrieveMigrationStatus(instance)
     if (currentStatus != NotRunning) {
       logger.error(logMarker, s"Could not start migration to $newIndexName when migration status is $currentStatus")
       throw new MigrationAlreadyRunningError
@@ -84,23 +84,23 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     for {
       _ <- createImageIndex(newIndexName)
       _ = logger.info(logMarker, s"Created index $newIndexName")
-      _ <- assignAliasTo(newIndexName, imagesMigrationAlias)
-      _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
-      _ = refreshAndRetrieveMigrationStatus()
+      _ <- assignAliasTo(newIndexName, imagesMigrationAlias(instance))
+      _ = logger.info(logMarker, s"Assigned migration index ${imagesMigrationAlias(instance)} to $newIndexName")
+      _ = refreshAndRetrieveMigrationStatus(instance)
     } yield ()
   }
 
-  def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    val currentStatus = refreshAndRetrieveMigrationStatus()
+  def completeMigration(logMarker: LogMarker, instance: Instance)(implicit ec: ExecutionContext): Future[Unit] = {
+    val currentStatus = refreshAndRetrieveMigrationStatus(instance)
     currentStatus match {
       case completionPreview: CompletionPreview => for {
-          currentIndex <- getIndexForAlias(imagesCurrentAlias)
-          currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '$imagesCurrentAlias' alias")))
+          currentIndex <- getIndexForAlias(imagesCurrentAlias(instance))
+          currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${imagesCurrentAlias(instance)}' alias")))
           _ <- client.execute { aliases (
-            removeAlias(imagesMigrationAlias, completionPreview.migrationIndexName),
-            removeAlias(imagesCurrentAlias, currentIndexName),
-            addAlias(imagesCurrentAlias, completionPreview.migrationIndexName),
-            addAlias(imagesHistoricalAlias, currentIndexName)
+            removeAlias(imagesMigrationAlias(instance), completionPreview.migrationIndexName),
+            removeAlias(imagesCurrentAlias(instance), currentIndexName),
+            addAlias(imagesCurrentAlias(instance), completionPreview.migrationIndexName),
+            addAlias(imagesHistoricalAlias(instance), currentIndexName)
           )}.transform {
             case Success(response) if response.result.success =>
               Success(())
@@ -110,7 +110,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
               Failure(new Exception("Failed to complete migration (alias switching failed)"))
           }
           _ = logger.info(logMarker, s"Completed Migration (by switching & removing aliases)")
-          _ = refreshAndRetrieveMigrationStatus()
+          _ = refreshAndRetrieveMigrationStatus(instance)
       } yield ()
       case _ =>
         logger.error(logMarker, s"Cannot complete migration when migration status is $currentStatus, migration must be in 'CompletionPreview' state")

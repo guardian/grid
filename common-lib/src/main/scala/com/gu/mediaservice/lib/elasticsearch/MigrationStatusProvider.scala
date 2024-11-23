@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
+import com.gu.mediaservice.model.Instance
 import com.sksamuel.elastic4s.Index
 
 import java.util.concurrent.atomic.AtomicReference
@@ -36,12 +37,19 @@ object MigrationStatusProvider {
 trait MigrationStatusProvider {
   self: ElasticSearchClient =>
 
+  def elasticSearchConfig: ElasticSearchConfig
+
+  def imagesCurrentAlias(instance: Instance): String = instance.id + "_" + elasticSearchConfig.aliases.current
+  def imagesMigrationAlias(instance: Instance): String = instance.id + "_" + elasticSearchConfig.aliases.migration
+  def imagesHistoricalAlias(instance: Instance): String = instance.id + "_" + "Images_Historical"
+
   def scheduler: Scheduler
 
-  private val migrationStatusRef = new AtomicReference[MigrationStatus](fetchMigrationStatus(bubbleErrors = true))
+  // TODO This is plain wrong; needs a backing map or something
+  private def migrationStatusRef(instance: Instance) = new AtomicReference[MigrationStatus](fetchMigrationStatus(bubbleErrors = true, instance))
 
-  private def fetchMigrationStatus(bubbleErrors: Boolean): MigrationStatus = {
-    val statusFuture = getIndexForAlias(imagesMigrationAlias)
+  private def fetchMigrationStatus(bubbleErrors: Boolean, instance: Instance): MigrationStatus = {
+    val statusFuture = getIndexForAlias(imagesMigrationAlias(instance))
       .map {
         case Some(index) if index.aliases.contains(MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS) => CompletionPreview(index.name)
         case Some(index) if index.aliases.contains(MigrationStatusProvider.PAUSED_ALIAS) => Paused(index.name)
@@ -54,30 +62,32 @@ trait MigrationStatusProvider {
     } catch {
       case e if !bubbleErrors =>
         logger.error("Failed to get name of index for ongoing migration", e)
-        StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
+        StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef(instance).get())
     }
   }
 
-  private def refreshMigrationStatus(): Unit = {
-    migrationStatusRef.set(
-      fetchMigrationStatus(bubbleErrors = false)
+  private def refreshMigrationStatus(instance: Instance): Unit = {
+    migrationStatusRef(instance).set(
+      fetchMigrationStatus(bubbleErrors = false, instance = instance)
     )
   }
 
+  /* TODO Not compatible with instance indexes
   private val migrationStatusRefresher = scheduler.scheduleAtFixedRate(
     initialDelay = 0.seconds,
     interval = 5.seconds
-  ) { () => refreshMigrationStatus() }
+  ) { () => refreshMigrationStatus(instance) }
+   */
 
-  def migrationStatus: MigrationStatus = migrationStatusRef.get()
-  def migrationIsInProgress: Boolean = migrationStatus.isInstanceOf[InProgress]
-  def refreshAndRetrieveMigrationStatus(): MigrationStatus = {
-    refreshMigrationStatus()
-    migrationStatus
+  def migrationStatus(instance: Instance): MigrationStatus = migrationStatusRef(instance).get()
+  def migrationIsInProgress(instance: Instance): Boolean = migrationStatus(instance).isInstanceOf[InProgress]
+  def refreshAndRetrieveMigrationStatus(instance: Instance): MigrationStatus = {
+    refreshMigrationStatus(instance)
+    migrationStatus(instance)
   }
 
-  def migrationStatusRefresherHealth: Option[String] = {
-    migrationStatusRef.get() match {
+  def migrationStatusRefresherHealth(instance: Instance): Option[String] = {
+    migrationStatusRef(instance).get() match {
       case StatusRefreshError(_, _) => Some("Could not determine status of migration")
       case _ => None
     }

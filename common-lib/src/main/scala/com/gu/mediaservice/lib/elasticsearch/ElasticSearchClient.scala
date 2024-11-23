@@ -26,14 +26,8 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def url: String
 
-  def imagesCurrentAlias: String
-  def imagesMigrationAlias: String
-  lazy val imagesHistoricalAlias: String = "Images_Historical"
-
   protected val imagesIndexPrefix = "images"
   protected val imageType = "image"
-
-  val initialImagesIndex = "images"
 
   def shards: Int
   def replicas: Int
@@ -45,12 +39,12 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   //TODO: this function should fail and cause healthcheck fails
-  def ensureIndexExistsAndAliasAssigned(): Unit = {
-    logger.info(s"Checking alias $imagesCurrentAlias is assigned to index…")
-    val indexForCurrentAlias = Await.result(getIndexForAlias(imagesCurrentAlias), tenSeconds)
+  def ensureIndexExistsAndAliasAssigned(alias: String, index: String): Unit = {
+    logger.info(s"Checking alias $alias is assigned to index $index")
+    val indexForCurrentAlias = Await.result(getIndexForAlias(alias), tenSeconds)
     if (indexForCurrentAlias.isEmpty) {
-      createIndexIfMissing(initialImagesIndex)
-      assignAliasTo(initialImagesIndex, imagesCurrentAlias)
+      createIndexIfMissing(index)
+      assignAliasTo(index, alias)
       waitUntilHealthy()
     }
   }
@@ -65,9 +59,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   def healthCheck(): Future[Boolean] = {
-    implicit val logMarker: MarkerMap = MarkerMap()
-    val request = search(imagesCurrentAlias) limit 0
-    executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
+      Future.successful(true) // TODO reimplement
   }
 
   case class IndexWithAliases(name: String, aliases: Seq[String])
@@ -80,7 +72,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     })
   }
 
-  def countImages(indexName: String = imagesCurrentAlias): Future[ElasticSearchImageCounts] = {
+  def countImages(indexName: String): Future[ElasticSearchImageCounts] = {
     implicit val logMarker: MarkerMap = MarkerMap()
     val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search(indexName) trackTotalHits true limit 0 // hits that match the query defined in the request
@@ -181,7 +173,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }
   }
 
-  def changeAliasTo(newIndex: String, oldIndex: String, alias: String = imagesCurrentAlias): Unit = {
+  def changeAliasTo(newIndex: String, oldIndex: String, alias: String): Unit = {
     logger.info(s"Assigning alias $alias to $newIndex")
     val aliasActionResponse = Await.result(client.execute {
       aliases(

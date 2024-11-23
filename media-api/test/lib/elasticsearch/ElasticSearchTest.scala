@@ -66,7 +66,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    ES.ensureIndexExistsAndAliasAssigned()
+    ES.ensureIndexExistsAndAliasAssigned(instance = "an-instance")
     purgeTestImages
 
     Await.ready(saveImages(images), 1.minute)

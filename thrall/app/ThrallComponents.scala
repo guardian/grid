@@ -27,7 +27,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallMetrics = new ThrallMetrics(config, actorSystem, applicationLifecycle)
 
   val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
-  es.ensureIndexExistsAndAliasAssigned()
+  // es.ensureIndexExistsAndAliasAssigned() TODO needs to move somewhere else
 
   val gridClient: GridClient = GridClient(config.services)(wsClient)
 

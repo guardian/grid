@@ -60,7 +60,7 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
     implicit val imageCountsFormat: Format[ElasticSearchImageCounts] =
       Json.format[ElasticSearchImageCounts]
 
-    elasticsearch.countImages().map {
+    elasticsearch.countImages(???).map {
       case counts: ElasticSearchImageCounts =>
         Ok(Json.toJson(counts))
       case _ =>
