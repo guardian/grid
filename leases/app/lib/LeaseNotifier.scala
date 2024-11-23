@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 import scala.concurrent.ExecutionContext
 
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config.thrallKinesisStreamConfig) with MessageSubjects {
-  def sendReindexLeases(mediaId: String, instance: Instance)(implicit ec: ExecutionContext) = {
+  def sendReindexLeases(mediaId: String)(implicit ec: ExecutionContext, instance: Instance) = {
     for { leases <- store.getForMedia(mediaId) } yield {
       val updateMessage = UpdateMessage(subject = ReplaceImageLeases, leases = Some(leases), id = Some(mediaId), instance = instance)
       publish(updateMessage)
