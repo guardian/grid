@@ -33,7 +33,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
-  private val index = instance + "_index"
+  private val index = instance.id + "_index"
 
   private val applicationLifecycle = new ApplicationLifecycle {
     override def addStopHook(hook: () => Future[_]): Unit = {}
@@ -69,7 +69,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-      ES.ensureIndexExistsAndAliasAssigned(alias = ES.imagesCurrentAlias(instance), instance + "_index")
+      ES.ensureIndexExistsAndAliasAssigned(alias = ES.imagesCurrentAlias(instance), instance.id + "_index")
     purgeTestImages
 
     Await.ready(saveImages(images), 1.minute)
