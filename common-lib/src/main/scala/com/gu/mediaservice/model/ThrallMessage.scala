@@ -88,6 +88,8 @@ object ExternalThrallMessage{
   implicit val completeMigrationMessage: OFormat[CompleteMigrationMessage] = Json.format[CompleteMigrationMessage]
   implicit val upsertFromProjectionMessage: OFormat[UpsertFromProjectionMessage] = Json.format[UpsertFromProjectionMessage]
 
+  implicit val createInstanceMessage: OFormat[CreateInstanceMessage] = Json.format[CreateInstanceMessage]
+
   implicit val writes: OWrites[ExternalThrallMessage] = Json.writes[ExternalThrallMessage]
   implicit val reads: Reads[ExternalThrallMessage] = Json.reads[ExternalThrallMessage]
 
@@ -165,4 +167,4 @@ case class CompleteMigrationMessage(lastModified: DateTime, instance: Instance) 
   val id: String = "N/A"
 }
 
-case class CreateInstanceMessage(instance: Instance) extends InternalThrallMessage
+case class CreateInstanceMessage(id: String, lastModified: DateTime, instance: Instance) extends ExternalThrallMessage

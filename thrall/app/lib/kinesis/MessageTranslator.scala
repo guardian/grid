@@ -77,6 +77,10 @@ object MessageTranslator extends GridLogging {
         case (Some(id), Some(usageNotice)) => Right(UpdateUsageStatusMessage(id, usageNotice, updateMessage.lastModified, updateMessage.instance))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
+      case CreateInstance => (updateMessage.id) match {
+        case Some(id) => Right(CreateInstanceMessage(id, updateMessage.lastModified, updateMessage.instance))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
+      }
       case _ => Left(ProcessorNotFoundException(updateMessage.subject))
     }
   }

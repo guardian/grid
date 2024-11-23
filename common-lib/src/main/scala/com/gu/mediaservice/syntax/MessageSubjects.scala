@@ -21,6 +21,7 @@ trait MessageSubjects {
   val DeleteSingleUsage = "delete-single-usage"
   val UpdateImageSyndicationMetadata = "update-image-syndication-metadata"
   val UpdateImagePhotoshootMetadata = "update-image-photoshoot-metadata"
+  val CreateInstance = "create-instance"
 
 }
 
