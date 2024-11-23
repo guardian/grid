@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import org.joda.time.DateTime
 import play.api.libs.json.{JodaWrites, JsArray, JsObject, Json}
 
-case class UsageNotice(mediaId: String, usageJson: JsArray) {
+case class UsageNotice(mediaId: String, usageJson: JsArray, instance: String) {
   def toJson = Json.obj(
     "id" -> mediaId,
     "data" -> usageJson,

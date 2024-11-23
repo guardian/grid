@@ -91,7 +91,7 @@ object ExternalThrallMessage{
 }
 
 
-case class ImageMessage(lastModified: DateTime, image: Image) extends ExternalThrallMessage {
+case class ImageMessage(lastModified: DateTime, image: Image, instance: String) extends ExternalThrallMessage {
   override def additionalMarkers: () => Map[String, Any] = ()=>
     Map("fileName" -> image.source.file.toString)
 

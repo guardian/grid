@@ -10,7 +10,7 @@ object MessageTranslator extends GridLogging {
     updateMessage.subject match {
       case Image | ReingestImage | UpdateImage =>
         updateMessage.image match {
-          case  Some(image) => Right(ImageMessage(updateMessage.lastModified, image))
+          case  Some(image) => Right(ImageMessage(updateMessage.lastModified, image, updateMessage.instance))
           case _ => Left(MissingFieldsException(updateMessage.subject))
         }
       case DeleteImage => (updateMessage.id) match {

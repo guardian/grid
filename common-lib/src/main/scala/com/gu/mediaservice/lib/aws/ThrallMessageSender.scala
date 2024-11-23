@@ -60,7 +60,8 @@ object UpdateMessage extends GridLogging {
         (__ \ "leases").readNullable[Seq[MediaLease]] ~
         (__ \ "syndicationRights").readNullable[SyndicationRights] ~
         (__ \ "bulkIndexRequest").readNullable[BulkIndexRequest] ~
-        (__ \ "usageId").readNullable[String]
+        (__ \ "usageId").readNullable[String] ~
+        (__ \ "instance").read[String]
     )(UpdateMessage.apply _)
 }
 
@@ -80,7 +81,8 @@ case class UpdateMessage(
   leases: Option[Seq[MediaLease]] = None,
   syndicationRights: Option[SyndicationRights] = None,
   bulkIndexRequest: Option[BulkIndexRequest] = None,
-  usageId: Option[String] = None
+  usageId: Option[String] = None,
+  instance: String
 ) extends LogMarker {
   override def markerContents = {
     val message = Json.stringify(Json.toJson(this))

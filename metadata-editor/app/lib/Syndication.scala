@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Edits, Instance, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
 import org.joda.time.DateTime
 import play.api.libs.json.{JsNull, JsString, Reads}
@@ -25,7 +25,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     result
   }
 
-  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
+  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None, instance: Instance)(f: () => Future[T])
                                                                   (implicit ec: ExecutionContext): Future[T] =
     for {
       oldPhotoshootMaybe <- getPhotoshootForImage(id)
@@ -37,49 +37,49 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
-      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata, instance.id))
     } yield {
       logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
       logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
       result
     }
 
-  def deletePhotoshootAndPublish(id: String)
+  def deletePhotoshootAndPublish(id: String, instance: Instance)
                                 (implicit ec: ExecutionContext): Future[Unit] =
-    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false) { () =>
+    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false, instance = instance) { () =>
       for {
         edits <- editsStore.removeKey(id, Edits.Photoshoot)
         _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
-        _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
+        _ = publish(id, UpdateImagePhotoshootMetadata, instance)(edits)
       } yield ()
     }
 
-  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
+  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot, instance: Instance)
                              (implicit ec: ExecutionContext): Future[Photoshoot] = {
-    publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
+    publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot), instance = instance) { () =>
       for {
         editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
         _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
-        _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
+        _ = publish(id, UpdateImagePhotoshootMetadata, instance)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
   }
 
-  def deleteSyndicationAndPublish(id: String)
+  def deleteSyndicationAndPublish(id: String, instance: Instance)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
-    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
+    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true, instance = instance) { () =>
       syndicationStore.deleteItem(id)
       // Always publish, in case there is no photoshoot
-      publish(Map(id -> None), UpdateImageSyndicationMetadata)
+      publish(Map(id -> None), UpdateImageSyndicationMetadata, instance.id)
     }
   }
 
-  def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
+  def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights, instance: Instance)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
-    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
+    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true, instance = instance) { () =>
       val result = syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
       // Always publish, in case there is no photoshoot
-      publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
+      publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata, instance.id)
       result
     }
 
@@ -162,11 +162,11 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       })
       .recover { case NoItemFound => None }
 
-  def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String)
+  def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String, instance: String)
              (implicit ec: ExecutionContext): Future[Unit] = Future {
     for (kv <- imagesInPhotoshoot) {
       val (k, v) = kv
-      val updateMessage = UpdateMessage(subject = subject, id = Some(k), syndicationRights = v)
+      val updateMessage = UpdateMessage(subject = subject, id = Some(k), syndicationRights = v, instance = instance)
       notifications.publish(updateMessage)
     }
   }

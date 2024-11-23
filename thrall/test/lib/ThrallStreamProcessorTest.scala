@@ -32,7 +32,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
 
   describe("Stream merging strategy") {
     def createKinesisRecord: KinesisRecord = KinesisRecord(
-      data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "delete-image", id = Some("my-id")))),
+      data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "delete-image", id = Some("my-id"), instance = "an-instance"))),
       partitionKey = "",
       explicitHashKey = None,
       sequenceNumber = "",

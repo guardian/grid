@@ -10,7 +10,8 @@ case class UploadStatusRecord(
                                identifiers: Option[String],
                                status: StatusType,
                                errorMessage: Option[String],
-                               expires: Long
+                               expires: Long,
+                               instance: String
                              )
 
 object UploadStatusRecord {

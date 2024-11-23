@@ -1,7 +1,7 @@
 package controllers
 
 import _root_.play.api.libs.json._
-import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request}
+import _root_.play.api.mvc.{AnyContent, BaseController, ControllerComponents, Request, RequestHeader}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -66,7 +66,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       executeRequest(exportRequest, user, onBehalfOfPrincipal, httpRequest).map { case (imageId, export) =>
 
         val cropJson = Json.toJson(export).as[JsObject]
-        val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)))
+        val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)), instance = instanceOf(httpRequest).id)
         notifications.publish(updateMessage)
 
         Ok(cropJson).as(ArgoMediaType)
@@ -155,7 +155,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       "imageId" -> id
     )
     store.deleteCrops(id).map { _ =>
-      val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id))
+      val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id), instance = instanceOf(httpRequest).id)
       notifications.publish(updateMessage)
       Accepted
     } recover {

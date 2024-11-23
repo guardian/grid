@@ -146,7 +146,8 @@ class Projector(config: ImageUploadOpsCfg,
           uploadTime = extractedS3Meta.uploadTime,
           uploadedBy = extractedS3Meta.uploadedBy,
           identifiers = identifiers_,
-          uploadInfo = uploadInfo_
+          uploadInfo = uploadInfo_,
+          instance = instance // TODO careful with this one!
         )
 
         imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest) flatMap (
@@ -167,7 +168,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(
+    val dependenciesWithProjectionsOnly: ImageUploadOpsDependencies = ImageUploadOpsDependencies(
       config,
       imageOps,
       projectOriginalFileAsS3Model,
@@ -198,9 +199,9 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   }
 
   private def fetchOptimisedFile(
-    imageId: String, outFile: File
+    imageId: String, outFile: File, instance: Instance
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
-    val key = optimisedPngKeyFromId(imageId)
+    val key = optimisedPngKeyFromId(imageId, instance)
 
     fetchFile(config.originalFileBucket, key, outFile)
   }

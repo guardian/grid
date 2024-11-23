@@ -121,6 +121,7 @@ class ImageLoaderController(auth: Authentication,
   }
 
   private def handleMessageFromIngestBucket(sqsMessage:SQSMessage)(basicLogMarker: LogMarker, request: Request[AnyContent]): Future[Unit] = Future[Future[Unit]]{
+    val instance = ???  // TODO has to be on the message!
 
     logger.info(basicLogMarker, sqsMessage.toString)
 
@@ -172,7 +173,7 @@ class ImageLoaderController(auth: Authentication,
           }
           Future.unit
         } else {
-          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker, request) map { digestedFile =>
+          attemptToProcessIngestedFile(s3IngestObject, isUiUpload, instance)(logMarker, request) map { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
@@ -190,7 +191,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker, request: Request[AnyContent]): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean, instance: Instance)(initialLogMarker:LogMarker, request: Request[AnyContent]): Future[DigestedFile] = {
 
     logger.info(initialLogMarker, "Attempting to process file")
     val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
@@ -210,7 +211,7 @@ class ImageLoaderController(auth: Authentication,
         uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = Some(s3IngestObject.filename)
+        filename = Some(s3IngestObject.filename),
     )
 
     // under all circumstances, remove the temp files
@@ -226,6 +227,8 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
+    val instance = instanceOf(request)
+
     val expiration = DateTimeUtils.now().plusHours(1)
 
     val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
@@ -235,6 +238,7 @@ class ImageLoaderController(auth: Authentication,
     Future.sequence(
 
       mediaIdToFilenameMap.map{case (mediaId, filename) =>
+        logger.info(s"Preparing file upload for instance $instance: $mediaId / $filename")
 
         val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
 
@@ -247,6 +251,7 @@ class ImageLoaderController(auth: Authentication,
           StatusType.Prepared,
           errorMessage = None,
           expires = expiration.toEpochSecond, // TTL in case upload is never completed by client
+          instance = instance.id
         )).map(_ =>
           mediaId -> preSignedUrl
         )
@@ -275,6 +280,8 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
+      val instance = instanceOf(req)
+
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
@@ -285,14 +292,17 @@ class ImageLoaderController(auth: Authentication,
 
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
-      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
+      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry, instance.id)
+      logger.info(s"Loading image for instance $instance: record ${record.id} / $filename")
+
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
           uploadedByToRecord,
           identifiers,
           uploadTimeToRecord,
-          filename.flatMap(_.trim.nonEmptyOpt)
+          filename.flatMap(_.trim.nonEmptyOpt),
+          instance
         )
         _ <- uploadStatusTable.setStatus(record)
 
@@ -361,6 +371,8 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     AuthenticatedAndAuthorised.async { request =>
+      val instance = instanceOf(request)
+
       implicit val context: MarkerMap = MarkerMap(
         "requestType" -> "import-image",
         "key-tier" -> request.user.accessor.tier.toString,
@@ -368,7 +380,7 @@ class ImageLoaderController(auth: Authentication,
         "requestId" -> RequestLoggingFilter.getRequestId(request)
       )
 
-      logger.info(context, "importImage request start")
+      logger.info(context, "importImage request start for $uri into instance $instance")
 
       val tempFile = createTempFile("download")
       val digestedFileFuture = for {
@@ -382,7 +394,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           uploadTime,
           filename
-      )(context, instanceOf(request))
+      )(context, instance)
 
       // under all circumstances, remove the temp files
       uploadResultFuture.onComplete { _ =>
@@ -421,6 +433,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
           uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
+          instance
         )
         result <- uploader.storeFile(uploadRequest)
       } yield {
@@ -560,7 +573,8 @@ class ImageLoaderController(auth: Authentication,
               metadata.uploadTime,
               metadata.uploadedBy,
               metadata.identifiers,
-              UploadInfo(metadata.uploadFileName)
+              UploadInfo(metadata.uploadFileName),
+              instance
             ),
             gridClient,
             auth.getOnBehalfOfPrincipal(request.user)

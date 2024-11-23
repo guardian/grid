@@ -81,7 +81,7 @@ case class ImageUploadOpsDependencies(
   storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+  tryFetchOptimisedFile: (String, File, Instance) => Future[Option[(File, MimeType)]] = (_, _, _) => Future.successful(None),
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -152,7 +152,8 @@ object Uploader extends GridLogging {
       uploadRequest.tempFile,
       originalMimeType,
       uploadRequest.uploadTime,
-      toMetaMap(uploadRequest)
+      toMetaMap(uploadRequest),
+      uploadRequest.instance
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
@@ -167,7 +168,7 @@ object Uploader extends GridLogging {
       thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps, tempDirForRequest, orientationMetadata = sourceOrientationMetadata)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
       maybeStorableOptimisedImage <- getStorableOptimisedImage(
-        tempDirForRequest, optimiseOps, browserViewableImage, optimisedFileMetadata, deps.tryFetchOptimisedFile)
+        tempDirForRequest, optimiseOps, browserViewableImage, optimisedFileMetadata, deps.tryFetchOptimisedFile, uploadRequest.instance)
       s3PngOption <- maybeStorableOptimisedImage match {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
@@ -205,12 +206,13 @@ object Uploader extends GridLogging {
                                          optimiseOps: OptimiseOps,
                                          browserViewableImage: BrowserViewableImage,
                                          optimisedFileMetadata: FileMetadata,
-                                         tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]]
+                                         tryFetchOptimisedFile: (String, File, Instance) => Future[Option[(File, MimeType)]],
+                                         instance: Instance
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[StorableOptimisedImage]] = {
     if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
       for {
         tempFile <- createTempFile("optimisedpng-", optimisedMimeType.fileExtension, tempDir)
-        maybeDownloadedOptimisedFile <- tryFetchOptimisedFile(browserViewableImage.id, tempFile)
+        maybeDownloadedOptimisedFile <- tryFetchOptimisedFile(browserViewableImage.id, tempFile, instance)
         (optimisedFile, optimisedMimeType) <- {
           maybeDownloadedOptimisedFile match {
             case Some(optData) => Future.successful(optData)
@@ -300,14 +302,16 @@ object Uploader extends GridLogging {
           uploadRequest.imageId,
           file = file,
           mimeType = mimeType,
-          isTransformedFromSource = true
+          isTransformedFromSource = true,
+          instance = uploadRequest.instance
         )
       case Some(mimeType) =>
         Future.successful(
           BrowserViewableImage(
             uploadRequest.imageId,
             file = uploadRequest.tempFile,
-            mimeType = mimeType)
+            mimeType = mimeType,
+            instance = uploadRequest.instance)
         )
       case None => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
     }
@@ -354,7 +358,8 @@ class Uploader(val store: ImageLoaderStore,
                uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
-               filename: Option[String])
+               filename: Option[String],
+               instance: Instance)
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
@@ -380,7 +385,8 @@ class Uploader(val store: ImageLoaderStore,
           uploadTime = uploadTime,
           uploadedBy = uploadedBy,
           identifiers = identifiersMap,
-          uploadInfo = UploadInfo(filename)
+          uploadInfo = UploadInfo(filename),
+          instance = instance
         )
     }
   }
@@ -393,7 +399,7 @@ class Uploader(val store: ImageLoaderStore,
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)
-      updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
+      updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image), instance = uploadRequest.instance.id)
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
     } yield UploadStatusUri(s"${config.rootUri(instance)}/uploadStatus/${uploadRequest.imageId}")
@@ -411,7 +417,7 @@ class Uploader(val store: ImageLoaderStore,
     imageWithUserEditsApplied <- ImageDataMerger.aggregate(imageWithoutUserEdits, gridClient, onBehalfOfFn)
     _ <- Future {
       notifications.publish(
-        UpdateMessage(subject = Image, image = Some(imageWithUserEditsApplied))
+        UpdateMessage(subject = Image, image = Some(imageWithUserEditsApplied), instance = uploadRequest.instance.id)
       )
     }
   } yield ()

@@ -5,13 +5,14 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getIdentity
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{BaseController, ControllerComponents, RequestHeader}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -19,7 +20,7 @@ import scala.concurrent.Future
 
 class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
                                  override val controllerComponents: ControllerComponents)
-  extends BaseController with MessageSubjects with ArgoHelpers {
+  extends BaseController with MessageSubjects with ArgoHelpers with InstanceForRequest {
 
   import CollectionsManager.onlyLatest
 
@@ -37,7 +38,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
-        .map(publish(id))
+        .map(publish(id, instanceOf(req).id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
   }
@@ -54,7 +55,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
         case indexes =>
           dynamo.listRemoveIndexes(id, "collections", indexes)
-            .map(publish(id))
+            .map(publish(id, instanceOf(req).id))
             .map(cols => respond(cols))
       }
     } recover {
@@ -62,13 +63,13 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
     }
   }
 
-  def publish(id: String)(collections: List[Collection]): List[Collection] = {
+  def publish(id: String, instance: String)(collections: List[Collection]): List[Collection] = {
     val onlyLatestCollections = onlyLatest(collections)
-    val updateMessage = UpdateMessage(subject = SetImageCollections, id = Some(id), collections = Some(onlyLatestCollections))
+    val updateMessage = UpdateMessage(subject = SetImageCollections, id = Some(id), collections = Some(onlyLatestCollections), instance = instance)
     notifications.publish(updateMessage)
     onlyLatestCollections
   }
-}
 
+}
 
 

@@ -132,7 +132,10 @@ class UsageRecorder(
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithLogMarker(_))
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(x => {
+          val instance = ??? // TODO this looks like the Crier listener; can probably be deleted if problematic
+          usageNotice.build(x, instance)
+        })).flatten[UsageNotice].map(WithLogMarker(_))
       }
   }
 
