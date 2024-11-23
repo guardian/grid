@@ -12,7 +12,7 @@ import scala.concurrent.Future
 class CollectionsStore(config: CollectionsConfig) {
   val dynamo = new InstanceAwareDynamoDB[Collection](config, config.collectionsTable)
 
-  def getAll: Future[List[Collection]] = dynamo.scan() map { jsonList =>
+  def getAll()(implicit instance: Instance): Future[List[Collection]] = dynamo.scan() map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
   } recover {
     case e => throw CollectionsStoreError(e)

@@ -242,8 +242,12 @@ class InstanceAwareDynamoDB[T](config: CommonConfig, tableName: String, lastModi
     // all we care about is whether it completed.
   } map (_ => value)
 
-  def scan()(implicit ex: ExecutionContext) = Future {
-    table.scan().iterator.asScala.toList
+  def scan()(implicit ex: ExecutionContext, instance: Instance) = Future {
+    val byInstance = new QuerySpec()
+      .withKeyConditionExpression(s"instance = :key")
+      .withValueMap(new ValueMap()
+        .withString(":key", instance.id))
+    table.query(byInstance).iterator.asScala.toList
   } map (_.map(asJsObject))
 
   def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext) = Future {
