@@ -164,7 +164,8 @@ lazy val thrall = playProject("thrall", 9002)
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
-      "com.google.protobuf" % "protobuf-java" % "3.19.6"
+      "com.google.protobuf" % "protobuf-java" % "3.19.6",
+      "software.amazon.awssdk" % "sqs" % awsSdkV2Version
     ),
     // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
     // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html

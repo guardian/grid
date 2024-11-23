@@ -81,4 +81,7 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
     val configLoader = ReapableEligibilityLoader.singletonConfigLoader(ReapableEligibiltyResources(this, resources.actorSystem), applicationLifecycle)
     configuration.getOptional[ReapableEligibility]("reaper.provider")(configLoader)
   }
+
+  val instanceUsageQueueName: String = string("instance.usage.queue.name")
+
 }

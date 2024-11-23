@@ -16,6 +16,9 @@ import play.api.ApplicationLoader.Context
 import play.api.libs.json.Json
 import play.api.libs.ws.WSRequest
 import router.Routes
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.{GetQueueUrlRequest, SendMessageRequest}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -31,6 +34,17 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
 
   val gridClient: GridClient = GridClient(config.services)(wsClient)
+
+  private val sqsClient = SqsClient.builder()
+    .region(Region.EU_WEST_1)
+    .build()
+
+  private val queueUrl = {
+    val getQueueRequest = GetQueueUrlRequest.builder()
+      .queueName(config.instanceUsageQueueName)
+      .build();
+    sqsClient.getQueueUrl(getQueueRequest).queueUrl
+  }
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
   // TODO restore a reduced non instance specific version of this private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
@@ -66,16 +80,15 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val s3 = S3Ops.buildS3Client(config)
 
-  Source.repeat(()).throttle(1, per = 10.second).map(_ => {
+  Source.repeat(()).throttle(1, per = 5.minute).map(_ => {
     implicit val logMarker: MarkerMap = MarkerMap()
     val instancesRequest: WSRequest = wsClient.url("http://landing.default.svc.cluster.local:9000/instances") // TODO
-    val x: Future[Seq[Instance]] = instancesRequest.get().map { r =>
+    val eventualAllInstances = instancesRequest.get().map { r =>
       r.status match {
         case 200 =>
-          logger.info("Got instances response: " + r.body)
           implicit val ir = Json.reads[Instance]
           val instances = Json.parse(r.body).as[Seq[Instance]]
-          logger.info("Got instances: " + instances)
+          logger.info("Got instances: " + instances.map(_.id).mkString(","))
           instances
         case _ =>
           logger.warn("Got non 200 status for instances call: " + r.status)
@@ -83,7 +96,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
       }
     }
 
-    x.map { instances =>
+    eventualAllInstances.map { instances =>
       // Foreach instance; query elastic for number image and total file size
       instances.foreach { instance =>
         logger.info("Checking usage for: " + instance)
@@ -95,6 +108,9 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
           totalSize <- eventualTotalSize
         } yield {
           logger.info("Instance " + instance.id + " has " + count + " images / total size: " + totalSize)
+          val message = InstanceUsageMessage(instance = instance.id, imageCount = count, totalImageSize = totalSize)
+          implicit val iumw = Json.writes[InstanceUsageMessage]
+          sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.toJson(message).toString()).build)
         }
       }
     }
@@ -111,3 +127,5 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, assets)
 }
+
+case class InstanceUsageMessage(instance: String, imageCount: Long, totalImageSize: Long)
