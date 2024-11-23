@@ -25,8 +25,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     result
   }
 
-  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None, instance: Instance)(f: () => Future[T])
-                                                                  (implicit ec: ExecutionContext): Future[T] =
+  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
+                                                                  (implicit ec: ExecutionContext, instance: Instance): Future[T] =
     for {
       oldPhotoshootMaybe <- getPhotoshootForImage(id)
       newPhotoshootMaybe = if (unchangedPhotoshoot) None else photoshoot  // if None, the get rights calls (below) will return none.
@@ -37,49 +37,49 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
-      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata, instance.id))
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
     } yield {
       logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
       logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
       result
     }
 
-  def deletePhotoshootAndPublish(id: String, instance: Instance)
-                                (implicit ec: ExecutionContext): Future[Unit] =
-    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false, instance = instance) { () =>
+  def deletePhotoshootAndPublish(id: String)
+                                (implicit ec: ExecutionContext, instance: Instance): Future[Unit] =
+    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false) { () =>
       for {
         edits <- editsStore.removeKey(id, Edits.Photoshoot)
         _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
-        _ = publish(id, UpdateImagePhotoshootMetadata, instance)(edits)
+        _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield ()
     }
 
-  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot, instance: Instance)
-                             (implicit ec: ExecutionContext): Future[Photoshoot] = {
-    publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot), instance = instance) { () =>
+  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
+                             (implicit ec: ExecutionContext, instance: Instance): Future[Photoshoot] = {
+    publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
       for {
         editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
         _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
-        _ = publish(id, UpdateImagePhotoshootMetadata, instance)(editsAsJsonResponse)
+        _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
   }
 
-  def deleteSyndicationAndPublish(id: String, instance: Instance)
-                                 (implicit ec: ExecutionContext): Future[Unit] = {
-    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true, instance = instance) { () =>
+  def deleteSyndicationAndPublish(id: String)
+                                 (implicit ec: ExecutionContext, instance: Instance): Future[Unit] = {
+    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
       syndicationStore.deleteItem(id)
       // Always publish, in case there is no photoshoot
-      publish(Map(id -> None), UpdateImageSyndicationMetadata, instance.id)
+      publish(Map(id -> None), UpdateImageSyndicationMetadata)
     }
   }
 
-  def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights, instance: Instance)
-                              (implicit ec: ExecutionContext): Future[SyndicationRights] =
-    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true, instance = instance) { () =>
+  def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
+                              (implicit ec: ExecutionContext, instance: Instance): Future[SyndicationRights] =
+    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
       val result = syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
       // Always publish, in case there is no photoshoot
-      publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata, instance.id)
+      publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
       result
     }
 
@@ -162,8 +162,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       })
       .recover { case NoItemFound => None }
 
-  def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String, instance: String)
-             (implicit ec: ExecutionContext): Future[Unit] = Future {
+  def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String)
+             (implicit ec: ExecutionContext, instance: Instance): Future[Unit] = Future {
     for (kv <- imagesInPhotoshoot) {
       val (k, v) = kv
       val updateMessage = UpdateMessage(subject = subject, id = Some(k), syndicationRights = v, instance = instance)

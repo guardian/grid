@@ -293,7 +293,7 @@ class ImageLoaderController(auth: Authentication,
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
       val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry, instance.id)
-      logger.info(s"Loading image for instance $instance: record ${record.id} / $filename")
+      logger.info(s"Loading image for instance ${instance.id}: record ${record.id} / $filename")
 
       val result = for {
         uploadRequest <- uploader.loadFile(

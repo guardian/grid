@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.functional.syntax.toFunctionalBuilderOps
-import play.api.libs.json.{JodaReads, JodaWrites, Json, OWrites, Reads, Writes, __}
+import play.api.libs.json.{JodaReads, JodaWrites, Json, OFormat, OWrites, Reads, Writes, __}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
 class ThrallMessageSender(config: KinesisSenderConfig) {
@@ -34,6 +34,7 @@ object BulkIndexRequest {
 object UpdateMessage extends GridLogging {
   implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites
+  implicit val instanceFormats: OFormat[Instance] = Json.format[Instance]
   implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
   implicit val unr: Reads[UsageNotice] = Json.reads[UsageNotice]
   implicit val writes: OWrites[UpdateMessage] = Json.writes[UpdateMessage]
@@ -61,7 +62,7 @@ object UpdateMessage extends GridLogging {
         (__ \ "syndicationRights").readNullable[SyndicationRights] ~
         (__ \ "bulkIndexRequest").readNullable[BulkIndexRequest] ~
         (__ \ "usageId").readNullable[String] ~
-        (__ \ "instance").read[String]
+        (__ \ "instance").read[Instance]
     )(UpdateMessage.apply _)
 }
 
@@ -82,7 +83,7 @@ case class UpdateMessage(
   syndicationRights: Option[SyndicationRights] = None,
   bulkIndexRequest: Option[BulkIndexRequest] = None,
   usageId: Option[String] = None,
-  instance: String
+  instance: Instance
 ) extends LogMarker {
   override def markerContents = {
     val message = Json.stringify(Json.toJson(this))

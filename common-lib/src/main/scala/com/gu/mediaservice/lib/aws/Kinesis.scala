@@ -10,6 +10,7 @@ import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.libs.json.{JodaWrites, Json, Writes}
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
+import com.gu.mediaservice.model.Instance
 import org.joda.time.DateTime
 
 case class KinesisSenderConfig(
@@ -32,6 +33,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
     val partitionKey = UUID.randomUUID().toString
 
     implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites
+    implicit val iw: Writes[Instance] = Json.writes[Instance]
     implicit val unw: Writes[UsageNotice] = Json.writes[UsageNotice]
 
     val payload = JsonByteArrayUtil.toByteArray(message)

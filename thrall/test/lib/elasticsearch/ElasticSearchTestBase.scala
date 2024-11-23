@@ -4,8 +4,8 @@ import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase
+import com.gu.mediaservice.model.Instance
 import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
 import helpers.Fixtures
 import org.joda.time.DateTime
 import org.scalatest.BeforeAndAfterEach
@@ -27,8 +27,8 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
   val fiveSeconds = Duration(5, SECONDS)
   val tenSeconds = Duration(10, SECONDS)
 
-  def currentIndexName(instance: String) = instance + "_" + "index"
-  def migrationIndexName(instance: String) = instance + "_" + "migration-index"
+  def currentIndexName(instance: Instance) = instance.id + "_" + "index"
+  def migrationIndexName(instance: Instance) = instance.id + "_" + "migration-index"
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(tenSeconds, oneHundredMilliseconds)
 
@@ -77,13 +77,15 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
 
   def reloadedImage(id: String) = {
     implicit val logMarker: LogMarker = MarkerMap()
-    Await.result(ES.getImage(id, instance), fiveSeconds)
+    implicit val i: Instance = instance
+    Await.result(ES.getImage(id), fiveSeconds)
   }
 
   def indexedImage(id: String) = {
     implicit val logMarker: LogMarker = MarkerMap()
+    implicit val i: Instance = instance
     Thread.sleep(1000) // TODO use eventually clause
-    Await.result(ES.getImage(id, instance), fiveSeconds)
+    Await.result(ES.getImage(id), fiveSeconds)
   }
 
   def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))

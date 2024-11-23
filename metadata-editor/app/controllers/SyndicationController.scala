@@ -4,11 +4,11 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 import com.gu.mediaservice.lib.config.InstanceForRequest
-import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents, RequestHeader}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import play.api.libs.json._
+import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents, RequestHeader}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -34,18 +34,20 @@ class SyndicationController(auth: Authentication,
     }
   }
 
-  def setPhotoshoot(id: String) = auth.async(parse.json) { req => {
+  def setPhotoshoot(id: String) = auth.async(parse.json) { req =>
+    implicit val instance: Instance = instanceOf(req)
     (req.body \ "data").asOpt[Photoshoot].map(photoshoot =>
-      setPhotoshootAndPublish(id, photoshoot, instanceOf(req))
+      setPhotoshootAndPublish(id, photoshoot)
         .map(photoshoot => respond(photoshoot))
     )
     .getOrElse(
       Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
     )
-  }}
+  }
 
   def deletePhotoshoot(id: String) = auth.async { request =>
-    deletePhotoshootAndPublish(id, instanceOf(request)).map(_ => Accepted)
+    implicit val instance: Instance = instanceOf(request)
+    deletePhotoshootAndPublish(id).map(_ => Accepted)
   }
 
   def getSyndication(id: String): Action[AnyContent] = auth.async {
@@ -58,14 +60,16 @@ class SyndicationController(auth: Authentication,
   }
 
   def setSyndication(id: String): Action[JsValue] = auth.async(parse.json) { req => {
+    implicit val instance: Instance = instanceOf(req)
     (req.body \ "data").asOpt[SyndicationRights].map(syndicationRight => {
-      setSyndicationAndPublish(id, syndicationRight, instanceOf(req))
+      setSyndicationAndPublish(id, syndicationRight)
         .map(syndicationRight => respond(syndicationRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }}
 
   def deleteSyndication(id: String): Action[AnyContent] = auth.async { request =>
-    deleteSyndicationAndPublish(id, instanceOf(request)).map(_ => Accepted)
+    implicit val instance: Instance = instanceOf(request)
+    deleteSyndicationAndPublish(id).map(_ => Accepted)
   }
 
 }

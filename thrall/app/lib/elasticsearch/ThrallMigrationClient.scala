@@ -24,7 +24,8 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   private val scrollKeepAlive = 5.minutes
 
-  def startScrollingImageIdsToMigrate(migrationIndexName: String, instance: Instance)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+  def startScrollingImageIdsToMigrate(migrationIndexName: String)
+                                     (implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap(), instance: Instance) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
     val query = search(imagesCurrentAlias(instance)).version(true).scroll(scrollKeepAlive).size(100) query not(
       matchQuery("esInfo.migration.migratedTo", migrationIndexName),
@@ -47,7 +48,8 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     }
   }
 
-  private def adjustMigrationAlias(action: String, instance: Instance)(handleIfApplicable: PartialFunction[MigrationStatus, Unit]): Unit = {
+  private def adjustMigrationAlias(action: String)(handleIfApplicable: PartialFunction[MigrationStatus, Unit])
+                                  (implicit instance: Instance): Unit = {
     handleIfApplicable.applyOrElse(
       refreshAndRetrieveMigrationStatus(instance),
       (currentStatus: MigrationStatus) => {
@@ -57,25 +59,39 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     )
   }
 
-  def pauseMigration(instance: Instance): Unit = adjustMigrationAlias("pause", instance) {
-    case InProgress(migrationIndexName) =>
-      assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
-  }
-  def resumeMigration(instance: Instance): Unit = adjustMigrationAlias("resume", instance) {
-    case Paused(migrationIndexName) =>
-      removeAliasFrom(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
-  }
-
-  def previewMigrationCompletion(instance: Instance): Unit = adjustMigrationAlias("preview complete", instance) {
-    case running: Running =>
-      assignAliasTo(running.migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
-  }
-  def unPreviewMigrationCompletion(instance: Instance): Unit = adjustMigrationAlias("unpreview complete", instance) {
-    case CompletionPreview(migrationIndexName) =>
-      removeAliasFrom(migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
+  def pauseMigration(instance: Instance): Unit = {
+    implicit val i: Instance = instance
+    adjustMigrationAlias("pause") {
+      case InProgress(migrationIndexName) =>
+        assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
+    }
   }
 
-  def startMigration(newIndexName: String, instance: Instance)(implicit logMarker: LogMarker): Unit = {
+  def resumeMigration(instance: Instance): Unit = {
+    implicit val i: Instance = instance
+    adjustMigrationAlias("resume") {
+      case Paused(migrationIndexName) =>
+        removeAliasFrom(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
+    }
+  }
+
+  def previewMigrationCompletion(instance: Instance): Unit = {
+    implicit val i: Instance = instance
+    adjustMigrationAlias("preview complete") {
+
+      case running: Running =>
+        assignAliasTo(running.migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
+    }
+  }
+  def unPreviewMigrationCompletion(instance: Instance): Unit = {
+    implicit val i: Instance = instance
+    adjustMigrationAlias("unpreview complete") {
+      case CompletionPreview(migrationIndexName) =>
+        removeAliasFrom(migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
+    }
+  }
+
+  def startMigration(newIndexName: String)(implicit logMarker: LogMarker, instance: Instance): Unit = {
     val currentStatus = refreshAndRetrieveMigrationStatus(instance)
     if (currentStatus != NotRunning) {
       logger.error(logMarker, s"Could not start migration to $newIndexName when migration status is $currentStatus")
@@ -90,7 +106,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     } yield ()
   }
 
-  def completeMigration(logMarker: LogMarker, instance: Instance)(implicit ec: ExecutionContext): Future[Unit] = {
+  def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext, instance: Instance): Future[Unit] = {
     val currentStatus = refreshAndRetrieveMigrationStatus(instance)
     currentStatus match {
       case completionPreview: CompletionPreview => for {

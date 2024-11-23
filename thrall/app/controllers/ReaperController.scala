@@ -109,14 +109,15 @@ class ReaperController(
   def doBatchSoftReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchSoftReap)
 
   def doBatchSoftReap(count: Int, deletedBy: String, instance: Instance): Future[JsValue] = persistedBatchDeleteOperation("soft"){
-    es.countTotalSoftReapable(isReapable, instance).map(metrics.softReapable.increment(Nil, _))
+    implicit val i: Instance = instance
+    es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
 
     logger.info(s"Soft deleting next $count images...")
 
     val deleteTime = DateTime.now(DateTimeZone.UTC)
 
     (for {
-      BatchDeletionIds(esIds, esIdsActuallySoftDeleted) <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy), instance)
+      BatchDeletionIds(esIds, esIdsActuallySoftDeleted) <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy))
       _ <- softDeletedMetadataTable.setStatuses(esIdsActuallySoftDeleted.map(
         ImageStatusRecord(
           _,
@@ -143,12 +144,13 @@ class ReaperController(
   def doBatchHardReap(count: Int): Action[AnyContent] = batchDeleteWrapper(count)(doBatchHardReap)
 
   def doBatchHardReap(count: Int, deletedBy: String, instance: Instance): Future[JsValue] = persistedBatchDeleteOperation("hard"){
-    es.countTotalHardReapable(isReapable, config.hardReapImagesAge, instance).map(metrics.hardReapable.increment(Nil, _))
+    implicit val i: Instance = instance
+    es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
 
     logger.info(s"Hard deleting next $count images...")
 
     (for {
-      BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge, instance)
+      BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge)
       mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
       thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)

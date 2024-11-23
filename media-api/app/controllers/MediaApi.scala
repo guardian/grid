@@ -162,8 +162,8 @@ class MediaApi(
   }
 
   def uploadedBy(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
-    elasticSearch.getImageUploaderById(id, instanceOf(request)) map {
+    implicit val instance: Instance = instanceOf(request)
+    elasticSearch.getImageUploaderById(id) map {
       case Some(uploadedBy) =>
         respond(uploadedBy)
       case _ => ImageNotFound(id)
@@ -191,7 +191,6 @@ class MediaApi(
 
   def getImageFileMetadata(id: String) = auth.async { request =>
     implicit val instance: Instance = instanceOf(request)
-    implicit val r: Request[AnyContent] = request
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -205,7 +204,6 @@ class MediaApi(
 
   def getImageExports(id: String) = auth.async { request =>
     implicit val instance: Instance = instanceOf(request)
-    implicit val r: Request[AnyContent] = request
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -218,7 +216,7 @@ class MediaApi(
   }
 
   def getImageExport(imageId: String, exportId: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request.user, source) =>
@@ -241,7 +239,7 @@ class MediaApi(
 
   def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
     implicit val r: Request[AnyContent] = request
-    val instance = instanceOf(request)
+    implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request.user, source) =>
@@ -264,9 +262,9 @@ class MediaApi(
   }
 
   def hardDeleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val instance: Instance = instanceOf(request)
 
-    elasticSearch.getImageById(id) map {  // TODO with instance!
+    elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
 
@@ -274,7 +272,7 @@ class MediaApi(
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
 
           if (canDelete) {
-            val updateMessage = UpdateMessage(subject = DeleteImage, id = Some(id), instance = instanceOf(request).id)
+            val updateMessage = UpdateMessage(subject = DeleteImage, id = Some(id), instance = instanceOf(request))
             messageSender.publish(updateMessage)
             Accepted
           } else {
@@ -289,7 +287,7 @@ class MediaApi(
   }
 
   def deleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -308,7 +306,7 @@ class MediaApi(
                     deleteTime = DateTime.now(DateTimeZone.UTC),
                     deletedBy = request.user.accessor.identity
                   )),
-                  instance = instanceOf(request).id
+                  instance = instance
                 )
               )
             }
@@ -324,7 +322,7 @@ class MediaApi(
   }
 
   def unSoftDeleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val instance: Instance = instanceOf(request)
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
         val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
@@ -335,7 +333,7 @@ class MediaApi(
               UpdateMessage(
                 subject = UnSoftDeleteImage,
                 id = Some(id),
-                instance = instanceOf(request).id
+                instance = instance
               )
              )
           }
@@ -349,7 +347,7 @@ class MediaApi(
 
   def downloadOriginalImage(id: String) = auth.async { request =>
     implicit val r: Request[AnyContent] = request
-    val instance = instanceOf(request)
+    implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
@@ -373,8 +371,8 @@ class MediaApi(
   }
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
+    implicit val instance: Instance = instanceOf(request)
     implicit val r: Request[AnyContent] = request
-    val instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
@@ -394,7 +392,7 @@ class MediaApi(
 
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
     implicit val r: Request[AnyContent] = request
-    val instance: Instance = instanceOf(request)
+    implicit val instance: Instance = instanceOf(request)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {

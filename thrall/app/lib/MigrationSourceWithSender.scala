@@ -63,10 +63,10 @@ object MigrationSourceWithSender extends GridLogging {
           }
 
           _ => {
-            val nextIdsToMigrate = ((es.migrationStatus(instance), maybeScrollId) match {
+            val nextIdsToMigrate = ((es.migrationStatus(), maybeScrollId) match {
               case (Paused(_), _) => Future.successful(List.empty)
               case (InProgress(migrationIndexName), None) =>
-                es.startScrollingImageIdsToMigrate(migrationIndexName, instance).map(handleScrollResponse)
+                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
               case (InProgress(_), Some(scrollId)) =>
                 es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
               case _ => Future.successful(List.empty)
@@ -88,7 +88,7 @@ object MigrationSourceWithSender extends GridLogging {
           }
           searchHits.map(hit => MigrationRequest(hit.id, hit.version))
         })
-        .filter(_ => es.migrationIsInProgress(instance))
+        .filter(_ => es.migrationIsInProgress())
 
     // receive MigrationRequests to migrate from a manual source (failures retry page, single image migration form, etc.)
     val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000)
@@ -117,9 +117,9 @@ object MigrationSourceWithSender extends GridLogging {
           for {
             maybeProjection <- Future.successful(None) // TODO gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall) needs a request to infer instance
             maybeVersion = Some(version)
-          } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion, instance.id)
+          } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion, instance)
         ).recover {
-          case error => MigrateImageMessage(imageId, Left(error.toString), instance.id)
+          case error => MigrateImageMessage(imageId, Left(error.toString), instance)
         }
         migrateImageMessageFuture.map(message => MigrationRecord(
           payload = message,

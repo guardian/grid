@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.MappingTest
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.model.Instance
 
 import java.util.UUID
 import scala.concurrent.Await
@@ -9,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageModelTest extends ElasticSearchTestBase {
 
-  override def instance: String = UUID.randomUUID().toString
+  override def instance: Instance = Instance(UUID.randomUUID().toString)
 
   implicit val logMarker: LogMarker = MarkerMap()
   "the image model matches the mapping" - {
@@ -56,7 +57,8 @@ class ImageModelTest extends ElasticSearchTestBase {
        */
       val image = MappingTest.testImage
 
-      Await.result(ES.migrationAwareIndexImage(image.id, image, image.lastModified.get, instance), fiveSeconds)
+      implicit val i: Instance = instance
+      Await.result(ES.migrationAwareIndexImage(image.id, image, image.lastModified.get), fiveSeconds)
       eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(image.id).map(_.id) shouldBe Some(image.id))
 
       val retrievedImage = reloadedImage(image.id).get
