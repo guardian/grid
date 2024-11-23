@@ -30,6 +30,7 @@ import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSRequest
+import play.api.mvc.{AnyContent, Request}
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
@@ -386,7 +387,7 @@ class Uploader(val store: ImageLoaderStore,
 
   def storeFile(uploadRequest: UploadRequest)
                (implicit ec:ExecutionContext,
-                logMarker: LogMarker): Future[UploadStatusUri] = {
+                logMarker: LogMarker, instance: Instance): Future[UploadStatusUri] = {
 
     logger.info(logMarker, "Storing file")
 
@@ -395,7 +396,7 @@ class Uploader(val store: ImageLoaderStore,
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
-    } yield UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
+    } yield UploadStatusUri(s"${config.rootUri(instance)}/uploadStatus/${uploadRequest.imageId}")
 
   }
 

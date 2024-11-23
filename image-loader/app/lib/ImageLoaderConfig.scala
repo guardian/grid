@@ -23,7 +23,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val thumbWidth: Int = 256
   val thumbQuality: Double = 85d // out of 100
 
-  val rootUri: String = services.loaderBaseUri
+  val rootUri: Instance => String = services.loaderBaseUri
   val apiUri: Instance => String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
 

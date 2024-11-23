@@ -1,21 +1,21 @@
 package controllers
 
 import java.net.URI
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getIdentity
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.model.{ActionData, Collection}
+import com.gu.mediaservice.lib.config.InstanceForRequest
+import com.gu.mediaservice.model.{ActionData, Collection, Instance}
 import lib.CollectionsConfig
 import model.Node
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{BaseController, ControllerComponents, Request}
 import store.{CollectionsStore, CollectionsStoreError}
-import com.gu.mediaservice.lib.net.{ URI => UriOps }
+import com.gu.mediaservice.lib.net.{URI => UriOps}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -30,31 +30,31 @@ object AppIndex {
 }
 
 class CollectionsController(authenticated: Authentication, config: CollectionsConfig, store: CollectionsStore,
-                            val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
+                            val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers with InstanceForRequest {
 
   import CollectionsManager.{getCssColour, isValidPathBit, pathToUri, uriToPath}
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
-  def uri(u: String) = URI.create(u)
-  val collectionUri = uri(s"${config.rootUri}/collections")
-  def collectionUri(p: List[String] = Nil) = {
+  private def uri(u: String) = URI.create(u)
+  private def collectionUri()(implicit instance: Instance) = uri(s"${config.rootUri(instance)}/collections")
+  private def collectionUri(p: List[String] = Nil)(implicit instance: Instance) = {
     val path = if(p.nonEmpty) s"/${pathToUri(p)}" else ""
-    uri(s"${config.rootUri}/collections$path")
+    uri(s"${config.rootUri(instance)}/collections$path")
   }
 
-  val appIndex = AppIndex("media-collections", "The one stop shop for collections")
-  val indexLinks = List(Link("collections", collectionUri.toString))
+  private val appIndex = AppIndex("media-collections", "The one stop shop for collections")
+  private def indexLinks()(implicit instance: Instance) = List(Link("collections", collectionUri().toString))
 
-  def getNodeAction(n: Node[Collection]): Option[Link] = Some(Link("collection", collectionUri(n.fullPath).toString))
-  def addChildAction(pathId: List[String] = Nil): Option[ArgoAction] = Some(ArgoAction("add-child", collectionUri(pathId), "POST"))
-  def addChildAction(n: Node[Collection]): Option[ArgoAction] = addChildAction(n.fullPath)
-  def removeNodeAction(n: Node[Collection]): Option[ArgoAction] = if (n.children.nonEmpty) None else Some(
+  private def getNodeAction(n: Node[Collection])(implicit instance: Instance): Option[Link] = Some(Link("collection", collectionUri(n.fullPath).toString))
+  private def addChildAction(pathId: List[String] = Nil)(implicit instance: Instance): Option[ArgoAction] = Some(ArgoAction("add-child", collectionUri(pathId), "POST"))
+  private def addChildAction(n: Node[Collection])(implicit instance: Instance): Option[ArgoAction] = addChildAction(n.fullPath)
+  private def removeNodeAction(n: Node[Collection])(implicit instance: Instance): Option[ArgoAction] = if (n.children.nonEmpty) None else Some(
     ArgoAction("remove", collectionUri(n.fullPath), "DELETE")
   )
 
   def index = authenticated { req =>
-    respond(appIndex, links = indexLinks)
+    respond(appIndex, links = indexLinks()(instanceOf(req)))
   }
 
   def collectionNotFound(path: String) =
@@ -69,11 +69,11 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   def storeError(message: String) =
     respondError(InternalServerError, "collection-store-error", message)
 
-  def getActions(n: Node[Collection]): List[ArgoAction] = {
+  def getActions(n: Node[Collection])(implicit instance: Instance): List[ArgoAction] = {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
-  def getLinks(n: Node[Collection]): List[Link] = {
+  private def getLinks(n: Node[Collection])(implicit instance: Instance): List[Link] = {
     List(getNodeAction(n)).flatten
   }
 
@@ -106,7 +106,8 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
       (collection) => collection.description)
   }
 
-  def getCollection(collectionPathId: String) = authenticated.async {
+  def getCollection(collectionPathId: String) = authenticated.async { request =>
+    implicit val instance: Instance = instanceOf(request)
     store.get(uriToPath(collectionPathId)).map {
       case Some(collection) =>
         val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
@@ -119,6 +120,17 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   }
 
   def getCollections = authenticated.async { req =>
+    implicit val instance: Instance = instanceOf(req)
+    implicit def asArgo: Writes[Node[Collection]] = (
+      (__ \ "basename").write[String] ~
+        (__ \ "children").lazyWrite[CollectionsEntity](Writes[CollectionsEntity]
+          // This is so we don't have to rewrite the Write[Seq[T]]
+          (seq => Json.toJson(seq))).contramap(collectionsEntity(_: List[Node[Collection]])) ~
+        (__ \ "fullPath").write[List[String]] ~
+        (__ \ "data").writeNullable[Collection] ~
+        (__ \ "cssColour").writeNullable[String]
+      )(node => (node.basename, node.children, node.fullPath, node.data, getCssColour(node.fullPath)))
+
     allCollections.map { tree =>
       respond(
         Json.toJson(tree)(asArgo),
@@ -133,6 +145,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   def addChildToRoot = addChildTo(None)
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
   def addChildTo(collectionPathId: Option[String]) = authenticated.async(parse.json) { req =>
+    implicit val instance: Instance = instanceOf(req)
     (req.body \ "data").asOpt[String] map { child =>
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
@@ -194,18 +207,8 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   )(node => (node.basename, node.children, node.fullPath, node.data))
 
   type CollectionsEntity = Seq[EmbeddedEntity[Node[Collection]]]
-  implicit def asArgo: Writes[Node[Collection]] = (
-    (__ \ "basename").write[String] ~
-      (__ \ "children").lazyWrite[CollectionsEntity](Writes[CollectionsEntity]
-          // This is so we don't have to rewrite the Write[Seq[T]]
-          (seq => Json.toJson(seq))).contramap(collectionsEntity) ~
-      (__ \ "fullPath").write[List[String]] ~
-      (__ \ "data").writeNullable[Collection] ~
-      (__ \ "cssColour").writeNullable[String]
-    )(node => (node.basename, node.children, node.fullPath, node.data, getCssColour(node.fullPath)))
 
-
-  def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
+  private def collectionsEntity(nodes: List[Node[Collection]])(implicit instance: Instance): CollectionsEntity = {
     nodes.map(n => EmbeddedEntity(collectionUri(n.fullPath), Some(n), links = getLinks(n), actions = getActions(n)))
   }
 

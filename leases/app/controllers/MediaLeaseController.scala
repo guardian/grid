@@ -1,10 +1,12 @@
 package controllers
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.model.Instance
+import com.gu.mediaservice.lib.config.InstanceForRequest
+import com.gu.mediaservice.model.Instance
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.libs.json._
@@ -21,15 +23,15 @@ object AppIndex {
 
 class MediaLeaseController(auth: Authentication, store: LeaseStore, config: LeasesConfig, notifications: LeaseNotifier,
                           override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with InstanceForRequest {
 
   private val notFound = respondNotFound("MediaLease not found")
 
-  private val indexResponse = {
+  private def indexResponse()(instance: Instance) = {
     val appIndex = AppIndex("media-leases", "Media leases service", Map())
     val indexLinks =  List(
-      Link("leases", s"${config.rootUri}/leases/{id}"),
-      Link("by-media-id", s"${config.rootUri}/leases/media/{id}"))
+      Link("leases", s"${config.rootUri(instance)}/leases/{id}"),
+      Link("by-media-id", s"${config.rootUri(instance)}/leases/media/{id}"))
     respond(appIndex, indexLinks)
   }
 
@@ -81,7 +83,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     }
   }
 
-  def index = auth { _ => indexResponse }
+  def index = auth { request => indexResponse()(instanceOf(request)) }
 
   def reindex = auth.async { _ =>
     for {
@@ -118,12 +120,13 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }
 
   def getLease(id: String) = auth.async { request =>
+    implicit val instance: Instance = instanceOf(request)
     for { leases <- store.get(id) } yield {
       leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
           uri = config.leaseUri(id),
           data = lease,
           links = lease.id
-            .map(id => config.mediaApiLink(id)(request))
+            .map(id => config.mediaApiLink(id))
             .toList
         ))
     }
@@ -151,10 +154,11 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }}
 
   def getLeasesForMedia(id: String) = auth.async { request =>
+    implicit val instance: Instance = instanceOf(request)
     for { leases <- store.getForMedia(id) } yield {
       respond[LeasesByMedia](
         uri = config.leasesMediaUri(id),
-        links = List(config.mediaApiLink(id)(request)),
+        links = List(config.mediaApiLink(id)),
         data = LeasesByMedia.build(leases)
       )
     }

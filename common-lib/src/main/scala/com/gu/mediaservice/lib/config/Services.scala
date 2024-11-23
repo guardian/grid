@@ -8,9 +8,9 @@ trait Services {
 
   def apiBaseUri(instance: Instance): String
 
-  def loaderBaseUri: String
+  def loaderBaseUri(instance: Instance): String
 
-  def projectionBaseUri: String
+  def projectionBaseUri(instance: Instance): String
 
   def cropperBaseUri(instance: Instance): String
 
@@ -18,11 +18,11 @@ trait Services {
 
   def imgopsBaseUri(instance: Instance): String
 
-  def usageBaseUri: String
+  def usageBaseUri(instance: Instance): String
 
-  def collectionsBaseUri: String
+  def collectionsBaseUri(instance: Instance): String
 
-  def leasesBaseUri: String
+  def leasesBaseUri(instance: Instance): String
 
   def authBaseUri: String
 
@@ -43,9 +43,9 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   override def apiBaseUri(instance: Instance): String = vhostServiceName("media-api", instance)
 
-  val loaderBaseUri: String = subpathedServiceBaseUri("image-loader")
+  override def loaderBaseUri(instance: Instance): String = vhostServiceName("image-loader", instance)
 
-  val projectionBaseUri: String = loaderBaseUri
+  override def projectionBaseUri(instance: Instance): String = vhostServiceName("projection", instance)
 
   override def cropperBaseUri(instance: Instance): String = vhostServiceName("cropper", instance)
 
@@ -53,11 +53,11 @@ protected class SingleHostServices(val rootUrl: String) extends Services {
 
   override def imgopsBaseUri(instance: Instance): String=  vhostServiceName("imgproxy", instance)
 
-  val usageBaseUri: String =subpathedServiceBaseUri("usage")
+  override def usageBaseUri(instance: Instance): String = vhostServiceName("usage", instance)
 
-  val collectionsBaseUri: String = subpathedServiceBaseUri("collections")
+  override def collectionsBaseUri(instance: Instance): String = vhostServiceName("collections", instance)
 
-  val leasesBaseUri: String = subpathedServiceBaseUri("leases")
+  override def leasesBaseUri(instance: Instance): String = vhostServiceName("leases", instance)
 
   val authBaseUri: String = subpathedServiceBaseUri("auth")
 

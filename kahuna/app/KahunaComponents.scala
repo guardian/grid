@@ -28,9 +28,9 @@ object KahunaSecurityConfig {
       // TODO Restore config.services.cropperBaseUri,
       // TODO Restore config.services.metadataBaseUri,
       // TODO restore config.services.imgopsBaseUri,
-      config.services.usageBaseUri,
-      config.services.collectionsBaseUri,
-      config.services.leasesBaseUri,
+      // TODO Restore config.services.usageBaseUri,
+      // TODO Restore config.services.collectionsBaseUri,
+      // TODO Restore config.services.leasesBaseUri,
       config.services.authBaseUri,
       config.services.guardianWitnessBaseUri
     )

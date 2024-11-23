@@ -18,6 +18,8 @@ import play.api.Logger
 import play.api.libs.json.{JsObject, Json}
 import com.gu.mediaservice.lib.formatting._
 import model.upload.UploadRequest
+import play.api.mvc.{AnyContent, Request}
+
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,7 +39,7 @@ class QuarantineUploader(val store: QuarantineStore,
     )
   }
 
-  def quarantineFile(uploadRequest: UploadRequest)(
+  def quarantineFile(uploadRequest: UploadRequest)(instance: Instance) (
     implicit ec: ExecutionContext,
     logMarker: LogMarker): Future[JsObject] = {
 
@@ -45,7 +47,7 @@ class QuarantineUploader(val store: QuarantineStore,
 
     for {
       _ <- storeQuarantineFile(uploadRequest)
-      uri = s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}"
+      uri = s"${config.rootUri(instance)}/uploadStatus/${uploadRequest.imageId}"
     } yield {
       Json.obj("uri" -> uri)
     }

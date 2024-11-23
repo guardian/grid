@@ -44,13 +44,13 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val rootUri: Instance => String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val cropperUri: Instance => String = services.cropperBaseUri
-  val loaderUri: String = services.loaderBaseUri
+  val loaderUri: Instance => String = services.loaderBaseUri
   val metadataUri: Instance => String = services.metadataBaseUri
   val imgopsUri: Instance => String = services.imgopsBaseUri
-  val usageUri: String = services.usageBaseUri
-  val leasesUri: String = services.leasesBaseUri
+  val usageUri: Instance => String = services.usageBaseUri
+  val leasesUri: Instance => String = services.leasesBaseUri
   val authUri: String = services.authBaseUri
-  val collectionsUri: String = services.collectionsBaseUri
+  val collectionsUri: Instance => String = services.collectionsBaseUri
 
   val requiredMetadata = NonEmptyList("credit", "description", "usageRights")
 

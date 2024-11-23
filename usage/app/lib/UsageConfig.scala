@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.net.URI.ensureSecure
 import com.gu.mediaservice.model.Instance
 
 class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources) with GridLogging {
-  val usageUri: String = services.usageBaseUri
+  val usageUri: Instance => String = services.usageBaseUri
   val apiUri: Instance => String = services.apiBaseUri
 
   val defaultMaxPrintRequestSizeInKb = 500

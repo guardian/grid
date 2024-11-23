@@ -233,6 +233,7 @@ class ThrallController(
   }
 
   def upsertFromProjectionSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    implicit val instance: Instance = instanceOf(request)
     val imageId = migrateSingleImageFormReader.bindFromRequest().get.id
 
     for {
@@ -246,7 +247,7 @@ class ThrallController(
   }
 
   def restoreFromReplica: Action[AnyContent] = withLoginRedirect {implicit request =>
-    Ok(views.html.restoreFromReplica(s"${services.loaderBaseUri}/images/restore")) //FIXME figure out imageId bit
+    Ok(views.html.restoreFromReplica(s"${services.loaderBaseUri(instanceOf(request))}/images/restore")) //FIXME figure out imageId bit
   }
 
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>

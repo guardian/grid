@@ -148,10 +148,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val optimisedLink = Link("optimised", makeImgProxyUri(new URI(secureUrl), orientationMetadata))
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
-    val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
-    val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
+    val usageLink = Link("usages", s"${config.usageUri(instance)}/usages/media/$id")
+    val leasesLink = Link("leases", s"${config.leasesUri(instance)}/leases/media/$id")
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri(instance)}/images/$id/fileMetadata")
-    val projectionLink = Link("loader", s"${config.loaderUri}/images/project/$id")
+    val projectionLink = Link("loader", s"${config.loaderUri(instance)}/images/project/$id")
     val projectionDiffLink = Link("api", s"${config.rootUri(instance)}/images/$id/projection/diff")
 
     editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
@@ -164,12 +164,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val imageUri = URI.create(s"${config.rootUri(instance)}/images/$id")
     val reindexUri = URI.create(s"${config.rootUri(instance)}/images/$id/reindex")
-    val addCollectionUri = URI.create(s"${config.collectionsUri}/images/$id")
-    val addLeaseUri = URI.create(s"${config.leasesUri}/leases")
-    val addLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
-    val replaceLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
-    val deleteLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
-    val deleteUsagesUri = URI.create(s"${config.usageUri}/usages/media/$id")
+    val addCollectionUri = URI.create(s"${config.collectionsUri(instance)}/images/$id")
+    val addLeaseUri = URI.create(s"${config.leasesUri(instance)}/leases")
+    val addLeasesUri = URI.create(s"${config.leasesUri(instance)}/leases/media/$id")
+    val replaceLeasesUri = URI.create(s"${config.leasesUri(instance)}/leases/media/$id")
+    val deleteLeasesUri = URI.create(s"${config.leasesUri(instance)}/leases/media/$id")
+    val deleteUsagesUri = URI.create(s"${config.usageUri(instance)}/usages/media/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
@@ -357,24 +357,24 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def fileMetaDataUri(id: String)(implicit instance: Instance) = URI.create(s"${config.rootUri(instance)}/images/$id/fileMetadata")
 
-  def usagesUri(id: String) = URI.create(s"${config.usageUri}/usages/media/$id")
+  def usagesUri(id: String)(implicit instance: Instance) = URI.create(s"${config.usageUri(instance)}/usages/media/$id")
 
-  def usageUri(id: String) = {
-    URI.create(s"${config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
+  def usageUri(id: String)(implicit instance: Instance) = {
+    URI.create(s"${config.usageUri(instance)}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
   }
 
-  def leasesUri(id: String) = URI.create(s"${config.leasesUri}/leases/media/$id")
+  def leasesUri(id: String)(implicit instance: Instance) = URI.create(s"${config.leasesUri(instance)}/leases/media/$id")
 
-  def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
+  def usageEntity(usage: Usage)(implicit instance: Instance) = EmbeddedEntity[Usage](usageUri(usage.id)(instance), Some(usage))
 
-  def usagesEntity(id: String, usages: List[Usage]) =
-    EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
+  def usagesEntity(id: String, usages: List[Usage])(implicit instance: Instance) =
+    EmbeddedEntity[List[UsageEntity]](usagesUri(id)(instance), Some(usages.map(u => usageEntity(u)(instance))))
 
-  def leasesEntity(id: String, leaseByMedia: LeasesByMedia) =
-    EmbeddedEntity[LeasesByMedia](leasesUri(id), Some(leaseByMedia))
+  def leasesEntity(id: String, leaseByMedia: LeasesByMedia)(implicit instance: Instance) =
+    EmbeddedEntity[LeasesByMedia](leasesUri(id)(instance), Some(leaseByMedia))
 
-  def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
-    collectionEntity(config.collectionsUri, id, c)
+  def collectionsEntity(id: String, c: Collection)(implicit instance: Instance): EmbeddedEntity[CollectionResponse] =
+    collectionEntity(config.collectionsUri(instance), id, c)
 
   def collectionEntity(rootUri: String, imageId: String, c: Collection) = {
     // TODO: Currently the GET for this URI does nothing

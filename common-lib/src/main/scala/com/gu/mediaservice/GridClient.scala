@@ -144,8 +144,8 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
   }
 
   def getImageLoaderProjection(mediaId: String, authFn: WSRequest => WSRequest)
-                              (implicit ec: ExecutionContext): Future[Option[Image]] = {
-    getImageLoaderProjection(mediaId, services.projectionBaseUri, authFn)
+                              (implicit ec: ExecutionContext, instance: Instance): Future[Option[Image]] = {
+    getImageLoaderProjection(mediaId, services.projectionBaseUri(instance), authFn)
   }
 
   def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
@@ -159,9 +159,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
+  def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
-    val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
+    val url = new URL(s"${services.leasesBaseUri(instance)}/leases/media/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[LeasesByMedia]
       case NotFound(_, _) => LeasesByMedia.empty
@@ -169,9 +169,9 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getCollections(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Collection]] = {
+  def getCollections(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[List[Collection]] = {
     logger.info("attempt to get collections")
-    val url = new URL(s"${services.collectionsBaseUri}/images/$mediaId")
+    val url = new URL(s"${services.collectionsBaseUri(instance)}/images/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Collection]]
       case NotFound(_, _) => Nil
@@ -219,7 +219,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Usage]] = {
+  def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext, instance: Instance): Future[List[Usage]] = {
     logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
@@ -227,7 +227,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
         .map(entity => (entity.as[JsObject] \ "data").as[JsValue]).toList
     }
 
-    val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
+    val url = new URL(s"${services.usageBaseUri(instance)}/usages/media/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil

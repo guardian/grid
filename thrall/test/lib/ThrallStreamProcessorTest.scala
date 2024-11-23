@@ -103,7 +103,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
   describe("Migration source with sender") {
     val projectedImage = createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
     lazy val mockGrid = mock[GridClient]
-    when(mockGrid.getImageLoaderProjection(any(), any())(any()))
+    when(mockGrid.getImageLoaderProjection(any(), any())(any(), any()))
       .thenReturn(Future.successful(Some(projectedImage)))
 
     lazy val mockEs = mock[ElasticSearch]
@@ -121,7 +121,8 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
       (req: WSRequest) => req,
       mockEs,
       mockGrid,
-      projectionParallelism = 1
+      projectionParallelism = 1,
+      ???
     )
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]

@@ -6,7 +6,7 @@ import org.apache.pekko.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{Instance, MigrateImageMessage, MigrationMessage}
 import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import play.api.libs.ws.WSRequest
 
@@ -29,8 +29,9 @@ object MigrationSourceWithSender extends GridLogging {
     es: ElasticSearch,
     gridClient: GridClient,
     projectionParallelism: Int,
+    instance: Instance
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
-
+    implicit val i: Instance = instance
     // scroll through elasticsearch, finding image ids and versions to migrate
     // emits MigrationRequest
     val scrollingIdsSource =
