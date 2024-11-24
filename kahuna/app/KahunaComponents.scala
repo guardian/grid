@@ -45,7 +45,6 @@ object KahunaSecurityConfig {
       config.services.guardianWitnessBaseUri
     )
 
-    // TODO restore ${config.services.authBaseUri} ${config.services.kahunaBaseUri}
     val frameSources = s"frame-src https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
     val connectSources = s"connect-src 'self' ${config.connectSources.mkString(" ")}"
