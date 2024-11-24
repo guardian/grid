@@ -22,9 +22,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 
   val thumbOrigin: String = string("origin.thumb")
-  val fullOrigin: String = string("origin.full")
   val cropOrigin: String = string("origin.crops")
-  val imageOrigin: String = string("origin.images")
 
   val costFilterLabel: Option[String] = stringOpt("costFilter.label")
   val costFilterChargeable: Option[Boolean] = booleanOpt("costFilter.chargeable")

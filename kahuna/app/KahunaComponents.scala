@@ -48,13 +48,12 @@ object KahunaSecurityConfig {
     // TODO restore ${config.services.authBaseUri} ${config.services.kahunaBaseUri}
     val frameSources = s"frame-src https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
-    val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")}"
+    val connectSources = s"connect-src 'self' ${config.connectSources.mkString(" ")}"
 
     val str = List(
       "data:",
       "blob:",
       URI.ensureSecure(config.services.imgopsBaseUri(instance)).toString,
-      URI.ensureSecure(config.fullOrigin).toString,
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
       URI.ensureSecure("app.getsentry.com").toString,

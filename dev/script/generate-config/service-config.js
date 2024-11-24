@@ -101,9 +101,7 @@ function getKahunaConfig(config){
 
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
-        |origin.full="images.media.${config.DOMAIN}"
         |origin.thumb="localstack.media.${config.DOMAIN}"
-        |origin.images="images.media.${config.DOMAIN}"
         |origin.crops="public.media.${config.DOMAIN}"
         |google.tracking.id="${config.google.tracking.id}"
         |links.feedbackForm="${config.links.feedbackForm}"
