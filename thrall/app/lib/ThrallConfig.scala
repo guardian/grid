@@ -8,6 +8,8 @@ import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.inject.ApplicationLifecycle
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
+import software.amazon.awssdk.http.Protocol
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.{CloudWatchAsyncClient, CloudWatchAsyncClientBuilder}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
@@ -27,7 +29,15 @@ case class KinesisReceiverConfig(
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
 ) extends AwsClientV2BuilderUtils {
-  lazy val kinesisClient: KinesisAsyncClient = withAWSCredentialsV2(KinesisAsyncClient.builder()).build()
+  lazy val kinesisClient: KinesisAsyncClient = {
+    val clientBuilder = withAWSCredentialsV2(KinesisAsyncClient.builder())
+    if (isDev) {
+      clientBuilder.httpClientBuilder(NettyNioAsyncHttpClient
+        .builder()
+        .protocol(Protocol.HTTP1_1))
+    }
+    clientBuilder.build()
+  }
   lazy val dynamoClient: DynamoDbAsyncClient = withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   lazy val cloudwatchClient: CloudWatchAsyncClient = withAWSCredentialsV2(CloudWatchAsyncClient.builder()).build()
 }
