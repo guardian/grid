@@ -28,6 +28,9 @@ POST    /unPreviewMigrationCompletion                 controllers.ThrallControll
 +nocsrf
 GET     /reindex                                      controllers.ThrallController.reindex()
 
+# Config
+GET    /config                                        controllers.ReaperController.conf()
+
 # reaper
 GET    /reaper                                        controllers.ReaperController.index
 GET    /reaper/:key                                   controllers.ReaperController.reaperRecord(key: String)
