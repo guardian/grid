@@ -82,6 +82,9 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val imageBucket: S3Bucket = S3Bucket(string("s3.image.bucket.name"), string("s3.image.bucket.endpoint"))
   val thumbnailBucket: S3Bucket = S3Bucket(string("s3.thumb.bucket.name"), string("s3.thumb.bucket.endpoint"))
 
+  val googleS3AccessKey = stringOpt("s3.accessKey")
+  val googleS3SecretKey = stringOpt("s3.secretKey")
+
   /**
    * Load in a list of domain metadata specifications from configuration. For example:
    * {{{
