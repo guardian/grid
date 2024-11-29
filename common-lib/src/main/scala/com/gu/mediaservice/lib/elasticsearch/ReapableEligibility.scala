@@ -16,7 +16,7 @@ trait ReapableEligibility extends Provider{
   val persistenceIdentifier: String // typically from config
 
   private def moreThanTwentyDaysOld =
-    filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
+    filters.date("uploadTime", None, Some(DateTime.now().minusDays(ReapableEligibility.ReapableAfterMoreThanDaysOld))).getOrElse(matchAllQuery())
 
   private lazy val persistedQueries = filters.or(
     PersistedQueries.hasCrops,
@@ -37,4 +37,8 @@ trait ReapableEligibility extends Provider{
     moreThanTwentyDaysOld,
     filters.not(persistedQueries)
   )
+}
+
+object ReapableEligibility {
+  val ReapableAfterMoreThanDaysOld: Int = 20
 }
