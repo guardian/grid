@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib
 
 import org.apache.pekko.actor.{Cancellable, Scheduler}
-import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
@@ -14,10 +14,8 @@ import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig, s3Endpoint: String)(implicit ec: ExecutionContext)
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: S3Bucket, config: CommonConfig)(implicit ec: ExecutionContext)
   extends GridLogging {
-
-  def s3Endpoint: String
 
   val s3 = new S3(config)
 

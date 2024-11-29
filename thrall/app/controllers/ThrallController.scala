@@ -7,7 +7,7 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ListObjectsRequest
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
-import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{S3Bucket, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -41,7 +41,7 @@ class ThrallController(
   override val controllerComponents: ControllerComponents,
   gridClient: GridClient,
   s3: AmazonS3,
-  imageBucket: String,
+  imageBucket: S3Bucket,
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging with InstanceForRequest {
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
@@ -305,7 +305,7 @@ class ThrallController(
 
     @tailrec
     def getMediaIdsFromS3(all: Seq[String], nextMarker: Option[String])(implicit instance: Instance): Seq[String] = {
-      val baseRequest = new ListObjectsRequest().withBucketName(imageBucket).withPrefix(instance.id + "/")
+      val baseRequest = new ListObjectsRequest().withBucketName(imageBucket.bucket).withPrefix(instance.id + "/")
       val request = nextMarker.map { marker =>
         baseRequest.withMarker(marker)
       }.getOrElse {

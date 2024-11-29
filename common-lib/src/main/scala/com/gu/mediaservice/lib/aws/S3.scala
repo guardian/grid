@@ -62,15 +62,21 @@ object S3Metadata {
 case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime])
 
 class S3(config: CommonConfig) extends GridLogging with ContentDisposition with RoundedExpiration {
-  type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
 
-  private lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  val AmazonAwsS3Endpoint: String = S3.AmazonAwsS3Endpoint
+
+  private lazy val amazonS3: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
+  private def clientFor(bucket: S3Bucket): AmazonS3 = {
+    logger.info("Client for: " + bucket.endpoint)
+    amazonS3
+  }
+
+  def signUrl(bucket: S3Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
@@ -78,60 +84,60 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
+    val request = new GeneratePresignedUrlRequest(bucket.bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     legacySigningClient.generatePresignedUrl(request).toExternalForm
   }
 
-  def signUrlTony(bucket: Bucket, url: URI, expiration: DateTime = cachableExpiration()): URL = {
+  def signUrlTony(bucket: S3Bucket, url: URI, expiration: DateTime = cachableExpiration()): URL = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
+    val request = new GeneratePresignedUrlRequest(bucket.bucket, key).withExpiration(expiration.toDate)
     legacySigningClient.generatePresignedUrl(request)
   }
 
-  def copyObject(sourceBucket: Bucket, destinationBucket: Bucket, key: String): CopyObjectResult = {
-    client.copyObject(sourceBucket, key, destinationBucket, key)
+  def copyObject(sourceBucket: S3Bucket, destinationBucket: S3Bucket, key: String): CopyObjectResult = {
+    clientFor(sourceBucket).copyObject(sourceBucket.bucket, key, destinationBucket.bucket, key)
   }
 
-  def generatePresignedRequest(request: GeneratePresignedUrlRequest): URL = {
-    client.generatePresignedUrl(request)
+  def generatePresignedRequest(request: GeneratePresignedUrlRequest, bucket: S3Bucket): URL = {
+    clientFor(bucket).generatePresignedUrl(request)
   }
 
-  def deleteObject(bucket: Bucket, key: String): Unit = {
-    client.deleteObject(bucket, key)
+  def deleteObject(bucket: S3Bucket, key: String): Unit = {
+    clientFor(bucket).deleteObject(bucket.bucket, key)
   }
 
-  def deleteObjects(bucket: Bucket, keys: Seq[Bucket]): DeleteObjectsResult = {
-    client.deleteObjects(
-      new DeleteObjectsRequest(bucket).withKeys(keys: _*)
+  def deleteObjects(bucket: S3Bucket, keys: Seq[String]): DeleteObjectsResult = {
+    clientFor(bucket).deleteObjects(
+      new DeleteObjectsRequest(bucket.bucket).withKeys(keys: _*)
     )
   }
 
-  def deleteVersion(bucket: Bucket, id: Bucket, objectVersion: Bucket): Unit = {
-    client.deleteVersion(bucket, id, objectVersion)
+  def deleteVersion(bucket: S3Bucket, id: String, objectVersion: String): Unit = {
+    clientFor(bucket).deleteVersion(bucket.bucket, id, objectVersion)
   }
 
-  def doesObjectExist(bucket: Bucket, key: String) = {
-    client.doesObjectExist(bucket, key)
+  def doesObjectExist(bucket: S3Bucket, key: String) = {
+    clientFor(bucket).doesObjectExist(bucket.bucket, key)
   }
 
-  def getObject(bucket: Bucket, url: URI): model.S3Object = { // TODO why can't this just be by bucket + key to remove end point knowledge
+  def getObject(bucket: S3Bucket, url: URI): model.S3Object = { // TODO why can't this just be by bucket + key to remove end point knowledge
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    client.getObject(new GetObjectRequest(bucket, key))
+    clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
   }
 
-  def getObject(bucket: Bucket, key: String): model.S3Object = {
-    client.getObject(new GetObjectRequest(bucket, key))
+  def getObject(bucket: S3Bucket, key: String): model.S3Object = {
+    clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
   }
 
-  def getObject(bucket: Bucket, obj: S3ObjectSummary): model.S3Object = {
-    client.getObject(bucket, obj.getKey)
+  def getObject(bucket: S3Bucket, obj: S3ObjectSummary): model.S3Object = {
+    clientFor(bucket).getObject(bucket.bucket, obj.getKey)
   }
 
-  def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
-    val content = client.getObject(new GetObjectRequest(bucket, key))
+  def getObjectAsString(bucket: S3Bucket, key: String): Option[String] = {
+    val content = clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
     val stream = content.getObjectContent
     try {
       Some(IOUtils.toString(stream).trim)
@@ -145,27 +151,27 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
   }
 
-  def getObjectMetadata(bucket: Bucket, id: Bucket): ObjectMetadata = {
-    client.getObjectMetadata(bucket, id)
+  def getObjectMetadata(bucket: S3Bucket, id: String): ObjectMetadata = {
+    clientFor(bucket).getObjectMetadata(bucket.bucket, id)
   }
 
-  def listObjects(bucket: String): ObjectListing = {
-    client.listObjects(bucket)
+  def listObjects(bucket: S3Bucket): ObjectListing = {
+    clientFor(bucket).listObjects(bucket.bucket)
   }
 
-  def listObjects(bucket: String, prefix: String): ObjectListing = {
-    client.listObjects(bucket, prefix)
+  def listObjects(bucket: S3Bucket, prefix: String): ObjectListing = {
+    clientFor(bucket).listObjects(bucket.bucket, prefix)
   }
 
-  def listObjectKeys(bucket: String): Seq[String] = {
-    client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey).toSeq
+  def listObjectKeys(bucket: S3Bucket): Seq[String] = {
+    clientFor(bucket).listObjects(bucket.bucket).getObjectSummaries.asScala.map(_.getKey).toSeq
   }
 
-  def putObject(bucket: String, key: String, content: String): Unit = {
-    client.putObject(bucket, key, content)
+  def putObject(bucket: S3Bucket, key: String, content: String): Unit = {
+    clientFor(bucket).putObject(bucket.bucket, key, content)
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String)
+  def store(bucket: S3Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
            (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
@@ -180,54 +186,55 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       )
       val markers = logMarker ++ fileMarkers
 
-      val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
+      val req = new PutObjectRequest(bucket.bucket, id, file).withMetadata(metadata)
       Stopwatch(s"S3 client.putObject ($req)"){
+        val client = clientFor(bucket)
         client.putObject(req)
         // once we've completed the PUT read back to ensure that we are returning reality
-        val metadata = client.getObjectMetadata(bucket, id)
-        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata), s3Endpoint)
+        val metadata = client.getObjectMetadata(bucket.bucket, id)
+        S3Object(bucket.bucket, id, metadata.getContentLength, S3Metadata(metadata), bucket.endpoint)
       }(markers)
     }
 
-  def storeIfNotPresent(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String)
+  def storeIfNotPresent(bucket: S3Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] = {
     Future{
-      Some(client.getObjectMetadata(bucket, id))
+      Some(clientFor(bucket).getObjectMetadata(bucket.bucket, id))
     }.recover {
       // translate this exception into the object not existing
       case as3e:AmazonS3Exception if as3e.getStatusCode == 404 => None
     }.flatMap {
       case Some(objectMetadata) =>
         logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
-        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata), s3Endpoint))
+        Future.successful(S3Object(bucket.bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata), bucket.endpoint))
       case None =>
-        store(bucket, id, file, mimeType, meta, cacheControl, s3Endpoint)
+        store(bucket, id, file, mimeType, meta, cacheControl)
     }
   }
 
-  def list(bucket: Bucket, prefixDir: String, s3Endpoint: String)
+  def list(bucket: S3Bucket, prefixDir: String)
           (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {
-      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")
-      val listing = client.listObjects(req)
+      val req = new ListObjectsRequest().withBucketName(bucket.bucket).withPrefix(s"$prefixDir/")
+      val listing = clientFor(bucket).listObjects(req)
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key), s3Endpoint) :: memo
+          S3Object(bucket.bucket, key, summary.getSize, getMetadata(bucket, key), bucket.endpoint) :: memo
       }
     }
 
-  def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
-    val meta = client.getObjectMetadata(bucket, key)
+  def getMetadata(bucket: S3Bucket, key: Key): S3Metadata = {
+    val meta = clientFor(bucket).getObjectMetadata(bucket.bucket, key)
     S3Metadata(meta)
   }
 
-  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] =
-    client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
+  def getUserMetadata(bucket: S3Bucket, key: Key): Map[String, String] =
+    clientFor(bucket).getObjectMetadata(bucket.bucket, key).getUserMetadata.asScala.toMap
 
-  def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
-    val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
-    val listing = client.listObjects(req)
+  def syncFindKey(bucket: S3Bucket, prefixName: String): Option[Key] = {
+    val req = new ListObjectsRequest().withBucketName(bucket.bucket).withPrefix(s"$prefixName-")
+    val listing = clientFor(bucket).listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
     summaries.headOption.map(_.getKey)
   }
@@ -255,4 +262,8 @@ object S3Ops {
 
     config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
   }
+}
+
+object S3 {
+  val AmazonAwsS3Endpoint: String = "s3.amazonaws.com"
 }

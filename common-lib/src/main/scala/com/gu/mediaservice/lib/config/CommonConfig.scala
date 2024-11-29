@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-import com.gu.mediaservice.lib.aws.{AwsClientV1BuilderUtils, AwsClientV2BuilderUtils, KinesisSenderConfig}
+import com.gu.mediaservice.lib.aws.{AwsClientV1BuilderUtils, AwsClientV2BuilderUtils, KinesisSenderConfig, S3, S3Bucket}
 import com.gu.mediaservice.model.UsageRightsSpec
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -53,8 +53,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
 
   val maybeIngestSqsQueueUrl: Option[String] = stringOpt("sqs.ingest.queue.url")
-  val maybeIngestBucket: Option[String] = stringOpt("s3.ingest.bucket")
-  val maybeFailBucket: Option[String] = stringOpt("s3.fail.bucket")
+  val maybeIngestBucket: Option[S3Bucket] = stringOpt("s3.ingest.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint))
+  val maybeFailBucket: Option[S3Bucket] = stringOpt("s3.fail.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint))
 
   val maybeUploadLimitInBytes: Option[Int] = intOpt("upload.limit.mb").map(_ * 1024 * 1024)
 
@@ -69,10 +69,9 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val services = new SingleHostServices(domainRoot)
 
-  val imageBucket: String = string("s3.image.bucket")
-  val imageBucketS3Endpoint: String = "s3.amazonaws.com"
-  val thumbnailBucket: String = string("s3.thumb.bucket")
-  val thumbnailBucketS3Endpoint: String = "s3.amazonaws.com"
+  val imageBucket: S3Bucket = S3Bucket(string("s3.image.bucket"), S3.AmazonAwsS3Endpoint)
+  val thumbnailBucket: S3Bucket = S3Bucket(string("s3.thumb.bucket"), S3.AmazonAwsS3Endpoint)
+  val thumbnailBucketS3Endpoint: String = S3.AmazonAwsS3Endpoint
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

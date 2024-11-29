@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.BaseStore
+import com.gu.mediaservice.lib.aws.S3Bucket
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import org.joda.time.DateTime
@@ -57,11 +58,10 @@ object UsageStore extends GridLogging {
 }
 
 class UsageStore(
-  bucket: String,
+  bucket: S3Bucket,
   config: MediaApiConfig,
   quotaStore: QuotaStore,
-  val s3Endpoint: String
-)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config, s3Endpoint) with GridLogging {
+)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) with GridLogging {
   import UsageStore._
 
   def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {

@@ -1,32 +1,30 @@
 package lib
 
-import com.amazonaws.services.cloudfront.util.SignerUtils
+import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.model.Instance
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
-import java.security.PrivateKey
 import scala.util.Try
 
 case class StoreConfig(
-  storeBucket: String,
+  storeBucket: S3Bucket,
   storeKey: String,
-  storeBucketS3Endpoint: String
 )
 
 class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
-  val configBucket: String = string("s3.config.bucket")
-  val usageMailBucket: String = string("s3.usagemail.bucket")
+  val configBucket: S3Bucket = S3Bucket(string("s3.config.bucket"), S3.AmazonAwsS3Endpoint)
+  val usageMailBucket: S3Bucket = S3Bucket(string("s3.usagemail.bucket"), S3.AmazonAwsS3Endpoint)
 
   val quotaStoreKey: String = string("quota.store.key")
-  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey, "s3.amazonaws.com")
+  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
   //Lazy allows this to be empty and not break things unless used somewhere
-  lazy val imgPublishingBucket = string("publishing.image.bucket")
+  lazy val imgPublishingBucket: S3Bucket = S3Bucket(string("publishing.image.bucket"), S3.AmazonAwsS3Endpoint)
 
   val cloudFrontDomainThumbBucket: Option[String]   = stringOpt("cloudfront.domain.thumbbucket")
-  val cloudFrontPrivateKeyBucket: Option[String]    = stringOpt("cloudfront.private-key.bucket")
+  val cloudFrontPrivateKeyBucket: Option[S3Bucket]    = stringOpt("cloudfront.private-key.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint))
   val cloudFrontPrivateKeyBucketKey: Option[String] = stringOpt("cloudfront.private-key.key")
   val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 

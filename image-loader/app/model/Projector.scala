@@ -84,7 +84,7 @@ object S3FileExtractedMetadata {
 }
 
 class Projector(config: ImageUploadOpsCfg,
-                s3: AmazonS3,
+                s3: AmazonS3, // TODO Not GCP aware!
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication) extends GridLogging with InstanceForRequest {
@@ -97,11 +97,11 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-      if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
-        throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
+      if (!s3.doesObjectExist(config.originalFileBucket.bucket, s3Key))
+        throw new NoSuchImageExistsInS3(config.originalFileBucket.bucket, s3Key)
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket, s3Key)
+        s3.getObject(config.originalFileBucket.bucket, s3Key)
       }(logMarker)
 
       try {
@@ -184,18 +184,18 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
-    Future.successful(storableOriginalImage.toProjectedS3Object(config.originalFileBucket, config.s3Endpoint))
+    Future.successful(storableOriginalImage.toProjectedS3Object(config.originalFileBucket))
 
   private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage) =
-    Future.successful(storableThumbImage.toProjectedS3Object(config.thumbBucket, config.s3Endpoint))
+    Future.successful(storableThumbImage.toProjectedS3Object(config.thumbBucket))
 
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
-    Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket, config.s3Endpoint))
+    Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
 
   private def fetchThumbFile(
     imageId: String, outFile: File, instance: Instance)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     val key = fileKeyFromId(imageId)(instance)
-    fetchFile(config.thumbBucket, key, outFile)
+    fetchFile(config.thumbBucket.bucket, key, outFile)
   }
 
   private def fetchOptimisedFile(
@@ -203,10 +203,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     val key = optimisedPngKeyFromId(imageId)(instance)
 
-    fetchFile(config.originalFileBucket, key, outFile)
+    fetchFile(config.originalFileBucket.bucket, key, outFile)
   }
 
-  private def fetchFile(
+  private def fetchFile(  // TODO use S3 trait for GCP support!
     bucket: String, key: String, outFile: File
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
