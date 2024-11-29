@@ -86,8 +86,10 @@ object UsageBuilder {
   private def buildIntegrationUsageReference(usage: MediaUsage): List[UsageReference] = usage.integrationUsageMetadata.map (metadata => {
     List(
       UsageReference(
-        IntegrationUsage,
+        IntegrationUsageReference,None, Some(metadata.integrationTool)
       )
     )
-  })
+  }).getOrElse(
+    List[UsageReference]()
+  )
 }
