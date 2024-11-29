@@ -7,10 +7,10 @@ import play.api.libs.json.{Json, Reads, Writes}
 case class IntegrationUsageRequest (
   dateAdded: DateTime,
   integrationTool: String,
-  integratedBy: Option[String],
+  integratedBy: String,
   mediaId: String
 ) {
-  val metadata: IntegrationUsageMetadata = IntegrationUsageMetadata(integrationTool)
+  val metadata: IntegrationUsageMetadata = IntegrationUsageMetadata(integratedBy, integrationTool)
   val status: UsageStatus = IntegrationUsageStatus
 }
 object IntegrationUsageRequest {
