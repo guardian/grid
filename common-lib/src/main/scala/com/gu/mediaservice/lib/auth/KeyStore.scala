@@ -6,8 +6,8 @@ import com.gu.mediaservice.model.Instance
 
 import scala.concurrent.ExecutionContext
 
-class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, ApiAccessor](bucket, config)(ec) {
+class KeyStore(bucket: String, config: CommonConfig, val s3Endpoint: String)(implicit ec: ExecutionContext)
+  extends BaseStore[String, ApiAccessor](bucket, config, s3Endpoint)(ec) {
 
   def lookupIdentity(key: String)(implicit instance: Instance): Option[ApiAccessor] = store.get().get(instance.id + "/" + key)
 

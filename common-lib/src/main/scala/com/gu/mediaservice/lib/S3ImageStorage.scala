@@ -15,13 +15,13 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
 
   private val cacheSetting = Some(cacheForever)
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType],
-                 meta: Map[String, String] = Map.empty, overwrite: Boolean)
+                 meta: Map[String, String] = Map.empty, overwrite: Boolean, s3Endpoint: String)
                 (implicit logMarker: LogMarker) = {
     logger.info(logMarker, s"bucket: $bucket, id: $id, meta: $meta")
     val eventualObject = if (overwrite) {
-      store(bucket, id, file, mimeType, meta, cacheSetting)
+      store(bucket, id, file, mimeType, meta, cacheSetting, s3Endpoint)
     } else {
-      storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting)
+      storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting, s3Endpoint)
     }
     eventualObject.onComplete(o => logger.info(logMarker, s"storeImage completed $o"))
     eventualObject

@@ -11,7 +11,8 @@ import scala.util.Try
 
 case class StoreConfig(
   storeBucket: String,
-  storeKey: String
+  storeKey: String,
+  storeBucketS3Endpoint: String
 )
 
 class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
@@ -19,13 +20,10 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val usageMailBucket: String = string("s3.usagemail.bucket")
 
   val quotaStoreKey: String = string("quota.store.key")
-  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
+  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey, "s3.amazonaws.com")
 
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")
-
-  val imageBucket: String = string("s3.image.bucket")
-  val thumbBucket: String = string("s3.thumb.bucket")
 
   val cloudFrontDomainThumbBucket: Option[String]   = stringOpt("cloudfront.domain.thumbbucket")
   val cloudFrontPrivateKeyBucket: Option[String]    = stringOpt("cloudfront.private-key.bucket")

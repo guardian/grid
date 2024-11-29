@@ -14,8 +14,10 @@ import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig, s3Endpoint: String)(implicit ec: ExecutionContext)
   extends GridLogging {
+
+  def s3Endpoint: String
 
   val s3 = new S3(config)
 

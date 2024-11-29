@@ -58,8 +58,6 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val maybeUploadLimitInBytes: Option[Int] = intOpt("upload.limit.mb").map(_ * 1024 * 1024)
 
-  val s3Endpoint: String= stringOpt("s3.serviceEndpoint").getOrElse("s3.amazonaws.com")
-
   val instancesEndpoint: String = string("instance.service.instances")
 
   // Note: had to make these lazy to avoid init order problems ;_;
@@ -70,6 +68,11 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
   val services = new SingleHostServices(domainRoot)
+
+  val imageBucket: String = string("s3.image.bucket")
+  val imageBucketS3Endpoint: String = "s3.amazonaws.com"
+  val thumbnailBucket: String = string("s3.thumb.bucket")
+  val thumbnailBucketS3Endpoint: String = "s3.amazonaws.com"
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

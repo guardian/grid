@@ -8,8 +8,9 @@ import scala.concurrent.ExecutionContext
 class QuotaStore(
                   quotaFile: String,
                   bucket: String,
-                  config: MediaApiConfig
-                )(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
+                  config: MediaApiConfig,
+                  val s3Endpoint: String,
+                )(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config, s3Endpoint)(ec) {
 
   def getQuota: Map[String, SupplierUsageQuota] = store.get()
 

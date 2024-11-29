@@ -66,7 +66,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type Key = String
   type UserMetadata = Map[String, String]
 
-  private val s3Endpoint: String = config.s3Endpoint
   private lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
@@ -117,7 +116,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     client.doesObjectExist(bucket, key)
   }
 
-  def getObject(bucket: Bucket, url: URI): model.S3Object = {
+  def getObject(bucket: Bucket, url: URI): model.S3Object = { // TODO why can't this just be by bucket + key to remove end point knowledge
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
     client.getObject(new GetObjectRequest(bucket, key))
@@ -166,7 +165,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     client.putObject(bucket, key, content)
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String)
            (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
@@ -190,7 +189,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       }(markers)
     }
 
-  def storeIfNotPresent(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+  def storeIfNotPresent(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] = {
     Future{
       Some(client.getObjectMetadata(bucket, id))
@@ -200,13 +199,13 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }.flatMap {
       case Some(objectMetadata) =>
         logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
-        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata) ,s3Endpoint))
+        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata), s3Endpoint))
       case None =>
-        store(bucket, id, file, mimeType, meta, cacheControl)
+        store(bucket, id, file, mimeType, meta, cacheControl, s3Endpoint)
     }
   }
 
-  def list(bucket: Bucket, prefixDir: String)
+  def list(bucket: Bucket, prefixDir: String, s3Endpoint: String)
           (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {
       val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")

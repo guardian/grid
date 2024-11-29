@@ -16,13 +16,15 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
   val quotaStore = new QuotaStore(
     config.quotaStoreConfig.storeKey,
     config.quotaStoreConfig.storeBucket,
-    config
+    config,
+    config.quotaStoreConfig.storeBucketS3Endpoint
   )
 
   val usageStore = new UsageStore(
     config.usageMailBucket,
     config,
-    quotaStore
+    quotaStore,
+    "s3.amazonaws.com"
   )
 
   def scheduleUpdates(): Unit = {

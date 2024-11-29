@@ -21,7 +21,7 @@ object ImageIngestOperations {
   private def snippetForId(id: String) = id.take(6).mkString("/") + "/" + id
 }
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
+class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false, imageBucketS3Endpoint: String, thumbnailBucketS3Endpoint: String)
   extends S3ImageStorage(config) with StrictLogging {
 
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
@@ -38,7 +38,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     val instanceSpecificKey = instanceAwareOriginalImageKey(storableImage)
     logger.info(s"Storing original image to instance specific key:$imageBucket / $instanceSpecificKey")
     storeImage(imageBucket, instanceSpecificKey, storableImage.file, Some(storableImage.mimeType),
-      storableImage.meta, overwrite = false)
+      storableImage.meta, overwrite = false, s3Endpoint = imageBucketS3Endpoint)
   }
 
   private def storeThumbnailImage(storableImage: StorableThumbImage)
@@ -46,7 +46,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     val instanceSpecificKey = instanceAwareThumbnailImageKey(storableImage)
     logger.info(s"Storing thumbnail to instance specific key: $thumbnailBucket / $instanceSpecificKey")
     storeImage(thumbnailBucket, instanceSpecificKey, storableImage.file, Some(storableImage.mimeType),
-      overwrite = true)
+      overwrite = true, s3Endpoint = thumbnailBucketS3Endpoint)
   }
 
   private def storeOptimisedImage(storableImage: StorableOptimisedImage)
@@ -54,7 +54,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     val instanceSpecificKey = optimisedPngKeyFromId(storableImage.id)(storableImage.instance)
     logger.info(s"Storing optimised image to instance specific key: $thumbnailBucket / $instanceSpecificKey")
     storeImage(imageBucket, instanceSpecificKey, storableImage.file, Some(storableImage.mimeType),
-      overwrite = true)
+      overwrite = true, s3Endpoint = imageBucketS3Endpoint)
   }
 
   private def bulkDelete(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
