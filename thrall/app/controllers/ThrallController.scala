@@ -3,11 +3,10 @@ package controllers
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ListObjectsRequest
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
-import com.gu.mediaservice.lib.aws.{S3Bucket, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{S3, S3Bucket, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -40,7 +39,7 @@ class ThrallController(
   override val services: Services,
   override val controllerComponents: ControllerComponents,
   gridClient: GridClient,
-  s3: AmazonS3,
+  s3: S3,
   imageBucket: S3Bucket,
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging with InstanceForRequest {
 
@@ -150,7 +149,7 @@ class ThrallController(
   def startMigration = withLoginRedirectAsync { implicit request =>
     val instance = instanceOf(request)
 
-    if(Form(single("start-confirmation" -> text)).bindFromRequest().get != "start"){
+    if (Form(single("start-confirmation" -> text)).bindFromRequest().get != "start") {
       Future.successful(BadRequest("you did not enter 'start' in the text box"))
     } else {
       val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias(instance)}'"
@@ -192,7 +191,7 @@ class ThrallController(
 
   def completeMigration(): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val instance = instanceOf(request)
-    if(Form(single("complete-confirmation" -> text)).bindFromRequest().get != "complete"){
+    if (Form(single("complete-confirmation" -> text)).bindFromRequest().get != "complete") {
       Future.successful(BadRequest("you did not enter 'complete' in the text box"))
     } else {
       es.refreshAndRetrieveMigrationStatus(instance) match {
@@ -312,7 +311,7 @@ class ThrallController(
         baseRequest
       }
 
-      val listing = s3.listObjects(request)
+      val listing = s3.listObjects(imageBucket, request)
       val keys = listing.getObjectSummaries.asScala.flatMap { s3Object =>
         logger.info("Reindexing s3 key: " + s3Object.getKey)
         s3Object.getKey.split("/").lastOption
@@ -325,7 +324,9 @@ class ThrallController(
       }
     }
 
+    logger.info(s"Reindex requested for instance ${instance.id}")
     val mediaIds = getMediaIdsFromS3(Seq.empty, None)
+    logger.info(s"Reindexing ${mediaIds.size} images for instance ${instance.id}")
     mediaIds.foreach { mediaId =>
       Await.result(reindexImage(mediaId), Duration(10, TimeUnit.SECONDS))
     }

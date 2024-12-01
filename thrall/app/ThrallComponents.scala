@@ -2,6 +2,7 @@ import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
 import com.gu.mediaservice.lib.instances.{Instances, InstancesClient}
 import com.gu.mediaservice.lib.logging.MarkerMap
@@ -22,6 +23,7 @@ import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import com.gu.mediaservice.lib.aws.S3
 
 class ThrallComponents(context: Context) extends GridComponents(context, new ThrallConfig(_)) with StrictLogging with AssetsComponents
   with Instances {
@@ -91,7 +93,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
-  val s3 = S3Ops.buildS3Client(config)
+  val s3 = new S3(config)
 
   Source.repeat(()).throttle(1, per = 5.minute).map(_ => {
     implicit val logMarker: MarkerMap = MarkerMap()
