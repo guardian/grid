@@ -19,17 +19,10 @@ trait CropSpecMetadata {
       "height" -> dimensions.height,
       "aspect-ratio" -> r)
 
-    val nonEmptyMetadata = metadata.filter {
-      case (_, None) => false
-      case _ => true
+    metadata.collect {
+      case (key, Some(value)) => key -> value.toString
+      case (key, value) if value != None => key -> value.toString
     }
-
-    val flattenedMetadata = nonEmptyMetadata.collect {
-      case (key, Some(value)) => key -> value
-      case (key, value) => key -> value
-    }.view.mapValues(_.toString).toMap
-
-    flattenedMetadata
   }
 
   def cropSpecFromMetadata(userMetadata: Map[String, String]): Option[CropSpec] = {
