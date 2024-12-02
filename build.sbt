@@ -171,8 +171,8 @@ lazy val thrall = playProject("thrall", 9002)
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "content-api-client-default" % "32.0.0",
-    "com.gu" %% "content-api-client-aws" % "0.7.6",
+    "com.gu" %% "content-api-client-default" % "32.0.0" exclude("org.slf4j","slf4j-api"), // slf4j exclusion can be removed when we upgrade to SLFJ v2
+    "com.gu" %% "content-api-client-aws" % "0.7.6" exclude("org.slf4j","slf4j-api"), // slf4j exclusion can be removed when we upgrade to SLFJ v2
     "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
