@@ -296,6 +296,11 @@ object Mappings {
     keywordField("downloadedBy")
   ))
 
+  def integrationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
+    keywordField("integratedBy"),
+    keywordField("integrationTool")
+  ))
+
   def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
     keywordField("id"),
     sStemmerAnalysed("title"),
