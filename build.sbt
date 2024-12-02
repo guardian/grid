@@ -40,7 +40,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.14.3",
+  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.17.2",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
