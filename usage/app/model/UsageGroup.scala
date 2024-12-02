@@ -207,23 +207,17 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     }
   }
 
-  private def extractCartoonUniqueMediaIds(content: Content): Set[String] = {
-    content.elements.toSeq.flatMap { elements =>
-      elements.filter(_.`type` == ElementType.Cartoon).flatMap { cartoonElement =>
-        cartoonElement.assets.flatMap { asset =>
-          asset.typeData.toSeq.flatMap { data =>
-            data.cartoonVariants.toSeq.flatMap { cartoonVariants =>
-              cartoonVariants.flatMap { cartoonVariant =>
-                cartoonVariant.images.flatMap { image =>
-                  image.mediaId
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }.toSet
+  private def extractCartoonUniqueMediaIds(content: Content): Set[String] = 
+    (for {
+      elements <- content.elements.toSeq
+      cartoonElement <- elements.filter(_.`type` == ElementType.Cartoon)
+      asset <- cartoonElement.assets.toSeq
+      data <- asset.typeData.toSeq
+      cartoonVariants <- data.cartoonVariants.toSeq
+      cartoonVariant <- cartoonVariants
+      image <- cartoonVariant.images
+      mediaId <- image.mediaId
+    } yield mediaId).toSet
 
   private def extractImageElements(
     content: Content, usageStatus: UsageStatus, isReindex: Boolean
