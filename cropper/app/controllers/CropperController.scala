@@ -148,13 +148,14 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def deleteCrops(id: String) = AuthenticatedAndAuthorisedToDeleteCrops.async { httpRequest =>
+    implicit val instance: Instance = instanceOf(httpRequest)
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "deleteCrops",
       "requestId" -> RequestLoggingFilter.getRequestId(httpRequest),
       "imageId" -> id
     )
     store.deleteCrops(id).map { _ =>
-      val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id), instance = instanceOf(httpRequest))
+      val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id), instance = instance)
       notifications.publish(updateMessage)
       Accepted
     } recover {

@@ -90,7 +90,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     }
   }
 
-  def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
+  def deleteCrops(id: String)(implicit logMarker: LogMarker, instance: Instance): Future[Unit] = store.deleteCrops(id)
 
   private def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))

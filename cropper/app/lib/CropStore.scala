@@ -27,7 +27,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropS
   }
 
   def listCrops(id: String, instance: Instance): Future[List[Crop]] = {
-    list(config.imgPublishingBucket, instance.id + "/" + id).map { crops => // TODO crops layout want to be pull up
+    list(config.imgPublishingBucket, folderForImagesCrops(id, instance)).map { crops => // TODO crops layout want to be pull up
       crops.foldLeft(Map[String, Crop]()) {
         case (map, (s3Object)) => {
           val filename::containingFolder::_ = s3Object.uri.getPath.split("/").reverse.toList
@@ -70,13 +70,17 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropS
     }
   }
 
-  def deleteCrops(id: String)(implicit logMarker: LogMarker) = {
-    deleteFolder(config.imgPublishingBucket, id)
+  def deleteCrops(id: String)(implicit logMarker: LogMarker, instance: Instance) = {
+    deleteFolder(config.imgPublishingBucket, folderForImagesCrops(id, instance))
   }
 
   // FIXME: this doesn't really belong here
   def translateImgHost(uri: URI): URI =
     new URI("https", config.imgPublishingHost, uri.getPath, uri.getFragment)
+
+  private def folderForImagesCrops(id: Bucket, instance: Instance) = {
+    instance.id + "/" + id
+  }
 
   def signedCropAssetUrl(uri: URI): URI = {
     new URI(signUrlTony(config.imgPublishingBucket, uri))
