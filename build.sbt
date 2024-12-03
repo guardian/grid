@@ -35,7 +35,7 @@ val commonSettings = Seq(
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
+    "org.scalatestplus.play" %% "scalatestplus-play" % "6.0.1" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
@@ -76,7 +76,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "3.0.0",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
+    "com.gu" %% "pan-domain-auth-play_2-9" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -95,7 +95,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
+    logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -103,10 +103,10 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+    "com.typesafe.play" %% "play-json-joda" % "2.10.2",
     "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
-    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
+    ws,
     "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
@@ -115,8 +115,8 @@ lazy val commonLib = project("common-lib").settings(
 
 lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
-    "com.typesafe.play" %% "play" % "2.8.20",
-    "com.typesafe.play" %% "filters-helpers" % "2.8.11",
+    playCore,
+    filters,
     akkaHttpServer,
   ),
 ).dependsOn(commonLib % "compile->compile;test->test")
