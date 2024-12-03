@@ -119,14 +119,3 @@ deployments:
       fileName: image-counter-lambda.zip
       functionNames:
         - "image-counter-lambda-function-"
-
-  s3watcher:
-    type: aws-lambda
-    parameters:
-      functions:
-        TEST:
-          filename: s3watcher.zip
-          name: media-service-TEST-S3WatcherLamdbaFunction-1OZTI92QAHHU3
-        PROD:
-          filename: s3watcher.zip
-          name: media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O
