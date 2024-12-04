@@ -3,12 +3,10 @@ package com.gu.mediaservice.model.usage
 import play.api.libs.json.{Json, Reads, Writes}
 
 case class IntegrationUsageMetadata(
-  integrationTool: String,
   integratedBy: String
 ) extends UsageMetadata {
   override def toMap: Map[String, Any] = Map(
-    "integratedBy" -> integratedBy,
-    "integrationTool" -> integrationTool
+    "integratedBy" -> integratedBy
   )
 }
 

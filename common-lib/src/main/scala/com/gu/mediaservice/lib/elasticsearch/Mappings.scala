@@ -315,7 +315,8 @@ object Mappings {
     digitalUsageMetadata("digitalUsageMetadata"),
     syndicationUsageMetadata("syndicationUsageMetadata"),
     frontUsageMetadata("frontUsageMetadata"),
-    downloadUsageMetadata("downloadUsageMetadata")
+    downloadUsageMetadata("downloadUsageMetadata"),
+    integrationUsageMetadata("integrationUsageMetadata")
   ))
 
   def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(

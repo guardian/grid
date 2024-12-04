@@ -187,8 +187,7 @@ object MappingTest {
         downloadedBy = "me"
       )),
       integrationUsageMetadata = Some(IntegrationUsageMetadata(
-        integratedBy = "me",
-        integrationTool = "a news tool"
+        integratedBy = "me"
       ))
     )),
     leases = LeasesByMedia.build(List(

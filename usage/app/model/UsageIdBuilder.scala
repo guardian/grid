@@ -41,7 +41,7 @@ object UsageIdBuilder {
 
   def build(integrationUsageRequest: IntegrationUsageRequest) = buildId(List(
     Some(integrationUsageRequest.mediaId),
-    Some(integrationUsageRequest.metadata.integrationTool),
+    Some(integrationUsageRequest.metadata.integratedBy),
     Some(integrationUsageRequest.status)
   ))
 }

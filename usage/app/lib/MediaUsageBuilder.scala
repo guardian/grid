@@ -84,6 +84,10 @@ object MediaUsageBuilder {
   def build(downloadUsageRequest: DownloadUsageRequest, groupId: String): MediaUsage = {
     val usageId = UsageIdBuilder.build(downloadUsageRequest)
 
+    println("------ Download usage request downloaded by: " + downloadUsageRequest.metadata.downloadedBy)
+    println("------ Download usage: " + DownloadUsage)
+    println("-----  Download usage request: " + downloadUsageRequest)
+
     MediaUsage (
       usageId,
       groupId,
@@ -104,11 +108,14 @@ object MediaUsageBuilder {
   def build(integrationUsageRequest: IntegrationUsageRequest, groupId: String): MediaUsage = {
     val usageId = UsageIdBuilder.build(integrationUsageRequest)
 
+    println("------- Integration usage request metadata: " + integrationUsageRequest.metadata)
+    println("------- Integration usage request integrated by: " + integrationUsageRequest.metadata.integratedBy)
+
     MediaUsage (
       usageId,
       groupId,
       integrationUsageRequest.mediaId,
-      DownloadUsage,
+      IntegrationUsage,
       mediaType = "image",
       integrationUsageRequest.status,
       printUsageMetadata = None,

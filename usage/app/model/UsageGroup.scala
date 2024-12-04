@@ -52,8 +52,7 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
   def buildId(integrationUsageRequest: IntegrationUsageRequest): String = s"integration/${
     MD5.hash(List(
       integrationUsageRequest.mediaId,
-      integrationUsageRequest.metadata.integrationTool,
-      integrationUsageRequest.integratedBy,
+      integrationUsageRequest.metadata.integratedBy,
       integrationUsageRequest.dateAdded.getMillis.toString
     ).mkString("_"))
   }"

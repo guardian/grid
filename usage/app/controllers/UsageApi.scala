@@ -273,6 +273,7 @@ class UsageApi(
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording integration usage")
         val group = usageGroupOps.build(usageRequest)
+        println("group is: " + group)
         usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted
       }

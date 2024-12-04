@@ -26,6 +26,7 @@ case class UsageRecord(
   syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
   frontUsageMetadata: Option[FrontUsageMetadata] = None,
   downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
+  integrationUsageMetadata: Option[IntegrationUsageMetadata] = None,
   dateAdded: Option[DateTime] = None
 ) {
   def toXSpec: UpdateItemExpressionSpec = {
@@ -41,6 +42,7 @@ case class UsageRecord(
       syndicationUsageMetadata.map(_.toMap).map(map => M("syndication_metadata").set(map.asJava)),
       frontUsageMetadata.map(_.toMap).map(map => M("front_metadata").set(map.asJava)),
       downloadUsageMetadata.map(_.toMap).map(map => M("download_metadata").set(map.asJava)),
+      integrationUsageMetadata.map(_.toMap).map(map => M("integration_metadata").set(map.asJava)),
       dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
       dateRemovedOperation match {
         case ClearDateRemoved => Some(N("date_removed").remove)
@@ -72,7 +74,8 @@ object UsageRecord {
     digitalUsageMetadata = mediaUsage.digitalUsageMetadata,
     syndicationUsageMetadata = mediaUsage.syndicationUsageMetadata,
     frontUsageMetadata = mediaUsage.frontUsageMetadata,
-    downloadUsageMetadata = mediaUsage.downloadUsageMetadata
+    downloadUsageMetadata = mediaUsage.downloadUsageMetadata,
+    integrationUsageMetadata = mediaUsage.integrationUsageMetadata
   )
 
   def buildCreateRecord(mediaUsage: MediaUsage) = UsageRecord(
@@ -89,6 +92,7 @@ object UsageRecord {
     syndicationUsageMetadata = mediaUsage.syndicationUsageMetadata,
     frontUsageMetadata = mediaUsage.frontUsageMetadata,
     downloadUsageMetadata = mediaUsage.downloadUsageMetadata,
+    integrationUsageMetadata = mediaUsage.integrationUsageMetadata,
     dateAdded = Some(mediaUsage.lastModified),
   )
 }

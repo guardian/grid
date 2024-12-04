@@ -29,6 +29,15 @@ object UsageBuilder {
   }
 
   private def buildUsageReference(usage: MediaUsage): List[UsageReference] = {
+
+    println("-------")
+    println("build usage reference has been called")
+    println("usage is: " + usage)
+    println("-------------")
+    println("usage type is: " + usage.usageType)
+    println("----------")
+    println("integration usage metadata is: " + usage.integrationUsageMetadata)
+
     usage.usageType match {
       case DigitalUsage => buildDigitalUsageReference(usage)
       case PrintUsage => buildPrintUsageReference(usage)
@@ -74,6 +83,7 @@ object UsageBuilder {
   )
 
   private def buildDownloadUsageReference(usage: MediaUsage): List[UsageReference] = usage.downloadUsageMetadata.map (metadata => {
+    println("---- made it to the download usage reference builder")
     List(
       UsageReference(
         DownloadUsageReference, None, Some(metadata.downloadedBy)
@@ -84,9 +94,16 @@ object UsageBuilder {
   )
 
   private def buildIntegrationUsageReference(usage: MediaUsage): List[UsageReference] = usage.integrationUsageMetadata.map (metadata => {
+    println("-----------Made it to the integration usage reference builder")
+    val m  = List(
+      UsageReference(
+        IntegrationUsageReference, None, name = Some(metadata.integratedBy)
+      )
+    )
+    println(s"-----buildIntegrationUsageReference LIST: ${m}")
     List(
       UsageReference(
-        IntegrationUsageReference,None, Some(metadata.integrationTool)
+        IntegrationUsageReference,None, name = Some(metadata.integratedBy)
       )
     )
   }).getOrElse(

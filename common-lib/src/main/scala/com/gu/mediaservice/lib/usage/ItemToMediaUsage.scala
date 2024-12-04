@@ -105,8 +105,7 @@ object ItemToMediaUsage {
   private def buildIntegration(metadataMap: Map[String, Any]): Option[IntegrationUsageMetadata] = {
     Try {
       IntegrationUsageMetadata(
-        metadataMap("integratedBy").asInstanceOf[String],
-        metadataMap("integrationTool").asInstanceOf[String]
+        metadataMap("integratedBy").asInstanceOf[String]
       )
     }
   }.toOption
