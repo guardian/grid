@@ -445,17 +445,18 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  private def updateUploadStatusTable (
+  private def updateUploadStatusTable(
     uploadAttempt: Future[UploadStatusUri],
     digestedFile: DigestedFile
-  )(implicit logMarker:LogMarker): Future[Unit] = {
+  )(implicit logMarker: LogMarker): Future[Unit] = {
 
-    def reportFailure (error:Throwable): Unit = {
+    def reportFailure(error: Throwable): Unit = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
       logger.error(logMarker, errorMessage, error)
       Future.failed(new Exception(errorMessage))
     }
-    def reportScanamoError (error:ScanamoError): Unit = {
+
+    def reportScanamoError(error: ScanamoError): Unit = {
       val errorMessage = error match {
         case ConditionNotMet(_) => s"ConditionNotMet error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
         case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
@@ -464,34 +465,25 @@ class ImageLoaderController(auth: Authentication,
       Future.failed(new Exception(errorMessage))
     }
 
-    uploadAttempt
-      .recover {
-        case uploadFailure =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+    uploadAttempt.transformWith {
+        case Failure(uploadFailure) =>
+          logger.error(logMarker, s"Image upload failed: ${uploadFailure.getMessage}", uploadFailure)
+          uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadFailure
-            }
-      }
-      .map {
-        case uploadStatusUri:UploadStatusUri =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+
+        case Success(_) =>
+          uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadStatusUri
-            }
+      }
+      .map {
+        case Left(error: ScanamoError) => reportScanamoError(error)
+        case Right(_) => ()
+      }.recover {
+        case error => reportFailure(error)
       }
   }
 
