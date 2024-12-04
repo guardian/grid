@@ -256,10 +256,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
-  def makeOptimisedPngImageopsUri(uri: URI): String = {
-    config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
-  }
-
   private def updateCustomSpecialInstructions(source: JsValue): Reads[JsObject] = {
      (source \ "usageRights" \ "category") match {
         case JsDefined(category) =>

@@ -31,7 +31,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropS
       crops.foldLeft(Map[String, Crop]()) {
         case (map, (s3Object)) => {
           val filename::containingFolder::_ = s3Object.uri.getPath.split("/").reverse.toList
-          var isMaster       = containingFolder == "master"
+          val isMaster = containingFolder == "master"
           val userMetadata   = s3Object.metadata.userMetadata
           val objectMetadata = s3Object.metadata.objectMetadata
 
