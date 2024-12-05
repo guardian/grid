@@ -11,7 +11,7 @@ sealed trait UsageStatus {
     case DownloadedUsageStatus => "downloaded"
     case FailedUsageStatus => "failed"
     case UnknownUsageStatus => "unknown"
-    case GraphicsUsageStatus => "integrated"
+    case GraphicsUsageStatus => "graphics"
   }
 }
 
@@ -24,7 +24,7 @@ object UsageStatus {
     case "downloaded" => DownloadedUsageStatus
     case "failed" => FailedUsageStatus
     case "unknown" => UnknownUsageStatus
-    case "integrated" => GraphicsUsageStatus
+    case "graphics" => GraphicsUsageStatus
     case _ => throw new IllegalArgumentException("Invalid usage status")
   }
 

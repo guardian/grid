@@ -296,9 +296,8 @@ object Mappings {
     keywordField("downloadedBy")
   ))
 
-  def integrationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
-    keywordField("integratedBy"),
-    keywordField("integrationTool")
+  def graphicsUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
+    keywordField("addedBy")
   ))
 
   def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
@@ -316,7 +315,7 @@ object Mappings {
     syndicationUsageMetadata("syndicationUsageMetadata"),
     frontUsageMetadata("frontUsageMetadata"),
     downloadUsageMetadata("downloadUsageMetadata"),
-    integrationUsageMetadata("integrationUsageMetadata")
+    graphicsUsageMetadata("graphicsUsageMetadata")
   ))
 
   def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
