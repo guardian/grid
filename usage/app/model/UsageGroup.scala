@@ -49,11 +49,11 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     ).mkString("_"))
   }"
 
-  def buildId(integrationUsageRequest: GraphicsUsageRequest): String = s"integration/${
+  def buildId(graphicsUsageRequest: GraphicsUsageRequest): String = s"graphics/${
     MD5.hash(List(
-      integrationUsageRequest.mediaId,
-      integrationUsageRequest.metadata.addedBy,
-      integrationUsageRequest.dateAdded.getMillis.toString
+      graphicsUsageRequest.mediaId,
+      graphicsUsageRequest.metadata.addedBy,
+      graphicsUsageRequest.dateAdded.getMillis.toString
     ).mkString("_"))
   }"
 
