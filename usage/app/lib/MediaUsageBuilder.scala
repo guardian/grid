@@ -84,10 +84,6 @@ object MediaUsageBuilder {
   def build(downloadUsageRequest: DownloadUsageRequest, groupId: String): MediaUsage = {
     val usageId = UsageIdBuilder.build(downloadUsageRequest)
 
-    println("------ Download usage request downloaded by: " + downloadUsageRequest.metadata.downloadedBy)
-    println("------ Download usage: " + DownloadUsage)
-    println("-----  Download usage request: " + downloadUsageRequest)
-
     MediaUsage (
       usageId,
       groupId,
@@ -105,26 +101,23 @@ object MediaUsageBuilder {
     )
   }
 
-  def build(integrationUsageRequest: IntegrationUsageRequest, groupId: String): MediaUsage = {
-    val usageId = UsageIdBuilder.build(integrationUsageRequest)
-
-    println("------- Integration usage request metadata: " + integrationUsageRequest.metadata)
-    println("------- Integration usage request integrated by: " + integrationUsageRequest.metadata.integratedBy)
+  def build(graphicsUsageRequest: GraphicsUsageRequest, groupId: String): MediaUsage = {
+    val usageId = UsageIdBuilder.build(graphicsUsageRequest)
 
     MediaUsage (
       usageId,
       groupId,
-      integrationUsageRequest.mediaId,
-      IntegrationUsage,
+      graphicsUsageRequest.mediaId,
+      GraphicsUsage,
       mediaType = "image",
-      integrationUsageRequest.status,
+      graphicsUsageRequest.status,
       printUsageMetadata = None,
       digitalUsageMetadata = None,
       syndicationUsageMetadata = None,
       frontUsageMetadata = None,
       downloadUsageMetadata = None,
-      integrationUsageMetadata = Some(integrationUsageRequest.metadata),
-      lastModified = integrationUsageRequest.dateAdded
+      graphicsUsageMetadata = Some(graphicsUsageRequest.metadata),
+      lastModified = graphicsUsageRequest.dateAdded
     )
   }
 }

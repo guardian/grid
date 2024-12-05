@@ -19,7 +19,7 @@ object UsageBuilder {
     usage.syndicationUsageMetadata,
     usage.frontUsageMetadata,
     usage.downloadUsageMetadata,
-    usage.integrationUsageMetadata
+    usage.graphicsUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
@@ -36,7 +36,7 @@ object UsageBuilder {
     println("-------------")
     println("usage type is: " + usage.usageType)
     println("----------")
-    println("integration usage metadata is: " + usage.integrationUsageMetadata)
+    println("integration usage metadata is: " + usage.graphicsUsageMetadata)
 
     usage.usageType match {
       case DigitalUsage => buildDigitalUsageReference(usage)
@@ -93,17 +93,17 @@ object UsageBuilder {
     List[UsageReference]()
   )
 
-  private def buildIntegrationUsageReference(usage: MediaUsage): List[UsageReference] = usage.integrationUsageMetadata.map (metadata => {
+  private def buildIntegrationUsageReference(usage: MediaUsage): List[UsageReference] = usage.graphicsUsageMetadata.map (metadata => {
     println("-----------Made it to the integration usage reference builder")
     val m  = List(
       UsageReference(
-        IntegrationUsageReference, None, name = Some(metadata.integratedBy)
+        IntegrationUsageReference, None, name = Some(metadata.addedBy)
       )
     )
     println(s"-----buildIntegrationUsageReference LIST: ${m}")
     List(
       UsageReference(
-        IntegrationUsageReference,None, name = Some(metadata.integratedBy)
+        IntegrationUsageReference,None, name = Some(metadata.addedBy)
       )
     )
   }).getOrElse(

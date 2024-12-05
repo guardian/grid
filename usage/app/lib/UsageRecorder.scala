@@ -50,7 +50,7 @@ class UsageRecorder(
 
   val dbUpdateStream: Observable[WithLogMarker[Set[String]]] = getUpdatesStream(dbMatchStream)
 
-  val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
+val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
 
   val notifiedStream: Observable[LogMarker] = notificationStream.map(usageNotifier.send)
 

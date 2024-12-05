@@ -5,22 +5,22 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 
 case class Usage(
-  id: String,
-  references: List[UsageReference],
-  platform: UsageType,
-  media: String,
-  status: UsageStatus,
-  dateAdded: Option[DateTime],
-  dateRemoved: Option[DateTime],
-  lastModified: DateTime,
+                  id: String,
+                  references: List[UsageReference],
+                  platform: UsageType,
+                  media: String,
+                  status: UsageStatus,
+                  dateAdded: Option[DateTime],
+                  dateRemoved: Option[DateTime],
+                  lastModified: DateTime,
 
-  // TODO collapse this field into an `Option[UsageMetadata]`
-  printUsageMetadata: Option[PrintUsageMetadata] = None,
-  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
-  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
-  frontUsageMetadata: Option[FrontUsageMetadata] = None,
-  downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
-  integrationUsageMetadata: Option[IntegrationUsageMetadata] = None
+                  // TODO collapse this field into an `Option[UsageMetadata]`
+                  printUsageMetadata: Option[PrintUsageMetadata] = None,
+                  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
+                  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
+                  frontUsageMetadata: Option[FrontUsageMetadata] = None,
+                  downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
+                  graphicsUsageMetadata: Option[GraphicsUsageMetadata] = None
 )
 object Usage {
   import com.gu.mediaservice.lib.formatting._
@@ -39,7 +39,7 @@ object Usage {
       (__ \ "syndicationUsageMetadata").writeNullable[SyndicationUsageMetadata] ~
       (__ \ "frontUsageMetadata").writeNullable[FrontUsageMetadata] ~
       (__ \ "downloadUsageMetadata").writeNullable[DownloadUsageMetadata] ~
-      (__ \ "integrationUsageMetadata").writeNullable[IntegrationUsageMetadata]
+      (__ \ "graphicsUsageMetadata").writeNullable[GraphicsUsageMetadata]
     )(unlift(Usage.unapply))
 
   implicit val reads: Reads[Usage] = (
@@ -56,6 +56,6 @@ object Usage {
       (__ \ "syndicationUsageMetadata").readNullable[SyndicationUsageMetadata] ~
       (__ \ "frontUsageMetadata").readNullable[FrontUsageMetadata] ~
       (__ \ "downloadUsageMetadata").readNullable[DownloadUsageMetadata] ~
-      (__ \ "integrationUsageMetadata").readNullable[IntegrationUsageMetadata]
+      (__ \ "graphicsUsageMetadata").readNullable[GraphicsUsageMetadata]
     )(Usage.apply _)
 }

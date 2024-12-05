@@ -29,8 +29,8 @@ object ItemToMediaUsage {
         .map(_.asScala.toMap).flatMap(buildFront),
       Option(item.getMap[Any]("download_metadata"))
         .map(_.asScala.toMap).flatMap(buildDownload),
-      Option(item.getMap[Any]("integration_metadata"))
-        .map(_.asScala.toMap).flatMap(buildIntegration),
+      Option(item.getMap[Any]("graphics_metadata"))
+        .map(_.asScala.toMap).flatMap(buildGraphics),
       new DateTime(item.getLong("last_modified")),
       Try {
         item.getLong("date_added")
@@ -102,10 +102,10 @@ object ItemToMediaUsage {
     }.toOption
   }
 
-  private def buildIntegration(metadataMap: Map[String, Any]): Option[IntegrationUsageMetadata] = {
+  private def buildGraphics(metadataMap: Map[String, Any]): Option[GraphicsUsageMetadata] = {
     Try {
-      IntegrationUsageMetadata(
-        metadataMap("integratedBy").asInstanceOf[String]
+      GraphicsUsageMetadata(
+        metadataMap("addedBy").asInstanceOf[String]
       )
     }
   }.toOption

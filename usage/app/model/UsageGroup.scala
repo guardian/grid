@@ -49,10 +49,10 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     ).mkString("_"))
   }"
 
-  def buildId(integrationUsageRequest: IntegrationUsageRequest): String = s"integration/${
+  def buildId(integrationUsageRequest: GraphicsUsageRequest): String = s"integration/${
     MD5.hash(List(
       integrationUsageRequest.mediaId,
-      integrationUsageRequest.metadata.integratedBy,
+      integrationUsageRequest.metadata.addedBy,
       integrationUsageRequest.dateAdded.getMillis.toString
     ).mkString("_"))
   }"
@@ -102,12 +102,12 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     )
   }
 
-  def build(integrationUsageRequest: IntegrationUsageRequest): UsageGroup = {
-    val usageGroupId = buildId(integrationUsageRequest)
+  def build(graphicsUsageRequest: GraphicsUsageRequest): UsageGroup = {
+    val usageGroupId = buildId(graphicsUsageRequest)
     UsageGroup(
-      Set(MediaUsageBuilder.build(integrationUsageRequest, usageGroupId)),
+      Set(MediaUsageBuilder.build(graphicsUsageRequest, usageGroupId)),
       usageGroupId,
-      integrationUsageRequest.dateAdded
+      graphicsUsageRequest.dateAdded
     )
   }
 

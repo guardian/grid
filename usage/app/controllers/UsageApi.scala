@@ -256,22 +256,22 @@ class UsageApi(
     )
   }}
 
-  def setIntegrationUsages() = auth(parse.json) { req =>
+  def setGraphicsUsages() = auth(parse.json) { req =>
 
-    val request = (req.body \ "data").validate[IntegrationUsageRequest]
+    val request = (req.body \ "data").validate[GraphicsUsageRequest]
     request.fold(
       e => respondError(
         BadRequest,
-        errorKey = "integration-usage-parse-failed",
+        errorKey = "graphics-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
       ),
       usageRequest => {
         implicit val logMarker: LogMarker = MarkerMap(
-          "requestType" -> "set-integration-usages",
+          "requestType" -> "set-graphics-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
           "image-id" -> usageRequest.mediaId,
         ) ++ apiKeyMarkers(req.user.accessor)
-        logger.info(logMarker, "recording integration usage")
+        logger.info(logMarker, "recording graphics usage")
         val group = usageGroupOps.build(usageRequest)
         println("group is: " + group)
         usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))

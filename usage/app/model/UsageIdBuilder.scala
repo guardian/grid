@@ -39,9 +39,9 @@ object UsageIdBuilder {
     Some(downloadUsageRequest.status)
   ))
 
-  def build(integrationUsageRequest: IntegrationUsageRequest) = buildId(List(
-    Some(integrationUsageRequest.mediaId),
-    Some(integrationUsageRequest.metadata.integratedBy),
-    Some(integrationUsageRequest.status)
+  def build(graphicsUsageRequest: GraphicsUsageRequest) = buildId(List(
+    Some(graphicsUsageRequest.mediaId),
+    Some(graphicsUsageRequest.metadata.addedBy),
+    Some(graphicsUsageRequest.status)
   ))
 }

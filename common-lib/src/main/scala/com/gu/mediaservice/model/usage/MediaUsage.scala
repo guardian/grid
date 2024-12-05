@@ -11,21 +11,21 @@ case class MediaUsageKey(
   grouping: String,
 )
 case class MediaUsage(
-  usageId: UsageId,
-  grouping: String,
-  mediaId: String,
-  usageType: UsageType,
-  mediaType: String,
-  status: UsageStatus,
-  printUsageMetadata: Option[PrintUsageMetadata],
-  digitalUsageMetadata: Option[DigitalUsageMetadata],
-  syndicationUsageMetadata: Option[SyndicationUsageMetadata],
-  frontUsageMetadata: Option[FrontUsageMetadata],
-  downloadUsageMetadata: Option[DownloadUsageMetadata],
-  integrationUsageMetadata: Option[IntegrationUsageMetadata],
-  lastModified: DateTime,
-  dateAdded: Option[DateTime] = None,
-  dateRemoved: Option[DateTime] = None
+                       usageId: UsageId,
+                       grouping: String,
+                       mediaId: String,
+                       usageType: UsageType,
+                       mediaType: String,
+                       status: UsageStatus,
+                       printUsageMetadata: Option[PrintUsageMetadata],
+                       digitalUsageMetadata: Option[DigitalUsageMetadata],
+                       syndicationUsageMetadata: Option[SyndicationUsageMetadata],
+                       frontUsageMetadata: Option[FrontUsageMetadata],
+                       downloadUsageMetadata: Option[DownloadUsageMetadata],
+                       graphicsUsageMetadata: Option[GraphicsUsageMetadata],
+                       lastModified: DateTime,
+                       dateAdded: Option[DateTime] = None,
+                       dateRemoved: Option[DateTime] = None
 ) extends GridLogging {
 
   def isGridLikeId(implicit logMarker: LogMarker): Boolean = {
@@ -62,7 +62,7 @@ case class MediaUsage(
     syndicationUsageMetadata,
     frontUsageMetadata,
     downloadUsageMetadata,
-    integrationUsageMetadata
+    graphicsUsageMetadata
     // NOTE that we don't compare any date fields
   )
 

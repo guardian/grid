@@ -186,8 +186,8 @@ object MappingTest {
       downloadUsageMetadata = Some(DownloadUsageMetadata(
         downloadedBy = "me"
       )),
-      integrationUsageMetadata = Some(IntegrationUsageMetadata(
-        integratedBy = "me"
+      graphicsUsageMetadata = Some(GraphicsUsageMetadata(
+        addedBy = "me"
       ))
     )),
     leases = LeasesByMedia.build(List(

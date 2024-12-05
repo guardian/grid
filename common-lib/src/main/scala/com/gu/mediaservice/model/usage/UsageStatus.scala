@@ -11,7 +11,7 @@ sealed trait UsageStatus {
     case DownloadedUsageStatus => "downloaded"
     case FailedUsageStatus => "failed"
     case UnknownUsageStatus => "unknown"
-    case IntegrationUsageStatus => "integrated"
+    case GraphicsUsageStatus => "integrated"
   }
 }
 
@@ -24,7 +24,7 @@ object UsageStatus {
     case "downloaded" => DownloadedUsageStatus
     case "failed" => FailedUsageStatus
     case "unknown" => UnknownUsageStatus
-    case "integrated" => IntegrationUsageStatus
+    case "integrated" => GraphicsUsageStatus
     case _ => throw new IllegalArgumentException("Invalid usage status")
   }
 
@@ -41,7 +41,7 @@ object RemovedUsageStatus extends UsageStatus
 object SyndicatedUsageStatus extends UsageStatus
 object DownloadedUsageStatus extends UsageStatus
 object FailedUsageStatus extends UsageStatus
-object IntegrationUsageStatus extends UsageStatus
+object GraphicsUsageStatus extends UsageStatus
 
 // For Fronts usages as we don't know if a front is in draft or is live
 // TODO remove this once we do!
