@@ -29,7 +29,7 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint index.ts lib",
-    "build": "rm -f target/* && ncc build index.ts -o target -e aws-sdk && (cd target; zip s3watcher.zip index.js)",
+    "build": "rm -f target/* && ncc build index.ts -o target && (cd target; zip s3watcher.zip index.js)",
     "tsc": "tsc"
   },
   "author": "",
