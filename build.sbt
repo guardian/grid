@@ -97,8 +97,6 @@ lazy val commonLib = project("common-lib").settings(
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-    "org.scalacheck" %% "scalacheck" % "1.14.0",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
@@ -107,7 +105,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     ws,
-    "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
@@ -146,7 +143,7 @@ lazy val mediaApi = playProject("media-api", 9001)
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
       "org.parboiled" %% "parboiled" % "2.1.7",
-      "org.http4s" %% "http4s-core" % "0.23.17",
+      "org.http4s" %% "http4s-core" % "0.23.17", // TODO remove - only used for UriTemplate builder class
     )
   )
 
@@ -157,7 +154,6 @@ lazy val thrall = playProject("thrall", 9002)
   .settings(
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
-      "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       "software.amazon.kinesis" % "amazon-kinesis-client" % "2.4.2",
       "io.github.streetcontxt" %% "kcl-akka-stream" % "4.1.1",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
