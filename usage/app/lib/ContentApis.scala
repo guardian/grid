@@ -16,7 +16,7 @@ abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor:
   def usageQuery(contentId: String): ItemQuery = {
     ItemQuery(contentId)
       .showFields("firstPublicationDate,isLive,internalComposerCode")
-      .showElements("image")
+      .showElements("image,cartoon")
       .showAtoms("media")
   }
 }

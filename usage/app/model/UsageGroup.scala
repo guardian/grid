@@ -109,21 +109,26 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     val mediaAtomsUsages = extractMediaAtoms(content, usageStatus, isReindex)(extractJobLogMarkers).flatMap { atom =>
       getImageId(atom) match {
         case Some(id) =>
-          val mediaWrapper = mediaWrapperOps.build(id, contentWrapper, buildId(contentWrapper))
+          val mediaWrapper = mediaWrapperOps.build(mediaId = id, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
           val usage = MediaUsageBuilder.build(mediaWrapper)
           Seq(createUsagesLogging(usage)(logMarker))
         case None => Seq.empty
       }
     }
     val imageElementUsages = extractImageElements(content, usageStatus, isReindex)(extractJobLogMarkers).map { element =>
-      val mediaWrapper = mediaWrapperOps.build(element.id, contentWrapper, buildId(contentWrapper))
+      val mediaWrapper = mediaWrapperOps.build(mediaId = element.id, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
+      val usage = MediaUsageBuilder.build(mediaWrapper)
+      createUsagesLogging(usage)(logMarker)
+    }
+    val cartoonElementUsages = extractCartoonUniqueMediaIds(content).map { mediaId =>
+      val mediaWrapper = mediaWrapperOps.build(mediaId, contentWrapper = contentWrapper, usageGroupId = buildId(contentWrapper))
       val usage = MediaUsageBuilder.build(mediaWrapper)
       createUsagesLogging(usage)(logMarker)
     }
 
     // TODO capture images from interactive embeds
 
-    mediaAtomsUsages ++ imageElementUsages
+    mediaAtomsUsages ++ imageElementUsages ++ cartoonElementUsages
   }
 
   private def createUsagesLogging(usage: MediaUsage)(implicit logMarker: LogMarker) = {
@@ -201,6 +206,18 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
       case e: ClassCastException => None
     }
   }
+
+  private def extractCartoonUniqueMediaIds(content: Content): Set[String] = 
+    (for {
+      elements <- content.elements.toSeq
+      cartoonElement <- elements.filter(_.`type` == ElementType.Cartoon)
+      asset <- cartoonElement.assets.toSeq
+      data <- asset.typeData.toSeq
+      cartoonVariants <- data.cartoonVariants.toSeq
+      cartoonVariant <- cartoonVariants
+      image <- cartoonVariant.images
+      mediaId <- image.mediaId
+    } yield mediaId).toSet
 
   private def extractImageElements(
     content: Content, usageStatus: UsageStatus, isReindex: Boolean
