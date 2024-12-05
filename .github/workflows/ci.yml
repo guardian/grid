@@ -117,7 +117,4 @@ jobs:
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
 
-            s3watcher:
-              - s3watcher/lambda/target/s3watcher.zip
-
 
