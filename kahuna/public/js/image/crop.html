@@ -5,7 +5,7 @@
 <div class="image-crop__info"
      ng-class="{'image-crop__info--selected': crop == ctrl.crop}">
   <div class="flex-container">
-    {{:: crop.specification.aspectRatio | asCropType}}
+    {{:: crop.specification | asCropType}}
     <span class="flex-spacer"></span>
     <span ng-if="crop.specification.aspectRatio">({{:: crop.specification.aspectRatio}})</span>
   </div>
@@ -21,6 +21,6 @@
     data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
     data-embeddable-url="{{:: ctrl.image.data.id | embeddableUrl:crop.id}}"
     data-aspect-ratio="{{:: crop.specification.aspectRatio}}"
-    data-crop-type="{{:: crop.specification.aspectRatio | asCropType}}"
+    data-crop-type="{{:: crop.specification | asCropType}}"
   ></asset-handle>
 </div>

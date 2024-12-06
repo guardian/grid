@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import { landscape, portrait, video, square, freeform, cropOptions } from './constants/cropOptions';
+import {landscape, portrait, video, square, freeform, cropOptions, pointsOfInterestBeta} from './constants/cropOptions';
 
 const CROP_TYPE_STORAGE_KEY = 'cropType';
 const CUSTOM_CROP_STORAGE_KEY = 'customCrop';
@@ -123,8 +123,11 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
 }]);
 
 cropUtil.filter('asCropType', function() {
-  return ratioString => {
-    const cropSpec = cropOptions.find(_ => _.ratioString === ratioString) || freeform;
+  return specification => {
+    if (specification.type === "poi"){
+      return pointsOfInterestBeta.key;
+    }
+    const cropSpec = cropOptions.find(_ => _.ratioString === specification.aspectRatio) || freeform;
     return cropSpec.key;
   };
 });
