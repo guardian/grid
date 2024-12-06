@@ -93,7 +93,7 @@ class Authentication(config: CommonConfig,
               // we have an end user principal, and a list of the instances they are allowed to access.
               // Only process the block if the instance is allowed.
               val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
-              logger.info(s"$principal is allowed to access instance $instance: $isAllowedToAccessThisInstance")
+              logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
               if (isAllowedToAccessThisInstance) {
                 logger.debug("Allowing this request!")
                 block(new AuthenticatedRequest(principal, request))
