@@ -9,7 +9,8 @@ object AspectRatio {
     Ratio("5:3", 5, 3),
     Ratio("2:3", 2, 3),
     Ratio("16:9", 16, 9),
-    Ratio("1:1", 1, 1)
+    Ratio("1:1", 1, 1),
+    Ratio("3:2", 3, 2)
   )
 
   def clean(aspect: String): Option[Float] = knownRatios
