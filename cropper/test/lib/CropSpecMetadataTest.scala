@@ -9,7 +9,8 @@ class CropSpecMetadataTest extends AnyFunSpec with Matchers with CropSpecMetadat
 
   private val cropSpec = CropSpec(
     uri = "/test",
-    bounds = Bounds(1, 2, 3, 4), aspectRatio = Some("16:9"), `type` = ExportType.default
+    bounds = Bounds(1, 2, 3, 4), aspectRatio = Some("16:9")
+    , `type` = ExportType.default, rotation = Some(90)
   )
   private val crop = Crop(
     id = Some("123"),
@@ -29,15 +30,17 @@ class CropSpecMetadataTest extends AnyFunSpec with Matchers with CropSpecMetadat
       metadata("height") shouldBe "480"
       metadata.get("aspect-ratio") shouldBe Some("16:9")
       metadata.get("author") shouldBe Some("Tony McCrae")
+      metadata.get("rotation") shouldBe Some("90")
     }
 
     it("should handle empty optional fields") {
-      val withEmptyField = cropSpec.copy(aspectRatio = None)
+      val withEmptyField = cropSpec.copy(aspectRatio = None, rotation = None)
 
       val metadata = metadataForCrop(crop.copy(specification = withEmptyField, author = None), dimensions)
 
       metadata.get("aspect-ratio") shouldBe None
       metadata.get("author") shouldBe None
+      metadata.get("rotation") shouldBe None
     }
 
     it("should round trip metadata back to crop spec") {
