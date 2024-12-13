@@ -101,15 +101,6 @@ jobs.controller('UploadJobsCtrl', [
                               }
                           });
 
-                          // we use the filename of the image if the description is missing
-                          if (!jobItem.image.data.metadata.description) {
-                              const newDescription = jobItem.name
-                                  .substr(0, jobItem.name.lastIndexOf('.'))
-                                  .replace(/_/g, ' ');
-
-                              editsService.updateMetadataField(jobItem.image, 'description', newDescription);
-                          }
-
                           if (presetLabels.length > 0) {
                               labelService.add(image, presetLabels);
                           }
