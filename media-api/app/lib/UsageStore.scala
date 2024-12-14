@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{Agency, UsageRights}
+import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -71,7 +71,28 @@ class UsageStore(
   }
 
   def getUsageStatus(): Future[StoreAccess] = {
-    Future.successful(StoreAccess(store.get(), lastUpdated.get()))
+    //Future.successful(StoreAccess(store.get(), lastUpdated.get()))
+    val results: Map[String, UsageStatus] = quotaStore.getQuota.keys.flatMap { supplier: String =>
+      val maybeAgency = Agencies.all.get(supplier)
+      val x = maybeAgency.map { agency =>
+        val supplierUsageSummary: SupplierUsageSummary = SupplierUsageSummary(
+          agency = agency, count = 0
+        )
+
+        val supplierUsageQuota: SupplierUsageQuota = SupplierUsageQuota(
+          agency = agency, count = 1
+        )
+        val usageStatus = UsageStatus(
+          exceeded = false,
+          fractionOfQuota = 0.0.toFloat,
+          usage = supplierUsageSummary,
+          quota = Some(supplierUsageQuota)
+        )
+        (supplier, usageStatus)
+      }
+      x
+    }.toMap
+    Future.successful(StoreAccess(store = results, lastUpdated = DateTime.now()))
   }
 
   def overQuotaAgencies: List[Agency] = store.get.collect {
