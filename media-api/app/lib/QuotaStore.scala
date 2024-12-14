@@ -21,12 +21,14 @@ class QuotaStore(
     val quotaFileString = getS3Object(quotaFile).get
     logger.info("Fetched quota file: " + quotaFileString)
 
-    val summary = Json
+    val summary: Seq[SupplierUsageQuota] = Json
       .parse(quotaFileString)
       .as[List[SupplierUsageQuota]]
 
-    summary.foldLeft(Map[String, SupplierUsageQuota]())((memo, quota) => {
+    val quotas = summary.foldLeft(Map[String, SupplierUsageQuota]())((memo, quota) => {
       memo + (quota.agency.supplier -> quota)
     })
+    logger.info("Got quotas: " + quotas)
+    quotas
   }
 }
