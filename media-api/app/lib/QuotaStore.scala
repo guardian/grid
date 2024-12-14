@@ -19,6 +19,7 @@ class QuotaStore(
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {
     val quotaFileString = getS3Object(quotaFile).get
+    logger.info("Fetched quota file: " + quotaFileString)
 
     val summary = Json
       .parse(quotaFileString)
