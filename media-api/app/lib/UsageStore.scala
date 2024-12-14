@@ -72,15 +72,17 @@ class UsageStore(
 
   def getUsageStatus(): Future[StoreAccess] = {
     //Future.successful(StoreAccess(store.get(), lastUpdated.get()))
-    val results: Map[String, UsageStatus] = quotaStore.getQuota.keys.flatMap { supplier: String =>
+
+    val quota = quotaStore.getQuota
+
+    val results: Map[String, UsageStatus] = quota.keys.flatMap { supplier: String =>
       val maybeAgency = Agencies.all.get(supplier)
       val x = maybeAgency.map { agency =>
         val supplierUsageSummary: SupplierUsageSummary = SupplierUsageSummary(
           agency = agency, count = 0
         )
-
         val supplierUsageQuota: SupplierUsageQuota = SupplierUsageQuota(
-          agency = agency, count = 1
+          agency = agency, count = quota.get(supplier).map(_.count).getOrElse(0)
         )
         val usageStatus = UsageStatus(
           exceeded = false,
