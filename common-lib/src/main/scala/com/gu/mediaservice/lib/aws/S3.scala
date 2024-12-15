@@ -72,9 +72,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   private val amazonS3: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
   private val googleS3: Option[AmazonS3] = S3Ops.buildGoogleS3Client(config)
 
-  // also create a legacy client that uses v2 signatures for URL signing
-  private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
-
   private def clientFor(bucket: S3Bucket): AmazonS3 = {
     (bucket.endpoint match {
       case "storage.googleapis.com" =>
@@ -95,7 +92,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
     val request = new GeneratePresignedUrlRequest(bucket.bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
-    legacySigningClient.generatePresignedUrl(request).toExternalForm
+    clientFor(bucket).generatePresignedUrl(request).toExternalForm
   }
 
   def signUrlTony(bucket: S3Bucket, url: URI, expiration: DateTime = cachableExpiration()): URL = {
@@ -103,7 +100,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val key: Key = url.getPath.drop(1)
 
     val request = new GeneratePresignedUrlRequest(bucket.bucket, key).withExpiration(expiration.toDate)
-    legacySigningClient.generatePresignedUrl(request)
+    clientFor(bucket).generatePresignedUrl(request)
   }
 
   def copyObject(sourceBucket: S3Bucket, destinationBucket: S3Bucket, key: String): CopyObjectResult = {
