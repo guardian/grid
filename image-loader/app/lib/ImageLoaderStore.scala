@@ -28,7 +28,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def getS3Object(key: String)(implicit logMarker: LogMarker): S3Object = handleNotFound(key) {
-    client.getObject(config.maybeIngestBucket.get, key)
+    getObject(config.maybeIngestBucket.get, key)
   } {
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
@@ -44,18 +44,18 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     // sent by the client in manager.js
     request.putCustomRequestHeader("x-amz-meta-media-id", mediaId)
 
-    client.generatePresignedUrl(request).toString
+    generatePresignedRequest(request).toString
   }
 
   def moveObjectToFailedBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key){
-    client.copyObject(config.maybeIngestBucket.get, key, config.maybeFailBucket.get, key) // TODO Naked get - make optional
+    copyObject(config.maybeIngestBucket.get, config.maybeFailBucket.get, key) // TODO Naked get - make optional
     deleteObjectFromIngestBucket(key)
   } {
     logger.warn(logMarker, s"Attempted to copy $key from ingest bucket to fail bucket, but it does not exist.")
   }
 
   def deleteObjectFromIngestBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key) {
-    client.deleteObject(config.maybeIngestBucket.get,key)
+    deleteObject(config.maybeIngestBucket.get, key)
   } {
     logger.warn(logMarker, s"Attempted to delete $key from ingest bucket, but it does not exist.")
   }

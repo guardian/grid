@@ -25,15 +25,14 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
-    val objects = s3.client
-      .listObjects(bucket).getObjectSummaries.asScala
+    val objects = s3.listObjects(bucket).getObjectSummaries.asScala
       .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
 
     if (objects.nonEmpty) {
       val obj = objects.maxBy(_.getLastModified)
       logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
 
-      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+      val stream = s3.getObject(bucket, obj).getObjectContent
       Some(stream)
     } else {
       logger.error(s"Bucket $bucket is empty")

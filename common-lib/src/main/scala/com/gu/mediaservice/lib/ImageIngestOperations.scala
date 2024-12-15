@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib
 
-import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteException}
+import com.amazonaws.services.s3.model.MultiObjectDeleteException
 
 import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -62,9 +62,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     case _ => Future {
       try {
         logger.info(s"Creating S3 bulkDelete request for $bucket / keys: " + keys.mkString(","))
-        client.deleteObjects(
-          new DeleteObjectsRequest(bucket).withKeys(keys: _*)
-        )
+        deleteObjects(bucket, keys)
         keys.map { key =>
           key -> true
         }.toMap
@@ -87,7 +85,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePNGs(ids: Set[String])(implicit instance: Instance) = bulkDelete(imageBucket, ids.map(id => optimisedPngKeyFromId(id)).toList)
 
   def doesOriginalExist(id: String)(implicit instance: Instance): Boolean =
-    client.doesObjectExist(imageBucket, fileKeyFromId(id))
+    doesObjectExist(imageBucket, fileKeyFromId(id))
 
   private def instanceAwareOriginalImageKey(storableImage: StorableOriginalImage) = {
     fileKeyFromId(storableImage.id)(storableImage.instance)

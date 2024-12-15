@@ -114,7 +114,7 @@ class ReaperController(
         case Some(reaperBucket) =>
           val now = DateTime.now(DateTimeZone.UTC)
           val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-          store.client.putObject(reaperBucket, key, json.toString())
+          store.putObject(reaperBucket, key, json.toString())
           json
         }
       }
@@ -198,8 +198,8 @@ class ReaperController(
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
-        store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
-          store.client.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
+        store.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
+          store.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
       }
 
       val recentRecordKeys = recentRecords
@@ -214,9 +214,11 @@ class ReaperController(
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      Ok(
-        store.client.getObjectAsString(reaperBucket, key)
-      ).as(JSON)
+      store.getObjectAsString(reaperBucket, key).map { record =>
+        Ok(record).as(JSON)
+      }.getOrElse{
+        NotFound
+      }
   }}
 
   def conf() = Action.async {
