@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConf
 import com.gu.mediaservice.model._
 import lib.EditsConfig
 import model.UsageRightsProperty
+import model.UsageRightsLease
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
@@ -75,6 +76,7 @@ case class CategoryResponse(
   defaultRestrictions: Option[String],
   caution: Option[String],
   properties: List[UsageRightsProperty] = List(),
+  leases: Seq[UsageRightsLease] = Seq(),
   usageRestrictions: Option[String],
   usageSpecialInstructions: Option[String]
 )
@@ -90,6 +92,7 @@ object CategoryResponse {
       defaultRestrictions = u.defaultRestrictions,
       caution = u.caution,
       properties = UsageRightsProperty.getPropertiesForSpec(u, config.usageRightsConfig),
+      leases = UsageRightsLease.getLeasesForSpec(u, config.usageRightsLeases),
       usageRestrictions = config.customUsageRestrictions.get(u.category),
       usageSpecialInstructions = config.customSpecialInstructions.get(u.category)
   )
