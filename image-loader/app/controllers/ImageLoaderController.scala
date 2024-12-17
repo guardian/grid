@@ -141,7 +141,18 @@ class ImageLoaderController(auth: Authentication,
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
-        if (approximateReceiveCount > 2) {
+        if(s3IngestObject.contentLength > 500000000){ // 500MB
+          val errorMessage = s"File size exceeds the maximum allowed size (500MB). Moving to fail bucket."
+          logger.warn(logMarker, errorMessage)
+          store.moveObjectToFailedBucket(s3IngestObject.key)
+          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
+              imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
+            )
+          }
+          Future.unit
+        }
+        else if (approximateReceiveCount > 2) {
           metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
