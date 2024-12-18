@@ -33,15 +33,18 @@ upload.factory('uploadManager',
 
     async function createJobItems(_files){
 
-      const filesAboveSizeLimit = _files.filter(file => file.size > 500000000); // 500MB
+      const maybeUploadLimitInBytes = window._clientConfig.maybeUploadLimitInBytes;
+      const maybeFilesAboveSizeLimit = maybeUploadLimitInBytes && _files.filter(file => file.size > maybeUploadLimitInBytes);
 
-      if (filesAboveSizeLimit.length > 0){
-        alert(`The following files will be skipped as they are above the size limit of 500MB:\n ${
-          filesAboveSizeLimit.map(file => file.name).join("\n")
+      if (maybeFilesAboveSizeLimit && maybeFilesAboveSizeLimit.length > 0){
+        alert(`The following files will be skipped as they are above the size limit of ${maybeUploadLimitInBytes / 1_000_000}MB:\n${
+          maybeFilesAboveSizeLimit.map(file => file.name).join("\n")
         }`);
       }
 
-      const files = _files.filter(file => !filesAboveSizeLimit.includes(file));
+      const files = maybeFilesAboveSizeLimit && maybeFilesAboveSizeLimit.length > 0
+        ? _files.filter(file => !maybeFilesAboveSizeLimit.includes(file))
+        : _files;
 
       if (window._clientConfig.shouldUploadStraightToBucket) {
         const mediaIdToFileMap = Object.fromEntries(

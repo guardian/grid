@@ -141,8 +141,8 @@ class ImageLoaderController(auth: Authentication,
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
-        if(s3IngestObject.contentLength > 500000000){ // 500MB
-          val errorMessage = s"File size exceeds the maximum allowed size (500MB). Moving to fail bucket."
+        if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
+          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
           s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
