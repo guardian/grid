@@ -54,6 +54,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val maybeIngestBucket: Option[String] = stringOpt("s3.ingest.bucket")
   val maybeFailBucket: Option[String] = stringOpt("s3.fail.bucket")
 
+  val maybeUploadLimitInBytes: Option[Int] = intOpt("upload.limit.mb").map(_ * 1_000_000)
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")
