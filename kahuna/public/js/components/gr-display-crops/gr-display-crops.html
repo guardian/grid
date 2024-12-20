@@ -14,7 +14,7 @@
                 <li class="image-info__group--dl gr-display-crops__crop"
                     ng-repeat="crop in ctrl.crops">
                     <div class="gr-display-crops__crop__list image-info__group--dl__key image-info__heading">
-                        <div>{{crop.specification.aspectRatio | asCropType}}</div>
+                        <div>{{crop.specification | asCropType}}</div>
                         <div>{{crop.master.dimensions.width}} x {{crop.master.dimensions.height}}</div>
                     </div>
                     <ul>
