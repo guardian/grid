@@ -150,6 +150,7 @@ class ImageLoaderController(auth: Authentication,
               imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
             )
           }
+          metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           Future.unit
         }
         else if (approximateReceiveCount > 2) {
