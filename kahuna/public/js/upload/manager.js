@@ -34,7 +34,7 @@ upload.factory('uploadManager',
     async function createJobItems(_files){
 
       const maybeUploadLimitInBytes = window._clientConfig.maybeUploadLimitInBytes;
-      const maybeFilesAboveSizeLimit = maybeUploadLimitInBytes && _files.filter(file => file.size > maybeUploadLimitInBytes);
+      const maybeFilesAboveSizeLimit = !!maybeUploadLimitInBytes && _files.filter(file => file.size > maybeUploadLimitInBytes);
 
       if (maybeFilesAboveSizeLimit && maybeFilesAboveSizeLimit.length > 0){
         alert(`The following files will be skipped as they are above the size limit of ${maybeUploadLimitInBytes / 1_000_000}MB:\n${
