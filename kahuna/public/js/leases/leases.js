@@ -122,6 +122,32 @@ leases.controller('LeasesCtrl', [
           // which also isn't ideal, but isn't quadratic either.
           const batchAddLeasesEvent = 'events:batch-apply:add-leases';
           const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
+          const rightsCatAddLeasesEvent = 'events:rights-category:add-leases';
+          const rightsCatDeleteLeasesEvent = 'events:rights-category:delete-leases';
+
+          //-handle rights cat assigned lease-
+          $scope.$on(rightsCatAddLeasesEvent,
+            (e, payload) => {
+              let matchImages = ctrl.images.filter(img => img.data.id === payload.catLeases[0].mediaId);
+              if (angular.isDefined(matchImages.toArray)) {
+                matchImages = matchImages.toArray();
+              };
+              if (matchImages.length || payload.batch) {
+                leaseService.replace(matchImages[0], payload.catLeases);
+              }
+            }
+          );
+
+          //-handle deletion of leases from previous rights category-
+          $scope.$on(rightsCatDeleteLeasesEvent,
+            (e, payload) => {
+              if (payload.catLeases && 0 < payload.catLeases.length) {
+                payload.catLeases.forEach(lease => {
+                  leaseService.deleteLease(lease, ctrl.images);
+                });
+              }
+            }
+          );
 
           if (Boolean(ctrl.withBatch)) {
             $scope.$on(batchAddLeasesEvent,
