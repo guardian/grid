@@ -17,17 +17,21 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
 
   applicationLifecycle.addStopHook(() => (usageEventsActor ? UsageEventsActor.Shutdown)(Timeout(5.seconds)))
 
-  def successfulIngestFromQueue(instance: Instance, filename: String, filesize: Long): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "imageIngest", instance = instance.id, filename = Some(filename), filesize = Some(filesize))
+  def successfulIngestFromQueue(instance: Instance, id: String, filesize: Long): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "imageIngest", instance = instance.id, id = Some(id), filesize = Some(filesize))
   }
 
-  def successfulUpload(instance: Instance, filename: String, filesize: Long): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, filename = Some(filename), filesize = Some(filesize))
+  def successfulUpload(instance: Instance, id: String, filesize: Long): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, id = Some(id), filesize = Some(filesize))
+  }
+
+  def downloadOriginal(instance: Instance, id: String, filesize: Option[Long]): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, id = Some(id), filesize = filesize)
   }
 
 }
 
-case class UsageEvent(`type`: String, instance: String, filename: Option[String], filesize: Option[Long])
+case class UsageEvent(`type`: String, instance: String, id: Option[String], filesize: Option[Long])
 
 object UsageEventsActor {
   def props(): Props =
