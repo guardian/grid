@@ -83,6 +83,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-cloudwatch" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
+    "software.amazon.awssdk" % "sqs" % awsSdkV2Version,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,

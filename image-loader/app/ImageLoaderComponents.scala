@@ -10,6 +10,9 @@ import lib.storage.{ImageLoaderStore, QuarantineStore}
 import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
   final override val buildInfo = utils.buildinfo.BuildInfo
@@ -39,7 +42,18 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
 
   private val gridClient = GridClient(config.services)(wsClient)
 
-  val events = new UsageEvents(actorSystem, applicationLifecycle)
+  private val sqsClient: SqsClient = SqsClient.builder()
+    .region(Region.EU_WEST_1)
+    .build()
+
+  private val usageEventsQueueUrl: String = {
+    val getQueueRequest = GetQueueUrlRequest.builder()
+      .queueName(config.usageEventsQueueName)
+      .build()
+    sqsClient.getQueueUrl(getQueueRequest).queueUrl
+  }
+
+  val events = new UsageEvents(actorSystem, applicationLifecycle, sqsClient, usageEventsQueueUrl)
   val metrics = new ImageLoaderMetrics(config, actorSystem, applicationLifecycle)
 
   val controller = new ImageLoaderController(
