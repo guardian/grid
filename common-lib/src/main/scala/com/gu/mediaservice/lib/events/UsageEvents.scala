@@ -41,7 +41,6 @@ object UsageEvent extends JodaWrites {
   implicit val uew: OWrites[UsageEvent] = Json.writes[UsageEvent]
 }
 
-
 object UsageEventsActor {
   def props(sqsClient: SqsClient, queueUrl: String): Props =
     Props(new UsageEventsActor(sqsClient, queueUrl))
@@ -59,8 +58,7 @@ private class UsageEventsActor(sqsClient: SqsClient, queueUrl: String) extends A
 
   def send(usageEvent: UsageEvent): Unit = {
     import play.api.libs.json._
-    val message = Json.toJson(usageEvent).toString()
-    sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.toJson(message).toString()).build)
+    sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.stringify(Json.toJson(usageEvent))).build)
   }
 
 }
