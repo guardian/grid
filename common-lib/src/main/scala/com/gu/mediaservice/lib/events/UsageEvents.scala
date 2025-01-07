@@ -5,12 +5,14 @@ import org.apache.pekko.pattern.ask
 import org.apache.pekko.util.Timeout
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.Instance
+import org.joda.time.DateTime
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.json.{JodaWrites, Json, OWrites}
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest
 
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
-import software.amazon.awssdk.services.sqs.SqsClient
-import software.amazon.awssdk.services.sqs.model.SendMessageRequest
 
 class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLifecycle, sqsClient: SqsClient, queueUrl: String) {
 
@@ -19,21 +21,26 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
 
   applicationLifecycle.addStopHook(() => (usageEventsActor ? UsageEventsActor.Shutdown)(Timeout(5.seconds)))
 
-  def successfulIngestFromQueue(instance: Instance, id: String, filesize: Long): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "imageIngest", instance = instance.id, id = Some(id), filesize = Some(filesize))
+  def successfulIngestFromQueue(instance: Instance, image: String, filesize: Long): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "imageIngest", instance = instance.id, image = Some(image), filesize = Some(filesize))
   }
 
-  def successfulUpload(instance: Instance, id: String, filesize: Long): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, id = Some(id), filesize = Some(filesize))
+  def successfulUpload(instance: Instance, image: String, filesize: Long): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, image = Some(image), filesize = Some(filesize))
   }
 
-  def downloadOriginal(instance: Instance, id: String, filesize: Option[Long]): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, id = Some(id), filesize = filesize)
+  def downloadOriginal(instance: Instance, image: String, filesize: Option[Long]): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, image = Some(image), filesize = filesize)
   }
 
 }
 
-case class UsageEvent(`type`: String, instance: String, id: Option[String], filesize: Option[Long])
+case class UsageEvent(`type`: String, instance: String, image: Option[String], filesize: Option[Long], date: DateTime = DateTime.now)
+
+object UsageEvent extends JodaWrites {
+  implicit val uew: OWrites[UsageEvent] = Json.writes[UsageEvent]
+}
+
 
 object UsageEventsActor {
   def props(sqsClient: SqsClient, queueUrl: String): Props =
@@ -52,7 +59,6 @@ private class UsageEventsActor(sqsClient: SqsClient, queueUrl: String) extends A
 
   def send(usageEvent: UsageEvent): Unit = {
     import play.api.libs.json._
-    implicit val uew = Json.writes[UsageEvent]
     val message = Json.toJson(usageEvent).toString()
     sqsClient.sendMessage(SendMessageRequest.builder.queueUrl(queueUrl).messageBody(Json.toJson(message).toString()).build)
   }

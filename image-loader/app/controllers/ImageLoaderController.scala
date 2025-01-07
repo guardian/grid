@@ -186,7 +186,7 @@ class ImageLoaderController(auth: Authentication,
               } else {
                 attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker)(instance) map { digestedFile =>
                   metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-                  events.successfulIngestFromQueue(instance = instance, id = digestedFile.digest, filesize = s3IngestObject.contentLength)
+                  events.successfulIngestFromQueue(instance = instance, image = digestedFile.digest, filesize = s3IngestObject.contentLength)
                   logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
                   store.deleteObjectFromIngestBucket(s3IngestObject.key)
                 } recover {
@@ -335,7 +335,7 @@ class ImageLoaderController(auth: Authentication,
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info(context, "loadImage request end")
-        events.successfulUpload(instance = instance, id = req.body.digest, filesize = req.body.file.length())
+        events.successfulUpload(instance = instance, image = req.body.digest, filesize = req.body.file.length())
         result
       } recover {
         case NonFatal(e) =>
