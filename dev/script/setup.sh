@@ -53,15 +53,15 @@ clean() {
   rm -rf "$ROOT_DIR/dev/.localstack"
   echo "  removed historical localstack data"
 
-  docker-compose down -v
+  docker compose down -v
   echo "  removed docker containers"
 
-  docker-compose build
+  docker compose build
   echo "  rebuilt docker containers"
 }
 
 startDocker() {
-  docker-compose up -d
+  docker compose up -d
 
   echo "waiting for localstack to launch on $LOCALSTACK_ENDPOINT"
   while ! curl -s $LOCALSTACK_ENDPOINT >/dev/null; do
@@ -77,12 +77,12 @@ setupDevNginx() {
 
   target="$ROOT_DIR/dev/nginx-mappings.yml"
 
-  sed -e "s/@IMAGE-ORIGIN-BUCKET/$imageOriginBucket/g" \
+  sudo sed -e "s/@IMAGE-ORIGIN-BUCKET/$imageOriginBucket/g" \
     -e "s/@IMAGE-BUCKET/$imagesBucket/g" \
     -e "s/@DOMAIN_ROOT/$DOMAIN/g" \
     "$ROOT_DIR/dev/nginx-mappings.yml.template" > "$target"
 
-  dev-nginx setup-app "$target"
+  sudo dev-nginx setup-app "$target"
 }
 
 setupPanDomainConfiguration() {
@@ -336,6 +336,7 @@ main() {
   setupQuotasConfiguration
   setupUsagesData
   setupUsageRightsConfiguration
+  echo "*** Setup Nginx ***"
   setupDevNginx
   generateConfig
   uploadApiKey
