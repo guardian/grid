@@ -85,7 +85,7 @@
           permissionsDefault: "@kahunaConfig.permissionsDefault",
           defaultShouldBlurGraphicImages: @kahunaConfig.defaultShouldBlurGraphicImages,
           shouldUploadStraightToBucket: @kahunaConfig.shouldUploadStraightToBucket,
-          maybeUploadLimitInBytes: @kahunaConfig.maybeUploadLimitInBytes,
+          maybeUploadLimitInBytes: @kahunaConfig.maybeUploadLimitInBytes.getOrElse(0),
           announcements: @Html(announcements),
           imageTypes: @Html(imageTypes),
         }
