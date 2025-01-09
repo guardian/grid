@@ -53,15 +53,15 @@ clean() {
   rm -rf "$ROOT_DIR/dev/.localstack"
   echo "  removed historical localstack data"
 
-  docker-compose down -v
+  docker compose down -v
   echo "  removed docker containers"
 
-  docker-compose build
+  docker compose build
   echo "  rebuilt docker containers"
 }
 
 startDocker() {
-  docker-compose up -d
+  docker compose up -d
 
   echo "waiting for localstack to launch on $LOCALSTACK_ENDPOINT"
   while ! curl -s $LOCALSTACK_ENDPOINT >/dev/null; do
