@@ -107,7 +107,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     ws,
-    "org.yaml" % "snakeyaml" % "1.31",
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
