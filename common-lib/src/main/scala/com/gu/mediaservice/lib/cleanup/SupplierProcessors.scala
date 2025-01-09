@@ -420,10 +420,11 @@ object RexParser extends ImageProcessor {
 
     (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _)      => image.copy(usageRights = usageRights)
-    case (_, Some(SlashRex()))          => image.copy(usageRights = usageRights)
-    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = usageRights)
-    case (Some("Shutterstock"), _)      => image.copy(usageRights = usageRights)
+    case (Some("Rex Features"), _)            => image.copy(usageRights = usageRights)
+    case (_, Some(SlashRex()))                => image.copy(usageRights = usageRights)
+    case (Some("REX/Shutterstock"), _)        => image.copy(usageRights = usageRights)
+    case (Some("Shutterstock"), _)            => image.copy(usageRights = usageRights)
+    case (Some("Shutterstock Editorial"), _)  => image.copy(usageRights = usageRights)
     case _ => image
   }
   }
