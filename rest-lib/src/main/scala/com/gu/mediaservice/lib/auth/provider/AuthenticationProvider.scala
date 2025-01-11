@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Princ
 import com.gu.mediaservice.lib.auth.Authorisation
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.config.{CommonConfig, Provider}
+import com.gu.mediaservice.lib.events.UsageEvents
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, RequestHeader, Result}
@@ -25,7 +26,8 @@ case class AuthenticationProviderResources(
   wsClient: WSClient,
   controllerComponents: ControllerComponents,
   authorisation: Authorisation,
-  cookieSigner: CookieSigner
+  cookieSigner: CookieSigner,
+  events: UsageEvents
 )
 
 sealed trait LoginLink
