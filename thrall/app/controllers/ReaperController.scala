@@ -218,12 +218,13 @@ class ReaperController(
   def conf() = Action.async {
     val uvtc = UserVisableThrallConfig(
       hardReapImagesAge = config.hardReapImagesAge,
-      reapableAfterMoreThanDaysOld = ReapableEligibility.ReapableAfterMoreThanDaysOld
+      reapableAfterMoreThanDaysOld = ReapableEligibility.ReapableAfterMoreThanDaysOld,
+      maybeUploadLimitInBytes = config.maybeUploadLimitInBytes
     )
     implicit val uvtcw: OWrites[UserVisableThrallConfig] = Json.writes[UserVisableThrallConfig]
     Future.successful(Ok(Json.toJson(uvtc)))
   }
 
-  case class UserVisableThrallConfig(hardReapImagesAge: Int, reapableAfterMoreThanDaysOld: Int)
+  case class UserVisableThrallConfig(hardReapImagesAge: Int, reapableAfterMoreThanDaysOld: Int, maybeUploadLimitInBytes: Option[Int])
 
 }
