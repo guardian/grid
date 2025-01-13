@@ -77,12 +77,12 @@ setupDevNginx() {
 
   target="$ROOT_DIR/dev/nginx-mappings.yml"
 
-  sudo sed -e "s/@IMAGE-ORIGIN-BUCKET/$imageOriginBucket/g" \
+  sed -e "s/@IMAGE-ORIGIN-BUCKET/$imageOriginBucket/g" \
     -e "s/@IMAGE-BUCKET/$imagesBucket/g" \
     -e "s/@DOMAIN_ROOT/$DOMAIN/g" \
     "$ROOT_DIR/dev/nginx-mappings.yml.template" > "$target"
 
-  sudo dev-nginx setup-app "$target"
+  dev-nginx setup-app "$target"
 }
 
 setupPanDomainConfiguration() {
@@ -336,7 +336,6 @@ main() {
   setupQuotasConfiguration
   setupUsagesData
   setupUsageRightsConfiguration
-  echo "*** Setup Nginx ***"
   setupDevNginx
   generateConfig
   uploadApiKey
