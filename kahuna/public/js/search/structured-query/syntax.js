@@ -3,7 +3,8 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for eslint, but can't break it down..
 /*eslint-disable max-len */
-const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
+//const parserRe = /(-?)(?:(?:([\p{L}@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
+const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
 /*eslint-enable max-len */
 const falsyValuesToEmptyString = (value) => {
     if (!value){
@@ -23,10 +24,14 @@ export function structureQuery(query) {
     }
     while ((m = parserRe.exec(query)) !== null) {
         const sign  = m[1];
-        const field = m[2];
-        const symbol  = m[3] || m[4];
-        const value = m[5] || m[6] || m[7];
-        const text  = m[8] || m[9] || m[10];
+        //const field = m[2];
+        //const symbol  = m[3] || m[4];
+        //const value = m[5] || m[6] || m[7];
+        //const text  = m[8] || m[9] || m[10];
+        const field = m[2] || m[3] || m[4];
+        const symbol  = m[5] || m[6];
+        const value = m[7] || m[8] || m[9];
+        const text  = m[10] || m[11] || m[12];
         const key = {
             '#': 'label',
             '~': 'collection'
