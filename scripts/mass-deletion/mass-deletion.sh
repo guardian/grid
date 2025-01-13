@@ -5,9 +5,13 @@ if [[ -n "$GRIDKEY" || -n "$GRIDDOMAIN" ]]; then
   exit 1
 fi
 
+# input file, stores all the ids that must be deleted
 del=todelete.txt
+# progress file, stores the id most recently successfully deleted
 prog=progress.txt
-com="complete.txt"
+# completion file, stores all ids successfully deleted
+com=complete.txt
+# errors file, stores all ids that could not be deleted
 errs=errors.txt
 
 touch $prog
@@ -17,17 +21,22 @@ touch $errs
 all="$(wc -l $del | awk '{ print $1 }' )"
 ndone=0
 
-skipping=1
+# while skipping is "yes", we'll fastforward through the input file "todelete.txt"
+# until we get to the id that was in the progress file. This way we won't reattempt
+# any deletions that completed in a previous run, and we can quickly resume our
+# previous status.
+# (If instead you do want to start again from the beginning, simply remove the progress file!)
+skipping=yes
 last="$(cat $prog)"
 
 
 
 while read id; do
   ndone=$((ndone + 1))
-  if [[ $skipping = 1 && -n "$last" && $id != $last ]]; then
+  if [[ $skipping = "yes" && -n "$last" && $id != $last ]]; then
     continue
-  elif [[ $skipping = 1 && -n "$last" ]]; then
-    skipping=0
+  elif [[ $skipping = "yes" && -n "$last" ]]; then
+    skipping=no
     continue
   else
     echo -n "deleting $id ($ndone / $all)... "
