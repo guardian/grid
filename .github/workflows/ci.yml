@@ -58,7 +58,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'corretto'
           cache: 'sbt'
       - name: SBT
