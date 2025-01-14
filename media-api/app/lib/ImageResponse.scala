@@ -98,8 +98,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val aliases = extractAliasFieldValues(config, imageWrapper)
 
-    val data = source.transform(addSecureSourceUrl(imageUrl))
-      .flatMap(_.transform(wrapUserMetadata(id)))
+    val data = source.transform(wrapUserMetadata(id))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
       .flatMap(_.transform(
         pngUrl
