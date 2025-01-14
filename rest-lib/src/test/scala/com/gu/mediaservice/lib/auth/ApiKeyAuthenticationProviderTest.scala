@@ -4,6 +4,7 @@ import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
 import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.events.UsageEvents
 import com.gu.mediaservice.model.Instance
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
@@ -34,7 +35,8 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
   )){}
   private val providerConfig = Configuration.empty
   private val controllerComponents: DefaultControllerComponents = DefaultControllerComponents(null, null, null, null, null, global)
-  private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents, mock[Authorisation], mock[CookieSigner])
+
+  private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents, mock[Authorisation], mock[CookieSigner], mock[UsageEvents] )
   private val provider = new ApiKeyAuthenticationProvider(providerConfig, resources) {
     override def initialise(): Unit = { /* do nothing */ }
 

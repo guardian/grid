@@ -40,7 +40,8 @@ trait Fixtures {
     "s3.thumb.bucket",
     "grid.stage",
     "grid.appName",
-    "instance.service.my"
+    "instance.service.my",
+    "usageEvents.queue.name"
   )
 
   def createImage(
