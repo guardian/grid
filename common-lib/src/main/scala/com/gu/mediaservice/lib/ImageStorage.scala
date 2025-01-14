@@ -17,6 +17,7 @@ object ImageStorageProps {
   val uploadTimeMetadataKey: String = "upload-time"
   val uploadedByMetadataKey: String = "uploaded-by"
   val identifierMetadataKeyPrefix: String = "identifier!"
+  val isFeedUploadMetadataKey = "is-feed-upload"
 }
 
 trait ImageStorage {

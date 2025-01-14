@@ -19,7 +19,8 @@ case class UploadRequest(
                           uploadedBy: String,
                           identifiers: Map[String, String],
                           uploadInfo: UploadInfo,
-                          instance: Instance
+                          instance: Instance,
+                          isFeedUpload: Boolean
                         ) {
 
   val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) =>

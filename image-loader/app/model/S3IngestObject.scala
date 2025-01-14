@@ -12,7 +12,8 @@ case class S3IngestObject (
   maybeMediaIdFromUiUpload: Option[String],
   uploadTime: java.util.Date,
   contentLength: Long,
-  getInputStream: () => java.io.InputStream
+  getInputStream: () => java.io.InputStream,
+  isFeedUpload: Boolean,
 )
 
 object S3IngestObject {
@@ -24,14 +25,18 @@ object S3IngestObject {
     val s3Object = store.getS3Object(key)
     val metadata = s3Object.getObjectMetadata
 
+    val mediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id")
+    val isFeedUpload = mediaIdFromUiUpload.isEmpty  // TODO Not concise
+
     S3IngestObject(
       key,
       uploadedBy = keyParts.head,
       filename = keyParts.last,
-      maybeMediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id"), // set by the client in upload in manager.js
+      maybeMediaIdFromUiUpload = mediaIdFromUiUpload, // set by the client in upload in manager.js
       uploadTime = metadata.getLastModified,
       contentLength = metadata.getContentLength,
-      getInputStream = () => s3Object.getObjectContent
+      getInputStream = () => s3Object.getObjectContent,
+      isFeedUpload = isFeedUpload
     )
   }
 }
