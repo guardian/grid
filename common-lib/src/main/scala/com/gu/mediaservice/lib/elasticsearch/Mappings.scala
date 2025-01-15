@@ -242,7 +242,8 @@ object Mappings {
   ))
 
   def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
-    keywordField("filename")
+    keywordField("filename"),
+    booleanField("isFeedUpload"),
   ))
 
   def usageReference(name: String): ObjectField = {
