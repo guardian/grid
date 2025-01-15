@@ -235,10 +235,10 @@ object Uploader extends GridLogging {
     val baseMeta = Map(
       ImageStorageProps.uploadedByMetadataKey -> uploadRequest.uploadedBy,
       ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime),
-      ImageStorageProps.isFeedUploadMetadataKey -> uploadRequest.isFeedUpload.toString
     ) ++
       uploadRequest.identifiersMeta ++
-      uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
+      uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _) ++
+      uploadRequest.uploadInfo.isFeedUpload.map(ImageStorageProps.isFeedUploadMetadataKey -> _.toString)
 
     baseMeta.view.mapValues(URI.encode).toMap
   }
@@ -388,9 +388,8 @@ class Uploader(val store: ImageLoaderStore,
           uploadTime = uploadTime,
           uploadedBy = uploadedBy,
           identifiers = identifiersMap,
-          uploadInfo = UploadInfo(filename),
-          instance = instance,
-          isFeedUpload = isFeedUpload
+          uploadInfo = UploadInfo(filename, Some(isFeedUpload)),
+          instance = instance
         )
     }
   }

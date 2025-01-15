@@ -143,7 +143,7 @@ object ImageTest {
       softDeletedMetadata = None,
       lastModified = None,
       identifiers = Map.empty,
-      uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
+      uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg"), isFeedUpload = Some(true)),
       source = Asset(
         file = new URI(s"https://file/$id"),
         size = Some(1L),

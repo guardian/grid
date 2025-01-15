@@ -131,7 +131,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
       softDeletedMetadata = None,
       lastModified = Some(new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)),
       identifiers = Map(),
-      uploadInfo = UploadInfo(Some("getty.jpg")),
+      uploadInfo = UploadInfo(Some("getty.jpg"), Some(true)),
       source = Asset(new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/" + id),
         Some(12666),
         Some(Jpeg),

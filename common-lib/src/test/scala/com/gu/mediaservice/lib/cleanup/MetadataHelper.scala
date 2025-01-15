@@ -19,7 +19,7 @@ trait MetadataHelper {
       softDeletedMetadata = None,
       lastModified = None,
       identifiers = Map(),
-      uploadInfo = UploadInfo(),
+      uploadInfo = UploadInfo(isFeedUpload = Some(true)),
       source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None, None, None),
       thumbnail = None,
       optimisedPng = None,

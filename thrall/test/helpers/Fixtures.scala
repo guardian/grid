@@ -26,7 +26,7 @@ trait Fixtures {
      softDeletedMetadata = None,
      lastModified = None,
      identifiers = Map.empty,
-     uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
+     uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg"), isFeedUpload = Some(false)),
      source = Asset(
        file = new URI(s"http://file/$id"),
        size = Some(292265L),

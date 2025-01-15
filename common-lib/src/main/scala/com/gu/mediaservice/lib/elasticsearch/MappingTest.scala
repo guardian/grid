@@ -72,7 +72,8 @@ object MappingTest {
     lastModified = Some(imageModified),
     identifiers = Map("id1" -> "value1"),
     uploadInfo = UploadInfo(
-      filename = Some("filename.jpg")
+      filename = Some("filename.jpg"),
+      isFeedUpload = Some(true)
     ),
     source = testAsset,
     thumbnail = Some(Asset(

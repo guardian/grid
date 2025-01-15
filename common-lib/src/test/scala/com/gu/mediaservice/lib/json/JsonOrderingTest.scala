@@ -26,7 +26,7 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
       uploadedBy = "Biden",
       softDeletedMetadata = None,
       lastModified = None,
-      uploadInfo = UploadInfo(None),
+      uploadInfo = UploadInfo(None, None),
       source = Asset(new URI("fileUri"), None, None, None),
       optimisedPng = None,
       originalUsageRights = Handout(None),
