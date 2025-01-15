@@ -89,15 +89,15 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-focal-java11-ARM-WITH-cdk-base
+          Recipe: editorial-tools-jammy-java11
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-java11-ARM
+          Recipe: grid-imaging-jammy-java11
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imgops-focal-ARM
+          Recipe: grid-imgops-jammy
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
