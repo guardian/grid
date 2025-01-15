@@ -60,7 +60,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
     logger.info(logMarker, s"creating crops for ${apiImage.id}")
 
-    Future.sequence[Asset, List](dimensionList.map { dimensions =>
+    Future.sequence(dimensionList.map { dimensions =>
       for {
         file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
         optimisedFile = imageOperations.optimiseImage(file, cropType)
@@ -89,7 +89,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
+  def makeExport(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
     val source    = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)

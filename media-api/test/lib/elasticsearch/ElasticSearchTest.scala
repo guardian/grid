@@ -28,7 +28,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
-  implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
+  implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
   private val index = "images"
 
@@ -63,7 +63,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
 
-  override def beforeAll {
+  override def beforeAll(): Unit = {
     super.beforeAll()
 
     ES.ensureIndexExistsAndAliasAssigned()
@@ -74,7 +74,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
   }
 
-  override def afterAll = purgeTestImages
+  override def afterAll(): Unit = purgeTestImages
 
   describe("Native elastic search sanity checks") {
 

@@ -4,7 +4,7 @@ import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.{DescribeInstancesRequest, Filter, InstanceStateName}
 import com.gu.mediaservice.lib.logging.GridLogging
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 object EC2 extends GridLogging {

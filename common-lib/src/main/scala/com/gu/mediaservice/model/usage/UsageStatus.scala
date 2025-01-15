@@ -28,7 +28,7 @@ object UsageStatus {
 
   implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
 
-  implicit val writer = new Writes[UsageStatus] {
+  implicit val writer: Writes[UsageStatus] = new Writes[UsageStatus] {
     def writes(usageStatus: UsageStatus) = JsString(usageStatus.toString)
   }
 }

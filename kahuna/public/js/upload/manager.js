@@ -31,7 +31,21 @@ upload.factory('uploadManager',
         };
     }
 
-    async function createJobItems(files){
+    async function createJobItems(_files){
+
+      const maybeUploadLimitInBytes = window._clientConfig.maybeUploadLimitInBytes;
+      const maybeFilesAboveSizeLimit = !!maybeUploadLimitInBytes && _files.filter(file => file.size > maybeUploadLimitInBytes);
+
+      if (maybeFilesAboveSizeLimit && maybeFilesAboveSizeLimit.length > 0){
+        alert(`The following files will be skipped as they are above the size limit of ${maybeUploadLimitInBytes / 1_000_000}MB:\n${
+          maybeFilesAboveSizeLimit.map(file => file.name).join("\n")
+        }`);
+      }
+
+      const files = maybeFilesAboveSizeLimit && maybeFilesAboveSizeLimit.length > 0
+        ? _files.filter(file => !maybeFilesAboveSizeLimit.includes(file))
+        : _files;
+
       if (window._clientConfig.shouldUploadStraightToBucket) {
         const mediaIdToFileMap = Object.fromEntries(
           await Promise.all(

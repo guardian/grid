@@ -31,6 +31,7 @@ import org.joda.time.DateTime
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSRequest
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
@@ -233,7 +234,7 @@ object Uploader extends GridLogging {
       uploadRequest.identifiersMeta ++
       uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
 
-    baseMeta.mapValues(URI.encode)
+    baseMeta.view.mapValues(URI.encode).toMap
   }
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[FileMetadata] = {
@@ -355,7 +356,9 @@ class Uploader(val store: ImageLoaderStore,
     val identifiersMap = identifiers
       .map(Json.parse(_).as[Map[String, String]])
       .getOrElse(Map.empty)
+      .view
       .mapValues(_.toLowerCase)
+      .toMap
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>

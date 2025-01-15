@@ -13,11 +13,11 @@ trait PlayJsonSyntax {
     def logParseErrors(): Unit = PlayJsonHelpers.logParseErrors(self)
   }
 
-  implicit val uriWrites = new Writes[URI] {
+  implicit val uriWrites: Writes[URI] = new Writes[URI] {
     override def writes(o: URI): JsValue = JsString(o.toString)
   }
 
-  implicit val uriReads = new Reads[URI] {
+  implicit val uriReads: Reads[URI] = new Reads[URI] {
     override def reads(json: JsValue): JsResult[URI] = json match {
       case JsString(uriInJson) => Try {
         new URI(uriInJson)

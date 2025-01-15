@@ -3,7 +3,6 @@ package com.gu.mediaservice
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 
 package object syntax
-  extends ElasticSearchSyntax
-  with PlayJsonSyntax
+  extends PlayJsonSyntax
   with RequestHeaderSyntax
   with FutureSyntax

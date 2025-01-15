@@ -3,13 +3,13 @@ package com.gu.mediaservice.lib.json
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.Json
+import play.api.libs.json.{Json, OWrites, Reads}
 
 case class Shape(name: String, numberOfSides: Int)
 
 object Shape {
-  implicit val reads = Json.reads[Shape]
-  implicit val writes = Json.writes[Shape]
+  implicit val reads: Reads[Shape] = Json.reads[Shape]
+  implicit val writes: OWrites[Shape] = Json.writes[Shape]
 }
 
 class JsonByteArrayUtilTest extends AnyFunSuite with Matchers {

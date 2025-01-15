@@ -9,7 +9,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{Format, JsObject, Json}
 
-import scala.collection.JavaConverters.{mapAsJavaMapConverter, mapAsScalaMapConverter}
+import scala.jdk.CollectionConverters._
 
 class DynamoDBTest extends AnyFunSpec with Matchers {
 
@@ -24,7 +24,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       val s: String = valueMap.get("s").asInstanceOf[String]
       val d: BigDecimal = valueMap.get("d").asInstanceOf[java.math.BigDecimal]
       val b: Boolean = valueMap.get("b").asInstanceOf[Boolean]
-      val a: List[String] = List(valueMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray(): _*).asInstanceOf[List[String]]
+      val a: List[String] = valueMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray().toList.map(_.asInstanceOf[String])
 
 
       s should be ("this is a string")
@@ -47,7 +47,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       val s: String = simpleMap.get("s").asInstanceOf[String]
       val d: BigDecimal = simpleMap.get("d").asInstanceOf[java.math.BigDecimal]
       val b: Boolean = simpleMap.get("b").asInstanceOf[Boolean]
-      val a: List[String] = List(simpleMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray: _*).asInstanceOf[List[String]]
+      val a: List[String] = simpleMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray().toList.map(_.asInstanceOf[String])
 
 
       ss should be ("string")
@@ -65,7 +65,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       val json = Json.toJson(collection).as[JsObject]
       val valueMap = DynamoDB.jsonToValueMap(json)
 
-      val path = List(valueMap.get("path").asInstanceOf[java.util.ArrayList[String]].toArray: _*).asInstanceOf[List[String]]
+      val path = valueMap.get("path").asInstanceOf[java.util.ArrayList[String]].toArray.toList.asInstanceOf[List[String]]
       val pathId = valueMap.get("pathId").asInstanceOf[String]
       val actionData = valueMap.get("actionData").asInstanceOf[ValueMap]
       val author = actionData.get("author").asInstanceOf[String]

@@ -10,9 +10,10 @@ import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.inject.ApplicationLifecycle
 
 import java.util.Date
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.util.Random
 
 trait Metric[A] {
   def recordOne(value: A, dimensions: List[Dimension] = Nil): Unit
@@ -28,7 +29,7 @@ abstract class CloudWatchMetrics(
 ) extends GridLogging {
 
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Count, value, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Count, value.toDouble, dimensions)
 
     def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Unit = recordOne(n, dimensions)
 
@@ -40,12 +41,13 @@ abstract class CloudWatchMetrics(
   }
 
   class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Milliseconds, value, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Milliseconds, value.toDouble, dimensions)
   }
 
   private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
 
-  private[CloudWatchMetrics] val metricsActor = actorSystem.actorOf(MetricsActor.props(namespace, client), "metricsactor")
+  private val random = new Random()
+  private[CloudWatchMetrics] val metricsActor = actorSystem.actorOf(MetricsActor.props(namespace, client), s"metricsactor-${random.alphanumeric.take(8).mkString}")
 
   applicationLifecycle.addStopHook(() => (metricsActor ? MetricsActor.Shutdown)(Timeout(5.seconds)))
 

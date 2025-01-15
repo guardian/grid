@@ -4,7 +4,7 @@ import lib.MetadataTemplate.CollectionFullPath
 import lib.MetadataTemplateLease.LeaseDurationInMillis
 import play.api.ConfigLoader
 import play.api.libs.json._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object FieldResolveStrategy extends Enumeration {
   val replace = Value("replace")
@@ -74,7 +74,7 @@ object MetadataTemplate {
         } else Nil
 
         val collectionFullPath = if (config.hasPath("collectionFullPath")) {
-          config.getStringList("collectionFullPath").asScala.seq
+          config.getStringList("collectionFullPath").asScala.toList
         } else Nil
 
         val templateLeases = if (config.hasPath("templateLeases")) {
@@ -92,7 +92,7 @@ object MetadataTemplate {
 
           Some(TemplateLeases(
             replace = templateLeasesConfig.getBoolean("replace"),
-            leases = leases
+            leases = leases.toSeq
           ))
         } else None
 
@@ -116,6 +116,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, collectionFullPath, templateLeases, usageRights)
-      }))
+        MetadataTemplate(config.getString("templateName"), metadataFields.toSeq, collectionFullPath, templateLeases, usageRights)
+      }).toSeq)
 }

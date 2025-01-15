@@ -16,7 +16,7 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.collectionAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -115,7 +115,7 @@ class ReaperController(
 
     (for {
       BatchDeletionIds(esIds, esIdsActuallySoftDeleted) <- es.softDeleteNextBatchOfImages(isReapable, count, SoftDeletedMetadata(deleteTime, deletedBy))
-      idsNotProcessedInDynamo <- softDeletedMetadataTable.setStatuses(esIdsActuallySoftDeleted.map(
+      _ <- softDeletedMetadataTable.setStatuses(esIdsActuallySoftDeleted.map(
         ImageStatusRecord(
           _,
           deletedBy,
@@ -129,7 +129,6 @@ class ReaperController(
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
         val detail = Map(
           "ES" -> wasSoftDeletedInES,
-          "dynamo.table.softDelete.metadata" -> (wasSoftDeletedInES && !idsNotProcessedInDynamo.contains(id))
         )
         logger.info(s"Soft deleted image $id : $detail")
         id -> detail
@@ -152,7 +151,7 @@ class ReaperController(
       mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
       thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
       pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
-      idsNotProcessedInDynamo <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
+      _ <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
     } yield {
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
@@ -162,7 +161,6 @@ class ReaperController(
           "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
-          "dynamo.table.softDelete.metadata" -> (if(wasHardDeletedFromES) Some(!idsNotProcessedInDynamo.contains(id)) else None)
         )
         logger.info(s"Hard deleted image $id : $detail")
         id -> detail

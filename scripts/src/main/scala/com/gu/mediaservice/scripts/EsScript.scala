@@ -196,10 +196,10 @@ object Reindex extends EsScript {
 // TODO: add the ability to update a section of the mapping
 object UpdateMapping extends EsScript {
 
-  def run(esUrl: String, extraArgs: List[String]) {
+  def run(esUrl: String, extraArgs: List[String]): Unit = {
 
     object MappingsClient extends EsClient(esUrl) {
-      def updateMappings(specifiedIndex: Option[String]) {
+      def updateMappings(specifiedIndex: Option[String]): Unit = {
         val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Updating mapping on index: $index")
 
@@ -230,10 +230,10 @@ object UpdateMapping extends EsScript {
 
 object GetMapping extends EsScript {
 
-  def run(esUrl: String, extraArgs: List[String]) {
+  def run(esUrl: String, extraArgs: List[String]): Unit = {
 
     object MappingsClient extends EsClient(esUrl) {
-      def getMappings(specifiedIndex: Option[String]) {
+      def getMappings(specifiedIndex: Option[String]): Unit = {
         val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting mapping on index: $index")
 
@@ -262,7 +262,7 @@ object GetMapping extends EsScript {
 
 object UpdateSettings extends EsScript {
 
-  def run(esUrl: String, extraArgs: List[String]) {
+  def run(esUrl: String, extraArgs: List[String]): Unit = {
 
     object SettingsClient extends EsClient(esUrl) {
       if (!url.contains("localhost")) {
@@ -270,7 +270,7 @@ object UpdateSettings extends EsScript {
         System.exit(1)
       }
 
-      def updateIdxSettings(specifiedIndex: Option[String]) {
+      def updateIdxSettings(specifiedIndex: Option[String]): Unit = {
 
         val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting mapping on index: $index")
@@ -310,10 +310,10 @@ object UpdateSettings extends EsScript {
 
 object GetSettings extends EsScript {
 
-  def run(esUrl: String, extraArgs: List[String]) {
+  def run(esUrl: String, extraArgs: List[String]): Unit = {
 
     object SettingsClient extends EsClient(esUrl) {
-      def getIdxSettings(specifiedIndex: Option[String]) {
+      def getIdxSettings(specifiedIndex: Option[String]): Unit = {
         val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Getting settings on index: $index")
 
@@ -341,7 +341,7 @@ object GetSettings extends EsScript {
 }
 object DownloadAllEsIds extends EsScript {
 
-  def run(esUrl: String, extraArgs: List[String]) {
+  def run(esUrl: String, extraArgs: List[String]): Unit = {
 
     println(s"Getting all ids from $esUrl")
 
@@ -412,7 +412,7 @@ abstract class EsScript {
 
   def log(msg: String) = System.out.println(s"[${getClass.getName}]: $msg")
 
-  def apply(args: List[String]) {
+  def apply(args: List[String]): Unit = {
     // FIXME: Use Stage to get host (for some reason this isn't working)
     val (esUrl, extraArgs) = args match {
       case h :: t => (h, t)

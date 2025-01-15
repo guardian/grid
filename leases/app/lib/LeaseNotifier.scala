@@ -5,11 +5,14 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.syntax.MessageSubjects
 import org.joda.time.DateTime
 
+import scala.concurrent.ExecutionContext
+
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config.thrallKinesisStreamConfig) with MessageSubjects {
-  def sendReindexLeases(mediaId: String) = {
-    val leases = store.getForMedia(mediaId)
-    val updateMessage = UpdateMessage(subject = ReplaceImageLeases, leases = Some(leases), id = Some(mediaId) )
-    publish(updateMessage)
+  def sendReindexLeases(mediaId: String)(implicit ec: ExecutionContext) = {
+    for { leases <- store.getForMedia(mediaId) } yield {
+      val updateMessage = UpdateMessage(subject = ReplaceImageLeases, leases = Some(leases), id = Some(mediaId))
+      publish(updateMessage)
+    }
   }
 
   def sendAddLease(mediaLease: MediaLease) = {

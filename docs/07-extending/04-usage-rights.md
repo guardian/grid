@@ -16,7 +16,7 @@ implementations are provided out of the box in the Grid.
   below.
 
 ```hocon
-usageRightsConfigProvider = "com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig"
+usageRightsConfigProvider = "com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig$"
 ```
 
 * `RuntimeUsageRightsConfig` - that fetches the data from the application configuration. To use this provider and

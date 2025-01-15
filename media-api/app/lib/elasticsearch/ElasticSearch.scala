@@ -73,7 +73,7 @@ class ElasticSearch(
   )(
     implicit ex: ExecutionContext
   ): Future[Option[T]] = {
-    implicit val logMarker = MarkerMap("id" -> id)
+    implicit val logMarker: MarkerMap = MarkerMap("id" -> id)
 
     def getFromCurrentIndex = executeAndLog(
       request = requestFromIndexName(imagesCurrentAlias),
@@ -214,7 +214,7 @@ class ElasticSearch(
       ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
 
     val withFilter = filterOpt.map { f =>
-      boolQuery must (query) filter f
+      boolQuery() must (query) filter f
     }.getOrElse(query)
 
     val sort = params.orderBy match {
@@ -279,7 +279,7 @@ class ElasticSearch(
   }
 
   def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SupplierUsageSummary] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -288,12 +288,12 @@ class ElasticSearch(
       .gte(s"now-${numDays}d/d")
       .lt("now/d")
 
-    val haveUsageInLastPeriod = boolQuery.must(bePublished, beInLastPeriod)
+    val haveUsageInLastPeriod = boolQuery().must(bePublished, beInLastPeriod)
 
     val beSupplier = termQuery("usageRights.supplier", supplierName)
     val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
 
-    val query = boolQuery.must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveNestedUsage))
+    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveNestedUsage))
 
     val search = prepareSearch(query) size 0
 
@@ -330,7 +330,7 @@ class ElasticSearch(
     buckets.map(b => BucketResult(b.key, b.docCount))
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareSearch(query) aggregations aggregation size 0
@@ -348,7 +348,7 @@ class ElasticSearch(
   }
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
-    implicit val logMarker = MarkerMap()
+    implicit val logMarker: MarkerMap = MarkerMap()
     val completionSuggestion =
       ElasticDsl.completionSuggestion(name, name).text(q).skipDuplicates(true)
     val search = ElasticDsl.search(imagesCurrentAlias) suggestions completionSuggestion
