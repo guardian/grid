@@ -185,7 +185,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
         exports = Nil,
         usages = Nil,
         leases = LeasesByMedia.empty,
-        collectionCs = Nil,
+        collections = Nil,
         syndicationRights = None,
         userMetadataLastModified = None
       )
