@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.play
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication
 import net.logstash.logback.marker.Markers.appendEntries

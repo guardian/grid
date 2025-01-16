@@ -1,6 +1,6 @@
-import akka.Done
-import akka.stream.scaladsl.Source
-import com.contxt.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclAkkaStreamConfig}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.Source
+import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
@@ -48,8 +48,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
 
-  val highPriorityKinesisConfig: KclAkkaStreamConfig = KinesisConfig.kinesisConfig(config.kinesisConfig)
-  val lowPriorityKinesisConfig: KclAkkaStreamConfig = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
+  val highPriorityKinesisConfig: KclPekkoStreamConfig = KinesisConfig.kinesisConfig(config.kinesisConfig)
+  val lowPriorityKinesisConfig: KclPekkoStreamConfig = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)

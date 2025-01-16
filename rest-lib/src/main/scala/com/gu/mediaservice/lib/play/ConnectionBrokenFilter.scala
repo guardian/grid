@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.play
 
-import akka.http.scaladsl.model.EntityStreamException
-import akka.stream.Materializer
+import org.apache.pekko.http.scaladsl.model.EntityStreamException
+import org.apache.pekko.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import play.api.mvc.{Filter, RequestHeader, Result, Results}
 

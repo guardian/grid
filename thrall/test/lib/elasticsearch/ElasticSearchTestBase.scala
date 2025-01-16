@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase

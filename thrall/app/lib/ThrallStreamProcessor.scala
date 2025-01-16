@@ -1,11 +1,11 @@
 package lib
 
 import java.time.Instant
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{GraphDSL, MergePreferred, MergePrioritized, Source}
-import akka.stream.{Materializer, SourceShape}
-import akka.{Done, NotUsed}
-import com.contxt.kinesis.KinesisRecord
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{GraphDSL, MergePreferred, MergePrioritized, Source}
+import org.apache.pekko.stream.{Materializer, SourceShape}
+import org.apache.pekko.{Done, NotUsed}
+import com.gu.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._

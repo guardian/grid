@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, Principal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, PrincipalFilter, UploadImages}

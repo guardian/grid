@@ -1,8 +1,8 @@
 package lib
 
 
-import akka.actor.{ActorSystem, Scheduler}
-import akka.pattern.{after, retry}
+import org.apache.pekko.actor.{ActorSystem, Scheduler}
+import org.apache.pekko.pattern.{after, retry}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, combineMarkers}
 import play.api.{Logger, MarkerContext}
 

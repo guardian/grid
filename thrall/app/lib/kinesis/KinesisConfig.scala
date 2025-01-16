@@ -1,6 +1,6 @@
 package lib.kinesis
 
-import com.contxt.kinesis.ConsumerConfig
+import com.gu.kinesis.ConsumerConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import lib.KinesisReceiverConfig
 import software.amazon.kinesis.common.{InitialPositionInStream, InitialPositionInStreamExtended}
