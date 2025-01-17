@@ -7,6 +7,8 @@ import java.io.File
 
 
 class CropperConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+  val imageBucket: String = string("s3.image.bucket")
+
   val imgPublishingBucket = string("publishing.image.bucket")
 
   val canDownloadCrop: Boolean = boolean("canDownloadCrop")

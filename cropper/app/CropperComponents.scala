@@ -13,7 +13,7 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
   val store = new CropStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
-  val crops = new Crops(config, store, imageOperations)
+  val crops = new Crops(config, store, imageOperations, config.imageBucket)
   val notifications = new Notifications(config)
 
   private val gridClient = GridClient(config.services)(wsClient)

@@ -10,7 +10,7 @@ import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 
 import java.io.File
-import java.net.URI
+import java.net.{URI, URL}
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -81,12 +81,12 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     legacySigningClient.generatePresignedUrl(request).toExternalForm
   }
 
-  def signUrlTony(bucket: Bucket, url: URI, expiration: DateTime = cachableExpiration()): String = {
+  def signUrlTony(bucket: Bucket, url: URI, expiration: DateTime = cachableExpiration()): URL = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate)
-    legacySigningClient.generatePresignedUrl(request).toExternalForm
+    legacySigningClient.generatePresignedUrl(request)
   }
 
   def getObject(bucket: Bucket, url: URI): model.S3Object = {

@@ -80,9 +80,6 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         case InvalidImage =>
           logger.error(logMarker, InvalidImage.getMessage)
           respondError(BadRequest, "invalid-image", InvalidImage.getMessage)
-        case MissingSecureSourceUrl =>
-          logger.error(logMarker, MissingSecureSourceUrl.getMessage)
-          respondError(BadRequest, "no-source-image", MissingSecureSourceUrl.getMessage)
         case InvalidCropRequest =>
           logger.error(logMarker, InvalidCropRequest.getMessage)
           respondError(BadRequest, "invalid-crop", InvalidCropRequest.getMessage)
