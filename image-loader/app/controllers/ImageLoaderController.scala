@@ -186,7 +186,7 @@ class ImageLoaderController(auth: Authentication,
               } else {
                 attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker)(instance) map { digestedFile =>
                   metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-                  events.successfulIngestFromQueue(instance = instance, image = digestedFile.digest, filesize = s3IngestObject.contentLength)
+                  events.successfulIngestFromQueue(instance = instance, image = digestedFile.digest, filesize = s3IngestObject.contentLength )
                   logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
                   store.deleteObjectFromIngestBucket(s3IngestObject.key)
                 } recover {
