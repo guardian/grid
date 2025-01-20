@@ -87,7 +87,8 @@ class Authentication(config: CommonConfig,
             logger.info("Allowing InnerServicePrincipal request for all instances")
             block(new AuthenticatedRequest(innerServicePrincipal, request))
 
-          case _ =>
+          case m: MachinePrincipal =>
+            logger.info("Authing machine principal: " + m)
             val instance = instanceOf(request)
             principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
               getMyInstances(owner).flatMap { principalsInstances =>
@@ -109,6 +110,28 @@ class Authentication(config: CommonConfig,
               Future.successful(Forbidden("You do not have permission to use this instance"))
             }
 
+          case _ =>
+            logger.info("Authing user principal")
+            val instance = instanceOf(request)
+            principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
+              getMyInstances(owner).flatMap { principalsInstances =>
+                // we have an end user principal, and a list of the instances they are allowed to access.
+                // Only process the block if the instance is allowed.
+                val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
+                logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
+                if (isAllowedToAccessThisInstance) {
+                  logger.debug("Allowing this request!")
+                  block(new AuthenticatedRequest(principal, request))
+
+                } else {
+                  logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+                  Future.successful(Forbidden("You do not have permission to use this instance"))
+                }
+              }
+            }.getOrElse {
+              logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+              Future.successful(Forbidden("You do not have permission to use this instance"))
+            }
         }
       }
       // no principal so return a result which will either be an error or a form of redirect
