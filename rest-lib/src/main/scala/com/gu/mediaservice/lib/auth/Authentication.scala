@@ -89,20 +89,26 @@ class Authentication(config: CommonConfig,
 
           case _ =>
             val instance = instanceOf(request)
-            getMyInstances(principal).flatMap { principalsInstances =>
-              // we have an end user principal, and a list of the instances they are allowed to access.
-              // Only process the block if the instance is allowed.
-              val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
-              logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
-              if (isAllowedToAccessThisInstance) {
-                logger.debug("Allowing this request!")
-                block(new AuthenticatedRequest(principal, request))
+            principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
+              getMyInstances(owner).flatMap { principalsInstances =>
+                // we have an end user principal, and a list of the instances they are allowed to access.
+                // Only process the block if the instance is allowed.
+                val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
+                logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
+                if (isAllowedToAccessThisInstance) {
+                  logger.debug("Allowing this request!")
+                  block(new AuthenticatedRequest(principal, request))
 
-              } else {
-                logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
-                Future.successful(Forbidden("You do not have permission to use this instance"))
+                } else {
+                  logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+                  Future.successful(Forbidden("You do not have permission to use this instance"))
+                }
               }
+            }.getOrElse {
+              logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+              Future.successful(Forbidden("You do not have permission to use this instance"))
             }
+
         }
       }
       // no principal so return a result which will either be an error or a form of redirect
@@ -127,21 +133,16 @@ class Authentication(config: CommonConfig,
     * IMPORTANT: Do not use this for simply making ongoing calls to other Grid services - instead use `getOnBehalfOfPrincipal` */
   def innerServiceCall(wsRequest: WSRequest): WSRequest = providers.innerServiceProvider.signRequest(wsRequest)
 
-  private def getMyInstances(principal: Principal): Future[Seq[Instance]] = {
-    val onBehalfOfPrincipal = getOnBehalfOfPrincipal(principal)
-    principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
-      onBehalfOfPrincipal(wsClient.url(myInstancesEndpoint).withQueryStringParameters("owner" -> owner)).get().map { r =>
-          r.status match {
-            case 200 =>
-              implicit val ir: Reads[Instance] = Json.reads[Instance]
-              Json.parse(r.body).as[Seq[Instance]]
-            case _ =>
-              logger.warn("Got non 200 status for instances call: " + r.status)
-              Seq.empty
-          }
-        }
-    }.getOrElse {
-      Future.successful(Seq.empty)
+  private def getMyInstances(owner: String): Future[Seq[Instance]] = {
+    wsClient.url(myInstancesEndpoint).withQueryStringParameters("owner" -> owner).get().map { r =>
+      r.status match {
+        case 200 =>
+          implicit val ir: Reads[Instance] = Json.reads[Instance]
+          Json.parse(r.body).as[Seq[Instance]]
+        case _ =>
+          logger.warn("Got non 200 status for instances call: " + r.status)
+          Seq.empty
+      }
     }
   }
 }
