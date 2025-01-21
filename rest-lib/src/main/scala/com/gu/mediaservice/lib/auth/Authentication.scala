@@ -25,6 +25,7 @@ class Authentication(config: CommonConfig,
   implicit val ec: ExecutionContext = executionContext
 
   private val myInstancesEndpoint = config.myInstancesEndpoint
+  private val apiKeyEndpoint = config.apiKeyEndpoint
 
   def loginLinks()(implicit instance: Instance): List[Link] = providers.userProvider.loginLink match {
     case DisableLoginLink => Nil
@@ -90,24 +91,19 @@ class Authentication(config: CommonConfig,
           case m: MachinePrincipal =>
             logger.info("Authing machine principal: " + m)
             val instance = instanceOf(request)
-            principal.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey).map { owner =>
-              getMyInstances(owner).flatMap { principalsInstances =>
-                // we have an end user principal, and a list of the instances they are allowed to access.
-                // Only process the block if the instance is allowed.
-                val isAllowedToAccessThisInstance = principalsInstances.exists(_.id == instance.id)
-                logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
-                if (isAllowedToAccessThisInstance) {
-                  logger.debug("Allowing this request!")
-                  block(new AuthenticatedRequest(principal, request))
+            getApiKey(instance.id, m.accessor.identity).flatMap { validKey =>
+              // we have an end user principal, and a list of the instances they are allowed to access.
+              // Only process the block if the instance is allowed.
+              val isAllowedToAccessThisInstance = validKey
+              logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
+              if (isAllowedToAccessThisInstance) {
+                logger.debug("Allowing this request!")
+                block(new AuthenticatedRequest(principal, request))
 
-                } else {
-                  logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
-                  Future.successful(Forbidden("You do not have permission to use this instance"))
-                }
+              } else {
+                logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+                Future.successful(Forbidden("You do not have permission to use this instance"))
               }
-            }.getOrElse {
-              logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
-              Future.successful(Forbidden("You do not have permission to use this instance"))
             }
 
           case _ =>
@@ -165,6 +161,18 @@ class Authentication(config: CommonConfig,
         case _ =>
           logger.warn("Got non 200 status for instances call: " + r.status)
           Seq.empty
+      }
+    }
+  }
+
+  private def getApiKey(instance: String, key: String): Future[Boolean] = {
+    wsClient.url(apiKeyEndpoint).withQueryStringParameters("instance" -> instance, "key" -> key).get().map { r =>
+      r.status match {
+        case 200 =>
+          true
+        case _ =>
+          logger.warn("Got non 200 status for api key call: " + r.status)
+          false
       }
     }
   }
