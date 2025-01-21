@@ -32,9 +32,18 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 
   val fuzzySearchEnabled: Boolean = boolean("search.fuzziness.enabled")
+  val fuzzySearchPrefixLength: Int = stringOpt("search.fuzziness.prefixLength") match {
+    case Some(prefixLength) if convertToInt(prefixLength).isDefined => prefixLength.toInt
+    case _ => 1
+  }
   val fuzzySearchEditDistance: String = stringOpt("search.fuzziness.editDistance") match {
     case Some(editDistance) if convertToInt(editDistance).isDefined => editDistance
-    case None => "AUTO"
+    case Some(editDistance) if editDistance.contains("AUTO:") => editDistance  //<- for non-default AUTO word boundaries
+    case _ => "AUTO"
+  }
+  val fuzzyMaxExpansions: Int = stringOpt("search.fuzziness.maxExpansions") match {
+    case Some(maxExpansions) if convertToInt(maxExpansions).isDefined => maxExpansions.toInt
+    case _ => 50
   }
 
   val rootUri: String = services.apiBaseUri

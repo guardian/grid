@@ -30,7 +30,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     val multiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(fields).operator(Operator.AND)
 
     if (config.fuzzySearchEnabled) {
-      multiMatchQuery.matchType(MultiMatchQueryBuilderType.BEST_FIELDS).fuzziness(config.fuzzySearchEditDistance)
+      multiMatchQuery.matchType(MultiMatchQueryBuilderType.BEST_FIELDS)
+        .fuzziness(config.fuzzySearchEditDistance)
+        .maxExpansions(config.fuzzyMaxExpansions)
+        .prefixLength(config.fuzzySearchPrefixLength)
     } else {
       multiMatchQuery.matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
     }
