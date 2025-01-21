@@ -25,7 +25,6 @@ class Authentication(config: CommonConfig,
   implicit val ec: ExecutionContext = executionContext
 
   private val myInstancesEndpoint = config.myInstancesEndpoint
-  private val apiKeyEndpoint = config.apiKeyEndpoint
 
   def loginLinks()(implicit instance: Instance): List[Link] = providers.userProvider.loginLink match {
     case DisableLoginLink => Nil

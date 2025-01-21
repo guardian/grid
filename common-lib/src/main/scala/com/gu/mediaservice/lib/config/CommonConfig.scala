@@ -107,7 +107,6 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
   val shortenDownloadFilename: Boolean = boolean("image.download.shorten")
   val myInstancesEndpoint: String = string("instance.service.my")
-  val apiKeyEndpoint: String = string("instance.service.apikey")
 
   val usageEventsQueueName: String = string("usageEvents.queue.name")
 
