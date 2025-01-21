@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth.provider
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
-import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider.KindeIdKey
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider.{ApiKeyInstance, KindeIdKey}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.events.UsageEvents
@@ -16,6 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object ApiKeyAuthenticationProvider extends ApiKeyAuthentication {
   val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
   val KindeIdKey: TypedKey[String] = TypedKey[String]("kinde_id")
+  val ApiKeyInstance: TypedKey[String] = TypedKey[String]("apikey_instance")
 }
 
 class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging
@@ -52,8 +53,8 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
           case Some(apiAccessor) =>
             // valid api key
             if (ApiAccessor.hasAccess(apiAccessor, request, resources.commonConfig.services)) {
-              val kindeIdAttribute = TypedEntry[String](KindeIdKey, apiAccessor.identity)
-              val attributes = TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)).updated(kindeIdAttribute)
+              val apiKeyInstanceAttribute = TypedEntry[String](ApiKeyInstance, instance.id)
+              val attributes = TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)).updated(apiKeyInstanceAttribute)
               // valid api key which has access
               // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
               val accessor = MachinePrincipal(apiAccessor, attributes)

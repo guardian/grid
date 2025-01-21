@@ -91,10 +91,12 @@ class Authentication(config: CommonConfig,
           case m: MachinePrincipal =>
             logger.info("Authing machine principal: " + m)
             val instance = instanceOf(request)
-            getApiKey(instance.id, m.accessor.identity).flatMap { validKey =>
+            val maybeApiKeyInstance = m.attributes.get(ApiKeyAuthenticationProvider.ApiKeyInstance)
+            logger.info("Api key instance: " + maybeApiKeyInstance)
+            maybeApiKeyInstance.map { apiKeyInstance =>
               // we have an end user principal, and a list of the instances they are allowed to access.
               // Only process the block if the instance is allowed.
-              val isAllowedToAccessThisInstance = validKey
+              val isAllowedToAccessThisInstance = instance.id == apiKeyInstance
               logger.debug(s"$principal is allowed to access instance ${instance.id}: $isAllowedToAccessThisInstance")
               if (isAllowedToAccessThisInstance) {
                 logger.debug("Allowing this request!")
@@ -104,6 +106,9 @@ class Authentication(config: CommonConfig,
                 logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
                 Future.successful(Forbidden("You do not have permission to use this instance"))
               }
+            }.getOrElse{
+              logger.warn(s"Blocking request ${request.path} on instance ${instance.id} for principal: " + principal)
+              Future.successful(Forbidden("You do not have permission to use this instance"))
             }
 
           case _ =>
@@ -161,18 +166,6 @@ class Authentication(config: CommonConfig,
         case _ =>
           logger.warn("Got non 200 status for instances call: " + r.status)
           Seq.empty
-      }
-    }
-  }
-
-  private def getApiKey(instance: String, key: String): Future[Boolean] = {
-    wsClient.url(apiKeyEndpoint).withQueryStringParameters("instance" -> instance, "key" -> key).get().map { r =>
-      r.status match {
-        case 200 =>
-          true
-        case _ =>
-          logger.warn("Got non 200 status for api key call: " + r.status)
-          false
       }
     }
   }
