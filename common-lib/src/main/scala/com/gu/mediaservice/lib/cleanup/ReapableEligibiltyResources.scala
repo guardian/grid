@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.config.{CommonConfig, CommonConfigWithElastic}
 
 /**

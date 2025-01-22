@@ -1,8 +1,8 @@
 package lib
 
-import akka.stream.scaladsl.Source
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import akka.{Done, NotUsed}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import org.apache.pekko.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -37,7 +37,7 @@ object MigrationSourceWithSender extends GridLogging {
       Source.repeat(())
         .throttle(1, per = 1.second)
         .statefulMapConcat(() => {
-          // This Akka-provided stage is explicitly provided as a way to safely wrap around mutable state.
+          // This Pekko-provided stage is explicitly provided as a way to safely wrap around mutable state.
           // Required here to keep a marker of the current search scroll. Scrolling prevents the
           // next search from picking up the same image ids and inserting them into the flow and
           // causing lots of version comparison failures.
@@ -47,7 +47,7 @@ object MigrationSourceWithSender extends GridLogging {
           //     difficult (or impossible?) to change the query value once the stream has been materialized.)
           // - Defining our own version of the ElasticSource using our desired library versions and a system to change
           //   the query value as desired.
-          // - Define an Akka actor to handle the querying and wrap around the state.
+          // - Define an Pekko actor to handle the querying and wrap around the state.
           var maybeScrollId: Option[String] = None
 
           def handleScrollResponse(resp: ScrolledSearchResults) = {

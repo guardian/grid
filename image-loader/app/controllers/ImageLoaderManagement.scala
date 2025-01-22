@@ -1,6 +1,6 @@
 package controllers
 
-import akka.Done
+import org.apache.pekko.Done
 import com.gu.mediaservice.lib.aws.SimpleSqsMessageConsumer
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.libs.json.Json

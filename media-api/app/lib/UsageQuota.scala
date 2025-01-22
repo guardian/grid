@@ -1,6 +1,6 @@
 package lib
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.model.UsageRights
 

@@ -1,6 +1,6 @@
 package lib
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 import play.api.inject.ApplicationLifecycle
 
