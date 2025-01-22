@@ -1349,18 +1349,6 @@ textarea.ng-invalid {
     background-color: green;
 }
 
-.image-notice {
-  --pct-leased: 0;
-}
-
-.image-notice.cost--pay {
-  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), red calc(var(--pct-leased) * 1%) 100%);
-}
-
-.image-notice.cost--conditional {
-  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), orange calc(var(--pct-leased) * 1%) 100%);
-}
-
 .costs li {
     display: inline-block;
 }
