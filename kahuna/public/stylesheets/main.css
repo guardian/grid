@@ -1342,7 +1342,7 @@ textarea.ng-invalid {
 .cost--conditional {
     background-color: orange;
 }
-.validity--overridden,
+.validity--leased,
 .cost--leased {
   background-color: teal;
 }
@@ -1380,7 +1380,7 @@ textarea.ng-invalid {
 .validity--warning::before {
     border-bottom-color: orange;
 }
-.validity--overridden::before {
+.validity--leased::before {
   border-bottom-color: teal;
 }
 
