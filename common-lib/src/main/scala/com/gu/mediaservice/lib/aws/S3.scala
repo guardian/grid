@@ -71,11 +71,14 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   private val amazonS3: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
   private val googleS3: Option[AmazonS3] = S3Ops.buildGoogleS3Client(config)
+  private val localS3: Option[AmazonS3] = S3Ops.buildLocalS3Client(config)
 
   private def clientFor(bucket: S3Bucket): AmazonS3 = {
     (bucket.endpoint match {
       case "storage.googleapis.com" =>
         googleS3
+      case "10.0.45.121:32090" =>
+        localS3
       case _ =>
         Some(amazonS3)
     }).getOrElse {
@@ -267,6 +270,26 @@ object S3Ops {
         clientBuilder.setEndpointConfiguration(endpointConfig)
         clientBuilder.withCredentials(credentialsProvider)
         clientBuilder.withClientConfiguration(clientConfig)
+        clientBuilder.build()
+      }
+    }
+  }
+
+  def buildLocalS3Client(config: CommonConfig): Option[AmazonS3] = {
+    config.googleS3AccessKey.flatMap { accessKey =>
+      config.googleS3SecretKey.map { secretKey =>
+        val endpointConfig = new EndpointConfiguration("http://10.0.45.121:32090", null)
+        // create credentials provider
+        val credentials = new BasicAWSCredentials(accessKey, secretKey)
+        val credentialsProvider = new AWSStaticCredentialsProvider(credentials)
+        // create a client config
+        val clientConfig = new ClientConfiguration()
+
+        val clientBuilder = AmazonS3ClientBuilder.standard()
+        clientBuilder.setEndpointConfiguration(endpointConfig)
+        clientBuilder.withCredentials(credentialsProvider)
+        clientBuilder.withClientConfiguration(clientConfig)
+        clientBuilder.withPathStyleAccessEnabled(true)
         clientBuilder.build()
       }
     }
