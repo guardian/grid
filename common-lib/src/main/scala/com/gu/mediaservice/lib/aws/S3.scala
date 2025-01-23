@@ -21,11 +21,12 @@ case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 object S3Object {
   private def objectUrl(bucket: String, key: String, s3Endpoint: String): URI = {
     val bucketUrl = if (s3Endpoint == "10.0.45.121:32090") {
-      s"$s3Endpoint/$bucket"
+      new URI(s"http://$s3Endpoint/$bucket/$key")
     } else {
-      s"$bucket.$s3Endpoint"
+      val bucketHost = s"$bucket.$s3Endpoint"
+      new URI("http", bucketHost, s"/$key", null)
     }
-    new URI("http", bucketUrl, s"/$key", null)
+    bucketUrl
   }
 
   def apply(bucket: String, key: String, size: Long, metadata: S3Metadata, s3Endpoint: String): S3Object =
