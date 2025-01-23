@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth.provider
 
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
+import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.libs.crypto.CookieSigner
@@ -18,7 +19,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class KindeAuthenticationProvider(
                                    resources: AuthenticationProviderResources,
                                    providerConfiguration: Configuration
-                                 ) extends UserAuthenticationProvider with StrictLogging with UrlEncodedCookieDataCodec {
+                                 ) extends UserAuthenticationProvider with StrictLogging with UrlEncodedCookieDataCodec
+                                   with InstanceForRequest {
 
   private val wsClient: WSClient = resources.wsClient
   implicit val ec: ExecutionContext = resources.controllerComponents.executionContext
@@ -128,6 +130,7 @@ class KindeAuthenticationProvider(
               logger.info("Encoding logged in user cookie data: " + cookieData)
               val cookieContents = encode(cookieData)
               val loggedInUserCookie = Cookie(name = loggedInUserCookieName, value = cookieContents, domain = Some(loginCookieDomain))
+              resources.events.userAuthed(instance = instanceOf(requestHeader), user = userProfile.id)
 
               val exitRedirectUri = redirectUri.getOrElse("/")
               Redirect(exitRedirectUri).withNewSession.withCookies(loggedInUserCookie)

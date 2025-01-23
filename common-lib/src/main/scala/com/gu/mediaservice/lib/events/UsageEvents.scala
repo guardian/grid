@@ -34,11 +34,20 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
   }
 
   def apiKeyUsed(instance: Instance, apiKey: String) = {
-    usageEventsActor ! UsageEvent(`type` = "apiKeyUsed", instance = instance.id, image = None, filesize = None, apiKey = Some(apiKey))
+    usageEventsActor ! UsageEvent(`type` = "apiKeyUsed", instance = instance.id, apiKey = Some(apiKey))
+  }
+
+  def userAuthed(instance: Instance, user: String) = {
+    usageEventsActor ! UsageEvent(`type` = "userAuthed", instance = instance.id, user = Some(user))
   }
 }
 
-case class UsageEvent(`type`: String, instance: String, image: Option[String], filesize: Option[Long], date: DateTime = DateTime.now, apiKey: Option[String] = None)
+case class UsageEvent(`type`: String, instance: String,
+                      image: Option[String] = None,
+                      filesize: Option[Long] = None,
+                      date: DateTime = DateTime.now,
+                      apiKey: Option[String] = None,
+                      user: Option[String] = None)
 
 object UsageEvent extends JodaWrites {
   implicit val uew: OWrites[UsageEvent] = Json.writes[UsageEvent]
