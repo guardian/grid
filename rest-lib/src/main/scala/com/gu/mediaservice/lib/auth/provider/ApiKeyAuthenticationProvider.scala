@@ -59,7 +59,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
               // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
               val accessor = MachinePrincipal(apiAccessor, attributes)
               logger.info(s"Using api key with name ${apiAccessor.identity} and tier ${apiAccessor.tier}", apiAccessor)
-              resources.events.apiKeyUsed(instance = instance, apiKey = key)
+              resources.events.apiKeyUsed(instance = instance, apiKey = apiAccessor.identity)
               Authenticated(accessor)
             } else {
               // valid api key which doesn't have access
