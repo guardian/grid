@@ -1380,6 +1380,9 @@ textarea.ng-invalid {
 .validity--warning::before {
     border-bottom-color: orange;
 }
+.validity--overridden::before {
+  border-bottom-color: teal;
+}
 
 /* ==========================================================================
    Results bar
