@@ -7,7 +7,7 @@ import java.net.URI
 trait S3KeyFromURL extends GridLogging {
 
   def keyFromS3URL(bucket: S3Bucket, url: URI): String = {
-    val key = if (bucket.endpoint == "10.0.45.121:32090") {
+    val key = if (bucket.endpoint == "minio.griddev.eelpieconsulting.co.uk") {
       url.getPath.drop(bucket.bucket.length + 2)
     } else {
       url.getPath.drop(1)

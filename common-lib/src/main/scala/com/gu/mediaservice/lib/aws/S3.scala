@@ -20,7 +20,7 @@ case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
 object S3Object {
   private def objectUrl(bucket: String, key: String, s3Endpoint: String): URI = {
-    val bucketUrl = if (s3Endpoint == "10.0.45.121:32090") {
+    val bucketUrl = if (s3Endpoint == "minio.griddev.eelpieconsulting.co.uk") {
       new URI(s"http://$s3Endpoint/$bucket/$key")
     } else {
       val bucketHost = s"$bucket.$s3Endpoint"
@@ -82,7 +82,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     (bucket.endpoint match {
       case "storage.googleapis.com" =>
         googleS3
-      case "10.0.45.121:32090" =>
+      case "minio.griddev.eelpieconsulting.co.uk" =>
         localS3
       case _ =>
         Some(amazonS3)
@@ -130,7 +130,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def doesObjectExist(bucket: S3Bucket, key: String) = {
     clientFor(bucket).doesObjectExist(bucket.bucket, key)
   }
-  
+
   def getObject(bucket: S3Bucket, key: String): model.S3Object = {
     clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
   }
@@ -271,7 +271,7 @@ object S3Ops {
   def buildLocalS3Client(config: CommonConfig): Option[AmazonS3] = {
     config.googleS3AccessKey.flatMap { accessKey =>
       config.googleS3SecretKey.map { secretKey =>
-        val endpointConfig = new EndpointConfiguration("http://10.0.45.121:32090", null)
+        val endpointConfig = new EndpointConfiguration("https://minio.griddev.eelpieconsulting.co.uk", null)
         // create credentials provider
         val credentials = new BasicAWSCredentials(accessKey, secretKey)
         val credentialsProvider = new AWSStaticCredentialsProvider(credentials)
