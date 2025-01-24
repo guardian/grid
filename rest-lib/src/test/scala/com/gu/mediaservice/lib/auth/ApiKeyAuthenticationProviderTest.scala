@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
 import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}

@@ -1,6 +1,6 @@
 package lib.kinesis
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._

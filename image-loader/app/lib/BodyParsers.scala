@@ -3,8 +3,8 @@ package lib
 import java.io.{File, FileOutputStream}
 import java.security.MessageDigest
 
-import akka.stream.scaladsl.Sink
-import akka.util.ByteString
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.util.ByteString
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.streams.Accumulator

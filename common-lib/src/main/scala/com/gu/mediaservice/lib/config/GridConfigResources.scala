@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 

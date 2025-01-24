@@ -1,6 +1,6 @@
 package lib
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.gu.mediaservice.lib.auth.{ApiAccessor, Syndication}
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics

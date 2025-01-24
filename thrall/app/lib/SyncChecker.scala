@@ -1,9 +1,9 @@
 package lib
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.stream.{Materializer, RestartSettings}
-import akka.stream.scaladsl.{RestartSource, Source}
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.{Materializer, RestartSettings}
+import org.apache.pekko.stream.scaladsl.{RestartSource, Source}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.gu.mediaservice.lib.elasticsearch.InProgress

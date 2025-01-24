@@ -35,7 +35,7 @@ val commonSettings = Seq(
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    "org.scalatestplus.play" %% "scalatestplus-play" % "6.0.1" % Test,
+    "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
@@ -76,7 +76,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "3.0.0",
-    "com.gu" %% "pan-domain-auth-play_2-9" % "7.0.0",
+    "com.gu" %% "pan-domain-auth-play_3-0" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -103,7 +103,7 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.10.2",
+    "org.playframework" %% "play-json-joda" % "3.0.4",
     "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
     ws,
@@ -116,7 +116,7 @@ lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
     playCore,
     filters,
-    akkaHttpServer,
+    pekkoHttpServer,
   ),
 ).dependsOn(commonLib % "compile->compile;test->test")
 
@@ -159,13 +159,16 @@ lazy val thrall = playProject("thrall", 9002)
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       // TODO upgrading kcl to v3? check if you can remove avro override below
       "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.0",
-      "io.github.streetcontxt" %% "kcl-akka-stream" % "4.1.1",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
     // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
     // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html
-    dependencyOverrides += "org.apache.avro" % "avro" % "1.11.4"
+    dependencyOverrides ++= Seq(
+      "org.apache.avro" % "avro" % "1.11.4",
+      "org.apache.pekko" %% "pekko-stream" % "1.0.3"
+    )
   )
 
 lazy val usage = playProject("usage", 9009).settings(

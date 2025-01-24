@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, ReapableEligibility, Running}

@@ -1,6 +1,6 @@
 package controllers
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}

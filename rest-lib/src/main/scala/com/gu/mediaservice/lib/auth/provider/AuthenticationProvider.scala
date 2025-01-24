@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth.provider
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.Authorisation
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri

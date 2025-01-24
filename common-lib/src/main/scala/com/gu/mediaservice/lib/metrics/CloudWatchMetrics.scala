@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.metrics
 
-import akka.actor.{Actor, ActorSystem, Props, Timers}
-import akka.pattern.ask
-import akka.util.Timeout
+import org.apache.pekko.actor.{Actor, ActorSystem, Props, Timers}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
 import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit, StatisticSet}
 import com.gu.mediaservice.lib.config.CommonConfig
