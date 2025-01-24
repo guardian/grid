@@ -79,6 +79,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   private val localS3: Option[AmazonS3] = S3Ops.buildLocalS3Client(config)
 
   private def clientFor(bucket: S3Bucket): AmazonS3 = {
+    logger.info("Client for: " + bucket.endpoint)
     (bucket.endpoint match {
       case "storage.googleapis.com" =>
         googleS3
