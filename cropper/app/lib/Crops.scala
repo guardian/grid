@@ -3,7 +3,7 @@ package lib
 import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
-import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
+import com.gu.mediaservice.lib.aws.{S3, S3Bucket, S3KeyFromURL}
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
@@ -17,7 +17,7 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket)(implicit ec: ExecutionContext) extends GridLogging {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket)(implicit ec: ExecutionContext) extends GridLogging with S3KeyFromURL {
   import Files._
 
   private val cropQuality = 75d
@@ -117,7 +117,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
     val cropType = Crops.cropType(mimeType, colourType, hasAlpha)
 
-    val secureUrl = s3.signUrlTony(imageBucket, secureFile)
+    val key = keyFromS3URL(imageBucket, secureFile)
+
+    val secureUrl = s3.signUrlTony(imageBucket, key)
 
     Stopwatch.async(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {

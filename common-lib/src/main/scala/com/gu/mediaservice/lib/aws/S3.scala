@@ -91,10 +91,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
   }
 
-  def signUrl(bucket: S3Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
-    // get path and remove leading `/`
-    val key: Key = url.getPath.drop(1)
-
+  def signUrl(bucket: S3Bucket, key: String, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
     val contentDisposition = getContentDisposition(image, imageType, config.shortenDownloadFilename)
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
@@ -103,10 +100,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     clientFor(bucket).generatePresignedUrl(request).toExternalForm
   }
 
-  def signUrlTony(bucket: S3Bucket, url: URI, expiration: DateTime = cachableExpiration()): URL = {
-    // get path and remove leading `/`
-    val key: Key = url.getPath.drop(1)
-
+  def signUrlTony(bucket: S3Bucket, key: String, expiration: DateTime = cachableExpiration()): URL = {
     val request = new GeneratePresignedUrlRequest(bucket.bucket, key).withExpiration(expiration.toDate)
     clientFor(bucket).generatePresignedUrl(request)
   }
@@ -136,13 +130,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def doesObjectExist(bucket: S3Bucket, key: String) = {
     clientFor(bucket).doesObjectExist(bucket.bucket, key)
   }
-
-  def getObject(bucket: S3Bucket, url: URI): model.S3Object = { // TODO why can't this just be by bucket + key to remove end point knowledge
-    // get path and remove leading `/`
-    val key: Key = url.getPath.drop(1)
-    clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
-  }
-
+  
   def getObject(bucket: S3Bucket, key: String): model.S3Object = {
     clientFor(bucket).getObject(new GetObjectRequest(bucket.bucket, key))
   }
@@ -320,6 +308,7 @@ object S3Ops {
 
     config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
   }
+
 }
 
 object S3 {

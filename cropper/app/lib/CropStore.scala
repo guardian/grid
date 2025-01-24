@@ -4,10 +4,11 @@ import java.io.File
 import java.net.{URI, URL}
 import scala.concurrent.Future
 import com.gu.mediaservice.lib.S3ImageStorage
+import com.gu.mediaservice.lib.aws.S3KeyFromURL
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 
-class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropSpecMetadata {
+class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropSpecMetadata with S3KeyFromURL {
   import com.gu.mediaservice.lib.formatting._
 
   def getSecureCropUri(uri: URI): Option[URL] =
@@ -49,9 +50,11 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropS
             date           = userMetadata.get("date").flatMap(parseDateTime)
             dimensions     = Dimensions(width, height)
 
+            key = keyFromS3URL(config.imgPublishingBucket, s3Object.uri)
+
             sizing         =
               Asset(
-                signedCropAssetUrl(s3Object.uri),
+                signedCropAssetUrl(key),
                 Some(s3Object.size),
                 objectMetadata.contentType,
                 Some(dimensions),
@@ -82,8 +85,8 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) with CropS
     instance.id + "/" + id
   }
 
-  private def signedCropAssetUrl(uri: URI): URI = {
-    signUrlTony(config.imgPublishingBucket, uri).toURI
+  private def signedCropAssetUrl(key: String): URI = {
+    signUrlTony(config.imgPublishingBucket, key).toURI
   }
 
 }
