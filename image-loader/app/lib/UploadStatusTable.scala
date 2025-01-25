@@ -1,5 +1,6 @@
 package lib
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.Instance
 import org.scanamo._
 import org.scanamo.syntax._
@@ -11,27 +12,29 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAs
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class UploadStatusTable(config: ImageLoaderConfig) {
+class UploadStatusTable(config: ImageLoaderConfig) extends GridLogging {
 
   val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   val scanamo = ScanamoAsync(client)
   private val uploadStatusTable = Table[UploadStatusRecord](config.uploadStatusTable)
 
   def getStatus(imageId: String)(implicit instance: Instance) = {
+    logger.info("getStatus: " + instance.id + " / " + imageId)
     scanamo.exec(uploadStatusTable.get("instance" === instance.id and "id" === imageId))
   }
 
-  def setStatus(uploadStatus: UploadStatusRecord)(implicit instance: Instance) = {
+  def setStatus(uploadStatus: UploadStatusRecord) = {
     scanamo.exec(uploadStatusTable.put(uploadStatus))
   }
 
-  def updateStatus(imageId: String, updateRequest: UploadStatus)(implicit instance: Instance) = {
-    val updateExpression = updateRequest.errorMessage match {
-      case Some(error) => set("status", updateRequest.status) and set("errorMessages", error)
-      case None => set("status", updateRequest.status)
+  def updateStatus(imageId: String, updateStatus: UploadStatus)(implicit instance: Instance) = {
+    logger.info("updateStatus: " + instance.id + " / " + imageId + " -> " + updateStatus)
+    val updateExpression = updateStatus.errorMessage match {
+      case Some(error) => set("status", updateStatus.status) and set("errorMessages", error)
+      case None => set("status", updateStatus.status)
     }
     val uploadStatusTableWithCondition =
-      if(updateRequest.status == Queued) // can only transition to Queued status from Prepared status
+      if(updateStatus.status == Queued) // can only transition to Queued status from Prepared status
         uploadStatusTable.when(attributeExists("id") and ("status" === Prepared.toString))
       else
         uploadStatusTable.when(attributeExists("id"))
