@@ -24,20 +24,21 @@ class UploadStatusTable(config: ImageLoaderConfig) extends GridLogging {
   }
 
   def setStatus(uploadStatus: UploadStatusRecord) = {
+    logger.info("SET " + uploadStatus)
     scanamo.exec(uploadStatusTable.put(uploadStatus))
   }
 
   def updateStatus(imageId: String, updateStatus: UploadStatus)(implicit instance: Instance) = {
-    logger.info("updateStatus: " + instance.id + " / " + imageId + " -> " + updateStatus)
+    logger.info("updateStatus: " + instance.id + " / " + imageId + " -> " + updateStatus + " " + updateStatus.toString)
     val updateExpression = updateStatus.errorMessage match {
       case Some(error) => set("status", updateStatus.status) and set("errorMessages", error)
       case None => set("status", updateStatus.status)
     }
     val uploadStatusTableWithCondition =
       if(updateStatus.status == Queued) // can only transition to Queued status from Prepared status
-        uploadStatusTable.when(attributeExists("id") and ("status" === Prepared.toString))
+        uploadStatusTable.when(attributeExists("id") and attributeExists("instance") and "status" === Prepared.toString)
       else
-        uploadStatusTable.when(attributeExists("id"))
+        uploadStatusTable.when(attributeExists("id") and attributeExists("instance"))
 
     scanamo.exec(
       uploadStatusTableWithCondition
