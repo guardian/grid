@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib
 import com.amazonaws.HttpMethod
 import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest, S3Object}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
+import com.gu.mediaservice.model.Instance
 
 import java.time.ZonedDateTime
 import java.util.Date
@@ -34,10 +35,10 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
 
-  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {
+  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String)(implicit instance: Instance): String = {
     val request = new GeneratePresignedUrlRequest(
       config.maybeIngestBucket.get, // bucket
-      s"$uploadedBy/$filename", // key
+      s"${instance.id}/$uploadedBy/$filename", // key
     )
       .withMethod(HttpMethod.PUT)
       .withExpiration(Date.from(expiration.toInstant));
