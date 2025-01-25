@@ -46,7 +46,6 @@ class ReaperController(
   private val isReapable = maybeCustomReapableEligibility getOrElse {
     new ReapableEligibility {
       override val maybePersistOnlyTheseCollections: Option[Set[String]] = config.maybePersistOnlyTheseCollections
-      override val persistenceIdentifier: String = config.persistenceIdentifier
     }
   }
 

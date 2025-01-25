@@ -13,7 +13,6 @@ trait MatchFields extends ImageFields {
       "peopleInImage", "specialInstructions", "englishAnalysedCatchAll",
       "imageType").map(metadataField) ++
     Seq("labels").map(editsField) ++
-    config.queriableIdentifiers.map(identifierField) ++
     Seq("restrictions").map(usageRightsField)
 
 }

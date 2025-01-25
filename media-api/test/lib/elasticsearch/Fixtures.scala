@@ -26,7 +26,6 @@ trait Fixtures {
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(
     "auth.keystore.bucket",
-    "persistence.identifier",
     "thrall.kinesis.stream.name",
     "thrall.kinesis.lowPriorityStream.name",
     "domain.root",

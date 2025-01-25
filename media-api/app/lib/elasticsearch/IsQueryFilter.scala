@@ -32,7 +32,7 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
-      case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections, config.persistenceIdentifier))
+      case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections))
       case _ => None
     }
   }
@@ -68,6 +68,6 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   )
 }
 
-case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String)
+case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]])
   extends IsQueryFilter with ReapableEligibility {
 }

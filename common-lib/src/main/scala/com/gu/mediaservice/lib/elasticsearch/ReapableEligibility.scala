@@ -13,7 +13,6 @@ trait ReapableEligibility extends Provider{
 
 
   val maybePersistOnlyTheseCollections: Option[Set[String]] // typically from config
-  val persistenceIdentifier: String // typically from config
 
   private def moreThanTwentyDaysOld =
     filters.date("uploadTime", None, Some(DateTime.now().minusDays(ReapableEligibility.ReapableAfterMoreThanDaysOld))).getOrElse(matchAllQuery())
@@ -29,7 +28,6 @@ trait ReapableEligibility extends Provider{
     PersistedQueries.addedToPhotoshoot,
     PersistedQueries.hasLabels,
     PersistedQueries.hasLeases,
-    PersistedQueries.existedPreGrid(persistenceIdentifier),
     PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   )
 

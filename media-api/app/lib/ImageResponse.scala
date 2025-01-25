@@ -48,7 +48,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   private val imgPersistenceReasons = ImagePersistenceReasons(
     config.maybePersistOnlyTheseCollections,
-    config.persistenceIdentifier
   )
 
   def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.reasons(image)

@@ -52,7 +52,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   lazy val freeToUseCategories: List[String] =
     usageRights.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
 
-  val persistedReasons: List[PersistenceReason] = ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifier).allReasons
+  val persistedReasons: List[PersistenceReason] = ImagePersistenceReasons(config.maybePersistOnlyTheseCollections).allReasons
 
   val persistedFilter: Query = filters.or(persistedReasons.map(_.query): _*)
 

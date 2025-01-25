@@ -87,12 +87,6 @@ Service-specific configs. These will override all other config files.
     <td>[]</td>
   </tr>
   <tr>
-    <td><b><code>persistence.identifier</code></b><br>Used by the reaper to retain images which have a particular identifier (e.g. <code>picdarUrn</code> for Guardian)</td>
-    <td>True</td>
-    <td>string</td>
-    <td></td>
-  </tr>
-  <tr>
     <td><b><code>persistence.onlyTheseCollections</code></b><br>Used by the reaper…
       <ol>
         <li>If not specified, images in any collection are persisted</li>

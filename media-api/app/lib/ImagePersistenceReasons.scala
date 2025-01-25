@@ -5,10 +5,9 @@ import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageM
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 
 
-case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String) {
+case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[String]]) {
   val allReasons: List[PersistenceReason] =
     List(
-      HasPersistenceIdentifier(persistenceIdentifier),
       HasExports,
       HasUsages,
       IsArchived,
@@ -29,14 +28,6 @@ sealed trait PersistenceReason {
   def shouldPersist(image: Image): Boolean
   val query: Query
   val reason: String
-}
-
-case class HasPersistenceIdentifier(persistenceIdentifier: String) extends PersistenceReason {
-  override def shouldPersist(image: Image): Boolean = image.identifiers.contains(persistenceIdentifier)
-
-  override val reason: String = "persistence-identifier"
-
-  override val query: Query = PersistedQueries.existedPreGrid(persistenceIdentifier)
 }
 
 object HasExports extends PersistenceReason {
