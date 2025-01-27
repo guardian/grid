@@ -26,30 +26,18 @@ export const grInfoPanel = angular.module('grInfoPanel', [
 ]);
 
 grInfoPanel.controller('GrInfoPanelCtrl', [
-  '$rootScope',
   '$scope',
-  '$window',
   '$q',
   'inject$',
-  'subscribe$',
-  'mediaApi',
-  'imageAccessor',
   'imageList',
   'selectedImagesList$',
-  'labelService',
   'editsService',
   function (
-    $rootScope,
     $scope,
-    $window,
     $q,
     inject$,
-    subscribe$,
-    mediaApi,
-    imageAccessor,
     imageList,
     selectedImagesList$,
-    labelService,
     editsService) {
 
     const ctrl = this;
@@ -70,10 +58,14 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
         map(allEditable => allEditable.every(v => v === true));
       inject$($scope, selectionIsEditable$, ctrl, 'userCanEdit');
 
-      ctrl.stylePercentageLeased = cost => {
+      ctrl.stylePercentageLeased = (cost, alt) => {
         const imageIsOfThisTypeAndIsLeased = (img) => img.data.cost === cost.data && img.data?.leases?.data?.leases?.some(lease => lease.access === 'allow-use' && lease.active);
         const countLeased = ctrl.selectedImages.count(imageIsOfThisTypeAndIsLeased);
-        return `--pct-leased: ${Math.floor(100 * countLeased / cost.count)}`;
+        const percentageLeased = Math.floor(100 * countLeased / cost.count);
+
+        return {
+          'background-image': `linear-gradient(90deg, teal 0 ${percentageLeased}%, ${alt} ${percentageLeased}% 100%)`
+        };
       };
     };
   }
