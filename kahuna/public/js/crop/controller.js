@@ -3,7 +3,7 @@ import angular from 'angular';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from "../util/crop";
-import {cropOptions} from "../util/constants/cropOptions";
+import {cropOptions, pointsOfInterestBeta} from "../util/constants/cropOptions";
 
 const crop = angular.module('kahuna.crop.controller', [
   'gr.keyboardShortcut',
@@ -150,7 +150,7 @@ crop.controller('ImageCropCtrl', [
 
         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratioString)
+        mediaCropper.createCrop(ctrl.image, coords, ratioString, ctrl.cropType === pointsOfInterestBeta.key ? 'poi' : 'crop')
         .then(crop => {
            // Global notification of action
            $rootScope.$emit('events:crop-created', {
@@ -185,6 +185,8 @@ crop.controller('ImageCropCtrl', [
           window._clientConfig.staffPhotographerOrganisation === "GNM"
           && cropSettings.shouldShowCropGuttersIfApplicable()
           && maybeCropRatioIfStandard === "5:3";
+
+        ctrl.isPointsOfInterestCrop = newCropType === pointsOfInterestBeta.key; /* TODO adjust the height of easel to avoid scrollbar from explainer */
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;

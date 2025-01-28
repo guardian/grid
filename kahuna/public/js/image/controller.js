@@ -297,7 +297,11 @@ image.controller('ImageCtrl', [
       }
       ctrl.crop = crops.find(crop => crop.id === cropKey);
       ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
-      ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
+      ctrl.crops = [
+        ...crops.filter(crop => crop.specification.type === 'crop'),
+        // for POI, we can't use crops as the S3 crops are full frame and won't match up
+        ...esCrops.filter(crop => crop.specification.type === 'poi')
+      ];
       ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
       //boolean version for use in template
       ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
