@@ -81,6 +81,7 @@ image.controller('uiPreviewImageCtrl', [
         ctrl.states = imageService(updatedImage).states;
         ctrl.image = updatedImage;
         ctrl.flagState = ctrl.states.costState;
+        ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
         ctrl.imageAsArray = [updatedImage];
       };
 
