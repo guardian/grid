@@ -56,13 +56,13 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
                              (implicit ec: ExecutionContext, instance: Instance): Future[Photoshoot] = {
-    publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
+    //publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
       for {
         editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
         _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
         _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
-    }
+    //}
   }
 
   def deleteSyndicationAndPublish(id: String)
