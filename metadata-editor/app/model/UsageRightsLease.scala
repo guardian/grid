@@ -4,8 +4,6 @@ import com.gu.mediaservice.model._
 import play.api.ConfigLoader
 import play.api.libs.json._
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
-import java.time.{LocalDate, Period}
 
 case class UsageRightsLease(
    category: String,
