@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
 
 import java.io.File
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 // TODO: If deleteObject fails - we should be catching the errors here to avoid them bubbling to the application

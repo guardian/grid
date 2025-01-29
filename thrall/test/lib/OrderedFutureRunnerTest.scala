@@ -10,7 +10,7 @@ import scala.util.Success
 class OrderedFutureRunnerTest extends AnyFlatSpec with Matchers {
   private val order = (0 to 10).toList
   private var current = 0
-  implicit val executionContext = ExecutionContext.Implicits.global
+  implicit val executionContext: ExecutionContext = ExecutionContext.Implicits.global
 
 
   "OrderedFutureRunner.run" should "execute the futures in order" in {

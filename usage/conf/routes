@@ -4,10 +4,10 @@ GET     /usages/:id                                     controllers.UsageApi.for
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
 DELETE  /usages/media/:mediaId                          controllers.UsageApi.deleteUsages(mediaId: String)
 DELETE  /usages/media/:mediaId/*usageId                 controllers.UsageApi.deleteSingleUsage(mediaId: String, usageId: String)
-POST    /usages/print                                   controllers.UsageApi.setPrintUsages
-POST    /usages/syndication                             controllers.UsageApi.setSyndicationUsages
-POST    /usages/front                                   controllers.UsageApi.setFrontUsages
-POST    /usages/download                                controllers.UsageApi.setDownloadUsages
+POST    /usages/print                                   controllers.UsageApi.setPrintUsages()
+POST    /usages/syndication                             controllers.UsageApi.setSyndicationUsages()
+POST    /usages/front                                   controllers.UsageApi.setFrontUsages()
+POST    /usages/download                                controllers.UsageApi.setDownloadUsages()
 PUT     /usages/status/update/:mediaId/*usageId         controllers.UsageApi.updateUsageStatus(mediaId: String, usageId: String)
 GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 

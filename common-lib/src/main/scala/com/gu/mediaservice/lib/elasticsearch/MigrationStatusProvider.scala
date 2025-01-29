@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.sksamuel.elastic4s.Index
 
 import java.util.concurrent.atomic.AtomicReference

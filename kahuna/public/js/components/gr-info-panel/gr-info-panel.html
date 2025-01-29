@@ -24,21 +24,21 @@
 
                     <div ng-switch-when="pay"
                          class="image-notice image-info__group status cost cost--pay"
-                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                         ng-style="ctrl.stylePercentageLeased(cost, 'red')"
                     >
                         {{cost.count}} paid
                     </div>
 
                     <div ng-switch-when="overquota"
                          class="image-notice image-info__group status cost cost--pay"
-                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                         ng-style="ctrl.stylePercentageLeased(cost, 'red')"
                     >
                         {{cost.count}} over quota
                     </div>
 
                     <div ng-switch-when="conditional"
                          class="image-notice image-info__group cost cost--conditional"
-                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                         ng-style="ctrl.stylePercentageLeased(cost, 'orange')"
                     >
                         {{cost.count}} restricted
                     </div>

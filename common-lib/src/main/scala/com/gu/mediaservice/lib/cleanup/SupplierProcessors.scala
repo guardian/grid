@@ -139,7 +139,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
     }
   }
 
-  def getCanonicalName(): String
+  def getCanonicalName: String
   lazy val canonicalName = getCanonicalName
 
   private def matches(image: Image):Boolean = {
@@ -150,7 +150,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
   lazy val agencyName = getAgencyName
 
-  def getAgencyName(): String
+  def getAgencyName: String
 
   // Rules for slash delimited strings: byline, credit and supplier collection.
   def apply(image: Image): Image = image match {
@@ -174,7 +174,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
             val (creditList, foundFlag) = acc
             getPrefixAndSuffix(Some(s)) match {
               case Some(_) if !foundFlag => (creditList :+ canonicalName, true)
-              case Some(_) if foundFlag => acc
+              case Some(_) => acc
               case None => (creditList :+ s, foundFlag)
             }
           })
@@ -420,10 +420,11 @@ object RexParser extends ImageProcessor {
 
     (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _)      => image.copy(usageRights = usageRights)
-    case (_, Some(SlashRex()))          => image.copy(usageRights = usageRights)
-    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = usageRights)
-    case (Some("Shutterstock"), _)      => image.copy(usageRights = usageRights)
+    case (Some("Rex Features"), _)            => image.copy(usageRights = usageRights)
+    case (_, Some(SlashRex()))                => image.copy(usageRights = usageRights)
+    case (Some("REX/Shutterstock"), _)        => image.copy(usageRights = usageRights)
+    case (Some("Shutterstock"), _)            => image.copy(usageRights = usageRights)
+    case (Some("Shutterstock Editorial"), _)  => image.copy(usageRights = usageRights)
     case _ => image
   }
   }

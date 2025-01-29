@@ -7,7 +7,7 @@ import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, O
 
 import java.io.{File, PrintWriter}
 import scala.io.Source
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 object BulkDeleteS3Files {
 

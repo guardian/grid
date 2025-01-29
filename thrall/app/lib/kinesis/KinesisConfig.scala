@@ -1,52 +1,46 @@
 package lib.kinesis
 
+import com.gu.kinesis.ConsumerConfig
+import com.gu.mediaservice.lib.logging.GridLogging
+import lib.KinesisReceiverConfig
+import software.amazon.kinesis.common.{InitialPositionInStream, InitialPositionInStreamExtended}
+import software.amazon.kinesis.metrics.MetricsConfig
+import software.amazon.kinesis.retrieval.RetrievalConfig
+import software.amazon.kinesis.retrieval.polling.PollingConfig
+
 import java.net.InetAddress
 import java.util.UUID
 
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration}
-import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
-import com.gu.mediaservice.lib.logging.GridLogging
-import lib.KinesisReceiverConfig
-import org.joda.time.DateTime
 object KinesisConfig extends GridLogging {
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
-  def kinesisConfig(config: KinesisReceiverConfig): KinesisClientLibConfiguration = {
-    val clientConfig = kinesisClientLibConfig(
-      kinesisAppName = config.streamName,
-      streamName = config.streamName,
-      config,
-      from = config.rewindFrom,
-      config.metricsLevel
-    )
-
-    config.awsLocalEndpoint.map(endpoint => {
-      logger.info(s"creating kinesis consumer with endpoint=$endpoint")
-      clientConfig.withKinesisEndpoint(endpoint).withDynamoDBEndpoint(endpoint)
-    }).getOrElse(clientConfig)
-  }
-
-  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: KinesisReceiverConfig, from: Option[DateTime], metricsLevel: MetricsLevel): KinesisClientLibConfiguration = {
-    val credentialsProvider = config.awsCredentials
-
-    val kinesisConfig = new KinesisClientLibConfiguration(
-      kinesisAppName,
-      streamName,
-      credentialsProvider,
-      credentialsProvider,
-      credentialsProvider,
-      workerId
-    ).withRegionName(config.awsRegion).
-      withMaxRecords(100).
-      withIdleMillisBetweenCalls(1000).
-      withIdleTimeBetweenReadsInMillis(250).
-      withCallProcessRecordsEvenForEmptyRecordList(true).
-      withMetricsLevel(metricsLevel)
-
-    from.fold(
-      kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
-    ){ f =>
-      kinesisConfig.withTimestampAtInitialPositionInStream(f.toDate)
+  def kinesisConfig(config: KinesisReceiverConfig): ConsumerConfig = {
+    val initialPosition = config.rewindFrom match {
+      case None => InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON)
+      case Some(position) => InitialPositionInStreamExtended.newInitialPositionAtTimestamp(position.toDate)
     }
+    val pollingConfig = new PollingConfig(config.streamName, config.kinesisClient)
+      .maxRecords(100)
+      .idleTimeBetweenReadsInMillis(250)
+    val retrievalConfig = new RetrievalConfig(config.kinesisClient, config.streamName, config.streamName)
+      .retrievalSpecificConfig(pollingConfig)
+
+    val metricsConfig = new MetricsConfig(config.cloudwatchClient, config.streamName)
+      .metricsLevel(config.metricsLevel)
+
+    val clientConfig = ConsumerConfig(
+      streamName = config.streamName,
+      appName = config.streamName,
+      workerId = workerId,
+      kinesisClient = config.kinesisClient,
+      dynamoClient = config.dynamoClient,
+      cloudwatchClient = config.cloudwatchClient,
+      initialPositionInStreamExtended = initialPosition,
+      coordinatorConfig = None,
+      leaseManagementConfig = None,
+      metricsConfig = Some(metricsConfig),
+      retrievalConfig = Some(retrievalConfig)
+    )
+    clientConfig
   }
 }

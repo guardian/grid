@@ -24,7 +24,7 @@ import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with MockitoSugar {

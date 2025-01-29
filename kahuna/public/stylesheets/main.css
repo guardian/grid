@@ -882,7 +882,13 @@ textarea.ng-invalid {
     text-align: center;
 }
 .warning--small {
-    padding: 5px 10px;
+  padding: 5px 10px;
+}
+.warning--multiline {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 }
 
 .full-error {
@@ -1336,23 +1342,12 @@ textarea.ng-invalid {
 .cost--conditional {
     background-color: orange;
 }
+.validity--leased,
 .cost--leased {
   background-color: teal;
 }
 .cost--free {
     background-color: green;
-}
-
-.image-notice {
-  --pct-leased: 0;
-}
-
-.image-notice.cost--pay {
-  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), red calc(var(--pct-leased) * 1%) 100%);
-}
-
-.image-notice.cost--conditional {
-  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), orange calc(var(--pct-leased) * 1%) 100%);
 }
 
 .costs li {
@@ -1384,6 +1379,9 @@ textarea.ng-invalid {
 }
 .validity--warning::before {
     border-bottom-color: orange;
+}
+.validity--leased::before {
+  border-bottom-color: teal;
 }
 
 /* ==========================================================================

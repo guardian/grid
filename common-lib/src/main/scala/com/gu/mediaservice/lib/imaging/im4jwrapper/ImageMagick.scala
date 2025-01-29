@@ -5,7 +5,7 @@ import java.io.File
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import org.im4java.process.ArrayListOutputConsumer
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation, IdentifyCmd}
 import com.gu.mediaservice.model.{Bounds, Dimensions}

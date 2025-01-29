@@ -13,6 +13,7 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 
@@ -181,6 +182,7 @@ class UsageStore(
 
         cleanedSummary
           .groupBy(_.agency.supplier)
+          .view
           .mapValues(_.head)
           .mapValues((summary: SupplierUsageSummary) => {
             val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
@@ -193,7 +195,7 @@ class UsageStore(
               summary,
               quota
             )
-          })
+          }).toMap
     }
   }
 }

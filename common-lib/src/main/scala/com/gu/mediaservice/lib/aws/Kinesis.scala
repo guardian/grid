@@ -18,7 +18,7 @@ case class KinesisSenderConfig(
   override val awsLocalEndpoint: Option[String],
   override val isDev: Boolean,
   streamName: String
-) extends AwsClientBuilderUtils
+) extends AwsClientV1BuilderUtils
 
 class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
@@ -28,7 +28,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
-  def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]) {
+  def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]): Unit = {
     val partitionKey = UUID.randomUUID().toString
 
     implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites

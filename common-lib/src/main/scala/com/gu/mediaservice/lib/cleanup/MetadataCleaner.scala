@@ -28,7 +28,8 @@ class MetadataCleaners(resources: ImageProcessorResources)
     CapitaliseCity,
     CapitaliseSubLocation,
     DropRedundantTitle,
-    PhotographerRenamer
+    PhotographerRenamer,
+    InsertGuardianImageType
   )
 
 // By vague order of importance:

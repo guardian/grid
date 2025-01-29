@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.config
 import play.api.ConfigLoader
 import play.api.libs.json._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class FieldAlias(elasticsearchPath: String,
                       label: String,
@@ -36,6 +36,6 @@ object FieldAlias {
             searchHintOptions
           )
         }
-      )
+      ).toSeq
     )
 }

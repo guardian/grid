@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib
 import java.nio.file.Paths
 import java.util.Properties
 import java.io.{File, FileInputStream}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 
 object UserCredentials {

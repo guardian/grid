@@ -1,18 +1,18 @@
 package lib
 
 import java.time.Instant
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{GraphDSL, MergePreferred, MergePrioritized, Source}
-import akka.stream.{Materializer, SourceShape}
-import akka.{Done, NotUsed}
-import com.contxt.kinesis.KinesisRecord
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{GraphDSL, MergePreferred, MergePrioritized, Source}
+import org.apache.pekko.stream.{Materializer, SourceShape}
+import org.apache.pekko.{Done, NotUsed}
+import com.gu.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.{ExternalThrallMessage, InternalThrallMessage, ThrallMessage}
 import lib.kinesis.{MessageTranslator, ThrallEventConsumer}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 sealed trait Priority
@@ -38,7 +38,7 @@ case class TaggedRecord[+P](payload: P,
                            markProcessed: () => Unit) extends LogMarker {
   override def markerContents: Map[String, Any] = (payload match {
     case withMarker:LogMarker => withMarker.markerContents
-    case _ => Map()
+    case _ => Map.empty[String, Any]
   }) ++ Map(
     "recordPriority" -> priority.toString,
     "recordArrivalTime" -> DateTimeUtils.toString (arrivalTimestamp)
@@ -55,8 +55,8 @@ class ThrallStreamProcessor(
   actorSystem: ActorSystem
  ) extends GridLogging {
 
-  implicit val mat = Materializer.matFromSystem(actorSystem)
-  implicit val dispatcher = actorSystem.getDispatcher
+  implicit val mat: Materializer = Materializer.matFromSystem(actorSystem)
+  implicit val dispatcher: ExecutionContextExecutor = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord[ThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
     import GraphDSL.Implicits._

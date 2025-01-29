@@ -3,7 +3,7 @@ import com.gu.mediaservice.lib.auth.ApiAccessor
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import net.logstash.logback.marker.Markers
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait GridLogging extends StrictLogging {
   case class ImageId(id: String)
