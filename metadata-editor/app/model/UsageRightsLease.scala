@@ -21,7 +21,7 @@ object UsageRightsLease {
 
   implicit val configLoader: ConfigLoader[Seq[UsageRightsLease]] = {
     ConfigLoader(_.getConfigList).map(
-      _.asScala.map(config => {
+      _.asScala.toSeq.map(config => {
 
         val categoryId = if (config.hasPath("category")) {
           config.getString("category")
