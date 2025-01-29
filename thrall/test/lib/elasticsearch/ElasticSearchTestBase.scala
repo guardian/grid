@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
+import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase
@@ -41,7 +41,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
 
   lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 
-  override def beforeAll {
+  override def beforeAll(): Unit = {
     super.beforeAll()
     ES.ensureIndexExistsAndAliasAssigned()
     ES.createIndexIfMissing(migrationIndexName)
@@ -66,7 +66,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
     }
   }
 
-  override def afterAll: Unit = {
+  override def afterAll(): Unit = {
     super.afterAll()
 
     esContainer foreach { _.stop() }

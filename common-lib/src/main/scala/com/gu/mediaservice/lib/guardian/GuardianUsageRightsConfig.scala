@@ -73,6 +73,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       "Jonathan Lovekin",
       "Karen Robinson",
       "Katherine Anne Rose",
+      "Richard Saker",
       "Sophia Evans",
       "Suki Dhanda"
     )),
@@ -89,7 +90,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       "Martin Godwin",
       "Mike Bowers",
       "Murdo MacLeod",
-      "Richard Saker",
       "Sarah Lee",
       "Tom Jenkins",
       "Tristram Kenton",

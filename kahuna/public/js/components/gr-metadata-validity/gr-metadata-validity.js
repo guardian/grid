@@ -24,6 +24,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', '$window', function 
             }
             ctrl.invalidReasons = image.data.invalidReasons;
             ctrl.isOverridden = ctrl.showInvalidReasons && image.data.valid;
+            ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
             ctrl.isStrongWarning = ctrl.isDeleted || !ctrl.isOverridden || image.data.cost === "pay";
 
             ctrl.unusableTextHeader = $window._clientConfig.unusableTextHeader;

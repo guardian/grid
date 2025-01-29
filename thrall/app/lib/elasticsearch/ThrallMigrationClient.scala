@@ -160,7 +160,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     ) sortByFieldDesc "lastModified"
     executeAndLog(search, s"retrieving list of migration failures")
       .map { resp =>
-        val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
+        val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.toSeq.map { hit =>
 
           val sourceJson = Json.parse(hit.sourceAsString)
 

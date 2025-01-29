@@ -36,7 +36,7 @@ object Collection {
 case class ActionData(author: String, date: DateTime)
 object ActionData {
   // TODO: Use the generic formats for DateTime
-  implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
-  implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateWrites: Writes[DateTime] = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateReads: Reads[DateTime] = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
   implicit def formats: Format[ActionData] = Json.format[ActionData]
 }

@@ -4,7 +4,7 @@ import java.util.concurrent.Executors
 
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.gu.mediaservice.lib.ImageId

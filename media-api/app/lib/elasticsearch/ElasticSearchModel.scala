@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
-import play.api.libs.json.Json
+import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
@@ -22,19 +22,19 @@ case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 case class CompletionSuggestionResult(key: String, score: Float)
 
 object CompletionSuggestionResult {
-  implicit val jsonWrites = Json.writes[CompletionSuggestionResult]
+  implicit val jsonWrites: OWrites[CompletionSuggestionResult] = Json.writes[CompletionSuggestionResult]
 }
 
 case class CompletionSuggestionResults(results: List[CompletionSuggestionResult])
 
 object CompletionSuggestionResults {
-  implicit val jsonWrites = Json.writes[CompletionSuggestionResults]
+  implicit val jsonWrites: OWrites[CompletionSuggestionResults] = Json.writes[CompletionSuggestionResults]
 }
 
 case class BucketResult(key: String, count: Long)
 
 object BucketResult {
-  implicit val jsonWrites = Json.writes[BucketResult]
+  implicit val jsonWrites: OWrites[BucketResult] = Json.writes[BucketResult]
 }
 
 case class AggregateSearchParams(field: String,

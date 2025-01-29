@@ -13,7 +13,7 @@ object LeasesByMedia {
   import JodaReads._
   implicit val reader: Reads[LeasesByMedia] = Json.reads[LeasesByMedia]
 
-  implicit val writer = new Writes[LeasesByMedia] {
+  implicit val writer: Writes[LeasesByMedia] = new Writes[LeasesByMedia] {
     def writes(leaseByMedia: LeasesByMedia) = {
       Json.obj(
         "leases" -> leaseByMedia.leases,

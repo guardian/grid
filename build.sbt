@@ -14,8 +14,14 @@ import com.typesafe.sbt.packager.debian.JDebPackaging
 // Setting as a packageOption seems to bypass that problem, wherever it lies
 ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
+// Currently multiple modules depend on scala-java8-compat, some on 0.8.x, 0.9.x and 1.x.y
+// These may be binary incompatible, but force the checker to accept them
+// In the future, check if this override can be removed
+ThisBuild / libraryDependencySchemes +=
+  "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
+
 val commonSettings = Seq(
-  scalaVersion := "2.12.20",
+  scalaVersion := "2.13.15",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -28,12 +34,13 @@ val commonSettings = Seq(
 
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
-    "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
+    "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+    "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1" % Test,
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.14.3",
+  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.17.2",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -68,8 +75,8 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "editorial-permissions-client" % "3.0.0",
-    "com.gu" %% "pan-domain-auth-play_2-8" % "7.0.0",
+    "com.gu" %% "editorial-permissions-client" % "4.0.0",
+    "com.gu" %% "pan-domain-auth-play_3-0" % "7.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -80,7 +87,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
-    "org.elasticsearch" % "elasticsearch" % "1.7.6",
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
@@ -89,7 +95,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "com.typesafe.play" %% "play-logback" % "2.8.20", // needed when running the scripts
+    logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -97,25 +103,21 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
-    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "org.playframework" %% "play-json-joda" % "3.0.4",
+    "org.scanamo" %% "scanamo" % "2.0.0",
     // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
-    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9",
-    "org.yaml" % "snakeyaml" % "1.31",
+    ws,
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.13.0",
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
 
 lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
-    "com.typesafe.play" %% "play" % "2.8.20",
-    "com.typesafe.play" %% "filters-helpers" % "2.8.11",
-    akkaHttpServer,
+    playCore,
+    filters,
+    pekkoHttpServer,
   ),
-
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).dependsOn(commonLib % "compile->compile;test->test")
 
 lazy val auth = playProject("auth", 9011)
@@ -126,8 +128,8 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "org.apache.tika" % "tika-core" % "1.20",
-    "com.drewnoakes" % "metadata-extractor" % "2.17.0"
+    "org.apache.tika" % "tika-core" % "1.28.5",
+    "com.drewnoakes" % "metadata-extractor" % "2.19.0"
   )
 }
 
@@ -142,7 +144,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
-      "org.parboiled" %% "parboiled" % "2.1.5",
+      "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
     )
   )
@@ -155,18 +157,25 @@ lazy val thrall = playProject("thrall", 9002)
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-      "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
-      "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+      // TODO upgrading kcl to v3? check if you can remove avro override below
+      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.0",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    ),
+    // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
+    // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html
+    dependencyOverrides ++= Seq(
+      "org.apache.avro" % "avro" % "1.11.4",
+      "org.apache.pekko" %% "pekko-stream" % "1.0.3"
     )
   )
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "content-api-client-default" % "19.0.4",
-    "com.gu" %% "content-api-client-aws" % "0.7",
-    "io.reactivex" %% "rxscala" % "0.26.5",
+    "com.gu" %% "content-api-client-default" % "32.0.0",
+    "com.gu" %% "content-api-client-aws" % "0.7.6",
+    "io.reactivex" %% "rxscala" % "0.27.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )

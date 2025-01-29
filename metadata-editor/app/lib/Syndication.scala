@@ -51,7 +51,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
         edits <- editsStore.removeKey(id, Edits.Photoshoot)
         _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
-      } yield Unit
+      } yield ()
     }
 
   def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)

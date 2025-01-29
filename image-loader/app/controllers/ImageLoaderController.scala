@@ -1,8 +1,8 @@
 package controllers
 
-import akka.Done
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.AmazonS3Exception
@@ -21,7 +21,7 @@ import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
-import com.gu.scanamo.error.{ConditionNotMet, ScanamoError}
+import org.scanamo.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
@@ -141,7 +141,19 @@ class ImageLoaderController(auth: Authentication,
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
-        if (approximateReceiveCount > 2) {
+        if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
+          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
+          logger.warn(logMarker, errorMessage)
+          store.moveObjectToFailedBucket(s3IngestObject.key)
+          s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
+            uploadStatusTable.updateStatus( // fire & forget, since there's nothing else we can do
+              imageId, UploadStatus(StatusType.Failed, Some(errorMessage))
+            )
+          }
+          metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
+          Future.unit
+        }
+        else if (approximateReceiveCount > 2) {
           metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
@@ -181,7 +193,7 @@ class ImageLoaderController(auth: Authentication,
       tempFile,
       expectedSize = s3IngestObject.contentLength
     )
-    implicit val logMarker = initialLogMarker ++ Map(
+    implicit val logMarker: LogMarker = initialLogMarker ++ Map(
       "mediaId" -> digestedFile.digest
     )
 
@@ -423,6 +435,7 @@ class ImageLoaderController(auth: Authentication,
         case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
         case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
         case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
+        case Failure(e) => throw e // this is a "fatal" error - let it be fatal
         case Success(uploadStatusUri) => Right(uploadStatusUri)
       }
       // build a Failed StatusType from the failure response or Completed if successful
@@ -444,17 +457,18 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  private def updateUploadStatusTable (
+  private def updateUploadStatusTable(
     uploadAttempt: Future[UploadStatusUri],
     digestedFile: DigestedFile
-  )(implicit logMarker:LogMarker): Future[Unit] = {
+  )(implicit logMarker: LogMarker): Future[Unit] = {
 
-    def reportFailure (error:Throwable): Unit = {
+    def reportFailure(error: Throwable): Unit = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
       logger.error(logMarker, errorMessage, error)
       Future.failed(new Exception(errorMessage))
     }
-    def reportScanamoError (error:ScanamoError): Unit = {
+
+    def reportScanamoError(error: ScanamoError): Unit = {
       val errorMessage = error match {
         case ConditionNotMet(_) => s"ConditionNotMet error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
         case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
@@ -463,34 +477,25 @@ class ImageLoaderController(auth: Authentication,
       Future.failed(new Exception(errorMessage))
     }
 
-    uploadAttempt
-      .recover {
-        case uploadFailure =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+    uploadAttempt.transformWith {
+        case Failure(uploadFailure) =>
+          logger.error(logMarker, s"Image upload failed: ${uploadFailure.getMessage}", uploadFailure)
+          uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Failed, Some(s"${uploadFailure.getClass.getName}: ${uploadFailure.getMessage}"))
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadFailure
-            }
-      }
-      .map {
-        case uploadStatusUri:UploadStatusUri =>
-          uploadStatusTable.updateStatus(  //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
+
+        case Success(_) =>
+          uploadStatusTable.updateStatus( //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
             digestedFile.digest,
             UploadStatus(StatusType.Completed, None)
           )
-            .recover {
-              case error => reportFailure(error)
-            }
-            .map {
-              case Left(error:ScanamoError) => reportScanamoError(error)
-              case Right => uploadStatusUri
-            }
+      }
+      .map {
+        case Left(error: ScanamoError) => reportScanamoError(error)
+        case Right(_) => ()
+      }.recover {
+        case error => reportFailure(error)
       }
   }
 
@@ -503,7 +508,7 @@ class ImageLoaderController(auth: Authentication,
       mapping(
         "imageId" -> text
       )(RestoreFromReplicaForm.apply)(RestoreFromReplicaForm.unapply)
-    ).bindFromRequest.get.imageId
+    ).bindFromRequest().get.imageId
 
     implicit val logMarker: LogMarker = MarkerMap(
       "imageId" -> imageId,

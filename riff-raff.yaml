@@ -89,15 +89,15 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-focal-java11-ARM-WITH-cdk-base
+          Recipe: editorial-tools-jammy-java11
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-java11-ARM
+          Recipe: grid-imaging-jammy-java11
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imgops-focal-ARM
+          Recipe: grid-imgops-jammy
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
@@ -119,14 +119,3 @@ deployments:
       fileName: image-counter-lambda.zip
       functionNames:
         - "image-counter-lambda-function-"
-
-  s3watcher:
-    type: aws-lambda
-    parameters:
-      functions:
-        TEST:
-          filename: s3watcher.zip
-          name: media-service-TEST-S3WatcherLamdbaFunction-1OZTI92QAHHU3
-        PROD:
-          filename: s3watcher.zip
-          name: media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O

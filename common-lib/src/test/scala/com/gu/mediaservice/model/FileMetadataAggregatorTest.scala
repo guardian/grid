@@ -153,9 +153,9 @@ class FileMetadataAggregatorTest extends AnyFlatSpec with Matchers {
       "xmpMM:History" -> JsArray(Seq(
         JsArray(Seq(
           "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
+          "{'stEvt:when':'2018-02-06T16:36:48Z'}",
           "{'stEvt:action':'created'}",
           "{'stEvt:instanceID':'xmp.iid:65d63b5e-a24e-4e51-89bd-6693ce193404'}",
-          "{'stEvt:when':'2018-02-06T16:36:48Z'}",
         ).map(JsString)),
         JsArray(Seq(
           "{'stEvt:action':'saved'}",
@@ -167,9 +167,9 @@ class FileMetadataAggregatorTest extends AnyFlatSpec with Matchers {
         JsArray(Seq(
           "{'stEvt:action':'saved'}",
           "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
+          "{'stEvt:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
           "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
           "{'stEvt:changed':'/'}",
-          "{'stEvt:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
         ).map(JsString)),
         JsArray(Seq(
           "{'stEvt:parameters':'from application/vnd.adobe.photoshop to image/png'}",

@@ -1,32 +1,52 @@
 package lib
 
-import com.amazonaws.auth.AWSCredentialsProvider
-import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
-import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
-import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources, ReapableEligibilityLoader}
+import com.gu.mediaservice.lib.aws.AwsClientV2BuilderUtils
 import com.gu.mediaservice.lib.cleanup.ReapableEligibiltyResources
+import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources, ReapableEligibilityLoader}
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.inject.ApplicationLifecycle
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
+import software.amazon.awssdk.http.Protocol
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.cloudwatch.{CloudWatchAsyncClient, CloudWatchAsyncClientBuilder}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
+import software.amazon.awssdk.services.kinesis.{KinesisAsyncClient, KinesisAsyncClientBuilder}
+import software.amazon.kinesis.metrics.MetricsLevel
+
+import java.net.URI
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
 case class KinesisReceiverConfig(
-  override val awsRegion: String,
-  override val awsCredentials: AWSCredentialsProvider,
-  override val awsLocalEndpoint: Option[String],
+  override val awsRegionV2: Region,
+  override val awsCredentialsV2: AwsCredentialsProvider,
+  override val awsLocalEndpointUri: Option[URI],
   override val isDev: Boolean,
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
-) extends AwsClientBuilderUtils
+) extends AwsClientV2BuilderUtils {
+  lazy val kinesisClient: KinesisAsyncClient = {
+    val clientBuilder = withAWSCredentialsV2(KinesisAsyncClient.builder())
+    if (isDev) {
+      clientBuilder.httpClientBuilder(NettyNioAsyncHttpClient
+        .builder()
+        .protocol(Protocol.HTTP1_1))
+    }
+    clientBuilder.build()
+  }
+  lazy val dynamoClient: DynamoDbAsyncClient = withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  lazy val cloudwatchClient: CloudWatchAsyncClient = withAWSCredentialsV2(CloudWatchAsyncClient.builder()).build()
+}
 
 object KinesisReceiverConfig {
   def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
-    thrallConfig.awsRegion,
-    thrallConfig.awsCredentials,
-    thrallConfig.awsLocalEndpoint,
+    thrallConfig.awsRegionV2,
+    thrallConfig.awsCredentialsV2,
+    thrallConfig.awsLocalEndpointUri,
     thrallConfig.isDev,
     streamName,
     rewindFrom

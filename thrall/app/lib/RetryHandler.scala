@@ -1,8 +1,8 @@
 package lib
 
 
-import akka.actor.ActorSystem
-import akka.pattern.{after, retry}
+import org.apache.pekko.actor.{ActorSystem, Scheduler}
+import org.apache.pekko.pattern.{after, retry}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, combineMarkers}
 import play.api.{Logger, MarkerContext}
 
@@ -45,7 +45,7 @@ object RetryHandler extends GridLogging {
     }
 
     def handleWithRetry[T](f: WithMarkers[T], retries: Int, delay: FiniteDuration): WithMarkers[T] = (marker) => {
-      implicit val scheduler = actorSystem.scheduler
+      implicit val scheduler: Scheduler = actorSystem.scheduler
       var count = 0
 
       def attempt = () => {

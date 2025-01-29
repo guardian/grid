@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.play
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 import play.api.inject.ApplicationLifecycle

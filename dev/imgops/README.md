@@ -13,7 +13,7 @@ Local version of the imgops service
 Imgops runs in a Docker container. It can be run using the command:
 
 ```bash
-docker-compose up -d imgops
+docker compose up -d imgops
 ```
 
 ## Is it running

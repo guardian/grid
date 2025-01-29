@@ -4,7 +4,7 @@ import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateIte
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
 import com.gu.mediaservice.model.usage._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import org.joda.time.DateTime
 
 sealed trait DateRemovedOperation

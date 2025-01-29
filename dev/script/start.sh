@@ -91,7 +91,7 @@ startDockerContainers() {
   EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
   if [[ $USE_TEST == true ]]; then
     if (docker stats --no-stream &> /dev/null); then
-      docker-compose down
+      docker compose down
     fi
     if [[ -n $EXISTING_TUNNELS ]]; then
       echo "RE-USING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
@@ -107,7 +107,7 @@ startDockerContainers() {
       # shellcheck disable=SC2046
       kill $(echo $EXISTING_TUNNELS | awk '{print $2}')
     fi
-    docker-compose up -d
+    docker compose up -d
   fi
 
 }

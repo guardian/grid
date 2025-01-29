@@ -17,8 +17,8 @@ case class SyndicationRights(
   def isAvailableForSyndication: Boolean = isRightsAcquired && published.exists(_.isBeforeNow)
 }
 object SyndicationRights {
-  implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
-  implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateWrites: Writes[DateTime] = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateReads: Reads[DateTime] = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
 
   val reads: Reads[SyndicationRights] =
     (
@@ -73,8 +73,8 @@ case class Property(
   expiresOn: Option[DateTime],
   value: Option[String])
 object Property {
-  implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
-  implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateWrites: Writes[DateTime] = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateReads: Reads[DateTime] = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
 
   val reads: Reads[Property] = Json.reads[Property]
   val writes: Writes[Property] = (

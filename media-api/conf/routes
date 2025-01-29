@@ -27,7 +27,7 @@ POST    /images/:id/:partnerName/:startPending/syndicateImage       controllers.
 DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
 PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
-GET     /images                                                     controllers.MediaApi.imageSearch
+GET     /images                                                     controllers.MediaApi.imageSearch()
 
 # completion
 GET     /suggest/metadata/credit                                    controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])

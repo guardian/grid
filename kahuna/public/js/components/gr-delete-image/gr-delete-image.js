@@ -14,12 +14,19 @@ deleteImage.controller('grDeleteImageCtrl', [
         this.$onInit = () => {
           function pollDeleted (image) {
               const findImage = () => mediaApi.find(image.data.id).then(
-                  () => $q.reject(),
+                  (r) => {
+                    if (r.data.softDeletedMetadata) {
+                      // resolve when image has been soft deleted.
+                      return $q.resolve();
+                    } else {
+                      return $q.reject();
+                    }
+                  },
                   // resolve when image cannot be found, i.e. image has been deleted.
                   () => $q.resolve()
               );
 
-              apiPoll(findImage);
+              return apiPoll(findImage);
           }
 
           ctrl.deleteImage = function (image) {

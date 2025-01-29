@@ -33,15 +33,17 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respond(appIndex, indexLinks)
   }
 
-  private def clearLease(id: String) = store.get(id).map { lease =>
+  private def clearLease(id: String) = store.get(id).collect { case Some(lease) =>
     store.delete(id).map { _ => notifications.sendRemoveLease(lease.mediaId, id)}
+  }.flatten
+
+  private def clearLeases(id: String) = store.getForMedia(id).flatMap { leases =>
+    Future.sequence(leases.map(_.id).collect {
+      case Some(id) => clearLease(id)
+    })
   }
 
-  private def clearLeases(id: String) = Future.sequence(store.getForMedia(id)
-    .flatMap(_.id)
-    .flatten(clearLease))
-
-  private def badRequest(e:  Seq[(JsPath, Seq[JsonValidationError])]) =
+  private def badRequest(e: collection.Seq[(JsPath, collection.Seq[JsonValidationError])]) =
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
   private def prepareLeaseForSave(mediaLease: MediaLease, userId: Option[String]): MediaLease =
@@ -50,9 +52,11 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
     val lease = prepareLeaseForSave(mediaLease, userId)
     if (lease.isSyndication) {
-      val leasesForMedia = store.getForMedia(mediaLease.mediaId)
-      val leasesWithoutSyndication = leasesForMedia.filter(!_.isSyndication)
-      replaceLeases(leasesWithoutSyndication :+ lease, mediaLease.mediaId, userId)
+      for {
+        leasesForMedia <- store.getForMedia(mediaLease.mediaId)
+        leasesWithoutSyndication = leasesForMedia.filter(!_.isSyndication)
+        replacement <- replaceLeases(leasesWithoutSyndication :+ lease, mediaLease.mediaId, userId)
+      } yield replacement
     } else {
       store.put(lease).map { _ =>
         notifications.sendAddLease(lease)
@@ -79,14 +83,16 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
 
   def index = auth { _ => indexResponse }
 
-  def reindex = auth.async { _ => Future {
-    store.forEach { leases =>
-      leases
-        .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
-        .foreach(notifications.sendReindexLeases)
-    }
-    Accepted
-  }}
+  def reindex = auth.async { _ =>
+    for {
+      reindexRequests <- store.forEach { leases =>
+        leases
+          .foldLeft(Set[String]())((ids, lease) => ids + lease.mediaId)
+          .map(notifications.sendReindexLeases)
+      }
+      _ <- Future.sequence(reindexRequests)
+    } yield Accepted
+  }
 
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
@@ -107,15 +113,12 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     }
   }
 
-  def deleteLease(id: String) = auth.async { implicit request => Future {
-      clearLease(id)
-      Accepted
-    }
+  def deleteLease(id: String) = auth.async { implicit request =>
+    for { _ <- clearLease(id) } yield Accepted
   }
 
-  def getLease(id: String) = auth.async { _ => Future {
-      val leases = store.get(id)
-
+  def getLease(id: String) = auth.async { _ =>
+    for { leases <- store.get(id) } yield {
       leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
           uri = config.leaseUri(id),
           data = lease,
@@ -127,10 +130,8 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }
 
 
-  def deleteLeasesForMedia(id: String) = auth.async { _ => Future {
-      clearLeases(id)
-      Accepted
-    }
+  def deleteLeasesForMedia(id: String) = auth.async { _ =>
+    for { _ <- clearLeases(id) } yield Accepted
   }
 
   def validateLeases(leases: List[MediaLease]) = leases.count { _.isSyndication } <= 1
@@ -149,9 +150,8 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     )
   }}
 
-  def getLeasesForMedia(id: String) = auth.async { _ => Future {
-      val leases = store.getForMedia(id)
-
+  def getLeasesForMedia(id: String) = auth.async { _ =>
+    for { leases <- store.getForMedia(id) } yield {
       respond[LeasesByMedia](
         uri = config.leasesMediaUri(id),
         links = List(config.mediaApiLink(id)),

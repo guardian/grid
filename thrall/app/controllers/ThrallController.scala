@@ -1,8 +1,8 @@
 package controllers
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
@@ -132,11 +132,11 @@ class ThrallController(
     }
   }
 
-  implicit val pollingMaterializer = Materializer.matFromSystem(actorSystem)
+  implicit val pollingMaterializer: Materializer = Materializer.matFromSystem(actorSystem)
 
   def startMigration = withLoginRedirectAsync { implicit request =>
 
-    if(Form(single("start-confirmation" -> text)).bindFromRequest.get != "start"){
+    if(Form(single("start-confirmation" -> text)).bindFromRequest().get != "start"){
       Future.successful(BadRequest("you did not enter 'start' in the text box"))
     } else {
       val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias}'"
@@ -177,7 +177,7 @@ class ThrallController(
 
   def completeMigration(): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
 
-    if(Form(single("complete-confirmation" -> text)).bindFromRequest.get != "complete"){
+    if(Form(single("complete-confirmation" -> text)).bindFromRequest().get != "complete"){
       Future.successful(BadRequest("you did not enter 'complete' in the text box"))
     } else {
       es.refreshAndRetrieveMigrationStatus() match {
@@ -217,7 +217,7 @@ class ThrallController(
   def unPreviewMigrationCompletion = adjustMigration(es.unPreviewMigrationCompletion _)
 
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
-    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
+    val imageId = migrateSingleImageFormReader.bindFromRequest().get.id
 
     es.getImageVersion(imageId) flatMap {
 
@@ -232,7 +232,7 @@ class ThrallController(
   }
 
   def upsertFromProjectionSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
-    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
+    val imageId = migrateSingleImageFormReader.bindFromRequest().get.id
 
     for {
       maybeImage <- gridClient.getImageLoaderProjection(imageId, auth.innerServiceCall)

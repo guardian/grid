@@ -92,7 +92,7 @@
         <em>Note that the above represents the value at the point this page was loaded.</em>
 
         @if(migrationStatus.isInstanceOf[Running] || hasHistoricalIndex) {
-            <p><a href="@routes.ThrallController.migrationFailuresOverview">
+            <p><a href="@routes.ThrallController.migrationFailuresOverview()">
                 View images that have failed to migrate @if(migrationStatus.isInstanceOf[Running]) {
                 <span>and retry.</span>
             } else {
@@ -110,7 +110,7 @@
                     @form(routes.ThrallController.unPreviewMigrationCompletion) {
                         <input type="submit" value="UnPreview Completion"> (this will make grid search both indexes again)
                     }
-                    @form(routes.ThrallController.completeMigration) {
+                    @form(routes.ThrallController.completeMigration()) {
                         or fully complete the migration:
                         <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
                         <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">

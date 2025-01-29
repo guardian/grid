@@ -38,6 +38,7 @@ image.controller('uiPreviewImageCtrl', [
   'inject$',
   '$rootScope',
   '$window',
+  'mediaApi',
   'imageService',
   'imageUsagesService',
   'labelService',
@@ -50,6 +51,7 @@ image.controller('uiPreviewImageCtrl', [
       inject$,
       $rootScope,
       $window,
+      mediaApi,
       imageService,
       imageUsagesService,
       labelService,
@@ -65,6 +67,10 @@ image.controller('uiPreviewImageCtrl', [
       });
 
       ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+      ctrl.uploadedByCapture = ctrl.image.data.uploadedBy === "Capture_AutoIngest";
+      mediaApi.getSession().then(session => {
+        ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+      });
 
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
@@ -75,6 +81,7 @@ image.controller('uiPreviewImageCtrl', [
         ctrl.states = imageService(updatedImage).states;
         ctrl.image = updatedImage;
         ctrl.flagState = ctrl.states.costState;
+        ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
         ctrl.imageAsArray = [updatedImage];
       };
 

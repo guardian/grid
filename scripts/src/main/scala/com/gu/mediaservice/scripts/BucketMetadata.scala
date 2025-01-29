@@ -3,7 +3,7 @@ package com.gu.mediaservice.scripts
 
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
 import org.joda.time.DateTime
-import play.api.libs.json.Json
+import play.api.libs.json.{Json, OFormat}
 import software.amazon.awssdk.auth.credentials.{DefaultCredentialsProvider, ProfileCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
@@ -15,7 +15,7 @@ import scala.collection.JavaConverters.{asScalaIteratorConverter, iterableAsScal
 
 case class ObjectMetadata(key: String, lastModified: Instant, metadata: Map[String, String])
 object ObjectMetadata {
-  implicit val format = Json.format[ObjectMetadata]
+  implicit val format: OFormat[ObjectMetadata] = Json.format[ObjectMetadata]
 }
 
 /**

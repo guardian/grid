@@ -24,6 +24,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.compat._
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -156,12 +157,14 @@ class EditsController(
     (req.body \ "data").validate[ImageMetadata].fold(
       errors => Future.successful(BadRequest(errors.toString())),
       metadata => {
-        val specsAsMap = config.domainMetadataSpecs.groupBy(_.name).mapValues(_.flatMap(_.fields.map(_.name)))
+        val specsAsMap = config.domainMetadataSpecs.groupBy(_.name).view.mapValues(_.flatMap(_.fields.map(_.name))).toMap
         val validatedDomainMetadata = metadata.domainMetadata
+          .view
           .filterKeys(specsAsMap.keySet)
+          .toMap
           .flatMap(specData => {
             val fields = specsAsMap.getOrElse(specData._1, List())
-            Map(specData._1 -> specData._2.filterKeys(fields.toSet))
+            Map(specData._1 -> specData._2.view.filterKeys(fields.toSet).toMap)
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
