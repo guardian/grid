@@ -277,7 +277,15 @@ class ImageLoaderController(auth: Authentication,
           expires = expiration.toEpochSecond, // TTL in case upload is never completed by client
           instance = instance.id
         )).map { _ =>
-          events.prepareUpload(instance = instance, image = mediaId, user = uploadedBy)
+          val user = request.user match {
+            case u: UserPrincipal => u.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey)
+            case _ => None
+          }
+          val apiKey = request.user match {
+            case m: MachinePrincipal => Some(m.accessor.identity)
+            case _ => None
+          }
+          events.prepareUpload(instance = instance, image = mediaId, user = user, apiKey = apiKey)
           mediaId -> preSignedUrl
         }
       }
