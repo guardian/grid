@@ -14,6 +14,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOfPrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.events.UsageEvents
@@ -339,7 +340,7 @@ class ImageLoaderController(auth: Authentication,
         val result = Accepted(r).as(ArgoMediaType)
         logger.info(context, "loadImage request end")
         val user = req.user match {
-          case u: UserPrincipal => Some(u.accessor.identity)
+          case u: UserPrincipal => u.attributes.get(ApiKeyAuthenticationProvider.KindeIdKey)
           case _ => None
         }
         val apiKey = req.user match {
