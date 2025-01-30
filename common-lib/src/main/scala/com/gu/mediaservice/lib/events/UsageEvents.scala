@@ -33,8 +33,8 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
     usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, image = Some(image), filesize = Some(filesize), apiKey = apiKey, user = user)
   }
 
-  def downloadOriginal(instance: Instance, image: String, filesize: Option[Long]): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, image = Some(image), filesize = filesize)
+  def downloadOriginal(instance: Instance, image: String, filesize: Option[Long], apiKey: Option[String], user: Option[String]): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, image = Some(image), filesize = filesize, apiKey = apiKey, user = user)
   }
 
   def apiKeyUsed(instance: Instance, apiKey: String) = {
