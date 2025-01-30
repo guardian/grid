@@ -25,12 +25,12 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
     usageEventsActor ! UsageEvent(`type` = "imageIngest", instance = instance.id, image = Some(image), filesize = Some(filesize))
   }
 
-  def prepare(instance: Instance, image: String, user: String): Unit = {
+  def prepareUpload(instance: Instance, image: String, user: String): Unit = {
     usageEventsActor ! UsageEvent(`type` = "prepareUpload", instance = instance.id, image = Some(image), user = Some(user))
   }
 
-  def successfulUpload(instance: Instance, image: String, filesize: Long): Unit = {
-    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, image = Some(image), filesize = Some(filesize))
+  def uploadImage(instance: Instance, image: String, filesize: Long, apiKey: Option[String], user: Option[String]): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "imageUpload", instance = instance.id, image = Some(image), filesize = Some(filesize), apiKey = apiKey, user = user)
   }
 
   def downloadOriginal(instance: Instance, image: String, filesize: Option[Long]): Unit = {

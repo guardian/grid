@@ -12,7 +12,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOfPrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.config.InstanceForRequest
@@ -276,7 +276,7 @@ class ImageLoaderController(auth: Authentication,
           expires = expiration.toEpochSecond, // TTL in case upload is never completed by client
           instance = instance.id
         )).map { _ =>
-          events.prepare(instance = instance, image = mediaId, user = uploadedBy)
+          events.prepareUpload(instance = instance, image = mediaId, user = uploadedBy)
           mediaId -> preSignedUrl
         }
       }
@@ -338,7 +338,15 @@ class ImageLoaderController(auth: Authentication,
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info(context, "loadImage request end")
-        events.successfulUpload(instance = instance, image = req.body.digest, filesize = req.body.file.length())
+        val user = req.user match {
+          case u: UserPrincipal => Some(u.accessor.identity)
+          case _ => None
+        }
+        val apiKey = req.user match {
+          case m: MachinePrincipal => Some(m.accessor.identity)
+          case _ => None
+        }
+        events.uploadImage(instance = instance, image = req.body.digest, filesize = req.body.file.length(), apiKey = apiKey, user = user)
         result
       } recover {
         case NonFatal(e) =>
