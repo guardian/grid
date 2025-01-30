@@ -142,6 +142,9 @@ function getMediaApiConfig(config) {
         |es6.replicas=${config.es6.replicas}
         |quota.store.key="rcs-quota.json"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
+        |search.fuzziness={
+        | enabled=true
+        |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
         |`;

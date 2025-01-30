@@ -31,6 +31,21 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cloudFrontPrivateKeyBucketKey: Option[String] = stringOpt("cloudfront.private-key.key")
   val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 
+  val fuzzySearchEnabled: Boolean = boolean("search.fuzziness.enabled")
+  val fuzzySearchPrefixLength: Int = stringOpt("search.fuzziness.prefixLength") match {
+    case Some(prefixLength) if convertToInt(prefixLength).isDefined => prefixLength.toInt
+    case _ => 1
+  }
+  val fuzzySearchEditDistance: String = stringOpt("search.fuzziness.editDistance") match {
+    case Some(editDistance) if convertToInt(editDistance).isDefined => editDistance
+    case Some(editDistance) if editDistance.contains("AUTO:") => editDistance  //<- for non-default AUTO word boundaries
+    case _ => "AUTO"
+  }
+  val fuzzyMaxExpansions: Int = stringOpt("search.fuzziness.maxExpansions") match {
+    case Some(maxExpansions) if convertToInt(maxExpansions).isDefined => maxExpansions.toInt
+    case _ => 50
+  }
+
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val cropperUri: String = services.cropperBaseUri
@@ -60,5 +75,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
 
   val restrictDownload: Boolean = boolean("restrictDownload")
+
+  private def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
 
 }
