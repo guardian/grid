@@ -1,15 +1,15 @@
 package lib.instances
 
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
-import lib.ImageLoaderConfig
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait Instances extends StrictLogging {
-  def config: ImageLoaderConfig
+  def config: CommonConfig
 
   def wsClient: WSClient
 

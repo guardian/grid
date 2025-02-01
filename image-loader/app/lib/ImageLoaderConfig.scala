@@ -33,8 +33,6 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val uploadStatusTable: String = string("dynamo.table.upload.status")
   val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
-  val instancesEndpoint: String = string("instance.service.instances")
-
   /**
     * Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.
