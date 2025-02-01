@@ -3,13 +3,14 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
+import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
 import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallController}
-import instances.{InstanceMessageSender, InstanceUsageMessage, Instances}
+import instances.{InstanceMessageSender, InstanceUsageMessage}
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
@@ -17,7 +18,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
-import software.amazon.awssdk.services.sqs.model.{GetQueueUrlRequest}
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._

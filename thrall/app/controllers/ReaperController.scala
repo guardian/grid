@@ -6,10 +6,10 @@ import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
+import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.model.{ImageStatusRecord, Instance, SoftDeletedMetadata}
-import instances.Instances
 import lib.{BatchDeletionIds, ThrallConfig, ThrallMetrics, ThrallStore}
 import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}

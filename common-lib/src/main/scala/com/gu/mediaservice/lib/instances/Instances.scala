@@ -1,4 +1,4 @@
-package lib.instances
+package com.gu.mediaservice.lib.instances
 
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Instance
