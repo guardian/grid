@@ -37,6 +37,22 @@ class UsageEvents(actorSystem: ActorSystem, applicationLifecycle: ApplicationLif
     usageEventsActor ! UsageEvent(`type` = "downloadOriginal", instance = instance.id, image = Some(image), filesize = filesize, apiKey = apiKey, user = user)
   }
 
+  def softDelete(instance: Instance, image: String): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "softDelete", instance = instance.id, image = Some(image), filesize = None, apiKey = None, user = None)
+  }
+
+  def unsoftDelete(instance: Instance, image: String): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "unsoftDelete", instance = instance.id, image = Some(image), filesize = None, apiKey = None, user = None)
+  }
+
+  def deleteImage(instance: Instance, image: String): Unit = {
+    usageEventsActor ! UsageEvent(`type` = "deleteImage", instance = instance.id, image = Some(image), filesize = None, apiKey = None, user = None)
+  }
+
+  def hardDeleteImage(instance: Instance, image: String) = {
+    usageEventsActor ! UsageEvent(`type` = "hardDeleteImage", instance = instance.id, image = Some(image), filesize = None, apiKey = None, user = None)
+  }
+
   def apiKeyUsed(instance: Instance, apiKey: String) = {
     usageEventsActor ! UsageEvent(`type` = "apiKeyUsed", instance = instance.id, apiKey = Some(apiKey))
   }

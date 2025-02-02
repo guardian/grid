@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
+import com.gu.mediaservice.lib.events.UsageEvents
 import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
@@ -35,7 +36,8 @@ class ReaperController(
   override val auth: Authentication,
   override val services: Services,
   override val controllerComponents: ControllerComponents,
-  val wsClient: WSClient
+  val wsClient: WSClient,
+  usageEvents: UsageEvents
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging with InstanceForRequest with Instances {
 
   private val INTERVAL = config.reaperInterval //default 15 minutes, based on max of 1000 per reap, this interval will max out at 96,000 images per day
@@ -180,6 +182,9 @@ class ReaperController(
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
         )
+        if (wasHardDeletedFromES) {
+          usageEvents.hardDeleteImage(instance = i, image = id)
+        }
         logger.info(s"Hard deleted image $id : $detail")
         id -> detail
       }.toMap

@@ -4,6 +4,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
+import com.gu.mediaservice.lib.events.UsageEvents
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
@@ -32,6 +33,7 @@ class MessageProcessor(
   gridClient: GridClient,
   auth: Authentication,
   instanceMessageSender: InstanceMessageSender,
+  usageEvents: UsageEvents
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -146,10 +148,16 @@ class MessageProcessor(
   }
 
   private def softDeleteImage(message: SoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
-    Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker, message.instance))
+    Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker, message.instance)).map { r =>
+      usageEvents.softDelete(instance = message.instance, image = message.id)
+      r
+    }
 
   private def unSoftDeleteImage(message: UnSoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
-    Future.sequence(es.applyUnSoftDelete(message.id, message.lastModified)(ec, logMarker, message.instance))
+    Future.sequence(es.applyUnSoftDelete(message.id, message.lastModified)(ec, logMarker, message.instance)).map { r =>
+      usageEvents.unsoftDelete(instance = message.instance, image = message.id)
+      r
+    }
 
   private def updateImageUserMetadata(message: UpdateImageUserMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applyImageMetadataOverride(message.id, message.edits, message.lastModified)(ec, logMarker, message.instance))
@@ -180,6 +188,7 @@ class MessageProcessor(
             store.deleteThumbnail(message.id)
             store.deletePNG(message.id)
             metadataEditorNotifications.publishImageDeletion(message.id, message.instance)
+            usageEvents.deleteImage(instance = message.instance, image = message.id)
             EsResponse(s"Image deleted: ${message.id}")
         } recoverWith {
           case ImageNotDeletable =>
