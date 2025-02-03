@@ -88,12 +88,9 @@ const isSearch = [
     `${staffPhotographerOrganisation}-owned-illustration`,
     `${staffPhotographerOrganisation}-owned`,
   'under-quota',
-  'deleted'
+  'deleted',
+  'reapable'
 ];
-
-if (window._clientConfig.useReaper === true) {
-  isSearch.push('reapable');
-}
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
 
