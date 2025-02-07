@@ -30,6 +30,7 @@ import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderExc
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
+import org.joda.time.{DateTime, Duration}
 import org.scanamo.{ConditionNotMet, ScanamoError}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -466,7 +467,7 @@ class ImageLoaderController(auth: Authentication,
     filename: Option[String],
     isFeedUpload: Boolean
   )(implicit logMarker:LogMarker, instance: Instance): Future[UploadStatusUri] = {
-
+    val start = DateTime.now()
     for {
         digestedFile <- digestedFileFuture
         uploadStatusResult <- uploadStatusTable.getStatus(digestedFile.digest)
@@ -482,7 +483,8 @@ class ImageLoaderController(auth: Authentication,
         )
         result <- uploader.storeFile(uploadRequest)
       } yield {
-        logger.info(logMarker, "importImage request end")
+        val duration = new Duration(start, DateTime.now())
+        logger.info(logMarker, s"importImage request end; took ${duration.getMillis} ms")
         result
       }
   }
