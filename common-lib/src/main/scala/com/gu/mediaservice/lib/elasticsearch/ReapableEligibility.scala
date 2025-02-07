@@ -31,8 +31,12 @@ trait ReapableEligibility extends Provider{
     PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   )
 
+  private def isFeedUpload =
+    filters.boolTerm("source.isFeedUpload", value = true)
+
   def query: Query = filters.and(
     moreThanTwentyDaysOld,
+    isFeedUpload,
     filters.not(persistedQueries)
   )
 
