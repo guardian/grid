@@ -32,7 +32,7 @@ trait ReapableEligibility extends Provider{
   )
 
   private def isFeedUpload =
-    filters.boolTerm("source.isFeedUpload", value = true)
+    filters.boolTerm("uploadInfo.isFeedUpload", value = true)
 
   def query: Query = filters.and(
     moreThanTwentyDaysOld,
