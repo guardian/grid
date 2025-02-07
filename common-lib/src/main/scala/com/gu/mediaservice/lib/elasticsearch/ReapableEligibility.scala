@@ -40,7 +40,10 @@ trait ReapableEligibility extends Provider{
     filters.not(persistedQueries)
   )
 
-  def preview: Query = filters.not(persistedQueries)
+  def preview: Query = filters.and(
+    isFeedUpload,
+    filters.not(persistedQueries)
+  )
 
 }
 
