@@ -121,7 +121,6 @@ class ImageLoaderController(auth: Authentication,
   }
 
   private def handleMessageFromIngestBucket(sqsMessage: SQSMessage)(basicLogMarker: LogMarker): Future[Unit] = {
-    logger.info("Received ingest bucket notification: " + sqsMessage.toString)
     logger.info(basicLogMarker, sqsMessage.toString)
 
     extractS3KeyFromSqsMessage(sqsMessage) match {
