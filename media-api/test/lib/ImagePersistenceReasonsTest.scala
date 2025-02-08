@@ -15,12 +15,10 @@ class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
 
     val persistedIdentifier = "test-p-id"
     val persistedCollections = Set("coll1", "coll2", "coll3")
-    val imgPersistenceReasons = ImagePersistenceReasons(Some(persistedCollections), persistedIdentifier)
-    val imagePersistenceReasonsWithEmptyListOfPersistedCollections = ImagePersistenceReasons(Some(Set.empty), persistedIdentifier)
+    val imgPersistenceReasons = ImagePersistenceReasons(Some(persistedCollections))
+    val imagePersistenceReasonsWithEmptyListOfPersistedCollections = ImagePersistenceReasons(Some(Set.empty))
 
     imgPersistenceReasons.reasons(img) shouldBe Nil
-    val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
-    imgPersistenceReasons.reasons(imgWithPersistenceIdentifier) shouldBe List("persistence-identifier")
     val imgWithExports = img.copy(exports = List(Crop(None, None, None, null, None, Nil)))
     imgPersistenceReasons.reasons(imgWithExports) shouldBe List("exports")
     val imgWithUsages = img.copy(usages = List(Usage("test", Nil, null, "img", null, None, None, now())))
