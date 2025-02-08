@@ -81,7 +81,7 @@ object Mappings {
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),
-    intField("height")
+    intField("height"),
   ))
 
   def assetMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
@@ -89,7 +89,10 @@ object Mappings {
     nonIndexedString("secureUrl"),
     intField("size"),
     keywordField("mimeType"),
-    dimensionsMapping("dimensions")
+    dimensionsMapping("dimensions"),
+    dynamicObj("orientationMetadata"),
+    dimensionsMapping("orientedDimensions"),
+    keywordField("orientation"),
   ))
 
   def metadataMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
