@@ -10,14 +10,33 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
     function($q, $scope, $rootScope, $state, mediaCropper) {
         let ctrl = this;
 
-        const checkForFullCrops = () => ctrl.images.every(
+        const checkForFullCrops = () => ctrl.images.filter(
             image => image.data.exports.some(
               crop => crop.specification.type === 'full'
             )
+        ).size;
+
+        const croppable = () => ctrl.images.filter(
+          image => image.data.valid && image.data.softDeletedMetadata === undefined &&
+            image.data.exports.every(
+              crop => crop.specification.type !== 'full'
+            )
         );
 
-        $scope.$watch('ctrl.images', () => {
-          ctrl.allHaveFullCrops = checkForFullCrops();
+        $scope.$watchGroup(['ctrl.images', 'ctrl.cropping'], () => {
+          const numberWithFullCrops = checkForFullCrops();
+          const allHaveFullCrops = numberWithFullCrops === ctrl.images.size;
+          const someHaveFullCrops = numberWithFullCrops > 0;
+          const croppableImages = croppable();
+
+          ctrl.allCroppable = croppableImages.size === ctrl.images.size;
+          ctrl.noneCroppable = croppableImages.size === 0;
+
+          const pageIsEmbedded = window.parent !== window;
+
+          ctrl.canBatchCrop = !ctrl.cropping && !allHaveFullCrops && !ctrl.noneCroppable;
+          ctrl.canSelectCrops = !ctrl.cropping && !ctrl.canBatchCrop && someHaveFullCrops && pageIsEmbedded;
+          ctrl.cropDisabled = !ctrl.cropping && !ctrl.canBatchCrop && !ctrl.canSelectCrops && ctrl.noneCroppable && !allHaveFullCrops;
         }, true);
 
         ctrl.callBatchCrop = function() {
@@ -35,15 +54,17 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
               if (!ctrl.cropping) {
                 cropImages();
               }
+
             }
         };
+
 
         function cropImages() {
           ctrl.cropping = true;
           ctrl.needsConfirmation = false;
 
           const cropImages = trackAll($q, $rootScope, "crop", ctrl.images, async (image) => {
-            const crop = await mediaCropper.createFullCrop(image);
+            const crop = image.data.exports.find(crop => crop.specification.type === 'full') || await mediaCropper.createFullCrop(image);
             return {
               image,
               crop
@@ -68,7 +89,10 @@ batchExportOriginalImages.directive('grBatchExportOriginalImages', [function() {
             images: '=',
             cropping: '=',
             needsConfirmation: '=',
-            confirmed: '='
+            confirmed: '=',
+            allCroppable: '=',
+            noneCroppable: '=',
+            allHaveFullCrops: '='
         },
         template: template
     };
