@@ -40,6 +40,7 @@ trait Fixtures {
     "grid.stage",
     "grid.appName",
     "instance.service.my",
+    "instance.service.instances",
     "usageEvents.queue.name"
   )
 
