@@ -16,6 +16,8 @@ case class FullExportRequest(uri: String) extends ExportRequest
 
 case class CropRequest(uri: String, bounds: Bounds, aspectRatio: Option[String]) extends ExportRequest
 
+case class PointsOfInterest(uri: String, bounds: Bounds) extends ExportRequest
+
 
 object ExportRequest {
 
@@ -27,12 +29,18 @@ object ExportRequest {
     (__ \ "aspectRatio").readNullable[String](pattern(aspectRatioLike))
   )(CropRequest.apply _)
 
+  private val readPointsOfInterestRequest: Reads[PointsOfInterest] = (
+    (__ \ "source").read[String] ~
+    __.read[Bounds]
+  )(PointsOfInterest.apply _)
+
   private val readFullExportRequest: Reads[FullExportRequest] =
     (__ \ "source").read[String].map(FullExportRequest.apply)
 
   implicit val readExportRequest: Reads[ExportRequest] = Reads[ExportRequest](jsValue =>
     (jsValue \ "type").validate[String] match {
       case JsSuccess("crop", _) => readCropRequest.reads(jsValue)
+      case JsSuccess("poi", _) => readPointsOfInterestRequest.reads(jsValue)
       case JsSuccess("full", _) => readFullExportRequest.reads(jsValue)
       case _ => JsError("invalid type")
     }
@@ -41,6 +49,8 @@ object ExportRequest {
   def boundsFill(dimensions: Dimensions): Bounds = Bounds(0, 0, dimensions.width, dimensions.height)
 
   def toCropSpec(cropRequest: ExportRequest, dimensions: Dimensions): CropSpec = cropRequest match {
+    case PointsOfInterest(uri, bounds) =>
+      CropSpec(uri, bounds, None, PointsOfInterestExport)
     case FullExportRequest(uri)          =>
       CropSpec(
         uri,
