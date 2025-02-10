@@ -7,6 +7,7 @@ import {imageService} from '../image/service';
 import '../services/label';
 import {imageAccessor} from '../services/image-accessor';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
+import { createCategoryLeases, removeCategoryLeases } from '../common/usageRightsUtils.js';
 import {metadataTemplates} from "../metadata-templates/metadata-templates";
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
@@ -273,6 +274,7 @@ imageEditor.controller('ImageEditorCtrl', [
             const image = ctrl.image;
             const resource = image.data.userMetadata.data.usageRights;
             editsService.update(resource, data, image);
+            batchSetLeasesFromUsageRights(image, data.category);
         });
     }
 
@@ -316,10 +318,65 @@ imageEditor.controller('ImageEditorCtrl', [
         ctrl.showUsageRights = ctrl.usageRightsCategory === undefined;
     }
 
+    function batchSetLeasesFromUsageRights(image, rightsCat) {
+      const category = ctrl.categories.find(cat => cat.value === rightsCat);
+      if (!category || image.data.usageRights.category === rightsCat) {
+        return;
+      }
+      if (category.leases.length === 0) {
+        // possibility of removal only
+        if (!image.data.usageRights.category) {
+          return;
+        }
+        const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
+        if (removeLeases.length > 0) {
+          $rootScope.$broadcast('events:rights-category:delete-leases', {
+            catLeases: removeLeases,
+            batch: false
+          });
+        }
+        return;
+      }
+      const catLeases = createCategoryLeases(category.leases, image);
+      if (catLeases.length === 0) {
+        // possibility of remove only of leases due to missing date info on image
+        if (!image.data.usageRights.category) {
+          return;
+        }
+        const removeLeases = removeCategoryLeases(ctrl.categories, image, image.data.usageRights.category);
+        if (removeLeases.length > 0) {
+          $rootScope.$broadcast('events:rights-category:delete-leases', {
+            catLeases: removeLeases,
+            batch: false
+          });
+        }
+        return;
+      }
+      $rootScope.$broadcast('events:rights-category:add-leases', {
+        catLeases: catLeases,
+        batch: false
+      });
+    }
+
     function batchApplyUsageRights() {
-        $rootScope.$broadcast(batchApplyUsageRightsEvent, {
-            data: ctrl.usageRights.data
-        });
+      $rootScope.$broadcast(batchApplyUsageRightsEvent, {
+          data: ctrl.usageRights.data
+      });
+
+      //-rights category derived leases-
+      const mtchingRightsCats = ctrl.categories.filter(c => c.value == ctrl.usageRights.data.category);
+      if (mtchingRightsCats.length > 0) {
+        const rightsCat = mtchingRightsCats[0];
+        if (rightsCat.leases.length > 0) {
+          const catLeases = createCategoryLeases(rightsCat.leases, ctrl.image);
+          if (catLeases.length > 0) {
+            $rootScope.$broadcast('events:rights-category:add-leases', {
+              catLeases: catLeases,
+              batch: true
+            });
+          }
+        }
+      }
     }
 
     function openCollectionTree() {
