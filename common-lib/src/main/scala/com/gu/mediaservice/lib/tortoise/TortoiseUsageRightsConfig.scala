@@ -534,6 +534,7 @@ object TortoiseUsageRightsConfig extends UsageRightsConfigProvider {
     "Alamy",
     "AP",
     "Getty Images",
+    "GNM",
     "PA"
   )
 
