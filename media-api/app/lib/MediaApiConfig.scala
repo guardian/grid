@@ -70,6 +70,4 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val restrictDownload: Boolean = boolean("restrictDownload")
 
-  private def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
-
 }
