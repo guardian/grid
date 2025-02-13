@@ -24,7 +24,7 @@ object Reindex extends EsScript {
 
     object IndexClient extends EsClient(esUrl) {
       val srcIndexVersionCheck = """images_(\d+)""".r
-      val srcIndexVersion = currentIndex match {
+      val srcIndexVersion = this.currentIndex match {
         case srcIndexVersionCheck(version) => version.toInt
         case _ => 1
       }
@@ -447,6 +447,6 @@ abstract class EsScript {
 
   }
 
-  def run(esUrl: String, args: List[String])
+  def run(esUrl: String, args: List[String]): Unit
   def usageError: Nothing
 }

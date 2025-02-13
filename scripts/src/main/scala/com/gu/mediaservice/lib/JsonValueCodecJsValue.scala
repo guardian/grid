@@ -75,6 +75,10 @@ object JsonValueCodecJsValue {
         jsValue match {
           case JsBoolean(b) =>
             out.writeVal(b)
+          case JsFalse =>
+            out.writeVal(false)
+          case JsTrue =>
+            out.writeVal(true)
           case JsString(value) =>
             out.writeVal(value)
           case JsNumber(value) =>
