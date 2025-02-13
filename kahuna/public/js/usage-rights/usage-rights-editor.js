@@ -8,6 +8,8 @@ import {List} from 'immutable';
 
 import '../services/image-list';
 
+import { createCategoryLeases, removeCategoryLeases } from '../common/usageRightsUtils.js';
+
 import template from './usage-rights-editor.html';
 import './usage-rights-editor.css';
 
@@ -202,6 +204,10 @@ usageRightsEditor.controller(
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image, true);
           },
+          ({ image }) => {
+            const prevRights = (0 < ctrl.usageRights.size) ? ctrl.usageRights.first().data.category : "";
+            return setLeasesFromUsageRights(image, prevRights);
+          },
           ({ image }) => setMetadataFromUsageRights(image, true),
           ({ image }) => image.get()
         ],'images-updated');
@@ -225,6 +231,36 @@ usageRightsEditor.controller(
           // ♫ Very superstitious ♫
           ctrl.error = error && error.body && error.body.errorMessage ||
               'Unexpected error';
+      }
+
+      function setLeasesFromUsageRights(image, prevRights) {
+        if (ctrl.category.leases.length === 0) {
+          // possibility of removal only
+          const removeLeases = removeCategoryLeases(ctrl.categories, image, prevRights);
+          if (removeLeases && removeLeases.length > 0) {
+            $rootScope.$broadcast('events:rights-category:delete-leases', {
+              catLeases: removeLeases,
+              batch: false
+            });
+          }
+          return;
+        }
+        const catLeases = createCategoryLeases(ctrl.category.leases, image);
+        if (catLeases.length === 0) {
+          // possibility of removal only - missing tx date etc.
+          const removeLeases = removeCategoryLeases(ctrl.categories, image, prevRights);
+          if (removeLeases && removeLeases.length > 0) {
+            $rootScope.$broadcast('events:rights-category:delete-leases', {
+              catLeases: removeLeases,
+              batch: false
+            });
+          }
+          return;
+        }
+        $rootScope.$broadcast('events:rights-category:add-leases', {
+          catLeases: catLeases,
+          batch: false
+        });
       }
 
       // HACK: This should probably live somewhere else, but it's the least intrusive
