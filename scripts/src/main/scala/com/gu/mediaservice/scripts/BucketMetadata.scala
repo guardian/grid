@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, ListObjectsV
 
 import java.io.{BufferedWriter, File, FileOutputStream, FileWriter, OutputStreamWriter}
 import java.time.Instant
-import scala.collection.JavaConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter, mapAsScalaMapConverter}
+import scala.jdk.CollectionConverters._
 
 case class ObjectMetadata(key: String, lastModified: Instant, metadata: Map[String, String])
 object ObjectMetadata {

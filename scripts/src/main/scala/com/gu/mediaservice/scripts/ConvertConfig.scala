@@ -25,7 +25,7 @@ object ConvertConfig {
       val input = new File(arg)
       assert(input.exists, s"File provided for conversion doesn't exist: $input")
       val files: List[File] = if (input.isDirectory) {
-        val paths: List[Path] = Files.walk(input.toPath).iterator.asScala.toIterable.toList
+        val paths: List[Path] = Files.walk(input.toPath).iterator.asScala.toList
         val regularFiles = paths.filter(file => Files.isRegularFile(file))
         val propertiesFiles = regularFiles.filter(_.toString.endsWith(".properties"))
         val files = propertiesFiles.map(_.toFile)

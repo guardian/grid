@@ -55,7 +55,7 @@ object BackfillEditLastModified extends EsScript {
     val lastEvaluatedKey = if (lastFile.exists()) {
       val source = Source.fromFile(lastFile)
       val lastId = try {
-        source.getLines.toList match {
+        source.getLines().toList match {
           case id :: totalStr :: _ =>
             total = totalStr.toInt
             Some(id)
