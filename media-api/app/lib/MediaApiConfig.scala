@@ -38,10 +38,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     case Some(editDistance) if editDistance.contains("AUTO:") => editDistance  //<- for non-default AUTO word boundaries
     case _ => "AUTO"
   }
-  val fuzzyMaxExpansions: Int = stringOpt("search.fuzziness.maxExpansions") match {
-    case Some(maxExpansions) if convertToInt(maxExpansions).isDefined => maxExpansions.toInt
-    case _ => 50
-  }
+  val fuzzyMaxExpansions: Int = intOpt("search.fuzziness.maxExpansions").getOrElse(50)
 
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
