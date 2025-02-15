@@ -65,5 +65,12 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
 
       cost should be (Pay)
     }
+
+    it("Pay should trump Overquota with a free supplier whose gone over quota, but excluded collection") {
+      val usageRights = Agency("Getty Images", Some("Bob Thomas Sports Photography"))
+      val cost = OverQuotaCosting.getCost(usageRights)
+
+      cost should be (Pay)
+    }
   }
 }
