@@ -33,14 +33,16 @@ trait CostCalculator {
       val categoryCost: Option[Cost] = usageRights.defaultCost
       val overQuota: Option[Cost] = getOverQuota(usageRights)
       val supplierCost: Option[Cost] = usageRights match {
-        case u: Agency => getCost(u.supplier, u.suppliersCollection)
+        case u: Agency =>
+          if (isExcludedColl(u.supplier, u.suppliersCollection.getOrElse(""))) Some(Pay)
+          else getCost(u.supplier, u.suppliersCollection)
         case _ => None
       }
 
       restricted
-        .orElse(overQuota)
-        .orElse(categoryCost)
+        .orElse(overQuota.filter(_ => !supplierCost.contains(Pay)))
         .orElse(supplierCost)
+        .orElse(categoryCost)
         .getOrElse(defaultCost)
   }
 
