@@ -55,7 +55,7 @@ object OptimiseWithPngQuant extends OptimiseOps {
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some(Tiff) => true // TODO This should be done better, it could be better optimised into a jpeg if there is no transparency.
+      case Some(Tiff) => false // TODO Cannot see how pngquant which can be applied to tiff inputs; does tiff upload even work for the Guardian? Let imgproxy try to deal with this
       case _ => false
     }
 }
