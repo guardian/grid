@@ -140,6 +140,7 @@ object Uploader extends GridLogging {
       case Some(a) => a
       case None => throw new Exception("File of unknown and undetectable mime type")
     }
+    logger.info("Original Mime type: " + originalMimeType)
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
