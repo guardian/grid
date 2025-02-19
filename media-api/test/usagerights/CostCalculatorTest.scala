@@ -15,7 +15,7 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
 
     object Costing extends CostCalculator {
       val quotas = Quota
-      override def getOverQuota(usageRights: UsageRights) = None
+      override def isOverQuota(usageRights: UsageRights) = false
 
       override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
       override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
@@ -23,7 +23,7 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
 
     object OverQuotaCosting extends CostCalculator {
       val quotas = Quota
-      override def getOverQuota(usageRights: UsageRights) = Some(Overquota)
+      override def isOverQuota(usageRights: UsageRights) = true
 
       override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
       override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
@@ -62,6 +62,13 @@ class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
     it("should not be free-to-use with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Bob Thomas Sports Photography"))
       val cost = Costing.getCost(usageRights)
+
+      cost should be (Pay)
+    }
+
+    it("Pay should trump Overquota with a free supplier whose gone over quota, but excluded collection") {
+      val usageRights = Agency("Getty Images", Some("Bob Thomas Sports Photography"))
+      val cost = OverQuotaCosting.getCost(usageRights)
 
       cost should be (Pay)
     }

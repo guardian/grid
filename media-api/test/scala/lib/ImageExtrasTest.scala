@@ -16,7 +16,8 @@ class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
 
   object Costing extends CostCalculator {
     val quotas: UsageQuota = Quota
-    override def getOverQuota(usageRights: UsageRights): Option[Nothing] = None
+
+    override def isOverQuota(usageRights: UsageRights): Boolean = false
     override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
     override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
   }
