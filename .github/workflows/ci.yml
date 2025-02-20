@@ -7,7 +7,7 @@ on:
       - main
 jobs:
   CI:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       # required by aws-actions/configure-aws-credentials
       id-token: write
@@ -56,11 +56,7 @@ jobs:
           sudo apt-get -y install graphicsmagick-imagemagick-compat
           sudo apt-get -y install exiftool
       - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          java-version: '11'
-          distribution: 'corretto'
-          cache: 'sbt'
+        uses: guardian/setup-scala@v1
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
@@ -77,15 +73,11 @@ jobs:
           npm install-clean
           npm test
           npm run build
-      - uses: aws-actions/configure-aws-credentials@v4
-        if: "! github.event.pull_request.head.repo.fork"
-        with:
-          role-to-assume: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
-          aws-region: eu-west-1
-      - uses: guardian/actions-riff-raff@v3.0.0
+      - uses: guardian/actions-riff-raff@v4.1.7
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
+          roleArn: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
           commentingStage: TEST
           projectName: media-service::grid::all
           buildNumberOffset: 7565
