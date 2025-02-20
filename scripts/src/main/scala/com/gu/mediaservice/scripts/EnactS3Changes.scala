@@ -17,7 +17,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, HeadObjectRequest, ListObjectsRequest, ListObjectsV2Request, MetadataDirective, NoSuchKeyException}
 
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object EnactS3Changes {
