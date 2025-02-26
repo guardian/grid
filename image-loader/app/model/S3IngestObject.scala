@@ -28,9 +28,11 @@ object S3IngestObject {
     val mediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id")
     val isFeedUpload = mediaIdFromUiUpload.isEmpty  // TODO Not concise
 
+    val indexOfSecondToLastPart: Int = (keyParts.size - 1) - 1
+    val lastFolder = keyParts(Seq(indexOfSecondToLastPart, 0).max)
     S3IngestObject(
       key,
-      uploadedBy = keyParts.head,
+      uploadedBy = lastFolder,
       filename = keyParts.last,
       maybeMediaIdFromUiUpload = mediaIdFromUiUpload, // set by the client in upload in manager.js
       uploadTime = metadata.getLastModified,
