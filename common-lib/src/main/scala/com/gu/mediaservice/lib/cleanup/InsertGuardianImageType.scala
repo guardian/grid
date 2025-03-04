@@ -75,18 +75,14 @@ object InsertGuardianImageType extends ImageProcessor with GridLogging {
 
 
 object DigitalSourceType {
-  private val dstUri = "http://cv.iptc.org/newscodes/digitalsourcetype/"
   def unapply(name: String): Option[String] = {
-    if (name.startsWith(dstUri)) {
-      Some(name.stripPrefix(dstUri))
-    } else {
-      None
+    name match {
+      case s"http://cv.iptc.org/newscodes/digitalsourcetype/$value" =>
+        Some(value)
+      // I'm pretty sure https is off-spec as a value here, but it's what Google is using so 🤷
+      case s"https://cv.iptc.org/newscodes/digitalsourcetype/$value" =>
+        Some(value)
+      case _ => None
     }
-    /* TODO in scala 2.13:
-      name match {
-        case s"http://cv.iptc.org/newscodes/digitalsourcetype/$value" =>
-          Some(value)
-        case _ => None
-     */
   }
 }
