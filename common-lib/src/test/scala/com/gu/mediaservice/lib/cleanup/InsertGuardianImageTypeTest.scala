@@ -46,4 +46,17 @@ class InsertGuardianImageTypeTest extends AnyFlatSpec with Matchers with OptionV
 
     inserted.metadata.imageType shouldBe None
   }
+
+  it should "handle using https as the protocol in the uri (mistake?)" in {
+    val base = createImageFromMetadata()
+    val fileMeta = FileMetadata(
+      // note https here
+      xmp = Map("Iptc4xmpExt:DigitalSourceType" -> JsString(s"https://cv.iptc.org/newscodes/digitalsourcetype/digitalCreation"))
+    )
+    val img = base.copy(fileMetadata = fileMeta)
+
+    val inserted = InsertGuardianImageType(img)
+
+    inserted.metadata.imageType.value shouldBe "Illustration"
+  }
 }
