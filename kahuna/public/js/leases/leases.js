@@ -49,6 +49,11 @@ leases.controller('LeasesCtrl', [
           ctrl.showCalendar = false;
           ctrl.receivingBatch = false;
 
+          // labels
+          ctrl.crop_group_label = $window._clientConfig.croppingGroupLabel;
+          ctrl.crop_allow = $window._clientConfig.croppingAllow;
+          ctrl.crop_deny = $window._clientConfig.croppingDeny;
+
           ctrl.midnightTomorrow = moment().add(1, 'days').startOf('day').toDate();
 
           ctrl.cancel = () => {
