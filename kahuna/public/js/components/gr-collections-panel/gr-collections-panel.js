@@ -12,6 +12,7 @@ import './gr-collections-panel.css';
 import {getCollection} from '../../search-query/query-syntax';
 import nodeTemplate from './gr-collections-panel-node.html';
 import '../../directives/gr-auto-focus';
+import '../../search/query-filter';
 
 export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     'kahuna.services.panel',
@@ -92,8 +93,8 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
-    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState', 'storage',
-    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState, storage) {
+    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState', 'storage', 'searchWithModifiers',
+    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState, storage, searchWithModifiers) {
 
     const ctrl = this;
 
@@ -186,6 +187,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
 
       };
+      ctrl.searchWithModifiers = searchWithModifiers;
     };
 }]);
 
