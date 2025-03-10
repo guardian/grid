@@ -16,9 +16,9 @@ cropperApi.factory('mediaCropper', ['mediaApi', function(mediaApi) {
         return cropperRoot;
     }
 
-    function createCrop(image, coords, ratio) {
+    function createCrop(image, coords, ratio, type) {
         return getCropperRoot().follow('crop').post({
-            type: 'crop',
+            type,
             source: image.uri,
             x: coords.x,
             y: coords.y,
