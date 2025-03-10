@@ -1,8 +1,5 @@
 package lib
 
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
-import com.amazonaws.services.kinesis.clientlibrary.types.{InitializationInput, ProcessRecordsInput, ShutdownInput}
 import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.contentapi.client.model.ContentApiError
 import com.gu.contentapi.client.model.v1.Content
@@ -15,10 +12,14 @@ import model.{UsageGroup, UsageGroupOps}
 import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
+import software.amazon.kinesis.exceptions.ShutdownException
+import software.amazon.kinesis.leases.exceptions.InvalidStateException
+import software.amazon.kinesis.lifecycle.events._
+import software.amazon.kinesis.processor.ShardRecordProcessor
 
 import java.util.UUID
-import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 trait ContentContainer extends GridLogging {
@@ -65,21 +66,20 @@ object CrierUsageStream {
 case class LiveContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
 case class PreviewContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
 
-abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends IRecordProcessor with GridLogging {
+abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGroupOps) extends ShardRecordProcessor with GridLogging {
 
   implicit val codec: ThriftStructCodec[Event] = Event
 
   val contentApiClient: UsageContentApiClient
 
   override def initialize(initializationInput: InitializationInput): Unit = {
-    val shardId = initializationInput.getShardId
-    logger.debug(s"Initialized an event processor for shard $shardId")
+    logger.debug(s"Initialized an event processor for shard ${initializationInput.shardId}")
   }
 
   override def processRecords(processRecordsInput: ProcessRecordsInput): Unit = {
-    val records = processRecordsInput.getRecords
+    val records = processRecordsInput.records
     records.asScala.foreach { record =>
-      val buffer: Array[Byte] = record.getData.array()
+      val buffer: Array[Byte] = record.data.array()
       val deserialization: Try[Event] = ThriftDeserializer.deserialize(buffer)
       deserialization.foreach(processEvent)
       deserialization.failed.foreach { e: Throwable =>
@@ -87,19 +87,40 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
       }
     }
 
-    processRecordsInput.getCheckpointer.checkpoint(records.asScala.last)
+    val lastRecord = records.asScala.last
+
+    processRecordsInput.checkpointer.checkpoint(lastRecord.sequenceNumber(), lastRecord.subSequenceNumber())
   }
 
-  override def shutdown(shutdownInput: ShutdownInput): Unit = {
-    if (shutdownInput.getShutdownReason == ShutdownReason.TERMINATE) {
-      shutdownInput.getCheckpointer.checkpoint()
+  override def leaseLost(leaseLostInput: LeaseLostInput): Unit = {
+    // nothing to do?
+    logger.debug("Lost lease, so stopping processing Crier")
+  }
+
+  override def shardEnded(shardEndedInput: ShardEndedInput): Unit = {
+    try {
+      shardEndedInput.checkpointer.checkpoint()
+      logger.debug("Shard ended, so stopping processing Crier")
+    } catch {
+      case _: ShutdownException | _: InvalidStateException =>
+        ()
+    }
+  }
+
+  override def shutdownRequested(shutdownRequestedInput: ShutdownRequestedInput): Unit = {
+    try {
+      shutdownRequestedInput.checkpointer.checkpoint()
+      logger.debug("Shutdown requested, so stopping processing Crier")
+    } catch {
+      case _: ShutdownException | _: InvalidStateException =>
+        ()
     }
   }
 
   def getContentItem(content: Content, time: DateTime): ContentContainer
 
 
-  def processEvent(event: Event): Unit = {
+  private def processEvent(event: Event): Unit = {
     implicit val logMarker: LogMarker = MarkerMap(
       "payloadId" -> event.payloadId,
       "requestId" -> UUID.randomUUID().toString
