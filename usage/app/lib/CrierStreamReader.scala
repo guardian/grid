@@ -5,7 +5,7 @@ import java.util.UUID
 import com.amazonaws.auth._
 import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import com.gu.mediaservice.lib.logging.GridLogging
 import model.UsageGroupOps
