@@ -1,8 +1,8 @@
 package lib
 
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
-import com.amazonaws.services.kinesis.model.Record
+import com.amazonaws.services.kinesis.clientlibrary.types.{InitializationInput, ProcessRecordsInput, ShutdownInput}
 import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.contentapi.client.model.ContentApiError
 import com.gu.contentapi.client.model.v1.Content
@@ -16,7 +16,7 @@ import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
-import java.util.{UUID, List => JList}
+import java.util.UUID
 import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
@@ -71,12 +71,13 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   val contentApiClient: UsageContentApiClient
 
-  override def initialize(shardId: String): Unit = {
+  override def initialize(initializationInput: InitializationInput): Unit = {
+    val shardId = initializationInput.getShardId
     logger.debug(s"Initialized an event processor for shard $shardId")
   }
 
-  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
-
+  override def processRecords(processRecordsInput: ProcessRecordsInput): Unit = {
+    val records = processRecordsInput.getRecords
     records.asScala.foreach { record =>
       val buffer: Array[Byte] = record.getData.array()
       val deserialization: Try[Event] = ThriftDeserializer.deserialize(buffer)
@@ -86,12 +87,12 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
       }
     }
 
-    checkpointer.checkpoint(records.asScala.last)
+    processRecordsInput.getCheckpointer.checkpoint(records.asScala.last)
   }
 
-  override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
-    if (reason == ShutdownReason.TERMINATE) {
-      checkpointer.checkpoint()
+  override def shutdown(shutdownInput: ShutdownInput): Unit = {
+    if (shutdownInput.getShutdownReason == ShutdownReason.TERMINATE) {
+      shutdownInput.getCheckpointer.checkpoint()
     }
   }
 
