@@ -79,8 +79,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
   override def processRecords(processRecordsInput: ProcessRecordsInput): Unit = {
     val records = processRecordsInput.records
     records.asScala.foreach { record =>
-      val buffer: Array[Byte] = record.data.array()
-      val deserialization: Try[Event] = ThriftDeserializer.deserialize(buffer)
+      val deserialization: Try[Event] = ThriftDeserializer.deserialize(record.data)
       deserialization.foreach(processEvent)
       deserialization.failed.foreach { e: Throwable =>
         logger.error("Failed to deserialize crier event", e)
