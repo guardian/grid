@@ -13,11 +13,15 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
 import software.amazon.kinesis.common.{ConfigsBuilder, InitialPositionInStream, InitialPositionInStreamExtended, KinesisClientUtil}
 import software.amazon.kinesis.coordinator.Scheduler
 import software.amazon.kinesis.processor.{ShardRecordProcessor, ShardRecordProcessorFactory}
+import software.amazon.kinesis.retrieval.polling.PollingConfig
 
 import java.net.InetAddress
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
+
+// it's annoyingly hard to get the streamName out of the configsBuilder once built, so pass them around together
+private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, streamName: String)
 
 class CrierStreamReader(
   config: UsageConfig,
@@ -45,7 +49,7 @@ class CrierStreamReader(
   }
 
   private def kinesisClientLibConfig(processorFactory: ShardRecordProcessorFactory)
-    (kinesisReaderConfig: KinesisReaderConfig): ConfigsBuilder = {
+    (kinesisReaderConfig: KinesisReaderConfig): ConfigsBuilderWithStreamName = {
 
     val kinesisClient = KinesisClientUtil.createKinesisAsyncClient(KinesisAsyncClient.builder()
       .region(region)
@@ -59,19 +63,23 @@ class CrierStreamReader(
       .credentialsProvider(awsCredentialsProvider)
       .build()
 
-    new ConfigsBuilder(
-      kinesisReaderConfig.streamName,
-      kinesisReaderConfig.appName,
-      kinesisClient,
-      dynamoClient,
-      cloudwatchClient,
-      workerId,
-      processorFactory
+    ConfigsBuilderWithStreamName(
+      new ConfigsBuilder(
+        kinesisReaderConfig.streamName,
+        kinesisReaderConfig.appName,
+        kinesisClient,
+        dynamoClient,
+        cloudwatchClient,
+        workerId,
+        processorFactory
+      ),
+      kinesisReaderConfig.streamName
     )
   }
 
   @nowarn("cat=deprecation") // initialPositionInStreamExtended is deprecated, but the upgrade path is unclear
-  private def kinesisClientLibScheduler(configsBuilder: ConfigsBuilder): Scheduler = {
+  private def kinesisClientLibScheduler(configsBuilderAndStreamName: ConfigsBuilderWithStreamName): Scheduler = {
+    val ConfigsBuilderWithStreamName(configsBuilder, streamName) = configsBuilderAndStreamName
     new Scheduler(
       configsBuilder.checkpointConfig(),
       configsBuilder.coordinatorConfig(),
@@ -79,7 +87,9 @@ class CrierStreamReader(
       configsBuilder.lifecycleConfig(),
       configsBuilder.metricsConfig(),
       configsBuilder.processorConfig(),
-      configsBuilder.retrievalConfig().initialPositionInStreamExtended(initialPosition),
+      configsBuilder.retrievalConfig()
+        .initialPositionInStreamExtended(initialPosition)
+        .retrievalSpecificConfig(new PollingConfig(streamName, configsBuilder.kinesisClient())),
     )
   }
 
