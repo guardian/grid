@@ -49,3 +49,15 @@ gr-radio-list label:hover {
   background-color: #666;
   color: white;
 }
+
+gr-radio-list label span.full {
+  @media (max-width: 1294px) {
+    display: none;
+  }
+}
+
+gr-radio-list label span.minimal {
+  @media (min-width: 1295px) {
+    display: none;
+  }
+}

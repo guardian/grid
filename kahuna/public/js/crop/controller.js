@@ -51,14 +51,11 @@ crop.controller('ImageCropCtrl', [
       const storageCropType = cropSettings.getCropType();
       const storageDefaultCropType = cropSettings.getDefaultCropType();
 
-      const cropOptionDisplayValue = cropOption => cropOption.ratioString
-        ? `${cropOption.key} (${cropOption.ratioString})`
-        : cropOption.key;
-
     ctrl.cropOptions = allCropOptions
         .filter(option => !storageCropType || storageCropType === option.key)
         .map(option => Object.assign(option, {
-          value: cropOptionDisplayValue(option),
+          value: option.ratioString ? `${option.key} (${option.ratioString})` : option.key,
+          minimalValue: option.ratioString || option.key,
           tooltip: `${option.key} [${option.key.charAt(0)}]`,
           disabled: storageCropType && storageCropType !== option.key
         }));

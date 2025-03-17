@@ -6,6 +6,7 @@
          ng-value="option.key"
          ng-model="$parent.selection"/>
   <label for="{{listFor}}-{{option.key}}" gr-tooltip="{{option.tooltip}}">
-    {{option.value || option.key}}
+      <span class="minimal">{{option.minimalValue || option.value || option.key}}</span>
+      <span class="full">{{option.value || option.key}}</span>
   </label>
 </span>
