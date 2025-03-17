@@ -37,9 +37,9 @@
 
   <select ng-model="ctrl.access" ng-required="required">
       <option ng-selected="true" value="">Please select access</option>
-      <optgroup label="{{ctrl.crop_group_label}}">
-          <option value="allow-use">{{ctrl.crop_allow}}</option>
-          <option value="deny-use">{{ctrl.crop_deny}}</option>
+      <optgroup label="Usage">
+          <option value="allow-use">Allow use</option>
+          <option value="deny-use">Deny use</option>
       </optgroup>
       <optgroup label="Syndication">
           <option value="allow-syndication">Allow syndication</option>

@@ -89,11 +89,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val imagePreviewFlagLeaseAttachedCopy: String = configuration.getOptional[String]("warningText.imagePreviewFlag.leaseAttachedCopy")
     .getOrElse("Not configured")
 
-  //BBC custom leases labels
-  val croppingGroupLabel: String = configuration.getOptional[String]("crop.groupLabel").getOrElse("Cropping")
-  val croppingAllow: String = configuration.getOptional[String]("crop.allow").getOrElse("Allow cropping")
-  val croppingDeny: String = configuration.getOptional[String]("crop.deny").getOrElse("Deny cropping")
-
   val shouldUploadStraightToBucket: Boolean = maybeIngestBucket.isDefined
 }
 
