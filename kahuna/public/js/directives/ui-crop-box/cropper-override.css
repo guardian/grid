@@ -44,6 +44,10 @@
 
 
 /* GUTTERS to show what will be clipped if the 5:3 crop is used in 5:4 space */
+.easel.hide-vertical-warning-gutters .cropper-view-box::before,
+.easel.hide-vertical-warning-gutters .cropper-view-box::after {
+  visibility: hidden;
+}
 .easel.vertical-warning-gutters .cropper-view-box::before,
 .easel.vertical-warning-gutters .cropper-view-box::after {
   display: block;
@@ -66,5 +70,5 @@
   background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
 }
 .easel.vertical-warning-gutters .easel__canvas {
-  height: calc(100vh - 115px);
+  height: calc(100vh - 138px);
 }
