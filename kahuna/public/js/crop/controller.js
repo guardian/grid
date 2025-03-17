@@ -180,7 +180,6 @@ crop.controller('ImageCropCtrl', [
         const maybeCropRatioIfStandard = cropOptions.find(_ => _.key === ctrl.cropType)?.ratioString;
         ctrl.shouldShowVerticalWarningGutters =
           window._clientConfig.staffPhotographerOrganisation === "GNM"
-          && cropSettings.shouldShowCropGuttersIfApplicable()
           && maybeCropRatioIfStandard === "5:3";
 
         if (isCropTypeDisabled) {

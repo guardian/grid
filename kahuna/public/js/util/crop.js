@@ -4,7 +4,6 @@ import { landscape, portrait, video, square, freeform, cropOptions } from './con
 
 const CROP_TYPE_STORAGE_KEY = 'cropType';
 const CUSTOM_CROP_STORAGE_KEY = 'customCrop';
-const SHOULD_SHOW_CROP_GUTTERS_IF_APPLICABLE_STORAGE_KEY = 'shouldShowCropGuttersIfApplicable';
 const CROP_DEFAULT_TYPE_STORAGE_KEY = 'defaultCropType';
 
 const customCrop = (label, xRatio, yRatio) => {
@@ -71,15 +70,7 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
     }
   };
 
-  const setShouldShowCropGuttersIfApplicable = shouldShowCropGuttersIfApplicableStr => {
-    storage.setJs(
-      SHOULD_SHOW_CROP_GUTTERS_IF_APPLICABLE_STORAGE_KEY,
-      shouldShowCropGuttersIfApplicableStr === "true",
-      true
-    );
-  };
-
-  function set({cropType, customRatio, shouldShowCropGuttersIfApplicable, defaultCropType}) {
+  function set({cropType, customRatio, defaultCropType}) {
     // set customRatio first in case cropType relies on a custom crop
     if (customRatio) {
       setCustomCrop(customRatio);
@@ -91,10 +82,6 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
 
     if (defaultCropType) {
       setDefaultCropType(defaultCropType);
-    }
-
-    if (shouldShowCropGuttersIfApplicable) {
-      setShouldShowCropGuttersIfApplicable(shouldShowCropGuttersIfApplicable);
     }
 
   }
@@ -115,11 +102,7 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
     }
   }
 
-  function shouldShowCropGuttersIfApplicable() {
-    return storage.getJs(SHOULD_SHOW_CROP_GUTTERS_IF_APPLICABLE_STORAGE_KEY, true);
-  }
-
-  return { set, getCropType, getCropOptions, shouldShowCropGuttersIfApplicable, getDefaultCropType };
+  return { set, getCropType, getCropOptions, getDefaultCropType };
 }]);
 
 cropUtil.filter('asCropType', function() {
