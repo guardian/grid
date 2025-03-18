@@ -110,7 +110,7 @@ deployments:
         ElasticSearchAMI:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-elasticsearch-focal
+          Recipe: grid-elasticsearch-focal-arm
 
   image-counter-lambda:
     type: aws-lambda
