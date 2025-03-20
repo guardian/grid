@@ -19,7 +19,7 @@ cropUtil.constant('video', video);
 cropUtil.constant('square', square);
 cropUtil.constant('freeform', freeform);
 cropUtil.constant('cropOptions', cropOptions);
-cropUtil.constant('defaultCrop', cropOptions[0]);
+cropUtil.constant('defaultCrop', cropOptions.find(_ => _.isDefault) || cropOptions[0]);
 
 cropUtil.factory('cropSettings', ['storage', function(storage) {
   function getCropOptions() {
