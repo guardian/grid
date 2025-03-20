@@ -101,14 +101,20 @@
     Please try to use a larger crop or an alternative image.
 </div>
 
-<div class="warning warning--multiline status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
+<div class="warning status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
     Although this is a 5:3 crop, it might be used in a 5:4 space, so please ensure
-    there is nothing important in the striped sides as these might be clipped.<br/>
-    You can also suggest alternative crops for the trail image back in Composer.
+    there is nothing important in the striped sides<sup>
+        <a ng-click="ctrl.shouldHideVerticalWarningGutters = !ctrl.shouldHideVerticalWarningGutters">
+            [{{ctrl.shouldHideVerticalWarningGutters ? "show" : "hide"}}]
+        </a>
+    </sup>
+    as these might be clipped.
 </div>
 
-<div class="easel" role="main" aria-label="Image cropper"
-     ng-class="{'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters}">
+<div class="easel" role="main" aria-label="Image cropper" ng-class="{
+    'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters,
+    'hide-vertical-warning-gutters': ctrl.shouldHideVerticalWarningGutters
+}">
     <div class="easel__canvas">
         <div class="easel__image-container" oncontextmenu="return false;">
             <img class="easel__image easel__image--cropper"
