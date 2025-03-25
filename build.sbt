@@ -158,7 +158,7 @@ lazy val thrall = playProject("thrall", 9002)
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.1",
-      "com.gu" %% "kcl-pekko-stream" % "0.1.1-PREVIEW.ankcl-3-initial-release.2025-02-20T1631.ae4d5771",
+      "com.gu" %% "kcl-pekko-stream" % "0.2.0-PREVIEW.ankcl-3-full-release.2025-03-25T1600.288c0737",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
