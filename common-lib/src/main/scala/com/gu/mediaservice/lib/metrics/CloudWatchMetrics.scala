@@ -132,8 +132,11 @@ private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends 
   }
 
   def receive: Receive = {
-    case AddMetrics(metrics) => become(queued(metrics))
-    case Shutdown => become(shutdown)
+    case AddMetrics(metrics) =>
+      become(queued(metrics))
+    case Shutdown =>
+      sender() ! ()
+      become(shutdown)
   }
   private def shutdown: Receive = {
     case message => logger.error(s"metrics actor has shut down, cannot respond to message $message")
@@ -144,6 +147,7 @@ private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends 
       become(receive)
     case Shutdown =>
       putData(queuedMetrics)
+      sender() ! ()
       become(shutdown)
     case AddMetrics(metrics) =>
       become(queued(queuedMetrics ++ metrics))
