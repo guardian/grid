@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.sts.StsClient
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
 import software.amazon.kinesis.common.{ConfigsBuilder, InitialPositionInStream, InitialPositionInStreamExtended, KinesisClientUtil}
+import software.amazon.kinesis.coordinator.CoordinatorConfig.ClientVersionConfig
 import software.amazon.kinesis.coordinator.Scheduler
 import software.amazon.kinesis.processor.{ShardRecordProcessor, ShardRecordProcessorFactory}
 import software.amazon.kinesis.retrieval.polling.PollingConfig
@@ -82,7 +83,8 @@ class CrierStreamReader(
     val ConfigsBuilderWithStreamName(configsBuilder, streamName) = configsBuilderAndStreamName
     new Scheduler(
       configsBuilder.checkpointConfig(),
-      configsBuilder.coordinatorConfig(),
+      configsBuilder.coordinatorConfig()
+        .clientVersionConfig(ClientVersionConfig.CLIENT_VERSION_CONFIG_COMPATIBLE_WITH_2X),
       configsBuilder.leaseManagementConfig(),
       configsBuilder.lifecycleConfig(),
       configsBuilder.metricsConfig(),

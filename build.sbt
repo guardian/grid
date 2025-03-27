@@ -172,7 +172,7 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-default" % "32.0.0",
     "com.gu" %% "content-api-client-aws" % "0.7.6",
     "io.reactivex" %% "rxscala" % "0.27.0",
-    "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+    "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   )
 )
