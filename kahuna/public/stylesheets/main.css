@@ -2054,6 +2054,14 @@ FIXME: what to do with touch devices
     visibility: hidden;
 }
 
+.circular-mask-toggle-container {
+  position: absolute;
+  right: 0;
+  padding: 10px;
+  user-select: none;
+}
+
+
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;

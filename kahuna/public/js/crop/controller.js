@@ -184,7 +184,10 @@ crop.controller('ImageCropCtrl', [
 
         ctrl.shouldShowCircularGuideline =
           window._clientConfig.staffPhotographerOrganisation === "GNM"
-          && maybeCropRatioIfStandard === "1:1";
+          // update this array to apply circular guideline to further ratios (e.g. 5:4)
+          && ["1:1"].includes(maybeCropRatioIfStandard);
+
+        ctrl.isSquareCrop = maybeCropRatioIfStandard === "1:1";
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;

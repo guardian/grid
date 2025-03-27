@@ -111,10 +111,18 @@
     as these might be clipped.
 </div>
 
+<div class="circular-mask-toggle-container" ng-if="ctrl.shouldShowCircularGuideline && ctrl.isSquareCrop">
+    <label>
+        Apply circular mask
+        <input type="checkbox" ng-model="ctrl.shouldUseCircularMask">
+    </label>
+</div>
+
 <div class="easel" role="main" aria-label="Image cropper" ng-class="{
     'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters,
     'hide-vertical-warning-gutters': ctrl.shouldHideVerticalWarningGutters,
-    'circular-guideline': ctrl.shouldShowCircularGuideline
+    'circular-guideline': ctrl.shouldShowCircularGuideline && !ctrl.shouldUseCircularMask,
+    'circular-mask': ctrl.shouldUseCircularMask
 }">
     <div class="easel__canvas">
         <div class="easel__image-container" oncontextmenu="return false;">
