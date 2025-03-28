@@ -9,11 +9,13 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
+import { grCqlInput } from '../../components/gr-cql.input/gr-cql-input';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
     grChips.name,
-    querySuggestions.name
+    querySuggestions.name,
+    grCqlInput.name
 ]);
 
 
@@ -59,13 +61,12 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
         restrict: 'E',
         require: ['grStructuredQuery', 'ngModel'],
         template: `
-<gr-chips autofocus="autofocus"
-          ng-model="ctrl.structuredQuery"
-          gr:valid-keys="ctrl.filterFields"
-          gr:on-change="ctrl.structuredQueryChanged($chips)"
-          gr:autocomplete="ctrl.getSuggestions($chip)">
-</gr-chips>
-`,
+            <gr-cql-input autofocus="autofocus"
+                    ng-model="ctrl.structuredQuery"
+                    gr:valid-keys="ctrl.filterFields"
+                    gr:on-change="ctrl.structuredQueryChanged($chips)"
+                    gr:autocomplete="ctrl.getSuggestions($chip)">
+            </gr-cql-input>`,
         controller: 'grStructuredQueryCtrl',
         controllerAs: 'ctrl',
         link: function(scope, element, attrs, [ctrl, ngModelCtrl]) {
