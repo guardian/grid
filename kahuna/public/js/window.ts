@@ -1,6 +1,7 @@
 import { FeatureSwitchData } from "./components/gr-feature-switch-panel/gr-feature-switch-panel";
 import { PermissionOption } from "./components/gr-permissions-filter/gr-permissions-filter-config";
 import { Notification } from "./components/gr-notifications-banner/gr-notifications-banner";
+import { FieldAlias } from "./search/structured-query/query-suggestions";
 
 declare global {
   interface Window {
@@ -13,10 +14,10 @@ declare global {
       announcements: Array<Notification>;
       usePermissionsFilter: boolean;
       permissionsDefault?: string | undefined;
-      sessionId: string
-      feedbackFormLink: string
-      fieldAliases: string[];
-      homeLinkHtml: string
+      sessionId: string;
+      feedbackFormLink: string;
+      fieldAliases: FieldAlias[];
+      homeLinkHtml: string;
       canDownloadCrop: boolean;
       showDenySyndicationWarning: boolean;
       showSendToPhotoSales: boolean;
@@ -24,23 +25,24 @@ declare global {
       recordDownloadAsUsage: boolean;
       metadataTemplates: string[];
       additionalNavigationLinks: string[];
-      costFilterLabel: string
+      costFilterLabel: string;
       costFilterChargeable: boolean;
       restrictDownload: boolean;
-      warningTextHeader: string
-      warningTextHeaderNoRights: string
-      unusableTextHeader: string
-      denySyndicationTextHeader: string
+      warningTextHeader: string;
+      warningTextHeaderNoRights: string;
+      unusableTextHeader: string;
+      denySyndicationTextHeader: string;
       enableWarningFlags: boolean;
-      imagePreviewFlagAlertCopy: string
-      imagePreviewFlagWarningCopy: string
-      imagePreviewFlagLeaseAttachedCopy: string
+      imagePreviewFlagAlertCopy: string;
+      imagePreviewFlagWarningCopy: string;
+      imagePreviewFlagLeaseAttachedCopy: string;
       useReaper: boolean;
       usageRightsSummary: true;
       defaultShouldBlurGraphicImages: true;
       shouldUploadStraightToBucket: true;
       maybeUploadLimitInBytes: number;
       imageTypes: string[];
+      staffPhotographerOrganisation: string;
     };
   }
 }
