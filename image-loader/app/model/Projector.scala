@@ -1,13 +1,12 @@
 package model
 
 import java.io.{File, FileOutputStream}
-import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.config.InstanceForRequest
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -30,8 +29,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, s3: S3)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), s3, imageOps, processor, auth)
 }
 
 case class S3FileExtractedMetadata(
@@ -84,7 +83,7 @@ object S3FileExtractedMetadata {
 }
 
 class Projector(config: ImageUploadOpsCfg,
-                s3: AmazonS3, // TODO Not GCP aware!
+                s3: S3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication) extends GridLogging with InstanceForRequest {
@@ -97,11 +96,11 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-      if (!s3.doesObjectExist(config.originalFileBucket.bucket, s3Key))
+      if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket.bucket, s3Key)
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket.bucket, s3Key)
+        s3.getObject(config.originalFileBucket, s3Key)
       }(logMarker)
 
       try {
@@ -162,7 +161,7 @@ class Projector(config: ImageUploadOpsCfg,
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
-                               s3: AmazonS3
+                               s3: S3
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -195,7 +194,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def fetchThumbFile(
     imageId: String, outFile: File, instance: Instance)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     val key = fileKeyFromId(imageId)(instance)
-    fetchFile(config.thumbBucket.bucket, key, outFile)
+    fetchFile(config.thumbBucket, key, outFile)
   }
 
   private def fetchOptimisedFile(
@@ -203,11 +202,11 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     val key = optimisedPngKeyFromId(imageId)(instance)
 
-    fetchFile(config.originalFileBucket.bucket, key, outFile)
+    fetchFile(config.originalFileBucket, key, outFile)
   }
 
-  private def fetchFile(  // TODO use S3 trait for GCP support!
-    bucket: String, key: String, outFile: File
+  private def fetchFile(
+                         bucket: S3Bucket, key: String, outFile: File
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
     val doesFileExist = Future { s3.doesObjectExist(bucket, key) } recover { case _ => false }
@@ -216,7 +215,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
         logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
         Future.successful(None) // falls back to creating from original file
       case true =>
-        val obj = s3.getObject(new GetObjectRequest(bucket, key))
+        val obj = s3.getObject(bucket, key)
         val fos = new FileOutputStream(outFile)
         try {
           IOUtils.copy(obj.getObjectContent, fos)

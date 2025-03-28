@@ -1,5 +1,5 @@
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.aws.SimpleSqsMessageConsumer
+import com.gu.mediaservice.lib.aws.{S3, SimpleSqsMessageConsumer}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.play.GridComponents
@@ -26,7 +26,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
   val uploader = new Uploader(store, config, imageOperations, notifications, imageProcessor)
-  val projector = Projector(config, imageOperations, imageProcessor, auth)
+  val s3 = new S3(config)
+  val projector = Projector(config, imageOperations, imageProcessor, auth, s3)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)
