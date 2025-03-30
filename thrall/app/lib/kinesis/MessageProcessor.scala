@@ -10,6 +10,7 @@ import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMess
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects.Image
 import instances.{InstanceMessageSender, InstanceStatusMessage}
+import org.joda.time.DateTime
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -278,7 +279,7 @@ class MessageProcessor(
     gridClient.getImageLoaderProjection(mediaId, auth.innerServiceCall).map { maybeImage =>
       logger.info(s"Projected ${instance.id} / $mediaId to $maybeImage}")
       maybeImage.exists { image =>
-        val updateMessage = UpdateMessage(subject = Image, image = Some(image), instance = instance)
+        val updateMessage = UpsertFromProjectionMessage(image.id, image, DateTime.now, instance)
         logger.info(s"Publishing projected image as a thrall image message: ${updateMessage.id}")
         messageSender.publish(updateMessage)
         true
