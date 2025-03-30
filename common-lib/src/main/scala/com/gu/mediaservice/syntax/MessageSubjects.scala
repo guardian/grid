@@ -22,7 +22,7 @@ trait MessageSubjects {
   val UpdateImageSyndicationMetadata = "update-image-syndication-metadata"
   val UpdateImagePhotoshootMetadata = "update-image-photoshoot-metadata"
   val CreateInstance = "create-instance"
-
+  val ReindexImage = "reindex-image"
 }
 
 object MessageSubjects extends MessageSubjects

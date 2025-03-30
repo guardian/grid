@@ -3,7 +3,7 @@ package lib.kinesis
 import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.events.UsageEvents
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
@@ -26,7 +26,8 @@ class ThrallEventConsumer(es: ElasticSearch,
   gridClient: GridClient,
   auth: Authentication,
   instanceMessageSender: InstanceMessageSender,
-  usageEvents: UsageEvents
+  usageEvents: UsageEvents,
+  messageSender: ThrallMessageSender
 ) extends PlayJsonHelpers with GridLogging {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)
@@ -34,7 +35,7 @@ class ThrallEventConsumer(es: ElasticSearch,
   private val attempts = 2
   private val timeout = attemptTimeout * attempts + delay * (attempts - 1)
 
-  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, gridClient, auth, instanceMessageSender, usageEvents)
+  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, gridClient, auth, instanceMessageSender, usageEvents, messageSender)
 
   private implicit val implicitActorSystem: ActorSystem = actorSystem
 

@@ -81,6 +81,10 @@ object MessageTranslator extends GridLogging {
         case Some(id) => Right(CreateInstanceMessage(id, updateMessage.lastModified, updateMessage.instance))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
+      case ReindexImage => (updateMessage.id) match {
+        case Some(id) => Right(ReindexImageMessage(id, updateMessage.lastModified, updateMessage.instance))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
+      }
       case _ => Left(ProcessorNotFoundException(updateMessage.subject))
     }
   }

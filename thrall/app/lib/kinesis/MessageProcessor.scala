@@ -2,12 +2,13 @@ package lib.kinesis
 
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.aws.EsResponse
+import com.gu.mediaservice.lib.aws.{EsResponse, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
 import com.gu.mediaservice.lib.events.UsageEvents
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import com.gu.mediaservice.syntax.MessageSubjects.Image
 import instances.{InstanceMessageSender, InstanceStatusMessage}
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
@@ -33,7 +34,8 @@ class MessageProcessor(
   gridClient: GridClient,
   auth: Authentication,
   instanceMessageSender: InstanceMessageSender,
-  usageEvents: UsageEvents
+  usageEvents: UsageEvents,
+  messageSender: ThrallMessageSender
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -60,6 +62,7 @@ class MessageProcessor(
       case message: UpdateUsageStatusMessage => updateUsageStatus(message, logMarker)
       case message: CompleteMigrationMessage => completeMigration(message, logMarker)
       case message: CreateInstanceMessage => setupNewInstance(message, logMarker)
+      case message: ReindexImageMessage => reindexImage(message, logMarker)
       case _ =>
         logger.info(s"Unmatched ThrallMessage type: ${updateMessage.subject}; ignoring")
         Future.successful(())
@@ -264,6 +267,26 @@ class MessageProcessor(
         logger.info(s"Sending instance ready message for ${instance.id}")
         instanceMessageSender.send(InstanceStatusMessage(instance = instance.id, status = "ready"))
       }
+    }
+  }
+
+  private def reindexImage(message: ReindexImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Boolean] = {
+    val mediaId = message.id
+    implicit val instance: Instance = message.instance
+    logger.info(s"Reindexing from s3 ${instance.id} / $mediaId")
+
+    gridClient.getImageLoaderProjection(mediaId, auth.innerServiceCall).map { maybeImage =>
+      logger.info(s"Projected ${instance.id} / $mediaId to $maybeImage}")
+      maybeImage.exists { image =>
+        val updateMessage = UpdateMessage(subject = Image, image = Some(image), instance = instance)
+        logger.info(s"Publishing projected image as a thrall image message: ${updateMessage.id}")
+        messageSender.publish(updateMessage)
+        true
+      }
+    }.recover {
+      case _: Throwable =>
+        logger.warn(s"Error while reindexing ${instance.id} / $mediaId - Image has not been reindexed!")
+        false
     }
   }
 

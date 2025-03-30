@@ -10,8 +10,8 @@ import com.gu.mediaservice.lib.aws.{S3, S3Bucket, ThrallMessageSender, UpdateMes
 import com.gu.mediaservice.lib.config.{InstanceForRequest, Services}
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, Instance, UpsertFromProjectionMessage}
-import com.gu.mediaservice.syntax.MessageSubjects.Image
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, Instance, ReindexImageMessage, UpsertFromProjectionMessage}
+import com.gu.mediaservice.syntax.MessageSubjects.{Image, ReindexImage}
 import lib.elasticsearch.ElasticSearch
 import lib.{MigrationRequest, OptionalFutureRunner, Paging, ThrallStore}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -328,27 +328,15 @@ class ThrallController(
     val mediaIds = getMediaIdsFromS3(Seq.empty, None)
     logger.info(s"Reindexing ${mediaIds.size} images for instance ${instance.id}")
     mediaIds.foreach { mediaId =>
-      Await.result(reindexImage(mediaId), Duration(10, TimeUnit.SECONDS))
+      messageSender.publish(
+        UpdateMessage(
+          subject = ReindexImage,
+          id = Some(mediaId),
+          instance = instance
+        )
+      )
     }
     Ok("ok")
-  }
-
-  private def reindexImage(mediaId: String)(implicit instance: Instance) = {
-    logger.info(s"Reindexing from s3 ${instance.id} / $mediaId")
-
-    gridClient.getImageLoaderProjection(mediaId, auth.innerServiceCall).map { maybeImage =>
-      logger.info(s"Projected ${instance.id} / $mediaId to $maybeImage}")
-      maybeImage.exists { image =>
-        val updateMessage = UpdateMessage(subject = Image, image = Some(image), instance = instance)
-        logger.info(s"Publishing projected image as a thrall image message: ${updateMessage.id}")
-        messageSender.publish(updateMessage)
-        true
-      }
-    }.recover {
-      case _: Throwable =>
-        logger.warn(s"Error while reindexing ${instance.id} / $mediaId - Image has not been reindexed!")
-        false
-    }
   }
 
 }
