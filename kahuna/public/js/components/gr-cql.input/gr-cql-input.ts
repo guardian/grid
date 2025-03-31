@@ -1,9 +1,12 @@
 import * as angular from "angular";
-import { createCqlInput, Typeahead } from "cql";
+import {
+  createCqlInput,
+  Typeahead,
+  TypeaheadField,
+  TextSuggestionOption,
+} from "@guardian/cql";
 import { List, Map } from "immutable";
 import { mediaApi } from "../../services/api/media-api";
-import { TypeaheadField } from "cql";
-import { TextSuggestionOption } from "cql/dist/lang/types";
 
 export const grCqlInput = angular.module("gr.cqlInput", []);
 
@@ -286,19 +289,23 @@ export const fields: TypeaheadField[] = filterFields.map((fieldName) => {
       value: str,
       key: fieldName,
     });
-console.log(suggestions);
-    return suggestions.map(suggestion => {
-      console.log(suggestion)
+
+    console.log(suggestions);
+    return suggestions.map((suggestion) => {
+      console.log(suggestion);
       return { label: suggestion, value: suggestion };
     });
   };
 
-  return new TypeaheadField(fieldName, fieldName, fieldName, resolver);
+  return new TypeaheadField(fieldName.value, fieldName.value, fieldName.description, resolver);
 });
 
 const typeahead = new Typeahead(fields);
 
-const CqlInput = createCqlInput(typeahead);
+const CqlInput = createCqlInput(typeahead, {
+  theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
+  lang: { operators: false, groups: false },
+});
 customElements.define("cql-input", CqlInput as any);
 
 grCqlInput.directive("grCqlInput", [
