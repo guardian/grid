@@ -32,40 +32,43 @@ const fieldAliases = window._clientConfig.fieldAliases
 
 // FIXME: get fields and subjects from API
 const filterFields = [
-  "by",
-  "category",
-  "city",
-  "copyright",
-  "country",
-  "credit",
-  "description",
-  "fileType",
-  "illustrator",
-  "in",
-  "keyword",
-  "label",
-  "location",
-  "person",
-  "source",
-  "specialInstructions",
-  "state",
-  "subject",
-  "supplier",
-  "suppliersReference",
-  "title",
-  "uploader",
-  "usages@<added",
-  "usages@>added",
-  "usages@platform",
-  "usages@status",
-  "usages@reference",
-  "has",
-  "croppedBy",
-  "filename",
-  "photoshoot",
-  "leasedBy",
-  "is",
-  ...Object.keys(fieldAliases),
+  { value: "by", description: "Description to be added" },
+  { value: "category", description: "Description to be added" },
+  { value: "city", description: "The city in which the photo was taken" },
+  { value: "copyright", description: "The copyright holder" },
+  { value: "country", description: "The country in which the photo was taken" },
+  { value: "credit", description: "Description to be added" },
+  { value: "description", description: "Description to be added" },
+  { value: "fileType", description: "Description to be added" },
+  { value: "illustrator", description: "Description to be added" },
+  { value: "in", description: "Description to be added" },
+  { value: "keyword", description: "Contains a keyword, e.g. " },
+  { value: "label", description: "Description to be added" },
+  { value: "location", description: "Description to be added" },
+  { value: "person", description: "Contains a person, e.g. " },
+  { value: "source", description: "Description to be added" },
+  { value: "specialInstructions", description: "Description to be added" },
+  { value: "state", description: "The state in which the photo was taken" },
+  { value: "subject", description: "The subject of the media" },
+  { value: "supplier", description: "The supplier of the media" },
+  { value: "suppliersReference", description: "The supplier reference of the media, e.g. " },
+  { value: "title", description: "The media's title" },
+  { value: "uploader", description: "The e-mail of the uploader" },
+  { value: "usages@<added", description: "Description to be added" },
+  { value: "usages@>added", description: "Description to be added" },
+  { value: "usages@platform", description: "Description to be added" },
+  { value: "usages@status", description: "Description to be added" },
+  { value: "usages@reference", description: "Description to be added" },
+  { value: "has", description: "Filters by the existence of a field, e.g. `has:crops`" },
+  { value: "croppedBy", description: "The e-mail of the person that has cropped the media" },
+  { value: "filename", description: "The filename of the uploaded original" },
+  { value: "photoshoot", description: "The photoshoot that includes this photo" },
+  { value: "leasedBy", description: "Description to be added" },
+  { value: "is", description: "Description to be added" },
+  ...Object.keys(fieldAliases).map((alias) => ({
+    value: alias,
+    description: undefined
+  })),
 ].sort();
 
 const subjects = [
@@ -263,7 +266,7 @@ querySuggestions.factory("querySuggestions", [
 
     function getChipSuggestions(chip: Chip) {
       if (chip.type === "filter-chooser") {
-        return filterFields.filter((f) => f.startsWith(chip.value));
+        return filterFields.filter((f) => f.value.startsWith(chip.value));
       } else if (chip.type === "filter") {
         return getFilterSuggestions(chip.key, chip.value);
       } else {
