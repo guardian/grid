@@ -122,7 +122,7 @@
     'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters,
     'hide-vertical-warning-gutters': ctrl.shouldHideVerticalWarningGutters,
     'circular-guideline': ctrl.shouldShowCircularGuideline && !ctrl.shouldUseCircularMask,
-    'circular-mask': ctrl.shouldUseCircularMask
+    'circular-mask': ctrl.shouldShowCircularGuideline && ctrl.shouldUseCircularMask
 }">
     <div class="easel__canvas">
         <div class="easel__image-container" oncontextmenu="return false;">
