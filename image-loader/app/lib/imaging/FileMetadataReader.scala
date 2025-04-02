@@ -125,7 +125,7 @@ object FileMetadataReader extends GridLogging {
   val redactionReplacementValue = s"REDACTED (value longer than $redactionThreshold characters, please refer to the metadata stored in the file itself)"
   private def redactLongFieldValues(imageId: String, metadataType: String, exceptions: List[String] = Nil)(props: Map[String, String]) = props.map {
     case (fieldName, value) if value.length > redactionThreshold && !exceptions.exists(fieldName.contains) =>
-      logger.warn(s"Redacting '$fieldName' $metadataType field for image $imageId, as it's problematically long (longer than $redactionThreshold characters")
+      logger.debug(s"Redacting '$fieldName' $metadataType field for image $imageId, as it's problematically long (longer than $redactionThreshold characters")
       fieldName -> redactionReplacementValue
     case keyValuePair => keyValuePair
   }
