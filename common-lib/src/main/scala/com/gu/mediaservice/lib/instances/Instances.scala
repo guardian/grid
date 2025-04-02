@@ -18,9 +18,7 @@ trait Instances extends StrictLogging {
       r.status match {
         case 200 =>
           implicit val ir = Json.reads[Instance]
-          val instances = Json.parse(r.body).as[Seq[Instance]]
-          logger.info("Got instances: " + instances.map(_.id).mkString(","))
-          instances
+          Json.parse(r.body).as[Seq[Instance]]
         case _ =>
           logger.warn("Got non 200 status for instances call: " + r.status)
           Seq.empty
