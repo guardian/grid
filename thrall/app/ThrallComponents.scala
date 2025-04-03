@@ -12,6 +12,7 @@ import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallContr
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
+import org.apache.pekko.stream.KillSwitch
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -71,7 +72,12 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     actorSystem
   )
 
-  val streamRunning: Future[Done] = thrallStreamProcessor.run()
+  private val (streamRunning: Future[Done], streamKillswitch: KillSwitch) = thrallStreamProcessor.run()
+
+  applicationLifecycle.addStopHook(() => {
+    streamKillswitch.shutdown()
+    streamRunning
+  })
 
   val s3 = S3Ops.buildS3Client(config)
   val syncChecker = new SyncChecker(
