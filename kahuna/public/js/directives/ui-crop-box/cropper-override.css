@@ -41,7 +41,31 @@
   background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
 }
 
+/* circle guideline, works on any ratio (centered and with diameter the smaller of height/width) */
+.easel.circular-guideline .cropper-crop-box::after {
+  display: block;
+  content: "";
+  position: relative; /* can't be absolute otherwise aspect-ratio doesn't work */
+  aspect-ratio: 1 / 1;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px white dashed;
+  mix-blend-mode: difference;
+  border-radius: 50%;
+  box-sizing: border-box;
+  left: 50%;
+  top: -50%; /* because position relative, we need to move it up by half the height of the container */
+  transform: translate(-50%, -50%); /* center the circle, these percentages refer to the circles own x & y */
+  pointer-events: none;
+}
 
+.easel.circular-mask .cropper-crop-box::after {
+  display: none;
+}
+/* circular mask, only works on 1:1 */
+.easel.circular-mask .cropper-view-box {
+  border-radius: 50%;
+}
 
 /* GUTTERS to show what will be clipped if the 5:3 crop is used in 5:4 space */
 .easel.hide-vertical-warning-gutters .cropper-view-box::before,
