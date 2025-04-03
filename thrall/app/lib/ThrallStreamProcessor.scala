@@ -2,8 +2,8 @@ package lib
 
 import java.time.Instant
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{GraphDSL, MergePreferred, MergePrioritized, Source}
-import org.apache.pekko.stream.{Materializer, SourceShape}
+import org.apache.pekko.stream.scaladsl.{GraphDSL, Keep, MergePreferred, MergePrioritized, Sink, Source}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer, SourceShape}
 import org.apache.pekko.{Done, NotUsed}
 import com.gu.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
@@ -114,20 +114,23 @@ class ThrallStreamProcessor(
 
 
   }
-  def run(): Future[Done] = {
-    val stream = this.createStream().runForeach {
-      case (taggedRecord, stopwatch, _) =>
-        val markers = combineMarkers(taggedRecord, stopwatch.elapsed)
-        logger.info(markers, "Record processed")
-        taggedRecord.markProcessed()
-    }
+  def run(): (Future[Done], KillSwitch) = {
+    val (killswitch, stream) = this.createStream()
+      .viaMat(KillSwitches.single)(Keep.right)
+      .toMat(Sink.foreach{
+        case (taggedRecord, stopwatch, x) =>
+          val markers = combineMarkers(taggedRecord, stopwatch.elapsed)
+          logger.info(markers, "Record processed")
+          taggedRecord.markProcessed()
+      })(Keep.both)
+      .run()
 
     stream.onComplete {
       case Failure(exception) => logger.error("Thrall stream completed with failure", exception)
       case Success(_) => logger.info("Thrall stream completed with done, probably shutting down")
     }
 
-    stream
+    (stream, killswitch)
   }
 }
 
