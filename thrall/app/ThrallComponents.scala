@@ -75,6 +75,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   private val (streamRunning: Future[Done], streamKillswitch: KillSwitch) = thrallStreamProcessor.run()
 
   applicationLifecycle.addStopHook(() => {
+    logger.info("thrall stream is closing; saying byebye")
     streamKillswitch.shutdown()
     streamRunning
   })

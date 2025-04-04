@@ -237,6 +237,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       Linux / packageSummary := description.value,
       packageDescription := description.value,
 
+      Debian / killTimeout := 60,
       bashScriptEnvConfigLocation := Some("/etc/environment"),
       Debian / makeEtcDefault := None,
       Debian / packageBin := {
