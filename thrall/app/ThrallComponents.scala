@@ -72,11 +72,11 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     actorSystem
   )
 
-  private val (streamRunning: Future[Done], streamKillswitch: KillSwitch) = thrallStreamProcessor.run()
+  private val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   applicationLifecycle.addStopHook(() => {
     logger.info("thrall stream is closing; saying byebye")
-    streamKillswitch.shutdown()
+    thrallStreamProcessor.killSwitch.shutdown()
     streamRunning
   })
 
