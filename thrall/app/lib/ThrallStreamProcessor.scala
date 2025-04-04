@@ -130,7 +130,7 @@ class ThrallStreamProcessor(
 
     stream.onComplete {
       case Failure(exception) => logger.error("Thrall stream completed with failure", exception)
-      case Success(_) => logger.info("Thrall stream completed with done, probably shutting down")
+      case Success(Done) => logger.info("Thrall stream completed with done, probably shutting down")
     }
 
     stream
