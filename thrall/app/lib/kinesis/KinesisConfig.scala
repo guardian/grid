@@ -3,7 +3,9 @@ package lib.kinesis
 import com.gu.kinesis.ConsumerConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import lib.KinesisReceiverConfig
+import software.amazon.awssdk.services.dynamodb.model.BillingMode
 import software.amazon.kinesis.common.{InitialPositionInStream, InitialPositionInStreamExtended}
+import software.amazon.kinesis.leases.LeaseManagementConfig
 import software.amazon.kinesis.metrics.MetricsConfig
 import software.amazon.kinesis.retrieval.RetrievalConfig
 import software.amazon.kinesis.retrieval.polling.PollingConfig
@@ -28,6 +30,16 @@ object KinesisConfig extends GridLogging {
     val metricsConfig = new MetricsConfig(config.cloudwatchClient, config.streamName)
       .metricsLevel(config.metricsLevel)
 
+    val handoffConfig = LeaseManagementConfig.GracefulLeaseHandoffConfig.builder().isGracefulLeaseHandoffEnabled(false).build()
+
+    val leaseManagementConfig = new LeaseManagementConfig(
+      config.streamName,
+      config.streamName,
+      config.dynamoClient,
+      config.kinesisClient,
+      workerId,
+    ).billingMode(BillingMode.PAY_PER_REQUEST).gracefulLeaseHandoffConfig(handoffConfig)
+
     val clientConfig = ConsumerConfig(
       streamName = config.streamName,
       appName = config.streamName,
@@ -37,7 +49,7 @@ object KinesisConfig extends GridLogging {
       cloudwatchClient = config.cloudwatchClient,
       initialPositionInStreamExtended = initialPosition,
       coordinatorConfig = None,
-      leaseManagementConfig = None,
+      leaseManagementConfig = Some(leaseManagementConfig),
       metricsConfig = Some(metricsConfig),
       retrievalConfig = Some(retrievalConfig)
     )
