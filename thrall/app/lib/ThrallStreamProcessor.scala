@@ -55,19 +55,21 @@ class ThrallStreamProcessor(
   actorSystem: ActorSystem
  ) extends GridLogging {
 
+  val killSwitch = KillSwitches.shared("thrall-kill-switch")
+
   implicit val mat: Materializer = Materializer.matFromSystem(actorSystem)
   implicit val dispatcher: ExecutionContextExecutor = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord[ThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
     import GraphDSL.Implicits._
 
-    val uiRecordSource = uiSource.map(kinesisRecord =>
+    val uiRecordSource = uiSource.via(killSwitch.flow).map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, UiPriority, kinesisRecord.markProcessed))
 
-    val automationRecordSource = automationSource.map(kinesisRecord =>
+    val automationRecordSource = automationSource.via(killSwitch.flow).map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val migrationMessagesSource = migrationSource.map { case MigrationRecord(internalThrallMessage, time) =>
+    val migrationMessagesSource = migrationSource.via(killSwitch.flow).map { case MigrationRecord(internalThrallMessage, time) =>
       TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
     }
 
@@ -114,23 +116,20 @@ class ThrallStreamProcessor(
 
 
   }
-  def run(): (Future[Done], KillSwitch) = {
-    val (killswitch, stream) = this.createStream()
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(Sink.foreach{
-        case (taggedRecord, stopwatch, x) =>
-          val markers = combineMarkers(taggedRecord, stopwatch.elapsed)
-          logger.info(markers, "Record processed")
-          taggedRecord.markProcessed()
-      })(Keep.both)
-      .run()
+  def run(): Future[Done] = {
+    val stream = this.createStream().runForeach {
+      case (taggedRecord, stopwatch, _) =>
+        val markers = combineMarkers(taggedRecord, stopwatch.elapsed)
+        logger.info(markers, "Record processed")
+        taggedRecord.markProcessed()
+    }
 
     stream.onComplete {
       case Failure(exception) => logger.error("Thrall stream completed with failure", exception)
       case Success(_) => logger.info("Thrall stream completed with done, probably shutting down")
     }
 
-    (stream, killswitch)
+    stream
   }
 }
 
