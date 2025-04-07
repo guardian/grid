@@ -157,13 +157,14 @@ lazy val thrall = playProject("thrall", 9002)
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-      // amazon-kinesis-client brings in a critical vulnerability warning through apache avro, resolved in versions 1.11.4 and 1.12.0.
-      // updating amazon-kinesis-client? check if the override below can be removed
-      "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
-      "com.gu" %% "kcl-pekko-stream" % "0.1.1",
+      // TODO upgrading kcl to v3? check if you can remove avro override below
+      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
+    // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
+    // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html
     dependencyOverrides ++= Seq(
       "org.apache.avro" % "avro" % "1.11.4",
       "org.apache.pekko" %% "pekko-stream" % "1.0.3"
