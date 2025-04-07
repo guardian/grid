@@ -37,7 +37,6 @@
     <logger name="play" level="INFO" />
     <logger name="application" level="INFO" />
     <logger name="request" level="INFO" />
-    <logger name="software.amazon.kinesis" level="WARN" />
 
     <root level="INFO">
       <appender-ref ref="LOGFILE"/>
