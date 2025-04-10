@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.tortoise
 
-import com.gu.mediaservice.lib.config.{PublicationPhotographers, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.{PublicationPhotographer, PublicationPhotographers, UsageRightsConfigProvider}
 
 object TortoiseUsageRightsConfig extends UsageRightsConfigProvider {
   private val ObserverPublication = "The Observer"
@@ -21,8 +21,17 @@ object TortoiseUsageRightsConfig extends UsageRightsConfigProvider {
 
   val contractedPhotographers = List(
     PublicationPhotographers(ObserverPublication, List(
+      PublicationPhotographer("Andy Hall"),
+      PublicationPhotographer("Gary Calton"),
+      PublicationPhotographer("Suki Dhanda"),
+      PublicationPhotographer("Richard Saker"),
+      PublicationPhotographer("Karen Robinson"),
+      PublicationPhotographer("Sophia Evans"),
+      PublicationPhotographer("Katherine Anne Rose"),
+      PublicationPhotographer("Antonio Olmos"),
+      PublicationPhotographer("Jonathan Lovekin")
     ))
- )
+  )
 
   val staffIllustrators = List(
   )
