@@ -42,7 +42,8 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
   }
 
-  def authenticationStatus(requestHeader: RequestHeader): Either[Future[Result], Principal] = {
+  // authenticatedInGracePeriod - if true, then users with valid but recently-expired cookies are considered authenticated, and not required to immediately reauth
+  def authenticationStatus(requestHeader: RequestHeader, authenticatedInGracePeriod: Boolean): Either[Future[Result], Principal] = {
     def flushToken(resultWhenAbsent: Result): Result = {
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
@@ -61,6 +62,8 @@ class Authentication(config: CommonConfig,
             providers.userProvider.authenticateRequest(requestHeader) match {
               case NotAuthenticated => Left(unauthorised("Not authenticated"))
               case Expired(principal) => Left(expired(principal))
+              case GracePeriod(principal) if authenticatedInGracePeriod => Right(principal)
+              case GracePeriod(principal) => Left(expired(principal))
               case Authenticated(authedUser) => Right(authedUser)
               case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
               case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
@@ -70,7 +73,7 @@ class Authentication(config: CommonConfig,
   }
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
-    authenticationStatus(request) match {
+    authenticationStatus(request, authenticatedInGracePeriod = true) match {
       // we have a principal, so process the block
       case Right(principal) => block(new AuthenticatedRequest(principal, request))
       // no principal so return a result which will either be an error or a form of redirect
