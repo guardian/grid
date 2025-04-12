@@ -77,7 +77,7 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     filters.date("syndicationRights.published", None, Some(DateTime.now)).get
   )
 
-  private val syndicatableCategory: Query = IsOwnedPhotograph(config.staffPhotographerOrganisation).query
+  private val syndicatableCategory: Query = IsOwnedPhotograph().query
 
   def statusFilter(status: SyndicationStatus): Query = status match {
     case SentForSyndication => filters.and(
