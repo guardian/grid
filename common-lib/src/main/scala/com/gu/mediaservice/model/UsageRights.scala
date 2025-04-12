@@ -182,9 +182,9 @@ object Chargeable extends UsageRightsSpec {
   val defaultCost = Some(Pay)
   def name(commonConfig: CommonConfig) = "Chargeable supplied / on spec"
   def description(commonConfig: CommonConfig) =
-    s"Images acquired by or supplied to ${commonConfig.staffPhotographerOrganisation} that do not fit other categories in ${commonConfig.systemName} and " +
+    s"Images acquired by or supplied that do not fit other categories in ${commonConfig.systemName} and " +
       "therefore fees will be payable per use. Unless negotiated otherwise, fees should be based on " +
-      s"standard published ${commonConfig.staffPhotographerOrganisation} rates for stock and speculative images."
+      s"standard published rates for stock and speculative images."
 
   implicit val formats: Format[Chargeable] =
     UsageRights.subtypeFormat(Chargeable.category)(Json.format[Chargeable])
