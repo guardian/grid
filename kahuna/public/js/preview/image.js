@@ -94,9 +94,7 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.states = imageService(ctrl.image).states;
 
-      ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
-          `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
-          ctrl.image.data.metadata.description;
+      ctrl.imageDescription = ctrl.image.data.metadata.description;
 
       ctrl.image.isPotentiallyGraphic = graphicImageBlurService.isPotentiallyGraphic(ctrl.image);
 
