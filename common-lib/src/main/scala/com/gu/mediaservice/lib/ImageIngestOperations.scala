@@ -59,22 +59,43 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
 
   private def bulkDelete(bucket: S3Bucket, keys: List[String]): Future[Map[String, Boolean]] = keys match {
     case Nil => Future.successful(Map.empty)
-    case _ => Future {
-      try {
-        logger.info(s"Creating S3 bulkDelete request for $bucket / keys: " + keys.mkString(","))
-        deleteObjects(bucket, keys)
-        keys.map { key =>
-          key -> true
-        }.toMap
-      } catch {
-        case partialFailure: MultiObjectDeleteException =>
-          logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
-          val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
+    case _ =>
+      val bulkDeleteImplemented = bucket.endpoint != "storage.googleapis.com"
+      if (bulkDeleteImplemented) {
+        Future {
+          try {
+            logger.info(s"Bulk deleting S3 objects from $bucket: " + keys.mkString(","))
+            deleteObjects(bucket, keys)
+            keys.map { key =>
+              key -> true
+            }.toMap
+          } catch {
+            case partialFailure: MultiObjectDeleteException =>
+              logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
+              val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
+              keys.map { key =>
+                key -> !errorKeys.contains(key)
+              }.toMap
+          }
+        }
+
+      } else {
+        Future.sequence {
           keys.map { key =>
-            key -> !errorKeys.contains(key)
-          }.toMap
+            Future {
+              logger.info(s"Deleting S3 objects from $bucket: " + key)
+              try {
+                val x = deleteObject(bucket, key)
+                (key, true)
+              } catch {
+                case e: Exception =>
+                  logger.warn(s"Failure when deleting images from $bucket: $key, ${e.getMessage}")
+                  (key, false)
+              }
+            }
+          }
+        }.map(_.toMap)
       }
-    }
   }
 
   def deleteOriginal(id: String)(implicit logMarker: LogMarker, instance: Instance): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
