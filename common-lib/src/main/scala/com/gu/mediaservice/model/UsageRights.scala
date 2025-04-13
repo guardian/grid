@@ -289,7 +289,7 @@ object Screengrab extends UsageRightsSpec {
   val defaultCost = Some(Free)
   def name(commonConfig: CommonConfig) = "Screengrab"
   def description(commonConfig: CommonConfig) =
-    s"Stills created by ${commonConfig.staffPhotographerOrganisation} from moving footage in television broadcasts usually in relation to " +
+    s"Stills created by us from moving footage in television broadcasts usually in relation to " +
       "breaking news stories."
 
   implicit val formats: Format[Screengrab] =
