@@ -61,6 +61,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     case Nil => Future.successful(Map.empty)
     case _ => Future {
       try {
+        logger.info(s"Creating S3 bulkDelete request for $bucket / keys: " + keys.mkString(","))
         client.deleteObjects(
           new DeleteObjectsRequest(bucket).withKeys(keys: _*)
         )
