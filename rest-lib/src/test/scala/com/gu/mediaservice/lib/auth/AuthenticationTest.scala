@@ -111,7 +111,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     val auth = makeAuthenticationInstance(testProviders)
 
     "should return unauthorised if request is empty (no headers)" in {
-      val authStatus = auth.authenticationStatus(FakeRequest(), authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(FakeRequest(), gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe Status.UNAUTHORIZED
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "authentication-failure"
@@ -119,7 +119,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should return invalid if the cookie is present but invalid" in {
       val request = FakeRequest().withCookies(Cookie(COOKIE_NAME, "garbage"))
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe Status.UNAUTHORIZED
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "authentication-failure"
@@ -127,17 +127,17 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should return user when valid" in {
       val request = FakeRequest().withCookies(makeCookie())
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return user when expired but in grace period" in {
       val request = FakeRequest().withCookies(makeCookie(expired = true))
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.value shouldBe UserPrincipal("Test", "User", "test@user")
     }
     "should return expired when in grace period but authenticatedInGracePeriod is false" in {
       val request = FakeRequest().withCookies(makeCookie(expired = true))
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = false)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = false)
       authStatus.left.value.map { result =>
         result.header.status shouldBe 419
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "authentication-expired"
@@ -145,7 +145,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should return 419 when expired" in {
       val request = FakeRequest().withCookies(makeCookie(veryExpired = true))
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe 419
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "authentication-expired"
@@ -153,7 +153,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should return forbidden when user is not authorised by provider" in {
       val request = FakeRequest().withCookies(makeCookie(email = "l33t@hacker"))
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe Status.FORBIDDEN
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "principal-not-authorised"
@@ -161,12 +161,12 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should authenticate with an API key" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "key-client")
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
     "should return unauthorised when the API key is garbage" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "garbage")
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe Status.UNAUTHORIZED
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "authentication-failure"
@@ -174,7 +174,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should return forbidden if valid key is blocked" in {
       val request = FakeRequest().withHeaders(HEADER_NAME -> "key-is-blocked")
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.left.value.map { result =>
         result.header.status shouldBe Status.FORBIDDEN
         Helpers.contentAsJson(Future.successful(result)).\("errorKey").as[String] shouldBe "principal-not-authorised"
@@ -182,7 +182,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     }
     "should prioritise machine authentication over user authentication" in {
       val request = FakeRequest().withCookies(makeCookie()).withHeaders(HEADER_NAME -> "key-client")
-      val authStatus = auth.authenticationStatus(request, authenticatedInGracePeriod = true)
+      val authStatus = auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true)
       authStatus.value shouldBe MachinePrincipal(ApiAccessor("key-client", Internal))
     }
   }
