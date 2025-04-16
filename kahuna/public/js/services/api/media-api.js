@@ -58,6 +58,9 @@ mediaApi.factory('mediaApi',
         if (orderBy === 'dateAddedToCollection') {
             return 'dateAddedToCollection';
         }
+        else if (orderBy.includes('taken')) {
+            return orderBy;
+        }
         else {
             return orderBy === 'oldest' ? 'uploadTime' : '-uploadTime';
         }

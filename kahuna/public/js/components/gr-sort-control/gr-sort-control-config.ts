@@ -9,6 +9,12 @@ export function manageSortSelection(newSelection:string): string {
     case "oldest":
       newVal = "oldest";
       break;
+    case "takenNewOld":
+      newVal = "-taken";
+      break;
+    case "takenOldNew":
+      newVal = "taken";
+      break;
     case "dateAddedToCollection":
       newVal = "dateAddedToCollection";
       break;
@@ -31,6 +37,16 @@ export const SortOptions: SortDropdownOption[] = [
     isCollection: false
   },
   {
+    value: "takenNewOld",
+    label: "Taken date (new to old)",
+    isCollection: false
+  },
+  {
+    value: "takenOldNew",
+    label: "Taken date (old to new)",
+    isCollection: false
+  },
+  {
     value: "dateAddedToCollection",
     label: "Added to collection (new to old)",
     isCollection: true
@@ -38,4 +54,4 @@ export const SortOptions: SortDropdownOption[] = [
 ];
 
 export const DefaultSortOption: SortDropdownOption = SortOptions[0];
-export const CollectionSortOption: SortDropdownOption = SortOptions[2];
+export const CollectionSortOption: SortDropdownOption = SortOptions[4];

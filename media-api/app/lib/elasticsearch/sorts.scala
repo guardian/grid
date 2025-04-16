@@ -16,7 +16,7 @@ object sorts {
   def dateAddedToCollectionDescending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.DESC))
 
   private def parseSortBy(sortBy: String): Seq[Sort] = {
-   sortBy.split(',').toList.map {
+   sortBy.replace("taken", "metadata.dateTaken").split(',').toList.map {
         case HasDescFieldPrefix(field) => fieldSort(field).order(SortOrder.DESC)
         case field => fieldSort(field).order(SortOrder.ASC)
       }
