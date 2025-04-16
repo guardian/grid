@@ -169,6 +169,19 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     if (option.value !== selectedOption.value) {
       setSelection(option);
       props.onSelect(option);
+      //-notification banner-
+      if (option.value.includes("taken")) {
+        const notificationEvent = new CustomEvent("newNotification", {
+          detail: {
+            announceId: "sortByTakenDate",
+            description: "Images without a Taken Date will appear at the end of the list",
+            category: "information",
+            lifespan: "transient"
+          },
+          bubbles: true
+        });
+        window.dispatchEvent(notificationEvent);
+      }
     }
   };
 
