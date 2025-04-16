@@ -18,6 +18,7 @@ mediaApi.factory('mediaApi',
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
                                  syndicationStatus, countAll, persisted} = {}) {
+        console.log("***search*** :" + orderBy)
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -55,10 +56,11 @@ mediaApi.factory('mediaApi',
     }
 
     function getOrder(orderBy) {
+        console.log("***getOrder*** :" + orderBy)
         if (orderBy === 'dateAddedToCollection') {
             return 'dateAddedToCollection';
         }
-        else if (orderBy.includes('taken')) {
+        else if (orderBy && orderBy.includes('taken')) {
             return orderBy;
         }
         else {
