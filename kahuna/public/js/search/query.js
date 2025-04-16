@@ -188,6 +188,7 @@ query.controller('SearchQueryCtrl', [
     function watchSearchChange(newFilter, sender) {
       const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       storage.setJs("isNonFree", showPaid, true);
+      storage.setJs("orderBy", ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : "newest");
 
       ctrl.collectionSearch = newFilter.query ? newFilter.query.indexOf('~') === 0 : false;
 

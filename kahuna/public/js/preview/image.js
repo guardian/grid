@@ -127,6 +127,10 @@ image.controller('uiPreviewImageCtrl', [
       };
 
       ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.orderTakenBy = () => {
+        let orderBy = storage.getJs('orderBy', false);
+        return (orderBy && orderBy.includes('taken'));
+      }
 
       ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 
