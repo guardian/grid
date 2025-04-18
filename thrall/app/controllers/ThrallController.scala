@@ -326,7 +326,7 @@ class ThrallController(
 
     logger.info(s"Reindex requested for instance ${instance.id}")
     val mediaIds = getMediaIdsFromS3(Seq.empty, None)
-    logger.info(s"Reindexing ${mediaIds.size} images for instance ${instance.id}")
+    logger.info(s"Queuing reindex requests for ${mediaIds.size} images for instance ${instance.id}")
     mediaIds.foreach { mediaId =>
       messageSender.publish(
         UpdateMessage(
