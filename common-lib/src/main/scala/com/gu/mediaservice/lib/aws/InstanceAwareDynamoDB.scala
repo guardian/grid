@@ -250,12 +250,13 @@ class InstanceAwareDynamoDB[T](config: CommonConfig, tableName: String, lastModi
     table.query(byInstance).iterator.asScala.toList
   } map (_.map(asJsObject))
 
-  def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext) = Future {
+  def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext, instance: Instance) = Future {
     val index = table.getIndex(indexName)
 
     val spec = new QuerySpec()
-      .withKeyConditionExpression(s"$keyname = :key")
+      .withKeyConditionExpression(s"instance = :instance AND $keyname = :key")
       .withValueMap(new ValueMap()
+        .withString(":instance", instance.id)
         .withString(":key", key))
 
     val items: List[Item] = index.query(spec).iterator.asScala.toList
