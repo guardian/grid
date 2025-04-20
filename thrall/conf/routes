@@ -8,7 +8,7 @@ GET     /restoreFromReplica                           controllers.ThrallControll
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
 +nocsrf
-#POST    /migrationFailures/reattempt                  controllers.ThrallController.reattemptMigrationFailures(filter: String, page: Int)
+POST    /migrationFailures/reattempt                  controllers.ThrallController.reattemptMigrationFailures(filter: String, page: Int)
 
 +nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration

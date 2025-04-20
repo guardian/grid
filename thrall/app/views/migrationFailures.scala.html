@@ -32,7 +32,9 @@
         </h1>
         <p>@failures.totalFailed images failed with the above message!</p>
         @if(shouldAllowReattempts) {
-
+            @form(action = routes.ThrallController.reattemptMigrationFailures(filter, page)){
+                <input type="submit" value="Reattempt all images on this page">
+            }
         }
         @navigation
     </div>
