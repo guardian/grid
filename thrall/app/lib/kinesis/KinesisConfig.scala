@@ -28,6 +28,7 @@ object KinesisConfig extends GridLogging {
     val metricsConfig = new MetricsConfig(config.cloudwatchClient, config.streamName)
       .metricsLevel(config.metricsLevel)
 
+    logger.info(s"Creating consumer config for appName: ${config.appName}, streamName: ${config.streamName}")
     val clientConfig = ConsumerConfig(
       streamName = config.streamName,
       appName = config.appName,

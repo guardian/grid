@@ -76,8 +76,8 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
   val reaperPaused: Boolean = false
   val hardReapImagesAge: Int = intDefault("reaper.hard.daysInSoftDelete", 14) // soft deleted images age to be hard deleted by Reaper Controller
 
-  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallAppName, thrallKinesisStream, rewindFrom, this)
-  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallAppName, thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
+  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(appName = thrallAppName, streamName = thrallKinesisStream, rewindFrom, this)
+  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(appName = thrallAppName, streamName = thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 
   def maybeReapableEligibilityClass(applicationLifecycle: ApplicationLifecycle): Option[ReapableEligibility] = {
     val configLoader = ReapableEligibilityLoader.singletonConfigLoader(ReapableEligibiltyResources(this, resources.actorSystem), applicationLifecycle)
