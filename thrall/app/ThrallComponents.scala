@@ -67,8 +67,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val lowPriorityKinesisConfig: KclPekkoStreamConfig = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
-  val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, Instance("an-instance"))  // TODO move to a more multi instance aware place
+  //val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
+  //val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, Instance("an-instance"))  // TODO move to a more multi instance aware place
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
@@ -84,8 +84,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val thrallStreamProcessor = new ThrallStreamProcessor(
     uiSource,
-    automationSource,
-    migrationSourceWithSender.source,
+    //automationSource,
+    //migrationSourceWithSender.source,
     thrallEventConsumer,
     actorSystem
   )
@@ -122,7 +122,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)
 
-  val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient, s3, config.imageBucket)
+  val thrallController = new ThrallController(es, store, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient, s3, config.imageBucket)
   val reaperController = new ReaperController(es, store, authorisation, config, actorSystem.scheduler, maybeCustomReapableEligibility, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents, wsClient, events)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
 

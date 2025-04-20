@@ -33,7 +33,7 @@ case class MigrateSingleImageForm(id: String)
 class ThrallController(
   es: ElasticSearch,
   store: ThrallStore,
-  sendMigrationRequest: MigrationRequest => Future[Boolean],
+  //sendMigrationRequest: MigrationRequest => Future[Boolean],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
   override val auth: Authentication,
@@ -242,10 +242,12 @@ class ThrallController(
     es.getImageVersion(imageId) flatMap {
 
       case Some(version) =>
-        sendMigrationRequest(MigrationRequest(imageId, version)).map {
-          case true => Ok(s"Image migration queued successfully with id:$imageId")
-          case false => InternalServerError(s"Failed to send migrate image message $imageId")
-        }
+        //sendMigrationRequest(MigrationRequest(imageId, version)).map {
+        //  case true => Ok(s"Image migration queued successfully with id:$imageId")
+        //  case false => InternalServerError(s"Failed to send migrate image message $imageId")
+        //}
+        Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
+
       case None =>
         Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
     }
@@ -270,6 +272,7 @@ class ThrallController(
     Ok(views.html.restoreFromReplica(s"${services.loaderBaseUri(instanceOf(request))}/images/restore")) //FIXME figure out imageId bit
   }
 
+  /*
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     implicit val instance: Instance = instanceOf(request)
     Paging.withPaging(Some(page)) { paging =>
@@ -293,6 +296,7 @@ class ThrallController(
       }
     }
   }
+   */
 
   val migrateSingleImageFormReader: Form[MigrateSingleImageForm] = Form(
     mapping(

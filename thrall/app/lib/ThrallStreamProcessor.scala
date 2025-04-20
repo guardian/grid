@@ -49,8 +49,8 @@ case class TaggedRecord[+P](payload: P,
 
 class ThrallStreamProcessor(
   uiSource: Source[KinesisRecord, Future[Done]],
-  automationSource: Source[KinesisRecord, Future[Done]],
-  migrationSource: Source[MigrationRecord, Future[Done]],
+  //automationSource: Source[KinesisRecord, Future[Done]],
+  //migrationSource: Source[MigrationRecord, Future[Done]],
   consumer: ThrallEventConsumer,
   actorSystem: ActorSystem
  ) extends GridLogging {
@@ -64,17 +64,17 @@ class ThrallStreamProcessor(
     val uiRecordSource = uiSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, UiPriority, kinesisRecord.markProcessed))
 
-    val automationRecordSource = automationSource.map(kinesisRecord =>
-      TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
+    //val automationRecordSource = automationSource.map(kinesisRecord =>
+    //  TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val migrationMessagesSource = migrationSource.map { case MigrationRecord(internalThrallMessage, time) =>
-      TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
-    }
+    //val migrationMessagesSource = migrationSource.map { case MigrationRecord(internalThrallMessage, time) =>
+    //  TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
+    //}
 
     // merge together ui and automation kinesis records
     val uiAndAutomationRecordsMerge = graphBuilder.add(MergePreferred[TaggedRecord[Array[Byte]]](1))
     uiRecordSource ~> uiAndAutomationRecordsMerge.preferred
-    automationRecordSource  ~> uiAndAutomationRecordsMerge.in(0)
+    //automationRecordSource  ~> uiAndAutomationRecordsMerge.in(0)
 
     // parse the kinesis records into thrall update messages (dropping those that fail)
     val uiAndAutomationMessagesSource: PortOps[TaggedRecord[ExternalThrallMessage]] =
@@ -99,7 +99,7 @@ class ThrallStreamProcessor(
     // merge in the re-ingestion source (preferring ui/automation)
     val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
-    migrationMessagesSource ~> mergePreferred.in(0)
+    //migrationMessagesSource ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })
