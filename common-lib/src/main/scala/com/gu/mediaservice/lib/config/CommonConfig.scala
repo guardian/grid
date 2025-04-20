@@ -33,6 +33,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   val thrallAppName = stringOpt("thrall.kinesis.app.name").getOrElse("thrall")
+  val thrallLowPriorityAppName = stringOpt("thrall.kinesis.lowPriority.app.name").getOrElse("thrall-low-priority")
   val thrallKinesisStream = string("thrall.kinesis.stream.name")
   val thrallKinesisLowPriorityStream = string("thrall.kinesis.lowPriorityStream.name")
 
