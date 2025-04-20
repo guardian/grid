@@ -30,7 +30,7 @@ object KinesisConfig extends GridLogging {
 
     val clientConfig = ConsumerConfig(
       streamName = config.streamName,
-      appName = config.streamName,
+      appName = config.appName,
       workerId = workerId,
       kinesisClient = config.kinesisClient,
       dynamoClient = config.dynamoClient,

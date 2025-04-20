@@ -25,6 +25,7 @@ case class KinesisReceiverConfig(
   override val awsCredentialsV2: AwsCredentialsProvider,
   override val awsLocalEndpointUri: Option[URI],
   override val isDev: Boolean,
+  appName: String,
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.NONE
@@ -43,11 +44,12 @@ case class KinesisReceiverConfig(
 }
 
 object KinesisReceiverConfig {
-  def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
+  def apply(appName: String, streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
     thrallConfig.awsRegionV2,
     thrallConfig.awsCredentialsV2,
     thrallConfig.awsLocalEndpointUri,
     thrallConfig.isDev,
+    appName,
     streamName,
     rewindFrom
   )
@@ -74,8 +76,8 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
   val reaperPaused: Boolean = false
   val hardReapImagesAge: Int = intDefault("reaper.hard.daysInSoftDelete", 14) // soft deleted images age to be hard deleted by Reaper Controller
 
-  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
-  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
+  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallAppName, thrallKinesisStream, rewindFrom, this)
+  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallAppName, thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 
   def maybeReapableEligibilityClass(applicationLifecycle: ApplicationLifecycle): Option[ReapableEligibility] = {
     val configLoader = ReapableEligibilityLoader.singletonConfigLoader(ReapableEligibiltyResources(this, resources.actorSystem), applicationLifecycle)
