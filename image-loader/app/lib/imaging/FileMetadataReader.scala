@@ -70,12 +70,22 @@ object FileMetadataReader extends GridLogging {
     yield getMetadataWithIPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
   private def getMetadataWithIPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
+    //FileMetadata(
+    //  iptc = exportDirectory(metadata, classOf[IptcDirectory]),
+    //  exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
+    //  exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
+    //  xmp = exportXmpPropertiesInTransformedSchema(metadata, imageId),
+    //  icc = redactLongFieldValues(imageId, "ICC")(exportDirectory(metadata, classOf[IccDirectory])),
+    //  getty = exportGettyDirectory(metadata, imageId),
+    //  colourModel = None,
+    //  colourModelInformation = Map()
+    //)
     FileMetadata(
-      iptc = exportDirectory(metadata, classOf[IptcDirectory]),
-      exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
-      exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      xmp = exportXmpPropertiesInTransformedSchema(metadata, imageId),
-      icc = redactLongFieldValues(imageId, "ICC")(exportDirectory(metadata, classOf[IccDirectory])),
+      iptc = Map(),
+      exif = Map(),
+      exifSub = Map(),
+      xmp = Map(),
+      icc = Map(),
       getty = exportGettyDirectory(metadata, imageId),
       colourModel = None,
       colourModelInformation = Map()
