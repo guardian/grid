@@ -4,6 +4,10 @@ import {
   Typeahead,
   TypeaheadField,
   TextSuggestionOption,
+  QueryChangeEventDetail,
+  CqlQuery,
+  CqlBinary,
+  CqlExpr,
 } from "@guardian/cql";
 import { List, Map } from "immutable";
 import { mediaApi } from "../../services/api/media-api";
@@ -19,54 +23,6 @@ export type FieldAlias = {
   alias: string;
   searchHintOptions: any;
 };
-
-const fieldAliases = window._clientConfig.fieldAliases
-  .filter((fieldAlias: FieldAlias) => fieldAlias.displaySearchHint === true)
-  .reduce(
-    function (map, fieldAlias) {
-      map[fieldAlias.alias] = fieldAlias;
-      return map;
-    },
-    {} as Record<string, FieldAlias>,
-  );
-
-// FIXME: get fields and subjects from API
-const filterFields = [
-  "by",
-  "category",
-  "city",
-  "copyright",
-  "country",
-  "credit",
-  "description",
-  "fileType",
-  "illustrator",
-  "in",
-  "keyword",
-  "label",
-  "location",
-  "person",
-  "source",
-  "specialInstructions",
-  "state",
-  "subject",
-  "supplier",
-  "suppliersReference",
-  "title",
-  "uploader",
-  "usages@<added",
-  "usages@>added",
-  "usages@platform",
-  "usages@status",
-  "usages@reference",
-  "has",
-  "croppedBy",
-  "filename",
-  "photoshoot",
-  "leasedBy",
-  "is",
-  ...Object.keys(fieldAliases),
-].sort();
 
 const subjects = [
   "arts",
@@ -111,6 +67,94 @@ querySuggestions.factory("querySuggestions", [
   "mediaApi",
   "editsApi",
   function (mediaApi: any, editsApi: any) {
+    const fieldAliases = window._clientConfig.fieldAliases
+      .filter((fieldAlias: FieldAlias) => fieldAlias.displaySearchHint === true)
+      .reduce(
+        function (map, fieldAlias) {
+          map[fieldAlias.alias] = fieldAlias;
+          return map;
+        },
+        {} as Record<string, FieldAlias>,
+      );
+
+    const filterFields = [
+      {
+        fieldName: "by",
+        resolver: (value: string) =>
+          listPhotographers().then(prefixFilter(value)),
+      },
+      {
+        fieldName: "category",
+        resolver: (value: string) => listCategories().then(prefixFilter(value)),
+      },
+      { fieldName: "city" },
+      { fieldName: "copyright" },
+      { fieldName: "country" },
+      {
+        fieldName: "credit",
+        resolver: (value: string) => suggestCredit(value),
+      },
+      { fieldName: "description" },
+      {
+        fieldName: "fileType",
+        resolver: (value: string) => prefixFilter(value)(fileTypes),
+      },
+      {
+        fieldName: "illustrator",
+        resolver: (value: string) =>
+          listIllustrators().then(prefixFilter(value)),
+      },
+      { fieldName: "in" },
+      { fieldName: "keyword" },
+      {
+        fieldName: "label",
+        resolver: (value: string) => suggestLabels(value),
+      },
+      { fieldName: "location" },
+      { fieldName: "person" },
+      {
+        fieldName: "source",
+        resolver: (value: string) => suggestSource(value),
+      },
+      { fieldName: "specialInstructions" },
+      { fieldName: "state" },
+      {
+        fieldName: "subject",
+        resolver: (value: string) => prefixFilter(value)(subjects),
+      },
+      {
+        fieldName: "supplier",
+        resolver: (value: string) => listSuppliers().then(prefixFilter(value)),
+      },
+      { fieldName: "suppliersReference" },
+      { fieldName: "title" },
+      { fieldName: "uploader" },
+      { fieldName: "usages@<added" },
+      { fieldName: "usages@>added" },
+      { fieldName: "usages@platform", resolver: listUsagePlatforms },
+      {
+        fieldName: "usages@status",
+        resolver: ["published", "pending", "removed"],
+      },
+      { fieldName: "usages@reference" },
+      { fieldName: "has" },
+      { fieldName: "croppedBy" },
+      { fieldName: "filename" },
+      {
+        fieldName: "photoshoot",
+        resolver: (value: string) => suggestPhotoshoot(value),
+      },
+      { fieldName: "leasedBy" },
+      { fieldName: "is", resolver: isSearch },
+      ...Object.keys(fieldAliases).map((fieldName) => ({
+        fieldName,
+        resolver: fieldAliases.hasOwnProperty(fieldName)
+          ? (value: string) =>
+              prefixFilter(value)(suggestFieldAliasOptions(fieldName))
+          : undefined,
+      })),
+    ].sort();
+
     function prefixFilter(prefix: string) {
       const lowerPrefix = prefix.toLowerCase();
       return (values: string[]) =>
@@ -218,107 +262,146 @@ querySuggestions.factory("querySuggestions", [
       return fieldAliases[fieldAlias].searchHintOptions;
     }
 
-    function getFilterSuggestions(field: string, value: string) {
-      switch (field) {
-        case "usages@status":
-          return ["published", "pending", "removed"];
-        case "usages@platform":
-          return listUsagePlatforms();
-        case "subject":
-          return prefixFilter(value)(subjects);
-        case "fileType":
-          return prefixFilter(value)(fileTypes);
-        case "label":
-          return suggestLabels(value);
-        case "credit":
-          return suggestCredit(value);
-        case "source":
-          return suggestSource(value);
-        case "supplier":
-          return listSuppliers().then(prefixFilter(value));
-        // TODO: list all known bylines, not just our photographers
-        case "by":
-          return listPhotographers().then(prefixFilter(value));
-        case "illustrator":
-          return listIllustrators().then(prefixFilter(value));
-        case "category":
-          return listCategories().then(prefixFilter(value));
-        case "photoshoot":
-          return suggestPhotoshoot(value);
-        case "is":
-          return isSearch;
-        // No suggestions
-        default:
-          return fieldAliases.hasOwnProperty(field)
-            ? prefixFilter(value)(suggestFieldAliasOptions(field))
-            : [];
-      }
-    }
-
-    type Chip = {
-      type: string;
-      value: string;
-      key: string;
-    };
-
-    function getChipSuggestions(chip: Chip) {
-      if (chip.type === "filter-chooser") {
-        return filterFields.filter((f) => f.startsWith(chip.value));
-      } else if (chip.type === "filter") {
-        return getFilterSuggestions(chip.key, chip.value);
-      } else {
-        return [];
-      }
-    }
-
     return {
-      getChipSuggestions,
+      filterFields,
     };
   },
 ]);
 
-export const fields: TypeaheadField[] = filterFields.map((fieldName) => {
-  const resolver = async (str: string): Promise<TextSuggestionOption[]> => {
-    const service: any = angular
-      .element(document)
-      .injector()
-      .get("querySuggestions");
+grCqlInput.directive<
+  angular.IScope & { onChange: () => (str: string) => void }
+>("grCqlInput", [
+  "querySuggestions",
+  function (querySuggestions) {
+    const fields: TypeaheadField[] = querySuggestions.filterFields.map(
+      ({ fieldName, resolver }: any) => {
+        const mappedResolver = resolver
+          ? async (fieldName: string) => {
+              console.log({ fieldName, a, b });
+              const suggestions = await resolver(fieldName);
+              return suggestions.map((suggestion: any) => {
+                return { label: suggestion, value: suggestion };
+              });
+            }
+          : undefined;
 
-    const suggestions: string[] = await service.getChipSuggestions({
-      type: "filter",
-      value: str,
-      key: fieldName,
+        return new TypeaheadField(
+          fieldName,
+          fieldName,
+          undefined,
+          mappedResolver,
+        );
+      },
+    );
+
+    console.log({ querySuggestions });
+
+    const typeahead = new Typeahead(fields);
+
+    const CqlInput = createCqlInput(typeahead, {
+      theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
+      lang: { operators: false, groups: false },
     });
+    customElements.define("cql-input", CqlInput as any);
 
-    console.log(suggestions);
-    return suggestions.map((suggestion) => {
-      console.log(suggestion);
-      return { label: suggestion, value: suggestion };
-    });
-  };
-
-  return new TypeaheadField(fieldName.value, fieldName.value, fieldName.description, resolver);
-});
-
-const typeahead = new Typeahead(fields);
-
-const CqlInput = createCqlInput(typeahead, {
-  theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
-  lang: { operators: false, groups: false },
-});
-customElements.define("cql-input", CqlInput as any);
-
-grCqlInput.directive("grCqlInput", [
-  function () {
     return {
       restrict: "E",
-      template: "<cql-input></cql-input>",
-      controller: function () {
-        console.log("controller");
+      scope: {
+        onChange: "&",
+        initialValue: "=",
       },
-      link: function (scope, element, attrs) {
-        console.log("link");
+      template: "<cql-input></cql-input>",
+      link: function (scope, element, attrs, ngModelCtrl) {
+        const cqlInput = element.find("cql-input")[0];
+        cqlInput.addEventListener(
+          "queryChange",
+          (event: QueryChangeEventDetail) => {
+            console.log("queryChange", event);
+            if (event.detail?.queryAst) {
+              console.log(
+                "update",
+                event.detail?.queryStr,
+                gridQueryStrFromQuery(event.detail?.queryAst),
+              );
+              scope.onChange()(gridQueryStrFromQuery(event.detail?.queryAst));
+            }
+          },
+        );
+        // ngModelCtrl.$render = function () {
+        //   const queryString = ngModelCtrl.$viewValue || "";
+        //   ctrl.structuredQuery = structureQuery(queryString);
+        // };
+
+        // subscribe$(scope, ctrl.newQuery$, (query) => {
+        //   ngModelCtrl.$setViewValue(query);
+        // });
       },
     };
   },
 ]);
+
+const dateFields = ["from-date", "to-date"];
+const relativeDateRegex = /(?<polarity>[-+])(?<quantity>\d+)(?<unit>[dmyw])/;
+
+const add = (a: number, b: number) => a + b;
+const substract = (a: number, b: number) => a - b;
+
+const parseDateValue = (value: string): string => {
+  const result = relativeDateRegex.exec(value);
+  if (!result) {
+    return value;
+  }
+  const now = new Date();
+  const { polarity, quantity, unit } = result.groups as {
+    polarity: string;
+    quantity: string;
+    unit: string;
+  };
+
+  const op = polarity === "+" ? add : substract;
+
+  const year = op(now.getFullYear(), unit === "y" ? parseInt(quantity) : 0);
+  // Months are zero indexed in Javascript, ha ha ha
+  const month = op(now.getMonth(), unit === "m" ? parseInt(quantity) : 0);
+  const day = op(
+    now.getDate(),
+    unit === "d"
+      ? parseInt(quantity)
+      : unit === "w"
+        ? parseInt(quantity) * 7
+        : 0,
+  );
+  const date = new Date(year, month, day);
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+};
+
+export const gridQueryStrFromQuery = (query: CqlQuery): string => {
+  const { content } = query;
+  if (!content) {
+    return "";
+  }
+  return strFromBinary(content);
+};
+
+const strFromBinary = (binary: CqlBinary): string => {
+  return (
+    strFromExpr(binary.left) +
+    (binary.right
+      ? // Ignore the operator, which can only be OR
+        ` ${strFromBinary(binary.right.binary)}`
+      : "")
+  );
+};
+
+const strFromExpr = (expr: CqlExpr) => {
+  switch (expr.content.type) {
+    case "CqlBinary":
+      return strFromBinary(expr.content);
+    case "CqlStr":
+      return expr.content.searchExpr;
+    case "CqlGroup":
+      return `(${strFromBinary(expr.content.content)})`;
+    case "CqlField":
+      return `${expr.content.key.literal}:${expr.content.value?.literal ?? ""}`;
+  }
+};
