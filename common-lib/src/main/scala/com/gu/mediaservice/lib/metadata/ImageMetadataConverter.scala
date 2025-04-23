@@ -54,7 +54,6 @@ object ImageMetadataConverter extends GridLogging {
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None, earliestAllowedDateTime: Option[DateTime] = Some(earliestSensibleDate)): ImageMetadata = {
     def parseDate(dateString: String): Option[DateTime] = parseRandomDate(dateString, maxDate = latestAllowedDateTime, minDate = earliestAllowedDateTime)
-
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseDate) orElse
