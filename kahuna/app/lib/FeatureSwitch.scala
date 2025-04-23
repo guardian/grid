@@ -10,6 +10,12 @@ object ExampleSwitch extends FeatureSwitch(
   default = false
 )
 
+object UseCqlChips extends FeatureSwitch(
+  key = "use-cql-chips",
+  title = "Use CQL for the chips interface",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
