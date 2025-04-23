@@ -59,10 +59,10 @@ object ImageMetadataConverter extends GridLogging {
     val descripOpt = fileMetadata.readXmpHeadStringProp("dc:description") orElse
                      fileMetadata.iptc.get("Caption/Abstract") orElse
                      fileMetadata.exif.get("Image Description")
-    val exifSubTaken = "exifSubTaken: " + fileMetadata.exifSub.get("Date/Time Original Composite").getOrElse("[no data] ")
-    val iptcTaken = "iptcTaken: " + fileMetadata.iptc.get("Date Time Created Composite").getOrElse("[no data] ")
-    val xmpTaken = "xmpTaken: " + fileMetadata.readXmpHeadStringProp("photoshop:DateCreated").getOrElse("[no data] ")
-    val description = descripOpt.getOrElse("[no description]") + " " + exifSubTaken + iptcTaken + xmpTaken
+    val exifSubTaken = " exifSubTaken: " + fileMetadata.exifSub.get("Date/Time Original Composite").getOrElse("[no data]")
+    val iptcTaken = " iptcTaken: " + fileMetadata.iptc.get("Date Time Created Composite").getOrElse("[no data]")
+    val xmpTaken = " xmpTaken: " + fileMetadata.readXmpHeadStringProp("photoshop:DateCreated").getOrElse("[no data]")
+    val description = descripOpt.getOrElse("[no description]") + exifSubTaken + iptcTaken + xmpTaken
 
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseDate) orElse
