@@ -68,6 +68,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     PublicationPhotographers(ObserverPublication, List(
       "Andy Hall",
       "Antonio Olmos",
+      "Gary Calton",
       "Jane Bown",
       "Jonathan Lovekin",
       "Karen Robinson",
@@ -77,7 +78,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       "Suki Dhanda"
     )),
      PublicationPhotographers(GuardianPublication, List(
-      "Gary Calton", // moved over from Obs 22 Apr 2025
       "Alicia Canter",
       "Antonio Olmos",
       "Christopher Thomond",
