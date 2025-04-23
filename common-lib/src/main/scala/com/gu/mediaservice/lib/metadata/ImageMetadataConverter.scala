@@ -54,13 +54,21 @@ object ImageMetadataConverter extends GridLogging {
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None, earliestAllowedDateTime: Option[DateTime] = Some(earliestSensibleDate)): ImageMetadata = {
     def parseDate(dateString: String): Option[DateTime] = parseRandomDate(dateString, maxDate = latestAllowedDateTime, minDate = earliestAllowedDateTime)
+
+    // temp taken date analysis code
+    val descripOpt = fileMetadata.readXmpHeadStringProp("dc:description") orElse
+                     fileMetadata.iptc.get("Caption/Abstract") orElse
+                     fileMetadata.exif.get("Image Description")
+    val exifSubTaken = "exifSubTaken: " + fileMetadata.exifSub.get("Date/Time Original Composite").getOrElse("[no data] ")
+    val iptcTaken = "iptcTaken: " + fileMetadata.iptc.get("Date Time Created Composite").getOrElse("[no data] ")
+    val xmpTaken = "xmpTaken: " + fileMetadata.readXmpHeadStringProp("photoshop:DateCreated").getOrElse("[no data] ")
+    val description = descripOpt.getOrElse("[no description]") + " " + exifSubTaken + iptcTaken + xmpTaken
+
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseDate) orElse
                             (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap parseDate),
-      description         = fileMetadata.readXmpHeadStringProp("dc:description") orElse
-                            fileMetadata.iptc.get("Caption/Abstract") orElse
-                            fileMetadata.exif.get("Image Description"),
+      description         = Option(description),
       credit              = fileMetadata.readXmpHeadStringProp("photoshop:Credit") orElse
                             fileMetadata.iptc.get("Credit"),
       byline              = fileMetadata.readXmpHeadStringProp("dc:creator") orElse
