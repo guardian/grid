@@ -187,7 +187,7 @@ crop.controller('ImageCropCtrl', [
           // update this array to apply circular guideline to further ratios (e.g. 5:4)
           && ["square"].includes(ctrl.cropType.toLowerCase());
 
-        ctrl.isSquareCrop = maybeCropRatioIfStandard === "1:1";
+        ctrl.isSquareCrop = ctrl.cropType.toLowerCase() === "square";
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;
