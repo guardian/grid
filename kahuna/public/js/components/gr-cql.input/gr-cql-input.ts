@@ -277,7 +277,6 @@ grCqlInput.directive<
       ({ fieldName, resolver }: any) => {
         const mappedResolver = resolver
           ? async (fieldName: string) => {
-              console.log({ fieldName, a, b });
               const suggestions = await resolver(fieldName);
               return suggestions.map((suggestion: any) => {
                 return { label: suggestion, value: suggestion };

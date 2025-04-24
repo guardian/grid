@@ -10,6 +10,7 @@ import { rxUtil } from "../../util/rx";
 import { querySuggestions, filterFields } from "./query-suggestions";
 import { renderQuery, structureQuery } from "./syntax";
 import { grCqlInput } from "../../components/gr-cql.input/gr-cql-input";
+import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export const grStructuredQuery = angular.module("gr.structuredQuery", [
   rxUtil.name,
@@ -67,19 +68,36 @@ grStructuredQuery.directive("grStructuredQuery", [
       restrict: "E",
       require: ["grStructuredQuery", "ngModel"],
       template: `
-            <gr-cql-input on-change="handleChange" initialValue="initialValue">
+            <gr-chips ng-if="!ctrl.useCql"
+                      autofocus="autofocus"
+                      ng-model="ctrl.structuredQuery"
+                      gr:valid-keys="ctrl.filterFields"
+                      gr:on-change="ctrl.structuredQueryChanged($chips)"
+                      gr:autocomplete="ctrl.getSuggestions($chip)">
+            </gr-chips>
+            <gr-cql-input ng-if="ctrl.useCql"
+                          on-change="handleChange"
+                          initialValue="initialValue">
             </gr-cql-input>`,
       controller: "grStructuredQueryCtrl",
       controllerAs: "ctrl",
-      link: function (scope, element, attrs, [ctrl, ngModelCtrl]) {
-        scope.handleChange = (str) => {
-          console.log({ str });
-          ngModelCtrl.$setViewValue(str);
-        };
-        ngModelCtrl.$render = function () {
-          console.log("render", ngModelCtrl.$viewValue);
-          scope.initialValue = ngModelCtrl.$viewValue || "";
-        };
+      link: function (scope, _element, _attrs, [ctrl, ngModelCtrl]) {
+        scope.ctrl.useCql = getFeatureSwitchActive("use-cql-chips")
+        if (scope.ctrl.useCql) {
+          scope.handleChange = ngModelCtrl.$setViewValue;
+          ngModelCtrl.$render = function () {
+            scope.initialValue = ngModelCtrl.$viewValue || "";
+          };
+        } else {
+          ngModelCtrl.$render = function () {
+            const queryString = ngModelCtrl.$viewValue || "";
+            ctrl.structuredQuery = structureQuery(queryString);
+          };
+
+          subscribe$(scope, ctrl.newQuery$, (query) => {
+            ngModelCtrl.$setViewValue(query);
+          });
+        }
       },
     };
   },
