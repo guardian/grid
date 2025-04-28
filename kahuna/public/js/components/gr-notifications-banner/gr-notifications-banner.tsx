@@ -12,7 +12,7 @@ const TRANSIENT = "transient";
 const NOTIFICATION_COOKIE = "notification_cookie";
 const cookie_age = 31536000;
 const checkNotificationsUri = window._clientConfig.rootUri + "/notifications";
-const checkNotificationsInterval = 60000; // in ms
+const checkNotificationsInterval = 600000; // in ms
 
 const tickIcon = () =>
   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
