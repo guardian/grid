@@ -85,7 +85,7 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
             Future {
               logger.info(s"Deleting S3 objects from $bucket: " + key)
               try {
-                val x = deleteObject(bucket, key)
+                deleteObject(bucket, key)
                 (key, true)
               } catch {
                 case e: Exception =>
