@@ -108,7 +108,7 @@ class ReaperController(
     doBatchDelete.map { json =>
       config.maybeReaperBucket match {
         case None => {
-          logger.info("Reaper bucket not configured; not persisting results: " + json.toString())
+          logger.debug("Reaper bucket not configured; not persisting results: " + json.toString())
           json
         }
         case Some(reaperBucket) =>
