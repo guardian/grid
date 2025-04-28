@@ -64,7 +64,7 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
       if (bulkDeleteImplemented) {
         Future {
           try {
-            logger.info(s"Bulk deleting S3 objects from $bucket: " + keys.mkString(","))
+            logger.info(s"Bulk deleting S3 objects from ${bucket.bucket}: " + keys.mkString(","))
             deleteObjects(bucket, keys)
             keys.map { key =>
               key -> true
