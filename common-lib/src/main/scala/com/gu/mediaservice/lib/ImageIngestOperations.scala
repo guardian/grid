@@ -83,7 +83,7 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
         Future.sequence {
           keys.map { key =>
             Future {
-              logger.info(s"Deleting S3 objects from $bucket: " + key)
+              logger.info(s"Deleting S3 objects from ${bucket.bucket}: " + key)
               try {
                 deleteObject(bucket, key)
                 (key, true)
