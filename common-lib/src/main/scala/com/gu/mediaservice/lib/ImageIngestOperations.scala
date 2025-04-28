@@ -44,7 +44,7 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
   private def storeThumbnailImage(storableImage: StorableThumbImage)
                                  (implicit logMarker: LogMarker): Future[S3Object] = {
     val instanceSpecificKey = instanceAwareThumbnailImageKey(storableImage)
-    logger.info(s"Storing thumbnail to instance specific key: $thumbnailBucket / $instanceSpecificKey")
+    logger.info(s"Storing thumbnail to instance specific key: ${thumbnailBucket.bucket} / $instanceSpecificKey")
     storeImage(thumbnailBucket, instanceSpecificKey, storableImage.file, Some(storableImage.mimeType),
       overwrite = true)
   }
