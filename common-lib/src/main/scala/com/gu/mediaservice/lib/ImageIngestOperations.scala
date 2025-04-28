@@ -89,7 +89,7 @@ class ImageIngestOperations(imageBucket: S3Bucket, thumbnailBucket: S3Bucket, co
                 (key, true)
               } catch {
                 case e: Exception =>
-                  logger.warn(s"Failure when deleting images from $bucket: $key, ${e.getMessage}")
+                  logger.debug(s"Failure when deleting images from $bucket: $key, ${e.getMessage}")
                   (key, false)
               }
             }
