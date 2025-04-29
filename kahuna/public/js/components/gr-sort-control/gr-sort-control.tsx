@@ -76,6 +76,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const defSort:SortDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(defSort);
+  const [previousOption, setPrevious] = useState(defSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
 
   const autoHideListener = (event: any) => {
@@ -127,10 +128,16 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       setSelection(collOpt);
     } else {
       if (selectedOption.value == COLLECTION_OPTION) {
-        setSelection(defSort);
+        setSelection(previousOption);
       }
     }
   }, [hasCollection]);
+
+  useEffect(() => {
+    if (selectedOption && selectedOption !== previousOption ) {
+      setPrevious(selectedOption);
+    }
+  }, [selectedOption]);
 
   useEffect(() => {
     if (props.options.filter(o => o.value === props.orderBy).length > 0) {
