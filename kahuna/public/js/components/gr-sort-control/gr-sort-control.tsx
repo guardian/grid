@@ -127,14 +127,14 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       const collOpt = options.filter(opt => opt.value == COLLECTION_OPTION)[0];
       setSelection(collOpt);
     } else {
-      if (selectedOption.value == COLLECTION_OPTION) {
+      if (selectedOption.isCollection) {
         setSelection(previousOption);
       }
     }
   }, [hasCollection]);
 
   useEffect(() => {
-    if (selectedOption && selectedOption !== previousOption ) {
+    if (selectedOption && selectedOption !== previousOption && !selectedOption.isCollection ) {
       setPrevious(selectedOption);
     }
   }, [selectedOption]);
