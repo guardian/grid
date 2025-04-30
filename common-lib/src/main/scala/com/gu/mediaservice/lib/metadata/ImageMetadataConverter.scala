@@ -158,7 +158,7 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("yyyyddMM"),
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
-    DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ss"),
+    DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ssZ"),
     DateTimeFormat.forPattern("yyyy:MM:dd"),
 
     // 2014-12-16 - Maybe it's just a date
