@@ -77,7 +77,7 @@ object ImageMetadataConverter extends GridLogging {
                             (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap parseDate) orElse
                             (fileMetadata.xmp.get("xmp:CreateDate") flatMap(_.asOpt[String]) flatMap parseDate) orElse
                             (fileMetadata.iptc.get("Date Created").flatMap { dte =>
-                                fileMetadata.iptc.get("Time Created").map { tim => s"$dte $tim" }.orElse(Some(dte))
+                                fileMetadata.iptc.get("Time Created").map(tim => s"$dte $tim").orElse(Some(dte))
                               }.flatMap(parseDate)
                             ),
       description         = Option(description),
