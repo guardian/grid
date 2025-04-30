@@ -60,7 +60,12 @@ object ImageMetadataConverter extends GridLogging {
     val iptcTaken = ", iptc:" + fileMetadata.iptc.get("Date Time Created Composite").getOrElse("[no data]")
     val xmpTaken = ", xmp:" + fileMetadata.readXmpHeadStringProp("photoshop:DateCreated").getOrElse("[no data]")
     val xmpAlt = ", xmpAlt:" + fileMetadata.xmp.get("xmp:CreateDate").flatMap(_.asOpt[String]).getOrElse("[no data]")
-    val iptcAlt = ", iptcAlt:" + fileMetadata.iptc.get("Date Created").getOrElse("[no data]")
+
+    val iptcAltOpt: Option[String] = fileMetadata.iptc.get("Date Created").flatMap { dte =>
+      fileMetadata.iptc.get("Time Created").map(tim => s"$dte $tim").orElse(Some(dte))
+    }
+    val iptcAlt = ", iptcAlt:" + iptcAltOpt.getOrElse("[no data]")
+
     val descriptionOpt = fileMetadata.readXmpHeadStringProp("dc:description") orElse
                          fileMetadata.iptc.get("Caption/Abstract") orElse
                          fileMetadata.exif.get("Image Description")
@@ -71,7 +76,10 @@ object ImageMetadataConverter extends GridLogging {
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseDate) orElse
                             (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap parseDate) orElse
                             (fileMetadata.xmp.get("xmp:CreateDate") flatMap(_.asOpt[String]) flatMap parseDate) orElse
-                            (fileMetadata.iptc.get("Date Created") flatMap parseDate),
+                            (fileMetadata.iptc.get("Date Created").flatMap { dte =>
+                                fileMetadata.iptc.get("Time Created").map { tim => s"$dte $tim" }.orElse(Some(dte))
+                              }.flatMap(parseDate)
+                            ),
       description         = Option(description),
       credit              = fileMetadata.readXmpHeadStringProp("photoshop:Credit") orElse
                             fileMetadata.iptc.get("Credit"),
@@ -150,6 +158,7 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("yyyyddMM"),
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
+    DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ss"),
     DateTimeFormat.forPattern("yyyy:MM:dd"),
 
     // 2014-12-16 - Maybe it's just a date
