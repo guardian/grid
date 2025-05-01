@@ -182,6 +182,10 @@ crop.controller('ImageCropCtrl', [
           window._clientConfig.staffPhotographerOrganisation === "GNM"
           && maybeCropRatioIfStandard === "5:3";
 
+        ctrl.shouldShowHorizontalWarningGutters =
+          window._clientConfig.staffPhotographerOrganisation === "GNM"
+          && maybeCropRatioIfStandard === "5:4";
+
         ctrl.shouldShowCircularGuideline =
           window._clientConfig.staffPhotographerOrganisation === "GNM"
           // update this array to apply circular guideline to further ratios (e.g. 5:4)

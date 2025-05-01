@@ -68,28 +68,47 @@
 }
 
 /* GUTTERS to show what will be clipped if the 5:3 crop is used in 5:4 space */
-.easel.hide-vertical-warning-gutters .cropper-view-box::before,
-.easel.hide-vertical-warning-gutters .cropper-view-box::after {
+.easel.hide-warning-gutters .cropper-view-box::before,
+.easel.hide-warning-gutters .cropper-view-box::after {
   visibility: hidden;
 }
 .easel.vertical-warning-gutters .cropper-view-box::before,
-.easel.vertical-warning-gutters .cropper-view-box::after {
+.easel.vertical-warning-gutters .cropper-view-box::after,
+.easel.horizontal-warning-gutters .cropper-view-box::before,
+.easel.horizontal-warning-gutters .cropper-view-box::after {
   display: block;
   content: '';
   position: absolute;
   z-index: 999;
-  width: 12.5%;
-  top: 0;
-  bottom: 0;
   mix-blend-mode: difference;
   opacity: 0.5;
   pointer-events: none;
 }
-.easel.vertical-warning-gutters .cropper-view-box::before { /* left gutter */
+.easel.vertical-warning-gutters .cropper-view-box::before,
+.easel.vertical-warning-gutters .cropper-view-box::after {
+  width: 12.5%;
+  top: 0;
+  bottom: 0;
+}
+.easel.horizontal-warning-gutters .cropper-view-box::before,
+.easel.horizontal-warning-gutters .cropper-view-box::after {
+  height: 12.5%;
+  left: 0;
+  right: 0;
+}
+.easel.vertical-warning-gutters .cropper-view-box::before{ /* left/top gutter */
   left: 0;
   background: repeating-linear-gradient(-45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
 }
-.easel.vertical-warning-gutters .cropper-view-box::after { /* right gutter */
+.easel.vertical-warning-gutters .cropper-view-box::after { /* right/bottom gutter */
   right: 0;
+  background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
+}
+.easel.horizontal-warning-gutters .cropper-view-box::before {
+  top: 0;
+  background: repeating-linear-gradient(-45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
+}
+.easel.horizontal-warning-gutters .cropper-view-box::after {
+  bottom: 0;
   background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
 }

@@ -104,10 +104,20 @@
 <div class="warning status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
     Although this is a 5:3 crop, it might be used in a 5:4 space, so please ensure
     there is nothing important in the striped sides<sup>
-        <a ng-click="ctrl.shouldHideVerticalWarningGutters = !ctrl.shouldHideVerticalWarningGutters">
-            [{{ctrl.shouldHideVerticalWarningGutters ? "show" : "hide"}}]
+        <a ng-click="ctrl.shouldHideWarningGutters = !ctrl.shouldHideWarningGutters">
+            [{{ctrl.shouldHideWarningGutters ? "show" : "hide"}}]
         </a>
     </sup>
+    as these might be clipped.
+</div>
+
+<div class="warning status--info" ng-if="ctrl.shouldShowHorizontalWarningGutters">
+    Although this is a 5:4 crop, it might be used in a 5:3 space, so please ensure
+    there is nothing important in the striped sides<sup>
+    <a ng-click="ctrl.shouldHideWarningGutters = !ctrl.shouldHideWarningGutters">
+        [{{ctrl.shouldHideWarningGutters ? "show" : "hide"}}]
+    </a>
+</sup>
     as these might be clipped.
 </div>
 
@@ -120,7 +130,8 @@
 
 <div class="easel" role="main" aria-label="Image cropper" ng-class="{
     'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters,
-    'hide-vertical-warning-gutters': ctrl.shouldHideVerticalWarningGutters,
+    'horizontal-warning-gutters': ctrl.shouldShowHorizontalWarningGutters,
+    'hide-warning-gutters': ctrl.shouldHideWarningGutters,
     'circular-guideline': ctrl.shouldShowCircularGuideline && !ctrl.shouldUseCircularMask,
     'circular-mask': ctrl.shouldShowCircularGuideline && ctrl.shouldUseCircularMask
 }">
