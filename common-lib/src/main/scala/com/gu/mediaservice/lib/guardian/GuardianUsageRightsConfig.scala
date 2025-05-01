@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.guardian
 
-import com.gu.mediaservice.lib.config.{PublicationPhotographers, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.{PublicationPhotographer, PublicationPhotographers, UsageRightsConfigProvider}
+import org.joda.time.LocalDate
 
 object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
   private val ObserverPublication = "The Observer"
@@ -8,45 +9,45 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
 
   val externalStaffPhotographers: List[PublicationPhotographers] = List(
     PublicationPhotographers(GuardianPublication, List(
-      "Ben Doherty",
-      "Bill Code",
-      "Calla Wahlquist",
-      "David Sillitoe",
-      "Graham Turner",
-      "Helen Davidson",
-      "Jill Mead",
-      //"Jonny Weeks", (Commented out as Jonny's photo's aren't always as Staff.)
-      "Joshua Robertson",
-      "Rachel Vere",
-      "Roger Tooth",
-      "Sean Smith",
-      "Melissa Davey",
-      "Michael Safi",
-      "Michael Slezak",
-      "Sean Smith",
-      "Carly Earl",
+      PublicationPhotographer("Ben Doherty"),
+      PublicationPhotographer("Bill Code"),
+      PublicationPhotographer("Calla Wahlquist"),
+      PublicationPhotographer("David Sillitoe"),
+      PublicationPhotographer("Graham Turner"),
+      PublicationPhotographer("Helen Davidson"),
+      PublicationPhotographer("Jill Mead"),
+      //PublicationPhotographer("Jonny Weeks"), (Commented out as Jonny's photo's aren't always as Staff.)
+      PublicationPhotographer("Joshua Robertson"),
+      PublicationPhotographer("Rachel Vere"),
+      PublicationPhotographer("Roger Tooth"),
+      PublicationPhotographer("Sean Smith"),
+      PublicationPhotographer("Melissa Davey"),
+      PublicationPhotographer("Michael Safi"),
+      PublicationPhotographer("Michael Slezak"),
+      PublicationPhotographer("Sean Smith"),
+      PublicationPhotographer("Carly Earl"),
       // Past
-      "Dan Chung",
-      "Denis Thorpe",
-      "Don McPhee",
-      "Frank Baron",
-      "Frank Martin",
-      "Garry Weaser",
-      "Graham Finlayson",
-      "Martin Argles",
-      "Peter Johns",
-      "Robert Smithies",
-      "Tom Stuttard",
-      "Tricia De Courcy Ling",
-      "Walter Doughty",
-      "Eric Wadsworth",
+      PublicationPhotographer("Dan Chung"),
+      PublicationPhotographer("Denis Thorpe"),
+      PublicationPhotographer("Don McPhee"),
+      PublicationPhotographer("Frank Baron"),
+      PublicationPhotographer("Frank Martin"),
+      PublicationPhotographer("Garry Weaser"),
+      PublicationPhotographer("Graham Finlayson"),
+      PublicationPhotographer("Martin Argles"),
+      PublicationPhotographer("Peter Johns"),
+      PublicationPhotographer("Robert Smithies"),
+      PublicationPhotographer("Tom Stuttard"),
+      PublicationPhotographer("Tricia De Courcy Ling"),
+      PublicationPhotographer("Walter Doughty"),
+      PublicationPhotographer("Eric Wadsworth"),
     )),
     PublicationPhotographers(ObserverPublication, List(
-      "David Newell Smith",
-      "Tony McGrath",
-      "Catherine Shaw",
-      "John Reardon",
-      "Sean Gibson"
+      PublicationPhotographer("David Newell Smith"),
+      PublicationPhotographer("Tony McGrath"),
+      PublicationPhotographer("Catherine Shaw"),
+      PublicationPhotographer("John Reardon"),
+      PublicationPhotographer("Sean Gibson"),
     ))
   )
 
@@ -56,44 +57,44 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
   // TODO: Think about removin these once Picdar is dead.
   val internalStaffPhotographers = List(
     PublicationPhotographers(GuardianPublication, List(
-      "E Hamilton West",
-      "Harriet St Johnston",
-      "Lorna Roach",
-      "Rachel Vere",
-      "Ken Saunders"
+      PublicationPhotographer("E Hamilton West"),
+      PublicationPhotographer("Harriet St Johnston"),
+      PublicationPhotographer("Lorna Roach"),
+      PublicationPhotographer("Rachel Vere"),
+      PublicationPhotographer("Ken Saunders"),
     ))
   )
 
   val contractedPhotographers = List(
     PublicationPhotographers(ObserverPublication, List(
-      "Andy Hall",
-      "Antonio Olmos",
-      "Gary Calton",
-      "Jane Bown",
-      "Jonathan Lovekin",
-      "Karen Robinson",
-      "Katherine Anne Rose",
-      "Richard Saker",
-      "Sophia Evans",
-      "Suki Dhanda"
+      PublicationPhotographer("Andy Hall"),
+      PublicationPhotographer("Antonio Olmos"),
+      PublicationPhotographer("Gary Calton", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Jane Bown"),
+      PublicationPhotographer("Jonathan Lovekin"),
+      PublicationPhotographer("Karen Robinson"),
+      PublicationPhotographer("Katherine Anne Rose"),
+      PublicationPhotographer("Richard Saker"),
+      PublicationPhotographer("Sophia Evans"),
+      PublicationPhotographer("Suki Dhanda"),
     )),
      PublicationPhotographers(GuardianPublication, List(
-      "Alicia Canter",
-      "Antonio Olmos",
-      "Christopher Thomond",
-      "David Levene",
-      "Eamonn McCabe",
-      "Graeme Robertson",
-      "Johanna Parkin",
-      "Linda Nylind",
-      "Louise Hagger",
-      "Martin Godwin",
-      "Mike Bowers",
-      "Murdo MacLeod",
-      "Sarah Lee",
-      "Tom Jenkins",
-      "Tristram Kenton",
-      "Jill Mead",
+      PublicationPhotographer("Alicia Canter"),
+      PublicationPhotographer("Antonio Olmos"),
+      PublicationPhotographer("Christopher Thomond"),
+      PublicationPhotographer("David Levene"),
+      PublicationPhotographer("Eamonn McCabe"),
+      PublicationPhotographer("Graeme Robertson"),
+      PublicationPhotographer("Johanna Parkin"),
+      PublicationPhotographer("Linda Nylind"),
+      PublicationPhotographer("Louise Hagger"),
+      PublicationPhotographer("Martin Godwin"),
+      PublicationPhotographer("Mike Bowers"),
+      PublicationPhotographer("Murdo MacLeod"),
+      PublicationPhotographer("Sarah Lee"),
+      PublicationPhotographer("Tom Jenkins"),
+      PublicationPhotographer("Tristram Kenton"),
+      PublicationPhotographer("Jill Mead"),
     ))
  )
 
@@ -103,25 +104,25 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
 
   val contractIllustrators = List(
     PublicationPhotographers(GuardianPublication, List(
-      "Ben Lamb",
-      "Andrzej Krauze",
-      "David Squires",
-      "First Dog on the Moon",
-      "Harry Venning",
-      "Martin Rowson",
-      "Matt Kenyon",
-      "Matthew Blease",
-      "Nicola Jennings",
-      "Rosalind Asquith",
-      "Steven Appleby",
-      "Ben Jennings",
+      PublicationPhotographer("Ben Lamb"),
+      PublicationPhotographer("Andrzej Krauze"),
+      PublicationPhotographer("David Squires"),
+      PublicationPhotographer("First Dog on the Moon"),
+      PublicationPhotographer("Harry Venning"),
+      PublicationPhotographer("Martin Rowson"),
+      PublicationPhotographer("Matt Kenyon"),
+      PublicationPhotographer("Matthew Blease"),
+      PublicationPhotographer("Nicola Jennings"),
+      PublicationPhotographer("Rosalind Asquith"),
+      PublicationPhotographer("Steven Appleby"),
+      PublicationPhotographer("Ben Jennings"),
       //Past
-      "Steve Bell",
+      PublicationPhotographer("Steve Bell"),
     )),
     PublicationPhotographers(ObserverPublication, List(
-      "Chris Riddell",
-      "David Foldvari",
-      "David Simonds",
+      PublicationPhotographer("Chris Riddell"),
+      PublicationPhotographer("David Foldvari"),
+      PublicationPhotographer("David Simonds"),
     ))
   )
 

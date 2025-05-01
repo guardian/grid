@@ -30,14 +30,14 @@ object UsageRightsProperty {
 
   def sortPublicationList(publications: List[PublicationPhotographers]): List[PublicationPhotographers] =
     publications.map(p =>
-      p.copy(photographers = p.photographers.sortWith(_.toLowerCase < _.toLowerCase))
+      p.copy(photographers = p.photographers.sortWith(_.name.toLowerCase < _.name.toLowerCase))
     )
 
   val props: List[(UsageRightsSpec, UsageRightsConfigProvider) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
   def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = Map(publications
-    .map(p => p.name -> p.photographers): _*)
+    .map(p => p.name -> p.photographers.map(_.name)): _*)
 
   def independentTypeListToMap(independentTypes: List[IndependentType]): OptionsMap = Map(independentTypes
     .map(s => s.name -> s.productionsCompanies): _*)
