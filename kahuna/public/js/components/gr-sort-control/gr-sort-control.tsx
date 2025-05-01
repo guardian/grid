@@ -76,6 +76,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const defSort:SortDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(defSort);
+  const [previousOption, setPrevious] = useState(defSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
 
   const autoHideListener = (event: any) => {
@@ -126,11 +127,17 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       const collOpt = options.filter(opt => opt.value == COLLECTION_OPTION)[0];
       setSelection(collOpt);
     } else {
-      if (selectedOption.value == COLLECTION_OPTION) {
-        setSelection(defSort);
+      if (selectedOption.isCollection) {
+        setSelection(previousOption);
       }
     }
   }, [hasCollection]);
+
+  useEffect(() => {
+    if (selectedOption && selectedOption !== previousOption && !selectedOption.isCollection ) {
+      setPrevious(selectedOption);
+    }
+  }, [selectedOption]);
 
   useEffect(() => {
     if (props.options.filter(o => o.value === props.orderBy).length > 0) {
@@ -169,6 +176,19 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     if (option.value !== selectedOption.value) {
       setSelection(option);
       props.onSelect(option);
+      //-notification banner-
+      if (option.value.includes("taken")) {
+        const notificationEvent = new CustomEvent("newNotification", {
+          detail: {
+            announceId: "sortByTakenDate",
+            description: "Images without a Taken Date will appear at the end of the list",
+            category: "information",
+            lifespan: "transient"
+          },
+          bubbles: true
+        });
+        window.dispatchEvent(notificationEvent);
+      }
     }
   };
 
