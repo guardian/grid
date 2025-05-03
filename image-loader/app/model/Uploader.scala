@@ -265,7 +265,7 @@ object Uploader extends GridLogging {
       for {
         colourModel <- colourModelFuture
         iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-        thumbData <- imageOps.createThumbnail(
+        thumbData <- imageOps.createThumbnailVips(
           browserViewableImage,
           config.thumbWidth,
           config.thumbQuality,
