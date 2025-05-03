@@ -134,6 +134,7 @@ object Uploader extends GridLogging {
                                          fileMetadata: FileMetadata,
                                          processor: ImageProcessor)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
+    logger.info("Detecting original mime type")
     val originalMimeType = uploadRequest.mimeType
       .orElse(MimeTypeDetection.guessMimeType(uploadRequest.tempFile).toOption)
     match {
