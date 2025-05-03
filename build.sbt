@@ -272,6 +272,7 @@ def playImageLoaderProject(projectName: String, port: Int, path: Option[String] 
         Cmd("RUN", "apt-get", "install", "-y", "pngquant"),
         Cmd("RUN", "apt-get", "install", "-y", "libimage-exiftool-perl"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips"),
+        Cmd("RUN", "apt-get", "install", "-y", "libvips-dev"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips-tools")
       ),
       playDefaultPort := port,
