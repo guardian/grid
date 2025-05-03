@@ -224,8 +224,12 @@ class ImageOperations(playPath: String) extends GridLogging {
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
           VipsOption.Boolean("auto-rotate", false), // example of an option,
         )
-        orientationMetadata.map(_.orientationCorrection()).foreach { angle =>
+
+        orientationMetadata.map(_.orientationCorrection()).map { angle =>
+          logger.info("Rotating thumbnail: " + angle)
           thumbnail.rotate(angle)
+        }.getOrElse{
+          thumbnail
         }
 
         thumbnail.jpegsave(outputFile.getAbsolutePath,
