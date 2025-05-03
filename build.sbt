@@ -239,7 +239,6 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       dockerBaseImage := "openjdk:11-jre",
       dockerExposedPorts in Docker := Seq(port),
       playDefaultPort := port,
-      debianPackageDependencies := Seq("java11-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
@@ -282,7 +281,6 @@ def playImageLoaderProject(projectName: String, port: Int, path: Option[String] 
         Cmd("RUN", "apt-get", "install", "-y", "libimage-exiftool-perl")
       ),
       playDefaultPort := port,
-      debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
