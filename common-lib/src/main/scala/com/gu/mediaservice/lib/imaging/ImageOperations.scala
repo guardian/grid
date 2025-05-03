@@ -225,14 +225,14 @@ class ImageOperations(playPath: String) extends GridLogging {
           VipsOption.Boolean("auto-rotate", false), // example of an option,
         )
 
-        orientationMetadata.map(_.orientationCorrection()).map { angle =>
+       val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
           logger.info("Rotating thumbnail: " + angle)
           thumbnail.rotate(angle)
         }.getOrElse{
           thumbnail
         }
 
-        thumbnail.jpegsave(outputFile.getAbsolutePath,
+        rotated.jpegsave(outputFile.getAbsolutePath,
           VipsOption.Int("Q", qual.toInt),
           //VipsOption.Boolean("optimize-scans", true),
           //VipsOption.Boolean("optimize-coding", true),
