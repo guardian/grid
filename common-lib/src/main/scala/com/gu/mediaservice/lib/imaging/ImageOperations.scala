@@ -12,9 +12,7 @@ import com.gu.mediaservice.model._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
-import app.photofox.vipsffm.Vips
-import app.photofox.vipsffm.VImage
-import app.photofox.vipsffm.VipsOption
+import app.photofox.vipsffm.{VImage, Vips, VipsOption}
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
@@ -222,9 +220,9 @@ class ImageOperations(playPath: String) extends GridLogging {
     Future.successful {
       Vips.run { arena =>
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
-          VipsOption.Boolean("auto-rotate", false), // example of an option,
+          VipsOption.Boolean("auto-rotate", false),
+          VipsOption.String("export-profile", profilePath("srgb.icc"))
         )
-
        val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
           logger.info("Rotating thumbnail: " + angle)
           thumbnail.rotate(angle)
@@ -244,7 +242,6 @@ class ImageOperations(playPath: String) extends GridLogging {
           VipsOption.Boolean("strip", true)
         )
       }
-
       (outputFile, MimeType("image/jpeg"))
     }
   }
