@@ -247,7 +247,7 @@ object Uploader extends GridLogging {
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[FileMetadata] = {
     mimeType match {
-      case Some(Png | Tiff | Jpeg) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      //case Some(Png | Tiff | Jpeg) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
