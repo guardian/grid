@@ -264,13 +264,13 @@ class ImageOperations(playPath: String) extends GridLogging {
 
 }
 
-object ImageOperations {
+object ImageOperations extends GridLogging {
   val thumbMimeType = Jpeg
   val optimisedMimeType = Png
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
-
-    mimeType match {
+    val stopWatch = Stopwatch.start
+    (mimeType match {
       case Jpeg =>
         val source = addImage(sourceFile)
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
@@ -323,6 +323,9 @@ object ImageOperations {
       case _ =>
         // assume that the colour model is RGB for other image types
         Future.successful(Some("RGB"))
+    }).map { result =>
+      logger.info(addLogMarkers(stopWatch.elapsed), "Finished identifyColourModel")
+      result
     }
   }
 }
