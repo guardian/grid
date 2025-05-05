@@ -211,8 +211,6 @@ class ImageOperations(playPath: String) extends GridLogging {
                       width: Int,
                       qual: Double = 100d,
                       outputFile: File,
-                      iccColourSpace: Option[String],
-                      colourModel: Option[String],
                       orientationMetadata: Option[OrientationMetadata]
                      )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
@@ -229,8 +227,6 @@ class ImageOperations(playPath: String) extends GridLogging {
         }.getOrElse{
           thumbnail
         }
-
-        logger.info(s"createThumbnailVips is ignoring iccColourSpace: $iccColourSpace, colourModel: $colourModel")
 
         rotated.jpegsave(outputFile.getAbsolutePath,
           VipsOption.Int("Q", qual.toInt),
