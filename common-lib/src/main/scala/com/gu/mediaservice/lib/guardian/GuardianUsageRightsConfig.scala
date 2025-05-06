@@ -78,7 +78,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Sophia Evans"),
       PublicationPhotographer("Suki Dhanda"),
     )),
-     PublicationPhotographers(GuardianPublication, List(
+    PublicationPhotographers(GuardianPublication, List(
       PublicationPhotographer("Alicia Canter"),
       PublicationPhotographer("Antonio Olmos"),
       PublicationPhotographer("Christopher Thomond"),
@@ -95,6 +95,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Tom Jenkins"),
       PublicationPhotographer("Tristram Kenton"),
       PublicationPhotographer("Jill Mead"),
+      PublicationPhotographer("Gary Calton", from = Some(LocalDate.parse("2025-04-28")))
     ))
  )
 
