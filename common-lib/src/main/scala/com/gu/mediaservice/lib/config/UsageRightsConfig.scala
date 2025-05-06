@@ -1,21 +1,58 @@
 package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigException}
+import org.joda.time.{DateTime, LocalDate}
 import play.api.{ConfigLoader, Configuration}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
+import scala.util.Try
 
-case class PublicationPhotographers(name: String, photographers: List[String])
+case class PublicationPhotographer(name: String, from: Option[LocalDate] = None, to: Option[LocalDate] = None) {
+  def active(atTime: DateTime): Boolean = {
+    // shorthand functions for date ranges - both ends are inclusive, but `from` and `to` will be _dates_, whereas `atTime`
+    // will be any datetime. So add 1 day to `to` and then treat as exclusive.
+    def before(a: LocalDate, b: DateTime): Boolean =
+      a.toDateTimeAtStartOfDay.isBefore(b) || a.toDateTimeAtStartOfDay.isEqual(b)
+    def after(a: LocalDate, b: DateTime): Boolean =
+      a.toDateTimeAtStartOfDay.plusDays(1).isAfter(b)
+
+    (from, to) match {
+      case (None, None) => true
+      case (Some(from), None) if before(from, atTime) => true
+      case (None, Some(to)) if after(to, atTime) => true
+      case (Some(from), Some(to)) if before(from, atTime) && after(to, atTime) => true
+      case _ => false
+    }
+  }
+}
+case class PublicationPhotographers(name: String, photographers: List[PublicationPhotographer])
 
 object PublicationPhotographers {
+  private def getDateOpt(config: Config, key: String): Option[LocalDate] =
+    try {
+      Some(LocalDate.parse(config.getString(key)))
+    } catch {
+      case _: ConfigException.Missing => None
+    }
+
+  private def loadPhotographers(config: Config): List[PublicationPhotographer] = {
+    Try(config.getConfigList("photographers").asScala.toList.map(photogConf =>
+      PublicationPhotographer(name = photogConf.getString("name"),
+        from = getDateOpt(photogConf, "from"),
+        to = getDateOpt(photogConf, "to"))))
+      .orElse(Try(config.getStringList("photographers").asScala.toList.map(name => PublicationPhotographer(name = name))))
+      .getOrElse(Nil)
+  }
+
   implicit val configLoader: ConfigLoader[List[PublicationPhotographers]] = ConfigLoader(_.getConfigList).map(
     _.asScala.map(
       config =>
         PublicationPhotographers(
           config.getString("name"),
-          config.getStringList("photographers").asScala.toList)).toList
+          loadPhotographers(config)
+        )).toList
   )
 }
 
@@ -82,10 +119,10 @@ object ProgrammesAcquisitionsConfig {
 }
 
 trait UsageRightsConfigProvider extends Provider {
+  /** By default assume that we don't do any lifecycle management */
   override def initialise(): Unit = {}
   override def shutdown(): Future[Unit] = Future.successful(())
 
-  /** By default assume that we don't do any lifecycle management */
   val externalStaffPhotographers: List[PublicationPhotographers]
   val internalStaffPhotographers: List[PublicationPhotographers]
   val contractedPhotographers: List[PublicationPhotographers]
@@ -106,19 +143,33 @@ trait UsageRightsConfigProvider extends Provider {
   lazy val allPhotographers: List[PublicationPhotographers] = UsageRightsConfigProvider.flattenPublicationList(
     internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
 
-  def getPhotographer(photographer: String): Option[Photographer] = {
-    caseInsensitiveLookup(staffPhotographers, photographer).map {
+  def getPhotographer(photographer: String, atTime: DateTime): Option[Photographer] = {
+    caseInsensitiveLookup(staffPhotographers, photographer, atTime).map {
       case (name, publication) => StaffPhotographer(name, publication)
-    }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer).map {
+    }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer, atTime).map {
       case (name, publication) => ContractPhotographer(name, Some(publication))
     })
   }
 
-  def caseInsensitiveLookup(store: List[PublicationPhotographers], lookup: String): Option[(String, String)] =
-    store.map {
-      case PublicationPhotographers(name, photographers) if photographers.map(_.toLowerCase) contains lookup.toLowerCase() => Some(lookup, name)
-      case _ => None
-    }.find(_.isDefined).flatten
+  /* Test if a photographer has the same name as is being searched for, and if so, were they working for this publication
+     at the given time (usually the time the picture was taken).
+   */
+  private def photographerActive(name: String, atTime: DateTime)(photographer: PublicationPhotographer): Boolean = {
+    val nameMatches = photographer.name.toLowerCase == name.toLowerCase
+
+    nameMatches && photographer.active(atTime)
+  }
+
+  private def caseInsensitiveLookup(
+    store: List[PublicationPhotographers],
+    photographerName: String,
+    atTime: DateTime
+  ): Option[(String, String)] =
+    store.collectFirst {
+      case PublicationPhotographers(publicationName, photographers)
+        if photographers.exists(photographerActive(photographerName, atTime)) =>
+          (photographerName, publicationName)
+    }
 }
 
 
