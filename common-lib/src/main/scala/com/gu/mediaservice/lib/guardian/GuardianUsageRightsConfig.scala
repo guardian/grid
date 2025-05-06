@@ -67,7 +67,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
 
   val contractedPhotographers = List(
     PublicationPhotographers(ObserverPublication, List(
-      PublicationPhotographer("Andy Hall"),
+      PublicationPhotographer("Andy Hall", to = Some(LocalDate.parse("2025-04-27"))),
       PublicationPhotographer("Antonio Olmos"),
       PublicationPhotographer("Gary Calton", to = Some(LocalDate.parse("2025-04-27"))),
       PublicationPhotographer("Jane Bown"),
@@ -95,7 +95,8 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Tom Jenkins"),
       PublicationPhotographer("Tristram Kenton"),
       PublicationPhotographer("Jill Mead"),
-      PublicationPhotographer("Gary Calton", from = Some(LocalDate.parse("2025-04-28")))
+      PublicationPhotographer("Gary Calton", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Andy Hall", from = Some(LocalDate.parse("2025-04-28")))
     ))
  )
 
