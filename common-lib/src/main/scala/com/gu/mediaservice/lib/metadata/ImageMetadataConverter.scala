@@ -54,10 +54,21 @@ object ImageMetadataConverter extends GridLogging {
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None, earliestAllowedDateTime: Option[DateTime] = Some(earliestSensibleDate)): ImageMetadata = {
     def parseDate(dateString: String): Option[DateTime] = parseRandomDate(dateString, maxDate = latestAllowedDateTime, minDate = earliestAllowedDateTime)
+
+    // setting of taken date
+    val exifTaken: Option[String] = fileMetadata.exifSub.get("Date/Time Original Composite")
+    val iptcTaken: Option[String] = fileMetadata.iptc.get("Date Time Created Composite")
+    val xmpTaken: Option[String] = fileMetadata.readXmpHeadStringProp("photoshop:DateCreated")
+    val xmpAlt: Option[String] = fileMetadata.xmp.get("xmp:CreateDate").flatMap(_.asOpt[String])
+    val iptcAlt: Option[String] = fileMetadata.iptc.get("Date Created")
+    val dateTaken: Option[DateTime] = exifTaken.flatMap(parseDate) orElse
+                                      iptcTaken.flatMap(parseDate) orElse
+                                      xmpTaken.flatMap(parseDate) orElse
+                                      xmpAlt.flatMap(parseDate) orElse
+                                      iptcAlt.flatMap(parseDate)
+
     ImageMetadata(
-      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseDate) orElse
-                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseDate) orElse
-                            (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap parseDate),
+      dateTaken           = dateTaken,
       description         = fileMetadata.readXmpHeadStringProp("dc:description") orElse
                             fileMetadata.iptc.get("Caption/Abstract") orElse
                             fileMetadata.exif.get("Image Description"),
@@ -138,6 +149,7 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("yyyyddMM"),
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
+    DateTimeFormat.forPattern("yyyy:MM:dd"),
 
     // 2014-12-16 - Maybe it's just a date
     // no timezone provided so force UTC rather than use the machine's timezone
