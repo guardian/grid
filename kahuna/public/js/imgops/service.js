@@ -39,16 +39,9 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
-
-        if (image.data.optimisedPng) {
-            return image.follow('optimisedPng', options).getUri().catch(() => {
-                return image.optimisedPng.secureUrl || image.optimisedPng.file;
-            });
-        } else {
-            return image.follow('optimised', options).getUri().catch(() => {
-                return image.source.secureUrl || image.source.file;
-            });
-        }
+        return image.follow('optimised', options).getUri().catch(() => {
+            return image.source.secureUrl || image.source.file;
+        });
     }
 
     function getOptimisedDownloadUri(image, options) {
