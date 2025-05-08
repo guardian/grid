@@ -15,7 +15,7 @@ trait OptimiseOps {
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)
                      (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)]
   def isTransformedFilePath(filePath: String): Boolean
-  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
+  def shouldOptimise(mimeType: Option[MimeType]): Boolean
   def optimiseMimeType: MimeType
 }
 
@@ -47,15 +47,5 @@ object OptimiseWithPngQuant extends OptimiseOps {
 
   def isTransformedFilePath(filePath: String): Boolean = filePath.contains("transformed-")
 
-  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
-    mimeType match {
-      case Some(Png) =>
-        fileMetadata.colourModelInformation.get("colorType") match {
-          case Some("True Color") => true
-          case Some("True Color with Alpha") => true
-          case _ => false
-        }
-      case Some(Tiff) => false // TODO Cannot see how pngquant which can be applied to tiff inputs; does tiff upload even work for the Guardian? Let imgproxy try to deal with this
-      case _ => false
-    }
+  def shouldOptimise(mimeType: Option[MimeType]): Boolean = false
 }
