@@ -244,32 +244,6 @@ class ImageOperations(playPath: String) extends GridLogging {
     }
   }
 
-  /**
-    * Given a source file containing a file which requires optimising to make it suitable for viewing in
-    * a browser, construct a new image file in the provided temp directory, and return
-    * * the file with metadata about it.
-    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
-    * @param sourceMimeType Mime time of browser viewable file
-    * @param tempDir Location to create optimised file
-    * @return The file created and the mimetype of the content of that file, in a future.
-    */
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
-    val stopwatch = Stopwatch.start
-    for {
-      // png suffix is used by imagemagick to infer the required type
-      outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
-      transformSource = addImage(sourceFile)
-      converted       = applyOutputProfile(transformSource, optimised = true)
-      stripped        = stripMeta(converted)
-      profiled        = applyOutputProfile(stripped, optimised = true)
-      depthAdjusted   = depth(profiled)(8)
-      addOutput       = addDestImage(depthAdjusted)(outputFile)
-      _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-      _               <- checkForOutputFileChange(outputFile)
-      _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating browser-viewable image")
-    } yield (outputFile, optimisedMimeType)
-  }
-
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
   // to blah-0.something and contains the composite layer (which is what we want).
   // Other layers are then saved as blah-1.something etc.
