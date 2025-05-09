@@ -42,12 +42,12 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasMatch = rule { HasMatchField ~ ':' ~ HasMatchValue }
   def HasMatchField = rule { capture(HasFieldName) ~> (_ => HasField) }
   def HasFieldName = rule { "has" }
-  def HasMatchValue = rule { String ~> HasValue }
+  def HasMatchValue = rule { QuotedString ~> HasValue | String ~> HasValue }
 
   def IsMatch = rule { IsMatchField ~ ':' ~ IsMatchValue }
   def IsMatchField = rule { capture(IsFieldName) ~> (_ => IsField) }
   def IsFieldName = rule { "is" }
-  def IsMatchValue = rule { String ~> IsValue }
+  def IsMatchValue = rule { QuotedString ~> IsValue | String ~> IsValue }
 
   def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ ExactMatchValue }
   def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (
