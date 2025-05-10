@@ -144,6 +144,12 @@ object Uploader extends GridLogging {
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
+    val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
+    val colorModelInformationFuture = ImageOperations.getColorModelInformation(uploadRequest.tempFile)
+
+      val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
+    val sourceOrientationMetadataFuture = FileMetadataReader.orientation(uploadRequest.tempFile)
+
     val storableOriginalImage = StorableOriginalImage(
       uploadRequest.imageId,
       uploadRequest.tempFile,
@@ -154,14 +160,6 @@ object Uploader extends GridLogging {
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest)
-
-    val image = ImageOperations.loadVipsImages(uploadRequest.tempFile) // TODO blocking
-
-    val colourModelFuture = ImageOperations.identifyColourModel(image)
-    val colorModelInformationFuture = ImageOperations.getColorModelInformation(image)
-
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
-    val sourceOrientationMetadataFuture = FileMetadataReader.orientation(uploadRequest.tempFile)
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
