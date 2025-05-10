@@ -1,5 +1,8 @@
 package com.gu.mediaservice.lib.imaging
 
+import app.photofox.vipsffm.enums.VipsInterpretation
+import app.photofox.vipsffm.jextract.VipsRaw
+
 import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
@@ -281,62 +284,24 @@ object ImageOperations extends GridLogging {
   val thumbMimeType = Jpeg
   val optimisedMimeType = Png
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[String]] = {
-    // TODO: use mimeType to lookup other properties once we support other formats
     val stopWatch = Stopwatch.start
-    (mimeType match {
-      case Jpeg =>
-        val source = addImage(sourceFile)
-        val formatter = format(source)("%[JPEG-Colorspace-Name]")
-
-        for {
-          output <- runIdentifyCmd(formatter, false)
-          colourModel = output.headOption
-        } yield colourModel match {
-          case Some("GRAYSCALE") => Some("Greyscale")
-          case Some("CMYK") => Some("CMYK")
-          case _ => Some("RGB")
+    Future {
+      var result: Option[String] = None
+      Vips.run { arena =>
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+        // TODO better way to go straight from int to enum?
+        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsRaw.vips_image_get_interpretation(image.getUnsafeStructAddress))
+        result = maybeInterpretation match {
+          case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
+          case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
+          case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
+          case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
+          case _ => None
         }
-      case Tiff =>
-        val op = new IMOperation()
-        val formatter = format(op)("%[colorspace]")
-        val withSource = addDestImage(formatter)(sourceFile)
+      }
+      result
 
-        for {
-          output <- runIdentifyCmd(withSource, true)
-          colourModel = output.headOption
-        } yield colourModel match {
-          case Some("sRGB") => Some("RGB")
-          case Some("Gray") => Some("Greyscale")
-          case Some("CIELab") => Some("LAB")
-          // IM returns doubles for TIFFs with transparency…
-          case Some("sRGBsRGB") => Some("RGB")
-          case Some("GrayGray") => Some("Greyscale")
-          case Some("CIELabCIELab") => Some("LAB")
-          case Some("CMYKCMYK") => Some("CMYK")
-          // …and triples for TIFFs with transparency and alpha channel(s). I think.
-          case Some("sRGBsRGBsRGB") => Some("RGB")
-          case Some("GrayGrayGray") => Some("Greyscale")
-          case Some("CIELabCIELabCIELab") => Some("LAB")
-          case Some("CMYKCMYKCMYK") => Some("CMYK")
-          case _ => colourModel
-        }
-      case Png =>
-        val op = new IMOperation()
-        val formatter = format(op)("%[colorspace]")
-        val withSource = addDestImage(formatter)(sourceFile)
-
-        for {
-          output <- runIdentifyCmd(withSource, true)
-          colourModel = output.headOption
-        } yield colourModel match {
-          case Some("sRGB") => Some("RGB")
-          case Some("Gray") => Some("Greyscale")
-          case _ => Some("RGB")
-        }
-      case _ =>
-        // assume that the colour model is RGB for other image types
-        Future.successful(Some("RGB"))
-    }).map { result =>
+    }.map { result =>
       logger.info(addLogMarkers(stopWatch.elapsed), "Finished identifyColourModel")
       result
     }
