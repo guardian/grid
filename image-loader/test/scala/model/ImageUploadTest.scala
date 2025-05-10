@@ -1,5 +1,7 @@
 package model
 
+import app.photofox.vipsffm.Vips
+
 import java.io.File
 import java.net.URI
 import java.util.UUID
@@ -39,7 +41,10 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     *        what arcane magic System.getProperty relies upon, and exactly
     *        _how_ it will break in CI, I do not know
     */
-  val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
+  val imageOps: ImageOperations = {
+    Vips.init()
+    new ImageOperations(System.getProperty("user.dir"))
+  }
 
   private def imageUpload(
                    fileName: String,

@@ -208,7 +208,6 @@ class ImageOperations(playPath: String) extends GridLogging {
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
     } yield (outputFile, thumbMimeType)
   }
-  Vips.init()
 
   def createThumbnailVips(browserViewableImage: BrowserViewableImage,
                       width: Int,
