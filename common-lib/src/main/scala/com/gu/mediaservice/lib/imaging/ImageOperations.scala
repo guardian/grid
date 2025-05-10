@@ -323,4 +323,49 @@ object ImageOperations extends GridLogging {
     }
   }
 
+
+  def identifyColourModel(image: VImage)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[String]] = {
+    val stopWatch = Stopwatch.start
+    Future {
+      var result: Option[String] = None
+      // TODO better way to go straight from int to enum?
+      val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsRaw.vips_image_get_interpretation(image.getUnsafeStructAddress))
+      result = maybeInterpretation match {
+        case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
+        case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
+        case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
+        case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
+        case _ => None
+      }
+      result
+
+    }.map { result =>
+      logger.info(addLogMarkers(stopWatch.elapsed), "Finished identifyColourModel")
+      result
+    }
+  }
+
+  def getColorModelInformation(image: VImage)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Map[String, String]] = {
+    val stopWatch = Stopwatch.start
+    Future {
+      var result: Map[String, String] = Map.empty
+      result = Map {
+        "hasAlpha" -> image.hasAlpha.toString
+      }
+      result
+    }.map { result =>
+      logger.info(addLogMarkers(stopWatch.elapsed), "Finished getColorModelInformation")
+      result
+    }
+  }
+
+
+  def loadVipsImages(sourceFile: File): VImage = {
+    var image: VImage= null // TODO
+    Vips.run { arena =>
+      image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+    }
+    image
+  }
+
 }
