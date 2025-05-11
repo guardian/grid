@@ -66,6 +66,8 @@ val awsSdkVersion = "1.12.470"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
+val jnaVersion = "5.15.0"
+
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
 //BBC specific project, it only gets compiled when bbcBuildProcess is true
@@ -87,6 +89,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
+    "net.java.dev.jna" % "jna" % jnaVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,

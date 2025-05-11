@@ -1,21 +1,40 @@
-package lib
+package com.gu.mediaservice.lib.feature
 
-import play.api.mvc.Cookie
+import play.api.mvc.{Cookie, Request}
 
-case class FeatureSwitch(key: String, title: String, default: Boolean)
+import scala.util.Try
+
+case class FeatureSwitch(key: String, title: String, default: Boolean) {
+  val name = s"feature-switch-$key"
+
+  def getValue[A](request: Request[A]): Boolean =
+    request.cookies.get(name).flatMap(toBooleanOption).getOrElse(default)
+
+  private def toBooleanOption(c: Cookie): Option[Boolean] =
+    Try(c.value.toBoolean).toOption
+}
 
 object ExampleSwitch extends FeatureSwitch(
   key = "example-switch",
   title = "An example switch. Use rounded corners for the feature switch toggle",
   default = false
 )
+object VipsImagingSwitch extends FeatureSwitch(
+  key = "vips-beta",
+  title = "Enable the VIPS upload pipeline, where implemented",
+  default = false
+)
 
-class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
+object FeatureSwitches {
+  val all: List[FeatureSwitch] = List(ExampleSwitch, VipsImagingSwitch)
+}
+
+class FeatureSwitches(featureSwitches: List[FeatureSwitch]) {
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
 
   def getFeatureSwitchCookies(cookieGetter: String => Option[Cookie]): List[(FeatureSwitch, Option[Cookie])] =
-    featureSwitches.map(featureSwitch => (featureSwitch, cookieGetter(s"feature-switch-${featureSwitch.key}")))
+    featureSwitches.map(featureSwitch => (featureSwitch, cookieGetter(featureSwitch.name)))
 
   def getClientSwitchValues(featureSwitchesWithCookies: List[(FeatureSwitch, Option[Cookie])]): Map[FeatureSwitch, Boolean] = {
     featureSwitchesWithCookies
@@ -42,11 +61,5 @@ class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
     maybeSwitch.flatMap(switch => clientSwitchValues.get(switch)).getOrElse(false)
   }
 
-  private def getBoolean(cookieValue: String): Boolean = {
-    cookieValue match{
-      case "true" => true
-      case _ => false
-    }
-  }
+  private def getBoolean(cookieValue: String): Boolean = cookieValue == "true"
 }
-

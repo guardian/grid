@@ -2,3 +2,4 @@
 -J-XX:MaxMetaspaceSize=2048M
 -J-XX:+UseG1GC
 -DSTAGE=DEV
+-J-Djna.library.path=/opt/homebrew/lib

@@ -18,7 +18,8 @@ case class UploadRequest(
                           uploadTime: DateTime,
                           uploadedBy: String,
                           identifiers: Map[String, String],
-                          uploadInfo: UploadInfo
+                          uploadInfo: UploadInfo,
+  useVips: Boolean
                         ) {
 
   val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) =>
