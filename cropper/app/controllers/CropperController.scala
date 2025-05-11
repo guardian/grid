@@ -167,8 +167,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
 
     def exportFn(apiImage: SourceImage, crop: Crop)(logMarker: LogMarker) =
-      if (useVips) crops.exportWithVips(apiImage, crop)(logMarker)
-      else crops.exportWithImageMagick(apiImage, crop)(logMarker)
+      if (useVips) crops.makeExportWithVips(apiImage, crop)(logMarker)
+      else crops.makeExportWithImageMagick(apiImage, crop)(logMarker)
 
     for {
       _ <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)

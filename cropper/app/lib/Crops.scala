@@ -96,7 +96,7 @@ class Crops(config: CropperConfig, store: CropStore, magickImageOperations: Magi
   )(implicit logMarker: LogMarker): Future[List[Asset]] = {
     logger.info(logMarker, s"creating crops for ${apiImage.id} with VIPS")
 
-    Future.sequence[Asset, List](dimensionList.map { dimensions =>
+    Future.sequence[Asset, List, List[Asset]](dimensionList.map { dimensions =>
       val scale = dimensions.width.toDouble / apiImage.source.dimensions.get.width.toDouble
       for {
         resizedImage <- vipsImageOperations.resizeImage(sourceImage, scale)
