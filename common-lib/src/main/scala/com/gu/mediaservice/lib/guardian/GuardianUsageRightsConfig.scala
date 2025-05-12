@@ -67,16 +67,16 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
 
   val contractedPhotographers = List(
     PublicationPhotographers(ObserverPublication, List(
-      PublicationPhotographer("Andy Hall", to = Some(LocalDate.parse("2025-04-27"))),
-      PublicationPhotographer("Antonio Olmos"),
-      PublicationPhotographer("Gary Calton", to = Some(LocalDate.parse("2025-04-27"))),
       PublicationPhotographer("Jane Bown"),
-      PublicationPhotographer("Jonathan Lovekin"),
-      PublicationPhotographer("Karen Robinson"),
-      PublicationPhotographer("Katherine Anne Rose"),
-      PublicationPhotographer("Richard Saker"),
-      PublicationPhotographer("Sophia Evans"),
-      PublicationPhotographer("Suki Dhanda"),
+      PublicationPhotographer("Andy Hall", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Antonio Olmos", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Gary Calton", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Jonathan Lovekin", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Karen Robinson", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Katherine Anne Rose", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Richard Saker", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Sophia Evans", to = Some(LocalDate.parse("2025-04-27"))),
+      PublicationPhotographer("Suki Dhanda", to = Some(LocalDate.parse("2025-04-27"))),
     )),
     PublicationPhotographers(GuardianPublication, List(
       PublicationPhotographer("Alicia Canter"),
@@ -95,8 +95,15 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Tom Jenkins"),
       PublicationPhotographer("Tristram Kenton"),
       PublicationPhotographer("Jill Mead"),
+      PublicationPhotographer("Andy Hall", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Antonio Olmos", from = Some(LocalDate.parse("2025-04-28"))),
       PublicationPhotographer("Gary Calton", from = Some(LocalDate.parse("2025-04-28"))),
-      PublicationPhotographer("Andy Hall", from = Some(LocalDate.parse("2025-04-28")))
+      PublicationPhotographer("Jonathan Lovekin", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Karen Robinson", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Katherine Anne Rose", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Richard Saker", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Sophia Evans", from = Some(LocalDate.parse("2025-04-28"))),
+      PublicationPhotographer("Suki Dhanda", from = Some(LocalDate.parse("2025-04-28")))
     ))
  )
 
