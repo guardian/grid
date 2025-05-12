@@ -144,10 +144,6 @@ object Uploader extends GridLogging {
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
-    val colorModelInformationFuture = ImageOperations.getColorModelInformation(uploadRequest.tempFile)
-
-    val sourceDimensionsFuture = ImageOperations.dimensions(uploadRequest.tempFile)
     val sourceOrientationMetadataFuture = FileMetadataReader.orientation(uploadRequest.tempFile)
 
     val storableOriginalImage = StorableOriginalImage(
@@ -165,7 +161,7 @@ object Uploader extends GridLogging {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
       mergedUploadRequest = patchUploadRequestWithS3Metadata(uploadRequest, s3Source)
-      sourceDimensions <- sourceDimensionsFuture
+      sourceDimensions <- ImageOperations.dimensions(uploadRequest.tempFile)
       sourceOrientationMetadata <- sourceOrientationMetadataFuture
       thumbViewableImage <- createThumbFuture(browserViewableImage, deps, tempDirForRequest, uploadRequest.instance, orientationMetadata = sourceOrientationMetadata)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
@@ -176,8 +172,8 @@ object Uploader extends GridLogging {
         case None => Future.successful(None)
       }
       thumbDimensions <- ImageOperations.dimensions(thumbViewableImage.file)
-      colourModel <- colourModelFuture
-      colourModelInformation <- colorModelInformationFuture
+      colourModel <- ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
+      colourModelInformation <- ImageOperations.getColorModelInformation(uploadRequest.tempFile)
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel).copy(colourModelInformation = colourModelInformation)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
