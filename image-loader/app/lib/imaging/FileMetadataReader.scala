@@ -200,42 +200,6 @@ object FileMetadataReader extends GridLogging {
     }
   }
 
-  def dimensions(image: File, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[Option[Dimensions]] =
-    for {
-      metadata <- readMetadata(image)
-    }
-    yield {
-
-      mimeType match {
-
-        case Some(Jpeg) => for {
-          jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
-
-        } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
-
-        case Some(Png) => for {
-          pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
-
-        } yield {
-          val width = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
-          val height = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
-          Dimensions(width, height)
-        }
-
-        case Some(Tiff) => for {
-          exifDir <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
-
-        } yield {
-          val width = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_WIDTH)
-          val height = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_HEIGHT)
-          Dimensions(width, height)
-        }
-
-        case _ => None
-
-      }
-    }
-
   def getColorModelInformation(image: File, metadata: Metadata, mimeType: MimeType)(implicit logMarker: LogMarker): Future[Map[String, String]] = {
     val stopWatch = Stopwatch.start
     val source = addImage(image)

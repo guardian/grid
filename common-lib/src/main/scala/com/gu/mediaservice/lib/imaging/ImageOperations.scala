@@ -323,4 +323,17 @@ object ImageOperations extends GridLogging {
     }
   }
 
+  def dimensions(sourceFile: File)(implicit ec: ExecutionContext): Future[Option[Dimensions]] = {
+    Future {
+      var dimensions: Option[Dimensions] = None
+      Vips.run { arena =>
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+        val width = image.getWidth
+        val height = image.getHeight
+        dimensions = Some(Dimensions(width = width, height = height))
+      }
+      dimensions
+    }
+  }
+
 }
