@@ -93,6 +93,3 @@
   right: 0;
   background: repeating-linear-gradient(45deg,  transparent,  white 1px,  transparent 3px,  transparent 6px);
 }
-.easel.vertical-warning-gutters .easel__canvas {
-  height: calc(100vh - 138px);
-}

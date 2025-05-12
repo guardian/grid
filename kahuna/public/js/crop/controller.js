@@ -52,7 +52,7 @@ crop.controller('ImageCropCtrl', [
       const storageDefaultCropType = cropSettings.getDefaultCropType();
 
     ctrl.cropOptions = allCropOptions
-        .filter(option => !storageCropType || storageCropType === option.key)
+        .filter(option => (!storageCropType || storageCropType === option.key) && !option.isHidden )
         .map(option => Object.assign(option, {
           value: option.ratioString ? `${option.key} (${option.ratioString})` : option.key,
           minimalValue: option.ratioString || option.key,
