@@ -150,6 +150,7 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
     DateTimeFormat.forPattern("yyyy:MM:dd"),
+    DateTimeFormat.forPattern("yyyy-MM-dd"),
 
     // 2014-12-16 - Maybe it's just a date
     // no timezone provided so force UTC rather than use the machine's timezone
@@ -157,6 +158,8 @@ object ImageMetadataConverter extends GridLogging {
   )
 
   private[metadata] def parseRandomDate(str: String, maxDate: Option[DateTime] = None, minDate: Option[DateTime] = None): Option[DateTime] = {
+    // account for images sent with local timezone info being interpreted as UTC
+    val feasibleMaxDate: Option[DateTime] = maxDate.map(_.plusHours(14))
     dateTimeFormatters.foldLeft[Option[DateTime]](None){
       case (successfulDate@Some(_), _) => successfulDate
       // NB We refuse parse results which result in future dates, if a max date is provided.
@@ -164,7 +167,7 @@ object ImageMetadataConverter extends GridLogging {
       // that it should be parsed as (eg) US (12th Jan 2021), not EU (1st Dec 2021).
       // So we refuse the (apparently successful) EU parse result.
       case (None, formatter) => safeParsing(formatter.parseDateTime(str))
-        .filter(d => maxDate.forall(d.isBefore) && minDate.forall(d.isAfter))
+        .filter(d => feasibleMaxDate.forall(d.isBefore) && minDate.forall(d.isAfter))
     }.map(_.withZone(DateTimeZone.UTC))
   }
 
