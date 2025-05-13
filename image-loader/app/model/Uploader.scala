@@ -144,8 +144,6 @@ object Uploader extends GridLogging {
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
-    val sourceOrientationMetadataFuture = FileMetadataReader.orientation(uploadRequest.tempFile)
-
     val storableOriginalImage = StorableOriginalImage(
       uploadRequest.imageId,
       uploadRequest.tempFile,
@@ -162,7 +160,7 @@ object Uploader extends GridLogging {
       s3Source <- sourceStoreFuture
       mergedUploadRequest = patchUploadRequestWithS3Metadata(uploadRequest, s3Source)
       sourceDimensions <- ImageOperations.dimensions(uploadRequest.tempFile)
-      sourceOrientationMetadata <- sourceOrientationMetadataFuture
+      sourceOrientationMetadata <- ImageOperations.orientation(uploadRequest.tempFile)
       thumbViewableImage <- createThumbFuture(browserViewableImage, deps, tempDirForRequest, uploadRequest.instance, orientationMetadata = sourceOrientationMetadata)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
       maybeStorableOptimisedImage <- getStorableOptimisedImage(
