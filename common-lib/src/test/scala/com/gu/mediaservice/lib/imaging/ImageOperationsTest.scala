@@ -71,6 +71,44 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
     }
   }
 
+  describe("dimensions") {
+    it("should return dimensions of horizontal image") {
+      val inputFile = fileAt("exif-orientated-no-rotation.jpg")
+      val dimsFuture = ImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dims =>
+        dims.get shouldBe new Dimensions(3456, 2304)
+      }
+    }
+
+    it("should return uncorrected dimensions for exif oriented images") {
+      val inputFile = fileAt("exif-orientated.jpg")
+      val dimsFuture = ImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dims =>
+        dims.get shouldBe new Dimensions(3456, 2304)
+      }
+    }
+
+    it("should read the correct dimensions for a tiff image") {
+      val inputFile = fileAt("flower.tif")
+      val dimsFuture = ImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dimOpt =>
+        dimOpt should be(Symbol("defined"))
+        dimOpt.get.width should be(73)
+        dimOpt.get.height should be(43)
+      }
+    }
+
+    it("should read the correct dimensions for a png image") {
+      val inputFile = fileAt("schaik.com_pngsuite/basn0g08.png")
+      val dimsFuture = ImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dimOpt =>
+        dimOpt should be(Symbol("defined"))
+        dimOpt.get.width should be(32)
+        dimOpt.get.height should be(32)
+      }
+    }
+  }
+
   // TODO: test cropImage and its conversions
 
   def fileAt(resourcePath: String): File = {
