@@ -1,11 +1,12 @@
 package com.gu.mediaservice.lib.imaging
 
+import app.photofox.vipsffm.Vips
+import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 
 import java.io.File
-import com.gu.mediaservice.model.Jpeg
+import com.gu.mediaservice.model.{Dimensions, Instance, Jpeg, MimeType}
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.Ignore
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,8 +14,9 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.ExecutionContext.Implicits.global
 
 // This test is disabled for now as it doesn't run on our CI environment, because GraphicsMagick is not present...
-@Ignore
 class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
+
+  Vips.init()
 
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
   implicit val logMarker: LogMarker = MarkerMap()
@@ -31,8 +33,16 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
     it("should return RGB for a JPG image with RGB image data and an RGB embedded profile") {
       val image = fileAt("rgb-with-rgb-profile.jpg")
       val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
+        whenReady(colourModelFuture) { colourModel =>
+          colourModel should be(Some("RGB"))
+      }
+    }
+
+    it("should return RGB for a PNG image with RGB image data and an embedded profile") {
+      val image = fileAt("cs-black-000.png")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel should be (Some("RGB"))
+        colourModel should be(Some("RGB"))
       }
     }
 
