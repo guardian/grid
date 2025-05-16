@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider.Resources
 import com.gu.mediaservice.model.{ContractPhotographer, StaffPhotographer}
+import org.joda.time.DateTime
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
@@ -25,6 +26,9 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
           ),
           "contractedPhotographers" -> List(
             Map("name" -> "Company B", "photographers" -> List("C")),
+            Map("name" -> "Company T", "photographers" -> List(
+              Map("name" -> "Temp hire", "from" -> "2025-04-07", "to" -> "2025-04-10")
+            ))
           ),
           "contractIllustrators" -> List(
             Map("name" -> "Company B", "photographers" -> List("CC")),
@@ -93,7 +97,7 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
       conf.internalStaffPhotographers.length shouldBe 1
 
       conf.contractedPhotographers.nonEmpty shouldBe true
-      conf.contractedPhotographers.length shouldBe 1
+      conf.contractedPhotographers.length shouldBe 2
 
       conf.contractIllustrators.nonEmpty shouldBe true
       conf.contractIllustrators.length shouldBe 1
@@ -121,12 +125,12 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
     "should return all photographers" in {
       val allPhotographers = conf.allPhotographers
       allPhotographers.nonEmpty shouldBe true
-      allPhotographers.length shouldBe 2
-      allPhotographers.flatMap(_.photographers).length shouldBe 4
+      allPhotographers.length shouldBe 3
+      allPhotographers.flatMap(_.photographers).length shouldBe 5
     }
 
     "should return staff photographer" in {
-      val photographer = conf.getPhotographer("A")
+      val photographer = conf.getPhotographer("A", DateTime.parse("2025-04-01"))
       photographer.nonEmpty shouldBe true
       photographer.head should matchPattern {
         case _: StaffPhotographer =>
@@ -134,23 +138,37 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
     }
 
     "should return contract photographer" in {
-      val photographer = conf.getPhotographer("C")
+      val photographer = conf.getPhotographer("C", DateTime.parse("2025-04-01"))
       photographer.nonEmpty shouldBe true
       photographer.head should matchPattern {
         case _: ContractPhotographer =>
       }
     }
 
+    "should return photographer when in active period, and not when they are not" in {
+      val photographer = conf.getPhotographer("Temp hire", DateTime.parse("2025-04-08"))
+      photographer should not be (empty)
+      photographer.head should matchPattern {
+        case ContractPhotographer("Temp hire", Some("Company T"), _) =>
+      }
+
+      val noPhotographerBefore = conf.getPhotographer("Temp hire", DateTime.parse("2025-04-06"))
+      noPhotographerBefore should be(empty)
+
+      val noPhotographerAfter = conf.getPhotographer("Temp hire", DateTime.parse("2025-04-11"))
+      noPhotographerAfter should be(empty)
+    }
+
     "should return staff photographer with lowercase name" in {
-      val photographer = conf.getPhotographer("a")
+      val photographer = conf.getPhotographer("a", DateTime.parse("2025-04-01"))
       photographer.nonEmpty shouldBe true
       photographer.head should matchPattern {
         case _: StaffPhotographer =>
       }
     }
 
-    "should not return photographer" in {
-      val photographer = conf.getPhotographer("D")
+    "should not return unknown photographer" in {
+      val photographer = conf.getPhotographer("D", DateTime.parse("2025-04-01"))
       photographer.isEmpty shouldBe true
     }
 
