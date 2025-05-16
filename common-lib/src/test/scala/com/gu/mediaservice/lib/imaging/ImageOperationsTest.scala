@@ -109,6 +109,25 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
     }
   }
 
+  describe("orientation") {
+    it("should capture exif orientation tag from JPG images") {
+      val image = fileAt("exif-orientated.jpg")
+      val orientationFuture = ImageOperations.orientation(image)
+      whenReady(orientationFuture) { orientationOpt =>
+        orientationOpt should be(defined)
+        orientationOpt.get.exifOrientation should be(Some(6))
+      }
+    }
+
+    it("should ignore 0 degree exif orientation tag as it has no material effect") {
+      val image = fileAt("exif-orientated-no-rotation.jpg")
+      val orientationFuture = ImageOperations.orientation(image)
+      whenReady(orientationFuture) { orientationOpt =>
+        orientationOpt should be(None)
+      }
+    }
+  }
+
   // TODO: test cropImage and its conversions
 
   def fileAt(resourcePath: String): File = {
