@@ -283,6 +283,15 @@ object ImageOperations extends GridLogging {
   val thumbMimeType = Jpeg
   val optimisedMimeType = Png
 
+  def getImageInformation(sourceFile: File)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[(Option[Dimensions], Option[OrientationMetadata], Option[String], Map[String, String])] = {
+    for {
+      dimensionsAndOrientation <- dimensionsAndOrientation(sourceFile)
+      colourInformation <- getColourModelAndInformation(sourceFile)
+    } yield {
+      (dimensionsAndOrientation._1, dimensionsAndOrientation._2, colourInformation._1, colourInformation._2)
+    }
+  }
+
   def getColourModelAndInformation(sourceFile: File)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[(Option[String], Map[String, String])] = {
     Future {
       var colourModel: Option[String] = None
