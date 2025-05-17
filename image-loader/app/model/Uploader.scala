@@ -172,7 +172,7 @@ object Uploader extends GridLogging {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
       }
-      thumbDimensions <- ImageOperations.dimensions(thumbViewableImage.file)
+      thumbDimensions <- ImageOperations.dimensionsAndOrientation(thumbViewableImage.file).map(_._1)
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel).copy(colourModelInformation = colourModelInformation)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
