@@ -17,7 +17,7 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket)(implicit ec: ExecutionContext) extends GridLogging with S3KeyFromURL {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket, s3: S3)(implicit ec: ExecutionContext) extends GridLogging with S3KeyFromURL {
   import Files._
 
   private val cropQuality = 75d
@@ -25,8 +25,6 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   // For PNGs, Magick considers "quality" parameter as effort spent on compression - 1 meaning none, 100 meaning max.
   // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it right down.
   private val pngCropQuality = 1d
-
-  private val s3 = new S3(config)
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false, instance: Instance): String = {
     val masterString: String = if (isMaster) "master/" else ""

@@ -1,4 +1,5 @@
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.Management
 import com.gu.mediaservice.lib.play.GridComponents
@@ -12,8 +13,9 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
 
   val store = new CropStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
+  val s3 = new S3(config)
 
-  val crops = new Crops(config, store, imageOperations, config.imageBucket)
+  val crops = new Crops(config, store, imageOperations, config.imageBucket, s3)
   val notifications = new Notifications(config)
 
   private val gridClient = GridClient(config.services)(wsClient)
