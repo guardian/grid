@@ -306,6 +306,15 @@ object ImageOperations extends GridLogging {
     }
   }
 
+  def getColourModelAndInformation(sourceFile: File, originalMimeType: MimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[(Option[String], Map[String, String])] = {
+    for {
+      colourModel <- identifyColourModel(sourceFile, originalMimeType)
+      colourModelInformation <- getColorModelInformation(sourceFile)
+    } yield{
+      (colourModel, colourModelInformation)
+    }
+  }
+
   def getColorModelInformation(sourceFile: File)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Map[String, String]] = {
     val stopWatch = Stopwatch.start
     Future {
