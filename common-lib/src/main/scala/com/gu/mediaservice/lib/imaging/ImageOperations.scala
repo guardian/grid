@@ -323,6 +323,15 @@ object ImageOperations extends GridLogging {
     }
   }
 
+  def dimensionsAndOrientation(sourceFile: File)(implicit ec: ExecutionContext): Future[(Option[Dimensions], Option[OrientationMetadata])] = {
+    for {
+      dimensions <- dimensions(sourceFile)
+      orientation <- orientation(sourceFile)
+    } yield {
+      (dimensions, orientation)
+    }
+  }
+
   def dimensions(sourceFile: File)(implicit ec: ExecutionContext): Future[Option[Dimensions]] = {
     Future {
       var dimensions: Option[Dimensions] = None
