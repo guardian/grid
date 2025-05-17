@@ -324,38 +324,22 @@ object ImageOperations extends GridLogging {
   }
 
   def dimensionsAndOrientation(sourceFile: File)(implicit ec: ExecutionContext): Future[(Option[Dimensions], Option[OrientationMetadata])] = {
-    for {
-      dimensions <- dimensions(sourceFile)
-      orientation <- orientation(sourceFile)
-    } yield {
-      (dimensions, orientation)
-    }
-  }
-
-  def dimensions(sourceFile: File)(implicit ec: ExecutionContext): Future[Option[Dimensions]] = {
     Future {
       var dimensions: Option[Dimensions] = None
+      var maybeExifOrientationWhichTransformsImage: Option[OrientationMetadata] = None
       Vips.run { arena =>
         val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
-        val width = image.getWidth
-        val height = image.getHeight
-        dimensions = Some(Dimensions(width = width, height = height))
-      }
-      dimensions
-    }
-  }
 
-  def orientation(sourceFile: File)(implicit ec: ExecutionContext): Future[Option[OrientationMetadata]] = {
-    Future {
-      var orientation: Option[OrientationMetadata] = None
-      Vips.run { arena =>
-        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+        dimensions = Some(Dimensions(width = image.getWidth, height = image.getHeight))
+
         val exifOrientation = VipsHelper.image_get_orientation(image.getUnsafeStructAddress)
-        orientation = Some(OrientationMetadata(
+        val orientation = Some(OrientationMetadata(
           exifOrientation = Some(exifOrientation)
         ))
+        maybeExifOrientationWhichTransformsImage = Seq(orientation).flatten.find(_.transformsImage())
       }
-      Seq(orientation).flatten.find(_.transformsImage())
+
+      (dimensions, maybeExifOrientationWhichTransformsImage)
     }
   }
 
