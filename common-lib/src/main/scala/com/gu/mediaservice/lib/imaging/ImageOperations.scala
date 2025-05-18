@@ -242,7 +242,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       }
 
       logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
-      (outputFile, MimeType("image/jpeg"))
+      (outputFile, thumbMimeType)
     }
   }
 
