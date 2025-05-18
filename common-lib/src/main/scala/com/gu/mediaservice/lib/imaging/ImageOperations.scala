@@ -284,6 +284,7 @@ object ImageOperations extends GridLogging {
   val optimisedMimeType = Png
 
   def getImageInformation(sourceFile: File)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[(Option[Dimensions], Option[OrientationMetadata], Option[String], Map[String, String])] = {
+    val stopwatch = Stopwatch.start
     Future {
       var dimensions: Option[Dimensions] = None
       var maybeExifOrientationWhichTransformsImage: Option[OrientationMetadata] = None
@@ -317,6 +318,9 @@ object ImageOperations extends GridLogging {
       }
 
       (dimensions, maybeExifOrientationWhichTransformsImage, colourModel, colourModelInformation)
+    }.map { result =>
+      logger.info(addLogMarkers(stopwatch.elapsed), "Finished getImageInformation")
+      result
     }
   }
 
