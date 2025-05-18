@@ -197,6 +197,7 @@ class ImageOperations(playPath: String) extends GridLogging {
         }.getOrElse{
           thumbnail
         }
+        logger.info("Created thumbnail: " + rotated.getWidth + "x" + rotated.getHeight)
 
         rotated.jpegsave(outputFile.getAbsolutePath,
           VipsOption.Int("Q", qual.toInt),
