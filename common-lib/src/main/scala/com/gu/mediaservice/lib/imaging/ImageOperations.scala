@@ -162,52 +162,8 @@ class ImageOperations(playPath: String) extends GridLogging {
       throw new UnsupportedCropOutputTypeException
   }
 
-  val thumbUnsharpRadius = 0.5d
-  val thumbUnsharpSigma = 0.5d
-  val thumbUnsharpAmount = 0.8d
   val interlacedHow = "Line"
   val backgroundColour = "#333333"
-
-  /**
-    * Given a source file containing an image (the 'browser viewable' file),
-    * construct a thumbnail file in the provided temp directory, and return
-    * the file with metadata about it.
-    * @param browserViewableImage
-    * @param width Desired with of thumbnail
-    * @param qual Desired quality of thumbnail
-    * @param outputFile Location to create thumbnail file
-    * @param iccColourSpace (Approximately) number of colours to use
-    * @param colourModel Colour model - eg RGB or CMYK
-    * @return The file created and the mimetype of the content of that file, in a future.
-    */
-  def createThumbnail(browserViewableImage: BrowserViewableImage,
-                      width: Int,
-                      qual: Double = 100d,
-                      outputFile: File,
-                      iccColourSpace: Option[String],
-                      colourModel: Option[String],
-                      orientationMetadata: Option[OrientationMetadata]
-  )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
-    val stopwatch = Stopwatch.start
-
-    val cropSource     = addImage(browserViewableImage.file)
-    val orientated     = orient(cropSource, orientationMetadata)
-    val thumbnailed    = thumbnail(orientated)(width)
-    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, false)
-    val converted      = applyOutputProfile(corrected, optimised = true)
-    val stripped       = stripMeta(converted)
-    val profiled       = applyOutputProfile(stripped, optimised = true)
-    val withBackground = setBackgroundColour(profiled)(backgroundColour)
-    val flattened      = flatten(withBackground)
-    val unsharpened    = unsharp(flattened)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-    val qualified      = quality(unsharpened)(qual)
-    val interlaced     = interlace(qualified)(interlacedHow)
-    val addOutput      = {file:File => addDestImage(interlaced)(file)}
-    for {
-      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = false)
-      _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
-    } yield (outputFile, thumbMimeType)
-  }
 
   /**
    * Given a source file containing an image (the 'browser viewable' file),
