@@ -157,8 +157,16 @@ object Uploader extends GridLogging {
       colourModel = imageInformation._3
       colourModelInformation = imageInformation._4
       fileMetadata <- toFileMetadata(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType)
-      thumbViewableImage <- createThumbFuture(browserViewableImage, deps, tempDirForRequest, uploadRequest.instance, orientationMetadata = sourceOrientationMetadata)
-      thumbDimensions <- ImageOperations.getImageInformation(thumbViewableImage.file).map(_._1)
+      thumbViewableImageAndDimensions <- createThumbFuture(browserViewableImage, deps, tempDirForRequest, uploadRequest.instance, orientationMetadata = sourceOrientationMetadata)
+      thumbViewableImage = thumbViewableImageAndDimensions._1
+      maybeThumbDimensions = thumbViewableImageAndDimensions._2
+      thumbDimensions <- {
+        maybeThumbDimensions.map { dimensions =>
+          Future.successful(Some(dimensions))
+        }.getOrElse {
+          ImageOperations.getImageInformation(thumbViewableImage.file).map(_._1)
+        }
+      }
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
       maybeStorableOptimisedImage <- getStorableOptimisedImage(
       tempDirForRequest, optimiseOps, browserViewableImage, deps.tryFetchOptimisedFile, uploadRequest.instance)
@@ -249,7 +257,7 @@ object Uploader extends GridLogging {
                                 tempDir: File,
                                 instance: Instance,
                                 orientationMetadata: Option[OrientationMetadata]
-  )(implicit ec: ExecutionContext, logMarker: LogMarker) = {
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[(StorableThumbImage, Option[Dimensions])] = {
     import deps._
 
     def generateThumbnail(tempFile: File) = {
@@ -267,15 +275,17 @@ object Uploader extends GridLogging {
     for {
       tempFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       maybeThumbFile <- deps.tryFetchThumbFile(browserViewableImage.id, tempFile, instance)
-      (thumb, thumbMimeType) <- {
+      (thumb, thumbMimeType, thumbDimensions) <- {
         maybeThumbFile match {
-          case Some(thumbData) => Future.successful(thumbData)
+          case Some(thumbData) => Future.successful((thumbData._1, thumbData._2, None))
           case None => generateThumbnail(tempFile)
         }
       }
-    } yield browserViewableImage
-      .copy(file = thumb, mimeType = thumbMimeType)
-      .asStorableThumbImage
+    } yield {
+      (browserViewableImage
+        .copy(file = thumb, mimeType = thumbMimeType)
+        .asStorableThumbImage, thumbDimensions)
+    }
   }
 
   private def createBrowserViewableFileFuture(

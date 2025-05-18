@@ -175,17 +175,18 @@ class ImageOperations(playPath: String) extends GridLogging {
    * @param qual                Desired quality of thumbnail
    * @param outputFile          Location to create thumbnail file
    * @param orientationMetadata OrientationMetadata for rotation correction
-   * @return The file created and the mimetype of the content of that file, in a future.
+   * @return The file created and the mimetype of the content of that file and it's dimensions, in a future.
    */
   def createThumbnailVips(browserViewableImage: BrowserViewableImage,
                       width: Int,
                       qual: Double = 100d,
                       outputFile: File,
                       orientationMetadata: Option[OrientationMetadata]
-                     )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+                     )(implicit logMarker: LogMarker): Future[(File, MimeType, Option[Dimensions])] = {
     val stopwatch = Stopwatch.start
 
     Future.successful {
+      var thumbDimensions: Option[Dimensions] = None
       Vips.run { arena =>
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
           VipsOption.Boolean("auto-rotate", false),
@@ -198,7 +199,7 @@ class ImageOperations(playPath: String) extends GridLogging {
           thumbnail
         }
         logger.info("Created thumbnail: " + rotated.getWidth + "x" + rotated.getHeight)
-
+        thumbDimensions = Some(Dimensions(rotated.getWidth, rotated.getHeight))
         rotated.jpegsave(outputFile.getAbsolutePath,
           VipsOption.Int("Q", qual.toInt),
           //VipsOption.Boolean("optimize-scans", true),
@@ -208,10 +209,11 @@ class ImageOperations(playPath: String) extends GridLogging {
           // VipsOption.Int("quant-table", 3),
           VipsOption.Boolean("strip", true)
         )
+        thumbDimensions
       }
 
       logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
-      (outputFile, thumbMimeType)
+      (outputFile, thumbMimeType, thumbDimensions)
     }
   }
 
