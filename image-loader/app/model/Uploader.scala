@@ -233,10 +233,14 @@ object Uploader extends GridLogging {
     baseMeta.view.mapValues(URI.encode).toMap
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[FileMetadata] = {
-    mimeType match {
+  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit ec: ExecutionContext, logMarker: LogMarker): Future[FileMetadata] = {
+    val stopwatch = Stopwatch.start
+    (mimeType match {
       //case Some(Png | Tiff | Jpeg) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
+    }).map { result =>
+      logger.info(addLogMarkers(stopwatch.elapsed), "Finished toFileMetadata")
+      result
     }
   }
 
