@@ -209,6 +209,18 @@ class ImageOperations(playPath: String) extends GridLogging {
     } yield (outputFile, thumbMimeType)
   }
 
+  /**
+   * Given a source file containing an image (the 'browser viewable' file),
+   * construct a thumbnail file in the provided temp directory, and return
+   * the file with metadata about it.
+   *
+   * @param browserViewableImage
+   * @param width               Desired with of thumbnail
+   * @param qual                Desired quality of thumbnail
+   * @param outputFile          Location to create thumbnail file
+   * @param orientationMetadata OrientationMetadata for rotation correction
+   * @return The file created and the mimetype of the content of that file, in a future.
+   */
   def createThumbnailVips(browserViewableImage: BrowserViewableImage,
                       width: Int,
                       qual: Double = 100d,
