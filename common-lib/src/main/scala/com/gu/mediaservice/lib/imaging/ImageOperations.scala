@@ -188,6 +188,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     Future.successful {
       var thumbDimensions: Option[Dimensions] = None
       Vips.run { arena =>
+        VipsHelper.cache_set_max(0)
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
           VipsOption.Boolean("auto-rotate", false),
           VipsOption.String("export-profile", profilePath("srgb.icc"))
@@ -263,6 +264,7 @@ object ImageOperations extends GridLogging {
       var colourModelInformation: Map[String, String] = Map.empty
 
       Vips.run { arena =>
+        VipsHelper.cache_set_max(0)
         val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
 
         dimensions = Some(Dimensions(width = image.getWidth, height = image.getHeight))
