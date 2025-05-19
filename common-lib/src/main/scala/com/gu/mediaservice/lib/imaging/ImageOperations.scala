@@ -1,7 +1,6 @@
 package com.gu.mediaservice.lib.imaging
 
 import app.photofox.vipsffm.enums.VipsInterpretation
-import app.photofox.vipsffm.jextract.VipsRaw
 
 import java.io._
 import org.im4java.core.IMOperation
@@ -276,7 +275,7 @@ object ImageOperations extends GridLogging {
         maybeExifOrientationWhichTransformsImage = Seq(orientation).flatten.find(_.transformsImage())
 
         // TODO better way to go straight from int to enum?
-        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsRaw.vips_image_get_interpretation(image.getUnsafeStructAddress))
+        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
         colourModel = maybeInterpretation match {
           case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
           case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
