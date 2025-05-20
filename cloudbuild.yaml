@@ -8,6 +8,10 @@ steps:
   - name: 'node:24-alpine'
     entrypoint: 'npm'
     dir: 'kahuna'
+    args: [ 'run', 'test' ]
+  - name: 'node:24-alpine'
+    entrypoint: 'npm'
+    dir: 'kahuna'
     args: [ 'run', 'dist' ]
 
   - name: 'gcr.io/$PROJECT_ID/scala-sbt:1.6.2-jdk-11'
