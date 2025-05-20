@@ -1,4 +1,4 @@
-import app.photofox.vipsffm.Vips
+import app.photofox.vipsffm.{Vips, VipsHelper}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{S3, SimpleSqsMessageConsumer}
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -25,6 +25,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val uploadStatusTable = new UploadStatusTable(config)
   val imageOperations = {
     Vips.init()
+    VipsHelper.cache_set_max(0)
     new ImageOperations(context.environment.rootPath.getAbsolutePath)
   }
   val notifications = new Notifications(config)
