@@ -187,27 +187,33 @@ class ImageOperations(playPath: String) extends GridLogging {
     Future.successful {
       var thumbDimensions: Option[Dimensions] = None
       Vips.run { arena =>
-        val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
-          VipsOption.Boolean("auto-rotate", false),
-          VipsOption.String("export-profile", profilePath("srgb.icc"))
-        )
-       val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
-          logger.info("Rotating thumbnail: " + angle)
-          thumbnail.rotate(angle)
-        }.getOrElse{
-          thumbnail
+        try {
+          val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
+            VipsOption.Boolean("auto-rotate", false),
+            VipsOption.String("export-profile", profilePath("srgb.icc"))
+          )
+          val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
+            logger.info("Rotating thumbnail: " + angle)
+            thumbnail.rotate(angle)
+          }.getOrElse {
+            thumbnail
+          }
+          logger.info("Created thumbnail: " + rotated.getWidth + "x" + rotated.getHeight)
+          thumbDimensions = Some(Dimensions(rotated.getWidth, rotated.getHeight))
+          rotated.jpegsave(outputFile.getAbsolutePath,
+            VipsOption.Int("Q", qual.toInt),
+            //VipsOption.Boolean("optimize-scans", true),
+            //VipsOption.Boolean("optimize-coding", true),
+            //VipsOption.Boolean("interlace", true),
+            //VipsOption.Boolean("trellis-quant", true),
+            // VipsOption.Int("quant-table", 3),
+            VipsOption.Boolean("strip", true)
+          )
+        } catch {
+          case e: Exception =>
+            logger.error("Error during createThumbnail" , e)
+            throw e
         }
-        logger.info("Created thumbnail: " + rotated.getWidth + "x" + rotated.getHeight)
-        thumbDimensions = Some(Dimensions(rotated.getWidth, rotated.getHeight))
-        rotated.jpegsave(outputFile.getAbsolutePath,
-          VipsOption.Int("Q", qual.toInt),
-          //VipsOption.Boolean("optimize-scans", true),
-          //VipsOption.Boolean("optimize-coding", true),
-          //VipsOption.Boolean("interlace", true),
-          //VipsOption.Boolean("trellis-quant", true),
-          // VipsOption.Int("quant-table", 3),
-          VipsOption.Boolean("strip", true)
-        )
         thumbDimensions
       }
 
@@ -262,28 +268,34 @@ object ImageOperations extends GridLogging {
       var colourModelInformation: Map[String, String] = Map.empty
 
       Vips.run { arena =>
-        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+        try {
+          val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
 
-        dimensions = Some(Dimensions(width = image.getWidth, height = image.getHeight))
+          dimensions = Some(Dimensions(width = image.getWidth, height = image.getHeight))
 
-        val exifOrientation = VipsHelper.image_get_orientation(image.getUnsafeStructAddress)
-        val orientation = Some(OrientationMetadata(
-          exifOrientation = Some(exifOrientation)
-        ))
-        maybeExifOrientationWhichTransformsImage = Seq(orientation).flatten.find(_.transformsImage())
+          val exifOrientation = VipsHelper.image_get_orientation(image.getUnsafeStructAddress)
+          val orientation = Some(OrientationMetadata(
+            exifOrientation = Some(exifOrientation)
+          ))
+          maybeExifOrientationWhichTransformsImage = Seq(orientation).flatten.find(_.transformsImage())
 
-        // TODO better way to go straight from int to enum?
-        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
-        colourModel = maybeInterpretation match {
-          case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
-          case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
-          case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
-          case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
-          case _ => None
-        }
+          // TODO better way to go straight from int to enum?
+          val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
+          colourModel = maybeInterpretation match {
+            case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
+            case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
+            case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
+            case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
+            case _ => None
+          }
 
-        colourModelInformation = Map {
-          "hasAlpha" -> image.hasAlpha.toString
+          colourModelInformation = Map {
+            "hasAlpha" -> image.hasAlpha.toString
+          }
+        } catch {
+          case e: Exception =>
+            logger.error("Error during getImageInformation", e)
+            throw e
         }
       }
 
