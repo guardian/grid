@@ -1,4 +1,5 @@
 import play.sbt.PlayImport.PlayKeys._
+import play.sbt.PlayImport.PlayKeys._
 import sbt.Package.FixedTimestamp
 
 import scala.sys.process._
@@ -273,7 +274,8 @@ def playImageLoaderProject(projectName: String, port: Int, path: Option[String] 
         Cmd("RUN", "apt-get", "install", "-y", "libimage-exiftool-perl"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips-dev"),
-        Cmd("RUN", "apt-get", "install", "-y", "libvips-tools")
+        Cmd("RUN", "apt-get", "install", "-y", "libvips-tools"),
+        Cmd("RUN", "apt-get", "install", "-y", "libjemalloc-dev")
       ),
       playDefaultPort := port,
 
