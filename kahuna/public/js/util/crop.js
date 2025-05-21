@@ -102,15 +102,17 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
     }
   }
 
-  return { set, getCropType, getCropOptions, getDefaultCropType };
-}]);
-
-cropUtil.filter('asCropType', function() {
-  return ratioString => {
+  function asCropType(ratioString) {
     const cropSpec = cropOptions.find(_ => _.ratioString === ratioString) || freeform;
     return cropSpec.key;
-  };
-});
+  }
+
+  return { set, getCropType, getCropOptions, getDefaultCropType, asCropType };
+}]);
+
+cropUtil.filter('asCropType', ['cropSettings', function(cropSettings) {
+  return cropSettings.asCropType;
+}]);
 
 cropUtil.factory('pollUntilCropCreated', ['$q', 'apiPoll', function($q, apiPoll) {
   return function pollUntilCropCreated(image, newCropId) {
