@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCropsOrUsages, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.feature.VipsImagingSwitch
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -58,7 +59,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       val user = httpRequest.user
       val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
-      executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
+      val useVips = VipsImagingSwitch.getValue(httpRequest)
+
+      executeRequest(exportRequest, user, onBehalfOfPrincipal, useVips).map { case (imageId, export) =>
 
         val cropJson = Json.toJson(export).as[JsObject]
         val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)))
@@ -159,8 +162,13 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def executeRequest(
-    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal
+    exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
+    useVips: Boolean = false
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
+
+    def exportFn(apiImage: SourceImage, crop: Crop)(logMarker: LogMarker) =
+      if (useVips) crops.makeExportWithVips(apiImage, crop)(logMarker)
+      else crops.makeExportWithImageMagick(apiImage, crop)(logMarker)
 
     for {
       _ <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
@@ -176,7 +184,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         specification = cropSpec
       )
       markersWithCropDetails = logMarker ++ Map("imageId" -> apiImage.id, "cropId" -> Crop.getCropId(cropSpec.bounds))
-      ExportResult(id, masterSizing, sizings) <- crops.makeExport(apiImage, crop)(markersWithCropDetails)
+      ExportResult(id, masterSizing, sizings) <- crops.makeExportWithImageMagick(apiImage, crop)(markersWithCropDetails)
       finalCrop = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
   }
