@@ -50,7 +50,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
       for {
-        strip <- imageOperations.cropImage(
+        strip <- imageOperations.cropImageVips(
           sourceFile, apiImage.source.mimeType, source.bounds, quality, config.tempDir,
           iccColourSpace, colourModel, mediaType, isTransformedFromSource = false,
           orientationMetadata = orientationMetadata
