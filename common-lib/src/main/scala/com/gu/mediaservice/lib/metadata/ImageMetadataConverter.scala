@@ -12,6 +12,8 @@ object ImageMetadataConverter extends GridLogging {
 
   // keep positive years (ie AD) with a couple of days spare room to avoid accidentally flipping over into BC
   val earliestSensibleDate: DateTime = DateTime.parse("0001-01-03T00:00:00.000Z")
+  // offset hours representing possible range of + timezones ahead of UTC
+  private val utcHoursOffset: Int = 14
 
   private def extractSubjects(fileMetadata: FileMetadata): Option[List[String]] = {
     val supplementalCategories = fileMetadata.iptc
@@ -59,13 +61,11 @@ object ImageMetadataConverter extends GridLogging {
     val exifTaken: Option[String] = fileMetadata.exifSub.get("Date/Time Original Composite")
     val iptcTaken: Option[String] = fileMetadata.iptc.get("Date Time Created Composite")
     val xmpTaken: Option[String] = fileMetadata.readXmpHeadStringProp("photoshop:DateCreated")
-    val xmpAlt: Option[String] = fileMetadata.xmp.get("xmp:CreateDate").flatMap(_.asOpt[String])
-    val iptcAlt: Option[String] = fileMetadata.iptc.get("Date Created")
+    val iptcDate: Option[String] = fileMetadata.iptc.get("Date Created")
     val dateTaken: Option[DateTime] = exifTaken.flatMap(parseDate) orElse
                                       iptcTaken.flatMap(parseDate) orElse
                                       xmpTaken.flatMap(parseDate) orElse
-                                      xmpAlt.flatMap(parseDate) orElse
-                                      iptcAlt.flatMap(parseDate)
+                                      iptcDate.flatMap(parseDate)
 
     ImageMetadata(
       dateTaken           = dateTaken,
@@ -159,7 +159,7 @@ object ImageMetadataConverter extends GridLogging {
 
   private[metadata] def parseRandomDate(str: String, maxDate: Option[DateTime] = None, minDate: Option[DateTime] = None): Option[DateTime] = {
     // account for images sent with local timezone info being interpreted as UTC
-    val feasibleMaxDate: Option[DateTime] = maxDate.map(_.plusHours(14))
+    val feasibleMaxDate: Option[DateTime] = maxDate.map(_.plusHours(utcHoursOffset))
     dateTimeFormatters.foldLeft[Option[DateTime]](None){
       case (successfulDate@Some(_), _) => successfulDate
       // NB We refuse parse results which result in future dates, if a max date is provided.
