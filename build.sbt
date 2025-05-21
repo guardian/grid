@@ -275,7 +275,8 @@ def playImageLoaderProject(projectName: String, port: Int, path: Option[String] 
         Cmd("RUN", "apt-get", "install", "-y", "libvips"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips-dev"),
         Cmd("RUN", "apt-get", "install", "-y", "libvips-tools"),
-        Cmd("RUN", "apt-get", "install", "-y", "libjemalloc-dev")
+        Cmd("RUN", "apt-get", "install", "-y", "libjemalloc-dev"),
+        Cmd("ENV", "LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so")
       ),
       playDefaultPort := port,
 
