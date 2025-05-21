@@ -52,7 +52,7 @@ case class UsageRightsToMetadataParser(resources: ImageProcessorResources) exten
 class PhotographerParser(photographersConfig: UsageRightsConfigProvider) extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
-      photographersConfig.getPhotographer(byline).map{
+      photographersConfig.getPhotographer(byline, image.metadata.dateTaken.getOrElse(image.uploadTime)).map{
         case p: StaffPhotographer => image.copy(
           usageRights = p,
           metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
