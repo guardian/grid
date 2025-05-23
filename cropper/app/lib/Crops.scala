@@ -128,6 +128,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
+        logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
         masterCropImage = VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
         sizes <- createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
         masterSize <- masterCrop.sizing

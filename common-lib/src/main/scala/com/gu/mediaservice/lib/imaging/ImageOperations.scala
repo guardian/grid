@@ -134,6 +134,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
+    logger.info("Saving master crop tmp file to: " + outputFile.getAbsolutePath)
     cropped.jpegsave(outputFile.getAbsolutePath,
       VipsOption.Int("Q", qual.toInt),
       //VipsOption.Boolean("optimize-scans", true),
