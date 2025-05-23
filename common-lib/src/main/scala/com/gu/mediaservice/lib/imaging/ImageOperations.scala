@@ -178,7 +178,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 
       val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
 
-      val scale = dimensions.width / sourceDimensions.width
+      val scale = dimensions.width.toDouble / sourceDimensions.width.toDouble
       val resized = image.resize(scale)
 
       resized.jpegsave(outputFile.getAbsolutePath,
