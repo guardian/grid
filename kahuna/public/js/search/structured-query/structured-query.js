@@ -9,7 +9,7 @@ import { rxUtil } from "../../util/rx";
 
 import { querySuggestions, filterFields } from "./query-suggestions";
 import { renderQuery, structureQuery } from "./syntax";
-import { grCqlInput } from "../../components/gr-cql.input/gr-cql-input";
+import { grCqlInput } from "../../components/gr-cql-input/gr-cql-input";
 import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export const grStructuredQuery = angular.module("gr.structuredQuery", [
