@@ -119,40 +119,35 @@ class ImageOperations(playPath: String) extends GridLogging {
                      fileType: MimeType,
                      isTransformedFromSource: Boolean,
                      orientationMetadata: Option[OrientationMetadata]
-                   )(implicit logMarker: LogMarker): Future[File] = {
+                   )(implicit logMarker: LogMarker, arena: Arena): File = {
     val outputFile = File.createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir) // TODO function for this
-
-    Future {
-      val arena = Arena.ofConfined
-
-      // Read source image
-      val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
-      // Orient
-      val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
-        image.rotate(angle)
-      }.getOrElse {
-        image
-      }
-      // TODO correct colour
-      // TODO strip meta data
-      // Output colour profile
-      val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
-      // TODO depth adjust
-
-      cropped.jpegsave(outputFile.getAbsolutePath,
-        VipsOption.Int("Q", qual.toInt),
-        //VipsOption.Boolean("optimize-scans", true),
-        //VipsOption.Boolean("optimize-coding", true),
-        //VipsOption.Boolean("interlace", true),
-        //VipsOption.Boolean("trellis-quant", true),
-        // VipsOption.Int("quant-table", 3),
-        VipsOption.Boolean("strip", true)
-      )
-
-      arena.close()
-      outputFile
+    // Read source image
+    val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+    // Orient
+    val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
+      image.rotate(angle)
+    }.getOrElse {
+      image
     }
+    // TODO correct colour
+    // TODO strip meta data
+    // Output colour profile
+    val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
+    // TODO depth adjust
+
+    cropped.jpegsave(outputFile.getAbsolutePath,
+      VipsOption.Int("Q", qual.toInt),
+      //VipsOption.Boolean("optimize-scans", true),
+      //VipsOption.Boolean("optimize-coding", true),
+      //VipsOption.Boolean("interlace", true),
+      //VipsOption.Boolean("trellis-quant", true),
+      // VipsOption.Int("quant-table", 3),
+      VipsOption.Boolean("strip", true)
+    )
+
+    outputFile
   }
+
 
   // Updates metadata on existing file
   def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {

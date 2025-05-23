@@ -41,9 +41,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     mediaType: MimeType,
     colourModel: Option[String],
     orientationMetadata: Option[OrientationMetadata]
-  )(implicit logMarker: LogMarker, instance: Instance): Future[MasterCrop] = {
+  )(implicit logMarker: LogMarker, instance: Instance, arena: Arena): Future[MasterCrop] = {
 
-    Stopwatch.async(s"creating master crop for ${apiImage.id}") {
+    Stopwatch(s"creating master crop for ${apiImage.id}") {
       val source = crop.specification
       val metadata = apiImage.metadata
       val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
@@ -51,12 +51,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
+      val strip = imageOperations.cropImageVips(
+        sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
+        iccColourSpace, colourModel, mediaType, isTransformedFromSource = false,
+        orientationMetadata = orientationMetadata
+      )
+
       for {
-        strip <- imageOperations.cropImageVips(
-          sourceFile, apiImage.source.mimeType, source.bounds, quality, config.tempDir,
-          iccColourSpace, colourModel, mediaType, isTransformedFromSource = false,
-          orientationMetadata = orientationMetadata
-        )
         file: File <- imageOperations.appendMetadata(strip, metadata)
         dimensions = Dimensions(source.bounds.width, source.bounds.height)
         filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
@@ -120,10 +121,10 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val secureUrl = s3.signUrlTony(imageBucket, key)
 
     implicit val arena: Arena = Arena.ofConfined()
+    val sourceFile = File.createTempFile("cropSource", "", config.tempDir) // TODO function for this
 
     val result = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
-        sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
         colourModelAndInformation <- ImageOperations.getImageInformation(sourceFile)
         colourModel = colourModelAndInformation._3
         masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, apiImage.source.orientationMetadata)
