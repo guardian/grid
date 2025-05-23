@@ -120,10 +120,10 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val secureUrl = s3.signUrlTony(imageBucket, key)
 
     implicit val arena: Arena = Arena.ofConfined()
-    val sourceFile = File.createTempFile("cropSource", "", config.tempDir) // TODO function for this
 
     val result = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
+        sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
         masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
