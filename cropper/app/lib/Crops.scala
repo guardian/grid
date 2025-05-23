@@ -118,31 +118,37 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val key = imageBucket.keyFromS3URL(secureFile)
     val secureUrl = s3.signUrlTony(imageBucket, key)
 
-
-    val eventualResult = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
+    //val eventualResult = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
+    val eventualSourceFile: Future[File] = tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
+    val x = eventualSourceFile.flatMap { sourceFile =>
       implicit val arena: Arena = Arena.ofConfined()
-      for {
-        sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-        masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
-
-        outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
-
-        masterCropImage = {
+      val masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
+      val outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
+      val masterCropImage = {
           logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
           VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
+      }
+
+      val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
+      val eventualMasterSize: Future[Asset] = masterCrop.sizing
+
+      //  _ <- Future.sequence(List(masterCrop.file, sourceFile).map(delete))
+
+      val z: Future[ExportResult] = eventualSizes.flatMap { sizes =>
+        val a = eventualMasterSize.flatMap { masterSize =>
+          val z: Future[ExportResult] = Future.sequence(List(masterCrop.file, sourceFile).map(delete)).map { _ =>
+            ExportResult(apiImage.id, masterSize, sizes)
+          }
+          z
         }
-
-        sizes <- createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
-        masterSize <- masterCrop.sizing
-
-        _ <- Future.sequence(List(masterCrop.file, sourceFile).map(delete))
+        a
       }
-      yield {
+      z.onComplete( _ =>
         arena.close()
-        ExportResult(apiImage.id, masterSize, sizes)
-      }
+      )
+      z
     }
-    eventualResult
+    x
   }
 }
 
