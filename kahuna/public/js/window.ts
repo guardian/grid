@@ -1,7 +1,7 @@
 import { FeatureSwitchData } from "./components/gr-feature-switch-panel/gr-feature-switch-panel";
 import { PermissionOption } from "./components/gr-permissions-filter/gr-permissions-filter-config";
 import { Notification } from "./components/gr-notifications-banner/gr-notifications-banner";
-import { FieldAlias } from "./search/structured-query/query-suggestions";
+import { FieldAlias } from "./components/gr-cql-input/gr-cql-input";
 
 declare global {
   interface Window {
