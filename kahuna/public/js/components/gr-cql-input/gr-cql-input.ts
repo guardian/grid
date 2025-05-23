@@ -3,11 +3,10 @@ import {
   createCqlInput,
   Typeahead,
   TypeaheadField,
-  TextSuggestionOption,
   QueryChangeEventDetail,
   CqlQuery,
   CqlBinary,
-  CqlExpr,
+  CqlExpr
 } from "@guardian/cql";
 import { List, Map } from "immutable";
 import { mediaApi } from "../../services/api/media-api";
@@ -15,7 +14,7 @@ import { mediaApi } from "../../services/api/media-api";
 export const grCqlInput = angular.module("gr.cqlInput", []);
 
 export const querySuggestions = angular.module("querySuggestions", [
-  mediaApi.name,
+  mediaApi.name
 ]);
 
 export type FieldAlias = {
@@ -43,7 +42,7 @@ const subjects = [
   "social",
   "sport",
   "war",
-  "weather",
+  "weather"
 ];
 
 const fileTypes = ["jpeg", "tiff", "png"];
@@ -56,7 +55,7 @@ const isSearch = [
   `${staffPhotographerOrganisation}-owned-illustration`,
   `${staffPhotographerOrganisation}-owned`,
   "under-quota",
-  "deleted",
+  "deleted"
 ];
 
 if (window._clientConfig.useReaper === true) {
@@ -81,50 +80,50 @@ querySuggestions.factory("querySuggestions", [
       {
         fieldName: "by",
         resolver: (value: string) =>
-          listPhotographers().then(prefixFilter(value)),
+          listPhotographers().then(prefixFilter(value))
       },
       {
         fieldName: "category",
-        resolver: (value: string) => listCategories().then(prefixFilter(value)),
+        resolver: (value: string) => listCategories().then(prefixFilter(value))
       },
       { fieldName: "city" },
       { fieldName: "copyright" },
       { fieldName: "country" },
       {
         fieldName: "credit",
-        resolver: (value: string) => suggestCredit(value),
+        resolver: (value: string) => suggestCredit(value)
       },
       { fieldName: "description" },
       {
         fieldName: "fileType",
-        resolver: (value: string) => prefixFilter(value)(fileTypes),
+        resolver: (value: string) => prefixFilter(value)(fileTypes)
       },
       {
         fieldName: "illustrator",
         resolver: (value: string) =>
-          listIllustrators().then(prefixFilter(value)),
+          listIllustrators().then(prefixFilter(value))
       },
       { fieldName: "in" },
       { fieldName: "keyword" },
       {
         fieldName: "label",
-        resolver: (value: string) => suggestLabels(value),
+        resolver: (value: string) => suggestLabels(value)
       },
       { fieldName: "location" },
       { fieldName: "person" },
       {
         fieldName: "source",
-        resolver: (value: string) => suggestSource(value),
+        resolver: (value: string) => suggestSource(value)
       },
       { fieldName: "specialInstructions" },
       { fieldName: "state" },
       {
         fieldName: "subject",
-        resolver: (value: string) => prefixFilter(value)(subjects),
+        resolver: (value: string) => prefixFilter(value)(subjects)
       },
       {
         fieldName: "supplier",
-        resolver: (value: string) => listSuppliers().then(prefixFilter(value)),
+        resolver: (value: string) => listSuppliers().then(prefixFilter(value))
       },
       { fieldName: "suppliersReference" },
       { fieldName: "title" },
@@ -134,7 +133,7 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "usages@platform", resolver: listUsagePlatforms },
       {
         fieldName: "usages@status",
-        resolver: ["published", "pending", "removed"],
+        resolver: ["published", "pending", "removed"]
       },
       { fieldName: "usages@reference" },
       { fieldName: "has" },
@@ -142,7 +141,7 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "filename" },
       {
         fieldName: "photoshoot",
-        resolver: (value: string) => suggestPhotoshoot(value),
+        resolver: (value: string) => suggestPhotoshoot(value)
       },
       { fieldName: "leasedBy" },
       { fieldName: "is", resolver: isSearch },
@@ -151,8 +150,8 @@ querySuggestions.factory("querySuggestions", [
         resolver: fieldAliases.hasOwnProperty(fieldName)
           ? (value: string) =>
               prefixFilter(value)(suggestFieldAliasOptions(fieldName))
-          : undefined,
-      })),
+          : undefined
+      }))
     ].sort();
 
     function prefixFilter(prefix: string) {
@@ -263,13 +262,13 @@ querySuggestions.factory("querySuggestions", [
     }
 
     return {
-      filterFields,
+      filterFields
     };
-  },
+  }
 ]);
 
 grCqlInput.directive<
-  angular.IScope & { onChange: () => (str: string) => void }
+  angular.IScope & { onChange:() => (str: string) => void }
 >("grCqlInput", [
   "querySuggestions",
   function (querySuggestions) {
@@ -293,13 +292,11 @@ grCqlInput.directive<
       },
     );
 
-    console.log({ querySuggestions });
-
     const typeahead = new Typeahead(fields);
 
     const CqlInput = createCqlInput(typeahead, {
       theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
-      lang: { operators: false, groups: false },
+      lang: { operators: false, groups: false }
     });
     customElements.define("cql-input", CqlInput as any);
 
@@ -307,7 +304,7 @@ grCqlInput.directive<
       restrict: "E",
       scope: {
         onChange: "&",
-        initialValue: "=",
+        initialValue: "="
       },
       template: "<cql-input></cql-input>",
       link: function (scope, element, attrs, ngModelCtrl) {
@@ -334,9 +331,9 @@ grCqlInput.directive<
         // subscribe$(scope, ctrl.newQuery$, (query) => {
         //   ngModelCtrl.$setViewValue(query);
         // });
-      },
+      }
     };
-  },
+  }
 ]);
 
 const dateFields = ["from-date", "to-date"];
