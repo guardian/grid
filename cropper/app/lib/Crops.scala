@@ -40,11 +40,10 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     crop: Crop,
     mediaType: MimeType,
     orientationMetadata: Option[OrientationMetadata]
-  )(implicit logMarker: LogMarker, instance: Instance, arena: Arena): Future[MasterCrop] = {
+  )(implicit logMarker: LogMarker, instance: Instance, arena: Arena): MasterCrop = {
 
     Stopwatch(s"creating master crop for ${apiImage.id}") {
       val source = crop.specification
-      val metadata = apiImage.metadata
       val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
       // pngs are always lossless, so quality only means effort spent compressing them. We don't
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
@@ -56,15 +55,15 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         orientationMetadata = orientationMetadata
       )
 
-      for {
-        file: File <- imageOperations.appendMetadata(strip, metadata)
-        dimensions = Dimensions(source.bounds.width, source.bounds.height)
-        filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
-        sizing = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
-        dirtyAspect = source.bounds.width.toFloat / source.bounds.height
-        aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
-      }
-      yield MasterCrop(sizing, file, dimensions, aspect)
+      val file = strip
+
+      val dimensions = Dimensions(source.bounds.width, source.bounds.height)
+      val filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
+      val sizing = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
+      val dirtyAspect = source.bounds.width.toFloat / source.bounds.height
+      val aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+
+      MasterCrop(sizing, file, dimensions, aspect)
     }
   }
 
@@ -124,7 +123,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
+        masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
