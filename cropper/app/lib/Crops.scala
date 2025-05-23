@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 
+import java.lang.foreign.Arena
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -66,30 +67,29 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     }
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType, masterCrop: MasterCrop
+  private def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType, masterCrop: MasterCrop
                  )(implicit logMarker: LogMarker, instance: Instance): Future[List[Asset]] = {
     val quality = if (cropType == Png) pngCropQuality else cropQuality
 
     Stopwatch.async(s"creating crops for ${apiImage.id}") {
-      Future.sequence(dimensionList.map { dimensions =>
+      implicit val arena: Arena = Arena.ofConfined()
+
+      val eventualAssets = Future.sequence(dimensionList.map { dimensions =>
         val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
+        val file = imageOperations.resizeImageVips(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType, masterCrop.dimensions)
+        val optimisedFile = imageOperations.optimiseImage(file, cropType)
+        val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType, instance = instance)
+
         for {
-          file <- imageOperations.resizeImageVips(sourceFile,
-            apiImage.source.mimeType,
-            dimensions,
-            quality,
-            config.tempDir,
-            cropType,
-            masterCrop.dimensions
-          )(cropLogMarker)
-          optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
-          filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType, instance = instance)
           sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
           _ <- delete(file)
           _ <- delete(optimisedFile)
         }
         yield sizing
       })
+
+      arena.close()
+      eventualAssets
     }
   }
 
