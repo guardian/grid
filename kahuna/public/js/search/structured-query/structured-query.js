@@ -1,65 +1,58 @@
-import angular from "angular";
-import Rx from "rx";
+import angular from 'angular';
+import Rx from 'rx';
 
-import "./structured-query.css";
+import './structured-query.css';
 
-import { grChips } from "../../components/gr-chips/gr-chips";
+import {grChips} from '../../components/gr-chips/gr-chips';
 
-import { rxUtil } from "../../util/rx";
+import {rxUtil} from '../../util/rx';
 
-import { querySuggestions, filterFields } from "./query-suggestions";
-import { renderQuery, structureQuery } from "./syntax";
-import { grCqlInput } from "../../components/gr-cql-input/gr-cql-input";
-import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
+import {querySuggestions, filterFields} from './query-suggestions';
+import {renderQuery, structureQuery} from './syntax';
+import { getFeatureSwitchActive } from '../../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
-export const grStructuredQuery = angular.module("gr.structuredQuery", [
-  rxUtil.name,
-  grChips.name,
-  querySuggestions.name,
-  grCqlInput.name,
+export const grStructuredQuery = angular.module('gr.structuredQuery', [
+    rxUtil.name,
+    grChips.name,
+    querySuggestions.name
 ]);
 
-grStructuredQuery.controller("grStructuredQueryCtrl", [
-  "querySuggestions",
-  "$scope",
-  function (querySuggestions, $scope) {
+
+grStructuredQuery.controller('grStructuredQueryCtrl',
+                             ['querySuggestions', '$scope',
+                              function(querySuggestions, $scope) {
     const ctrl = this;
     ctrl.$onInit = () => {
+
       ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
 
-      const structuredQueryUpdates$ = Rx.Observable.create((observer) => {
-        ctrl.structuredQueryChanged = function (structuredQuery) {
-          if (
-            ctrl.maybeOrgOwnedValue &&
-            structuredQuery.find(
-              (item) => item.value === ctrl.maybeOrgOwnedValue,
-            )
-          ) {
-            $scope.searchQuery.filter.orgOwned = true;
-          } else {
-            $scope.searchQuery.filter.orgOwned = false;
-          }
-          observer.onNext(structuredQuery);
-        };
+      const structuredQueryUpdates$ = Rx.Observable.create(observer => {
+          ctrl.structuredQueryChanged = function(structuredQuery) {
+              if (ctrl.maybeOrgOwnedValue && structuredQuery.find(item => item.value === ctrl.maybeOrgOwnedValue)){
+                  $scope.searchQuery.filter.orgOwned = true;
+              } else {
+                  $scope.searchQuery.filter.orgOwned = false;
+              }
+              observer.onNext(structuredQuery);
+          };
       });
 
-      ctrl.newQuery$ = structuredQueryUpdates$
-        .map(renderQuery)
-        .map(valOrUndefined)
-        .distinctUntilChanged()
-        .debounce(500);
+      ctrl.newQuery$ = structuredQueryUpdates$.
+          map(renderQuery).
+          map(valOrUndefined).
+          distinctUntilChanged().
+          debounce(500);
 
       ctrl.getSuggestions = querySuggestions.getChipSuggestions;
 
       ctrl.filterFields = filterFields;
 
       function valOrUndefined(str) {
-        // Watch out for `false`, but we know it's a string here..
-        return str ? str : undefined;
+          // Watch out for `false`, but we know it's a string here..
+          return str ? str : undefined;
       }
     };
-  },
-]);
+}]);
 
 grStructuredQuery.directive("grStructuredQuery", [
   "subscribe$",
