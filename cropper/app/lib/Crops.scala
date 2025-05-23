@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
+import com.gu.mediaservice.lib.resource.FutureResources
 import com.gu.mediaservice.model._
 
 import java.lang.foreign.Arena
@@ -72,21 +73,27 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val quality = if (cropType == Png) pngCropQuality else cropQuality
 
     Stopwatch(s"creating crops for ${apiImage.id}") {
-      val eventualAssets = Future.sequence(dimensionList.map { dimensions =>
-        val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
-        val file = imageOperations.resizeImageVips(sourceImage, apiImage.source.mimeType, dimensions, quality, config.tempDir, cropType, masterCrop.dimensions)
+      val resizes = dimensionList.map { dimensions =>
+        val file = imageOperations.resizeImageVips(sourceImage, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType, masterCrop.dimensions)
         val optimisedFile = imageOperations.optimiseImage(file, cropType)
         val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType, instance = instance)
+        (file, optimisedFile, filename, dimensions)
+      }
+      logger.info("Done resizes")
 
+      val eventualStoredAssets = resizes.map { resize =>
+        val file = resize._1
+        val optimisedFile = resize._2
+        val filename = resize._3
+        val dimensions = resize._4
         for {
-          sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
+          sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
           _ <- delete(file)
           _ <- delete(optimisedFile)
         }
         yield sizing
-      })
-
-      eventualAssets
+      }
+      Future.sequence(eventualStoredAssets)
     }
   }
 
@@ -120,34 +127,29 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     //val eventualResult = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
     val eventualSourceFile: Future[File] = tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-    val x = eventualSourceFile.flatMap { sourceFile =>
+    eventualSourceFile.flatMap { sourceFile =>
       implicit val arena: Arena = Arena.ofConfined()
       val masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
       val outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
       val masterCropImage = {
-          logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
-          VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
+        logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
+        VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
       }
+
+      val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
+
       // All vips operationa have completed; we can close the arena
       arena.close()
 
-      val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
-      val eventualMasterSize: Future[Asset] = masterCrop.sizing
-
-      //  _ <- Future.sequence(List(masterCrop.file, sourceFile).map(delete))
-
-      val z: Future[ExportResult] = eventualSizes.flatMap { sizes =>
-        val a = eventualMasterSize.flatMap { masterSize =>
-          val z: Future[ExportResult] = Future.sequence(List(masterCrop.file, sourceFile).map(delete)).map { _ =>
+      // Map out the eventual store futures
+      eventualSizes.flatMap { sizes =>
+        masterCrop.sizing.flatMap { masterSize =>
+          Future.sequence(List(masterCrop.file, sourceFile).map(delete)).map { _ =>
             ExportResult(apiImage.id, masterSize, sizes)
           }
-          z
         }
-        a
       }
-      z
     }
-    x
   }
 }
 
