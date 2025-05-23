@@ -62,7 +62,7 @@ if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
 }
 
-querySuggestions.factory("querySuggestions", [
+querySuggestions.factory("cqlSuggestions", [
   "mediaApi",
   "editsApi",
   function (mediaApi: any, editsApi: any) {
@@ -270,7 +270,7 @@ querySuggestions.factory("querySuggestions", [
 grCqlInput.directive<
   angular.IScope & { onChange:() => (str: string) => void }
 >("grCqlInput", [
-  "querySuggestions",
+  "cqlSuggestions",
   function (querySuggestions) {
     const fields: TypeaheadField[] = querySuggestions.filterFields.map(
       ({ fieldName, resolver }: any) => {
