@@ -128,6 +128,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
           logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
           VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
       }
+      // All vips operationa have completed; we can close the arena
+      arena.close()
 
       val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
       val eventualMasterSize: Future[Asset] = masterCrop.sizing
@@ -143,9 +145,6 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         }
         a
       }
-      z.onComplete( _ =>
-        arena.close()
-      )
       z
     }
     x
