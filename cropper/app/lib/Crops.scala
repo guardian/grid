@@ -19,7 +19,7 @@ case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingMimeType extends Exception("Missing mimeType from source API")
 case object InvalidCropRequest extends Exception("Crop request invalid for image dimensions")
 
-case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
+case class MasterCrop(sizing: Future[Asset], image: VImage, file: File, dimensions: Dimensions, aspectRatio: Float)
 
 class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket, s3: S3)(implicit ec: ExecutionContext) extends GridLogging {
   import Files._
@@ -50,13 +50,15 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
+      logger.info(logMarker, s"creating master crop for ${apiImage.id}")
       val strip = imageOperations.cropImageVips(
         sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
         iccColourSpace, mediaType, isTransformedFromSource = false,
         orientationMetadata = orientationMetadata
       )
 
-      val file = strip
+      val file = strip._1
+      val image = strip._2
 
       val dimensions = Dimensions(source.bounds.width, source.bounds.height)
       val filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
@@ -64,7 +66,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       val dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       val aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
 
-      MasterCrop(sizing, file, dimensions, aspect)
+      MasterCrop(sizing, image, file, dimensions, aspect)
     }
   }
 
@@ -131,10 +133,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       implicit val arena: Arena = Arena.ofConfined()
       val masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
       val outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
-      val masterCropImage = {
-        logger.info("Reloading master crop image from: " + masterCrop.file.getAbsolutePath)
-        VImage.newFromFile(arena, masterCrop.file.getAbsolutePath)
-      }
+      val masterCropImage = masterCrop.image
 
       val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
 
