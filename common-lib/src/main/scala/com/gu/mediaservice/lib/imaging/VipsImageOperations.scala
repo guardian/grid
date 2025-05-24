@@ -66,7 +66,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
           inMemoryCopy
         }
 
-        saveImageToFile(rotated, qual, outputFile)
+        saveImageToFile(rotated, ImageOperations.thumbMimeType, qual, outputFile)
         (outputFile, thumbMimeType)
       } catch {
         case e: Exception =>
@@ -148,14 +148,30 @@ class VipsImageOperations extends GridLogging with ImageOperations {
 
   def hasAlpha(image: VImage)(implicit arena: Arena): Boolean = image.hasAlpha
 
-  private def saveImageToFile(image: VImage, qual: Double, outputFile: File): File = {
-    logger.info(s"Saving image to file: " + outputFile.getAbsolutePath)
-    image.jpegsave(outputFile.getAbsolutePath,
-      VipsOption.Int("Q", qual.toInt),
-      VipsOption.Boolean("optimize-coding", true),
-      VipsOption.Boolean("strip", true)
-    )
-    outputFile
+  private def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File): File = {
+    logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
+    mimeType match {
+      case Jpeg =>
+        image.jpegsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          VipsOption.Boolean("optimize-coding", true),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case Png =>
+        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        image.pngsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case _ =>
+        logger.error(s"Save to $mimeType is not supported.")
+        throw new UnsupportedCropOutputTypeException
+    }
   }
 
 }
