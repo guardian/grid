@@ -112,13 +112,11 @@ class ImageOperations(playPath: String) extends GridLogging {
                      sourceFile: File,
                      sourceMimeType: Option[MimeType],
                      bounds: Bounds,
-                     qual: Double = 100d,
-                     tempDir: File,
                      iccColourSpace: Option[String],
                      fileType: MimeType,
                      isTransformedFromSource: Boolean,
                      orientationMetadata: Option[OrientationMetadata]
-                   )(implicit logMarker: LogMarker, arena: Arena): (File, VImage) = {
+                   )(implicit logMarker: LogMarker, arena: Arena): VImage = {
     // Read source image
     val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
     // Orient
@@ -127,30 +125,14 @@ class ImageOperations(playPath: String) extends GridLogging {
     }.getOrElse {
       image
     }
-    // TODO correct colour
     // TODO strip meta data
     // Output colour profile
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
     val corrected = cropped.iccTransform("srgb")
-
     val master = corrected
-
-    // TODO separate this local file create from the vips master image create
-    val outputFile = File.createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir) // TODO function for this
-    logger.info("Saving master crop tmp file to: " + outputFile.getAbsolutePath)
-    master.jpegsave(outputFile.getAbsolutePath,
-      VipsOption.Int("Q", qual.toInt),
-      //VipsOption.Boolean("optimize-scans", true),
-      //VipsOption.Boolean("optimize-coding", true),
-      //VipsOption.Boolean("interlace", true),
-      //VipsOption.Boolean("trellis-quant", true),
-      // VipsOption.Int("quant-table", 3),
-      VipsOption.Boolean("strip", true)
-    )
-
-    (outputFile, master)
+    master
   }
 
 

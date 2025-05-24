@@ -1,6 +1,6 @@
 package lib
 
-import app.photofox.vipsffm.VImage
+import app.photofox.vipsffm.{VImage, VipsOption}
 
 import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
@@ -50,15 +50,28 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
-      logger.info(logMarker, s"creating master crop for ${apiImage.id}")
-      val strip = imageOperations.cropImageVips(
-        sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
-        iccColourSpace, mediaType, isTransformedFromSource = false,
-        orientationMetadata = orientationMetadata
-      )
+    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
+    val masterImage = imageOperations.cropImageVips(
+      sourceFile, apiImage.source.mimeType, source.bounds,
+      iccColourSpace, mediaType, isTransformedFromSource = false,
+      orientationMetadata = orientationMetadata
+    )
 
-      val file = strip._1
-      val image = strip._2
+    // TODO separate this local file create from the vips master image create
+    val outputFile = File.createTempFile(s"crop-", s"${mediaType.fileExtension}", config.tempDir) // TODO function for this
+    logger.info("Saving master crop tmp file to: " + outputFile.getAbsolutePath)
+    masterImage.jpegsave(outputFile.getAbsolutePath,
+      VipsOption.Int("Q", masterCropQuality.toInt),
+      //VipsOption.Boolean("optimize-scans", true),
+      //VipsOption.Boolean("optimize-coding", true),
+      //VipsOption.Boolean("interlace", true),
+      //VipsOption.Boolean("trellis-quant", true),
+      // VipsOption.Int("quant-table", 3),
+      VipsOption.Boolean("strip", true)
+    )
+
+    val file = outputFile
+    val image = masterImage
 
       val dimensions = Dimensions(source.bounds.width, source.bounds.height)
       val filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
