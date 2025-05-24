@@ -157,34 +157,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val resized = sourceImage.resize(scale)
 
     val outputFile = File.createTempFile(s"resize-", s"${fileType.fileExtension}", tempDir) // TODO function for this
-    logger.info("Saving resized crop as JPEG tmp file to: " + outputFile.getAbsolutePath)
-
-    fileType match {
-      case Jpeg =>
-        resized.jpegsave(outputFile.getAbsolutePath,
-          VipsOption.Int("Q", qual.toInt),
-          //VipsOption.Boolean("optimize-scans", true),
-          //VipsOption.Boolean("optimize-coding", true),
-          //VipsOption.Boolean("interlace", true),
-          //VipsOption.Boolean("trellis-quant", true),
-          // VipsOption.Int("quant-table", 3),
-          VipsOption.Boolean("strip", true)
-        )
-        outputFile
-
-      case Png =>
-        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
-        resized.pngsave(outputFile.getAbsolutePath,
-          VipsOption.Int("Q", qual.toInt),
-          VipsOption.Boolean("strip", true)
-        )
-        outputFile
-
-      case _ =>
-        logger.error(s"Cropping to $fileType is not supported.")
-        throw new UnsupportedCropOutputTypeException
-    }
+    saveImageToFile(resized, fileType, qual, outputFile)
   }
 
   def resizeImage(
@@ -293,6 +266,36 @@ class ImageOperations(playPath: String) extends GridLogging {
 
       logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
       (outputFile, thumbMimeType, thumbDimensions)
+    }
+  }
+
+  def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File): File = {
+    logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
+    mimeType match {
+      case Jpeg =>
+        image.jpegsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          //VipsOption.Boolean("optimize-scans", true),
+          //VipsOption.Boolean("optimize-coding", true),
+          //VipsOption.Boolean("interlace", true),
+          //VipsOption.Boolean("trellis-quant", true),
+          // VipsOption.Int("quant-table", 3),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case Png =>
+        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        image.pngsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case _ =>
+        logger.error(s"Save to $mimeType is not supported.")
+        throw new UnsupportedCropOutputTypeException
     }
   }
 
