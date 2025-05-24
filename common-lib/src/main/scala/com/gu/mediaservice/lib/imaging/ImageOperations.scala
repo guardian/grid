@@ -176,17 +176,33 @@ class ImageOperations(playPath: String) extends GridLogging {
 
     val outputFile = File.createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir) // TODO function for this
     logger.info("Saving resized crop as JPEG tmp file to: " + outputFile.getAbsolutePath)
-    resized.jpegsave(outputFile.getAbsolutePath,
-      VipsOption.Int("Q", qual.toInt),
-      //VipsOption.Boolean("optimize-scans", true),
-      //VipsOption.Boolean("optimize-coding", true),
-      //VipsOption.Boolean("interlace", true),
-      //VipsOption.Boolean("trellis-quant", true),
-      // VipsOption.Int("quant-table", 3),
-      VipsOption.Boolean("strip", false)
-    )
 
-    outputFile
+    fileType match {
+      case Jpeg =>
+        resized.jpegsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          //VipsOption.Boolean("optimize-scans", true),
+          //VipsOption.Boolean("optimize-coding", true),
+          //VipsOption.Boolean("interlace", true),
+          //VipsOption.Boolean("trellis-quant", true),
+          // VipsOption.Int("quant-table", 3),
+          VipsOption.Boolean("strip", false)
+        )
+        outputFile
+
+      case Png =>
+        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        resized.pngsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", qual.toInt),
+          VipsOption.Boolean("strip", false)
+        )
+        outputFile
+
+      case _ =>
+        logger.error(s"Cropping to $fileType is not supported.")
+        throw new UnsupportedCropOutputTypeException
+    }
   }
 
   def resizeImage(

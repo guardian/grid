@@ -77,21 +77,19 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     Stopwatch(s"creating crops for ${apiImage.id}") {
       val resizes = dimensionList.map { dimensions =>
         val file = imageOperations.resizeImageVips(sourceImage, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType, masterCrop.dimensions)
-        val optimisedFile = imageOperations.optimiseImage(file, cropType)
         val filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType, instance = instance)
-        (file, optimisedFile, filename, dimensions)
+        (file, filename, dimensions)
       }
       logger.info("Done resizes")
 
       val eventualStoredAssets = resizes.map { resize =>
         val file = resize._1
-        val optimisedFile = resize._2
-        val filename = resize._3
-        val dimensions = resize._4
+        val filename = resize._2
+        val dimensions = resize._3
         for {
-          sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
+          sizing <- store.storeCropSizing(file, filename, cropType, crop, dimensions)
           _ <- delete(file)
-          _ <- delete(optimisedFile)
+          _ <- delete(file)
         }
         yield sizing
       }
