@@ -170,11 +170,12 @@ class ImageOperations(playPath: String) extends GridLogging {
                        fileType: MimeType,
                        sourceDimensions: Dimensions
                      )(implicit logMarker: LogMarker, arena: Arena): File = {
-    val outputFile = File.createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir) // TODO function for this
 
     val scale = dimensions.width.toDouble / sourceDimensions.width.toDouble
     val resized = sourceImage.resize(scale)
 
+    val outputFile = File.createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir) // TODO function for this
+    logger.info("Saving resized crop as JPEG tmp file to: " + outputFile.getAbsolutePath)
     resized.jpegsave(outputFile.getAbsolutePath,
       VipsOption.Int("Q", qual.toInt),
       //VipsOption.Boolean("optimize-scans", true),
