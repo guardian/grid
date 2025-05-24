@@ -127,6 +127,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       logger.info("Starting vips operations")
       implicit val arena: Arena = Arena.ofConfined()
       val masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
+
+      // High quality rendering with minimal compression which will be used as the CDN resizer origin
       val masterCropFile = File.createTempFile(s"crop-", s"${cropType.fileExtension}", config.tempDir) // TODO function for this
       imageOperations.saveImageToFile(masterCrop.image, cropType, masterCropQuality, masterCropFile)
 
