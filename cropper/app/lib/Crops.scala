@@ -19,7 +19,7 @@ case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingMimeType extends Exception("Missing mimeType from source API")
 case object InvalidCropRequest extends Exception("Crop request invalid for image dimensions")
 
-case class MasterCrop(sizing: Future[Asset], image: VImage, file: File, dimensions: Dimensions, aspectRatio: Float)
+case class MasterCrop(image: VImage, file: File, dimensions: Dimensions, aspectRatio: Float)
 
 class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations, imageBucket: S3Bucket, s3: S3)(implicit ec: ExecutionContext) extends GridLogging {
   import Files._
@@ -50,27 +50,26 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
-    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
-    val masterImage = imageOperations.cropImageVips(
-      sourceFile, apiImage.source.mimeType, source.bounds,
-      iccColourSpace, mediaType, isTransformedFromSource = false,
-      orientationMetadata = orientationMetadata
-    )
+      logger.info(logMarker, s"creating master crop for ${apiImage.id}")
+      val masterImage = imageOperations.cropImageVips(
+        sourceFile, apiImage.source.mimeType, source.bounds,
+        iccColourSpace, mediaType, isTransformedFromSource = false,
+        orientationMetadata = orientationMetadata
+      )
 
-    // TODO separate this local file create from the vips master image create
-    val outputFile = File.createTempFile(s"crop-", s"${mediaType.fileExtension}", config.tempDir) // TODO function for this
-    imageOperations.saveImageToFile(masterImage, mediaType, masterCropQuality, outputFile)
+      // TODO separate this local file create from the vips master image create
+      val outputFile = File.createTempFile(s"crop-", s"${mediaType.fileExtension}", config.tempDir) // TODO function for this
+      imageOperations.saveImageToFile(masterImage, mediaType, masterCropQuality, outputFile)
 
-    val file = outputFile
-    val image = masterImage
+      val file = outputFile
+      val image = masterImage
 
+      //file: File <- imageOperations.appendMetadata(strip, metadata)
       val dimensions = Dimensions(source.bounds.width, source.bounds.height)
-      val filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true, instance = instance)
-      val sizing = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
       val dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       val aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
 
-      MasterCrop(sizing, image, file, dimensions, aspect)
+      MasterCrop(image, file, dimensions, aspect)
     }
   }
 
@@ -120,7 +119,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def makeExport(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker, instance: Instance): Future[ExportResult] = {
-    val source    = crop.specification
+    val source = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureFile = apiImage.source.file
     val colourType = apiImage.fileMetadata.colourModelInformation.getOrElse("colorType", "")
@@ -131,21 +130,20 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val secureUrl = s3.signUrlTony(imageBucket, key)
 
     //val eventualResult = Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
-    val eventualSourceFile: Future[File] = tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-    eventualSourceFile.flatMap { sourceFile =>
+    tempFileFromURL(secureUrl, "cropSource", "", config.tempDir).flatMap { sourceFile =>
+      logger.info("Starting vips operations")
       implicit val arena: Arena = Arena.ofConfined()
       val masterCrop = createMasterCrop(apiImage, sourceFile, crop, cropType, apiImage.source.orientationMetadata)
       val outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
-      val masterCropImage = masterCrop.image
-
-      val eventualSizes: Future[List[Asset]] = createCrops(masterCropImage, outputDims, apiImage, crop, cropType, masterCrop)
-
-      // All vips operationa have completed; we can close the arena
+      val eventualSizesAssets: Future[List[Asset]] = createCrops(masterCrop.image, outputDims, apiImage, crop, cropType, masterCrop)
+      // All vips operations have completed; we can close the arena
       arena.close()
+      logger.info("Finished vips operations")
 
       // Map out the eventual store futures
-      eventualSizes.flatMap { sizes =>
-        masterCrop.sizing.flatMap { masterSize =>
+      val eventualMasterCropAsset = store.storeCropSizing(masterCrop.file, outputFilename(apiImage, source.bounds, masterCrop.dimensions.width, cropType, isMaster = true, instance = instance), cropType, crop, masterCrop.dimensions)
+      eventualMasterCropAsset.flatMap { masterSize =>
+        eventualSizesAssets.flatMap { sizes =>
           Future.sequence(List(masterCrop.file, sourceFile).map(delete)).map { _ =>
             ExportResult(apiImage.id, masterSize, sizes)
           }
