@@ -6,7 +6,7 @@ import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.aws.{S3, S3Bucket}
-import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations, UnsupportedCropOutputTypeException}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.resource.FutureResources
 import com.gu.mediaservice.model._
@@ -60,15 +60,32 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     // TODO separate this local file create from the vips master image create
     val outputFile = File.createTempFile(s"crop-", s"${mediaType.fileExtension}", config.tempDir) // TODO function for this
     logger.info("Saving master crop tmp file to: " + outputFile.getAbsolutePath)
-    masterImage.jpegsave(outputFile.getAbsolutePath,
-      VipsOption.Int("Q", masterCropQuality.toInt),
-      //VipsOption.Boolean("optimize-scans", true),
-      //VipsOption.Boolean("optimize-coding", true),
-      //VipsOption.Boolean("interlace", true),
-      //VipsOption.Boolean("trellis-quant", true),
-      // VipsOption.Int("quant-table", 3),
-      VipsOption.Boolean("strip", true)
-    )
+    mediaType match {
+      case Jpeg =>
+        masterImage.jpegsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", masterCropQuality.toInt),
+          //VipsOption.Boolean("optimize-scans", true),
+          //VipsOption.Boolean("optimize-coding", true),
+          //VipsOption.Boolean("interlace", true),
+          //VipsOption.Boolean("trellis-quant", true),
+          // VipsOption.Int("quant-table", 3),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case Png =>
+        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        masterImage.pngsave(outputFile.getAbsolutePath,
+          VipsOption.Int("Q", masterCropQuality.toInt),
+          VipsOption.Boolean("strip", true)
+        )
+        outputFile
+
+      case _ =>
+        logger.error(s"Cropping to $mediaType is not supported.")
+        throw new UnsupportedCropOutputTypeException
+    }
 
     val file = outputFile
     val image = masterImage
