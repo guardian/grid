@@ -86,6 +86,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         val file = resize._1
         val filename = resize._2
         val dimensions = resize._3
+        logger.info(s"Storing crop for: $file, $filename, $cropType")
         for {
           sizing <- store.storeCropSizing(file, filename, cropType, crop, dimensions)
           _ <- delete(file)
