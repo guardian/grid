@@ -174,7 +174,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val scale = dimensions.width.toDouble / sourceDimensions.width.toDouble
     val resized = sourceImage.resize(scale)
 
-    val outputFile = File.createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir) // TODO function for this
+    val outputFile = File.createTempFile(s"resize-", s"${fileType.fileExtension}", tempDir) // TODO function for this
     logger.info("Saving resized crop as JPEG tmp file to: " + outputFile.getAbsolutePath)
 
     fileType match {
