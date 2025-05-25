@@ -157,7 +157,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val resized = sourceImage.resize(scale)
 
     val outputFile = File.createTempFile(s"resize-", s"${fileType.fileExtension}", tempDir) // TODO function for this
-    saveImageToFile(resized, fileType, qual, outputFile)
+    saveImageToFile(resized, fileType, qual, outputFile, quantise = true)
   }
 
   def resizeImage(
@@ -269,7 +269,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     }
   }
 
-  def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File): File = {
+  def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false): File = {
     logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
     mimeType match {
       case Jpeg =>
@@ -286,13 +286,20 @@ class ImageOperations(playPath: String) extends GridLogging {
 
       case Png =>
         // We are allowed to quantise PNG crops but not the master
-      image.pngsave(outputFile.getAbsolutePath,
-          VipsOption.Boolean("palette", true),
-          VipsOption.Int("Q", qual.toInt),
-          VipsOption.Int("effort", 1),
-          VipsOption.Int("bitdepth", 8),
-          VipsOption.Boolean("strip", true)
-        )
+        if (quantise) {
+          image.pngsave(outputFile.getAbsolutePath,
+            VipsOption.Boolean("palette", true),
+            VipsOption.Int("Q", qual.toInt),
+            VipsOption.Int("effort", 1),
+            VipsOption.Int("bitdepth", 8),
+            VipsOption.Boolean("strip", true)
+          )
+        } else {
+          image.pngsave(outputFile.getAbsolutePath,
+            VipsOption.Int("Q", qual.toInt),
+            VipsOption.Boolean("strip", true)
+          )
+        }
         outputFile
 
       case _ =>
