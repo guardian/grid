@@ -318,10 +318,15 @@ class ImageOperations(playPath: String) extends GridLogging {
   }
 
   private def getDepthFor(image: VImage) = {
+    val sixteenBitInterpretations = Set(
+      VipsInterpretation.INTERPRETATION_GREY16,
+      VipsInterpretation.INTERPRETATION_LABS,
+      VipsInterpretation.INTERPRETATION_RGB16
+    )
+
     val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
     val depth = maybeInterpretation.map { interpretation =>
-      val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16 || interpretation == VipsInterpretation.INTERPRETATION_LABS
-      if (is16bit) {
+      if (sixteenBitInterpretations.contains(interpretation)) {
         16
       } else {
         8
@@ -390,6 +395,7 @@ object ImageOperations extends GridLogging {
 
         // TODO better way to go straight from int to enum?
         val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
+        println(maybeInterpretation)
         colourModel = maybeInterpretation match {
           case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
           case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
