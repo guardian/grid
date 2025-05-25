@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.imaging
 
-import app.photofox.vipsffm.enums.VipsInterpretation
+import app.photofox.vipsffm.enums.{VipsIntent, VipsInterpretation}
 
 import java.io._
 import org.im4java.core.IMOperation
@@ -130,7 +130,11 @@ class ImageOperations(playPath: String) extends GridLogging {
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
-    val corrected = cropped.iccTransform("srgb")
+    // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
+    val corrected = cropped.iccTransform("srgb",
+      VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL)
+    )
+
     val master = corrected
     master
   }
