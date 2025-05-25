@@ -9,12 +9,14 @@ import {rxUtil} from '../../util/rx';
 
 import {querySuggestions, filterFields} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
-import { getFeatureSwitchActive } from '../../components/gr-feature-switch-panel/gr-feature-switch-panel';
+import {getFeatureSwitchActive} from '../../components/gr-feature-switch-panel/gr-feature-switch-panel';
+import { grCqlInput } from '../../components/gr-cql-input/gr-cql-input';
 
 export const grStructuredQuery = angular.module('gr.structuredQuery', [
     rxUtil.name,
     grChips.name,
-    querySuggestions.name
+    querySuggestions.name,
+    grCqlInput.name
 ]);
 
 
@@ -77,7 +79,7 @@ grStructuredQuery.directive("grStructuredQuery", [
       link: function (scope, _element, _attrs, [ctrl, ngModelCtrl]) {
         scope.ctrl.useCql = getFeatureSwitchActive("use-cql-chips")
         if (scope.ctrl.useCql) {
-          scope.handleChange = ngModelCtrl.$setViewValue;
+          scope.ctrl.handleChange = ngModelCtrl.$setViewValue;
           ngModelCtrl.$render = function () {
             scope.initialValue = ngModelCtrl.$viewValue || "";
           };
