@@ -1,38 +1,32 @@
 package model
 
+import play.api.libs.json.Json
+import play.api.libs.ws.WSRequest
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
-
-import java.io.File
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-import java.util.UUID
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
+import com.gu.mediaservice.lib.imaging.MagickImageOperations.{optimisedMimeType, thumbMimeType}
+import com.gu.mediaservice.lib.imaging.{ImageOperations, MagickImageOperations, VipsImageOperations}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.lib._
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
-import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
-import play.api.libs.ws.WSRequest
 
-import scala.collection.compat._
+import java.io.File
+import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
+import scala.sys.process.Process
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
@@ -142,7 +136,7 @@ object Uploader extends GridLogging {
 
     val tempDirForRequest: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
+    val colourModelFuture = MagickImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
 
     val storableOriginalImage = StorableOriginalImage(
@@ -263,9 +257,12 @@ object Uploader extends GridLogging {
           tempFile,
           iccColourSpace,
           colourModel,
+          fileMetadata.colourModelInformation.get("hasAlpha").contains("true")
         )
       } yield thumbData
     }
+
+    val thumbMimeType = if (fileMetadata.colourModelInformation.get("hasAlpha").contains("true")) Png else Jpeg
 
     for {
       tempFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
@@ -321,14 +318,16 @@ object Uploader extends GridLogging {
 
 class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
-               val imageOps: ImageOperations,
+               val magickImageOps: MagickImageOperations,
+  val vipsImageOps: VipsImageOperations,
                val notifications: Notifications,
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
-    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
+    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config),
+      if (uploadRequest.useVips) vipsImageOps else magickImageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
@@ -347,7 +346,7 @@ class Uploader(val store: ImageLoaderStore,
                uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
-               filename: Option[String])
+               filename: Option[String], useVips: Boolean)
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
@@ -373,7 +372,8 @@ class Uploader(val store: ImageLoaderStore,
           uploadTime = uploadTime,
           uploadedBy = uploadedBy,
           identifiers = identifiersMap,
-          uploadInfo = UploadInfo(filename)
+          uploadInfo = UploadInfo(filename),
+          useVips
         )
     }
   }
@@ -409,4 +409,3 @@ class Uploader(val store: ImageLoaderStore,
   } yield ()
 
 }
-

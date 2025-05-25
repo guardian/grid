@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice.lib.feature
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

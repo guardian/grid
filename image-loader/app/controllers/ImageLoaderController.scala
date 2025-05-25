@@ -5,7 +5,6 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -16,6 +15,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
+import com.gu.mediaservice.lib.feature.VipsImagingSwitch
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -56,6 +56,8 @@ class ImageLoaderController(auth: Authentication,
                             metrics: ImageLoaderMetrics)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
+
+//  private val useVips = !config.isProd
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
@@ -183,7 +185,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }.flatten
 
-  private def attemptToProcessIngestedFile(s3IngestObject:S3IngestObject, isUiUpload: Boolean)(initialLogMarker:LogMarker): Future[DigestedFile] = {
+  private def attemptToProcessIngestedFile(s3IngestObject: S3IngestObject, isUiUpload: Boolean)(initialLogMarker: LogMarker): Future[DigestedFile] = {
 
     logger.info(initialLogMarker, "Attempting to process file")
     val tempFile = createTempFile("s3IngestBucketFile")(initialLogMarker)
@@ -202,7 +204,8 @@ class ImageLoaderController(auth: Authentication,
         uploadedBy = s3IngestObject.uploadedBy,
         identifiers =  None,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
-        filename = Some(s3IngestObject.filename)
+        filename = Some(s3IngestObject.filename),
+        useVips = s3IngestObject.useVips,
     )
 
     // under all circumstances, remove the temp files
@@ -218,17 +221,29 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
+    implicit val context: MarkerMap = MarkerMap(
+      "requestType" -> "get-presigned-uploads",
+      "key-tier" -> request.user.accessor.tier.toString,
+      "key-name" -> request.user.accessor.identity,
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    )
     val expiration = DateTimeUtils.now().plusHours(1)
 
     val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
 
     val uploadedBy = Authentication.getIdentity(request.user)
 
+    val useVips = VipsImagingSwitch.getValue(request)
+
+    val customMetadata = Seq(
+      if (useVips) Some((VipsImagingSwitch.name, "true")) else None
+    ).flatten
+
     Future.sequence(
 
       mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId, extraCustomMetadata = customMetadata)
 
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
@@ -278,13 +293,18 @@ class ImageLoaderController(auth: Authentication,
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
       val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
+
+      val useVips = VipsImagingSwitch.getValue(req)
+
+      println("in controller userVips = " + useVips)
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
           uploadedByToRecord,
           identifiers,
           uploadTimeToRecord,
-          filename.flatMap(_.trim.nonEmptyOpt)
+          filename.flatMap(_.trim.nonEmptyOpt),
+          useVips = useVips
         )
         _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
@@ -320,8 +340,10 @@ class ImageLoaderController(auth: Authentication,
       implicit val context: LogMarker = initialContext ++ Map(
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )
+      val useVips = VipsImagingSwitch.getValue(req)
+
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
-      val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn)
+      val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn, useVips)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -365,12 +387,15 @@ class ImageLoaderController(auth: Authentication,
         digestedFile <- downloader.download(validUri, tempFile)
       } yield digestedFile
 
+      val useVips = VipsImagingSwitch.getValue(request)
+
       val uploadResultFuture = uploadDigestedFileToStore(
-          digestedFileFuture,
-          uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
-          identifiers,
-          uploadTime,
-          filename
+        digestedFileFuture,
+        uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
+        identifiers,
+        uploadTime,
+        filename,
+        useVips
       )
 
       // under all circumstances, remove the temp files
@@ -397,7 +422,8 @@ class ImageLoaderController(auth: Authentication,
     uploadedBy: String,
     identifiers: Option[String],
     uploadTime: Option[String],
-    filename: Option[String]
+    filename: Option[String],
+    useVips: Boolean,
   )(implicit logMarker:LogMarker): Future[UploadStatusUri] = {
 
     for {
@@ -410,6 +436,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
           uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
+          useVips
         )
         result <- uploader.storeFile(uploadRequest)
       } yield {
@@ -549,7 +576,8 @@ class ImageLoaderController(auth: Authentication,
               metadata.uploadTime,
               metadata.uploadedBy,
               metadata.identifiers,
-              UploadInfo(metadata.uploadFileName)
+              UploadInfo(metadata.uploadFileName),
+              useVips = VipsImagingSwitch.default
             ),
             gridClient,
             auth.getOnBehalfOfPrincipal(request.user)
