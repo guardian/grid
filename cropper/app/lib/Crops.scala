@@ -159,7 +159,8 @@ object Crops extends GridLogging {
     *  - If the image is not true colour then we assume it is a graphic that should be retained as a PNG
     */
   def cropType(mediaType: MimeType, colourType: String, hasAlpha: Boolean): MimeType = {
-    //val isGraphic = !colourType.matches("True[ ]?Color.*")
+    // TODO how to get source image colour depth from vips?
+    // val isGraphic = !colourType.matches("True[ ]?Color.*")
     val outputAsPng = hasAlpha // || isGraphic
 
     val decision = mediaType match {
