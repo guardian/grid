@@ -130,19 +130,10 @@ class ImageOperations(playPath: String) extends GridLogging {
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
-    // Bit used in save must match used in transform
-    val interpretation = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
-    val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16.getRawValue || interpretation == VipsInterpretation.INTERPRETATION_LABS.getRawValue
-    val depth = if (is16bit) {
-      16
-    } else {
-      8
-    }
-
     // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
     val corrected = cropped.iccTransform("srgb",
       VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),
-      VipsOption.Int("depth", depth)
+      VipsOption.Int("depth", getDepthFor(image))
     )
 
     val master = corrected
@@ -301,13 +292,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 
       case Png =>
         // Bit used in save must match used in transform
-        val interpretation = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
-        val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16.getRawValue || interpretation == VipsInterpretation.INTERPRETATION_LABS.getRawValue
-        val depth = if (is16bit) {
-          16
-        } else {
-          8
-        }
+        val depth: Int = getDepthFor(image)
 
         // We are allowed to quantise PNG crops but not the master
         if (quantise) {
@@ -331,6 +316,20 @@ class ImageOperations(playPath: String) extends GridLogging {
         logger.error(s"Save to $mimeType is not supported.")
         throw new UnsupportedCropOutputTypeException
     }
+  }
+
+  private def getDepthFor(image: VImage) = {
+    val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
+    val depth = maybeInterpretation.map { interpretation =>
+      val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16 || interpretation == VipsInterpretation.INTERPRETATION_LABS
+      if (is16bit) {
+        16
+      } else {
+        8
+      }
+    }.getOrElse(8)
+    logger.info(s"Depth for interpretation $maybeInterpretation is $depth")
+    depth
   }
 
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
