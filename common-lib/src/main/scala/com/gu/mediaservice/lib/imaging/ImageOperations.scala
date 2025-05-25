@@ -242,6 +242,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       try {
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
           VipsOption.Boolean("auto-rotate", false),
+          VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),
           VipsOption.String("export-profile", profilePath("srgb.icc"))
         )
         val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
