@@ -285,10 +285,12 @@ class ImageOperations(playPath: String) extends GridLogging {
         outputFile
 
       case Png =>
-        // val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-        //      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
-        image.pngsave(outputFile.getAbsolutePath,
+        // We are allowed to quantise PNG crops but not the master
+      image.pngsave(outputFile.getAbsolutePath,
+          VipsOption.Boolean("palette", true),
           VipsOption.Int("Q", qual.toInt),
+          VipsOption.Int("effort", 1),
+          VipsOption.Int("bitdepth", 8),
           VipsOption.Boolean("strip", true)
         )
         outputFile
