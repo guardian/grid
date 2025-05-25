@@ -300,7 +300,6 @@ class ImageOperations(playPath: String) extends GridLogging {
             VipsOption.Boolean("palette", true),
             VipsOption.Int("Q", qual.toInt),
             VipsOption.Int("effort", 1),
-            VipsOption.Int("bitdepth", depth),
             VipsOption.Boolean("strip", true)
           )
         } else {
