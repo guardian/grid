@@ -130,9 +130,19 @@ class ImageOperations(playPath: String) extends GridLogging {
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
+    // Bit used in save must match used in transform
+    val interpretation = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
+    val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16.getRawValue || interpretation == VipsInterpretation.INTERPRETATION_LABS.getRawValue
+    val depth = if (is16bit) {
+      16
+    } else {
+      8
+    }
+
     // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
     val corrected = cropped.iccTransform("srgb",
-      VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL)
+      VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),
+      VipsOption.Int("depth", depth)
     )
 
     val master = corrected
@@ -290,18 +300,28 @@ class ImageOperations(playPath: String) extends GridLogging {
         outputFile
 
       case Png =>
+        // Bit used in save must match used in transform
+        val interpretation = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
+        val is16bit = interpretation == VipsInterpretation.INTERPRETATION_GREY16.getRawValue || interpretation == VipsInterpretation.INTERPRETATION_LABS.getRawValue
+        val depth = if (is16bit) {
+          16
+        } else {
+          8
+        }
+
         // We are allowed to quantise PNG crops but not the master
         if (quantise) {
           image.pngsave(outputFile.getAbsolutePath,
             VipsOption.Boolean("palette", true),
             VipsOption.Int("Q", qual.toInt),
             VipsOption.Int("effort", 1),
-            VipsOption.Int("bitdepth", 8),
+            VipsOption.Int("bitdepth", depth),
             VipsOption.Boolean("strip", true)
           )
         } else {
           image.pngsave(outputFile.getAbsolutePath,
             VipsOption.Int("Q", qual.toInt),
+            VipsOption.Int("bitdepth", depth),
             VipsOption.Boolean("strip", true)
           )
         }
