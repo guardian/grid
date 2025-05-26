@@ -50,12 +50,12 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
-      logger.info(logMarker, s"creating master crop for ${apiImage.id}")
-      val masterImage = imageOperations.cropImageVips(
-        sourceFile, apiImage.source.mimeType, source.bounds,
-        iccColourSpace, mediaType, isTransformedFromSource = false,
-        orientationMetadata = orientationMetadata
-      )
+    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
+    val masterImage = imageOperations.cropImageVips(
+      sourceFile,
+      source.bounds,
+      orientationMetadata = orientationMetadata
+    )
 
       //file: File <- imageOperations.appendMetadata(strip, metadata)
       val dimensions = Dimensions(source.bounds.width, source.bounds.height)
