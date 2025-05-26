@@ -115,6 +115,8 @@ class ImageOperations(playPath: String) extends GridLogging {
                    )(implicit logMarker: LogMarker, arena: Arena): VImage = {
     // Read source image
     val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+    val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
+
     // Orient
     val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
       image.rotate(angle)
@@ -126,11 +128,21 @@ class ImageOperations(playPath: String) extends GridLogging {
     val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
     // TODO depth adjust
 
-    // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
-    val corrected = cropped.iccTransform("srgb",
-      VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),
-      VipsOption.Int("depth", getDepthFor(image))
+    val labInterpretations = Set (
+      VipsInterpretation.INTERPRETATION_LAB,
+      VipsInterpretation.INTERPRETATION_LABS
     )
+
+    val isLab = maybeInterpretation.exists(interpretation => labInterpretations.contains(interpretation))
+    val corrected = if (!isLab) {
+      cropped.iccTransform("srgb",
+        VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),     // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
+        VipsOption.Int("depth", getDepthFor(image))
+      )
+    } else {
+      // LAB gets corrupted by icc_transform something about with no profile?
+      cropped
+    }
 
     val master = corrected
     master
@@ -390,6 +402,7 @@ object ImageOperations extends GridLogging {
 
         // TODO better way to go straight from int to enum?
         val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
+        println(maybeInterpretation)
         colourModel = maybeInterpretation match {
           case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
           case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
