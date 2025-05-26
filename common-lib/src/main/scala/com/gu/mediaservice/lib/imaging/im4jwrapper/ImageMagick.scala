@@ -87,14 +87,6 @@ object ImageMagick extends GridLogging {
     op
   }
 
-  def runConvertCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[Unit] = {
-    Stopwatch.async(s"Using ${if(useImageMagick) "imagemagick" else "graphicsmagick"} for imaging conversion operation '$op'") {
-      Future {
-        new ConvertCmd(!useImageMagick).run(op)
-      }
-    }
-  }
-
   def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[List[String]] = {
     Stopwatch.async(s"Using ${if (useImageMagick) "imagemagick" else "graphicsmagick"} for imaging identification operation '$op'") {
       Future {
