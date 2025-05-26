@@ -390,7 +390,6 @@ object ImageOperations extends GridLogging {
 
         // TODO better way to go straight from int to enum?
         val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == VipsHelper.image_get_interpretation(image.getUnsafeStructAddress))
-        println(maybeInterpretation)
         colourModel = maybeInterpretation match {
           case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
           case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
