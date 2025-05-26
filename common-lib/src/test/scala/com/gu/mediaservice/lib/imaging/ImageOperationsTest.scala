@@ -26,15 +26,15 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
       val image = fileAt("rgb-wo-profile.jpg")
       val colourModelFuture = ImageOperations.getImageInformation(image)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel._3 should be (Some("RGB"))
+        colourModel._3 should be(Some("RGB"))
       }
     }
 
     it("should return RGB for a JPG image with RGB image data and an RGB embedded profile") {
       val image = fileAt("rgb-with-rgb-profile.jpg")
       val colourModelFuture = ImageOperations.getImageInformation(image)
-        whenReady(colourModelFuture) { colourModel =>
-          colourModel._3 should be(Some("RGB"))
+      whenReady(colourModelFuture) { colourModel =>
+        colourModel._3 should be(Some("RGB"))
       }
     }
 
@@ -50,7 +50,7 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
       val image = fileAt("rgb-with-cmyk-profile.jpg")
       val colourModelFuture = ImageOperations.getImageInformation(image)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel._3 should be (Some("RGB"))
+        colourModel._3 should be(Some("RGB"))
       }
     }
 
@@ -58,7 +58,7 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
       val image = fileAt("cmyk.jpg")
       val colourModelFuture = ImageOperations.getImageInformation(image)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel._3 should be (Some("CMYK"))
+        colourModel._3 should be(Some("CMYK"))
       }
     }
 
@@ -66,7 +66,31 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
       val image = fileAt("grayscale-wo-profile.jpg")
       val colourModelFuture = ImageOperations.getImageInformation(image)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel._3 should be (Some("Greyscale"))
+        colourModel._3 should be(Some("Greyscale"))
+      }
+    }
+
+    it("should return TGB for a PNG image with 16 bit RGB image data") {
+      val image = fileAt("ProPhoto_32bit (3c0d253874a4a76559672e9e90333aa55a7e38e6) (1).png")
+      val colourModelFuture = ImageOperations.getImageInformation(image)
+      whenReady(colourModelFuture) { colourModel =>
+        colourModel._3 should be(Some("RGB"))
+      }
+    }
+
+    it("should return LAB for a TIFF image with LAB16 image data") {
+      val image = fileAt("Lab 16bpc (7d0b7c7b8e890d7e5d369093aa437bd833e20f71).tiff")
+      val colourModelFuture = ImageOperations.getImageInformation(image)
+      whenReady(colourModelFuture) { colourModel =>
+        colourModel._3 should be(Some("LAB"))
+      }
+    }
+
+    it("should return CMYK for a TIFF image with CMYK image data") {
+      val image = fileAt("ilkafranz_gracedent-4_NewsprintCMYK (f7e5fd4f0d4a9d3aba8acb65bb19ff936c3a03a9) (f7e5fd4f0d4a9d3aba8acb65bb19ff936c3a03a9).tiff")
+      val colourModelFuture = ImageOperations.getImageInformation(image)
+      whenReady(colourModelFuture) { colourModel =>
+        colourModel._3 should be(Some("CMYK"))
       }
     }
   }
