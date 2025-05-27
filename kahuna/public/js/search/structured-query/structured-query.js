@@ -7,7 +7,7 @@ import {grChips} from '../../components/gr-chips/gr-chips';
 
 import {rxUtil} from '../../util/rx';
 
-import {querySuggestions, filterFields} from './query-suggestions';
+import {querySuggestions} from './query-suggestions';
 import {renderQuery, structureQuery} from './syntax';
 import {getFeatureSwitchActive} from '../../components/gr-feature-switch-panel/gr-feature-switch-panel';
 import { grCqlInput } from '../../components/gr-cql-input/gr-cql-input';
@@ -46,8 +46,7 @@ grStructuredQuery.controller('grStructuredQueryCtrl',
           debounce(500);
 
       ctrl.getSuggestions = querySuggestions.getChipSuggestions;
-
-      ctrl.filterFields = filterFields;
+      ctrl.filterFields = querySuggestions.filterFields;
 
       function valOrUndefined(str) {
           // Watch out for `false`, but we know it's a string here..
@@ -71,17 +70,17 @@ grStructuredQuery.directive("grStructuredQuery", [
                       gr:autocomplete="ctrl.getSuggestions($chip)">
             </gr-chips>
             <gr-cql-input ng-if="ctrl.useCql"
-                          on-change="handleChange"
-                          initialValue="initialValue">
+                          on-change="ctrl.handleChange"
+                          value="ctrl.value">
             </gr-cql-input>`,
       controller: "grStructuredQueryCtrl",
       controllerAs: "ctrl",
       link: function (scope, _element, _attrs, [ctrl, ngModelCtrl]) {
-        scope.ctrl.useCql = getFeatureSwitchActive("use-cql-chips")
-        if (scope.ctrl.useCql) {
-          scope.ctrl.handleChange = ngModelCtrl.$setViewValue;
+        ctrl.useCql = getFeatureSwitchActive("use-cql-chips");
+        if (ctrl.useCql) {
+          ctrl.handleChange = value => ngModelCtrl.$setViewValue(value);
           ngModelCtrl.$render = function () {
-            scope.initialValue = ngModelCtrl.$viewValue || "";
+            ctrl.value = ngModelCtrl.$viewValue || "";
           };
         } else {
           ngModelCtrl.$render = function () {
@@ -93,7 +92,7 @@ grStructuredQuery.directive("grStructuredQuery", [
             ngModelCtrl.$setViewValue(query);
           });
         }
-      },
+      }
     };
-  },
+  }
 ]);

@@ -10,10 +10,15 @@ import {
 } from "@guardian/cql";
 import { querySuggestions } from "../../search/structured-query/query-suggestions";
 
-export const grCqlInput = angular.module("gr.cqlInput", [querySuggestions.name]);
+export const grCqlInput = angular.module("gr.cqlInput", [
+  querySuggestions.name
+]);
 
 grCqlInput.directive<
-  angular.IScope & { onChange:() => (str: string) => void }
+  angular.IScope & {
+    onChange:() => (str: string) => void;
+    fromGridQuery: (gridStr: string) => string;
+  }
 >("grCqlInput", [
   "querySuggestions",
   function (cqlSuggestions) {
@@ -43,38 +48,28 @@ grCqlInput.directive<
       theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
       lang: { operators: false, groups: false }
     });
-    customElements.define("cql-input", CqlInput as any);
+    customElements.define("cql-input", CqlInput);
 
     return {
       restrict: "E",
       scope: {
         onChange: "&",
-        initialValue: "="
+        value: "="
       },
-      template: "<cql-input></cql-input>",
+      template: `<cql-input value="{{fromGridQuery(value)}}"></cql-input>`,
       link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0];
+        const detectGrid = /(\w+\:)/g;
+        scope.fromGridQuery = (str: string): string =>
+          str.replace(detectGrid, "\+$1");
         cqlInput.addEventListener(
           "queryChange",
           (event: QueryChangeEventDetail) => {
             if (event.detail?.queryAst) {
-              console.log(
-                "update",
-                event.detail?.queryStr,
-                gridQueryStrFromQuery(event.detail?.queryAst),
-              );
               scope.onChange()(gridQueryStrFromQuery(event.detail?.queryAst));
             }
           },
         );
-        // ngModelCtrl.$render = function () {
-        //   const queryString = ngModelCtrl.$viewValue || "";
-        //   ctrl.structuredQuery = structureQuery(queryString);
-        // };
-
-        // subscribe$(scope, ctrl.newQuery$, (query) => {
-        //   ngModelCtrl.$setViewValue(query);
-        // });
       }
     };
   }
