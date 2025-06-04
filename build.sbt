@@ -63,6 +63,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
+val awsSdkV2Version = "2.31.12"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
@@ -98,14 +99,14 @@ lazy val commonLib = project("common-lib").settings(
     logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "org.playframework" %% "play-json-joda" % "3.0.4",
     "org.scanamo" %% "scanamo" % "2.0.0",
-    // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
+    // declare explicit dependency on desired version of aws sdk v2 dynamo
+    "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     ws,
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
@@ -186,7 +187,6 @@ lazy val usage = playProject("usage", 9009).settings(
   )
 )
 
-val awsSdkV2Version = "2.15.81"
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
   .enablePlugins(JavaAppPackaging, UniversalPlugin)
