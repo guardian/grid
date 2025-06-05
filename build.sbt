@@ -159,7 +159,7 @@ lazy val thrall = playProject("thrall", 9002)
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       // TODO upgrading kcl to v3? check if you can remove avro override below
       "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
-      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.1-PREVIEW.anrelease-leadership-before-shutdown.2025-06-05T1055.e9880914",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
