@@ -158,7 +158,7 @@ lazy val thrall = playProject("thrall", 9002)
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       // TODO upgrading kcl to v3? check if you can remove avro override below
-      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+      "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.3",
       "com.gu" %% "kcl-pekko-stream" % "0.1.1-PREVIEW.anrelease-leadership-before-shutdown.2025-06-05T1055.e9880914",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
