@@ -38,7 +38,10 @@ object KinesisConfig extends GridLogging {
       config.dynamoClient,
       config.kinesisClient,
       workerId,
-    ).billingMode(BillingMode.PAY_PER_REQUEST).gracefulLeaseHandoffConfig(handoffConfig)
+    ).billingMode(BillingMode.PAY_PER_REQUEST)
+      .gracefulLeaseHandoffConfig(handoffConfig)
+      .dynamoLockBasedLeaderLeaseDurationInSeconds(10)
+      .dynamoLockBasedLeaderHeartbeatPeriodInSeconds(2)
 
     val clientConfig = ConsumerConfig(
       streamName = config.streamName,
