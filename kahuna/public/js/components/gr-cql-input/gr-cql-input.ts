@@ -52,8 +52,28 @@ grCqlInput.directive<
     const typeahead = new Typeahead(fields);
 
     const CqlInput = createCqlInput(typeahead, {
-      theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
-      lang: { operators: false, groups: false }
+      theme: {
+        baseFontSize: "14px",
+        input: { layout: { padding: "2px 0" } },
+        chipWrapper: {
+          color: { background: "#333" },
+        },
+        chipContent: {
+          layout: { padding: "2px" },
+        },
+        chipHandle: {
+          color: {
+            background: "none",
+            border: "#444",
+          },
+        },
+        typeahead: {
+          layout: {
+            width: "300px",
+          },
+        },
+      },
+      lang: { operators: false, groups: false },
     });
 
     customElements.define("cql-input", CqlInput as any);
