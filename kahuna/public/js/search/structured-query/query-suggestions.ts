@@ -3,7 +3,9 @@ import { List, Map } from "immutable";
 
 import { mediaApi } from "../../services/api/media-api";
 
-export const querySuggestions = angular.module("querySuggestions", [mediaApi.name]);
+export const querySuggestions = angular.module("querySuggestions", [
+  mediaApi.name
+]);
 
 export type FieldAlias = {
   displaySearchHint: boolean;
@@ -57,10 +59,28 @@ if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
 }
 
+export type QuerySuggestionsService = {
+  getChipSuggestions: (chip: Chip) => string[],
+  typeaheadFields: (
+    | {
+        fieldName: string;
+        resolver: (value: string) => string[];
+      }
+    | {
+        fieldName: string;
+        resolver?: undefined;
+      }
+    | {
+        fieldName: string;
+        resolver: string[];
+      }
+  )[];
+};
+
 querySuggestions.factory("querySuggestions", [
   "mediaApi",
   "editsApi",
-  function (mediaApi: any, editsApi: any) {
+  function (mediaApi: any, editsApi: any): QuerySuggestionsService {
     const fieldAliases = window._clientConfig.fieldAliases
       .filter((fieldAlias: FieldAlias) => fieldAlias.displaySearchHint === true)
       .reduce(
@@ -258,11 +278,13 @@ querySuggestions.factory("querySuggestions", [
       return fieldAliases[fieldAlias].searchHintOptions;
     }
 
-    function getChipSuggestions(chip: Chip) {
+    function getChipSuggestions(chip: Chip): string[] {
       if (chip.type === "filter-chooser") {
         return fieldNames.filter((f) => f.startsWith(chip.value));
       } else if (chip.type === "filter") {
-        const field = typeaheadFields.find(field => field.fieldName === chip.key);
+        const field = typeaheadFields.find(
+          (field) => field.fieldName === chip.key,
+        );
         if (!field?.resolver) {
           return [];
         }
