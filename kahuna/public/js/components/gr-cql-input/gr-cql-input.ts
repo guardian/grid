@@ -8,7 +8,10 @@ import {
   CqlBinary,
   CqlExpr
 } from "@guardian/cql";
-import { querySuggestions } from "../../search/structured-query/query-suggestions";
+import {
+  querySuggestions,
+  QuerySuggestionsService
+} from "../../search/structured-query/query-suggestions";
 
 export const grCqlInput = angular.module("gr.cqlInput", [
   querySuggestions.name
@@ -21,15 +24,19 @@ grCqlInput.directive<
   }
 >("grCqlInput", [
   "querySuggestions",
-  function (cqlSuggestions) {
-    const fields: TypeaheadField[] = cqlSuggestions.typeaheadFields.map(
-      ({ fieldName, resolver }: any) => {
+  function (querySuggestions: QuerySuggestionsService) {
+    const fields: TypeaheadField[] = querySuggestions.typeaheadFields.map(
+      ({ fieldName, resolver }) => {
         const mappedResolver = resolver
           ? async (fieldName: string) => {
-              const suggestions = await resolver(fieldName);
-              return suggestions.map((suggestion: any) => {
-                return { label: suggestion, value: suggestion };
-              });
+              const suggestions = await (Array.isArray(resolver)
+                ? resolver
+                : resolver(fieldName));
+
+              return suggestions.map((suggestion) => ({
+                label: suggestion,
+                value: suggestion
+              }));
             }
           : undefined;
 
@@ -48,7 +55,8 @@ grCqlInput.directive<
       theme: { baseFontSize: "14px", input: { layout: { padding: "2px" } } },
       lang: { operators: false, groups: false }
     });
-    customElements.define("cql-input", CqlInput);
+
+    customElements.define("cql-input", CqlInput as any);
 
     return {
       restrict: "E",
@@ -59,7 +67,7 @@ grCqlInput.directive<
       template: `<cql-input value="{{fromGridQuery(value)}}"></cql-input>`,
       link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0];
-        const detectGrid = /(\w+\:)/g;
+        const detectGrid = /([^\s]+\:)/g;
         scope.fromGridQuery = (str: string): string =>
           str.replace(detectGrid, "\+$1");
         cqlInput.addEventListener(
@@ -110,13 +118,8 @@ const parseDateValue = (value: string): string => {
   return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
 };
 
-export const gridQueryStrFromQuery = (query: CqlQuery): string => {
-  const { content } = query;
-  if (!content) {
-    return "";
-  }
-  return strFromBinary(content);
-};
+export const gridQueryStrFromQuery = ({content }: CqlQuery): string =>
+  content ? strFromBinary(content) : "";
 
 const strFromBinary = (binary: CqlBinary): string => {
   return (
@@ -137,6 +140,6 @@ const strFromExpr = (expr: CqlExpr) => {
     case "CqlGroup":
       return `(${strFromBinary(expr.content.content)})`;
     case "CqlField":
-      return `${expr.content.key.literal}:${expr.content.value?.literal ?? ""}`;
+      return `${expr.content.key.literal}:"${expr.content.value?.literal ?? ""}"`;
   }
 };
