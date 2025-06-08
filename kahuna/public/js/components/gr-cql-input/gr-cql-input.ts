@@ -26,7 +26,7 @@ grCqlInput.directive<
   "querySuggestions",
   function (querySuggestions: QuerySuggestionsService) {
     const fields: TypeaheadField[] = querySuggestions.typeaheadFields.map(
-      ({ fieldName, resolver }) => {
+      ({ fieldName, resolver, type = "TEXT" }) => {
         const mappedResolver = resolver
           ? async (fieldName: string) => {
               const suggestions = await (Array.isArray(resolver)
@@ -45,6 +45,7 @@ grCqlInput.directive<
           fieldName,
           undefined,
           mappedResolver,
+          type,
         );
       },
     );
@@ -56,24 +57,24 @@ grCqlInput.directive<
         baseFontSize: "14px",
         input: { layout: { padding: "2px 0" } },
         chipWrapper: {
-          color: { background: "#333" },
+          color: { background: "#333" }
         },
         chipContent: {
-          layout: { padding: "2px" },
+          layout: { padding: "2px" }
         },
         chipHandle: {
           color: {
             background: "none",
-            border: "#444",
-          },
+            border: "#444"
+          }
         },
         typeahead: {
           layout: {
-            width: "300px",
-          },
-        },
+            width: "300px"
+          }
+        }
       },
-      lang: { operators: false, groups: false },
+      lang: { operators: false, groups: false }
     });
 
     customElements.define("cql-input", CqlInput as any);
