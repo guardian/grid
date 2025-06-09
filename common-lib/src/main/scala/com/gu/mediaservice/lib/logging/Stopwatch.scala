@@ -34,7 +34,7 @@ class Stopwatch  {
 object Stopwatch extends GridLogging {
   def start: Stopwatch = new Stopwatch
 
-  def async[T](label: String)(body: => Future[T])(implicit marker: LogMarker, ec: ExecutionContext): Future[T] = {
+  def async[T](label: String)(body: Future[T])(implicit marker: LogMarker, ec: ExecutionContext): Future[T] = {
     val stopwatch = new Stopwatch
     try {
       body.onComplete { _ =>
