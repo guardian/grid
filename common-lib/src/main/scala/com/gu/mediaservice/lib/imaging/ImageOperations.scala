@@ -127,12 +127,14 @@ class ImageOperations(playPath: String) extends GridLogging {
     yield outputFile
   }
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType): File = mediaType match {
+  def optimiseImage(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File = mediaType match {
     case Png =>
       val fileName: String = resizedFile.getAbsolutePath
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      Stopwatch("pngquant") {
+        Seq("pngquant", "-s8", "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      }
 
       new File(optimisedImageName)
     case Jpeg => resizedFile
