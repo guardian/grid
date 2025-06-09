@@ -133,7 +133,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
       Stopwatch("pngquant") {
-        Seq("pngquant", "-s8", "--quality", "1-85", fileName, "--output", optimisedImageName).!
+        Seq("pngquant", "-s10", "--quality", "1-85", fileName, "--output", optimisedImageName).!
       }
 
       new File(optimisedImageName)
