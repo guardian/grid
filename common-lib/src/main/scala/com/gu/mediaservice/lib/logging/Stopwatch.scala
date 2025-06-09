@@ -37,7 +37,7 @@ object Stopwatch extends GridLogging {
     val stopwatch = new Stopwatch
     try {
       val result = body
-      logger.info(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString).toLogMarker, s"Stopwatch: $label")
+      logger.info(addMarkers("elapsed" -> s"${stopwatch.elapsed.duration.toMillis} ms").toLogMarker, s"Stopwatch: $label")
       result
     } catch {
       case e: Exception => logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e

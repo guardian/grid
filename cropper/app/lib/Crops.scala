@@ -36,41 +36,47 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     colourModel: Option[String],
   )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
-    val source   = crop.specification
-    val metadata = apiImage.metadata
-    val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
+    Stopwatch(s"creating master crop for ${apiImage.id}") {
+      val source = crop.specification
+      val metadata = apiImage.metadata
+      val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
-    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
-
-    for {
-      strip <- imageOperations.cropImage(
-        sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
-        iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
-      )
-      file: File <- imageOperations.appendMetadata(strip, metadata)
-      dimensions  = Dimensions(source.bounds.width, source.bounds.height)
-      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
-      sizing      = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
-      dirtyAspect = source.bounds.width.toFloat / source.bounds.height
-      aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+      for {
+        strip <- imageOperations.cropImage(
+          sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
+          iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
+        )
+        file: File <- imageOperations.appendMetadata(strip, metadata)
+        dimensions = Dimensions(source.bounds.width, source.bounds.height)
+        filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
+        sizing = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
+        dirtyAspect = source.bounds.width.toFloat / source.bounds.height
+        aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+      }
+      yield MasterCrop(sizing, file, dimensions, aspect)
     }
-    yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
-    logger.info(logMarker, s"creating crops for ${apiImage.id}")
-
-    Future.sequence(dimensionList.map { dimensions =>
-      for {
-        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
-        optimisedFile = imageOperations.optimiseImage(file, cropType)
-        filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
-        sizing        <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
-        _             <- delete(file)
-        _             <- delete(optimisedFile)
-      }
-      yield sizing
-    })
+    Stopwatch(s"creating crops for ${apiImage.id}") {
+      Future.sequence(dimensionList.map { dimensions =>
+        implicit val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
+        for {
+          file <- imageOperations.resizeImage(sourceFile,
+            apiImage.source.mimeType,
+            dimensions,
+            cropQuality,
+            config.tempDir,
+            cropType)(cropLogMarker)
+          optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
+          filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
+          sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
+          _ <- delete(file)
+          _ <- delete(optimisedFile)
+        }
+        yield sizing
+      })
+    }
   }
 
   def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
