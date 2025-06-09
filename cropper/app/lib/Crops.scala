@@ -40,10 +40,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       val source = crop.specification
       val metadata = apiImage.metadata
       val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
+      // pngs are always lossless, so quality only means effort spent compressing them. We don't
+      // care too much about filesize of master crops, so skip expensive compression to get faster cropping
+      val quality = if (mediaType == Png) 25d else masterCropQuality
 
       for {
         strip <- imageOperations.cropImage(
-          sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
+          sourceFile, apiImage.source.mimeType, source.bounds, quality, config.tempDir,
           iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
         )
         file: File <- imageOperations.appendMetadata(strip, metadata)
@@ -58,6 +61,10 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
+    // pngs are always lossless, so quality only means effort spent compressing them. We don't
+    // care too much about filesize of master crops, so skip expensive compression to get faster cropping
+    val quality = if (cropType == Png) 25d else cropQuality
+
     Stopwatch.async(s"creating crops for ${apiImage.id}") {
       Future.sequence(dimensionList.map { dimensions =>
         val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
@@ -65,7 +72,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
           file <- imageOperations.resizeImage(sourceFile,
             apiImage.source.mimeType,
             dimensions,
-            cropQuality,
+            quality,
             config.tempDir,
             cropType)(cropLogMarker)
           optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
