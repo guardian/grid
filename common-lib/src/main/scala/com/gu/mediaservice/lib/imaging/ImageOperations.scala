@@ -83,7 +83,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     colourModel: Option[String],
     fileType: MimeType,
     isTransformedFromSource: Boolean
-  )(implicit logMarker: LogMarker): Future[File] = Stopwatch("magick crop image") {
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick crop image") {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
@@ -115,7 +115,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     qual: Double = 100d,
     tempDir: File,
     fileType: MimeType
-  )(implicit logMarker: LogMarker): Future[File] = Stopwatch("magick resize image") {
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick resize image") {
     for {
       outputFile  <- createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir)
       resizeSource = addImage(sourceFile)

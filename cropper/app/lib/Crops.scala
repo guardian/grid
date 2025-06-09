@@ -36,7 +36,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     colourModel: Option[String],
   )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
-    Stopwatch(s"creating master crop for ${apiImage.id}") {
+    Stopwatch.async(s"creating master crop for ${apiImage.id}") {
       val source = crop.specification
       val metadata = apiImage.metadata
       val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
@@ -58,9 +58,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
-    Stopwatch(s"creating crops for ${apiImage.id}") {
+    Stopwatch.async(s"creating crops for ${apiImage.id}") {
       Future.sequence(dimensionList.map { dimensions =>
-        implicit val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
+        val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
         for {
           file <- imageOperations.resizeImage(sourceFile,
             apiImage.source.mimeType,
@@ -103,7 +103,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
     val cropType = Crops.cropType(mimeType, colourType, hasAlpha)
 
-    Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
+    Stopwatch.async(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
         colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
