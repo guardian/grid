@@ -22,10 +22,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
   private val cropQuality = 75d
   private val masterCropQuality = 95d
+  // For PNGs, Magick considers "quality" parameter as effort spent on compression - 0 meaning none, 100 meaning max.
+  // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it fairly low down.
+  private val pngCropQuality = 20d
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
     val masterString: String = if (isMaster) "master/" else ""
-    s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
+    s"${source.id}/${Crop.getCropId(bounds)}/$masterString$outputWidth${fileType.fileExtension}"
   }
 
   def createMasterCrop(
@@ -42,7 +45,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
       // pngs are always lossless, so quality only means effort spent compressing them. We don't
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
-      val quality = if (mediaType == Png) 25d else masterCropQuality
+      val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
       for {
         strip <- imageOperations.cropImage(
@@ -61,9 +64,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
-    // pngs are always lossless, so quality only means effort spent compressing them. We don't
-    // care too much about filesize of master crops, so skip expensive compression to get faster cropping
-    val quality = if (cropType == Png) 25d else cropQuality
+    val quality = if (cropType == Png) pngCropQuality else cropQuality
 
     Stopwatch.async(s"creating crops for ${apiImage.id}") {
       Future.sequence(dimensionList.map { dimensions =>
@@ -139,8 +140,7 @@ object Crops {
     val outputAsPng = hasAlpha || isGraphic
 
     mediaType match {
-      case Png if outputAsPng => Png
-      case Tiff if outputAsPng => Png
+      case Png | Tiff if outputAsPng => Png
       case _ => Jpeg
     }
   }
