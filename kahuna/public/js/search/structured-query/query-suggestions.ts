@@ -263,7 +263,9 @@ querySuggestions.factory("querySuggestions", [
     }
 
     function suggestFieldAliasOptions(fieldAlias: string) {
-      return fieldAliases[fieldAlias].searchHintOptions;
+      return fieldAliases[fieldAlias].searchHintOptions.length
+        ? fieldAliases[fieldAlias].searchHintOptions
+        : undefined;
     }
 
     function getChipSuggestions(chip: Chip): string[] {
