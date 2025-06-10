@@ -22,9 +22,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
   private val cropQuality = 75d
   private val masterCropQuality = 95d
-  // For PNGs, Magick considers "quality" parameter as effort spent on compression - 0 meaning none, 100 meaning max.
-  // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it fairly low down.
-  private val pngCropQuality = 20d
+  // For PNGs, Magick considers "quality" parameter as effort spent on compression - 1 meaning none, 100 meaning max.
+  // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it right down.
+  private val pngCropQuality = 1d
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
     val masterString: String = if (isMaster) "master/" else ""
