@@ -88,9 +88,10 @@ grCqlInput.directive<
       template: `<cql-input value="{{fromGridQuery(value)}}"></cql-input>`,
       link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0];
-        const detectGrid = /([^\s]+\:)/g;
+
+        const addPlusesToGridChips = /([^\s-]+\:)(?<!-[^\s]+\:)/;
         scope.fromGridQuery = (str: string): string =>
-          str.replace(detectGrid, "\+$1");
+          str.replace(addPlusesToGridChips, "\+$1");
         cqlInput.addEventListener(
           "queryChange",
           (event: QueryChangeEventDetail) => {
@@ -161,6 +162,7 @@ const strFromExpr = (expr: CqlExpr) => {
     case "CqlGroup":
       return `(${strFromBinary(expr.content.content)})`;
     case "CqlField":
-      return `${expr.content.key.literal}:"${expr.content.value?.literal ?? ""}"`;
+      const polarity = expr.content.key.tokenType === "CHIP_KEY_NEGATIVE" ? "-" : "";
+      return expr.content.key.literal ? `${polarity}${expr.content.key.literal}:"${expr.content.value?.literal ?? ""}"` : "";
   }
 };
