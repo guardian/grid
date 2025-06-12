@@ -3,7 +3,9 @@ package com.gu.mediaservice.lib.logging
 import java.time.ZonedDateTime
 import com.gu.mediaservice.lib.DateTimeUtils
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 case class DurationForLogging(startTime: ZonedDateTime, duration: Duration) extends LogMarker {
   def toMillis: Long = duration.toMillis
@@ -32,15 +34,37 @@ class Stopwatch  {
 object Stopwatch extends GridLogging {
   def start: Stopwatch = new Stopwatch
 
-  def apply[T](label: String)(body: => T)(implicit marker: LogMarker): T = {
+  def async[T](label: String)(body: Future[T])(implicit marker: LogMarker, ec: ExecutionContext): Future[T] = {
+    val stopwatch = new Stopwatch
+    try {
+      body.onComplete { _ =>
+        logger.info(addMarkers("elapsed" -> s"${stopwatch.elapsed.duration.toMillis} ms").toLogMarker,
+          s"Stopwatch: $label")
+      }
+      body
+    } catch {
+      case NonFatal(e) =>
+        logger.error(
+          addMarkers("elapsed" -> s"${stopwatch.elapsed.duration.toMillis} ms").toLogMarker,
+          s"Stopwatch: $label: errored",
+          e)
+        throw e
+    }
+  }
 
+  def apply[T](label: String)(body: => T)(implicit marker: LogMarker): T = {
     val stopwatch = new Stopwatch
     try {
       val result = body
-      logger.info(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString).toLogMarker, s"Stopwatch: $label")
+      logger.info(addMarkers("elapsed" -> s"${stopwatch.elapsed.duration.toMillis} ms").toLogMarker, s"Stopwatch: $label")
       result
     } catch {
-      case e: Exception => logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
+      case NonFatal(e) =>
+        logger.error(
+          addMarkers("elapsed" -> s"${stopwatch.elapsed.duration.toMillis} ms").toLogMarker,
+          s"Stopwatch: $label: errored",
+          e)
+        throw e
     }
   }
 
