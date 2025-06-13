@@ -19,20 +19,19 @@ services:
     ports:
       - "9090:9000"
   localstack:
-    image: localstack/localstack:0.12.3
-    platform: 'linux/x86_64'
+    image: localstack/localstack:4.5.0
     ports:
-      - "4566:4566" # localstack's service proxy endpoint
-      - "4572:4572" # localstack's direct S3 endpoint, needed for image and image-origin buckets (see nginx-mappings.yml)
+      - "127.0.0.1:4566:4566"            # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
     expose:
       - 4566 # provide the imgops container with access to localstack's direct S3 endpoint
     environment:
-      SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs
+      SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam
       DEFAULT_REGION: eu-west-1
       KINESIS_ERROR_PROBABILITY: 0.0
-      DATA_DIR: /tmp/localstack/data
     volumes:
-      - './dev/.localstack:/tmp/localstack'
+      - "./dev/.localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
   oidc-provider:
     build:
       context: ./dev/oidc-provider

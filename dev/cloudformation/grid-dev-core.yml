@@ -25,6 +25,15 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: IngestSqsQueue
     Properties:
+      CorsConfiguration:
+        CorsRules:
+          - Id: AllowUploadsFromBrowser
+            AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+            AllowedOrigins:
+              - 'https://media.local.dev-gutools.co.uk'
       NotificationConfiguration:
         QueueConfigurations:
         - Event: "s3:ObjectCreated:*"
