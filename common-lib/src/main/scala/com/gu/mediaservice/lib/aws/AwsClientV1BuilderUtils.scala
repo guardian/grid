@@ -17,18 +17,19 @@ trait AwsClientV1BuilderUtils extends GridLogging {
     InstanceProfileCredentialsProvider.getInstance()
   )
 
-  final def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
+  private final def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
     case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
     case _ => None
   }
 
   final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): S = {
+    val credentialedBuilder = builder.withCredentials(awsCredentials).withRegion(maybeRegionOverride.getOrElse(awsRegion))
+
     awsEndpointConfiguration match {
-      case Some(endpointConfiguration) if localstackAware => {
+      case Some(endpointConfiguration) if localstackAware =>
         logger.info(s"creating aws client with local endpoint $endpointConfiguration")
-        builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
-      }
-      case _ => builder.withCredentials(awsCredentials).withRegion(maybeRegionOverride.getOrElse(awsRegion))
+        credentialedBuilder.withEndpointConfiguration(endpointConfiguration)
+      case _ => credentialedBuilder
     }
   }
 }
