@@ -1,5 +1,5 @@
 import { getApiImageAndApiLeasesIfUpdated } from './leases-helper';
-import moment from 'moment';
+import * as moment from 'moment';
 
 describe('leases-helper', () => {
 
