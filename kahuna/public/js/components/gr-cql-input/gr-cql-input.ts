@@ -86,7 +86,7 @@ grCqlInput.directive<
         onChange: "&",
         value: "="
       },
-      template: `<cql-input value="{{fromGridQuery(value)}}"></cql-input>`,
+      template: `<cql-input value="{{fromGridQuery(value)}}" placeholder="Search for images… (type + for advanced search)"></cql-input>`,
       link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0];
         scope.fromGridQuery = gridQueryToCqlQuery;
