@@ -22,7 +22,7 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, i
               detail: {panel: ctrl.name},
               bubbles: true
           }));
-      }
+      };
       ctrl.lockPanel   = () => panel.setLocked(true);
       ctrl.unlockPanel = () => panel.setLocked(false);
       ctrl.hidePanel   = () => {

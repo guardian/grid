@@ -125,9 +125,9 @@ results.controller('SearchResultsCtrl', [
         ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
         ctrl.getInfoPanelVisible = () => {
           const infoPanelState = storage.getJs("metadataPanelState", false);
-          if (!infoPanelState) return false;
+          if (!infoPanelState) { return false; }
           return !infoPanelState.hidden;
-        }
+        };
 
         //-sort control-
         function updateSortChips (sortSel) {
@@ -135,7 +135,7 @@ results.controller('SearchResultsCtrl', [
           let toParams = {
             ...$stateParams,
             orderBy: manageSortSelection(sortSel.value)
-          }
+          };
           $state.transitionTo(
                       $state.current,
                       toParams,
@@ -174,20 +174,20 @@ results.controller('SearchResultsCtrl', [
               ...$stateParams,
               query: `${oldQuery} ${hasTakenDateClause}`,
               orderBy: newSortOrder
-            }
+            };
           } else {
             if ((sortOrder && sortOrder.includes(takenSort)) || (takenTabVisible === 'visible')) {
               toParams = {
                 ...$stateParams,
                 query: `${oldQuery} ${noTakenDateClause}`,
                 orderBy: newSortOrder
-              }
+              };
             } else {
               toParams = {
                 ...$stateParams,
                 query: oldQuery,
                 orderBy: newSortOrder
-              }
+              };
             }
           }
           $state.transitionTo(
@@ -200,8 +200,7 @@ results.controller('SearchResultsCtrl', [
         async function checkForNoTakenDate() {
           let tempQuery = $stateParams.query ? $stateParams.query : '';
           let isTaken = ($stateParams.orderBy && $stateParams.orderBy.includes(takenSort)) || tempQuery.includes(hasTakenDateClause);
-          if (!isTaken) return 0;
-          let oldQuery = storage.getJs("previousQuery", true);
+          if (!isTaken) { return 0; }
           tempQuery = tempQuery.replace(noTakenDateClause, '').replace(hasTakenDateClause, '').trim();
           storage.setJs("previousQuery", tempQuery, true);
           let query =  `${tempQuery} ${noTakenDateClause}`.trim();
@@ -300,7 +299,7 @@ results.controller('SearchResultsCtrl', [
             } else {
               const notificationEvent = new CustomEvent("removeNotification", {
                 detail: {
-                  announceId: "sortByTakenDate",
+                  announceId: "sortByTakenDate"
                 },
                 bubbles: true
               });
