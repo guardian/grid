@@ -12,6 +12,7 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-tab-swap/gr-tab-swap';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import { sendTelemetryForQuery } from '../services/telemetry';
@@ -33,6 +34,7 @@ export var query = angular.module('kahuna.search.query', [
     grStructuredQuery.name,
     'util.storage',
     'gr.sortControl',
+    'gr.tabSwapControl',
     'gr.permissionsFilter',
     'gr.myUploads'
 ]);

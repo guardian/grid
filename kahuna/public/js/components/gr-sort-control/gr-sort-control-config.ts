@@ -29,27 +29,32 @@ export const SortOptions: SortDropdownOption[] = [
   {
     value: "uploadNewOld",
     label: "Upload date (new to old)",
-    isCollection: false
+    isCollection: false,
+    isTaken: false
   },
   {
     value: "oldest",
     label: "Upload date (old to new)",
-    isCollection: false
+    isCollection: false,
+    isTaken: false
   },
   {
     value: "-taken",
     label: "Taken date (new to old)",
-    isCollection: false
+    isCollection: false,
+    isTaken: true
   },
   {
     value: "taken",
     label: "Taken date (old to new)",
-    isCollection: false
+    isCollection: false,
+    isTaken: true
   },
   {
     value: "dateAddedToCollection",
     label: "Added to collection (new to old)",
-    isCollection: true
+    isCollection: true,
+    isTaken: false
   }
 ];
 
