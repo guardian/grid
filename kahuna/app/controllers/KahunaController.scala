@@ -62,7 +62,7 @@ class KahunaController(
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
     val maybeOrgOwnedValue =
       if(config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
-        Html(""""Owned"""")
+        Html(""""owned"""")
       else
         Html("undefined")
     val imageTypes = Json.toJson(config.imageTypes).toString()
