@@ -44,11 +44,11 @@ const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
   const [panelVisible, setPanelVisible] = useState<boolean>(props.panelVisible);
 
   const handleTabClick = (tabSelected: string) => {
-    if(tabSelected !== activeTab) {
+    if (tabSelected !== activeTab) {
       if (tabSelected === 'with') {
         setActiveTab('with');
         props.clearTakenVisible();
-        let orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
+        const orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
         props.onSelect(tabSelected, orderBy);
       } else {
         setActiveTab('without');
@@ -56,7 +56,7 @@ const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
         props.onSelect(tabSelected, undefined);
       }
     }
-  }
+  };
 
   const handleKeyboard = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.code === 'Space') {
@@ -66,7 +66,7 @@ const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
       if (tabSelected === 'without') {
         setActiveTab('with');
         props.clearTakenVisible();
-        let orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
+        const orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
         props.onSelect('with', orderBy);
       } else {
         setActiveTab('without');
