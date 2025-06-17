@@ -11,6 +11,8 @@ const DEFAULT_OPTION = DefaultSortOption.value;
 const COLLECTION_OPTION = CollectionSortOption.value;
 const CONTROL_TITLE = "Sort by:";
 const SORT_ORDER = "Sort order";
+const PANEL_IDENTIFIER = "info";
+const HAS_DATE_TAKEN_QUERY = "has:dateTaken";
 
 const downArrowIcon = () =>
   <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -38,6 +40,7 @@ export interface SortDropdownOption {
   value: string;
   label: string;
   isCollection: boolean;
+  isTaken: boolean;
 }
 
 export interface SortDropdownProps {
@@ -46,6 +49,8 @@ export interface SortDropdownProps {
   onSelect: (option: SortDropdownOption) => void;
   query?: string | "";
   orderBy?: string | "";
+  clearTakenVisible: () => void;
+  panelVisible?: boolean | false;
 }
 
 export interface SortWrapperProps {
@@ -78,16 +83,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   const [selectedOption, setSelection] = useState(defSort);
   const [previousOption, setPrevious] = useState(defSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
-
-  const autoHideListener = (event: any) => {
-    if (event.type === "keydown" && event.key === "Escape") {
-      setIsOpen(false);
-    } else if (event.type !== "keydown") {
-      if (!hasClassInSelfOrParent(event.target, "sort-control")) {
-        setIsOpen(false);
-      }
-    }
-  };
+  const [panelVisible, setPanelVisible] = useState(props.panelVisible);
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowDown' ||
@@ -113,15 +109,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     }
   };
 
-  const handleQueryChange = (e: any) => {
-    const newQuery = e.detail.query ? (" " + e.detail.query) : "";
-    setHasCollection(checkForCollection(newQuery));
-  };
-
-  const handleLogoClick = (e: any) => {
-    setSelection(defSort);
-  };
-
   useEffect(() => {
     if (hasCollection) {
       const collOpt = options.filter(opt => opt.value == COLLECTION_OPTION)[0];
@@ -140,8 +127,47 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   }, [selectedOption]);
 
   useEffect(() => {
+    const autoHideListener = (event: any) => {
+      if (event.type === "keydown" && event.key === "Escape") {
+        setIsOpen(false);
+      } else if (event.type !== "keydown") {
+        if (!hasClassInSelfOrParent(event.target, "sort-control")) {
+          setIsOpen(false);
+        }
+      }
+    };
+
+    const handleLogoClick = (e: any) => {
+      setSelection(defSort);
+    };
+
+    const handleQueryChange = (e: any) => {
+      const newQuery = e.detail.query ? (" " + e.detail.query) : "";
+      setHasCollection(checkForCollection(newQuery));
+    };
+
+    const handlePanelShow = (event: any) => {
+      const panel = event.detail.panel;
+       if (panel === PANEL_IDENTIFIER) {
+         setPanelVisible(true);
+       }
+    };
+
+    const handlePanelHide = (event: any) => {
+      const panel = event.detail.panel;
+       if (panel === PANEL_IDENTIFIER) {
+         setPanelVisible(false);
+       }
+    };
+
     if (props.options.filter(o => o.value === props.orderBy).length > 0) {
-      setSelection(props.options.filter(o => o.value === props.orderBy)[0]);
+      const selOpt = props.options.filter(o => o.value === props.orderBy)[0];
+      const tempQuery = props.query ? props.query : "";
+      if (!tempQuery.includes(HAS_DATE_TAKEN_QUERY) && selOpt.isTaken) {
+        setSelection(defSort);
+      } else {
+        setSelection(selOpt);
+      }
     } else {
       setSelection(defSort);
     }
@@ -159,6 +185,8 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     window.addEventListener("mouseup", autoHideListener);
     window.addEventListener("scroll", autoHideListener);
     window.addEventListener("keydown", autoHideListener);
+    window.addEventListener("panelHide", handlePanelHide);
+    window.addEventListener("panelShow", handlePanelShow);
 
     // Clean up the event listener when the component unmounts
     return () => {
@@ -168,6 +196,8 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       window.removeEventListener("mouseup", autoHideListener);
       window.removeEventListener("scroll", autoHideListener);
       window.removeEventListener("keydown", autoHideListener);
+      window.removeEventListener("panelHide", handlePanelHide);
+      window.removeEventListener("panelShow", handlePanelShow);
     };
   }, []);
 
@@ -176,24 +206,23 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     if (option.value !== selectedOption.value) {
       setSelection(option);
       props.onSelect(option);
-      //-notification banner-
-      if (option.value.includes("taken")) {
-        const notificationEvent = new CustomEvent("newNotification", {
-          detail: {
-            announceId: "sortByTakenDate",
-            description: "Images without a Taken Date will appear at the end of the list",
-            category: "information",
-            lifespan: "transient"
-          },
-          bubbles: true
-        });
-        window.dispatchEvent(notificationEvent);
+      if (!option.isTaken) {
+        props.clearTakenVisible();
       }
+
+      const orderByChangeEvent = new CustomEvent("orderByChange", {
+        detail: {
+          sortTaken: option.isTaken,
+          sort: option.value
+        },
+        bubbles: true
+      });
+      window.dispatchEvent(orderByChangeEvent);
     }
   };
 
   return (
-    <div className="outer-sort-container">
+    <div className={`outer-sort-container ${panelVisible ? 'sort-panel-margin' : ''}`}>
       <div className="sort-selection-title no-select">{CONTROL_TITLE}</div>
       <div className="sort-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleArrowKeys}>
         <div className="sort-dropdown-toggle-advanced" onClick={() => setIsOpen(!isOpen)}>
@@ -209,7 +238,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
           </div>
         </div>
         {isOpen && (
-          <table className="sort-dropdown-menu">
+          <table className={`sort-dropdown-menu ${panelVisible ? 'sort-panel-margin' : ''}`}>
             <tbody>
             {options.map((option) => (hasCollection || option.value != COLLECTION_OPTION) && (
               <tr className={(currentIndex > -1 && options[currentIndex].value) === option.value ? "sort-dropdown-item sort-dropdown-highlight" : "sort-dropdown-item"}
