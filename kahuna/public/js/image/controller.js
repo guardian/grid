@@ -193,8 +193,8 @@ image.controller('ImageCtrl', [
 
     cropSettings.set($stateParams);
     ctrl.cropType = cropSettings.getCropType();
-    ctrl.capitalisedCropType = ctrl.cropType ?
-      ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
+    ctrl.cropRatio = ctrl.cropType ?
+      cropSettings.getCropOptions().find(_ => _.key === ctrl.cropType).ratioString ?? '' :
       '';
 
     imageService(ctrl.image).states.canDelete.then(deletable => {

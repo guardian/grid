@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib.cleanup
 
 import java.net.URI
-
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
+
+import scala.util.Try
 
 trait MetadataHelper {
   def createImageFromMetadata(metadata: (String, String)*): Image = {
@@ -37,7 +38,7 @@ trait MetadataHelper {
 
   def createImageMetadata(metadata: Map[String, String]): ImageMetadata =
     ImageMetadata(
-      dateTaken           = None,
+      dateTaken           = metadata.get("dateTaken").map(DateTime.parse),
       description         = metadata.get("description"),
       credit              = metadata.get("credit"),
       byline              = metadata.get("byline"),

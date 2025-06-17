@@ -335,21 +335,27 @@ kahuna.filter('getExtremeAssets', function() {
     };
 });
 
-const getAssetHandleDragData = ($filter, image, maybeCrop) => ({
-  source: "grid",
-  sourceType: maybeCrop ? "crop" : "original",
-  thumbnail: $filter('assetFile')(
-    maybeCrop
-      ? $filter('getExtremeAssets')(maybeCrop).smallest
-      : image.data.thumbnail
-  ),
-  embeddableUrl: $filter('embeddableUrl')(image.data.id, maybeCrop && maybeCrop.id)
-});
+kahuna.factory('getAssetHandleDragData', ['cropSettings', function(cropSettings) {
+  return function getAssetHandleDragData($filter, image, maybeCrop) {
+    return {
+      source: "grid",
+      sourceType: maybeCrop ? "crop" : "original",
+      thumbnail: $filter('assetFile')(
+        maybeCrop
+          ? $filter('getExtremeAssets')(maybeCrop).smallest
+          : image.data.thumbnail
+      ),
+      embeddableUrl: $filter('embeddableUrl')(image.data.id, maybeCrop && maybeCrop.id),
+      aspectRatio: maybeCrop?.specification?.aspectRatio,
+      cropType: maybeCrop?.specification?.aspectRatio ? cropSettings.asCropType(maybeCrop.specification.aspectRatio) : undefined,
+    };
+  }
+}]);
 
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asImageDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
+kahuna.filter('asImageDragData', ['vndMimeTypes', 'getAssetHandleDragData', '$filter', function(vndMimeTypes, getAssetHandleDragData, $filter) {
     // Annoyingly cannot use Resource#getLink because it returns a
     // Promise and Angular filters are synchronous :-(
     function syncGetLinkUri(resource, rel) {
@@ -378,7 +384,7 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', '$filter', function(vndMimeTyp
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asCropDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
+kahuna.filter('asCropDragData', ['vndMimeTypes', 'getAssetHandleDragData', '$filter', function(vndMimeTypes, getAssetHandleDragData, $filter) {
     return function(image, crop) {
       return {
         [vndMimeTypes.get('gridCropData')]: JSON.stringify(crop),

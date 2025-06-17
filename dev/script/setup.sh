@@ -263,7 +263,21 @@ createCoreStack() {
   fi
   set +x
 
-  # TODO - this should wait until the stack operation has completed
+  for attempt in $(seq 1 15); do
+    status="$(aws cloudformation describe-stacks --stack-name "$CORE_STACK_NAME" \
+      --endpoint-url $LOCALSTACK_ENDPOINT | jq -r ".Stacks[0].StackStatus")"
+
+    if [[ $status = "CREATE_COMPLETE" || $status = "UPDATE_COMPLETE" ]]; then
+      echo "core stack created"
+      return
+    else
+      echo "still waiting for core stack - status was $status"
+      sleep 2
+    fi
+  done
+
+  echo "cloudformation stack did not finish creating after 30s - what's gone wrong?"
+  exit 1
 }
 
 createGuardianLocalAuthStack() {

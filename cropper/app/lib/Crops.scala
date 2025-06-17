@@ -22,10 +22,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
   private val cropQuality = 75d
   private val masterCropQuality = 95d
+  // For PNGs, Magick considers "quality" parameter as effort spent on compression - 1 meaning none, 100 meaning max.
+  // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it right down.
+  private val pngCropQuality = 1d
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
     val masterString: String = if (isMaster) "master/" else ""
-    s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
+    s"${source.id}/${Crop.getCropId(bounds)}/$masterString$outputWidth${fileType.fileExtension}"
   }
 
   def createMasterCrop(
@@ -36,41 +39,52 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     colourModel: Option[String],
   )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
-    val source   = crop.specification
-    val metadata = apiImage.metadata
-    val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
+    Stopwatch.async(s"creating master crop for ${apiImage.id}") {
+      val source = crop.specification
+      val metadata = apiImage.metadata
+      val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
+      // pngs are always lossless, so quality only means effort spent compressing them. We don't
+      // care too much about filesize of master crops, so skip expensive compression to get faster cropping
+      val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
 
-    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
-
-    for {
-      strip <- imageOperations.cropImage(
-        sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
-        iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
-      )
-      file: File <- imageOperations.appendMetadata(strip, metadata)
-      dimensions  = Dimensions(source.bounds.width, source.bounds.height)
-      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
-      sizing      = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
-      dirtyAspect = source.bounds.width.toFloat / source.bounds.height
-      aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+      for {
+        strip <- imageOperations.cropImage(
+          sourceFile, apiImage.source.mimeType, source.bounds, quality, config.tempDir,
+          iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
+        )
+        file: File <- imageOperations.appendMetadata(strip, metadata)
+        dimensions = Dimensions(source.bounds.width, source.bounds.height)
+        filename = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
+        sizing = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
+        dirtyAspect = source.bounds.width.toFloat / source.bounds.height
+        aspect = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+      }
+      yield MasterCrop(sizing, file, dimensions, aspect)
     }
-    yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
-    logger.info(logMarker, s"creating crops for ${apiImage.id}")
+    val quality = if (cropType == Png) pngCropQuality else cropQuality
 
-    Future.sequence(dimensionList.map { dimensions =>
-      for {
-        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
-        optimisedFile = imageOperations.optimiseImage(file, cropType)
-        filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
-        sizing        <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
-        _             <- delete(file)
-        _             <- delete(optimisedFile)
-      }
-      yield sizing
-    })
+    Stopwatch.async(s"creating crops for ${apiImage.id}") {
+      Future.sequence(dimensionList.map { dimensions =>
+        val cropLogMarker = logMarker ++ Map("crop-dimensions" -> s"${dimensions.width}x${dimensions.height}")
+        for {
+          file <- imageOperations.resizeImage(sourceFile,
+            apiImage.source.mimeType,
+            dimensions,
+            quality,
+            config.tempDir,
+            cropType)(cropLogMarker)
+          optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
+          filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
+          sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
+          _ <- delete(file)
+          _ <- delete(optimisedFile)
+        }
+        yield sizing
+      })
+    }
   }
 
   def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
@@ -97,7 +111,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
     val cropType = Crops.cropType(mimeType, colourType, hasAlpha)
 
-    Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
+    Stopwatch.async(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
         colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
@@ -126,8 +140,7 @@ object Crops {
     val outputAsPng = hasAlpha || isGraphic
 
     mediaType match {
-      case Png if outputAsPng => Png
-      case Tiff if outputAsPng => Png
+      case Png | Tiff if outputAsPng => Png
       case _ => Jpeg
     }
   }

@@ -120,6 +120,11 @@ object SearchParams {
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
   def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
 
+  private def readOrderBy(orderByRaw: String): String = {
+    if (orderByRaw == "oldest") "uploadTime"
+    else orderByRaw
+  }
+
   def apply(request: Authentication.Request[Any]): SearchParams = {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
@@ -143,7 +148,7 @@ object SearchParams {
       request.getQueryString("ids").map(_.split(",").toList),
       request.getQueryString("offset") flatMap parseIntFromQuery getOrElse 0,
       request.getQueryString("length") flatMap parseIntFromQuery getOrElse 10,
-      request.getQueryString("orderBy"),
+      request.getQueryString("orderBy") map readOrderBy,
       request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("until") flatMap parseDateFromQuery,
       request.getQueryString("modifiedSince") flatMap parseDateFromQuery,
