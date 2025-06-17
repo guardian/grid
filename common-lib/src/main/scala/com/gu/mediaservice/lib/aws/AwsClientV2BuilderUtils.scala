@@ -16,12 +16,13 @@ trait AwsClientV2BuilderUtils extends GridLogging {
   def awsCredentialsV2: AwsCredentialsProvider = DefaultCredentialsProvider.builder().profileName("media-service").build()
 
   final def withAWSCredentialsV2[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S = {
+    val credentialedBuilder = builder.credentialsProvider(awsCredentialsV2).region(maybeRegionOverride.getOrElse(awsRegionV2))
+
     awsLocalEndpointUri match {
-      case Some(endpoint) if localstackAware => {
+      case Some(endpoint) if localstackAware =>
         logger.info(s"creating aws client with local endpoint $endpoint")
-        builder.credentialsProvider(awsCredentialsV2).endpointOverride(endpoint)
-      }
-      case _ => builder.credentialsProvider(awsCredentialsV2).region(maybeRegionOverride.getOrElse(awsRegionV2))
+        credentialedBuilder.endpointOverride(endpoint)
+      case _ => credentialedBuilder
     }
   }
 }
