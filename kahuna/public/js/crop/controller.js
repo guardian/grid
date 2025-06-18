@@ -51,14 +51,11 @@ crop.controller('ImageCropCtrl', [
       const storageCropType = cropSettings.getCropType();
       const storageDefaultCropType = cropSettings.getDefaultCropType();
 
-      const cropOptionDisplayValue = cropOption => cropOption.ratioString
-        ? `${cropOption.key} (${cropOption.ratioString})`
-        : cropOption.key;
-
     ctrl.cropOptions = allCropOptions
-        .filter(option => !storageCropType || storageCropType === option.key)
+        .filter(option => (!storageCropType || storageCropType === option.key) && !option.isHidden )
         .map(option => Object.assign(option, {
-          value: cropOptionDisplayValue(option),
+          value: option.ratioString ? `${option.key} (${option.ratioString})` : option.key,
+          minimalValue: option.ratioString || option.key,
           tooltip: `${option.key} [${option.key.charAt(0)}]`,
           disabled: storageCropType && storageCropType !== option.key
         }));
@@ -190,8 +187,14 @@ crop.controller('ImageCropCtrl', [
         const maybeCropRatioIfStandard = cropOptions.find(_ => _.key === ctrl.cropType)?.ratioString;
         ctrl.shouldShowVerticalWarningGutters =
           window._clientConfig.staffPhotographerOrganisation === "GNM"
-          && cropSettings.shouldShowCropGuttersIfApplicable()
           && maybeCropRatioIfStandard === "5:3";
+
+        ctrl.shouldShowCircularGuideline =
+          window._clientConfig.staffPhotographerOrganisation === "GNM"
+          // update this array to apply circular guideline to further ratios (e.g. 5:4)
+          && ["square"].includes(ctrl.cropType.toLowerCase());
+
+        ctrl.isSquareCrop = ctrl.cropType.toLowerCase() === "square";
 
         if (isCropTypeDisabled) {
           ctrl.cropType = oldCropType;

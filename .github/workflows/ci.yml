@@ -22,17 +22,16 @@ jobs:
         ports:
           - 9200:9200
       localstack:
-        image: localstack/localstack:0.11.0
+        image: localstack/localstack:4.5.0
         env:
           SERVICES: kinesis,dynamodb
           DEFAULT_REGION: eu-west-1
           KINESIS_ERROR_PROBABILITY: 0.0
-          PORT_WEB_UI: 5050
         ports:
-          - 5050:5050
-          - 4566:4566
+        - "127.0.0.1:4566:4566"            # LocalStack Gateway
+        - "127.0.0.1:4510-4559:4510-4559"  # external services port range
         options: >-
-          --health-cmd "curl localhost:5050/health"
+          --health-cmd "curl localhost:4566/_localstack/health"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10

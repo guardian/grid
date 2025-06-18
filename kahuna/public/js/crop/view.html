@@ -2,9 +2,9 @@
     <gr-top-bar-nav role="navigation" aria-label="Primary">
         <a class="top-bar-item clickable side-padded"
            ui-sref="image({ imageId: ctrl.image.data.id })"
-           gr-tooltip="cancel [esc]"
+           gr-tooltip="Go back to image [esc]"
            aria-label="Go back to image">
-            <gr-icon-label gr-icon="cancel">Cancel</gr-icon-label></a>
+            <gr-icon-label gr-icon="cancel">Back</gr-icon-label></a>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
@@ -101,14 +101,29 @@
     Please try to use a larger crop or an alternative image.
 </div>
 
-<div class="warning warning--multiline status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
+<div class="warning status--info" ng-if="ctrl.shouldShowVerticalWarningGutters">
     Although this is a 5:3 crop, it might be used in a 5:4 space, so please ensure
-    there is nothing important in the striped sides as these might be clipped.<br/>
-    You can also suggest alternative crops for the trail image back in Composer.
+    there is nothing important in the striped sides<sup>
+        <a ng-click="ctrl.shouldHideVerticalWarningGutters = !ctrl.shouldHideVerticalWarningGutters">
+            [{{ctrl.shouldHideVerticalWarningGutters ? "show" : "hide"}}]
+        </a>
+    </sup>
+    as these might be clipped.
 </div>
 
-<div class="easel" role="main" aria-label="Image cropper"
-     ng-class="{'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters}">
+<div class="circular-mask-toggle-container" ng-if="ctrl.shouldShowCircularGuideline && ctrl.isSquareCrop">
+    <label>
+        Apply circular mask
+        <input type="checkbox" ng-model="ctrl.shouldUseCircularMask">
+    </label>
+</div>
+
+<div class="easel" role="main" aria-label="Image cropper" ng-class="{
+    'vertical-warning-gutters': ctrl.shouldShowVerticalWarningGutters,
+    'hide-vertical-warning-gutters': ctrl.shouldHideVerticalWarningGutters,
+    'circular-guideline': ctrl.shouldShowCircularGuideline && !ctrl.shouldUseCircularMask,
+    'circular-mask': ctrl.shouldShowCircularGuideline && ctrl.shouldUseCircularMask
+}">
     <div class="easel__canvas">
         <div class="easel__image-container" oncontextmenu="return false;">
             <img class="easel__image easel__image--cropper"

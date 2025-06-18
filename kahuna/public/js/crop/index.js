@@ -18,7 +18,7 @@ crop.config(['$stateProvider',
              function($stateProvider) {
 
     $stateProvider.state('crop', {
-        url: '/images/:imageId/crop?cropType&customRatio&shouldShowCropGuttersIfApplicable&defaultCropType',
+        url: '/images/:imageId/crop?cropType&customRatio&defaultCropType',
         template: cropTemplate,
         controller: 'ImageCropCtrl',
         controllerAs: 'ctrl',

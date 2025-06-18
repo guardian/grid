@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
 import java.io.File
-import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import org.im4java.process.ArrayListOutputConsumer
 
 import scala.jdk.CollectionConverters._
@@ -88,18 +88,22 @@ object ImageMagick extends GridLogging {
   }
 
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[Unit] = {
-    logger.info(logMarker, s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging conversion operation $op")
-
-    Future(new ConvertCmd(!useImageMagick).run(op))
+    Stopwatch.async(s"Using ${if(useImageMagick) "imagemagick" else "graphicsmagick"} for imaging conversion operation '$op'") {
+      Future {
+        new ConvertCmd(!useImageMagick).run(op)
+      }
+    }
   }
 
-  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[List[String]] = Future {
-    logger.info(logMarker, s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging identification operation $op")
-
-    val cmd = new IdentifyCmd(!useImageMagick)
-    val output = new ArrayListOutputConsumer()
-    cmd.setOutputConsumer(output)
-    cmd.run(op)
-    output.getOutput.asScala.toList
+  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[List[String]] = {
+    Stopwatch.async(s"Using ${if (useImageMagick) "imagemagick" else "graphicsmagick"} for imaging identification operation '$op'") {
+      Future {
+        val cmd = new IdentifyCmd(!useImageMagick)
+        val output = new ArrayListOutputConsumer()
+        cmd.setOutputConsumer(output)
+        cmd.run(op)
+        output.getOutput.asScala.toList
+      }
+    }
   }
 }

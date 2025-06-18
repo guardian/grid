@@ -21,7 +21,7 @@ ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
 val commonSettings = Seq(
-  scalaVersion := "2.13.15",
+  scalaVersion := "2.13.16",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -63,6 +63,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
+val awsSdkV2Version = "2.31.12"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
@@ -76,7 +77,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "4.0.0",
-    "com.gu" %% "pan-domain-auth-play_3-0" % "7.0.0",
+    "com.gu" %% "pan-domain-auth-play_3-0" % "9.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -98,14 +99,14 @@ lazy val commonLib = project("common-lib").settings(
     logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "org.playframework" %% "play-json-joda" % "3.0.4",
     "org.scanamo" %% "scanamo" % "2.0.0",
-    // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
+    // declare explicit dependency on desired version of aws sdk v2 dynamo
+    "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     ws,
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
@@ -158,7 +159,10 @@ lazy val thrall = playProject("thrall", 9002)
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
       // TODO upgrading kcl to v3? check if you can remove avro override below
-      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.0",
+      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+      // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
+      "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
+      "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
@@ -176,12 +180,16 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-default" % "32.0.0",
     "com.gu" %% "content-api-client-aws" % "0.7.6",
     "io.reactivex" %% "rxscala" % "0.27.0",
-    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+    // amazon-kinesis-client brings in a critical vulnerability warning through apache avro, resolved in versions 1.11.4 and 1.12.0.
+    // updating amazon-kinesis-client? check if the override below can be removed
+    "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
+  ),
+  dependencyOverrides ++= Seq(
+    "org.apache.avro" % "avro" % "1.11.4",
   )
 )
 
-val awsSdkV2Version = "2.15.81"
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
   .enablePlugins(JavaAppPackaging, UniversalPlugin)
@@ -192,7 +200,7 @@ lazy val scripts = project("scripts")
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
       "com.beust" % "jcommander" % "1.75",
-      "org.apache.commons" % "commons-compress" % "1.20",
+      "org.apache.commons" % "commons-compress" % "1.27.1",
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.6.4"
     )
   )

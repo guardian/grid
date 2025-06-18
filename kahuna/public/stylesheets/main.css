@@ -884,12 +884,6 @@ textarea.ng-invalid {
 .warning--small {
   padding: 5px 10px;
 }
-.warning--multiline {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-}
 
 .full-error {
     margin-top: 3rem;
@@ -910,6 +904,14 @@ textarea.ng-invalid {
 
 .status--info {
   background-color: #5E9ED6;
+}
+
+.status--info a {
+  color: #0e1831;
+}
+
+.status--info a:hover {
+  color: #1B2E5F;
 }
 
 .status--valid {
@@ -2051,6 +2053,14 @@ FIXME: what to do with touch devices
 .easel__image--cropper {
     visibility: hidden;
 }
+
+.circular-mask-toggle-container {
+  position: absolute;
+  right: 0;
+  padding: 10px;
+  user-select: none;
+}
+
 
 .image-details {
     box-sizing: border-box;

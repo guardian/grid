@@ -84,7 +84,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     fileType: MimeType,
     isTransformedFromSource: Boolean,
     orientationMetadata: Option[OrientationMetadata]
-  )(implicit logMarker: LogMarker): Future[File] = {
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick crop image") {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
@@ -117,7 +117,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     qual: Double = 100d,
     tempDir: File,
     fileType: MimeType
-  )(implicit logMarker: LogMarker): Future[File] = {
+  )(implicit logMarker: LogMarker): Future[File] = Stopwatch.async("magick resize image") {
     for {
       outputFile  <- createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir)
       resizeSource = addImage(sourceFile)
@@ -137,12 +137,14 @@ class ImageOperations(playPath: String) extends GridLogging {
     }
   }
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType): File = mediaType match {
+  def optimiseImage(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File = mediaType match {
     case Png =>
       val fileName: String = resizedFile.getAbsolutePath
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      Stopwatch("pngquant") {
+        Seq("pngquant", "-s10", "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      }
 
       new File(optimisedImageName)
     case Jpeg => resizedFile

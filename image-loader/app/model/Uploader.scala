@@ -334,8 +334,10 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
-    finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
+    Stopwatch.async("finalImage") {
+      val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
+      finalImage.map(img => ImageUpload(uploadRequest, img))
+    }
   }
 
   private def storeSource(storableOriginalImage: StorableOriginalImage)

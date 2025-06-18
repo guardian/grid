@@ -12,7 +12,9 @@ trait BaseControllerWithLoginRedirects extends BaseController {
   def services: Services
 
   private def withLoginRedirectAsync(isLoginOptional: Boolean)(handler: Request[AnyContent] => Future[Result]): Action[AnyContent] = Action.async { request =>
-    auth.authenticationStatus(request) match {
+    // gracePeriodCountsAsAuthenticated=false here means that a user must have a fresh session (ie. not yet in grace period) if they turn up here to count as authenticated.
+    // If login is optional then they may still be allowed access
+    auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = false) match {
       case Right(principal) =>
         handler(new AuthenticatedRequest(principal, request))
       case Left(resultFuture) => auth.loginLinks.headOption match {
