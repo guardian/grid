@@ -48,6 +48,12 @@ object ImageMagick extends GridLogging {
     op.profile(profileFileLocation)
     op
   }
+
+  def rotate(op: IMOperation)(angle: Double): IMOperation = {
+    op.rotate(angle)
+    op
+  }
+
   def thumbnail(op: IMOperation)(width: Int): IMOperation = {
     op.thumbnail(width)
     op

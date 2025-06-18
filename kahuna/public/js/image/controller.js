@@ -237,17 +237,8 @@ image.controller('ImageCtrl', [
       });
     };
 
-    // TODO: move this to a more sensible place.
-    function getCropDimensions() {
-      return {
-        width: ctrl.crop.specification.bounds.width,
-        height: ctrl.crop.specification.bounds.height
-      };
-    }
-    // TODO: move this to a more sensible place.
-    function getImageDimensions() {
-      return ctrl.image.data.source.dimensions;
-    }
+    // have a fallback for images that were loaded without orientedDimensions
+    ctrl.dimensions = ctrl.image.data.source.orientedDimensions || ctrl.image.data.source.dimensions;
 
     function getImageIdFromCropResource(cropsResource) {
       const imageHref = cropsResource.links.find(link => link.rel == 'image')?.href;
@@ -302,13 +293,6 @@ image.controller('ImageCtrl', [
       //boolean version for use in template
       ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
       ctrl.hasCrops = ctrl.crops.length > 0;
-    }).finally(() => {
-      ctrl.dimensions = angular.isDefined(ctrl.crop) ?
-        getCropDimensions() : getImageDimensions();
-
-      if (angular.isDefined(ctrl.crop)) {
-        ctrl.originalDimensions = getImageDimensions();
-      }
     });
 
     function cropSelected(crop) {

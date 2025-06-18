@@ -144,6 +144,7 @@ object Uploader extends GridLogging {
 
     val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
+    val sourceOrientationMetadataFuture = FileMetadataReader.orientation(uploadRequest.tempFile)
 
     val storableOriginalImage = StorableOriginalImage(
       uploadRequest.imageId,
@@ -160,7 +161,9 @@ object Uploader extends GridLogging {
       s3Source <- sourceStoreFuture
       mergedUploadRequest = patchUploadRequestWithS3Metadata(uploadRequest, s3Source)
       optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
-      thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps, tempDirForRequest)
+      sourceDimensions <- sourceDimensionsFuture
+      sourceOrientationMetadata <- sourceOrientationMetadataFuture
+      thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps, tempDirForRequest, orientationMetadata = sourceOrientationMetadata)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
       maybeStorableOptimisedImage <- getStorableOptimisedImage(
         tempDirForRequest, optimiseOps, browserViewableImage, optimisedFileMetadata, deps.tryFetchOptimisedFile)
@@ -168,14 +171,13 @@ object Uploader extends GridLogging {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
       }
-      sourceDimensions <- sourceDimensionsFuture
       thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(thumbViewableImage.mimeType))
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
 
-      val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+      val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
@@ -249,6 +251,7 @@ object Uploader extends GridLogging {
                                 browserViewableImage: BrowserViewableImage,
                                 deps: ImageUploadOpsDependencies,
                                 tempDir: File,
+                                orientationMetadata: Option[OrientationMetadata],
   )(implicit ec: ExecutionContext, logMarker: LogMarker) = {
     import deps._
 
@@ -263,6 +266,7 @@ object Uploader extends GridLogging {
           tempFile,
           iccColourSpace,
           colourModel,
+          orientationMetadata,
         )
       } yield thumbData
     }
