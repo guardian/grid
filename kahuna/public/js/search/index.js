@@ -16,6 +16,7 @@ import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-tab-swap/gr-tab-swap';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import '../components/gr-search-wrapper/gr-search-wrapper';
@@ -43,6 +44,7 @@ export var search = angular.module('kahuna.search', [
     'gr.panels',
     'gr.keyboardShortcut',
     'gr.sortControl',
+    'gr.tabSwapControl',
     'gr.permissionsFilter',
     'gr.myUploads',
     'gr-searchWrapper',
