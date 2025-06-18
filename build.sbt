@@ -183,6 +183,9 @@ lazy val usage = playProject("usage", 9009).settings(
     // amazon-kinesis-client brings in a critical vulnerability warning through apache avro, resolved in versions 1.11.4 and 1.12.0.
     // updating amazon-kinesis-client? check if the override below can be removed
     "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
+    // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
+    "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
+    "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
   dependencyOverrides ++= Seq(
