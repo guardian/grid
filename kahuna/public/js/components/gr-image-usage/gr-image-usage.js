@@ -110,8 +110,10 @@ module.controller('grImageUsageListCtrl', [
 
     ctrl.isRecent = (usage) => {
       const nowtime = new Date();
-      return moment(usage.dateAdded)
+      let recent = moment(usage.dateAdded)
         .isAfter(moment(nowtime).subtract(imageUsagesService.recentTime, 'days'));
+      let ignored = usage.platform === "print" && usage.status !== "published";
+      return recent && !ignored;
     };
   }]);
 
