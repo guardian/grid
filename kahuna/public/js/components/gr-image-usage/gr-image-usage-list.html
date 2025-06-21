@@ -5,8 +5,8 @@
 
     <ul>
         <li class="gr-image-usage__record" ng-repeat="usage in ctrl.usages">
-            <gr-icon ng-if="usage.platform === 'print'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">local_library</gr-icon>
-            <gr-icon ng-if="usage.platform === 'digital'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">phonelink</gr-icon>
+            <gr-icon ng-if="usage.platform === 'print'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage)}">local_library</gr-icon>
+            <gr-icon ng-if="usage.platform === 'digital'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage)}">phonelink</gr-icon>
 
             {{usage.title}}
 

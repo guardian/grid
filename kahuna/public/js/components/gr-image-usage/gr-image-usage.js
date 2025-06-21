@@ -108,9 +108,9 @@ module.controller('grImageUsageListCtrl', [
       return moment(timestamp).fromNow();
     };
 
-    ctrl.isRecent = (timestamp) => {
+    ctrl.isRecent = (usage) => {
       const nowtime = new Date();
-      return moment(timestamp)
+      return moment(usage.dateAdded)
         .isAfter(moment(nowtime).subtract(imageUsagesService.recentTime, 'days'));
     };
   }]);
