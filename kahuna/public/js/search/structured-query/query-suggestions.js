@@ -81,8 +81,6 @@ const fileTypes = [
     'png'
 ];
 
-const staffPhotographerOrganisation = window._clientConfig.staffPhotographerOrganisation;
-
 const isSearch = [
   'owned-photo',
   'owned-illustration',
