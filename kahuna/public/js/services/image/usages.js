@@ -74,7 +74,7 @@ imageUsagesService.factory('imageUsagesService', [function() {
         return usagesList.filter(item=> {
           const timestamp = item.get('dateAdded');
           const recentIfAfter = moment().subtract(recentDays, 'days');
-          return moment(timestamp).isAfter(recentIfAfter);
+          return item.get('status') === 'published' &&  moment(timestamp).isAfter(recentIfAfter);
         });
       });
       const recentDigitalUsages$ = filterByPlatform('digital').map((usagesList) => {
