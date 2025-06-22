@@ -130,7 +130,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Steve Bell"),
     )),
     PublicationPhotographers(ObserverPublication, List(
-      PublicationPhotographer("Chris Riddell"),
       PublicationPhotographer("David Foldvari"),
       PublicationPhotographer("David Simonds"),
     ))

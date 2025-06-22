@@ -38,6 +38,7 @@ object TortoiseUsageRightsConfig extends UsageRightsConfigProvider {
 
   val contractIllustrators = List(
     PublicationPhotographers(ObserverPublication, List(
+      PublicationPhotographer("Chris Riddell")
     ))
   )
 
