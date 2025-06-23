@@ -110,7 +110,7 @@ deployments:
         ElasticSearchAMI:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-elasticsearch-jammy-arm
+          Recipe: grid-elasticsearch-jammy-upgrade-test
 
   image-counter-lambda:
     type: aws-lambda
