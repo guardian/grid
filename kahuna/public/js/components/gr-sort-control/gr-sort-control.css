@@ -99,6 +99,7 @@
 
 .sort-dropdown-item {
   border: 1px solid #ccc;
+  font-size: 1.4rem;
 }
 
 .sort-dropdown-item:hover {

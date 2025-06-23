@@ -49,6 +49,7 @@ export interface SortDropdownProps {
   onSelect: (option: SortDropdownOption) => void;
   query?: string | "";
   orderBy?: string | "";
+  previousTaken?: string | "";
   clearTakenVisible: () => void;
   panelVisible?: boolean | false;
 }
@@ -110,17 +111,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   };
 
   useEffect(() => {
-    if (hasCollection) {
-      const collOpt = options.filter(opt => opt.value == COLLECTION_OPTION)[0];
-      setSelection(collOpt);
-    } else {
-      if (selectedOption.isCollection) {
-        setSelection(previousOption);
-      }
-    }
-  }, [hasCollection]);
-
-  useEffect(() => {
     if (selectedOption && selectedOption !== previousOption && !selectedOption.isCollection ) {
       setPrevious(selectedOption);
     }
@@ -166,7 +156,12 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       if (!tempQuery.includes(HAS_DATE_TAKEN_QUERY) && selOpt.isTaken) {
         setSelection(defSort);
       } else {
-        setSelection(selOpt);
+        if (props.previousTaken === selOpt.value || !selOpt.isTaken) {
+          setSelection(selOpt);
+        } else {
+          const tOpt = props.options.filter(o => o.value === props.previousTaken)[0];
+          setSelection(tOpt);
+        }
       }
     } else {
       setSelection(defSort);
