@@ -151,12 +151,17 @@ const NotificationsBanner: React.FC = () => {
       });
   };
 
-  const newNotification = (event:any) => {
-    const notification = event.detail;
-    setNotifications(prev_notifs => mergeArraysByKey(prev_notifs, [notification], 'announceId'));
-  };
-
   useEffect(() => {
+    const newNotification = (event:any) => {
+      const notification = event.detail;
+      setNotifications(prev_notifs => mergeArraysByKey(prev_notifs, [notification], 'announceId'));
+    };
+
+    const removeNotification = (event:any) => {
+      const notificationId = event.detail.announceId;
+      setNotifications(prev_notifs => prev_notifs.filter(notif => notif.announceId !== notificationId));
+    };
+
     const announce = window._clientConfig.announcements;
     const tdy = todayStr();
     let notif_cookie = getCookie(NOTIFICATION_COOKIE);
@@ -175,6 +180,7 @@ const NotificationsBanner: React.FC = () => {
     document.addEventListener("scroll", autoHideListener);
     document.addEventListener("keydown", autoHideListener);
     window.addEventListener("newNotification", newNotification);
+    window.addEventListener("removeNotification", removeNotification);
 
     // clean up cookie
     if (notif_cookie) {
@@ -190,6 +196,7 @@ const NotificationsBanner: React.FC = () => {
       document.removeEventListener("scroll", autoHideListener);
       document.removeEventListener("keydown", autoHideListener);
       window.removeEventListener("newNotification", newNotification);
+      window.removeEventListener("removeNotification", removeNotification);
       clearInterval(checkNotificationsRef);
     };
 
