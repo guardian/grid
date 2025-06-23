@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { cqlQueryToGridQuery, gridQueryToCqlQuery } from "./query-translation";
-import { parseCqlStr } from "@guardian/cql";
+import { createParser } from "@guardian/cql";
 
 describe("query-translation", () => {
   const queryPairs = [
@@ -17,7 +17,9 @@ describe("query-translation", () => {
         const cqlQuery = gridQueryToCqlQuery(originalGridQuery);
         expect(cqlQuery).toBe(expectedCqlQuery);
 
-        const ast = parseCqlStr(cqlQuery).queryAst;
+        const ast = createParser({ operators: false, groups: false })(
+          cqlQuery,
+        ).queryAst;
         if (!ast) {
           throw new Error(`Query ${cqlQuery} generated an invalid AST`);
         }
