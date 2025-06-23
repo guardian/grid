@@ -118,23 +118,31 @@ results.controller('SearchResultsCtrl', [
           ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
         };
 
+        // Panel control
+        ctrl.metadataPanel    = panels.metadataPanel;
+        ctrl.collectionsPanel = panels.collectionsPanel;
+
         //-taken and sort controls-
+        var hasTakenDateClause = "has:dateTaken";
+        var noTakenDateClause = "-has:dateTaken";
+        var takenSort = "taken";
         ctrl.clearTakenVisible = () => storage.setJs("takenTabVisible", "hidden", true);
         ctrl.setTakenVisible = () => storage.setJs("takenTabVisible", "visible", true);
         ctrl.getTakenVisible = () => storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
         ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
-        ctrl.getInfoPanelVisible = () => {
-          const infoPanelState = storage.getJs("metadataPanelState", false);
-          if (!infoPanelState) { return false; }
-          return !infoPanelState.hidden;
-        };
+        ctrl.getInfoPanelVisible = () => storage.getJs("metadataPanelState", false) ? !(storage.getJs("metadataPanelState", false).hidden) : false;
+        ctrl.getLastTakenSort = () => storage.getJs("lastTakenSort", false) ? storage.getJs("lastTakenSort", false) : "";
 
         //-sort control-
         function updateSortChips (sortSel) {
           ctrl.sortProps.selectedOption = sortSel;
+          var orderBy = manageSortSelection(sortSel.value);
+          if (orderBy && orderBy.includes(takenSort)) {
+            storage.setJs("lastTakenSort", orderBy, false);
+          }
           let toParams = {
             ...$stateParams,
-            orderBy: manageSortSelection(sortSel.value)
+            orderBy: orderBy
           };
           $state.transitionTo(
                       $state.current,
@@ -149,17 +157,18 @@ results.controller('SearchResultsCtrl', [
           onSelect: updateSortChips,
           query: $stateParams.query,
           orderBy: $stateParams.orderBy,
+          previousTaken: ctrl.getLastTakenSort(),
           clearTakenVisible: ctrl.clearTakenVisible,
           panelVisible: ctrl.getInfoPanelVisible()
         };
         //-end sort control-
 
         //-tab swap control-
-        var hasTakenDateClause = "has:dateTaken";
-        var noTakenDateClause = "-has:dateTaken";
-        var takenSort = "taken";
-
-        function manageTakenDateTab(tabSelected, sortOrder) {
+        function manageTakenDateTab(tabSelected, inSortOrder) {
+          let sortOrder = inSortOrder;
+          if (tabSelected === 'with') {
+            sortOrder = storage.getJs("lastTakenSort", false);
+          }
           let toParams = {
             ...$stateParams
           };
@@ -226,10 +235,6 @@ results.controller('SearchResultsCtrl', [
             };
         });
         //-end tab swap-
-
-        // Panel control
-        ctrl.metadataPanel    = panels.metadataPanel;
-        ctrl.collectionsPanel = panels.collectionsPanel;
 
         ctrl.images = [];
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
