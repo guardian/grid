@@ -3,7 +3,10 @@ package lib
 import com.gu.mediaservice.lib.logging.GridLogging
 import model.UsageGroupOps
 import software.amazon.awssdk.auth.credentials.{AwsCredentialsProviderChain, DefaultCredentialsProvider, ProfileCredentialsProvider}
+import software.amazon.awssdk.imds.Ec2MetadataClient
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient
+import software.amazon.awssdk.services.autoscaling.model.SetInstanceHealthRequest
 import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient
@@ -19,7 +22,8 @@ import software.amazon.kinesis.retrieval.polling.PollingConfig
 import java.net.InetAddress
 import java.util.UUID
 import scala.annotation.nowarn
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Using}
 
 // it's annoyingly hard to get the streamName out of the configsBuilder once built, so pass them around together
 private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, streamName: String)
@@ -27,7 +31,8 @@ private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, 
 class CrierStreamReader(
   config: UsageConfig,
   usageGroupOps: UsageGroupOps,
-  executionContext: ExecutionContext
+  executionContext: ExecutionContext,
+  autoScalingClient: => AutoScalingClient
 ) extends GridLogging {
 
   private val region = Region.of(config.awsRegionName)
@@ -116,17 +121,28 @@ class CrierStreamReader(
   def start(): Unit = {
     logger.info("Trying to start Crier Stream Readers")
 
-    liveScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Live Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Live Stream reader")
-      )
-    previewScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Preview Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Preview Stream reader")
-      )
+    val schedulers = List("live" -> liveScheduler, "preview" -> previewScheduler)
+
+    for {
+      (name, schedulerAttempt) <- schedulers
+    } {
+      val future = schedulerAttempt match {
+        case Success(scheduler) =>
+          logger.info(s"Starting Crier $name Stream reader")
+          Future(scheduler.run())(executionContext)
+        case Failure(exception) =>
+          logger.error(s"No 'Crier $name Stream reader' thread to start", exception)
+          Future.failed(exception)
+      }
+      future.onComplete { _ =>
+        logger.info(s"Crier $name stream ended, which shouldn't happen. Marking instance as unhealthy so it can be replaced.")
+        Using(Ec2MetadataClient.create()) { imds =>
+          val instanceId = imds.get("/latest/meta-data/instance-id").asString()
+          val sihr = SetInstanceHealthRequest.builder().instanceId(instanceId).healthStatus("Unhealthy").build()
+          autoScalingClient.setInstanceHealth(sihr)
+        }
+
+      }(executionContext)
+    }
   }
 }
