@@ -53,7 +53,7 @@ grCqlInput.directive<
     const CqlInput = createCqlInput(typeahead, {
       theme: {
         baseFontSize: "14px",
-        input: { layout: { padding: "2px 0" } },
+        input: { layout: { padding: "2px" } },
         chipWrapper: {
           color: { background: "#333" }
         },
