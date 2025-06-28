@@ -70,18 +70,18 @@ imageUsagesService.factory('imageUsagesService', [function() {
       const hasPlatformUsages = (platform) =>
         filterByPlatform(platform).every((group) => !group.isEmpty());
 
-      const recentPrintUsages$ = usages$.map((usagesList) => {
+      const recentPrintUsages$ = filterByPlatform('print').map((usagesList) => {
         return usagesList.filter(item=> {
           const timestamp = item.get('dateAdded');
           const recentIfAfter = moment().subtract(recentDays, 'days');
-          return item.get('platform') === 'print' && moment(timestamp).isAfter(recentIfAfter);
+          return moment(timestamp).isAfter(recentIfAfter);
         });
       });
-      const recentDigitalUsages$ = usages$.map((usagesList) => {
+      const recentDigitalUsages$ = filterByPlatform('digital').map((usagesList) => {
         return usagesList.filter(item=> {
           const timestamp = item.get('dateAdded');
           const recentIfAfter = moment().subtract(recentDays, 'days');
-          return item.get('platform') === 'digital' && moment(timestamp).isAfter(recentIfAfter);
+          return moment(timestamp).isAfter(recentIfAfter);
         });
       });
 
