@@ -28,6 +28,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   private val masterCropQuality = 95d
   // For PNGs, Magick considers "quality" parameter as effort spent on compression - 1 meaning none, 100 meaning max.
   // We don't overly care about output crop file sizes here, but prefer a fast output, so turn it right down.
+  // TODO confirm this for vips
   private val pngCropQuality = 1d
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false, instance: Instance): String = {
@@ -45,10 +46,6 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     Stopwatch(s"creating master crop for ${apiImage.id}") {
       val source = crop.specification
-      // pngs are always lossless, so quality only means effort spent compressing them. We don't
-      // care too much about filesize of master crops, so skip expensive compression to get faster cropping
-      val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
-
     logger.info(logMarker, s"creating master crop for ${apiImage.id}")
     val masterImage = imageOperations.cropImageVips(
       sourceFile,
@@ -114,7 +111,12 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
       // High quality rendering with minimal compression which will be used as the CDN resizer origin
       val masterCropFile = File.createTempFile(s"crop-", s"${cropType.fileExtension}", config.tempDir) // TODO function for this
-      imageOperations.saveImageToFile(masterCrop.image, cropType, masterCropQuality, masterCropFile)
+
+      // pngs are always lossless, so quality only means effort spent compressing them. We don't
+      // care too much about filesize of master crops, so skip expensive compression to get faster cropping
+      val quality = if (mimeType == Png) pngCropQuality else masterCropQuality
+
+      imageOperations.saveImageToFile(masterCrop.image, cropType, quality, masterCropFile)
 
       // Static crops; higher compression
       val outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
