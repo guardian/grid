@@ -45,7 +45,6 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     Stopwatch(s"creating master crop for ${apiImage.id}") {
       val source = crop.specification
-      val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
       // pngs are always lossless, so quality only means effort spent compressing them. We don't
       // care too much about filesize of master crops, so skip expensive compression to get faster cropping
       val quality = if (mediaType == Png) pngCropQuality else masterCropQuality
@@ -164,7 +163,8 @@ object Crops extends GridLogging {
     val outputAsPng = hasAlpha // || isGraphic
 
     val decision = mediaType match {
-      case Png | Tiff if outputAsPng => Png
+      case Png if outputAsPng => Png
+      case Tiff if outputAsPng => Png
       case _ => Jpeg
     }
 
