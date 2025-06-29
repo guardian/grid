@@ -293,6 +293,6 @@ def playImageLoaderProject(projectName: String, port: Int, path: Option[String] 
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/opt/docker/conf/application.conf",
         s"-Dlogger.file=/opt/docker/conf/logback.xml",
-        "-XX:+PrintCommandLineFlags", "-XX:MaxRAMPercentage=30"
+        "-XX:+PrintCommandLineFlags", "-XX:MaxRAMPercentage=20"
   )))
 }
