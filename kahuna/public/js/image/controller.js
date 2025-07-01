@@ -168,10 +168,12 @@ image.controller('ImageCtrl', [
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;
 
-    const recentUsages$ = usages.recentUsages$;
+    const recentPrintUsages$ = usages.recentPrintUsages$;
+    const recentDigitalUsages$ = usages.recentDigitalUsages$;
 
     inject$($scope, usagesCount$, ctrl, 'usagesCount');
-    inject$($scope, recentUsages$, ctrl, 'recentUsages');
+    inject$($scope, recentPrintUsages$, ctrl, 'recentPrintUsages');
+    inject$($scope, recentDigitalUsages$, ctrl, 'recentDigitalUsages$');
 
     const freeUsageCountWatch = $scope.$watch('ctrl.usagesCount', value => {
       const usageTab = ctrl.tabs.find(_ => _.key === 'usages');

@@ -111,13 +111,15 @@ image.controller('uiPreviewImageCtrl', [
       const hasSyndicationUsages$ =
           imageUsagesService.getUsages(ctrl.image).hasSyndicationUsages$;
 
-      const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
+      const recentPrintUsages$ = imageUsagesService.getUsages(ctrl.image).recentPrintUsages$;
+      const recentDigitalUsages$ = imageUsagesService.getUsages(ctrl.image).recentDigitalUsages$;
 
       $scope.$on('$destroy', function() {
         freeImagesUpdateListener();
       });
 
-      inject$($scope, recentUsages$, ctrl, 'recentUsages');
+      inject$($scope, recentPrintUsages$, ctrl, 'recentPrintUsages');
+      inject$($scope, recentDigitalUsages$, ctrl, 'recentDigitalUsages');
       inject$($scope, hasPrintUsages$, ctrl, 'hasPrintUsages');
       inject$($scope, hasDigitalUsages$, ctrl, 'hasDigitalUsages');
       inject$($scope, hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
