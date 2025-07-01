@@ -32,7 +32,7 @@ grCqlInput.directive<
                 : resolver(fieldName));
 
               return suggestions.map((suggestion) => ({
-                label: suggestion,
+                label: undefined,
                 value: suggestion
               }));
             }
@@ -68,7 +68,14 @@ grCqlInput.directive<
         },
         typeahead: {
           layout: {
-            width: "300px"
+            minWidth: "200px",
+            padding: "5px"
+          },
+          selectedOption: {
+            color: {
+              background: "#00adee",
+              text: "#fff"
+            }
           }
         }
       },
