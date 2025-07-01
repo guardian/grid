@@ -7,6 +7,7 @@ import '../services/panel';
 import '../util/async';
 import '../util/rx';
 import '../util/seq';
+import '../util/storage';
 import '../util/constants/sendToCapture-config';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../components/gu-lazy-preview/gu-lazy-preview';
@@ -20,6 +21,13 @@ import '../components/gr-batch-export-original-images/gr-batch-export-original-i
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
 import '../components/gr-confirmation-modal/gr-confirmation-modal';
+import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-tab-swap/gr-tab-swap';
+import {
+  manageSortSelection,
+  DefaultSortOption,
+  SortOptions
+} from "../components/gr-sort-control/gr-sort-control-config";
 import {
   INVALIDIMAGES,
   sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
@@ -46,7 +54,9 @@ export var results = angular.module('kahuna.search.results', [
     'gr.undeleteImage',
     'gr.panelButton',
     'gr.toggleButton',
-    'gr.confirmationModal'
+    'gr.confirmationModal',
+    'gr.sortControl',
+    'gr.tabSwapControl'
 ]);
 
 
@@ -83,6 +93,7 @@ results.controller('SearchResultsCtrl', [
     'panels',
     'isReloadingPreviousSearch',
     'globalErrors',
+    'storage',
 
     function($rootScope,
              $scope,
@@ -102,7 +113,8 @@ results.controller('SearchResultsCtrl', [
              results,
              panels,
              isReloadingPreviousSearch,
-             globalErrors) {
+             globalErrors,
+             storage) {
 
         const ctrl = this;
 
@@ -113,6 +125,120 @@ results.controller('SearchResultsCtrl', [
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
+
+        //-taken and sort controls-
+        var hasTakenDateClause = "has:dateTaken";
+        var noTakenDateClause = "-has:dateTaken";
+        var takenSort = "taken";
+        ctrl.clearTakenVisible = () => storage.setJs("takenTabVisible", "hidden", true);
+        ctrl.setTakenVisible = () => storage.setJs("takenTabVisible", "visible", true);
+        ctrl.getTakenVisible = () => storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
+        ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
+        ctrl.getInfoPanelVisible = () => storage.getJs("metadataPanelState", false) ? !(storage.getJs("metadataPanelState", false).hidden) : false;
+        ctrl.getLastTakenSort = () => storage.getJs("lastTakenSort", false) ? storage.getJs("lastTakenSort", false) : "";
+
+        //-sort control-
+        function updateSortChips (sortSel) {
+          ctrl.sortProps.selectedOption = sortSel;
+          var orderBy = manageSortSelection(sortSel.value);
+          if (orderBy && orderBy.includes(takenSort)) {
+            storage.setJs("lastTakenSort", orderBy, false);
+          }
+          let toParams = {
+            ...$stateParams,
+            orderBy: orderBy
+          };
+          $state.transitionTo(
+                      $state.current,
+                      toParams,
+                      { reload: true, inherit: false, notify: true }
+                    );
+        }
+
+        ctrl.sortProps = {
+          options: SortOptions,
+          selectedOption: DefaultSortOption,
+          onSelect: updateSortChips,
+          query: $stateParams.query,
+          orderBy: $stateParams.orderBy,
+          previousTaken: ctrl.getLastTakenSort(),
+          clearTakenVisible: ctrl.clearTakenVisible,
+          panelVisible: ctrl.getInfoPanelVisible()
+        };
+        //-end sort control-
+
+        //-tab swap control-
+        function manageTakenDateTab(tabSelected, inSortOrder) {
+          let sortOrder = inSortOrder;
+          if (tabSelected === 'with') {
+            sortOrder = storage.getJs("lastTakenSort", false);
+          }
+          let toParams = {
+            ...$stateParams
+          };
+          //-clean-
+          let oldQuery = $stateParams.query ? $stateParams.query : '';
+          oldQuery = oldQuery.replace(noTakenDateClause, '').replace(hasTakenDateClause, '').trim();
+          let newSortOrder = manageSortSelection(sortOrder);
+          let takenTabVisible = ctrl.getTakenVisible();
+
+          if (tabSelected === 'with') {
+            toParams = {
+              ...$stateParams,
+              query: `${oldQuery} ${hasTakenDateClause}`,
+              orderBy: newSortOrder
+            };
+          } else {
+            if ((sortOrder && sortOrder.includes(takenSort)) || (takenTabVisible === 'visible')) {
+              toParams = {
+                ...$stateParams,
+                query: `${oldQuery} ${noTakenDateClause}`,
+                orderBy: newSortOrder
+              };
+            } else {
+              toParams = {
+                ...$stateParams,
+                query: oldQuery,
+                orderBy: newSortOrder
+              };
+            }
+          }
+          $state.transitionTo(
+            $state.current,
+            toParams,
+            { reload: true, inherit: false, notify: true }
+          );
+        }
+
+        async function checkForNoTakenDate() {
+          let tempQuery = $stateParams.query ? $stateParams.query : '';
+          let isTaken = ($stateParams.orderBy && $stateParams.orderBy.includes(takenSort)) || tempQuery.includes(hasTakenDateClause);
+          if (!isTaken) { return 0; }
+          tempQuery = tempQuery.replace(noTakenDateClause, '').replace(hasTakenDateClause, '').trim();
+          storage.setJs("previousQuery", tempQuery, true);
+          let query =  `${tempQuery} ${noTakenDateClause}`.trim();
+          var resp = await search({query: query, length: 0});
+          return resp.total;
+        };
+
+        ctrl.tabSwapProps = {
+          orderBy: $stateParams.orderBy ? $stateParams.orderBy : '',
+          query: $stateParams.query ? $stateParams.query : '',
+          without: noTakenDateClause,
+          taken: takenSort,
+          onSelect: manageTakenDateTab,
+          takenVisible: ctrl.getTakenVisible(),
+          clearTakenVisible: ctrl.clearTakenVisible,
+          setTakenVisible: ctrl.setTakenVisible,
+          noTakenDateCount: 0,
+          panelVisible: ctrl.getCollectionsPanelVisible()
+        };
+        checkForNoTakenDate().then(noTakenTotal => {
+            ctrl.tabSwapProps = { ...ctrl.tabSwapProps,
+              noTakenDateCount: noTakenTotal
+            };
+        });
+        //-end tab swap-
 
         ctrl.images = [];
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
@@ -170,6 +296,27 @@ results.controller('SearchResultsCtrl', [
             // results stream exclusively
             results.clear();
             results.resize(totalLength);
+
+            if (ctrl.tabSwapProps.orderBy.includes(takenSort) && 0 < ctrl.tabSwapProps.noTakenDateCount) {
+              const notificationEvent = new CustomEvent("newNotification", {
+                detail: {
+                  announceId: "sortByTakenDate",
+                  description: "There are " + ctrl.tabSwapProps.noTakenDateCount + " images with no taken date",
+                  category: "information",
+                  lifespan: "transient"
+                },
+                bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+            } else {
+              const notificationEvent = new CustomEvent("removeNotification", {
+                detail: {
+                  announceId: "sortByTakenDate"
+                },
+                bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+            }
 
             imagesPositions = new Map();
 
@@ -333,7 +480,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({until, since, offset, length, orderBy, countAll} = {}) {
+        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -351,6 +498,9 @@ results.controller('SearchResultsCtrl', [
              *                  `checkForNewImages` deals with that. If it's the first search, we
              *                  will use `stateParams.until` if available.
              */
+            if (angular.isUndefined(query)) {
+                query = $stateParams.query;
+            }
             if (angular.isUndefined(until)) {
                 until = lastSearchFirstResultTime || $stateParams.until;
             }
@@ -364,7 +514,8 @@ results.controller('SearchResultsCtrl', [
               countAll = true;
             }
 
-            return mediaApi.search($stateParams.query, angular.extend({
+
+            return mediaApi.search(query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined : true,
