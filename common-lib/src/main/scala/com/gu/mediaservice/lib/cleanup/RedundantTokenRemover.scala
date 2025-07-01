@@ -25,6 +25,7 @@ object RedundantTokenRemover extends MetadataCleaner {
     "Supplied",
     "SUPPLIED",
     "-",
+    ".",
     "UNCREDITED",
     "Uncredited",
     "uncredited",
