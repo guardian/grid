@@ -68,7 +68,17 @@ grCqlInput.directive<
         },
         typeahead: {
           layout: {
-            minWidth: "200px"
+            minWidth: "200px",
+            borderRadius: "none",
+            padding: "5px"
+          },
+          color: {
+            background: "#444"
+          },
+          option: {
+            layout: {
+              padding: "5px"
+            }
           },
           selectedOption: {
             color: {
