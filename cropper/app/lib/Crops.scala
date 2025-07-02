@@ -37,6 +37,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     crop: Crop,
     mediaType: MimeType,
     colourModel: Option[String],
+    orientationMetadata: Option[OrientationMetadata],
   )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
     Stopwatch.async(s"creating master crop for ${apiImage.id}") {
@@ -50,7 +51,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       for {
         strip <- imageOperations.cropImage(
           sourceFile, apiImage.source.mimeType, source.bounds, quality, config.tempDir,
-          iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
+          iccColourSpace, colourModel, mediaType, isTransformedFromSource = false,
+          orientationMetadata = orientationMetadata
         )
         file: File <- imageOperations.appendMetadata(strip, metadata)
         dimensions = Dimensions(source.bounds.width, source.bounds.height)
@@ -89,12 +91,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
   def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
 
-  def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
+  private def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
     config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
   def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
+    logger.info(s"Validating crop bounds ($bounds) against dimensions: $dimensions")
     val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
     val strictlyPositiveSize = List(bounds.width, bounds.height).forall(_  > 0)
     val withinBounds = (bounds.x + bounds.width  <= dimensions.width ) &&
@@ -115,7 +118,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
         colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
-        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
+        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, apiImage.source.orientationMetadata)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 

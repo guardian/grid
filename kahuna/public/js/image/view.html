@@ -50,7 +50,7 @@
                                      ng-src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
                                 <div class="image-crop__aspect-ratio"
                                     ng-class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                                    {{::ctrl.image.data.source.dimensions.width}} &times; {{::ctrl.image.data.source.dimensions.height}}
+                                    {{::ctrl.dimensions.width}} &times; {{::ctrl.dimensions.height}}
                                 </div>
                                 <asset-handle
                                     data-source="grid"
