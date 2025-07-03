@@ -210,13 +210,15 @@ querySuggestions.factory("querySuggestions", [
     ];
     function listPhotographers() {
       return editsApi.getUsageRightsCategories().then((results) => {
-        return results
+        const photographers = results
           .filter((res) => photographerCategories.includes(res.value))
           .flatMap((res) => res.properties)
           .filter((prop) => prop.name === "photographer")
           .flatMap((prop) => Object.values(prop.optionsMap))
           .flat()
           .sort();
+
+        return Array.from(new Set(photographers));
       });
     }
 
