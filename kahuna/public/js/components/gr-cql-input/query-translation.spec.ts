@@ -10,6 +10,7 @@ describe("query-translation", () => {
     [":b", "+:b"],
     ["-a:b c -d:e f:", "-a:b c -d:e +f:"]
   ];
+  const cqlParser = createParser({ operators: false, groups: false });
 
   describe("Round tripping queries", () => {
     queryPairs.forEach(([originalGridQuery, expectedCqlQuery]) => {
@@ -17,9 +18,7 @@ describe("query-translation", () => {
         const cqlQuery = gridQueryToCqlQuery(originalGridQuery);
         expect(cqlQuery).toBe(expectedCqlQuery);
 
-        const ast = createParser({ operators: false, groups: false })(
-          cqlQuery,
-        ).queryAst;
+        const ast = cqlParser(cqlQuery).queryAst;
         if (!ast) {
           throw new Error(`Query ${cqlQuery} generated an invalid AST`);
         }

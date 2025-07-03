@@ -10,6 +10,7 @@ import {
   QuerySuggestionsService
 } from "../../search/structured-query/query-suggestions";
 import { cqlQueryToGridQuery, gridQueryToCqlQuery } from "./query-translation";
+import { theme } from "./theme";
 
 export const grCqlInput = angular.module("gr.cqlInput", [
   querySuggestions.name
@@ -31,10 +32,12 @@ grCqlInput.directive<
                 ? resolver
                 : resolver(fieldName));
 
-              return suggestions.map((suggestion) => ({
-                label: undefined,
-                value: suggestion
-              }));
+              return suggestions.map(
+                (suggestion): { label: undefined; value: string } => ({
+                  label: undefined,
+                  value: suggestion
+                }),
+              );
             }
           : undefined;
 
@@ -51,43 +54,7 @@ grCqlInput.directive<
     const typeahead = new Typeahead(fields);
 
     const CqlInput = createCqlInput(typeahead, {
-      theme: {
-        baseFontSize: "14px",
-        input: { layout: { padding: "2px" } },
-        chipWrapper: {
-          color: { background: "#333" }
-        },
-        chipContent: {
-          layout: { padding: "2px" }
-        },
-        chipHandle: {
-          color: {
-            background: "none",
-            border: "#444"
-          }
-        },
-        typeahead: {
-          layout: {
-            minWidth: "200px",
-            borderRadius: "none",
-            padding: "5px"
-          },
-          color: {
-            background: "#444"
-          },
-          option: {
-            layout: {
-              padding: "5px"
-            }
-          },
-          selectedOption: {
-            color: {
-              background: "#00adee",
-              text: "#fff"
-            }
-          }
-        }
-      },
+      theme,
       lang: { operators: false, groups: false }
     });
 
