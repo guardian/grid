@@ -1,10 +1,8 @@
 import { CqlBinary, CqlExpr, CqlQuery } from "@guardian/cql";
 
 const addPlusesToGridChips = /([^\s-]*\:)(?<!-[^\s]*\:)/g;
-export const gridQueryToCqlQuery = (gridQuery: string) => {
-  const fromGrid = gridQuery.replace(addPlusesToGridChips, "\+$1");
-  return fromGrid;
-};
+export const gridQueryToCqlQuery = (gridQuery: string) =>
+  gridQuery.replace(addPlusesToGridChips, "\+$1");
 
 export const cqlQueryToGridQuery = ({ content }: CqlQuery): string => {
   try {

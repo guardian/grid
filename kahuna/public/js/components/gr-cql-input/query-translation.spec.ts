@@ -8,9 +8,22 @@ describe("query-translation", () => {
     ['a:"b c"', '+a:"b c"'],
     ["a:b c d:e", "+a:b c +d:e"],
     [":b", "+:b"],
-    ["-a:b c -d:e f:", "-a:b c -d:e +f:"]
+    ["-a:b c -d:e f:g", "-a:b c -d:e +f:g"]
   ];
   const cqlParser = createParser({ operators: false, groups: false });
+
+  describe("gridQueryToCqlQuery", () => {
+    it("returns `undefined` if the query does not produce a valid AST", () => {
+      const cqlQuery = gridQueryToCqlQuery("f:");
+
+      expect(cqlQuery).toBe("+f:");
+
+      const ast = cqlParser(cqlQuery).queryAst;
+
+      const gridQuery = cqlQueryToGridQuery(ast);
+      expect(gridQuery).toBe(undefined);
+    });
+  });
 
   describe("Round tripping queries", () => {
     queryPairs.forEach(([originalGridQuery, expectedCqlQuery]) => {
