@@ -3,7 +3,7 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for eslint, but can't break it down..
 /*eslint-disable max-len */
-const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
+const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9:]+)|"([^"]*)"|'([^']*)')/gu;
 /*eslint-enable max-len */
 const falsyValuesToEmptyString = (value) => {
     if (!value){
