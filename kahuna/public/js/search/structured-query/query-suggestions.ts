@@ -158,13 +158,17 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "is", resolver: isSearch },
       { fieldName: "dateTaken" } as const,
       { fieldName: "date" },
-      ...Object.keys(fieldAliases).map((fieldName) => ({
-        fieldName,
-        resolver: fieldAliases.hasOwnProperty(fieldName)
-          ? (value: string) =>
-              prefixFilter(value)(suggestFieldAliasOptions(fieldName))
-          : undefined
-      }))
+      ...Object.keys(fieldAliases).map((fieldName) => {
+        const staticAliasOptions = suggestFieldAliasOptions(fieldName);
+
+        return {
+          fieldName,
+          resolver: staticAliasOptions
+            ? (value: string) =>
+                prefixFilter(value)(suggestFieldAliasOptions(fieldName))
+            : undefined
+        };
+      })
     ].sort((a, b) => {
       if (a.fieldName > b.fieldName) {
         return 1;
@@ -262,7 +266,9 @@ querySuggestions.factory("querySuggestions", [
       return suggestions;
     }
 
-    function suggestFieldAliasOptions(fieldAlias: string) {
+    function suggestFieldAliasOptions(
+      fieldAlias: string,
+    ): string[] | undefined {
       return fieldAliases[fieldAlias].searchHintOptions.length
         ? fieldAliases[fieldAlias].searchHintOptions
         : undefined;
