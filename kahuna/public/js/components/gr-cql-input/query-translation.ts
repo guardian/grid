@@ -6,8 +6,13 @@ export const gridQueryToCqlQuery = (gridQuery: string) => {
   return fromGrid;
 };
 
-export const cqlQueryToGridQuery = ({ content }: CqlQuery): string =>
-  content ? strFromBinary(content) : "";
+export const cqlQueryToGridQuery = ({ content }: CqlQuery): string => {
+  try {
+    return content ? strFromBinary(content) : "";
+  } catch (e) {
+    return undefined;
+  }
+};
 
 const strFromBinary = (binary: CqlBinary): string => {
   return (
@@ -34,6 +39,10 @@ const strFromExpr = (expr: CqlExpr) => {
       const maybeQuotedLiteralValue = literalValue.includes(" ")
         ? `"${literalValue}"`
         : literalValue;
+
+      if (!maybeQuotedLiteralValue) {
+        throw new SyntaxError("A field without a value is not valid in the Grid syntax");
+      }
 
       return `${polarity}${expr.content.key.literal ?? ""}:${maybeQuotedLiteralValue}`;
   }

@@ -77,9 +77,11 @@ grCqlInput.directive<
         cqlInput.addEventListener(
           "queryChange",
           (event: QueryChangeEventDetail) => {
-            if (event.detail?.queryAst) {
-              const toGrid = cqlQueryToGridQuery(event.detail?.queryAst);
-              scope.onChange()(toGrid);
+            const maybeGridQuery =
+              event.detail?.queryAst &&
+              cqlQueryToGridQuery(event.detail?.queryAst);
+            if (maybeGridQuery !== undefined) {
+              scope.onChange()(maybeGridQuery);
             }
           },
         );
