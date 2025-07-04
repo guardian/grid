@@ -19,7 +19,7 @@ export const grCqlInput = angular.module("gr.cqlInput", [
 grCqlInput.directive<
   angular.IScope & {
     onChange:() => (str: string) => void;
-    fromGridQuery: (gridStr: string) => string;
+    gridQueryToCqlQuery: (gridStr: string) => string;
   }
 >("grCqlInput", [
   "querySuggestions",
@@ -69,11 +69,18 @@ grCqlInput.directive<
         onChange: "&",
         value: "="
       },
-      template: `<cql-input value="{{fromGridQuery(value)}}" placeholder="Search for images… (type + for advanced search)"></cql-input>`,
+      template: `<cql-input value="{{gridQueryToCqlQuery(value)}}" placeholder="Search for images… (type + for advanced search)" autofocus></cql-input>`,
       link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0];
-        scope.fromGridQuery = gridQueryToCqlQuery;
 
+        if (!cqlInput) {
+          throw new Error("Expected a `cql-input` element in the template");
+        }
+
+        scope.gridQueryToCqlQuery = gridQueryToCqlQuery;
+
+        // Ensure that we pass the relevant keyboard shortcuts on, while
+        // preventing handled events from propagating.
         const keysToPropagate = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
         ["keydown", "keyup", "keypress"].forEach(eventType => {
           cqlInput.addEventListener(eventType, (e) => {
