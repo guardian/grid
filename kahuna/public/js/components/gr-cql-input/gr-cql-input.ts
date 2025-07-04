@@ -74,6 +74,22 @@ grCqlInput.directive<
         const cqlInput = element.find("cql-input")[0];
         scope.fromGridQuery = gridQueryToCqlQuery;
 
+        const keysToPropagate = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        ["keydown", "keyup", "keypress"].forEach(eventType => {
+          cqlInput.addEventListener(eventType, (e) => {
+            const { shiftKey, altKey, metaKey, ctrlKey, key } =
+              e as KeyboardEvent;
+
+            const noModifier = !(shiftKey || altKey || metaKey || ctrlKey);
+            if (
+              e.defaultPrevented ||
+              (noModifier && !keysToPropagate.includes(key))
+            ) {
+              e.stopImmediatePropagation();
+            }
+          });
+        });
+
         cqlInput.addEventListener(
           "queryChange",
           (event: QueryChangeEventDetail) => {
