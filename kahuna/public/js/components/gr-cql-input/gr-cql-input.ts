@@ -16,7 +16,7 @@ export const grCqlInput = angular.module("gr.cqlInput", [
 ]);
 
 grCqlInput.directive<
-  angular.IScope & {
+  angular.IRootScopeService & {
     onChange:() => (str: string) => void;
     gridQueryToCqlQuery: (gridStr: string) => string;
     value: string;
@@ -58,10 +58,7 @@ grCqlInput.directive<
       lang: { operators: false, groups: false }
     });
 
-    customElements.define(
-      "cql-input",
-      CqlInput as unknown as CustomElementConstructor,
-    );
+    customElements.define("cql-input", CqlInput);
 
     return {
       restrict: "E",
@@ -70,7 +67,7 @@ grCqlInput.directive<
         value: "="
       },
       template: `<cql-input placeholder="Search for images… (type + for advanced search)" autofocus></cql-input>`,
-      link: function (scope, element, attrs) {
+      link: function (scope, element) {
         const cqlInput = element.find("cql-input")[0] as InstanceType<typeof CqlInput>;
 
         if (!cqlInput) {
