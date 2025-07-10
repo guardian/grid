@@ -19,6 +19,7 @@ grCqlInput.directive<
   angular.IScope & {
     onChange:() => (str: string) => void;
     gridQueryToCqlQuery: (gridStr: string) => string;
+    value: string;
   }
 >("grCqlInput", [
   "querySuggestions",
@@ -68,13 +69,22 @@ grCqlInput.directive<
         onChange: "&",
         value: "="
       },
-      template: `<cql-input value="{{value}}" placeholder="Search for images… (type + for advanced search)" autofocus></cql-input>`,
-      link: function (scope, element) {
-        const cqlInput = element.find("cql-input")[0];
+      template: `<cql-input placeholder="Search for images… (type + for advanced search)" autofocus></cql-input>`,
+      link: function (scope, element, attrs) {
+        const cqlInput = element.find("cql-input")[0] as InstanceType<typeof CqlInput>;
 
         if (!cqlInput) {
           throw new Error("Expected a `cql-input` element in the template");
         }
+
+        // We do not bind the value attribute in the template (e.g.
+        // value="{{value}}"), because AngularJS passes the uninterpolated value
+        // into the component before interpolating, which leaves "{{value}}" in
+        // the undo buffer.
+        cqlInput.setAttribute("value", scope.value);
+        scope.$watch("value", (newValue: string) => {
+          cqlInput.setAttribute("value", newValue);
+        });
 
         // Ensure that we pass the relevant keyboard shortcuts on, while
         // preventing handled events from propagating.
