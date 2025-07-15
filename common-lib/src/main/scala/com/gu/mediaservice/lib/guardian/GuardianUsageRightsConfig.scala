@@ -26,6 +26,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Michael Slezak"),
       PublicationPhotographer("Sean Smith"),
       PublicationPhotographer("Carly Earl"),
+      PublicationPhotographer("Blake Sharp-Wiggins"),
       // Past
       PublicationPhotographer("Dan Chung"),
       PublicationPhotographer("Denis Thorpe"),
