@@ -183,6 +183,23 @@ object FileMetadataReader extends GridLogging {
 
   private def dateToUTCString(date: DateTime): String = ISODateTimeFormat.dateTime.print(date.withZone(DateTimeZone.UTC))
 
+
+  def orientation(image: File): Future[Option[OrientationMetadata]] = {
+    for {
+      metadata <- readMetadata(image)
+    } yield {
+
+      for {
+        exifDirectory <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+        exifOrientation <- Option(exifDirectory.getInteger(ExifDirectoryBase.TAG_ORIENTATION))
+        orientation = OrientationMetadata(exifOrientation = Some(exifOrientation))
+        orientationWhichTransformsImage <- Seq(orientation).find(_.transformsImage())
+      } yield {
+        orientationWhichTransformsImage
+      }
+    }
+  }
+
   def dimensions(image: File, mimeType: Option[MimeType]): Future[Option[Dimensions]] =
     for {
       metadata <- readMetadata(image)

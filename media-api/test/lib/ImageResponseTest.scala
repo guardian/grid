@@ -74,7 +74,7 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
 
     import TestUtils._
 
-    val testCrop = Crop(Some("crop-id"), None, None, CropSpec("test-uri", Bounds(0, 0, 0, 0), None), None, Nil)
+    val testCrop = Crop(Some("crop-id"), None, None, CropSpec("test-uri", Bounds(0, 0, 0, 0), None, rotation = None), None, Nil)
     val testUsage = Usage(id = "usage-id", references = Nil, platform = PrintUsage, media = "test", status = PendingUsageStatus, dateAdded = None, dateRemoved = None, now())
 
     val imgWithNoExportsAndUsages = img

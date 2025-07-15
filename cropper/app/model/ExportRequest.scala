@@ -40,18 +40,22 @@ object ExportRequest {
 
   def boundsFill(dimensions: Dimensions): Bounds = Bounds(0, 0, dimensions.width, dimensions.height)
 
-  def toCropSpec(cropRequest: ExportRequest, dimensions: Dimensions): CropSpec = cropRequest match {
-    case FullExportRequest(uri)          =>
-      CropSpec(
-        uri,
-        boundsFill(dimensions),
-        AspectRatio.calculate(dimensions.width, dimensions.height).map(_.friendly),
-        FullExport
-      )
-    // Map "crop" that covers the whole image to a "full" export
-    case CropRequest(uri, bounds, ratio) if bounds == boundsFill(dimensions)
-                                         => CropSpec(uri, boundsFill(dimensions), ratio, FullExport)
-    case CropRequest(uri, bounds, ratio) => CropSpec(uri, bounds, ratio, CropExport)
+  def toCropSpec(cropRequest: ExportRequest, dimensions: Dimensions, orientationMetadata: Option[OrientationMetadata]): CropSpec = {
+    val maybeRotation = orientationMetadata.map(_.orientationCorrection())
+    cropRequest match {
+      case FullExportRequest(uri)          =>
+        CropSpec(
+          uri,
+          boundsFill(dimensions),
+          AspectRatio.calculate(dimensions.width, dimensions.height).map(_.friendly),
+          FullExport,
+          rotation = maybeRotation
+        )
+      // Map "crop" that covers the whole image to a "full" export
+      case CropRequest(uri, bounds, ratio) if bounds == boundsFill(dimensions)
+      => CropSpec(uri, boundsFill(dimensions), ratio, FullExport, rotation = maybeRotation)
+      case CropRequest(uri, bounds, ratio) => CropSpec(uri, bounds, ratio, CropExport, rotation = maybeRotation)
+    }
   }
 
 }
