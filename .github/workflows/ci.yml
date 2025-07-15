@@ -72,7 +72,7 @@ jobs:
           npm install-clean
           npm test
           npm run build
-      - uses: guardian/actions-riff-raff@v4.1.7
+      - uses: guardian/actions-riff-raff@v4.2.1
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
