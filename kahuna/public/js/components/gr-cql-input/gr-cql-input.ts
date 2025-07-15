@@ -55,7 +55,14 @@ grCqlInput.directive<
 
     const CqlInput = createCqlInput(typeahead, {
       theme,
-      lang: { operators: false, groups: false }
+      lang: {
+        operators: false,
+        groups: false,
+        shortcuts: {
+          "#": "label",
+          "~": "collection"
+        }
+      }
     });
 
     customElements.define("cql-input", CqlInput);
@@ -68,7 +75,9 @@ grCqlInput.directive<
       },
       template: `<cql-input placeholder="Search for images… (type + for advanced search)" autofocus></cql-input>`,
       link: function (scope, element) {
-        const cqlInput = element.find("cql-input")[0] as InstanceType<typeof CqlInput>;
+        const cqlInput = element.find("cql-input")[0] as InstanceType<
+          typeof CqlInput
+        >;
 
         if (!cqlInput) {
           throw new Error("Expected a `cql-input` element in the template");
@@ -85,8 +94,13 @@ grCqlInput.directive<
 
         // Ensure that we pass the relevant keyboard shortcuts on, while
         // preventing handled events from propagating.
-        const keysToPropagate = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-        ["keydown", "keyup", "keypress"].forEach(eventType => {
+        const keysToPropagate = [
+          "ArrowUp",
+          "ArrowDown",
+          "ArrowLeft",
+          "ArrowRight"
+        ];
+        ["keydown", "keyup", "keypress"].forEach((eventType) => {
           cqlInput.addEventListener(eventType, (e) => {
             const { shiftKey, altKey, metaKey, ctrlKey, key } =
               e as KeyboardEvent;
