@@ -14,7 +14,6 @@ import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
-import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
@@ -198,7 +197,7 @@ query.controller('SearchQueryCtrl', [
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
 
-      const { nonFree, uploadedByMe } = ctrl.filter;
+      const { nonFree } = ctrl.filter;
       let nonFreeCheck = nonFree;
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
         const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
@@ -209,7 +208,6 @@ query.controller('SearchQueryCtrl', [
       ctrl.filter.nonFree = nonFreeCheck;
       raiseQueryChangeEvent(ctrl.filter.query);
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       $state.go('search.results', ctrl.filter);
     }
 
@@ -427,11 +425,6 @@ query.controller('SearchQueryCtrl', [
 
         watchSearchChange(ctrl.filter, "userPermissions");
     });
-
-
-
-    const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
 }]);
 
 query.directive('searchQuery', [function() {

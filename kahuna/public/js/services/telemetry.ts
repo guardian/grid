@@ -39,17 +39,18 @@ export const sendTelemetryEvent = (type: string, tags?: IUserTelemetryEvent["tag
     });
 };
 
-const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string) => {
+const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string, resultsCount?: number) => {
     sendTelemetryEvent('GRID_FILTER', {
         type: 'filter',
         filterType: 'inclusion',
         key: key,
         value: value,
-        searchUuid: searchUuid
+        searchUuid: searchUuid,
+        resultsCount: resultsCount
     }, 1);
 };
 
-export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean ) => {
+export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean, resultsCount?: number) => {
     const structuredQuery = structureQuery(query || "");
     const searchUuid = v4();
     // nonFree is unfortunately either a boolean, stringified boolean, or undefined
@@ -58,10 +59,10 @@ export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string,
 
     // Only log for true - matching how these filters work in Grid (only applied when true)
     if (freeToUseOnly) {
-        sendFilterTelemetryEvent('freeToUseOnly', 'true', searchUuid);
+        sendFilterTelemetryEvent('freeToUseOnly', 'true', searchUuid, resultsCount);
     }
     if (uploadedByMeOnly) {
-        sendFilterTelemetryEvent('uploadedByMeOnly', 'true', searchUuid);
+        sendFilterTelemetryEvent('uploadedByMeOnly', 'true', searchUuid, resultsCount);
     }
 
     structuredQuery.forEach(queryComponent => {
@@ -78,7 +79,8 @@ export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string,
         // In case search is empty, as with a search containing only filters
         sendTelemetryEvent(formattedType(type), {
             ...queryComponent,
-            searchUuid: searchUuid
+            searchUuid: searchUuid,
+            resultsCount: resultsCount
         }, 1);
     });
 };

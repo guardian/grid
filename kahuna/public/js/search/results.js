@@ -20,6 +20,7 @@ import '../components/gr-batch-export-original-images/gr-batch-export-original-i
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
 import '../components/gr-confirmation-modal/gr-confirmation-modal';
+import { sendTelemetryForQuery } from '../services/telemetry';
 import {
   INVALIDIMAGES,
   sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
@@ -157,6 +158,17 @@ results.controller('SearchResultsCtrl', [
             ctrl.hasQuery = !!$stateParams.query;
             ctrl.initialSearchUri = images.uri;
             ctrl.embeddableUrl = window.location.href;
+
+            // Send telemetry with search results count
+            mediaApi.getSession().then(session => {
+                const uploadedByMe = $stateParams.uploadedBy === session.user.email;
+                sendTelemetryForQuery(
+                    $stateParams.query,
+                    $stateParams.nonFree,
+                    uploadedByMe,
+                    ctrl.totalResults
+                );
+            });
 
             // images will be the array of loaded images, used for display
             ctrl.images = [];
