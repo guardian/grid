@@ -10,6 +10,7 @@ import {
   QuerySuggestionsService
 } from "../../search/structured-query/query-suggestions";
 import { theme } from "./theme";
+import { cqlParserSettings } from "./syntax";
 
 export const grCqlInput = angular.module("gr.cqlInput", [
   querySuggestions.name
@@ -55,14 +56,7 @@ grCqlInput.directive<
 
     const CqlInput = createCqlInput(typeahead, {
       theme,
-      lang: {
-        operators: false,
-        groups: false,
-        shortcuts: {
-          "#": "label",
-          "~": "collection"
-        }
-      }
+      lang: cqlParserSettings
     });
 
     customElements.define("cql-input", CqlInput);
@@ -119,7 +113,7 @@ grCqlInput.directive<
           "queryChange",
           (event: QueryChangeEventDetail) => {
             if (event.detail?.queryAst) {
-              scope.onChange()(event.detail.queryStr);
+              scope.onChange()(event.detail?.queryAst);
             }
           },
         );

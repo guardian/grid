@@ -11,6 +11,7 @@ import { querySuggestions } from "./query-suggestions";
 import { renderQuery, structureQuery } from "./syntax";
 import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
 import { grCqlInput } from "../../components/gr-cql-input/gr-cql-input";
+import { structureCqlQuery } from "../../components/gr-cql-input/syntax";
 
 export const grStructuredQuery = angular.module("gr.structuredQuery", [
   rxUtil.name,
@@ -89,9 +90,8 @@ grStructuredQuery.directive("grStructuredQuery", [
 
         if (ctrl.useCql) {
           ctrl.handleChange = (value) => {
-            ctrl.structuredQuery = structureQuery(value);
+            ctrl.structuredQuery = structureCqlQuery(value);
             ctrl.structuredQueryChanged(ctrl.structuredQuery);
-            ctrl.value = value;
           };
           ngModelCtrl.$render = function () {
             ctrl.value = ngModelCtrl.$viewValue || "";
