@@ -53,6 +53,10 @@ const structuredQueryFromField = ({
   key: { literal, tokenType },
   value
 }: CqlField): StructuredQuery => {
+  if (!literal) {
+    return [];
+  }
+
   const type = literal === "collection" ? "static-filter" : "filter";
   const filterType =
     tokenType === "CHIP_KEY_NEGATIVE" ? "exclusion" : "inclusion";

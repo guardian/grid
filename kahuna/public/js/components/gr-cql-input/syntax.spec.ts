@@ -11,6 +11,11 @@ const queries = [
     structuredQuery: [{ type: "text", value: "text" }]
   },
   {
+    name: "an empty chip",
+    cql: "+:",
+    structuredQuery: []
+  },
+  {
     name: "a single chip",
     cql: "has:chip",
     structuredQuery: [
@@ -86,6 +91,18 @@ const queries = [
         value: "print"
       },
       { type: "text", value: "more text" }
+    ]
+  },
+  {
+    name: "chips with quoted keys",
+    cql: `category:"PR Image"`,
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "category",
+        type: "filter",
+        value: "PR Image"
+      }
     ]
   }
 ];
