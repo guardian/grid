@@ -804,7 +804,16 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.value">
-                                    {{specField.value}}
+                                    <span ng-if="specField.key">
+                                        <a ui-sref="search.results({query: specField.value, nonFree: ctrl.srefNonfree()})"
+                                           ng-click="ctrl.searchWithModifiers($event, specField.key , specField.value)"
+                                           aria-label="Search images with '{{specField.value}}'">
+                                            {{specField.value}}
+                                        </a>
+                                    </span>
+                                    <span ng-if="!specField.key">
+                                        {{specField.value}}
+                                    </span>
                                 </span>
                                 <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)

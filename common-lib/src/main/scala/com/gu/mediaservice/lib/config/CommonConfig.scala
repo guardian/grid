@@ -91,6 +91,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
    *         {
    *           name = "field-a"
    *           label = "Field A"
+   *           key = "Search field key for A" (optional)
    *           type = "string" # type can either be string, integer, select or datetime
    *         }
    *         {
