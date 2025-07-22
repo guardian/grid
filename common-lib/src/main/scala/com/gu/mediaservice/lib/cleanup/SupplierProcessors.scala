@@ -342,9 +342,7 @@ object GettyXmpParser extends ImageProcessor {
 }
 
 object PaParser extends ImageProcessor {
-  val paCredits = List(
-    "PA",
-    "PA WIRE",
+  private val paCredits = List(
     "PA Wire/PA Images",
     "PA Wire/PA Photos",
     "PA Wire/Press Association Images",
@@ -352,21 +350,35 @@ object PaParser extends ImageProcessor {
     "PA Archive/PA Images",
     "PA Archive/Press Association Ima",
     "PA Archive/Press Association Images",
-    "Press Association Images"
-  ).map(_.toLowerCase)
+    "PA",
+    "PA WIRE",
+    "PA Archive",
+    "Press Association Images",
+  )
+
+  private val paCreditRegex = s"(?i)^(?:(.*)/)?(?:${paCredits.mkString("|")})(?:/(.*))?$$".r
+
+  // find any of the above paCredits, extract it from the credit listing, then write "PA" at the end
+  private def matchAndClean(maybeMetadataValue: Option[String]): Option[String] = {
+    maybeMetadataValue flatMap { metadataValue =>
+      paCreditRegex.findFirstMatchIn(metadataValue).map(_.subgroups.filterNot(_ ==  null)) collect {
+        case Nil => "PA"
+        case List(one) => s"$one/PA"
+        case List(before, after) => s"$before/$after/PA"
+      }
+    }
+  }
 
   def apply(image: Image): Image = {
-    val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
-      paCredits.contains(creditOrSource.toLowerCase)
-    }
-    if (isPa) {
-      image.copy(
+    val maybeCleanedCredit = matchAndClean(image.metadata.credit).orElse(matchAndClean(image.metadata.source))
+
+    maybeCleanedCredit match {
+      case Some(cleanedCredit) => image.copy(
         usageRights = Agency("PA"),
-        metadata = image.metadata.copy(
-          credit = Some("PA")
-        )
+        metadata = image.metadata.copy(credit = Some(cleanedCredit)),
       )
-    } else image
+      case None => image
+    }
   }
 }
 

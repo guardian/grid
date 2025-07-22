@@ -504,6 +504,54 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
   }
 
 
+  describe("PaParser") {
+    it("matchAndClean - simple example") {
+      val image = createImageFromMetadata("credit" -> "Ben Blackall/Netflix/PA")
+
+      val cleaned = PaParser.apply(image)
+
+      cleaned.metadata.credit should be (Some("Ben Blackall/Netflix/PA"))
+      cleaned.usageRights should be (an[Agency])
+      cleaned.usageRights.asInstanceOf[Agency].supplier should be ("PA")
+    }
+    it("matchAndClean - complex credit at end") {
+      val image = createImageFromMetadata("credit" -> "Ben Blackall/Netflix/PA wIRE/PA Photos")
+
+      val cleaned = PaParser.apply(image)
+
+      cleaned.metadata.credit should be (Some("Ben Blackall/Netflix/PA"))
+      cleaned.usageRights should be (an[Agency])
+      cleaned.usageRights.asInstanceOf[Agency].supplier should be ("PA")
+    }
+    it("matchAndClean - simple credit in middle of credit listing") {
+      val image = createImageFromMetadata("credit" -> "Ben Blackall/PA/Netflix")
+
+      val cleaned = PaParser.apply(image)
+
+      cleaned.metadata.credit should be (Some("Ben Blackall/Netflix/PA"))
+      cleaned.usageRights should be (an[Agency])
+      cleaned.usageRights.asInstanceOf[Agency].supplier should be ("PA")
+    }
+    it("matchAndClean - complex credit in middle of credit listing") {
+      val image = createImageFromMetadata("credit" -> "Ben Blackall/PA Archive/PA Images/Netflix")
+
+      val cleaned = PaParser.apply(image)
+
+      cleaned.metadata.credit should be (Some("Ben Blackall/Netflix/PA"))
+      cleaned.usageRights should be (an[Agency])
+      cleaned.usageRights.asInstanceOf[Agency].supplier should be ("PA")
+    }
+    it("matchAndClean - unmatched credit is unchanged") {
+      val image = createImageFromMetadata("credit" -> "Ben Blackall/NPA Archive/PA Images/Netflix")
+
+      val cleaned = PaParser.apply(image)
+
+      cleaned.metadata.credit should be (Some("Ben Blackall/NPA Archive/PA Images/Netflix"))
+      cleaned.usageRights should be (NoRights)
+    }
+  }
+
+
   def applyProcessors(image: Image): Image = {
     val processorResources = ImageProcessorResources(config, actorSystem)
     new SupplierProcessors(processorResources).apply(image)
