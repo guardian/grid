@@ -10,6 +10,11 @@
     </div>
 </div>
 
+<div ng-if="ctrl.displayLinkedImagesMessage">
+    <span class="gr-image-usage__record">
+        {{ctrl.linkedImagesMessage}}
+    </span>
+</div>
 
 <gr-delete-usages
   ng-if="(ctrl.usagesCount > 0 && !(ctrl.showSendToPhotoSales && ctrl.hasSyndicationUsages))"
