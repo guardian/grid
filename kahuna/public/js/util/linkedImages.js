@@ -26,8 +26,8 @@ const checkValueAtPath = (obj, path) => {
 
 const checkFields = (image, fields) => {
   let hasField = false;
-  for(let i = 0; i < fields.length; i++) {
-    if (checkValueAtPath(image, fields[i])) hasField = true;
+  for (let i = 0; i < fields.length; i++) {
+    if (checkValueAtPath(image, fields[i])) { hasField = true; }
   }
   return hasField;
 };
@@ -40,7 +40,7 @@ const message = (image, org_name) => {
         bbc_msg = BBC_REPLACES_MESSAGE;
       }
       if (checkValueAtPath(image, bbc_link_fields[1])) {
-        if (bbc_msg !== "") bbc_msg = bbc_msg + "<br/>&nbsp;<br/>"
+        if (bbc_msg !== "") { bbc_msg = bbc_msg + "\r\n \r\n"; }
         bbc_msg = bbc_msg + BBC_REPLACED_MESSAGE;
       }
       return bbc_msg;
