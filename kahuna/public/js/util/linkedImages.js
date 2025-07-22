@@ -33,20 +33,19 @@ const checkFields = (image, fields) => {
 };
 
 const message = (image, org_name) => {
+  const messages = [];
   switch (org_name.toLowerCase()) {
     case 'bbc':
-      let bbc_msg = "";
       if (checkValueAtPath(image, bbc_link_fields[0])) {
-        bbc_msg = BBC_REPLACES_MESSAGE;
+        messages.push(BBC_REPLACES_MESSAGE);
       }
       if (checkValueAtPath(image, bbc_link_fields[1])) {
-        if (bbc_msg !== "") { bbc_msg = bbc_msg + "\r\n \r\n"; }
-        bbc_msg = bbc_msg + BBC_REPLACED_MESSAGE;
+        messages.push(BBC_REPLACED_MESSAGE);
       }
-      return bbc_msg;
     default:
-      return DEFAULT_LINKED_MESSAGE;
+      messages.push(DEFAULT_LINKED_MESSAGE);
   }
+  return messages;
 };
 
 export const displayLinkedImagesMessage = (image, org_name) => {

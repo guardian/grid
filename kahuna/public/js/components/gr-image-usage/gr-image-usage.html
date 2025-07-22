@@ -11,9 +11,11 @@
 </div>
 
 <div class="image-info__group" ng-if="ctrl.displayLinkedImagesMessage">
-    <span class="gr-image-usage__record">
-        {{ctrl.linkedImagesMessage}}
-    </span>
+    <div ng-repeat="message in ctrl.linkedImagesMessage">
+        <span class="gr-image-usage__record">
+            {{message}}
+        </span>
+    </div>
 </div>
 
 <gr-delete-usages
