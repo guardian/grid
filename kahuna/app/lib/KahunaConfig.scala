@@ -53,7 +53,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeIngestBucket.map { ingestBucket =>
     if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
     else s"https://$ingestBucket.s3.$awsRegion.amazonaws.com"
-  }
+  } ++ telemetryUri
   val fontSources: Set[String] = getStringSet("security.fontSources")
   val imageSources: Set[String] = getStringSet("security.imageSources")
 
