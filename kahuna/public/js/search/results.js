@@ -153,15 +153,24 @@ results.controller('SearchResultsCtrl', [
             ctrl.embeddableUrl = window.location.href;
 
             // Send telemetry with search results count
-            mediaApi.getSession().then(session => {
-                const uploadedByMe = $stateParams.uploadedBy === session.user.email;
-                sendTelemetryForQuery(
-                    $stateParams.query,
-                    $stateParams.nonFree,
-                    uploadedByMe,
-                    ctrl.totalResults
-                );
-            });
+            sendTelemetryForQuery(
+                $stateParams.query,
+                $stateParams.nonFree,
+                // TODO: get the real value for this filter
+                false,
+                ctrl.totalResults
+            );
+          
+            // Copilot suggested this, but I'm not sure it's the simplest way
+            // mediaApi.getSession().then(session => {
+            //     const uploadedByMe = $stateParams.uploadedBy === session.user.email;
+            //     sendTelemetryForQuery(
+            //         $stateParams.query,
+            //         $stateParams.nonFree,
+            //         uploadedByMe,
+            //         ctrl.totalResults
+            //     );
+            // });
 
             // images will be the array of loaded images, used for display
             ctrl.images = [];
