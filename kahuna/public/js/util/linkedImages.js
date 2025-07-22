@@ -42,8 +42,10 @@ const message = (image, org_name) => {
       if (checkValueAtPath(image, bbc_link_fields[1])) {
         messages.push(BBC_REPLACED_MESSAGE);
       }
+      break;
     default:
       messages.push(DEFAULT_LINKED_MESSAGE);
+      break;
   }
   return messages;
 };
