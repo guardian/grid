@@ -1,12 +1,10 @@
 import angular from 'angular';
-import Rx from 'rx';
 
 import '../util/rx';
 import '../util/storage';
 import {restrictionsText} from '../util/rights-categories';
 
 import template from './image.html';
-import templateLarge from './image-large.html';
 
 import '../image/service';
 import '../imgops/service';
@@ -180,41 +178,6 @@ image.directive('uiPreviewImage', function() {
         bindToController: true
     };
 });
-
-image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
-    function(observe$, inject$, imgops) {
-        return {
-            restrict: 'E',
-            scope: {
-                image: '=',
-                hideInfo: '=',
-                selectionMode: '='
-            },
-            // extra actions can be transcluded in
-            transclude: true,
-            template: templateLarge,
-            controller: 'uiPreviewImageCtrl',
-            controllerAs: 'ctrl',
-            bindToController: true,
-            link: function(scope, element, attrs, ctrl) {
-                ctrl.loading = false;
-                const image$ = new Rx.Subject();
-
-                const optimisedImage$ = image$.flatMap((image) => {
-                    return Rx.Observable.fromPromise(imgops.getFullScreenUri(image));
-                }).debounce(5);
-
-                scope.$watch(() => ctrl.image.data.id, () => {
-                    ctrl.loading = true;
-                    image$.onNext(ctrl.image);
-                });
-
-                inject$(scope, optimisedImage$, ctrl, 'optimisedImage');
-
-                scope.$watch(() => ctrl.optimisedImage, () => ctrl.loading = false);
-            }
-        };
-}]);
 
 image.directive('grStopPropagation', function() {
     return {
