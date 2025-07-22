@@ -805,11 +805,19 @@
 
                                 <span ng-if="specField.value">
                                     <span ng-if="specField.key">
-                                        <a ui-sref="search.results({query: specField.value, nonFree: ctrl.srefNonfree()})"
-                                           ng-click="ctrl.searchWithModifiers($event, specField.key , specField.value)"
-                                           aria-label="Search images with '{{specField.value}}'">
-                                            {{specField.value}}
-                                        </a>
+                                        <span ng-if="specField.key == 'id'">
+                                            <a ui-sref="image({imageId: specField.value})"
+                                               aria-label="Goto image with id '{{specField.value}}'">
+                                                {{specField.value}}
+                                            </a>
+                                        </span>
+                                        <span ng-if="specField.key != 'id'">
+                                            <a ui-sref="search.results({query: (specField.value | queryFilter:'{{specField.key}}'), nonFree: ctrl.srefNonfree()})"
+                                               ng-click="ctrl.searchWithModifiers($event, specField.key, specField.value)"
+                                               aria-label="Search images with {{specField.key}} '{{specField.value}}'">
+                                                {{specField.value}}
+                                            </a>
+                                        </span>
                                     </span>
                                     <span ng-if="!specField.key">
                                         {{specField.value}}

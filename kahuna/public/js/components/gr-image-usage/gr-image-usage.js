@@ -12,6 +12,7 @@ import {deleteUsages} from '../gr-delete-usages/gr-delete-usages';
 
 import '../gr-image-usage-photosales/gr-image-usage-photosales';
 import {sendToCaptureUsagePanelTxt} from "../../util/constants/sendToCapture-config";
+import {displayLinkedImagesMessage, linkedImagesMessage} from "../../util/linkedImages";
 
 export const module = angular.module('gr.imageUsage', [
   'gr.image-usages.service',
@@ -33,6 +34,9 @@ module.controller('grImageUsageCtrl', [
 
     ctrl.$onInit = () => {
       ctrl.showSendToPhotoSales = $window._clientConfig.showSendToPhotoSales;
+      const org = $window._clientConfig.staffPhotographerOrganisation;
+      ctrl.displayLinkedImagesMessage = displayLinkedImagesMessage(ctrl.image, org);
+      ctrl.linkedImagesMessage = linkedImagesMessage(ctrl.image, org);
 
       const usages = imageUsagesService.getUsages(ctrl.image);
       const usages$ = usages.groupedByState$.map((u) => u.toJS());
