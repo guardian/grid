@@ -146,7 +146,7 @@ object EnactS3Changes {
                     }
                   } else {
                     val request = CopyObjectRequest.builder
-                      .copySource(s"$bucketName/$key")
+                      .sourceBucket(bucketName).sourceKey(key)
                       .destinationBucket(bucketName).destinationKey(key)
                       .metadata(proposed.metadata.asJava)
                       .metadataDirective(MetadataDirective.REPLACE)
