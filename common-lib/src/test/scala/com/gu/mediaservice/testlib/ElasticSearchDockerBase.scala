@@ -16,7 +16,7 @@ trait ElasticSearchDockerBase extends BeforeAndAfterAll {
 
   val esContainer: Option[ElasticsearchContainer] = if (useEsDocker) {
     {
-      val container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.2")
+      val container = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:8.18.3")
         .withExposedPorts(9200)
         .withAccessToHost(true)
         .withEnv(Map(
