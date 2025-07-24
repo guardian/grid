@@ -8,6 +8,7 @@ import scala.jdk.CollectionConverters._
 case class DomainMetadataField(
   name: String,
   label: String,
+  key: Option[String] = None,
   fieldType: String,
   options: Option[List[String]] = None
 )
@@ -32,10 +33,12 @@ object DomainMetadataSpec {
         val description = if (config.hasPath("description")) Some(config.getString("description")) else None
         val fields = config.getConfigList("fields").asScala.map(config => {
           val fieldOptions = if (config.hasPath("options")) Some(config.getStringList("options").asScala.toList) else None
+          val key = if (config.hasPath("key")) Some(config.getString("key")) else None
 
           DomainMetadataField(
             config.getString("name"),
             config.getString("label"),
+            key,
             config.getString("type"),
             fieldOptions
           )

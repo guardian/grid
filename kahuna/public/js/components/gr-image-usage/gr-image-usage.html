@@ -10,6 +10,11 @@
     </div>
 </div>
 
+<div class="image-info__group" ng-if="ctrl.displayLinkedImagesMessage">
+    <div class="gr-image-usage__message" ng-repeat="message in ctrl.linkedImagesMessage">
+        <span>{{message}}</span>
+    </div>
+</div>
 
 <gr-delete-usages
   ng-if="(ctrl.usagesCount > 0 && !(ctrl.showSendToPhotoSales && ctrl.hasSyndicationUsages))"
