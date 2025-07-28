@@ -1,6 +1,6 @@
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
     environment:
       ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
     volumes:
