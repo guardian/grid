@@ -180,6 +180,15 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       results.results.find(b => b.key == "es").get.count shouldBe images.size
       results.results.find(b => b.key == "test").get.count shouldBe images.size
     }
+
+    it("can load metadata aggregations with custom size") {
+      val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty, size = 1)
+
+      val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 1
+      results.results.size shouldBe 1
+    }
   }
 
   describe("Tiered API access") {

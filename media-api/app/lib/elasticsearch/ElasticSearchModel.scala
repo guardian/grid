@@ -8,6 +8,8 @@ import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
+
+import scala.util.Try
 import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
 import scalaz.syntax.validation._
@@ -39,18 +41,21 @@ object BucketResult {
 
 case class AggregateSearchParams(field: String,
                                  q: Option[String],
-                                 structuredQuery: List[Condition])
+                                 structuredQuery: List[Condition],
+                                 size: Int = 10)
 
 object AggregateSearchParams {
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
 
   def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
     val query = request.getQueryString("q")
+    val size = request.getQueryString("size").flatMap(parseIntFromQuery).getOrElse(10)
     val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
     new AggregateSearchParams(
       field,
       query,
-      structuredQuery
+      structuredQuery,
+      size
     )
   }
 }
