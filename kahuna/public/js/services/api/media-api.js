@@ -81,6 +81,10 @@ mediaApi.factory('mediaApi',
         return root.follow('metadata-search', { field, q }).get();
     }
 
+    function metadataAggregation(field, { q, size = 10 } = {}) {
+        return root.follow('metadata-aggregation', { field, q, size }).get();
+    }
+
     function labelSearch({ q }) {
         return root.follow('label-search', { q }).get();
     }
@@ -115,6 +119,7 @@ mediaApi.factory('mediaApi',
         find,
         getSession,
         metadataSearch,
+        metadataAggregation,
         labelSearch,
         labelsSuggest,
         delete: delete_,

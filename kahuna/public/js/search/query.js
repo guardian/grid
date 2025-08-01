@@ -14,6 +14,7 @@ import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
+import '../components/gr-metadata-filters/gr-metadata-filters';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
@@ -23,6 +24,10 @@ import {
   DefaultSortOption,
   SortOptions
 } from "../components/gr-sort-control/gr-sort-control-config";
+import { 
+  combineQueryWithFilters, 
+  parseQueryForFilters 
+} from '../components/gr-metadata-filters/query-utils.js';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -34,7 +39,8 @@ export var query = angular.module('kahuna.search.query', [
     'util.storage',
     'gr.sortControl',
     'gr.permissionsFilter',
-    'gr.myUploads'
+    'gr.myUploads',
+    'gr.metadataFilters'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -66,6 +72,9 @@ query.controller('SearchQueryCtrl', [
     ctrl.filter = {
         uploadedByMe: false
     };
+
+    // Metadata filters state
+    ctrl.metadataFilters = [];
 
     ctrl.dateFilter = {
         // filled in by the watcher below
@@ -182,6 +191,58 @@ query.controller('SearchQueryCtrl', [
     function resetQuery() {
         ctrl.filter.query = undefined;
         ctrl.filter.orgOwned = false;
+        ctrl.metadataFilters = [];
+    }
+
+    //-- metadata filters handling --
+    function handleMetadataFiltersChange(newFilters) {
+        ctrl.metadataFilters = newFilters;
+        updateQueryWithFilters();
+    }
+
+    function updateQueryWithFilters() {
+        // Parse current query to separate base query from existing filters
+        const { baseQuery } = parseQueryForFilters(ctrl.filter.query || '');
+        
+        // Combine base query with current metadata filters
+        const newQuery = combineQueryWithFilters(baseQuery, ctrl.metadataFilters);
+        
+        // Update the query without triggering infinite loops
+        ctrl.filter.query = newQuery || undefined;
+        
+        // Update the props to sync the React component
+        updateMetadataFiltersProps();
+    }
+
+    function updateMetadataFiltersProps() {
+        ctrl.metadataFiltersProps = {
+            activeFilters: ctrl.metadataFilters,
+            currentQuery: ctrl.filter.query || '',
+            onChange: handleMetadataFiltersChange
+        };
+    }
+
+    // Initialize metadata filters from URL parameters on load
+    function initializeMetadataFilters() {
+        if (ctrl.filter.query) {
+            const { detectedFilters } = parseQueryForFilters(ctrl.filter.query);
+            ctrl.metadataFilters = detectedFilters;
+        }
+        updateMetadataFiltersProps();
+    }
+
+    // Sync metadata filters when query changes externally (e.g., chip removal)
+    function syncMetadataFiltersFromQuery() {
+        const { detectedFilters } = parseQueryForFilters(ctrl.filter.query || '');
+        
+        // Only update if the detected filters are different from current ones
+        const currentFilterString = JSON.stringify(ctrl.metadataFilters);
+        const detectedFilterString = JSON.stringify(detectedFilters);
+        
+        if (currentFilterString !== detectedFilterString) {
+            ctrl.metadataFilters = detectedFilters;
+            updateMetadataFiltersProps();
+        }
     }
 
     // eslint-disable-next-line complexity
@@ -358,6 +419,17 @@ query.controller('SearchQueryCtrl', [
             break;
         }
     });
+
+    // Initialize metadata filters from query
+    initializeMetadataFilters();
+
+    // Watch for query changes to sync metadata filters when chips are removed
+    $scope.$watch(() => ctrl.filter.query, onValChange((newQuery, oldQuery) => {
+        // Only sync if the change wasn't triggered by our own filter updates
+        if (newQuery !== oldQuery) {
+            syncMetadataFiltersFromQuery();
+        }
+    }));
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(newFilter => {
       watchSearchChange(newFilter, "filterChange");

@@ -99,6 +99,7 @@ class MediaApi(
       // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
+      Link("metadata-aggregation", s"${config.rootUri}/images/aggregations/metadata/{field}{?q,size}"),
       Link("label-search",    s"${config.rootUri}/images/edits/label{?q}"),
       Link("cropper",         config.cropperUri),
       Link("edits",           config.metadataUri),
