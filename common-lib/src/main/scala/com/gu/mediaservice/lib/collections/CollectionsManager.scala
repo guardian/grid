@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
 
 
-object CollectionsManager {
+object CollectionsManager extends CssColours {
   val delimiter = "/"
   val doublequotes = "\""
 
@@ -41,19 +41,4 @@ object CollectionsManager {
   // We could use `ValidationNel`s here, but that's overkill
   def isValidPathBit(s: String) = if (s.contains(delimiter) || s.contains(doublequotes)) false else true
 
-  // These use Source swatches
-  private val collectionColours = Map(
-    "australia"    -> "#185E36",
-    "culture"      -> "#BB3B80",
-    "film & music" -> "#6B5840",
-    "g2"           -> "#121212",
-    "guide"        -> "#7D0068",
-    "observer"     -> "#052962",
-    "sport"        -> "#22874D",
-    "travel"       -> "#041F4A"
-  )
-
-  private def getCollectionColour(s: String) = collectionColours.get(s)
-
-  def getCssColour(path: List[String]): Option[String] = path.headOption.map(_.toLowerCase).flatMap(getCollectionColour)
 }
