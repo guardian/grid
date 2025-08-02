@@ -1,8 +1,6 @@
 package com.gu.mediaservice.lib.collections
 
-trait CssColours {
-
-  private val delimiter = "/"
+trait CssColours extends CollectionPaths {
 
   // These use Source swatches
   private val collectionColours = Map(
@@ -21,7 +19,7 @@ trait CssColours {
       if (depth > path.size) {
         default
       } else {
-        val pathId = path.take(depth).map(_.toLowerCase()).mkString(delimiter)
+        val pathId = pathToPathId(path.take(depth))
         collectionColours.get(pathId).map { colour =>
           forPath(depth + 1, Some(colour))
         }.getOrElse {

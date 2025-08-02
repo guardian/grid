@@ -4,14 +4,10 @@ import com.gu.mediaservice.lib.net.URI.{encode, decode}
 import com.gu.mediaservice.model.Collection
 
 
-object CollectionsManager extends CssColours {
-  val delimiter = "/"
-  val doublequotes = "\""
+object CollectionsManager extends CollectionPaths with CssColours {
 
-  def stringToPath(s: String) = s.split(delimiter).toList
-  def pathToString(path: List[String]) = path.mkString(delimiter)
-  def pathToPathId(path: List[String]) = pathToString(path).toLowerCase
   def pathToUri(path: List[String]) = pathToString(path.map(encode))
+
   def uriToPath(uri: String) = stringToPath(decode(uri))
 
   def sortBy(c: Collection) = c.pathId
@@ -37,8 +33,5 @@ object CollectionsManager extends CssColours {
         col.path == collection.path && col.actionData.date.isAfter(collection.actionData.date)
       }}
     }
-
-  // We could use `ValidationNel`s here, but that's overkill
-  def isValidPathBit(s: String) = if (s.contains(delimiter) || s.contains(doublequotes)) false else true
 
 }
