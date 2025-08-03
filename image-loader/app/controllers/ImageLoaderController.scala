@@ -17,7 +17,7 @@ import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import org.scanamo.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
@@ -282,9 +282,9 @@ class ImageLoaderController(auth: Authentication,
     // synchronous write to file
     val tempFile = createTempFile("requestBody")(initialContext)
     logger.info(initialContext, "body parsed")
-    val parsedBody = DigestBodyParser.create(tempFile)
+    val bodyParser = DigestBodyParser.create(tempFile)
 
-    AuthenticatedAndAuthorised.async(parsedBody) { req =>
+    AuthenticatedAndAuthorised.async(bodyParser) { req =>
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
@@ -324,6 +324,44 @@ class ImageLoaderController(auth: Authentication,
           }
           FailureResponse.responseToResult(response)
       }
+    }
+  }
+
+  def enqueueDerivativeImage(originalMediaId: String, filename: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]): Action[DigestedFile] = {
+    val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
+
+    implicit val initialContext = MarkerMap(
+      "requestType" -> "load-image",
+      "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
+      "identifiers" -> identifiers.getOrElse(FALLBACK),
+      "uploadTime" -> uploadTimeToRecord.toString,
+      "filename" -> filename
+    )
+    logger.info(initialContext, "enqueueDerivativeImage request start")
+
+    val tempFile = createTempFile("requestBody")(initialContext)
+    val bodyParser = DigestBodyParser.create(tempFile)
+
+    AuthenticatedAndAuthorised(bodyParser) { req =>
+
+      val s3UserMetaMap = identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty) ++ Map(
+        "original-media-id" -> originalMediaId
+      ).map { case (k, v) =>
+        (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
+      }
+
+      store.queueS3Object(
+        uploader = uploadedBy.getOrElse(Authentication.getIdentity(req.user)),
+        filename = filename,
+        s3Meta = s3UserMetaMap,
+        file =  tempFile
+      )
+
+      val newMediaId: String = req.body.digest
+
+      // TODO consider returning newMediaId (probably need kahuna to show loading page for image whilst it's queued, probs using status table) OR return uploadStatusUri
+
+      Accepted(newMediaId)
     }
   }
 
