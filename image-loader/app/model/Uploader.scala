@@ -396,17 +396,14 @@ class Uploader(val store: ImageLoaderStore,
 
   def loadFile(digestedFile: DigestedFile,
                uploadedBy: String,
-               identifiers: Option[String],
+               identifiers: Map[String, String],
                uploadTime: DateTime,
                filename: Option[String])
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
 
-    // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers
-      .map(Json.parse(_).as[Map[String, String]])
-      .getOrElse(Map.empty)
       .view
       .mapValues(_.toLowerCase)
       .toMap

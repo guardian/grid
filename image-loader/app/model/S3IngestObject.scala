@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.storage.ImageLoaderStore
 
@@ -12,7 +13,8 @@ case class S3IngestObject (
   maybeMediaIdFromUiUpload: Option[String],
   uploadTime: java.util.Date,
   contentLength: Long,
-  getInputStream: () => java.io.InputStream
+  getInputStream: () => java.io.InputStream,
+  identifiers: Map[String, String] = Map.empty
 )
 
 object S3IngestObject {
@@ -31,7 +33,11 @@ object S3IngestObject {
       maybeMediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id"), // set by the client in upload in manager.js
       uploadTime = metadata.getLastModified,
       contentLength = metadata.getContentLength,
-      getInputStream = () => s3Object.getObjectContent
+      getInputStream = () => s3Object.getObjectContent,
+      identifiers = metadata.getUserMetadata.asScala.collect{
+        case (key, value) if key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix) =>
+          key.stripPrefix(ImageStorageProps.identifierMetadataKeyPrefix) -> value
+      }.toMap
     )
   }
 }

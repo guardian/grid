@@ -218,7 +218,7 @@ class ImageLoaderController(auth: Authentication,
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
         uploadedBy = s3IngestObject.uploadedBy,
-        identifiers =  None,
+        identifiers =  s3IngestObject.identifiers,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
         filename = Some(s3IngestObject.filename)
     )
@@ -300,7 +300,7 @@ class ImageLoaderController(auth: Authentication,
         uploadRequest <- uploader.loadFile(
           req.body,
           uploadedByToRecord,
-          identifiers,
+          identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty),
           uploadTimeToRecord,
           filename.flatMap(_.trim.nonEmptyOpt)
         )
@@ -424,7 +424,7 @@ class ImageLoaderController(auth: Authentication,
       val uploadResultFuture = uploadDigestedFileToStore(
           digestedFileFuture,
           uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
-          identifiers,
+          identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty),
           uploadTime,
           filename
       )
@@ -451,7 +451,7 @@ class ImageLoaderController(auth: Authentication,
   private def uploadDigestedFileToStore (
     digestedFileFuture: Future[DigestedFile],
     uploadedBy: String,
-    identifiers: Option[String],
+    identifiers: Map[String, String],
     uploadTime: Option[String],
     filename: Option[String]
   )(implicit logMarker:LogMarker): Future[UploadStatusUri] = {
@@ -463,7 +463,9 @@ class ImageLoaderController(auth: Authentication,
         uploadRequest <- uploader.loadFile(
           digestedFile,
           uploadedBy =  maybeStatus.map(_.uploadedBy).getOrElse(uploadedBy),
-          identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
+          identifiers =  maybeStatus.flatMap(
+            _.identifiers.map(Json.parse(_).as[Map[String, String]])
+          ).getOrElse(identifiers),
           uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
         )
