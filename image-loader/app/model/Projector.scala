@@ -198,7 +198,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def fetchOptimisedFile(
     imageId: String, outFile: File, instance: Instance
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
-    val key = optimisedPngKeyFromId(imageId, instance)
+    val key = optimisedPngKeyFromId(imageId)(instance)
 
     fetchFile(config.originalFileBucket, key, outFile)
   }

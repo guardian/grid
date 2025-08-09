@@ -176,7 +176,7 @@ class MessageProcessor(
           _: ElasticSearchDeleteResponse =>
             store.deleteOriginal(message.id)
             store.deleteThumbnail(message.id)
-            store.deletePNG(message.id, message.instance)
+            store.deletePNG(message.id)
             metadataEditorNotifications.publishImageDeletion(message.id, message.instance)
             EsResponse(s"Image deleted: ${message.id}")
         } recoverWith {

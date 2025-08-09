@@ -167,7 +167,7 @@ class ReaperController(
       BatchDeletionIds(esIds, esIdsActuallyDeleted) <- es.hardDeleteNextBatchOfImages(isReapable, count, config.hardReapImagesAge)
       mainImagesS3Deletions <- store.deleteOriginals(esIdsActuallyDeleted)
       thumbsS3Deletions <- store.deleteThumbnails(esIdsActuallyDeleted)
-      pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted, i)
+      pngsS3Deletions <- store.deletePNGs(esIdsActuallyDeleted)
       _ <- softDeletedMetadataTable.clearStatuses(esIdsActuallyDeleted)
       // TODO No one has issued an image-deleted notification to metadata-editor? Metadata will persist forever?
     } yield {
@@ -178,7 +178,7 @@ class ReaperController(
           "ES" -> Some(wasHardDeletedFromES),
           "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id, instance)),
+          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
         )
         logger.info(s"Hard deleted image $id : $detail")
         id -> detail

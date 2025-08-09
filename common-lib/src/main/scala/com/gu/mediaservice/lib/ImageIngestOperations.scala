@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
 object ImageIngestOperations {
   def fileKeyFromId(id: String)(implicit instance: Instance): String = instance.id + "/" + snippetForId(id)
 
-  def optimisedPngKeyFromId(id: String, instance: Instance): String = instance.id + "/" + "optimised/" + snippetForId(id: String)
+  def optimisedPngKeyFromId(id: String)(implicit instance: Instance): String = instance.id + "/" + "optimised/" + snippetForId(id: String)
 
   private def snippetForId(id: String) = id.take(6).mkString("/") + "/" + id
 }
@@ -51,7 +51,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   private def storeOptimisedImage(storableImage: StorableOptimisedImage)
                                  (implicit logMarker: LogMarker): Future[S3Object] = {
-    val instanceSpecificKey = optimisedPngKeyFromId(storableImage.id, storableImage.instance)
+    val instanceSpecificKey = optimisedPngKeyFromId(storableImage.id)(storableImage.instance)
     logger.info(s"Storing optimised image to instance specific key: $thumbnailBucket / $instanceSpecificKey")
     storeImage(imageBucket, instanceSpecificKey, storableImage.file, Some(storableImage.mimeType),
       overwrite = true)
@@ -82,8 +82,8 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deleteOriginals(ids: Set[String])(implicit instance: Instance) = bulkDelete(imageBucket, ids.map(id => fileKeyFromId(id)).toList)
   def deleteThumbnail(id: String)(implicit logMarker: LogMarker, instance: Instance): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deleteThumbnails(ids: Set[String])(implicit instance: Instance) = bulkDelete(thumbnailBucket, ids.map(id => fileKeyFromId(id)).toList)
-  def deletePNG(id: String, instance: Instance)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id, instance))
-  def deletePNGs(ids: Set[String], instance: Instance) = bulkDelete(imageBucket, ids.map(id => optimisedPngKeyFromId(id, instance)).toList)
+  def deletePNG(id: String)(implicit logMarker: LogMarker, instance: Instance): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
+  def deletePNGs(ids: Set[String])(implicit instance: Instance) = bulkDelete(imageBucket, ids.map(id => optimisedPngKeyFromId(id)).toList)
 
   def doesOriginalExist(id: String)(implicit instance: Instance): Boolean =
     client.doesObjectExist(imageBucket, fileKeyFromId(id))
@@ -130,7 +130,7 @@ case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, las
 case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, instance: Instance) extends StorableImage {
   override def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
     thumbBucket,
-    ImageIngestOperations.optimisedPngKeyFromId(id, instance),
+    ImageIngestOperations.optimisedPngKeyFromId(id)(instance),
     file,
     Some(mimeType),
     lastModified = None,
