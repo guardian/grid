@@ -19,7 +19,8 @@ import scala.concurrent.{ExecutionContext, Future}
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
 object S3Object {
-  private def objectUrl(bucket: String, key: String, s3Endpoint: String): URI = {
+  private def objectUrl(bucket: S3Bucket, key: String): URI = {
+    val s3Endpoint = bucket.endpoint
     val bucketUrl = if (s3Endpoint == "minio.griddev.eelpieconsulting.co.uk") {
       new URI(s"http://$s3Endpoint/$bucket/$key")
     } else {
@@ -29,11 +30,11 @@ object S3Object {
     bucketUrl
   }
 
-  def apply(bucket: String, key: String, size: Long, metadata: S3Metadata, s3Endpoint: String): S3Object =
-    apply(objectUrl(bucket, key, s3Endpoint), size, metadata)
+  def apply(bucket: S3Bucket, key: String, size: Long, metadata: S3Metadata): S3Object =
+    apply(objectUrl(bucket, key), size, metadata)
 
-  def apply(bucket: String, key: String, file: File, mimeType: Option[MimeType], lastModified: Option[DateTime],
-            meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None, s3Endpoint: String): S3Object = {
+  def apply(bucket: S3Bucket, key: String, file: File, mimeType: Option[MimeType], lastModified: Option[DateTime],
+            meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
     S3Object(
       bucket,
       key,
@@ -45,8 +46,7 @@ object S3Object {
           cacheControl,
           lastModified
         )
-      ),
-      s3Endpoint
+      )
     )
   }
 }
@@ -199,7 +199,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
         client.putObject(req)
         // once we've completed the PUT read back to ensure that we are returning reality
         val metadata = client.getObjectMetadata(bucket.bucket, id)
-        S3Object(bucket.bucket, id, metadata.getContentLength, S3Metadata(metadata), bucket.endpoint)
+        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata))
       }(markers)
     }
 
@@ -213,7 +213,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }.flatMap {
       case Some(objectMetadata) =>
         logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
-        Future.successful(S3Object(bucket.bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata), bucket.endpoint))
+        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata)))
       case None =>
         store(bucket, id, file, mimeType, meta, cacheControl)
     }
@@ -227,7 +227,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(bucket.bucket, key, summary.getSize, getMetadata(bucket, key), bucket.endpoint) :: memo
+          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key)) :: memo
       }
     }
 
