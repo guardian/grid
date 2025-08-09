@@ -30,13 +30,13 @@ class QuarantineUploader(val store: QuarantineStore,
 
   private def storeQuarantineFile(uploadRequest: UploadRequest)
                          (implicit logMarker: LogMarker) = {
+    implicit val instance: Instance = uploadRequest.instance
     val meta = Uploader.toMetaMap(uploadRequest)
     store.storeQuarantineImage(
       uploadRequest.imageId,
       uploadRequest.tempFile,
       uploadRequest.mimeType,
-      meta,
-      uploadRequest.instance
+      meta
     )
   }
 

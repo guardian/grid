@@ -92,7 +92,7 @@ class Projector(config: ImageUploadOpsCfg,
                         (implicit ec: ExecutionContext, logMarker: LogMarker, instance: Instance): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
-      val s3Key = fileKeyFromId(imageId, instance)
+      val s3Key = fileKeyFromId(imageId)
 
       if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
@@ -191,7 +191,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def fetchThumbFile(
     imageId: String, outFile: File, instance: Instance)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
-    val key = fileKeyFromId(imageId, instance)
+    val key = fileKeyFromId(imageId)(instance)
     fetchFile(config.thumbBucket, key, outFile)
   }
 

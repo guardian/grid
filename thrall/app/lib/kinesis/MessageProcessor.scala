@@ -174,8 +174,8 @@ class MessageProcessor(
       es.deleteImage(message.id).map { requests =>
         requests.map {
           _: ElasticSearchDeleteResponse =>
-            store.deleteOriginal(message.id, message.instance)
-            store.deleteThumbnail(message.id, message.instance)
+            store.deleteOriginal(message.id)
+            store.deleteThumbnail(message.id)
             store.deletePNG(message.id, message.instance)
             metadataEditorNotifications.publishImageDeletion(message.id, message.instance)
             EsResponse(s"Image deleted: ${message.id}")
