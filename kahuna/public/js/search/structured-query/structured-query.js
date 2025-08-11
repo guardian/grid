@@ -8,7 +8,7 @@ import { grChips } from "../../components/gr-chips/gr-chips";
 import { rxUtil } from "../../util/rx";
 
 import { querySuggestions } from "./query-suggestions";
-import { renderQuery, structuredQueryIsValid, structureQuery } from "./syntax";
+import { renderQuery, structureQuery } from "./syntax";
 import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
 import { grCqlInput } from "../../components/gr-cql-input/gr-cql-input";
 import { structureCqlQuery } from "../../components/gr-cql-input/syntax";

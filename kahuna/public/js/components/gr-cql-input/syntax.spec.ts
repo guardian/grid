@@ -121,7 +121,7 @@ const queries = [
         value: "Photographer"
       }
     ]
-  },
+  }
 ];
 
 describe("cql -> structured-query translation", () => {
