@@ -317,7 +317,8 @@ class ElasticSearch(
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
-    aggregateSearch("metadata", params, termsAgg(name = "metadata", field = metadataField(params.field)), fromTermAggregation)
+    val aggregation = termsAgg(name = "metadata", field = metadataField(params.field)).size(params.size)
+    aggregateSearch("metadata", params, aggregation, fromTermAggregation)
   }
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {

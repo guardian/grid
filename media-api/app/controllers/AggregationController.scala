@@ -17,4 +17,13 @@ class AggregationController(auth: Authentication, elasticSearch: ElasticSearch,
       .map(aggregateResponse)
   }
 
+  def metadataFieldValues(field: String, q: Option[String], size: Option[Int]) = auth.async { request =>
+    implicit val r: Authentication.Request[AnyContent] = request
+
+    val baseParams = AggregateSearchParams(field, request)
+    val params = baseParams.copy(size = size.getOrElse(10))
+    elasticSearch.metadataSearch(params)
+      .map(aggregateResponse)
+  }
+
 }
