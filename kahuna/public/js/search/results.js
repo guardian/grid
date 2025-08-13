@@ -124,21 +124,21 @@ results.controller('SearchResultsCtrl', [
         ctrl.collectionsPanel = panels.collectionsPanel;
 
         //-taken and sort controls-
-        var hasTakenDateClause = "has:dateTaken";
-        var noTakenDateClause = "-has:dateTaken";
-        var takenSort = "taken";
+        const hasTakenDateClause = "has:dateTaken";
+        const noTakenDateClause = "-has:dateTaken";
+        const takenSort = "taken";
         ctrl.setTakenVisible = (isVisible) => storage.setJs("takenTabVisible", isVisible ? "visible" : "hidden", true);
         ctrl.getTakenVisible = () => {
           const vis = storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
           return (vis == "visible");
-        }
+        };
         ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
         ctrl.getInfoPanelVisible = () => storage.getJs("metadataPanelState", false) ? !(storage.getJs("metadataPanelState", false).hidden) : false;
         ctrl.getLastTakenSort = () => storage.getJs("lastTakenSort", false) ? storage.getJs("lastTakenSort", false) : "";
         ctrl.setLastTakenSort = (orderBy) => storage.setJs("lastTakenSort", orderBy, false);
 
         //-sort control select-
-        function updateSortChange (sortSel, tabSelected, userSelectedTaken, noTakenCount) {
+        function updateSortChange (sortSel, tabSelected, userSelectedTaken) {
           var orderBy = manageSortSelection(sortSel.value);
           var curQuery = $stateParams.query ? $stateParams.query : '';
           ctrl.setTakenVisible(userSelectedTaken);
@@ -174,16 +174,6 @@ results.controller('SearchResultsCtrl', [
           var resp = await search({query: query, length: 0});
           return resp.total;
         };
-
-        // selected sort option
-        var selSortOption = DefaultSortOption;
-        if ((SortOptions.filter(o => o.value === $stateParams.orderBy)).length > 0) {
-          selSortOption = SortOptions.filter(o => o.value === $stateParams.orderBy)[0];
-        }
-        // check for without tab
-        if ($stateParams.query && $stateParams.query.includes(noTakenDateClause)) {
-          selSortOption = DefaultSortOption;
-        }
 
         ctrl.extendedSortProps = {
           onSortSelect: updateSortChange,
@@ -236,7 +226,7 @@ results.controller('SearchResultsCtrl', [
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
-          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+            // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
             ctrl.orgOwnedCount = images.$response?.$$state?.value?.actions;
 
             ctrl.hasQuery = !!$stateParams.query;
@@ -256,50 +246,7 @@ results.controller('SearchResultsCtrl', [
             results.clear();
             results.resize(totalLength);
 
-            if (ctrl.extendedSortProps.orderBy.includes(takenSort)) {
-              if (images.total === 0) { // no images with taken date
-                updateSortChange(DefaultSortOption, 'with', false, ctrl.extendedSortProps.noTakenDateCount);
-                const noMatchesStr = "There are no matching images with a taken date"
-                const notificationEvent = new CustomEvent("newNotification", {
-                    detail: {
-                      announceId: "noTakenDateImages",
-                      description: noMatchesStr,
-                      category: "information",
-                      lifespan: "transient"
-                    },
-                    bubbles: true
-                });
-                window.dispatchEvent(notificationEvent);
-              } else if (0 < ctrl.extendedSortProps.noTakenDateCount) {
-                const oldNoTakenCount = storage.getJs("lastNoTakenCount", false) ? storage.getJs("lastNoTakenCount", false) : 0;
-                if (oldNoTakenCount !== ctrl.extendedSortProps.noTakenDateCount) {
-                  let imageStr = "There are " + ctrl.extendedSortProps.noTakenDateCount.toLocaleString() + " images with no taken date";
-                  if (ctrl.extendedSortProps.noTakenDateCount === 1) {
-                    imageStr = "There is one image with no taken date";
-                  }
-                  const notificationEvent = new CustomEvent("newNotification", {
-                    detail: {
-                      announceId: "sortByTakenDate",
-                      description: imageStr,
-                      category: "information",
-                      lifespan: "transient"
-                    },
-                    bubbles: true
-                  });
-                  window.dispatchEvent(notificationEvent);
-                  storage.setJs("lastNoTakenCount", ctrl.extendedSortProps.noTakenDateCount, false);
-                }
-              } else {
-                const notificationEvent = new CustomEvent("removeNotification", {
-                  detail: {
-                    announceId: "sortByTakenDate"
-                  },
-                  bubbles: true
-                });
-                window.dispatchEvent(notificationEvent);
-                storage.setJs("lastNoTakenCount", 0, false);
-              }
-            }
+            notificationMessages(ctrl.extendedSortProps, images.total)
 
             imagesPositions = new Map();
 
@@ -374,6 +321,53 @@ results.controller('SearchResultsCtrl', [
             then(scrollPosition.clear);
 
         const pollingPeriod = 15 * 1000; // ms
+
+        function notificationMessages(extendedProps, imagesTotal) {
+          if (extendedProps.orderBy.includes('taken')) {
+            if (imagesTotal === 0) { // no images with taken date
+              updateSortChange(DefaultSortOption, 'with', false, extendedProps.noTakenDateCount);
+              const noMatchesStr = "There are no matching images with a taken date";
+              const notificationEvent = new CustomEvent("newNotification", {
+                  detail: {
+                    announceId: "noTakenDateImages",
+                    description: noMatchesStr,
+                    category: "information",
+                    lifespan: "transient"
+                  },
+                  bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+            } else if (0 < extendedProps.noTakenDateCount) {
+              const oldNoTakenCount = storage.getJs("lastNoTakenCount", false) ? storage.getJs("lastNoTakenCount", false) : 0;
+              if (oldNoTakenCount !== extendedProps.noTakenDateCount) {
+                let imageStr = "There are " + extendedProps.noTakenDateCount.toLocaleString() + " images with no taken date";
+                if (extendedProps.noTakenDateCount === 1) {
+                  imageStr = "There is one image with no taken date";
+                }
+                const notificationEvent = new CustomEvent("newNotification", {
+                  detail: {
+                    announceId: "sortByTakenDate",
+                    description: imageStr,
+                    category: "information",
+                    lifespan: "transient"
+                  },
+                  bubbles: true
+                });
+                window.dispatchEvent(notificationEvent);
+                storage.setJs("lastNoTakenCount", extendedProps.noTakenDateCount, false);
+              }
+            } else {
+              const notificationEvent = new CustomEvent("removeNotification", {
+                detail: {
+                  announceId: "sortByTakenDate"
+                },
+                bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+              storage.setJs("lastNoTakenCount", 0, false);
+            }
+          }
+        }
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
