@@ -29,6 +29,7 @@ case class Image(
   leases:              LeasesByMedia    = LeasesByMedia.empty,
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
+  imageEmbedding:      List[Double],
   userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
 
   def hasExports = exports.nonEmpty
