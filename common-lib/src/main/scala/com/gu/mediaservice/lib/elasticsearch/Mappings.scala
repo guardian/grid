@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.fields.{DynamicField, KeywordField, NestedField, ObjectField}
+import com.sksamuel.elastic4s.fields.{DynamicField, KeywordField, NestedField, ObjectField, DenseVectorField}
 import com.sksamuel.elastic4s.requests.mappings.MappingDefinition
 import com.sksamuel.elastic4s.requests.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
 import play.api.libs.json.{JsObject, Json}
@@ -74,7 +74,8 @@ object Mappings {
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explicit copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections"),
-        esInfoMapping("esInfo")
+        esInfoMapping("esInfo"),
+        DenseVectorField("imageEmbedding", 1024)
       )
     )
   }

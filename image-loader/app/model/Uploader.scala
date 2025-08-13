@@ -55,7 +55,8 @@ case object ImageUpload {
       usageRights,
       usageRights,
       List(),
-      List()
+      List(),
+      imageEmbedding = List(0.123, 0.234, 0.3, 4.0)
     )
   }
 }
