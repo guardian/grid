@@ -27,7 +27,7 @@ export const TabControl: React.FC<TabSwapProps> = ({ onSelect, query, showTakenT
   }
 
   const [activeTab, setActiveTab] = useState<string>(tabStart);
-  const [isSortTaken, setIsSortTaken] = useState<boolean>(showTakenTab);
+  const isSortTaken = showTakenTab;
   const [isPanelVisible, setIsPanelVisible] = useState<boolean>(panelVisible);
 
   let takenDateMsg = "";

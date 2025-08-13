@@ -72,7 +72,7 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
     panelVisible
   }) => {
 
-  const [hasCollection, setHasCollection] = useState(startHasCollection);
+  const hasCollection = startHasCollection;
   const startSort:SortDropdownOption = startSelectedOption ? startSelectedOption : options.filter(opt => opt.value == DEFAULT_OPTION)[0];
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(startSort);

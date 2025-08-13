@@ -1,10 +1,10 @@
 import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
-import { useEffect, useState, KeyboardEvent } from "react";
-import { BaseSortControl, SortDropdownOption, SortDropdownProps } from "./base-sort-control";
-import { SortOptions, DefaultSortOption, CollectionSortOption } from "./gr-sort-control-config";
-import { TabControl, TabSwapProps } from "../gr-tab-swap/gr-tab-swap";
+import { useEffect, useState } from "react";
+import { BaseSortControl, SortDropdownOption } from "./base-sort-control";
+import { SortOptions, DefaultSortOption } from "./gr-sort-control-config";
+import { TabControl } from "../gr-tab-swap/gr-tab-swap";
 
 import "./gr-sort-control.css";
 
@@ -40,7 +40,7 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
   const startHasCollection = checkForCollection(query);
   const [selSortOption, setSortOption] = useState<SortDropdownOption>(startSortOption);
   const [userTakenSelect, setUserTakenSelect] = useState<boolean>(props.userTakenSelect);
-  const [noTakenDateCount, setNoTakenDateCount] = useState<number>(props.noTakenDateCount);
+  const noTakenDateCount = props.noTakenDateCount;
   const [hasCollection, setHasCollection] = useState<boolean>(startHasCollection);
 
   const onSortSelect = (selOption: SortDropdownOption) => {
