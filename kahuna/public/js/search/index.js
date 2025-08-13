@@ -16,6 +16,7 @@ import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-sort-control/gr-extended-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import '../components/gr-search-wrapper/gr-search-wrapper';
@@ -43,6 +44,7 @@ export var search = angular.module('kahuna.search', [
     'gr.panels',
     'gr.keyboardShortcut',
     'gr.sortControl',
+    'gr.extendedSortControl',
     'gr.permissionsFilter',
     'gr.myUploads',
     'gr-searchWrapper',
@@ -327,15 +329,22 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
     $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
         if (toState.name === 'search.results') {
             //If moving to a collection, sorts images by time added to a collection by default
-            //allows sorting by newest first if set by user.
+            //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
             if (toParams.query && toParams.query.indexOf('~') === 0) {
-                const sameQuery = toParams.query === fromParams.query;
-                toParams.orderBy = sameQuery ? toParams.orderBy : 'dateAddedToCollection';
+                const toQuery = toParams.query ? toParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
+                const fromQuery = fromParams.query ? fromParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
+                toParams.orderBy = (toQuery === fromQuery) ? toParams.orderBy : 'dateAddedToCollection';
             }
             //If moving from a collection to a non-collection, reset order to default.
             else if (toParams.orderBy === 'dateAddedToCollection') {
                 delete toParams.orderBy;
             }
+
+            // handle clear hasTaken chip from search
+            //if ( (toParams.orderBy && toParams.orderBy.includes('taken')) &&
+            //     (!toParams.query || !toParams.query.includes('has:dateTaken')) ) {
+            //    delete toParams.orderBy;
+            //}
         }
     });
 }]);
