@@ -23,8 +23,7 @@ import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-sort-control/gr-extended-sort-control';
 import {
   manageSortSelection,
-  DefaultSortOption,
-  SortOptions
+  DefaultSortOption
 } from "../components/gr-sort-control/gr-sort-control-config";
 import {
   INVALIDIMAGES,
@@ -246,7 +245,7 @@ results.controller('SearchResultsCtrl', [
             results.clear();
             results.resize(totalLength);
 
-            notificationMessages(ctrl.extendedSortProps, images.total)
+            notificationMessages(ctrl.extendedSortProps, images.total);
 
             imagesPositions = new Map();
 
@@ -339,11 +338,11 @@ results.controller('SearchResultsCtrl', [
               window.dispatchEvent(notificationEvent);
             } else if (0 < extendedProps.noTakenDateCount) {
               const oldNoTakenCount = storage.getJs("lastNoTakenCount", false) ? storage.getJs("lastNoTakenCount", false) : 0;
+              let imageStr = "There are " + extendedProps.noTakenDateCount.toLocaleString() + " images with no taken date";
+              if (extendedProps.noTakenDateCount === 1) {
+                imageStr = "There is one image with no taken date";
+              }
               if (oldNoTakenCount !== extendedProps.noTakenDateCount) {
-                let imageStr = "There are " + extendedProps.noTakenDateCount.toLocaleString() + " images with no taken date";
-                if (extendedProps.noTakenDateCount === 1) {
-                  imageStr = "There is one image with no taken date";
-                }
                 const notificationEvent = new CustomEvent("newNotification", {
                   detail: {
                     announceId: "sortByTakenDate",
