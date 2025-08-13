@@ -12,7 +12,7 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
-import '../components/gr-tab-swap/gr-tab-swap';
+import '../components/gr-sort-control/gr-extended-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import { sendTelemetryForQuery } from '../services/telemetry';
@@ -34,7 +34,7 @@ export var query = angular.module('kahuna.search.query', [
     grStructuredQuery.name,
     'util.storage',
     'gr.sortControl',
-    'gr.tabSwapControl',
+    'gr.extendedSortControl',
     'gr.permissionsFilter',
     'gr.myUploads'
 ]);
@@ -188,8 +188,17 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
+      let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
+      if (sender && sender == "filterChange" && !newFilter.nonFree) {
+        showPaid = ctrl.user.permissions.showPaid;
+      }
+
       storage.setJs("isNonFree", showPaid, true);
+
+      // check for taken date sort contradiction
+      if ($stateParams.orderBy && $stateParams.orderBy.includes("taken") && (!newFilter.query || !newFilter.query.includes("has:dateTaken"))) {
+        ctrl.ordering["orderBy"] = "newest";
+      }
       let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : "newest";
       storage.setJs("orderBy", sortBy);
 

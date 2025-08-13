@@ -130,6 +130,19 @@
   stroke: #fff;
 }
 
+.extended-sort-control {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:45px 1rem 0 1rem;
+  position:fixed;
+  left:0;
+  z-index:2;
+  background-color:#333;
+  width:100%;
+  box-sizing: border-box;
+}
+
 @media screen and (max-width: 880px) {
   .sort-selection-label {
     display: none;
