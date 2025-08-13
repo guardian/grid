@@ -17,7 +17,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   return (
     <BaseSortControl {...sortProps} />
   );
-}
+};
 
 export const sortControl = angular.module('gr.sortControl', [])
   .component('sortControl', react2angular(SortControl, ["props"]));

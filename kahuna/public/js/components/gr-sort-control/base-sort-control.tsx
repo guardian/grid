@@ -11,7 +11,6 @@ const CONTROL_TITLE = "Sort by:";
 const SORT_ORDER = "Sort order";
 const PANEL_IDENTIFIER = "info";
 const SCROLL_IDENTIFIER = "scroll";
-const HAS_DATE_TAKEN_QUERY = "has:dateTaken";
 
 const downArrowIcon = () =>
   <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -77,7 +76,7 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   const startSort:SortDropdownOption = startSelectedOption ? startSelectedOption : options.filter(opt => opt.value == DEFAULT_OPTION)[0];
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(startSort);
-  const [previousOption, setPrevious] = useState(startSort)
+  const [previousOption, setPrevious] = useState(startSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPanelVisible, setPanelVisible] = useState(panelVisible);
 

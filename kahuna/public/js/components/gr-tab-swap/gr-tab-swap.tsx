@@ -19,7 +19,6 @@ export const TabControl: React.FC<TabSwapProps> = ({ onSelect, query, showTakenT
   const PANEL_IDENTIFIER = "collections";
   const SCROLL_IDENTIFIER = "scroll";
   const HAS_DATE_TAKEN_QUERY = "has:dateTaken";
-  const taken = "taken";
   const without = `-${HAS_DATE_TAKEN_QUERY}`;
 
   let tabStart = 'with';

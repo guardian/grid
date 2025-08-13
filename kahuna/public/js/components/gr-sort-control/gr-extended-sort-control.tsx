@@ -9,7 +9,7 @@ import { TabControl, TabSwapProps } from "../gr-tab-swap/gr-tab-swap";
 import "./gr-sort-control.css";
 
 export interface ExtendedSortProps {
-  onSortSelect: (option: SortDropdownOption, tabSelected: string, userTakenSelect: boolean, noTakenDateCount: number) => void;
+  onSortSelect: (option: SortDropdownOption, tabSelected: string, userTakenSelect: boolean) => void;
   query?: string | "";
   orderBy?: string | "";
   infoPanelVisible?: boolean | false;
@@ -46,7 +46,7 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
   const onSortSelect = (selOption: SortDropdownOption) => {
     setSortOption(selOption);
     setUserTakenSelect(selOption.isTaken);
-    props.onSortSelect(selOption, 'with', selOption.isTaken, noTakenDateCount);
+    props.onSortSelect(selOption, 'with', selOption.isTaken);
   };
 
   const onTabSelect = (withTaken: boolean) => {
@@ -55,22 +55,22 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
       withTakenStr = 'without';
       setSortOption(DefaultSortOption);
     }
-    props.onSortSelect(selSortOption, withTakenStr, userTakenSelect, noTakenDateCount);
-  }
+    props.onSortSelect(selSortOption, withTakenStr, userTakenSelect);
+  };
 
   // initialisation
   useEffect(() => {
     const handleLogoClick = (e: any) => {
       setSortOption(DefaultSortOption);
       setUserTakenSelect(false);
-      props.onSortSelect(DefaultSortOption, 'with', false, 0);
+      props.onSortSelect(DefaultSortOption, 'with', false);
     };
 
     const handleQueryChange = (e: any) => {
         const newQuery = e.detail.query ? (" " + e.detail.query) : "";
         setHasCollection(checkForCollection(newQuery));
         if (userTakenSelect && !newQuery.includes(takenDateClause)) {
-          props.onSortSelect(DefaultSortOption, 'with', false, 0);
+          props.onSortSelect(DefaultSortOption, 'with', false);
         }
     };
 
@@ -103,7 +103,7 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
         />
     </div>
   );
-}
+};
 
 export const extendedSortControl = angular.module('gr.extendedSortControl', [])
   .component('extendedSortControl', react2angular(ExtendedSortControl, ["props"]));
