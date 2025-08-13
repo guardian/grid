@@ -4,7 +4,7 @@ export function manageSortSelection(newSelection:string): string {
   let newVal;
   switch (newSelection) {
     case "uploadNewOld":
-      newVal = undefined;
+      newVal = "newest";
       break;
     case "oldest":
       newVal = "oldest";
@@ -19,7 +19,7 @@ export function manageSortSelection(newSelection:string): string {
       newVal = "dateAddedToCollection";
       break;
     default:
-      newVal = undefined;
+      newVal = "newest";
       break;
   }
   return newVal;

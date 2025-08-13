@@ -131,9 +131,8 @@
             </div>
         </div>
 
-        <div ng-if="!ctrl.previewView" style="display:flex; justify-content:space-between; align-items:center; padding:45px 1rem 0 1rem; position:fixed; left:0; z-index:2; background-color:#333; width:100%; box-sizing: border-box;">
-            <tab-swap-control class="tab-swap-control" props="ctrl.tabSwapProps"></tab-swap-control>
-            <sort-control class="sort-control" props="ctrl.sortProps"></sort-control>
+        <div ng-if="ctrl.usePermissionsFilter()">
+            <extended-sort-control class="sort-control" props="ctrl.extendedSortProps"></extended-sort-control>
         </div>
 
         <ul class="results"

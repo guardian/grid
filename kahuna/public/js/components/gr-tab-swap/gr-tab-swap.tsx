@@ -1,60 +1,47 @@
 import * as React from "react";
-import * as angular from "angular";
 import { useState, useEffect, KeyboardEvent } from "react";
-import { react2angular } from "react2angular";
 
 import './gr-tab-swap.css';
 
 export interface TabSwapProps {
-  orderBy: string;
+  onSelect: (withTaken: boolean) => void;
   query: string;
-  without: string;
-  taken: string;
-  onSelect: (selected: string, sort: string) => void;
-  takenVisible: string;
-  clearTakenVisible: () => void;
-  setTakenVisible: () => void;
+  showTakenTab: boolean;
   noTakenDateCount: number;
   panelVisible: boolean;
 }
 
-export interface TabSwapWrapperProps {
-  props: TabSwapProps;
-}
-
-type TabType = 'with' | 'without';
-
-const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
+export const TabControl: React.FC<TabSwapProps> = ({ onSelect, query, showTakenTab, noTakenDateCount, panelVisible }) => {
 
   const withLabel = "With taken date";
   const withoutLabel = "Without taken date";
   const CONTROL_TITLE = "Has Taken Date Selector";
   const PANEL_IDENTIFIER = "collections";
+  const SCROLL_IDENTIFIER = "scroll";
   const HAS_DATE_TAKEN_QUERY = "has:dateTaken";
+  const taken = "taken";
+  const without = `-${HAS_DATE_TAKEN_QUERY}`;
 
-  // map props to state
-  const hasWithoutVal = props.query.includes(props.without);
-  const hasTakenSort = props.orderBy.includes(props.taken);
-  const tempTakenVisible = (props.takenVisible == 'visible');
-  const noTakenDateCount = props.query.includes(HAS_DATE_TAKEN_QUERY) ? props.noTakenDateCount : 0;
+  let tabStart = 'with';
+  if (query.includes(without)) {
+    tabStart = 'without';
+  }
 
-  const [activeTab, setActiveTab] = useState<TabType>(hasWithoutVal ? 'without' : 'with');
-  const [sortTaken, setSortTaken] = useState<boolean>(hasTakenSort);
-  const [takenVisible, setTakenVisible] = useState<boolean>(tempTakenVisible);
-  const [panelVisible, setPanelVisible] = useState<boolean>(props.panelVisible);
+  const [activeTab, setActiveTab] = useState<string>(tabStart);
+  const [isSortTaken, setIsSortTaken] = useState<boolean>(showTakenTab);
+  const [isPanelVisible, setIsPanelVisible] = useState<boolean>(panelVisible);
+
+  let takenDateMsg = "";
+  if (noTakenDateCount === 1) {
+    takenDateMsg = " (1 match)";
+  } else if (noTakenDateCount > 1) {
+    takenDateMsg = ` (${noTakenDateCount.toLocaleString()} matches)`;
+  }
 
   const handleTabClick = (tabSelected: string) => {
     if (tabSelected !== activeTab) {
-      if (tabSelected === 'with') {
-        setActiveTab('with');
-        props.clearTakenVisible();
-        const orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
-        props.onSelect(tabSelected, orderBy);
-      } else {
-        setActiveTab('without');
-        props.setTakenVisible();
-        props.onSelect(tabSelected, undefined);
-      }
+      setActiveTab(tabSelected);
+      onSelect('with' === tabSelected);
     }
   };
 
@@ -62,68 +49,44 @@ const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
     if (event.code === 'Space') {
       event.preventDefault();
       event.stopPropagation();
-      const tabSelected = activeTab;
-      if (tabSelected === 'without') {
+      if (activeTab === 'without') {
         setActiveTab('with');
-        props.clearTakenVisible();
-        const orderBy = props.orderBy.includes(props.taken) ? props.orderBy : ("-" + props.taken);
-        props.onSelect('with', orderBy);
+        onSelect(true);
       } else {
         setActiveTab('without');
-        props.setTakenVisible();
-        props.onSelect('without', undefined);
+        onSelect(false);
       }
     }
   };
 
   useEffect(() => {
-    const handleLogoClick = (e: any) => {
-      setActiveTab('with');
-      setSortTaken(false);
-      setTakenVisible(false);
-      props.clearTakenVisible();
-    };
-
-    const handleOrderByChange = (e: any) => {
-        const newTaken = e.detail.sortTaken ? e.detail.sortTaken : false;
-        if (newTaken) {
-          props.onSelect('with', e.detail.sort);
-        } else {
-          props.onSelect('without', e.detail.sort);
-        }
-    };
-
     const handlePanelShow = (event: any) => {
       const panel = event.detail.panel;
        if (panel === PANEL_IDENTIFIER) {
-         setPanelVisible(true);
+         setIsPanelVisible(true);
        }
     };
 
     const handlePanelHide = (event: any) => {
       const panel = event.detail.panel;
-       if (panel === PANEL_IDENTIFIER) {
-         setPanelVisible(false);
+       if (panel === PANEL_IDENTIFIER || panel === SCROLL_IDENTIFIER) {
+         setIsPanelVisible(false);
        }
     };
 
-    window.addEventListener("logoClick", handleLogoClick);
-    window.addEventListener("orderByChange", handleOrderByChange);
     window.addEventListener("panelHide", handlePanelHide);
     window.addEventListener("panelShow", handlePanelShow);
 
     // Clean up the event listener when the component unmounts
     return () => {
-      window.removeEventListener("logoClick", handleLogoClick);
-      window.removeEventListener("orderByChange", handleOrderByChange);
       window.removeEventListener("panelHide", handlePanelHide);
       window.removeEventListener("panelShow", handlePanelShow);
     };
   }, []);
 
   return (
-    <div className={`gr-tab-wrapper ${panelVisible ? 'gr-tab-panel-margin' : ''}`}>
-      {((sortTaken || takenVisible) && (noTakenDateCount > 0)) && (
+    <div className={`gr-tab-wrapper ${isPanelVisible ? 'gr-tab-panel-margin' : ''}`}>
+      {(isSortTaken && noTakenDateCount > 0) && (
         <div className="gr-tab-container" tabIndex={0} aria-label={`${CONTROL_TITLE}. ${activeTab} Taken Date selected`} onKeyDown={handleKeyboard}>
           <div
             className={`gr-tab ${activeTab === 'with' ? 'active' : ''}`}
@@ -137,13 +100,10 @@ const TabControl: React.FC<TabSwapWrapperProps> = ({props}) => {
             onClick={() => handleTabClick('without')}
             aria-label={`${withoutLabel} ${activeTab === 'without' ? 'selected' : ''}`}
           >
-            {`${withoutLabel} (${props.noTakenDateCount} matches)`}
+            {`${withoutLabel}${takenDateMsg}`}
           </div>
         </div>
       )}
     </div>
   );
 };
-
-export const tabSwapControl = angular.module('gr.tabSwapControl', [])
-  .component('tabSwapControl', react2angular(TabControl, ["props"]));

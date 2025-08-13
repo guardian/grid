@@ -1275,7 +1275,7 @@ textarea.ng-invalid {
     display: none;
 
     /* above thumbnail and overlay */
-    z-index: 2;
+    z-index: 1;
 }
 
 .result__select--no-pointer-events {
@@ -1536,7 +1536,7 @@ textarea.ng-invalid {
 .image-no-results {
     font-size: 3rem;
     text-align: center;
-    margin-top: 4rem;
+    margin-top: 10rem;
 }
 
 .image-loading-results {

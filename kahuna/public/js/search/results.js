@@ -20,7 +20,7 @@ import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
 import '../components/gr-confirmation-modal/gr-confirmation-modal';
 import '../components/gr-sort-control/gr-sort-control';
-import '../components/gr-tab-swap/gr-tab-swap';
+import '../components/gr-sort-control/gr-extended-sort-control';
 import {
   manageSortSelection,
   DefaultSortOption,
@@ -52,7 +52,7 @@ export var results = angular.module('kahuna.search.results', [
     'gr.toggleButton',
     'gr.confirmationModal',
     'gr.sortControl',
-    'gr.tabSwapControl'
+    'gr.extendedSortControl'
 ]);
 
 
@@ -116,6 +116,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.$onInit = () => {
           ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+          ctrl.usePermissionsFilter = () => $window._clientConfig.usePermissionsFilter;
         };
 
         // Panel control
@@ -126,84 +127,41 @@ results.controller('SearchResultsCtrl', [
         var hasTakenDateClause = "has:dateTaken";
         var noTakenDateClause = "-has:dateTaken";
         var takenSort = "taken";
-        ctrl.clearTakenVisible = () => storage.setJs("takenTabVisible", "hidden", true);
-        ctrl.setTakenVisible = () => storage.setJs("takenTabVisible", "visible", true);
-        ctrl.getTakenVisible = () => storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
+        ctrl.setTakenVisible = (isVisible) => storage.setJs("takenTabVisible", isVisible ? "visible" : "hidden", true);
+        ctrl.getTakenVisible = () => {
+          const vis = storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
+          return (vis == "visible");
+        }
         ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
         ctrl.getInfoPanelVisible = () => storage.getJs("metadataPanelState", false) ? !(storage.getJs("metadataPanelState", false).hidden) : false;
         ctrl.getLastTakenSort = () => storage.getJs("lastTakenSort", false) ? storage.getJs("lastTakenSort", false) : "";
+        ctrl.setLastTakenSort = (orderBy) => storage.setJs("lastTakenSort", orderBy, false);
 
-        //-sort control-
-        function updateSortChips (sortSel) {
-          ctrl.sortProps.selectedOption = sortSel;
+        //-sort control select-
+        function updateSortChange (sortSel, tabSelected, userSelectedTaken, noTakenCount) {
           var orderBy = manageSortSelection(sortSel.value);
-          if (orderBy && orderBy.includes(takenSort)) {
-            storage.setJs("lastTakenSort", orderBy, false);
+          var curQuery = $stateParams.query ? $stateParams.query : '';
+          ctrl.setTakenVisible(userSelectedTaken);
+          curQuery = curQuery.replace(noTakenDateClause, "").replace(hasTakenDateClause, "").trim();
+          if (sortSel.isTaken) {
+            ctrl.setLastTakenSort(orderBy);
           }
-          let toParams = {
-            ...$stateParams,
-            orderBy: orderBy
-          };
-          $state.transitionTo(
-                      $state.current,
-                      toParams,
-                      { reload: true, inherit: false, notify: true }
-                    );
-        }
-
-        ctrl.sortProps = {
-          options: SortOptions,
-          selectedOption: DefaultSortOption,
-          onSelect: updateSortChips,
-          query: $stateParams.query,
-          orderBy: $stateParams.orderBy,
-          previousTaken: ctrl.getLastTakenSort(),
-          clearTakenVisible: ctrl.clearTakenVisible,
-          panelVisible: ctrl.getInfoPanelVisible()
-        };
-        //-end sort control-
-
-        //-tab swap control-
-        function manageTakenDateTab(tabSelected, inSortOrder) {
-          let sortOrder = inSortOrder;
-          if (tabSelected === 'with') {
-            sortOrder = storage.getJs("lastTakenSort", false);
-          }
-          let toParams = {
-            ...$stateParams
-          };
-          //-clean-
-          let oldQuery = $stateParams.query ? $stateParams.query : '';
-          oldQuery = oldQuery.replace(noTakenDateClause, '').replace(hasTakenDateClause, '').trim();
-          let newSortOrder = manageSortSelection(sortOrder);
-          let takenTabVisible = ctrl.getTakenVisible();
-
-          if (tabSelected === 'with') {
-            toParams = {
-              ...$stateParams,
-              query: `${oldQuery} ${hasTakenDateClause}`,
-              orderBy: newSortOrder
-            };
-          } else {
-            if ((sortOrder && sortOrder.includes(takenSort)) || (takenTabVisible === 'visible')) {
-              toParams = {
-                ...$stateParams,
-                query: `${oldQuery} ${noTakenDateClause}`,
-                orderBy: newSortOrder
-              };
-            } else {
-              toParams = {
-                ...$stateParams,
-                query: oldQuery,
-                orderBy: newSortOrder
-              };
+          if (userSelectedTaken) {
+            if (tabSelected === 'with') {
+              curQuery = `${curQuery} ${hasTakenDateClause}`.trim();
+              orderBy = ctrl.getLastTakenSort();
+            } else { // without
+              curQuery = `${curQuery} ${noTakenDateClause}`.trim();
+              orderBy = DefaultSortOption.value;
             }
           }
-          $state.transitionTo(
-            $state.current,
-            toParams,
-            { reload: true, inherit: false, notify: true }
-          );
+          storage.setJs("orderBy", orderBy);
+          const toParams = {
+            ...$stateParams,
+            orderBy: orderBy,
+            query: curQuery
+          };
+          $state.go('search.results', toParams);
         }
 
         async function checkForNoTakenDate() {
@@ -217,24 +175,32 @@ results.controller('SearchResultsCtrl', [
           return resp.total;
         };
 
-        ctrl.tabSwapProps = {
-          orderBy: $stateParams.orderBy ? $stateParams.orderBy : '',
-          query: $stateParams.query ? $stateParams.query : '',
-          without: noTakenDateClause,
-          taken: takenSort,
-          onSelect: manageTakenDateTab,
-          takenVisible: ctrl.getTakenVisible(),
-          clearTakenVisible: ctrl.clearTakenVisible,
-          setTakenVisible: ctrl.setTakenVisible,
-          noTakenDateCount: 0,
-          panelVisible: ctrl.getCollectionsPanelVisible()
+        // selected sort option
+        var selSortOption = DefaultSortOption;
+        if ((SortOptions.filter(o => o.value === $stateParams.orderBy)).length > 0) {
+          selSortOption = SortOptions.filter(o => o.value === $stateParams.orderBy)[0];
+        }
+        // check for without tab
+        if ($stateParams.query && $stateParams.query.includes(noTakenDateClause)) {
+          selSortOption = DefaultSortOption;
+        }
+
+        ctrl.extendedSortProps = {
+          onSortSelect: updateSortChange,
+          query: $stateParams.query ? $stateParams.query : "",
+          orderBy: $stateParams.orderBy ? $stateParams.orderBy : "",
+          infoPanelVisible: ctrl.getInfoPanelVisible(),
+          collectionsPanelVisible: ctrl.getCollectionsPanelVisible(),
+          userTakenSelect: ctrl.getTakenVisible(),
+          noTakenDateCount: 0
         };
+
         checkForNoTakenDate().then(noTakenTotal => {
-            ctrl.tabSwapProps = { ...ctrl.tabSwapProps,
+            ctrl.extendedSortProps = { ...ctrl.extendedSortProps,
               noTakenDateCount: noTakenTotal
             };
         });
-        //-end tab swap-
+        //-end sort and taken tab controls-
 
         ctrl.images = [];
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
@@ -290,25 +256,49 @@ results.controller('SearchResultsCtrl', [
             results.clear();
             results.resize(totalLength);
 
-            if (ctrl.tabSwapProps.orderBy.includes(takenSort) && 0 < ctrl.tabSwapProps.noTakenDateCount) {
-              const notificationEvent = new CustomEvent("newNotification", {
-                detail: {
-                  announceId: "sortByTakenDate",
-                  description: "There are " + ctrl.tabSwapProps.noTakenDateCount + " images with no taken date",
-                  category: "information",
-                  lifespan: "transient"
-                },
-                bubbles: true
-              });
-              window.dispatchEvent(notificationEvent);
-            } else {
-              const notificationEvent = new CustomEvent("removeNotification", {
-                detail: {
-                  announceId: "sortByTakenDate"
-                },
-                bubbles: true
-              });
-              window.dispatchEvent(notificationEvent);
+            if (ctrl.extendedSortProps.orderBy.includes(takenSort)) {
+              if (images.total === 0) { // no images with taken date
+                updateSortChange(DefaultSortOption, 'with', false, ctrl.extendedSortProps.noTakenDateCount);
+                const noMatchesStr = "There are no matching images with a taken date"
+                const notificationEvent = new CustomEvent("newNotification", {
+                    detail: {
+                      announceId: "noTakenDateImages",
+                      description: noMatchesStr,
+                      category: "information",
+                      lifespan: "transient"
+                    },
+                    bubbles: true
+                });
+                window.dispatchEvent(notificationEvent);
+              } else if (0 < ctrl.extendedSortProps.noTakenDateCount) {
+                const oldNoTakenCount = storage.getJs("lastNoTakenCount", false) ? storage.getJs("lastNoTakenCount", false) : 0;
+                if (oldNoTakenCount !== ctrl.extendedSortProps.noTakenDateCount) {
+                  let imageStr = "There are " + ctrl.extendedSortProps.noTakenDateCount.toLocaleString() + " images with no taken date";
+                  if (ctrl.extendedSortProps.noTakenDateCount === 1) {
+                    imageStr = "There is one image with no taken date";
+                  }
+                  const notificationEvent = new CustomEvent("newNotification", {
+                    detail: {
+                      announceId: "sortByTakenDate",
+                      description: imageStr,
+                      category: "information",
+                      lifespan: "transient"
+                    },
+                    bubbles: true
+                  });
+                  window.dispatchEvent(notificationEvent);
+                  storage.setJs("lastNoTakenCount", ctrl.extendedSortProps.noTakenDateCount, false);
+                }
+              } else {
+                const notificationEvent = new CustomEvent("removeNotification", {
+                  detail: {
+                    announceId: "sortByTakenDate"
+                  },
+                  bubbles: true
+                });
+                window.dispatchEvent(notificationEvent);
+                storage.setJs("lastNoTakenCount", 0, false);
+              }
             }
 
             imagesPositions = new Map();
