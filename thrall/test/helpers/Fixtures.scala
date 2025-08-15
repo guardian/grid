@@ -49,7 +49,8 @@ trait Fixtures {
      exports = Nil,
      syndicationRights = syndicationRights,
      leases = leases.getOrElse(LeasesByMedia.build(Nil)),
-     usages = usages
+     usages = usages,
+     imageEmbedding = List.empty
    )
 
   def createImageForSyndication(

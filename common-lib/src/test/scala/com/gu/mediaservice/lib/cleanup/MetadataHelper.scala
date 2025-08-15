@@ -29,7 +29,8 @@ trait MetadataHelper {
       usageRights = usageRights,
       originalUsageRights = usageRights,
       usages = List(),
-      exports = List()
+      exports = List(),
+      imageEmbedding = List()
     )
   }
 

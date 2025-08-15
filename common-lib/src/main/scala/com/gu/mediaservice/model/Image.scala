@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia}
 import com.gu.mediaservice.model.usage.{SyndicationUsage, Usage}
 import org.joda.time.DateTime
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 case class Image(
@@ -79,54 +78,89 @@ object Image {
 
   // FIXME: many fields made nullable to accommodate for legacy data that pre-dates them.
   // We should migrate the data for better consistency so nullable can be retired.
-  implicit val ImageReads: Reads[Image] = (
-    (__ \ "id").read[String] ~
-      (__ \ "uploadTime").read[String].map(unsafeParseDateTime) ~
-      (__ \ "uploadedBy").read[String] ~
-      (__ \ "softDeletedMetadata").readNullable[SoftDeletedMetadata] ~
-      (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
-      (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
-      (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()) ~
-      (__ \ "source").read[Asset] ~
-      (__ \ "thumbnail").readNullable[Asset] ~
-      (__ \ "optimisedPng").readNullable[Asset] ~
-      (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()) ~
-      (__ \ "userMetadata").readNullable[Edits] ~
-      (__ \ "metadata").read[ImageMetadata] ~
-      (__ \ "originalMetadata").readNullable[ImageMetadata].map(_ getOrElse ImageMetadata()) ~
-      (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
-      (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
-      (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()) ~
-      (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()) ~
-      (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.empty) ~
-      (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil) ~
-      (__ \ "syndicationRights").readNullable[SyndicationRights] ~
-      (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime)
-    )(Image.apply _)
+  implicit val ImageReads: Reads[Image] = Reads(value => {
+    // this is why you avoid going over 22 items in a case class
+    for {
+      id <- (__ \ "id").read[String].reads(value)
+      uploadTime <- (__ \ "uploadTime").read[String].map(unsafeParseDateTime).reads(value)
+      uploadedBy <- (__ \ "uploadedBy").read[String].reads(value)
+      softDeletedMetadata <- (__ \ "softDeletedMetadata").readNullable[SoftDeletedMetadata].reads(value)
+      lastModified <- (__ \ "lastModified").readNullable[String].map(parseOptDateTime).reads(value)
+      identifiers <- (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()).reads(value)
+      uploadInfo <- (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()).reads(value)
+      source <- (__ \ "source").read[Asset].reads(value)
+      thumbnail <- (__ \ "thumbnail").readNullable[Asset].reads(value)
+      optimisedPng <- (__ \ "optimisedPng").readNullable[Asset].reads(value)
+      fileMetadata <- (__ \ "fileMetadata").readNullable[FileMetadata].map(_ getOrElse FileMetadata()).reads(value)
+      userMetadata <- (__ \ "userMetadata").readNullable[Edits].reads(value)
+      metadata <- (__ \ "metadata").read[ImageMetadata].reads(value)
+      originalMetadata <- (__ \ "originalMetadata").readNullable[ImageMetadata]
+        .map(_ getOrElse ImageMetadata())
+        .reads(value)
+      usageRights <- (__ \ "usageRights").readNullable[UsageRights].map(_ getOrElse NoRights).reads(value)
+      originalUsageRights <- (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights).reads(value)
+      exports <- (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()).reads(value)
+      usages <- (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()).reads(value)
+      leases <- (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.empty).reads(value)
+      collections <- (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil).reads(value)
+      syndicationRights <- (__ \ "syndicationRights").readNullable[SyndicationRights].reads(value)
+      userMetadataLastModified <- (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime).reads(value)
+      imageEmbedding <- (__ \ "imageEmbedding").readNullable[List[Double]].map(_ getOrElse Nil).reads(value)
+    } yield Image(id = id,
+      uploadTime = uploadTime,
+      uploadedBy = uploadedBy,
+      softDeletedMetadata = softDeletedMetadata,
+      lastModified = lastModified,
+      identifiers = identifiers,
+      uploadInfo = uploadInfo,
+      source = source,
+      thumbnail = thumbnail,
+      optimisedPng = optimisedPng,
+      fileMetadata = fileMetadata,
+      userMetadata = userMetadata,
+      metadata = metadata,
+      originalMetadata = originalMetadata,
+      usageRights = usageRights,
+      originalUsageRights = originalUsageRights,
+      exports = exports,
+      usages = usages,
+      leases = leases,
+      collections = collections,
+      syndicationRights = syndicationRights,
+      imageEmbedding = imageEmbedding,
+      userMetadataLastModified = userMetadataLastModified)
+  })
 
-  implicit val ImageWrites: Writes[Image] = (
-    (__ \ "id").write[String] ~
-      (__ \ "uploadTime").write[String].contramap(printDateTime) ~
-      (__ \ "uploadedBy").write[String] ~
-      (__ \ "softDeletedMetadata").writeNullable[SoftDeletedMetadata] ~
-      (__ \ "lastModified").writeNullable[String].contramap(printOptDateTime) ~
-      (__ \ "identifiers").write[Map[String, String]] ~
-      (__ \ "uploadInfo").write[UploadInfo] ~
-      (__ \ "source").write[Asset] ~
-      (__ \ "thumbnail").writeNullable[Asset] ~
-      (__ \ "optimisedPng").writeNullable[Asset] ~
-      (__ \ "fileMetadata").write[FileMetadata] ~
-      (__ \ "userMetadata").writeNullable[Edits] ~
-      (__ \ "metadata").write[ImageMetadata] ~
-      (__ \ "originalMetadata").write[ImageMetadata] ~
-      (__ \ "usageRights").write[UsageRights] ~
-      (__ \ "originalUsageRights").write[UsageRights] ~
-      (__ \ "exports").write[List[Crop]] ~
-      (__ \ "usages").write[List[Usage]] ~
-      (__ \ "leases").write[LeasesByMedia] ~
-      (__ \ "collections").write[List[Collection]] ~
-      (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
-      (__ \ "userMetadataLastModified").writeNullable[String].contramap(printOptDateTime)
-    )(unlift(Image.unapply))
+  implicit val ImageWrites: Writes[Image] = {
+    def writes[T](v: T)(implicit writer: Writes[T]): JsValue =
+      writer writes v
+    Writes { image =>
+      JsObject(Map(
+        "id" -> writes(image.id),
+        "uploadTime" -> writes(printDateTime(image.uploadTime)),
+        "uploadedBy" -> writes(image.uploadedBy),
+        "softDeletedMetadata" -> writes(image.softDeletedMetadata),
+        "lastModified" -> writes(printOptDateTime(image.lastModified)),
+        "identifiers" -> writes(image.identifiers),
+        "uploadInfo" -> writes(image.uploadInfo),
+        "source" -> writes(image.source),
+        "thumbnail" -> writes(image.thumbnail),
+        "optimisedPng" -> writes(image.optimisedPng),
+        "fileMetadata" -> writes(image.fileMetadata),
+        "userMetadata" -> writes(image.userMetadata),
+        "metadata" -> writes(image.metadata),
+        "originalMetadata" -> writes(image.originalMetadata),
+        "usageRights" -> writes(image.usageRights),
+        "originalUsageRights" -> writes(image.originalUsageRights),
+        "exports" -> writes(image.exports),
+        "usages" -> writes(image.usages),
+        "leases" -> writes(image.leases),
+        "collections" -> writes(image.collections),
+        "syndicationRights" -> writes(image.syndicationRights),
+        "userMetadataLastModified" -> writes(printOptDateTime(image.userMetadataLastModified)),
+        "imageEmbedding" -> writes(image.imageEmbedding),
+      ))
+    }
+  }
 }
 
