@@ -36,6 +36,7 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
       thumbnail = None,
       metadata = ImageMetadata(),
       usageRights = Handout(None),
+      imageEmbedding = List.empty,
     )
     val json = Json.toJson(image)
     inside(json) {

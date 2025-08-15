@@ -247,6 +247,7 @@ object MappingTest {
       ),
       isInferred = true
     )),
-    userMetadataLastModified = Some(imageModified)
+    userMetadataLastModified = Some(imageModified),
+    imageEmbedding = (0 to 1023).map(_ * 0.001).toList
   )
 }

@@ -56,7 +56,7 @@ case object ImageUpload {
       usageRights,
       List(),
       List(),
-      imageEmbedding = List(0.123, 0.234, 0.3, 4.0)
+      imageEmbedding = (0 to 1023).map(_ * 0.001).toList
     )
   }
 }
