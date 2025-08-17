@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
+import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.model.Instance
 import org.apache.pekko.actor.Scheduler
 
@@ -7,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
 
 sealed trait MigrationStatus
 
@@ -34,7 +35,7 @@ object MigrationStatusProvider {
   val COMPLETION_PREVIEW_ALIAS = "MIGRATION_COMPLETION_PREVIEW"
 }
 
-trait MigrationStatusProvider {
+trait MigrationStatusProvider extends Instances {
   self: ElasticSearchClient =>
 
   def elasticSearchConfig: ElasticSearchConfig
@@ -77,7 +78,7 @@ trait MigrationStatusProvider {
     initialDelay = 0.seconds,
     interval = 5.seconds
   ) { () => {
-    val instances: Seq[Instance] = Seq.empty // TODO iterate instances
+    val instances = Await.result(getInstances(), Duration(10, SECONDS))
     instances.foreach(refreshMigrationStatus)
   }
   }

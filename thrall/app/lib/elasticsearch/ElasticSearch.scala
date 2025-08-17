@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.{filters, _}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -21,6 +22,7 @@ import com.sksamuel.elastic4s._
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 
 import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
@@ -31,7 +33,9 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 class ElasticSearch(
   val elasticSearchConfig: ElasticSearchConfig,
   metrics: Option[ThrallMetrics],
-  val scheduler: Scheduler
+  val scheduler: Scheduler,
+  val wsClient: WSClient,
+  val config: CommonConfig
 ) extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with ThrallMigrationClient {
 
   lazy val url: String = elasticSearchConfig.url

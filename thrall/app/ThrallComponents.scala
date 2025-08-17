@@ -31,7 +31,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config, actorSystem, applicationLifecycle)
 
-  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
+  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler, wsClient, config)
 
   val gridClient: GridClient = GridClient(config.services)(wsClient)
 
@@ -67,7 +67,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism)
+  val migrationSourceWithSender: MigrationSourceWithSender = new MigrationSourceWithSenderFactory(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, wsClient, config).build()
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,

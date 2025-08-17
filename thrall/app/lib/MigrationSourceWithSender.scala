@@ -4,18 +4,21 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import org.apache.pekko.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
+import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Instance, MigrateImageMessage, MigrationMessage}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
-import play.api.libs.ws.WSRequest
+import play.api.libs.ws.{WSClient, WSRequest}
 
 import java.time.Instant
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 case class MigrationRequest(imageId: String, version: Long, instance: Instance)
+
 case class MigrationRecord(payload: MigrationMessage, approximateArrivalTimestamp: Instant)
 
 case class MigrationSourceWithSender(
@@ -23,77 +26,79 @@ case class MigrationSourceWithSender(
   source: Source[MigrationRecord, Future[Done]],
 )
 
-object MigrationSourceWithSender extends GridLogging {
-  def apply(
-    materializer: Materializer,
-    innerServiceCall: WSRequest => WSRequest,
-    es: ElasticSearch,
-    gridClient: GridClient,
-    projectionParallelism: Int,
-  )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
+class MigrationSourceWithSenderFactory(
+                                        materializer: Materializer,
+                                        innerServiceCall: WSRequest => WSRequest,
+                                        es: ElasticSearch,
+                                        gridClient: GridClient,
+                                        projectionParallelism: Int,
+                                        val wsClient: WSClient,
+                                        val config: CommonConfig
+                                      ) extends GridLogging with Instances {
 
+  def build()(implicit ec: ExecutionContext): MigrationSourceWithSender = {
     // scroll through elasticsearch, finding image ids and versions to migrate
     // emits MigrationRequest
     val scrollingIdsSource =
-      Source.repeat(())
-        .throttle(1, per = 1.minute)
-        .statefulMapConcat(() => {
-          // This Pekko-provided stage is explicitly provided as a way to safely wrap around mutable state.
-          // Required here to keep a marker of the current search scroll. Scrolling prevents the
-          // next search from picking up the same image ids and inserting them into the flow and
-          // causing lots of version comparison failures.
-          // Alternatives:
-          // - Using the elastic4s `ElasticSource`
-          //     (This would be ideal but is tricky due to dependency version conflicts, and it's also
-          //     difficult (or impossible?) to change the query value once the stream has been materialized.)
-          // - Defining our own version of the ElasticSource using our desired library versions and a system to change
-          //   the query value as desired.
-          // - Define an Pekko actor to handle the querying and wrap around the state.
-          var maybeScrollId: Option[String] = None
+    Source.repeat(())
+      .throttle(1, per = 1.minute)
+      .statefulMapConcat(() => {
+        // This Pekko-provided stage is explicitly provided as a way to safely wrap around mutable state.
+        // Required here to keep a marker of the current search scroll. Scrolling prevents the
+        // next search from picking up the same image ids and inserting them into the flow and
+        // causing lots of version comparison failures.
+        // Alternatives:
+        // - Using the elastic4s `ElasticSource`
+        //     (This would be ideal but is tricky due to dependency version conflicts, and it's also
+        //     difficult (or impossible?) to change the query value once the stream has been materialized.)
+        // - Defining our own version of the ElasticSource using our desired library versions and a system to change
+        //   the query value as desired.
+        // - Define an Pekko actor to handle the querying and wrap around the state.
+        var maybeScrollId: Option[String] = None
 
-          def handleScrollResponse(resp: ScrolledSearchResults)(implicit instance: Instance) = {
-            maybeScrollId = if (resp.hits.isEmpty) {
-              // close scroll with provided ID if it exists
-              resp.scrollId.foreach(es.closeScroll)
-              None
-            } else {
-              resp.scrollId
+        def handleScrollResponse(resp: ScrolledSearchResults)(implicit instance: Instance) = {
+          maybeScrollId = if (resp.hits.isEmpty) {
+            // close scroll with provided ID if it exists
+            resp.scrollId.foreach(es.closeScroll)
+            None
+          } else {
+            resp.scrollId
+          }
+          resp.hits.map(InstanceSearchHit(_, instance))
+        }
+
+        _ => {
+          val instances = Await.result(getInstances(), Duration(10, SECONDS))
+          instances.flatMap { instance =>
+            implicit val i: Instance = instance
+            val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
+              case (Paused(_), _) => Future.successful(List.empty)
+              case (InProgress(migrationIndexName), None) =>
+                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
+              case (InProgress(_), Some(scrollId)) =>
+                es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
+              case _ => Future.successful(List.empty)
+            }).recover { case _ =>
+              // close existing scroll if it exists
+              maybeScrollId.foreach(es.closeScroll)
+              maybeScrollId = None
+              List.empty
             }
-            resp.hits.map(InstanceSearchHit(_, instance))
+            List(nextIdsToMigrate)
           }
+        }
+      })
 
-          _ => {
-            val instances: Seq[Instance] = Seq.empty  // TODO iterate instances
-            instances.flatMap { instance =>
-              implicit val i: Instance = instance
-              val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
-                case (Paused(_), _) => Future.successful(List.empty)
-                case (InProgress(migrationIndexName), None) =>
-                  es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
-                case (InProgress(_), Some(scrollId)) =>
-                  es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
-                case _ => Future.successful(List.empty)
-              }).recover { case _ =>
-                // close existing scroll if it exists
-                maybeScrollId.foreach(es.closeScroll)
-                maybeScrollId = None
-                List.empty
-              }
-              List(nextIdsToMigrate)
-            }
-          }
-        })
-
-        // flatten out the future
-        .mapAsync(1)(a => identity(a))
-        // flatten out the list of image ids
-        .mapConcat(searchHits => {
-          if (searchHits.nonEmpty) {
-            logger.info(s"Flattening ${searchHits.size} image ids to migrate")
-          }
-          searchHits.map(instanceSearchHit => MigrationRequest(instanceSearchHit.hit.id, instanceSearchHit.hit.version, instanceSearchHit.instance))
-        })
-        .filter( hit  => es.migrationIsInProgress(hit.instance))
+      // flatten out the future
+      .mapAsync(1)(a => identity(a))
+      // flatten out the list of image ids
+      .mapConcat(searchHits => {
+        if (searchHits.nonEmpty) {
+          logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+        }
+        searchHits.map(instanceSearchHit => MigrationRequest(instanceSearchHit.hit.id, instanceSearchHit.hit.version, instanceSearchHit.instance))
+      })
+      .filter(hit => es.migrationIsInProgress(hit.instance))
 
     // receive MigrationRequests to migrate from a manual source (failures retry page, single image migration form, etc.)
     val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000)

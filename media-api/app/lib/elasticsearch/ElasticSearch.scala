@@ -19,6 +19,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
+import play.api.libs.ws.WSClient
 import play.mvc.Http.Status
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
@@ -32,7 +33,8 @@ class ElasticSearch(
   mediaApiMetrics: MediaApiMetrics,
   val elasticSearchConfig: ElasticSearchConfig,
   overQuotaAgencies: () => List[Agency],
-  val scheduler: Scheduler
+  val scheduler: Scheduler,
+  val wsClient: WSClient,
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
   private val orgOwnedAggName = "org-owned"
