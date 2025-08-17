@@ -129,7 +129,7 @@ class MessageProcessor(
         Future.successful(())
       case failure: MigrationFailure =>
         logger.error(logMarker, s"Failed to migrate image with id: ${message.id}: cause: ${failure.getMessage}, attaching failure to document in current index")
-        val migrationIndexName = es.migrationStatus() match {
+        val migrationIndexName = es.migrationStatus match {
           case running: Running => running.migrationIndexName
           case _ => "Unknown migration index name"
         }

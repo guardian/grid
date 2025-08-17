@@ -70,7 +70,7 @@ class ThrallController(
         currentIndexCount = currentIndexCountFormatted,
         migrationAlias = es.imagesMigrationAlias(instance),
         migrationIndexCount = migrationIndexCountFormatted,
-        migrationStatus = es.migrationStatus(),
+        migrationStatus = es.migrationStatus,
         hasHistoricalIndex = historicalIndex.isDefined
       ))
     }
@@ -91,7 +91,7 @@ class ThrallController(
 
   def migrationFailuresOverview(): Action[AnyContent] = withLoginRedirectAsync { request =>
     implicit val instance: Instance = instanceOf(request)
-    es.migrationStatus() match {
+    es.migrationStatus(instance) match {
       case running: Running =>
         es.getMigrationFailuresOverview(es.imagesCurrentAlias(instance), running.migrationIndexName).map(failuresOverview =>
           Ok(views.html.migrationFailuresOverview(
@@ -116,7 +116,7 @@ class ThrallController(
   def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync { request =>
     implicit val instance: Instance = instanceOf(request)
     Paging.withPaging(maybePage) { paging =>
-      es.migrationStatus() match {
+      es.migrationStatus match {
         case running: Running =>
           es.getMigrationFailures(es.imagesCurrentAlias(instance), running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
             Ok(views.html.migrationFailures(
@@ -154,12 +154,12 @@ class ThrallController(
       Future.successful(BadRequest("you did not enter 'start' in the text box"))
     } else {
       val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias(instance)}'"
-      es.getIndexForAlias(es.imagesMigrationAlias((instance))) recover { case error: Throwable =>
+      es.getIndexForAlias(es.imagesMigrationAlias(instance)) recover { case error: Throwable =>
         logger.error(msgFailedToFetchIndex, error)
         InternalServerError(msgFailedToFetchIndex)
       } map {
         case Some(index) =>
-          BadRequest(s"There is already an index '${index}' for alias '${es.imagesMigrationAlias(instance)}', and thus a migration underway.")
+          BadRequest(s"There is already an index '$index' for alias '${es.imagesMigrationAlias(instance)}', and thus a migration underway.")
         case None =>
           messageSender.publish(CreateMigrationIndexMessage(
             migrationStart = DateTime.now(DateTimeZone.UTC),
@@ -242,12 +242,12 @@ class ThrallController(
     es.getImageVersion(imageId) flatMap {
 
       case Some(version) =>
-        sendMigrationRequest(MigrationRequest(imageId, version)).map {
-          case true => Ok(s"Image migration queued successfully with id:$imageId")
-          case false => InternalServerError(s"Failed to send migrate image message $imageId")
+        sendMigrationRequest(MigrationRequest(imageId, version, instance)).map {
+          case true => Ok(s"Image migration queued successfully with id:$imageId for instance ${instance.id}")
+          case false => InternalServerError(s"Failed to send migrate image message $imageId for instance ${instance.id}")
         }
       case None =>
-        Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
+        Future.successful(InternalServerError(s"Failed to send migrate image message $imageId for instance ${instance.id}"))
     }
   }
 
@@ -273,10 +273,10 @@ class ThrallController(
   def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     implicit val instance: Instance = instanceOf(request)
     Paging.withPaging(Some(page)) { paging =>
-      es.migrationStatus() match {
+      es.migrationStatus match {
         case running: Running =>
           val migrationRequestsF = es.getMigrationFailures(es.imagesCurrentAlias(instance), running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
-            failures.details.map(detail => MigrationRequest(detail.imageId, detail.version))
+            failures.details.map(detail => MigrationRequest(detail.imageId, detail.version, instance))
           )
           for {
             migrationRequests <- migrationRequestsF

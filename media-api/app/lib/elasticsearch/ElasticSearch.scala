@@ -79,7 +79,7 @@ class ElasticSearch(
         case _ => None
       }
     }
-    migrationStatus() match {
+    migrationStatus match {
       case running: Running => executeAndLog(
         request = requestFromIndexName(running.migrationIndexName),
         message = s"get $logMessagePart by id $id from migration index ${running.migrationIndexName}"
@@ -366,12 +366,12 @@ class ElasticSearch(
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
   private def prepareSearch(query: Query)(implicit instance: Instance): SearchRequest = {
-    val indexes = migrationStatus() match {
+    val indexes = migrationStatus match {
       case completionPreview: CompletionPreview => List(completionPreview.migrationIndexName)
       case running: Running => List(imagesCurrentAlias(instance), running.migrationIndexName)
       case _ => List(imagesCurrentAlias(instance))
     }
-    val migrationAwareQuery = migrationStatus() match {
+    val migrationAwareQuery = migrationStatus match {
       case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
       case _ => query
     }

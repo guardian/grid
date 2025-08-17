@@ -57,7 +57,7 @@ class ElasticSearch(
     val runForCurrentIndex: Future[Option[Response[RESPONSE]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias(instance)), logMessageFromIndexName(imagesCurrentAlias(instance)), notFoundSuccessful).map(Some(_))
     // Update requests to the alias throw if the alias does not exist, but the exception is very generic and not cause is not obvious
     // ("index names must be all upper case")
-    val runForMigrationIndex: Future[Option[Response[RESPONSE]]] = migrationStatus() match {
+    val runForMigrationIndex: Future[Option[Response[RESPONSE]]] = migrationStatus match {
       case _: Running => executeAndLog(requestFromIndexName(imagesMigrationAlias(instance)), logMessageFromIndexName(imagesMigrationAlias(instance)), notFoundSuccessful = true).map(Some(_))
       case _ => Future.successful(None)
     }
@@ -129,7 +129,7 @@ class ElasticSearch(
       executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$indexAlias'")
     }
 
-    def runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex()(implicit instance: Instance): Future[JsObject] = migrationStatus() match {
+    def runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex()(implicit instance: Instance): Future[JsObject] = migrationStatus(instance) match {
       case running: Running =>
         runUpsertIntoIndex(imagesMigrationAlias(instance), maybeEsInfo = None)
           .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
@@ -482,7 +482,7 @@ class ElasticSearch(
       nestedQuery(path = "usages", query = existsQuery("usages"))
     )
 
-    (migrationStatus() match {
+    (migrationStatus match {
       case running: Running => List(imagesCurrentAlias(instance), running.migrationIndexName)
       case _ => List(imagesCurrentAlias(instance))
     }).map { index =>

@@ -7,6 +7,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Instance, MigrateImageMessage, MigrationMessage}
+import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import play.api.libs.ws.WSRequest
 
@@ -14,7 +15,7 @@ import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-case class MigrationRequest(imageId: String, version: Long)
+case class MigrationRequest(imageId: String, version: Long, instance: Instance)
 case class MigrationRecord(payload: MigrationMessage, approximateArrivalTimestamp: Instant)
 
 case class MigrationSourceWithSender(
@@ -29,9 +30,8 @@ object MigrationSourceWithSender extends GridLogging {
     es: ElasticSearch,
     gridClient: GridClient,
     projectionParallelism: Int,
-    instance: Instance
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
-    implicit val i: Instance = instance
+
     // scroll through elasticsearch, finding image ids and versions to migrate
     // emits MigrationRequest
     val scrollingIdsSource =
@@ -51,7 +51,7 @@ object MigrationSourceWithSender extends GridLogging {
           // - Define an Pekko actor to handle the querying and wrap around the state.
           var maybeScrollId: Option[String] = None
 
-          def handleScrollResponse(resp: ScrolledSearchResults) = {
+          def handleScrollResponse(resp: ScrolledSearchResults)(implicit instance: Instance) = {
             maybeScrollId = if (resp.hits.isEmpty) {
               // close scroll with provided ID if it exists
               resp.scrollId.foreach(es.closeScroll)
@@ -59,36 +59,41 @@ object MigrationSourceWithSender extends GridLogging {
             } else {
               resp.scrollId
             }
-            resp.hits
+            resp.hits.map(InstanceSearchHit(_, instance))
           }
 
           _ => {
-            val nextIdsToMigrate = ((es.migrationStatus(), maybeScrollId) match {
-              case (Paused(_), _) => Future.successful(List.empty)
-              case (InProgress(migrationIndexName), None) =>
-                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
-              case (InProgress(_), Some(scrollId)) =>
-                es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
-              case _ => Future.successful(List.empty)
-            }).recover { case _ =>
-              // close existing scroll if it exists
-              maybeScrollId.foreach(es.closeScroll)
-              maybeScrollId = None
-              List.empty
+            val instances: Seq[Instance] = Seq.empty  // TODO iterate instances
+            instances.flatMap { instance =>
+              implicit val i: Instance = instance
+              val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
+                case (Paused(_), _) => Future.successful(List.empty)
+                case (InProgress(migrationIndexName), None) =>
+                  es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
+                case (InProgress(_), Some(scrollId)) =>
+                  es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
+                case _ => Future.successful(List.empty)
+              }).recover { case _ =>
+                // close existing scroll if it exists
+                maybeScrollId.foreach(es.closeScroll)
+                maybeScrollId = None
+                List.empty
+              }
+              List(nextIdsToMigrate)
             }
-            List(nextIdsToMigrate)
           }
         })
+
         // flatten out the future
-        .mapAsync(1)(identity)
+        .mapAsync(1)(a => identity(a))
         // flatten out the list of image ids
         .mapConcat(searchHits => {
           if (searchHits.nonEmpty) {
             logger.info(s"Flattening ${searchHits.size} image ids to migrate")
           }
-          searchHits.map(hit => MigrationRequest(hit.id, hit.version))
+          searchHits.map(instanceSearchHit => MigrationRequest(instanceSearchHit.hit.id, instanceSearchHit.hit.version, instanceSearchHit.instance))
         })
-        .filter(_ => es.migrationIsInProgress())
+        .filter( hit  => es.migrationIsInProgress(hit.instance))
 
     // receive MigrationRequests to migrate from a manual source (failures retry page, single image migration form, etc.)
     val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000)
@@ -111,8 +116,9 @@ object MigrationSourceWithSender extends GridLogging {
     val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, preferred =  true)
 
     // project image from MigrationRequest, produce the MigrateImageMessage
-    def projectedImageSource(instance: Instance): Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
-      case MigrationRequest(imageId, version) =>
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
+      case MigrationRequest(imageId, version, instance) =>
+        implicit val i: Instance = instance
         val migrateImageMessageFuture = (
           for {
             maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
@@ -129,7 +135,10 @@ object MigrationSourceWithSender extends GridLogging {
 
     MigrationSourceWithSender(
       send = submitIdForMigration,
-      source = projectedImageSource(instance).mapMaterializedValue(_ => Future.successful(Done)),
+      source = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done)),
     )
   }
+
+  private case class InstanceSearchHit(hit: SearchHit, instance: Instance)
+
 }

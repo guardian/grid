@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.instances.Instances
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
-import com.gu.mediaservice.model.Instance
 import com.typesafe.scalalogging.StrictLogging
 import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallController}
 import instances.{InstanceMessageSender, InstanceUsageMessage}
@@ -68,7 +67,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, Instance("an-instance"))  // TODO move to a more multi instance aware place
+  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism)
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
