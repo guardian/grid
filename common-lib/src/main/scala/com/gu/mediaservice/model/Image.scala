@@ -59,7 +59,7 @@ case class Image(
 
         (allowSyndicationLease, denySyndicationLease) match {
           case (Some(_), None) => QueuedForSyndication
-          case (None, Some(_)) => BlockedForSyndication
+          case (_, Some(_)) => BlockedForSyndication
           case (_, _) => AwaitingReviewForSyndication
         }
       }
