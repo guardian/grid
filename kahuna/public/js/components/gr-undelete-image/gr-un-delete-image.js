@@ -13,29 +13,37 @@ undeleteImage.controller('grUnDeleteImageCtrl', [
 
       ctrl.$onInit = () => {
 
-        function pollDeleted (image) {
+        function pollUndeleted (image) {
             const findImage = () => mediaApi.find(image.data.id).then(
-                () => $q.reject(),
-                // resolve when image cannot be found, i.e. image has been deleted.
-                () => $q.resolve()
+                (r) => {
+                  if (r.data.softDeletedMetadata) {
+                    // reject until softdeleted metadata has been removed
+                    return $q.reject();
+                  } else {
+                    return $q.resolve();
+                  }
+                },
+                // reject while image cannot be found, i.e. image has been deleted, and not yet recovered.
+                () => $q.reject()
             );
 
             apiPoll(findImage);
         }
 
-        ctrl.unDeleteImage = function (image) {
+        ctrl.undeleteImage = function (image) {
             return mediaApi.undelete(image.data.id)
-                .then(() => pollDeleted(image))
+                .then(() => pollUndeleted(image))
                 .catch((err) => {
                     $rootScope.$emit('image-delete-failure', err, image);
                 });
         };
 
-        ctrl.unDeleteSelected = function () {
+        ctrl.undeleteSelected = function () {
             // HACK to wait for thrall to process the message so that when we
             // poll the api, it will be up to date.
-            return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.unDeleteImage(image)))
-                .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+            return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.undeleteImage(image)))
+              // Event name is "deleted", but we wait for undeletion too.
+              .then(() => $rootScope.$emit('images-deleted', ctrl.images));
         };
       };
     }
@@ -46,7 +54,7 @@ undeleteImage.directive('grUnDeleteImage', [function () {
         restrict: 'E',
         template: `
             <gr-confirm-delete class="gr-delete-image"
-                               gr-on-confirm="ctrl.unDeleteSelected()" gr-label="Undelete" gr-confirm="Confirm Undelete" gr-tooltip="Undelete image" >
+                               gr-on-confirm="ctrl.undeleteSelected()" gr-label="Undelete" gr-confirm="Confirm Undelete" gr-tooltip="Undelete image" >
             </gr-confirm-delete>`,
         controller: 'grUnDeleteImageCtrl',
         controllerAs: 'ctrl',
