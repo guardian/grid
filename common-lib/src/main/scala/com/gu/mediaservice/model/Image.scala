@@ -28,7 +28,7 @@ case class Image(
   leases:              LeasesByMedia    = LeasesByMedia.empty,
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
-  imageEmbedding:      List[Double],
+  imageEmbedding:      Option[ImageEmbedding],
   userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
 
   def hasExports = exports.nonEmpty
@@ -105,7 +105,7 @@ object Image {
       collections <- (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil).reads(value)
       syndicationRights <- (__ \ "syndicationRights").readNullable[SyndicationRights].reads(value)
       userMetadataLastModified <- (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime).reads(value)
-      imageEmbedding <- (__ \ "imageEmbedding").readNullable[List[Double]].map(_ getOrElse Nil).reads(value)
+      imageEmbedding <- (__ \ "imageEmbedding").readNullable[ImageEmbedding].reads(value)
     } yield Image(id = id,
       uploadTime = uploadTime,
       uploadedBy = uploadedBy,

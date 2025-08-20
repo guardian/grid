@@ -75,10 +75,14 @@ object Mappings {
         leasesMapping("leases"),
         collectionMapping("collections"),
         esInfoMapping("esInfo"),
-        DenseVectorField("imageEmbedding", 1024)
+        imageEmbeddingMapping("imageEmbedding")
       )
     )
   }
+
+  def imageEmbeddingMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
+    DenseVectorField("cohereEmbedEnglishV3", 1024),
+  ))
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),
