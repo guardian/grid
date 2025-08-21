@@ -30,7 +30,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
-
+import { HAS_DATE_TAKEN, HASNT_DATE_TAKEN, COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
@@ -332,24 +332,18 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
             const checkForCollection = (query) => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
             if (toParams.query && checkForCollection(toParams.query)) {
-                const toQuery = toParams.query ? toParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
-                const toHasTaken = toParams.query ? toParams.query.includes('has:dateTaken') : false;
-                const fromQuery = fromParams.query ? fromParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
-                const fromHasTaken = fromParams.query ? fromParams.query.includes('has:dateTaken') : false;
+                const toQuery = toParams.query ? toParams.query.replace(HASNT_DATE_TAKEN, '').replace(HAS_DATE_TAKEN, '').trim() : "";
+                const toHasTaken = toParams.query ? toParams.query.includes(HAS_DATE_TAKEN) : false;
+                const fromQuery = fromParams.query ? fromParams.query.replace(HASNT_DATE_TAKEN, '').replace(HAS_DATE_TAKEN, '').trim() : "";
+                const fromHasTaken = fromParams.query ? fromParams.query.includes(HAS_DATE_TAKEN) : false;
                 if (fromHasTaken || toHasTaken) {
-                  toParams.orderBy = (toQuery === fromQuery) ? toParams.orderBy : 'dateAddedToCollection';
+                  toParams.orderBy = (toQuery === fromQuery) ? toParams.orderBy : COLLECTION_SORT_VALUE;
                 }
             }
             //If moving from a collection to a non-collection, reset order to default.
-            else if (toParams.orderBy === 'dateAddedToCollection') {
+            else if (toParams.orderBy === COLLECTION_SORT_VALUE) {
                 delete toParams.orderBy;
             }
-
-            // handle clear hasTaken chip from search
-            //if ( (toParams.orderBy && toParams.orderBy.includes('taken')) &&
-            //     (!toParams.query || !toParams.query.includes('has:dateTaken')) ) {
-            //    delete toParams.orderBy;
-            //}
         }
     });
 }]);

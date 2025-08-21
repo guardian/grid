@@ -54,6 +54,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       const handleQueryChange = (e: any) => {
         const newQuery = e.detail.query ? (" " + e.detail.query) : "";
         const curHasCollec = e.detail.hasCollection ? e.detail.hasCollection : false;
+        const orderBy = e.detail.orderBy ? e.detail.orderBy : DefaultSortOption.value;
         const newHasCollec = checkForCollection(newQuery);
         setHasCollection(newHasCollec);
         if (!curHasCollec && newHasCollec) {
@@ -63,7 +64,8 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
           }
           setSortOption(collecSortOption);
         }
-        if(!newHasCollec && curHasCollec && selSortOption.isCollection) {
+        const eventOrderOpt = (sortOptions.filter(o => o.value == orderBy))[0];
+        if (!newHasCollec && curHasCollec && eventOrderOpt.isCollection) {
           setSortOption(DefaultSortOption);
         }
       };
