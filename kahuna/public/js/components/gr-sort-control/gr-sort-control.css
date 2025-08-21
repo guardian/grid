@@ -16,6 +16,10 @@
   padding-bottom: 10px;
 }
 
+.sort-panel-margin {
+  margin-right: 285px;
+}
+
 .sort-dropdown-toggle-advanced {
   display: block;
   padding-top: 7px;
@@ -87,15 +91,15 @@
 .sort-dropdown-menu {
   position: absolute;
   width: 250px;
-  right: 0px;
+  right: 10px;
   border: 1px solid #ccc;
   border-collapse: collapse;
   background-color: #333;
-  margin-right: 8px;
 }
 
 .sort-dropdown-item {
   border: 1px solid #ccc;
+  font-size: 1.4rem;
 }
 
 .sort-dropdown-item:hover {
@@ -124,6 +128,19 @@
 
 .sort-dropdown-cell-tick:hover {
   stroke: #fff;
+}
+
+.extended-sort-control {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:45px 1rem 0 1rem;
+  position:fixed;
+  left:0;
+  z-index:2;
+  background-color:#333;
+  width:100%;
+  box-sizing: border-box;
 }
 
 @media screen and (max-width: 880px) {

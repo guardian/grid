@@ -12,6 +12,7 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-sort-control/gr-extended-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import { sendTelemetryForQuery } from '../services/telemetry';
@@ -33,6 +34,7 @@ export var query = angular.module('kahuna.search.query', [
     grStructuredQuery.name,
     'util.storage',
     'gr.sortControl',
+    'gr.extendedSortControl',
     'gr.permissionsFilter',
     'gr.myUploads'
 ]);
@@ -85,9 +87,9 @@ query.controller('SearchQueryCtrl', [
       window.dispatchEvent(customEvent);
     }
 
-    function raiseQueryChangeEvent(query) {
+    function raiseQueryChangeEvent(query, prevHasCollec) {
       const customEvent = new CustomEvent('queryChangeEvent', {
-        detail: {query: query},
+        detail: {query: query, hasCollection: prevHasCollec},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -184,14 +186,28 @@ query.controller('SearchQueryCtrl', [
         ctrl.filter.orgOwned = false;
     }
 
+    function checkForCollection(query) {
+      return /~"[a-zA-Z0-9 #-_.://]+"/.test(query)
+    };
+
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      const showPaid = newFilter.nonFree ? newFilter.nonFree : false;
+      let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
+      if (sender && sender == "filterChange" && !newFilter.nonFree) {
+        showPaid = ctrl.user.permissions.showPaid;
+      }
       storage.setJs("isNonFree", showPaid, true);
+
+      // check for taken date sort contradiction
+      const oldOrderBy = storage.getJs("orderBy");
+      if (ctrl.usePermissionsFilter && $stateParams.orderBy && $stateParams.orderBy.includes("taken") && (!newFilter.query || !newFilter.query.includes("has:dateTaken"))) {
+        ctrl.ordering["orderBy"] = "newest";
+      }
       let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : "newest";
       storage.setJs("orderBy", sortBy);
 
-      ctrl.collectionSearch = newFilter.query ? newFilter.query.indexOf('~') === 0 : false;
+      const curCollectionSearch = ctrl.collectionSearch;
+      ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
@@ -207,10 +223,18 @@ query.controller('SearchQueryCtrl', [
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
-      raiseQueryChangeEvent(ctrl.filter.query);
+      raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch);
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
-      $state.go('search.results', ctrl.filter);
+      console.log(" ==> Old OrderBy=" + oldOrderBy + ", Current OrderBy=" + ctrl.ordering["orderBy"] + ", State OrderBy=" + $stateParams.orderBy);
+      console.log(" ==> curCollectionSearch=" + curCollectionSearch + ", Control Collection Search=" + ctrl.collectionSearch);
+      if (ctrl.collectionSearch && !curCollectionSearch) {
+        storage.setJs("orderBy", 'dateAddedToCollection');
+        ctrl.ordering["orderBy"] = 'dateAddedToCollection';
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: 'dateAddedToCollection'}});
+      } else {
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
+      }
     }
 
     //-my uploads-
@@ -227,15 +251,13 @@ query.controller('SearchQueryCtrl', [
 
     //-sort control-
     function updateSortChips (sortSel) {
-      ctrl.sortProps.selectedOption = sortSel;
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
-      watchSearchChange(ctrl.filter, "sorting");
+      storage.setJs("orderBy", ctrl.ordering["orderBy"]);
+      $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering['orderBy']}});
     }
 
     ctrl.sortProps = {
-      options: SortOptions,
-      selectedOption: DefaultSortOption,
-      onSelect: updateSortChips,
+      onSortSelect: updateSortChips,
       query: ctrl.filter.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
@@ -318,14 +340,15 @@ query.controller('SearchQueryCtrl', [
             ctrl.filter[key] = valOrUndefined($stateParams[key]);
         }
 
-        ctrl.collectionSearch = ctrl.filter.query ?  ctrl.filter.query.indexOf('~') === 0 : false;
+        ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            if (key === 'orderBy') {
-                ctrl.ordering[key] = valOrUndefined(newVal);
-            } else {
+            //if (key === 'orderBy') {
+            //    ctrl.ordering[key] = valOrUndefined(newVal);
+            //} else {
+            if (key !== 'orderBy') {
                 ctrl.filter[key] = valOrUndefined(newVal);
             }
 
