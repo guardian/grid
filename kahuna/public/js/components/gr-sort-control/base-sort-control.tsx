@@ -47,6 +47,7 @@ export interface SortDropdownProps {
   onSelect: (option: SortDropdownOption) => void;
   startHasCollection?: boolean | false;
   panelVisible?: boolean | false;
+  isSimple?: boolean | false;
 }
 
 const hasClassInSelfOrParent = (node: Element | null, className: string): boolean => {
@@ -69,7 +70,8 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
     startSelectedOption,
     onSelect,
     startHasCollection,
-    panelVisible
+    panelVisible,
+    isSimple
   }) => {
 
   const hasCollection = startHasCollection;
@@ -79,6 +81,10 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   const [previousOption, setPrevious] = useState(startSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPanelVisible, setPanelVisible] = useState(panelVisible);
+
+  if (startSort.value !== selectedOption.value) {
+    setSelection(startSort);
+  }
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowDown' ||
@@ -162,7 +168,7 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   };
 
   return (
-    <div className={`outer-sort-container ${isPanelVisible ? 'sort-panel-margin' : ''}`}>
+    <div className={`outer-sort-container ${isPanelVisible && !isSimple ? 'sort-panel-margin' : ''}`}>
       <div className="sort-selection-title no-select">{CONTROL_TITLE}</div>
       <div className="sort-dropdown" tabIndex={0} aria-label={CONTROL_TITLE} onKeyDown={handleArrowKeys}>
         <div className="sort-dropdown-toggle-advanced" onClick={() => setIsOpen(!isOpen)}>
@@ -178,7 +184,7 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
           </div>
         </div>
         {isOpen && (
-          <table className={`sort-dropdown-menu ${panelVisible ? 'sort-panel-margin' : ''}`}>
+          <table className={`sort-dropdown-menu ${isPanelVisible && !isSimple ? 'sort-panel-margin' : ''}`}>
             <tbody>
             {options.map((option) => (hasCollection || option.value != COLLECTION_OPTION) && (
               <tr className={(currentIndex > -1 && options[currentIndex].value) === option.value ? "sort-dropdown-item sort-dropdown-highlight" : "sort-dropdown-item"}

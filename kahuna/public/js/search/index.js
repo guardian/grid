@@ -330,10 +330,15 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
         if (toState.name === 'search.results') {
             //If moving to a collection, sorts images by time added to a collection by default
             //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
-            if (toParams.query && toParams.query.indexOf('~') === 0) {
+            const checkForCollection = (query) => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+            if (toParams.query && checkForCollection(toParams.query)) {
                 const toQuery = toParams.query ? toParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
+                const toHasTaken = toParams.query ? toParams.query.includes('has:dateTaken') : false;
                 const fromQuery = fromParams.query ? fromParams.query.replace('-has:dateTaken', '').replace('has:dateTaken', '').trim() : "";
-                toParams.orderBy = (toQuery === fromQuery) ? toParams.orderBy : 'dateAddedToCollection';
+                const fromHasTaken = fromParams.query ? fromParams.query.includes('has:dateTaken') : false;
+                if (fromHasTaken || toHasTaken) {
+                  toParams.orderBy = (toQuery === fromQuery) ? toParams.orderBy : 'dateAddedToCollection';
+                }
             }
             //If moving from a collection to a non-collection, reset order to default.
             else if (toParams.orderBy === 'dateAddedToCollection') {
