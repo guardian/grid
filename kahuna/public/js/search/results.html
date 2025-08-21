@@ -135,7 +135,8 @@
             <extended-sort-control class="sort-control" props="ctrl.extendedSortProps"></extended-sort-control>
         </div>
 
-        <ul class="results"
+        <ul ng-class="{'results': !ctrl.usePermissionsFilter(),
+                       'result--alternate': ctrl.usePermissionsFilter()}"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="303"
@@ -195,7 +196,7 @@
             </li>
         </ul>
 
-        <div ng-if="ctrl.totalResults > ctrl.maxResults"
+        <div ng-if="ctrl.totalResults > ctrl.maxResults && !ctrl.previewView"
              class="image-results-more">
             <div class="image-results-more__heading">Too many results to display</div>
             <div class="image-results-more__instructions">Please refine your search to limit the number of results</div>

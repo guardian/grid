@@ -87,9 +87,9 @@ query.controller('SearchQueryCtrl', [
       window.dispatchEvent(customEvent);
     }
 
-    function raiseQueryChangeEvent(query, prevHasCollec) {
+    function raiseQueryChangeEvent(query, prevHasCollec, orderBy) {
       const customEvent = new CustomEvent('queryChangeEvent', {
-        detail: {query: query, hasCollection: prevHasCollec},
+        detail: {query: query, hasCollection: prevHasCollec, orderBy: orderBy},
         bubbles: true
       });
       window.dispatchEvent(customEvent);
@@ -223,16 +223,15 @@ query.controller('SearchQueryCtrl', [
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
-      raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch);
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
-      console.log(" ==> Old OrderBy=" + oldOrderBy + ", Current OrderBy=" + ctrl.ordering["orderBy"] + ", State OrderBy=" + $stateParams.orderBy);
-      console.log(" ==> curCollectionSearch=" + curCollectionSearch + ", Control Collection Search=" + ctrl.collectionSearch);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", 'dateAddedToCollection');
         ctrl.ordering["orderBy"] = 'dateAddedToCollection';
+        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, 'dateAddedToCollection');
         $state.go('search.results', {...ctrl.filter, ...{orderBy: 'dateAddedToCollection'}});
       } else {
+        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
         $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
       }
     }

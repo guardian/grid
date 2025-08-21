@@ -60,3 +60,6 @@ export const SortOptions: SortDropdownOption[] = [
 
 export const DefaultSortOption: SortDropdownOption = SortOptions[0];
 export const CollectionSortOption: SortDropdownOption = SortOptions[4];
+export const HAS_DATE_TAKEN = "has:dateTaken";
+export const HASNT_DATE_TAKEN = "-has:dateTaken";
+export const COLLECTION_SORT_VALUE = SortOptions[4].value;
