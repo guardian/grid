@@ -3,7 +3,7 @@ import {SortDropdownOption} from "./gr-sort-control";
 export function manageSortSelection(newSelection:string): string {
   let newVal;
   switch (newSelection) {
-    case "uploadNewOld":
+    case "newest":
       newVal = "newest";
       break;
     case "oldest":
@@ -27,7 +27,7 @@ export function manageSortSelection(newSelection:string): string {
 
 export const SortOptions: SortDropdownOption[] = [
   {
-    value: "uploadNewOld",
+    value: "newest",
     label: "Upload date (new to old)",
     isCollection: false,
     isTaken: false

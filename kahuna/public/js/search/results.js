@@ -322,6 +322,9 @@ results.controller('SearchResultsCtrl', [
         const pollingPeriod = 15 * 1000; // ms
 
         function notificationMessages(extendedProps, imagesTotal) {
+          if (!ctrl.usePermissionsFilter()) {
+            return;
+          }
           if (extendedProps.orderBy.includes('taken')) {
             if (imagesTotal === 0) { // no images with taken date
               updateSortChange(DefaultSortOption, 'with', false, extendedProps.noTakenDateCount);
