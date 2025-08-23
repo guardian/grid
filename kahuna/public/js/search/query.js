@@ -200,8 +200,13 @@ query.controller('SearchQueryCtrl', [
 
       // check for taken date sort contradiction
       const oldOrderBy = storage.getJs("orderBy");
-      if (ctrl.usePermissionsFilter && $stateParams.orderBy && $stateParams.orderBy.includes("taken") && (!newFilter.query || !newFilter.query.includes("has:dateTaken"))) {
-        ctrl.ordering["orderBy"] = "newest";
+      if (ctrl.usePermissionsFilter) {
+        if (sender && sender == "filterChange" && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
+          ctrl.ordering["orderBy"] = $stateParams.orderBy;
+        }
+        if ($stateParams.orderBy && $stateParams.orderBy.includes("taken") && (!newFilter.query || !newFilter.query.includes("has:dateTaken"))) {
+          ctrl.ordering["orderBy"] = "newest";
+        }
       }
       let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : "newest";
       storage.setJs("orderBy", sortBy);
