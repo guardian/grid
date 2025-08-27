@@ -22,6 +22,9 @@ import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissi
 import {
   manageSortSelection,
   DefaultSortOption,
+  CollectionSortOption,
+  HAS_DATE_TAKEN,
+  TAKEN_SORT,
   SortOptions
 } from "../components/gr-sort-control/gr-sort-control-config";
 
@@ -200,19 +203,22 @@ query.controller('SearchQueryCtrl', [
 
       // check for taken date sort contradiction
       const oldOrderBy = storage.getJs("orderBy");
+      const curCollectionSearch = ctrl.collectionSearch;
+      ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
       if (ctrl.usePermissionsFilter) {
         if (sender && sender == "filterChange" && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
         }
-        if ($stateParams.orderBy && $stateParams.orderBy.includes("taken") && (!newFilter.query || !newFilter.query.includes("has:dateTaken"))) {
-          ctrl.ordering["orderBy"] = "newest";
+        if ($stateParams.orderBy && $stateParams.orderBy.includes(TAKEN_SORT) && (!newFilter.query || !newFilter.query.includes(HAS_DATE_TAKEN))) {
+          if (ctrl.collectionSearch) {
+            ctrl.ordering["orderBy"] = CollectionSortOption.value;
+          } else {
+            ctrl.ordering["orderBy"] = DefaultSortOption.value;
+          }
         }
       }
-      let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : "newest";
+      let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : DefaultSortOption.value;
       storage.setJs("orderBy", sortBy);
-
-      const curCollectionSearch = ctrl.collectionSearch;
-      ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
@@ -231,10 +237,10 @@ query.controller('SearchQueryCtrl', [
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       if (ctrl.collectionSearch && !curCollectionSearch) {
-        storage.setJs("orderBy", 'dateAddedToCollection');
-        ctrl.ordering["orderBy"] = 'dateAddedToCollection';
-        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, 'dateAddedToCollection');
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: 'dateAddedToCollection'}});
+        storage.setJs("orderBy", CollectionSortOption.value);
+        ctrl.ordering["orderBy"] = CollectionSortOption.value;
+        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value}});
       } else {
         raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
         $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
