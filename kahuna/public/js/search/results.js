@@ -23,8 +23,14 @@ import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-sort-control/gr-extended-sort-control';
 import {
   manageSortSelection,
-  DefaultSortOption
+  DefaultSortOption,
+  TAKEN_SORT,
+  HAS_DATE_TAKEN,
+  HASNT_DATE_TAKEN
 } from "../components/gr-sort-control/gr-sort-control-config";
+import {
+  TAB_WITH
+} from "../components/gr-tab-swap/gr-tab-swap";
 import {
   INVALIDIMAGES,
   sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
@@ -123,9 +129,9 @@ results.controller('SearchResultsCtrl', [
         ctrl.collectionsPanel = panels.collectionsPanel;
 
         //-taken and sort controls-
-        const hasTakenDateClause = "has:dateTaken";
-        const noTakenDateClause = "-has:dateTaken";
-        const takenSort = "taken";
+        const hasTakenDateClause = HAS_DATE_TAKEN;
+        const noTakenDateClause = HASNT_DATE_TAKEN;
+        const takenSort = TAKEN_SORT;
         ctrl.setTakenVisible = (isVisible) => storage.setJs("takenTabVisible", isVisible ? "visible" : "hidden", true);
         ctrl.getTakenVisible = () => {
           const vis = storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
@@ -146,7 +152,7 @@ results.controller('SearchResultsCtrl', [
             ctrl.setLastTakenSort(orderBy);
           }
           if (userSelectedTaken) {
-            if (tabSelected === 'with') {
+            if (tabSelected === TAB_WITH) {
               curQuery = `${curQuery} ${hasTakenDateClause}`.trim();
               orderBy = ctrl.getLastTakenSort();
             } else { // without
@@ -325,8 +331,8 @@ results.controller('SearchResultsCtrl', [
           if (!ctrl.usePermissionsFilter()) {
             return;
           }
-          if (extendedProps.orderBy.includes('taken')) {
-            if (imagesTotal === 0) { // no images with taken date
+          if (extendedProps.orderBy.includes(takenSort) && extendedProps.query.includes(hasTakenDateClause)) {
+            if (imagesTotal === 0 && extendedProps.noTakenDateCount > 0) { // no images with taken date
               updateSortChange(DefaultSortOption, 'with', false, extendedProps.noTakenDateCount);
               const noMatchesStr = "There are no matching images with a taken date";
               const notificationEvent = new CustomEvent("newNotification", {
