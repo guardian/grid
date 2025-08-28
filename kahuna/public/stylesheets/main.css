@@ -1232,7 +1232,7 @@ textarea.ng-invalid {
 .results {
     display: flex;
     flex-wrap: wrap;
-    top: 96px;
+    top: 35px;
     position: relative;
 }
 
