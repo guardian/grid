@@ -141,9 +141,8 @@
     </li>
     <li ng-switch-default
         ng-repeat="lease in ctrl.leases.leases"
-        gr-tooltip="{{ctrl.toolTip(lease)}}"
-        class="lease__item"
-        gr-tooltip-position="bottom">
+        title="{{ctrl.toolTip(lease)}}"
+        class="lease__item">
 
         <div class="lease__wrapper" ng-class="ctrl.leaseClass(lease)">
           <div class="lease">
