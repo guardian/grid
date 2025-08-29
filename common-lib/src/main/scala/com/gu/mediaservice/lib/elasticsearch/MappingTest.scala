@@ -197,6 +197,10 @@ object MappingTest {
       )),
       downloadUsageMetadata = Some(DownloadUsageMetadata(
         downloadedBy = "me"
+      )),
+      childUsageMetadata = Some(ChildUsageMetadata(
+        addedBy = "me",
+        childMediaId = "child-id"
       ))
     )),
     leases = LeasesByMedia.build(List(

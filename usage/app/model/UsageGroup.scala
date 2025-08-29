@@ -51,6 +51,16 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     ).mkString("_"))
   }"
 
+  def buildId(childUsageRequest: ChildUsageRequest): String = s"child/${
+    MD5.hash(List(
+      childUsageRequest.mediaId,
+      childUsageRequest.childMediaId,
+      childUsageRequest.metadata.addedBy,
+      childUsageRequest.dateAdded.getMillis.toString,
+      childUsageRequest.status
+    ).mkString("_"))
+  }"
+
   def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean)(implicit logMarker: LogMarker) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
@@ -93,6 +103,15 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
       Set(MediaUsageBuilder.build(downloadUsageRequest, usageGroupId)),
       usageGroupId,
       downloadUsageRequest.dateAdded
+    )
+  }
+
+  def build(childUsageRequest: ChildUsageRequest): UsageGroup = {
+    val usageGroupId = buildId(childUsageRequest)
+    UsageGroup(
+      Set(MediaUsageBuilder.build(childUsageRequest, usageGroupId)),
+      usageGroupId,
+      childUsageRequest.dateAdded
     )
   }
 
@@ -207,7 +226,7 @@ class UsageGroupOps(config: UsageConfig, mediaWrapperOps: MediaWrapperOps)
     }
   }
 
-  private def extractCartoonUniqueMediaIds(content: Content): Set[String] = 
+  private def extractCartoonUniqueMediaIds(content: Content): Set[String] =
     (for {
       elements <- content.elements.toSeq
       cartoonElement <- elements.filter(_.`type` == ElementType.Cartoon)
