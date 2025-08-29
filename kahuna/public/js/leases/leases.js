@@ -209,7 +209,7 @@ leases.controller('LeasesCtrl', [
           };
 
           ctrl.toolTip = (lease) => {
-            return Boolean(lease.leasedBy) ? `leased by: ${lease.leasedBy}` : ``;
+            return Boolean(lease.leasedBy) ? ` leased by: ${lease.leasedBy}\ncreated at: ${moment(lease.createdAt).format('D MMM YYYY, HH:mm')}` : ``;
           };
 
           ctrl.inactiveLeases = (leases) => {
