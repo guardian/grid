@@ -323,19 +323,49 @@ object Uploader extends GridLogging {
   }
 }
 
-class Uploader(val store: ImageLoaderStore,
-               val config: ImageLoaderConfig,
-               val imageOps: ImageOperations,
-               val notifications: Notifications,
-               imageProcessor: ImageProcessor)
-              (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
+class Uploader(
+  val store: ImageLoaderStore,
+  val config: ImageLoaderConfig,
+  val imageOps: ImageOperations,
+  val notifications: Notifications,
+  imageProcessor: ImageProcessor,
+  gridClient: GridClient,
+  auth: Authentication
+)(
+  implicit val ec: ExecutionContext
+) extends MessageSubjects with ArgoHelpers {
 
-  def fromUploadRequest(uploadRequest: UploadRequest)
-                       (implicit logMarker: LogMarker): Future[ImageUpload] = {
+  private def addChildUsageToParentImage(uploadRequest: UploadRequest, isReplacement: Boolean)(mediaIdToAddUsageTo: String)
+                                        (implicit logMarker: LogMarker) = {
+    gridClient.postUsage(
+      usageType = "child",
+      data = Json.obj(
+        "dateAdded" -> uploadRequest.uploadTime.toString,
+        "addedBy" -> uploadRequest.uploadedBy,
+        "mediaId" -> mediaIdToAddUsageTo,
+        "childMediaId" -> uploadRequest.imageId,
+        "isReplacement" -> isReplacement,
+      ),
+      // we're using the innerServiceCall here rather than 'on behalf of' since this code is typically run when the
+      // queue is processed, so we don't have reference to the original requester's auth
+      authFn = auth.innerServiceCall
+    )
+  }
+
+  private def fromUploadRequest(uploadRequest: UploadRequest)
+                               (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
+      uploadRequest.identifiers.foreach{
+        case (ImageStorageProps.derivativeOfMediaIdsIdentifierKey, commaSeparatedMediaIdsToAddUsagesTo) =>
+          commaSeparatedMediaIdsToAddUsagesTo.split(",").map(_.trim).foreach(
+            addChildUsageToParentImage(uploadRequest, isReplacement = false)
+          )
+        case (ImageStorageProps.replacesMediaIdIdentifierKey, mediaIdToAddUsageTo) =>
+          addChildUsageToParentImage(uploadRequest, isReplacement = true)(mediaIdToAddUsageTo)
+      }
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
   }
