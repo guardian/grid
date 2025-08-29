@@ -308,7 +308,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def enqueueDerivativeImage(originalMediaId: String, filename: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]): Action[DigestedFile] = {
+  def enqueueDerivativeImage(derivativeOfMediaIds: String, filename: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]): Action[DigestedFile] = {
     val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
 
     implicit val initialContext = MarkerMap(
@@ -326,7 +326,7 @@ class ImageLoaderController(auth: Authentication,
     AuthenticatedAndAuthorised(bodyParser) { req =>
 
       val s3UserMetaMap = identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty) ++ Map(
-        "original-media-id" -> originalMediaId
+        ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> derivativeOfMediaIds
       ).map { case (k, v) =>
         (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
       }

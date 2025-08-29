@@ -3,6 +3,8 @@ package com.gu.mediaservice.lib.usage
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 
+import java.net.URI
+
 object UsageBuilder {
 
   def build(usage: MediaUsage) = Usage(
@@ -33,6 +35,8 @@ object UsageBuilder {
       case PrintUsage => buildPrintUsageReference(usage)
       case SyndicationUsage => buildSyndicationUsageReference(usage)
       case DownloadUsage => buildDownloadUsageReference(usage)
+      case DerivativeUsage => buildChildUsageReference(usage, DerivativeUsageReference)
+      case ReplacedUsage => buildChildUsageReference(usage, ReplacedUsageReference)
     }
   }
 
@@ -75,6 +79,18 @@ object UsageBuilder {
     List(
       UsageReference(
         DownloadUsageReference, None, Some(metadata.downloadedBy)
+      )
+    )
+  }).getOrElse(
+    List[UsageReference]()
+  )
+
+  private def buildChildUsageReference(usage: MediaUsage, usageReferenceType: UsageReferenceType): List[UsageReference] = usage.childUsageMetadata.map (metadata => {
+    List(
+      UsageReference(
+        `type` = usageReferenceType,
+        uri = Some(new URI(metadata.childMediaId)), // should manifest as a relative link
+        name = Some(metadata.childMediaId)
       )
     )
   }).getOrElse(

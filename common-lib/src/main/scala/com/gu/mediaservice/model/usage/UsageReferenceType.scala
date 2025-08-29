@@ -10,6 +10,8 @@ trait UsageReferenceType {
     case SyndicationUsageReference => "syndication"
     case FrontUsageReference => "front"
     case DownloadUsageReference => "download"
+    case DerivativeUsageReference => "derivative"
+    case ReplacedUsageReference => "replaced"
   }
 }
 
@@ -24,6 +26,8 @@ object UsageReferenceType {
     case "syndication" => SyndicationUsageReference
     case "front" => FrontUsageReference
     case "download" => DownloadUsageReference
+    case "derivative" => DerivativeUsageReference
+    case "replaced" => ReplacedUsageReference
   }
 }
 
@@ -33,3 +37,5 @@ object ComposerUsageReference extends UsageReferenceType
 object SyndicationUsageReference extends UsageReferenceType
 object FrontUsageReference extends UsageReferenceType
 object DownloadUsageReference extends UsageReferenceType
+object DerivativeUsageReference extends UsageReferenceType
+object ReplacedUsageReference extends UsageReferenceType

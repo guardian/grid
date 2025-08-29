@@ -9,6 +9,8 @@ sealed trait UsageStatus {
     case RemovedUsageStatus => "removed"
     case SyndicatedUsageStatus => "syndicated"
     case DownloadedUsageStatus => "downloaded"
+    case DerivativeUsageStatus => "derivative"
+    case ReplacedUsageStatus => "replaced"
     case FailedUsageStatus => "failed"
     case UnknownUsageStatus => "unknown"
   }
@@ -21,6 +23,8 @@ object UsageStatus {
     case "removed" => RemovedUsageStatus
     case "syndicated" => SyndicatedUsageStatus
     case "downloaded" => DownloadedUsageStatus
+    case "derivative" => DerivativeUsageStatus
+    case "replaced" => ReplacedUsageStatus
     case "failed" => FailedUsageStatus
     case "unknown" => UnknownUsageStatus
     case _ => throw new IllegalArgumentException("Invalid usage status")
@@ -38,6 +42,8 @@ object PublishedUsageStatus extends UsageStatus
 object RemovedUsageStatus extends UsageStatus
 object SyndicatedUsageStatus extends UsageStatus
 object DownloadedUsageStatus extends UsageStatus
+object DerivativeUsageStatus extends UsageStatus
+object ReplacedUsageStatus extends UsageStatus
 object FailedUsageStatus extends UsageStatus
 
 // For Fronts usages as we don't know if a front is in draft or is live
