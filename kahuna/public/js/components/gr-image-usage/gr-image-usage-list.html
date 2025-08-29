@@ -11,7 +11,8 @@
             {{usage.title}}
 
             <div class="more-info">
-                <span class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
+                <span title="{{usage.dateAdded | date:'d MMM yyyy, HH:mm'}}" class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
+
                 <ul class="reference-list">
                     <li ng-repeat="reference in usage.references">
                         <a ng-if="reference.uri" href="{{reference.uri}}" title="Open in {{reference.type}}" rel="noopener" target="_blank">

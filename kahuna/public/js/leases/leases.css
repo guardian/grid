@@ -169,3 +169,8 @@ gr-leases.leases-flex gr-confirm-delete {
 .lease__item-preview {
   border: 1px solid #ffbc01;
 }
+
+.titip-default .titip-content {
+  line-height: 1.4;
+  white-space: preserve nowrap;
+}
