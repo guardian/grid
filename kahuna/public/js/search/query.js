@@ -206,7 +206,7 @@ query.controller('SearchQueryCtrl', [
       const curCollectionSearch = ctrl.collectionSearch;
       ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
       if (ctrl.usePermissionsFilter) {
-        if (sender && sender == "filterChange" && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
+        if (sender && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
         }
         if ($stateParams.orderBy && $stateParams.orderBy.includes(TAKEN_SORT) && (!newFilter.query || !newFilter.query.includes(HAS_DATE_TAKEN))) {
