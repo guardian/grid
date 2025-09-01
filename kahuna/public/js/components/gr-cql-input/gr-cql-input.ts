@@ -27,7 +27,7 @@ grCqlInput.directive<
   function (querySuggestions: QuerySuggestionsService) {
     const fields: TypeaheadField[] = querySuggestions.typeaheadFields.map(
       ({ fieldName, resolver, type = "TEXT" }) => {
-        const mappedResolver = resolver
+        const cqlResolver = resolver
           ? async (fieldName: string) => {
               const suggestions = await (Array.isArray(resolver)
                 ? resolver
@@ -46,7 +46,7 @@ grCqlInput.directive<
           fieldName,
           fieldName,
           undefined,
-          mappedResolver,
+          cqlResolver,
           type,
         );
       },
