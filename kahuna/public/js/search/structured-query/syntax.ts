@@ -3,8 +3,7 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for eslint, but can't break it down..
 /*eslint-disable max-len */
-const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9:]+)|"([^"]*)"|'([^']*)')/gu;
-
+const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
 /*eslint-enable max-len */
 const falsyValuesToEmptyString = (value: string | null | undefined) => {
     if (!value){
@@ -98,18 +97,6 @@ function renderFilter(field: string, value: string) {
     default:           return fieldFilter(field, value);
     }
 }
-
-/**
- * Structured queries must contain filters with both a key and a value.
- */
-export const structuredQueryIsValid = (
-  structuredQuery: StructuredQuery,
-): boolean =>
-  structuredQuery.every(
-    (queryPart) =>
-      (queryPart.type !== "filter" && queryPart.type !== "static-filter") ||
-      !!queryPart.value,
-  );
 
 // Serialise a structured query into a plain string query
 export function renderQuery(structuredQuery: StructuredQuery) {
