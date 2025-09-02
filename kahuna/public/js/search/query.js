@@ -193,6 +193,27 @@ query.controller('SearchQueryCtrl', [
       return /~"[a-zA-Z0-9 #-_.://]+"/.test(query)
     };
 
+    function storeCollection(query) {
+      const match = query ? query.match(/~"[a-zA-Z0-9 #-_.://]+"/) : undefined;
+      const collection = match ? match[0] : "";
+      storage.setJs("currentCollection", collection);
+      return collection;
+    }
+
+    function getCollection() {
+      const collection = storage.getJs("currentCollection") ? storage.getJs("currentCollection") : "";
+      return collection;
+    }
+
+    function getPiorOrderBy() {
+      const prior = storage.getJs("priorOrderBy") ? storage.getJs("priorOrderBy") : "";
+      return prior;
+    }
+
+    function setPriorOrderBy(priorOrderBy) {
+      storage.setJs("priorOrderBy", priorOrderBy);
+    }
+
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
@@ -205,6 +226,9 @@ query.controller('SearchQueryCtrl', [
       const oldOrderBy = storage.getJs("orderBy");
       const curCollectionSearch = ctrl.collectionSearch;
       ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
+      const oldCollection = getCollection();
+      const newCollection = storeCollection(newFilter.query);
+
       if (ctrl.usePermissionsFilter) {
         if (sender && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
@@ -214,6 +238,17 @@ query.controller('SearchQueryCtrl', [
             ctrl.ordering["orderBy"] = CollectionSortOption.value;
           } else {
             ctrl.ordering["orderBy"] = DefaultSortOption.value;
+          }
+        } else {
+          const priorOrderBy = getPiorOrderBy();
+          if (ctrl.collectionSearch && ((oldCollection !== newCollection) || ("" !== priorOrderBy))) {
+            if (priorOrderBy != "") {
+              ctrl.ordering["orderBy"] = priorOrderBy;
+              setPriorOrderBy("");
+            } else {
+              //console.log("Old collection="+oldCollection + ", New collection=" + newCollection + ", PriorOrderBy=" +priorOrderBy);
+              setPriorOrderBy(CollectionSortOption.value);
+            }
           }
         }
       }
@@ -351,13 +386,11 @@ query.controller('SearchQueryCtrl', [
         }
 
         ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
+        storeCollection(ctrl.filter.query);
 
         $scope.$watch(() => $stateParams[key], onValChange(newVal => {
             // FIXME: broken for 'your uploads'
             // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            //if (key === 'orderBy') {
-            //    ctrl.ordering[key] = valOrUndefined(newVal);
-            //} else {
             if (key !== 'orderBy') {
                 ctrl.filter[key] = valOrUndefined(newVal);
             }
