@@ -23,7 +23,7 @@ tooltip.directive('grTooltip', [
                 // Use .titip-content for HTML tooltips
                 const content = attrs.grTooltip || '';
                 const contentSpan = angular.element('<span class="titip-content"></span>');
-                contentSpan.html(content);
+                contentSpan.text(content);
                 element.append(contentSpan);
               } else {
                 // Use data-title for plain text tooltips
@@ -35,7 +35,7 @@ tooltip.directive('grTooltip', [
                 if (autoUpdates) {
                   $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
                     if (attrs.grTooltipHtml !== undefined) {
-                      element.find('.titip-content').html(newTooltip);
+                      element.find('.titip-content').text(newTooltip);
                     } else {
                       element.attr('data-title', newTooltip);
                     }
