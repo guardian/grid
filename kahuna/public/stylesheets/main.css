@@ -3085,3 +3085,8 @@ FIXME: what to do with touch devices
   background-color: teal;
   color: white;
 }
+
+.titip-default .titip-content {
+  line-height: 1.4;
+  white-space: preserve nowrap;
+}
