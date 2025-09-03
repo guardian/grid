@@ -30,7 +30,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
-import { HAS_DATE_TAKEN, HASNT_DATE_TAKEN, COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
+import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
@@ -326,7 +326,7 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             $state.go('search.results', null, {reload: true});
         }
     });
-    $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
+    $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
         if (toState.name === 'search.results') {
             //If moving to a collection, sorts images by time added to a collection by default
             //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query

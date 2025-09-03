@@ -11,7 +11,7 @@ export interface TabSwapProps {
   panelVisible: boolean;
 }
 
-export const TAB_WITH: string = "with";
+export const TAB_WITH = "with";
 
 export const TabControl: React.FC<TabSwapProps> = ({ onSelect, query, showTakenTab, noTakenDateCount, panelVisible }) => {
 

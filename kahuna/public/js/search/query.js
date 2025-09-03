@@ -24,8 +24,7 @@ import {
   DefaultSortOption,
   CollectionSortOption,
   HAS_DATE_TAKEN,
-  TAKEN_SORT,
-  SortOptions
+  TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
 
 export var query = angular.module('kahuna.search.query', [
@@ -190,7 +189,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     function checkForCollection(query) {
-      return /~"[a-zA-Z0-9 #-_.://]+"/.test(query)
+      return /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
     };
 
     function storeCollection(query) {
@@ -214,6 +213,29 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("priorOrderBy", priorOrderBy);
     }
 
+    function revisedOrderBy(collectionSearch) {
+      if (collectionSearch) {
+        return CollectionSortOption.value;
+      } else {
+        return DefaultSortOption.value;
+      }
+    }
+
+    function priorRevisedOrderBy(collectionSearch, newCollection, oldCollection) {
+      const priorOrderBy = getPiorOrderBy();
+      if (collectionSearch && ((oldCollection !== newCollection) || ("" !== priorOrderBy))) {
+        if (priorOrderBy != "") {
+          setPriorOrderBy("");
+          return priorOrderBy;
+        } else {
+          setPriorOrderBy(CollectionSortOption.value);
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
@@ -223,7 +245,6 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isNonFree", showPaid, true);
 
       // check for taken date sort contradiction
-      const oldOrderBy = storage.getJs("orderBy");
       const curCollectionSearch = ctrl.collectionSearch;
       ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
       const oldCollection = getCollection();
@@ -234,22 +255,10 @@ query.controller('SearchQueryCtrl', [
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
         }
         if ($stateParams.orderBy && $stateParams.orderBy.includes(TAKEN_SORT) && (!newFilter.query || !newFilter.query.includes(HAS_DATE_TAKEN))) {
-          if (ctrl.collectionSearch) {
-            ctrl.ordering["orderBy"] = CollectionSortOption.value;
-          } else {
-            ctrl.ordering["orderBy"] = DefaultSortOption.value;
-          }
+          ctrl.ordering["orderBy"] = revisedOrderBy(ctrl.collectionSearch);
         } else {
-          const priorOrderBy = getPiorOrderBy();
-          if (ctrl.collectionSearch && ((oldCollection !== newCollection) || ("" !== priorOrderBy))) {
-            if (priorOrderBy != "") {
-              ctrl.ordering["orderBy"] = priorOrderBy;
-              setPriorOrderBy("");
-            } else {
-              //console.log("Old collection="+oldCollection + ", New collection=" + newCollection + ", PriorOrderBy=" +priorOrderBy);
-              setPriorOrderBy(CollectionSortOption.value);
-            }
-          }
+          const prior = priorRevisedOrderBy(ctrl.collectionSearch, newCollection, oldCollection);
+          ctrl.ordering["orderBy"] = prior ? prior : ctrl.ordering["orderBy"];
         }
       }
       let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : DefaultSortOption.value;
