@@ -4,49 +4,128 @@ import software.amazon.awssdk.services.bedrockruntime.model._
 import software.amazon.awssdk.services.bedrockruntime._
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.config.CommonConfig
+
 import java.util.concurrent.CompletableFuture
 import play.api.libs.json.Json
 import software.amazon.awssdk.core.SdkBytes
+
 import java.net.URI
 import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.model.ImageEmbedding
+import play.api.libs.json.Format.GenericFormat
+import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
+import play.api.libs.json._
 
-class Bedrock(imageBase64: String) extends AwsClientV2BuilderUtils {
+// Add this before the Bedrock class
+object Bedrock {
+  // Define case class for the request structure
+  private case class BedrockRequest(
+    input_type: String,
+    embedding_types: List[String],
+    images: List[String]
+  )
 
-  override def awsLocalEndpointUri: Option[URI] = ???
+  // Define implicit JSON format for the request
+  private implicit val bedrockRequestFormat: OFormat[BedrockRequest] = Json.format[BedrockRequest]
+}
 
-  override def isDev: Boolean = ???
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 
-  val client =
+class Bedrock(config: CommonConfig)
+    extends AwsClientV2BuilderUtils {
+
+  // TODO: figure out what the more usual pattern for turning off localstack behaviour is
+  override def awsLocalEndpointUri: Option[URI] = None
+
+  override def isDev: Boolean = config.isDev
+
+  val client: BedrockRuntimeAsyncClient = {
+    logger.info("Creating Bedrock client")
     withAWSCredentialsV2(BedrockRuntimeAsyncClient.builder())
       .build()
+  }
 
-  private def createRequestBody(
-      images: List[String]
-  ): String = {
-
-    val body = Map(
-      "input_type" -> "image",
-      "embedding_types" -> "float",
-      "images" -> s"data:image/jpg;base64,$images"
+  private def createRequestBody(base64EncodedImage: String): InvokeModelRequest = {
+    logger.info("Creating request body")
+    val body = Bedrock.BedrockRequest(
+      input_type = "image",
+      embedding_types = List("float"),
+      images = List(s"data:image/jpg;base64,$base64EncodedImage")
     )
+    val jsonBody = Json.toJson(body).toString()
+    logger.info(s"Request body created, length: ${jsonBody.length}")
 
-    Json.toJson(body).toString()
+    // #/embedding_types: expected type: JSONArray, found: String
+    // #/images expected type: JSONArray, found: String,
+    val request: InvokeModelRequest = {
+      logger.info("Building request")
+      InvokeModelRequest
+        .builder()
+        .accept("*/*")
+        .body(SdkBytes.fromUtf8String(jsonBody))
+        .contentType("application/json")
+        .modelId("cohere.embed-english-v3")
+        .build()
+    }
+    request
   }
 
-  val request: InvokeModelRequest =
-    InvokeModelRequest
-      .builder()
-      .accept("*/*")
-      .body(SdkBytes.fromUtf8String(createRequestBody(List(imageBase64))))
-      .contentType("application/json")
-      .modelId("cohere.embed-english-v3")
-      .build()
-
-  def fetchEmbedding()(implicit
-      logMarker: LogMarker
+  def sendBedrockEmbeddingRequest(base64EncodedImage: String)(implicit
+                                                                    logMarker: LogMarker
   ): CompletableFuture[InvokeModelResponse] = {
-    logger.info(logMarker, s"Going to fetch embedding now")
-    client.invokeModel(request)
+    logger.info(logMarker, "Starting fetchEmbedding call")
+    try {
+      val future = client.invokeModel(createRequestBody(base64EncodedImage))
+      logger.info(logMarker, "Bedrock API call initiated")
+      future.whenComplete((response, error) => {
+        if (error != null) {
+          logger.error(logMarker, "Bedrock API call failed", error)
+        } else {
+          logger.info(
+            logMarker,
+            s"Bedrock API call completed with status: ${response.sdkHttpResponse().statusCode()}"
+          )
+        }
+      })
+      future
+    } catch {
+      case e: Exception =>
+        logger.error(logMarker, "Exception during Bedrock API call", e)
+        throw e
+    }
   }
 
+  def createImageEmbedding(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageEmbedding] = {
+
+    logger.info(
+      logMarker,
+      s"Starting image embedding creation"
+    )
+    val bedrockFuture = sendBedrockEmbeddingRequest(base64EncodedImage)
+
+    bedrockFuture.asScala
+      .map { response =>
+       logger.info(
+         logMarker,
+         s"Received Bedrock response. Status: ${response.sdkHttpResponse().statusCode()}"
+       )
+
+//        Image upload failed: {"float":[[-0.02960205,-0.00363
+//        -0.0335083,-0.0116119385]]} is not a JsArray
+
+       // Now we can safely access response.body()
+       val responseBody = response.body().asUtf8String()
+           logger.info(logMarker, s"Response body: $responseBody")
+           val json = Json.parse(responseBody)
+           logger.info(logMarker, s"Parsed JSON response: $json")
+           // Extract the embeddings array (first element since it's an array of arrays)
+           val embeddings = (json \ "embeddings" \ "float")(0).as[List[Double]]
+           logger.info(
+             logMarker,
+             s"Successfully extracted embeddings. Vector size: ${embeddings.size}"
+           )
+           ImageEmbedding(cohereEmbedEnglishV3 = embeddings)
+      }
+  }
 }

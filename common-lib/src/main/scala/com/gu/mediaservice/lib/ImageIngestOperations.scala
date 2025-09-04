@@ -4,7 +4,7 @@ import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteE
 
 import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{Bedrock, S3Object}
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
@@ -115,7 +115,6 @@ case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, me
     meta = meta
   )
 }
-
 
 /**
   * @param id

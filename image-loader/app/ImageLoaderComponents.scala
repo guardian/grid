@@ -11,6 +11,17 @@ import lib.storage.{ImageLoaderStore, QuarantineStore}
 import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import com.gu.mediaservice.lib.aws.Bedrock
+
+import java.util.concurrent.CompletableFuture
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse
+
+import scala.concurrent.ExecutionContext
+import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.model.ImageEmbedding
+
+import scala.jdk.FutureConverters.CompletionStageOps
+import play.api.libs.json.{JsObject, Json}
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
   final override val buildInfo = utils.buildinfo.BuildInfo
@@ -27,8 +38,14 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
-  val uploader = new Uploader(store, config, imageOperations, notifications, imageProcessor)
-  val projector = Projector(config, imageOperations, imageProcessor, auth)
+
+  // TODO this is where we'll refactor the bedrock stuff to
+  // So that we don't have to do a difficult refactor with config things
+  val bedrock = new Bedrock(config)
+  logger.info(s"bedrock client: ${bedrock.client}")
+
+  val uploader = new Uploader(store, config, imageOperations, notifications, bedrock, imageProcessor)
+  val projector = Projector(config, imageOperations, imageProcessor, auth, bedrock)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)
