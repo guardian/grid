@@ -5,6 +5,7 @@ import org.joda.time.DateTime
 sealed trait Condition
 final case class Negation(m: Match) extends Condition
 final case class Match(field: Field, value: Value) extends Condition
+final case class NegationNested(n: Nested) extends Condition
 final case class Nested(parentField: Field, field: Field, value: Value) extends Condition
 
 sealed trait Field

@@ -88,18 +88,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case Nil => matchAllQuery()
     case condList => {
 
-      val (nested: List[Nested], normal: List[Condition]) = (
+      val (nested: List[Nested], negationNested: List[Nested], normal: List[Condition]) = (
         condList collect { case n: Nested => n },
+        condList collect { case NegationNested(n) => n },
         condList collect { case c: Condition => c }
       )
 
-      val query = normal.foldLeft(boolQuery()) {
-        case (query, Negation(cond)) => query.withNot(makeQueryBit(cond))
-        case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
-        case (query, _) => query
-      }
-
-      val nestedQueries = nested
+      def listOfNestedToQueries(nested: List[Nested]): List[Query] = nested
         .groupBy(_.parentField)
         .map {
           case (parent: SingleField, n: List[Nested]) => {
@@ -116,7 +111,15 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
         }.toList
 
-      nestedQueries.foldLeft(query) { case (q, nestedQ) => q.withMust(nestedQ) }
+      val queryWithNormal = normal.foldLeft(boolQuery()) {
+        case (query, Negation(cond)) => query.withNot(makeQueryBit(cond))
+        case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
+        case (query, _) => query
+      }
+
+      val queryWithNestedAndNormal = listOfNestedToQueries(nested).foldLeft(queryWithNormal) { case (q, nestedQ) => q.withMust(nestedQ) }
+
+      listOfNestedToQueries(negationNested).foldLeft(queryWithNestedAndNormal) { case (q, negNestedQ) => q.withNot(negNestedQ) }
     }
   }
 }

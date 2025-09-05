@@ -19,7 +19,9 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
 
-  def Term = rule { NestedFilter | NegatedFilter | Filter }
+  def Term = rule { NegatedNestedFilter | NestedFilter | NegatedFilter | Filter }
+
+  def NegatedNestedFilter = rule { '-' ~ NestedFilter ~> NegationNested }
 
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
