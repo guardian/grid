@@ -421,8 +421,6 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.isUsefulMetadata = isUsefulMetadata;
 
-      ctrl.isSearchableIdentifier = (identifier) => ["original-media-id"].includes(identifier);
-
     function hasLocationInformation() {
       return ctrl.metadata && (
         ctrl.metadata.subLocation ||
