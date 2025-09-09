@@ -79,16 +79,14 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
       Parser.run("label:cats label:dogs") should be (List(
         Match(labelsField, Words("cats")),
         Match(labelsField, Words("dogs")),
-        ) ++ standardNegations
-      ))
+        ) ++ standardNegations)
     }
 
     it("should match multiple faceted terms on different facets") {
       Parser.run("credit:cats label:dogs") should be (List(
         Match(creditField, Words("cats")),
         Match(labelsField, Words("dogs")),
-        ) ++ standardNegations
-      ))
+        ) ++ standardNegations)
     }
   }
 
@@ -374,8 +372,7 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
       it("should ignore an invalid date argument") {
         Parser.run("date:NAZGUL") should be (List(
           Match(SingleField("date"), Words("NAZGUL")),
-          ) ++ standardNegations
-        ))
+          ) ++ standardNegations)
       }
 
     }
