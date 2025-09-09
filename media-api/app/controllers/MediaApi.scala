@@ -313,6 +313,34 @@ class MediaApi(
     }
   }
 
+  def forceDeleteImage(id: String) = auth.async { request =>
+    implicit val r: Request[AnyContent] = request
+    elasticSearch.getImageById(id) map {
+      case Some(image) if hasPermission(request.user, image) =>
+        val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+        if(canDelete){
+          val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+          softDeletedMetadataTable.setStatus(imageStatusRecord)
+            .map { _ =>
+              messageSender.publish(
+                UpdateMessage(
+                  subject = SoftDeleteImage,
+                  id = Some(id),
+                  softDeletedMetadata = Some(SoftDeletedMetadata(
+                    deleteTime = DateTime.now(DateTimeZone.UTC),
+                    deletedBy = request.user.accessor.identity
+                  ))
+                )
+              )
+            }
+          Accepted
+        } else {
+          ImageDeleteForbidden
+        }
+      case _ => ImageNotFound(id)
+    }
+  }
+
   def unSoftDeleteImage(id: String) = auth.async { request =>
     implicit val r: Request[AnyContent] = request
     elasticSearch.getImageById(id) map {
