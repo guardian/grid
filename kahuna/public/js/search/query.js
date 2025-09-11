@@ -308,12 +308,6 @@ query.controller('SearchQueryCtrl', [
     function updateSortChips (sortSel) {
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
       storage.setJs("orderBy", ctrl.ordering["orderBy"]);
-      var curQuery = ctrl.filter.query ? ctrl.filter.query : '';
-      curQuery = curQuery.replace(HASNT_DATE_TAKEN, "").replace(HAS_DATE_TAKEN, "").trim();
-      if (sortSel.isTaken) {
-        curQuery = `${curQuery} ${HAS_DATE_TAKEN}`.trim();
-      }
-      ctrl.filter.query = curQuery;
       $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering['orderBy']}});
     }
 
