@@ -24,7 +24,6 @@ import {
   DefaultSortOption,
   CollectionSortOption,
   HAS_DATE_TAKEN,
-  HASNT_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
 
