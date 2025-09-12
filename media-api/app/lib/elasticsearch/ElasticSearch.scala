@@ -29,8 +29,8 @@ import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.ListMap
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
 class ElasticSearch(
   val config: MediaApiConfig,
@@ -329,6 +329,21 @@ class ElasticSearch(
           }
         ))
       )
+    }
+  }
+
+  def getRelationDetails(mediaIdThisIsFor: String, getSecureThumbUrl: Image => String)(
+    id: String
+  )(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker:MarkerMap = MarkerMap()): (String, Option[Map[String, String]]) = {
+    try {
+      id -> Await.result(getImageById(id), 5.seconds).map(image => Map(
+        "thumbnail" -> getSecureThumbUrl(image),
+        "addedBy" -> image.uploadedBy
+      ))
+    } catch {
+      case e: TimeoutException =>
+        logger.error(logMarker, s"Timeout getting image $id (when finding relation details for $mediaIdThisIsFor)", e)
+        id -> None
     }
   }
 
