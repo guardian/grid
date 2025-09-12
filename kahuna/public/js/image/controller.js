@@ -159,6 +159,10 @@ image.controller('ImageCtrl', [
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
 
+    ctrl.maybeReplacedByMediaIds = image.data.usages.data
+    .filter(usage => usage.data.status === "replaced")
+    .map(usage => usage.data.childUsageMetadata.childMediaId);
+
     ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
 
     editsService.canUserEdit(ctrl.image).then(editable => {

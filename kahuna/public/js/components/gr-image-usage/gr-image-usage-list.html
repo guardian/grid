@@ -13,7 +13,7 @@
             <span ng-if="usage.childUsageMetadata" ng-switch="usage.status">
                 <span ng-switch-when="derivative">Used to create</span>
                 <span ng-switch-when="replaced">Replaced with</span>
-                <a href="{{usage.childUsageMetadata.childMediaId}}" rel="noopener" target="_blank">{{usage.childUsageMetadata.childMediaId}}</a>
+                <a href="{{usage.childUsageMetadata.childMediaId}}">{{usage.childUsageMetadata.childMediaId}}</a>
                 (added by {{usage.childUsageMetadata.addedBy}}).
             </span>
 
