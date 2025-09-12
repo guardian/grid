@@ -2,6 +2,7 @@ package controllers
 
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import com.google.common.net.HttpHeaders
+import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
@@ -14,6 +15,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.{DerivativeUsageStatus, ReplacedUsageStatus}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
@@ -494,6 +496,14 @@ class MediaApi(
         val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
+        val getRelationDetails = elasticSearch.getRelationDetails(id, imageResponse.getSecureThumbUrl)_
+        val relationDetails = Map(
+          "Replacement for" -> source.instance.identifiers.get(ImageStorageProps.replacesMediaIdIdentifierKey).map(getRelationDetails),
+          "Replaced by" -> source.instance.usages.filter(_.status == ReplacedUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId)).map(getRelationDetails),
+          "Derivative of" -> source.instance.identifiers.get(ImageStorageProps.derivativeOfMediaIdsIdentifierKey).toList.flatMap(_.split(",").map(_.trim)).map(getRelationDetails),
+          "Derivatives" -> source.instance.usages.filter(_.status == DerivativeUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId)).map(getRelationDetails)
+        ).view.mapValues(_.iterator.toMap).toMap
+
         val (imageData, imageLinks, imageActions) = imageResponse.create(
           id,
           source,
@@ -504,8 +514,12 @@ class MediaApi(
           request.user.accessor.tier
         )
 
-        Some((source.instance, imageData, imageLinks, imageActions))
-
+        Some((
+          source.instance,
+          imageData.asInstanceOf[JsObject] + ("parentAndChildDetails" -> Json.toJson(relationDetails)),
+          imageLinks,
+          imageActions
+        ))
       case _ => None
     }
   }
