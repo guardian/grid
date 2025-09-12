@@ -75,17 +75,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val pngFileUri = image.optimisedPng.map(_.file)
 
-    val fileUri = image.source.file
-
-    val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image, imageType = Source)
+    val imageUrl = s3Client.signUrl(config.imageBucket, image.source.file, image, imageType = Source)
     val pngUrl: Option[String] = pngFileUri
       .map(s3Client.signUrl(config.imageBucket, _, image, imageType = OptimisedPng))
 
-    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
-
-    val thumbUrl = config.cloudFrontDomainThumbBucket
-      .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
-      .getOrElse(s3SignedThumbUrl)
+    val thumbUrl: String = getSecureThumbUrl(image)
 
     val validityMap = checkUsageRestrictions(source, ImageExtras.validityMap(image, withWritePermission))
     val valid = ImageExtras.isValid(validityMap)
@@ -128,6 +122,16 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val actions: List[Action] = if (tier == Internal) imageActions(id, isDeletable, withWritePermission, withDeleteCropsOrUsagePermission) else Nil
 
     (data, links, actions)
+  }
+
+  def getSecureThumbUrl(image: Image) = {
+    val fileUri: URI = image.source.file
+
+    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
+
+    config.cloudFrontDomainThumbBucket
+      .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+      .getOrElse(s3SignedThumbUrl)
   }
 
   private def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
