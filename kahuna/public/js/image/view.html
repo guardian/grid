@@ -169,6 +169,11 @@
 
 <div class="image-holder" role="main" aria-label="Image view">
     <div class="easel">
+        <div class="warning" ng-if="ctrl.maybeReplacedByMediaIds.length > 0">
+            This image has been <strong>replaced</strong> by <span ng-repeat="mediaId in ctrl.maybeReplacedByMediaIds">
+                <a href="{{mediaId}}">{{mediaId}}</a>&nbsp;
+            </span>
+        </div>
         <div class="easel__canvas"
              ng-if="!ctrl.crop"
              draggable="true"
