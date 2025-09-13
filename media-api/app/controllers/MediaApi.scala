@@ -114,7 +114,8 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri(instance)}/permissions"),
       Link("leases",          config.leasesUri(instance)),
       Link("syndicate-image", s"${config.rootUri(instance)}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
-      Link("undelete",        s"${config.rootUri(instance)}/images/{id}/undelete")
+      Link("undelete",        s"${config.rootUri(instance)}/images/{id}/undelete"),
+      Link("usage",           config.usageUri(instance)),
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
   }
