@@ -151,6 +151,32 @@
             class="image-details__delete-crops"
             gr-image="ctrl.image"
             gr-on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
+
+    <div class="image-info image-details--scroll" style="margin-top: auto; max-height: 50%">
+        <div ng-repeat="(title, idToDetailMap) in ctrl.image.data.parentAndChildDetails">
+            <div class="image-info__group image-info__group--bottom" aria-label="{{title}}"
+                 ng-if="ctrl.objectHasEntries(idToDetailMap)">
+                <dl class="image-info__group--dl">
+                    <dt class="image-info__heading">{{title}}</dt>
+                    <dd class="image-info__heading--crops"
+                        ng-repeat="(id, detail) in idToDetailMap">
+                        <a class="image-crop"
+                           ui-sref="image({imageId: id})"
+                           aria-label="View {{title}}">
+                            <img class="image-crop__image"
+                                 alt="{{title}} {{id}} thumbnail"
+                                 ng-src="{{detail.thumbnail}}" />
+                            <div class="flex-container image-crop__more-info">
+                                <span ng-if="detail.dimensions">{{detail.dimensions.width}} &times; {{detail.dimensions.height}}</span>
+                                <span class="flex-spacer"></span>
+                                <span class="image-crop__creator" title="Added by {{detail.addedBy}} at {{detail.addedAt | date:'medium'}}">{{detail.addedBy | getInitials}}</span>
+                            </div>
+                        </a>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="image-details image-details--full-image" role="complementary" aria-label="Image information">
