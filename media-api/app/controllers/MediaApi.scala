@@ -41,7 +41,7 @@ class MediaApi(
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
+                s3: S3,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation,
@@ -252,7 +252,7 @@ class MediaApi(
           export <- source.exports.find(_.id.contains(exportId))
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
           key = config.imgPublishingBucket.keyFromS3URL(asset.file)
-          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, key)).toOption // TODO raw S3 client usage!
+          s3Object <- Try(s3.getObject(config.imgPublishingBucket, key)).toOption
           file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
           result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset, config.shortenDownloadFilename))
@@ -360,7 +360,7 @@ class MediaApi(
         logger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val key = config.imageBucket.keyFromS3URL(image.source.file)
-        val s3Object = s3Client.getObject(config.imageBucket, key)
+        val s3Object = s3.getObject(config.imageBucket, key)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
@@ -415,7 +415,7 @@ class MediaApi(
 
         val key = config.imageBucket.keyFromS3URL(image.optimisedPng.getOrElse(image.source).file)
         val sourceImageUri =
-          new URI(s3Client.signUrl(config.imageBucket, key, image, imageType = image.optimisedPng match {
+          new URI(s3.signUrl(config.imageBucket, key, image, imageType = image.optimisedPng match {
             case Some(_) => OptimisedPng
             case _ => Source
           }))
