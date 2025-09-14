@@ -6,7 +6,7 @@ case class S3Bucket(bucket: String, endpoint: String) {
   def objectUrl(key: String): URI = {
     val s3Endpoint = endpoint
     val bucketName = bucket
-    val bucketUrl = if (s3Endpoint == "minio.griddev.eelpieconsulting.co.uk") {
+    val bucketUrl = if (isPathStyleURLs(s3Endpoint)) {
       new URI(s"http://$s3Endpoint/$bucketName/$key")
     } else {
       val bucketHost = s"$bucketName.$s3Endpoint"
@@ -16,11 +16,15 @@ case class S3Bucket(bucket: String, endpoint: String) {
   }
 
   def keyFromS3URL(url: URI): String = {
-    if (endpoint == "minio.griddev.eelpieconsulting.co.uk") {
+    if (isPathStyleURLs(endpoint)) {
       url.getPath.drop(bucket.length + 2)
     } else {
       url.getPath.drop(1)
     }
+  }
+
+  private def isPathStyleURLs(s3Endpoint: String) = {
+    s3Endpoint == "minio.griddev.eelpieconsulting.co.uk"
   }
 
 }
