@@ -57,13 +57,13 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
     ingestBucket <- stringOpt("s3.ingest.bucket.name")
     ingestBucketEndpoint <- stringOpt("s3.ingest.bucket.endpoint")
   } yield {
-    S3Bucket(ingestBucket, ingestBucketEndpoint)
+    S3Bucket(ingestBucket, ingestBucketEndpoint, usesPathStyleURLs = booleanOpt("s3.ingest.bucket.pathStyleURLs").getOrElse(false))
   }
   val maybeFailBucket: Option[S3Bucket] = for {
     failBucket <- stringOpt("s3.fail.bucket.name")
     failBucketEndpoint <- stringOpt("s3.fail.bucket.endpoint")
   } yield {
-    S3Bucket(failBucket, failBucketEndpoint)
+    S3Bucket(failBucket, failBucketEndpoint, usesPathStyleURLs = booleanOpt("s3.fail.bucket.pathStyleURLs").getOrElse(false))
   }
 
   val maybeUploadLimitInBytes: Option[Int] = intOpt("upload.limit.mb").map(_ * 1024 * 1024)
@@ -79,8 +79,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val services = new SingleHostServices(domainRoot)
 
-  val imageBucket: S3Bucket = S3Bucket(string("s3.image.bucket.name"), string("s3.image.bucket.endpoint"))
-  val thumbnailBucket: S3Bucket = S3Bucket(string("s3.thumb.bucket.name"), string("s3.thumb.bucket.endpoint"))
+  val imageBucket: S3Bucket = S3Bucket(string("s3.image.bucket.name"), string("s3.image.bucket.endpoint"), usesPathStyleURLs = booleanOpt("s3.image.bucket.pathStyleURLs").getOrElse(false))
+  val thumbnailBucket: S3Bucket = S3Bucket(string("s3.thumb.bucket.name"), string("s3.thumb.bucket.endpoint"), usesPathStyleURLs = booleanOpt("s3.thumb.bucket.pathStyleURLs").getOrElse(false))
 
   val googleS3AccessKey = stringOpt("s3.accessKey")
   val googleS3SecretKey = stringOpt("s3.secretKey")

@@ -45,7 +45,7 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
       Future.successful(())
     }
 
-    override def keyStore: KeyStore = new KeyStore(S3Bucket("not-used", S3.AmazonAwsS3Endpoint), resources.commonConfig) {
+    override def keyStore: KeyStore = new KeyStore(S3Bucket("not-used", S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false), resources.commonConfig) {
       override def lookupIdentity(key: String)(implicit instance: Instance): Option[ApiAccessor] = {
         key match {
           case "key-chuckle" => Some(ApiAccessor("brothers", Internal))

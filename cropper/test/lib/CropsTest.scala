@@ -58,7 +58,7 @@ class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
   private val source: SourceImage = SourceImage("test", mock[Asset], valid = true, mock[ImageMetadata], mock[FileMetadata])
   private val bounds: Bounds = Bounds(10, 20, 30, 40)
   private val outputWidth = 1234
-  private val imageBucket = S3Bucket("crops-bucket", S3.AmazonAwsS3Endpoint)
+  private val imageBucket = S3Bucket("crops-bucket", S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false)
   private val s3 = new S3(config)
 
   it("should should construct a correct address for a master jpg") {

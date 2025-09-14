@@ -16,7 +16,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val maybeImageReplicaBucket: Option[String] = stringOpt("s3.image.replicaBucket")
 
   val quarantineBucket: Option[S3Bucket] = stringOpt("s3.quarantine.bucket").map { bucket =>
-    S3Bucket(bucket, S3.AmazonAwsS3Endpoint)
+    S3Bucket(bucket, S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false)
   }
   val uploadToQuarantineEnabled: Boolean = boolean("upload.quarantine.enabled")
 

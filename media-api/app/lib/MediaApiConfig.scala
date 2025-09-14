@@ -14,17 +14,17 @@ case class StoreConfig(
 )
 
 class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
-  val configBucket: S3Bucket = S3Bucket(string("s3.config.bucket"), S3.AmazonAwsS3Endpoint)
-  val usageMailBucket: S3Bucket = S3Bucket(string("s3.usagemail.bucket"), S3.AmazonAwsS3Endpoint)
+  val configBucket: S3Bucket = S3Bucket(string("s3.config.bucket"), S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false)
+  val usageMailBucket: S3Bucket = S3Bucket(string("s3.usagemail.bucket"), S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false)
 
   val quotaStoreKey: String = string("quota.store.key")
   val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
   //Lazy allows this to be empty and not break things unless used somewhere
-  lazy val imgPublishingBucket: S3Bucket = S3Bucket(string("publishing.image.bucket"), S3.AmazonAwsS3Endpoint)
+  lazy val imgPublishingBucket: S3Bucket = S3Bucket(string("publishing.image.bucket"), S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false)
 
   val cloudFrontDomainThumbBucket: Option[String]   = stringOpt("cloudfront.domain.thumbbucket")
-  val cloudFrontPrivateKeyBucket: Option[S3Bucket]    = stringOpt("cloudfront.private-key.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint))
+  val cloudFrontPrivateKeyBucket: Option[S3Bucket]    = stringOpt("cloudfront.private-key.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false))
   val cloudFrontPrivateKeyBucketKey: Option[String] = stringOpt("cloudfront.private-key.key")
   val cloudFrontKeyPairId: Option[String]           = stringOpt("cloudfront.keypair.id")
 

@@ -32,7 +32,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
   private implicit val logMarker: MockLogMarker = new MockLogMarker()
     // For mime type info, see https://github.com/guardian/grid/pull/2568
     val tempDir = new File("/tmp")
-    val mockConfig: ImageUploadOpsCfg = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), S3Bucket("img-bucket", S3.AmazonAwsS3Endpoint), S3Bucket("thumb-bucket", S3.AmazonAwsS3Endpoint))
+    val mockConfig: ImageUploadOpsCfg = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), S3Bucket("img-bucket", S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false), S3Bucket("thumb-bucket", S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false))
 
   /**
     * @todo: I flailed about until I found a path that worked, but
@@ -53,7 +53,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
     def mockStore = (a: StorableImage) =>
       Future.successful(
-        S3Object(S3Bucket("madeupname", S3.AmazonAwsS3Endpoint), "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
+        S3Object(S3Bucket("madeupname", S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false), "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore

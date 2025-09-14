@@ -56,7 +56,7 @@ object KinesisReceiverConfig {
 }
 
 class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
-  val maybeReaperBucket: Option[S3Bucket] = stringOpt("s3.reaper.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint))
+  val maybeReaperBucket: Option[S3Bucket] = stringOpt("s3.reaper.bucket").map(S3Bucket(_, S3.AmazonAwsS3Endpoint, usesPathStyleURLs = false))
   val maybeReaperCountPerRun: Option[Int] = intOpt("reaper.countPerRun")
 
   val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
