@@ -2,7 +2,6 @@ package lib
 
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
-import com.gu.mediaservice.lib.aws.S3KeyFromURL
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
@@ -22,7 +21,7 @@ import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
-  extends EditsResponse with GridLogging with S3KeyFromURL {
+  extends EditsResponse with GridLogging {
 
   implicit val usageQuotas: UsageQuota = usageQuota
 
@@ -76,10 +75,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val fileUri = image.source.file
 
-    val key = keyFromS3URL(config.imageBucket, fileUri)
+    val key = config.imageBucket.keyFromS3URL(fileUri)
     val imageUrl = s3Client.signUrl(config.imageBucket, key, image, imageType = Source)
     val pngUrl: Option[String] = pngFileUri
-      .map(uri => s3Client.signUrl(config.imageBucket, keyFromS3URL(config.imageBucket, uri), image, imageType = OptimisedPng))
+      .map(uri => s3Client.signUrl(config.imageBucket, config.imageBucket.keyFromS3URL(uri), image, imageType = OptimisedPng))
 
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbnailBucket, key, image, imageType = Thumbnail)
 

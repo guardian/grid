@@ -15,4 +15,12 @@ case class S3Bucket(bucket: String, endpoint: String) {
     bucketUrl
   }
 
+  def keyFromS3URL(url: URI): String = {
+    if (endpoint == "minio.griddev.eelpieconsulting.co.uk") {
+      url.getPath.drop(bucket.length + 2)
+    } else {
+      url.getPath.drop(1)
+    }
+  }
+
 }
