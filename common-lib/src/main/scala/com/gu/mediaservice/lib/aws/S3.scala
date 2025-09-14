@@ -19,20 +19,9 @@ import scala.concurrent.{ExecutionContext, Future}
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
 object S3Object {
-  private def objectUrl(bucket: S3Bucket, key: String): URI = {
-    val s3Endpoint = bucket.endpoint
-    val bucketName = bucket.bucket
-    val bucketUrl = if (s3Endpoint == "minio.griddev.eelpieconsulting.co.uk") {
-      new URI(s"http://$s3Endpoint/$bucketName/$key")
-    } else {
-      val bucketHost = s"$bucketName.$s3Endpoint"
-      new URI("http", bucketHost, s"/$key", null)
-    }
-    bucketUrl
-  }
 
   def apply(bucket: S3Bucket, key: String, size: Long, metadata: S3Metadata): S3Object =
-    apply(objectUrl(bucket, key), size, metadata)
+    apply(bucket.objectUrl(key), size, metadata)
 
   def apply(bucket: S3Bucket, key: String, file: File, mimeType: Option[MimeType], lastModified: Option[DateTime],
             meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
