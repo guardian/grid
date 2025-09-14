@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
-import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
+import com.gu.mediaservice.model.{Dimensions, Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
@@ -54,6 +54,12 @@ object AggregateSearchParams {
     )
   }
 }
+case class RelationDetail(
+  thumbnail: String,
+  addedBy: String,
+  addedAt: DateTime,
+  dimensions: Option[Dimensions]
+)
 
 case class SearchParams(
   query: Option[String] = None,
