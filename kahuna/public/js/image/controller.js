@@ -169,6 +169,8 @@ image.controller('ImageCtrl', [
       ctrl.canUserEdit = editable;
     });
 
+    ctrl.objectHasEntries = obj => obj && Object.keys(obj).length > 0;
+
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;
 
