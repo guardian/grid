@@ -628,6 +628,8 @@ class MediaApi(
         val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
+        import JodaWrites._
+        implicit val jsonDetailsWrites: OWrites[RelationDetail] = Json.writes[RelationDetail]
         val getRelationDetails = elasticSearch.getRelationDetails(id, imageResponse.getSecureThumbUrl)_
         val relationDetails = Map(
           "Replacement for" -> source.instance.identifiers.get(ImageStorageProps.replacesMediaIdIdentifierKey).map(getRelationDetails),

@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
+import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Dimensions, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
@@ -334,12 +334,16 @@ class ElasticSearch(
 
   def getRelationDetails(mediaIdThisIsFor: String, getSecureThumbUrl: Image => String)(
     id: String
-  )(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker:MarkerMap = MarkerMap()): (String, Option[Map[String, String]]) = {
+  )(implicit ex: ExecutionContext, logMarker:MarkerMap = MarkerMap()): (String, Option[RelationDetail]) = {
     try {
-      id -> Await.result(getImageById(id), 5.seconds).map(image => Map(
-        "thumbnail" -> getSecureThumbUrl(image),
-        "addedBy" -> image.uploadedBy
-      ))
+      id -> Await.result(getImageById(id), 5.seconds).map{image =>
+        RelationDetail(
+          thumbnail =  getSecureThumbUrl(image),
+          addedBy = image.uploadedBy,
+          addedAt = image.uploadTime,
+          dimensions = image.source.orientedDimensions.orElse(image.source.dimensions)
+        )
+      }
     } catch {
       case e: TimeoutException =>
         logger.error(logMarker, s"Timeout getting image $id (when finding relation details for $mediaIdThisIsFor)", e)

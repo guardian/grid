@@ -2116,7 +2116,8 @@ FIXME: what to do with touch devices
 }
 
 .image-details__delete-crops {
-    width: 100%;
+  width: 100%;
+  outline: 1px solid #565656;
 }
 
 .image-details:after {
@@ -2134,6 +2135,11 @@ FIXME: what to do with touch devices
 .image-info__group {
     padding: 10px;
     border-bottom: 1px solid #565656;
+}
+
+.image-info__group--bottom {
+  border-bottom: 0;
+  border-top: 1px solid #565656;
 }
 
 .image-info__group--last {
