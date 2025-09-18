@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
 import com.gu.mediaservice.model.usage.SyndicationUsage
+import com.sksamuel.elastic4s.ElasticApi.not
 import com.sksamuel.elastic4s.requests.searches.RuntimeMapping
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
@@ -13,18 +14,6 @@ import org.joda.time.DateTime
 class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
 
   val isSyndicationDateFilterActive = config.isProd
-
-  private def syndicationRightsAcquired(acquired: Boolean): Query = filters.boolTerm(
-    field = "syndicationRights.rights.acquired",
-    value = acquired
-  )
-
-  private val noRightsAcquired: Query = filters.or(
-    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
-    syndicationRightsAcquired(false)
-  )
-
-  private val hasRightsAcquired: Query = syndicationRightsAcquired(true)
 
   private val hasAllowLease: Query = filters.term(
     "leases.leases.access",
@@ -81,12 +70,10 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
 
   def statusFilter(status: SyndicationStatus): Query = status match {
     case SentForSyndication => filters.and(
-      hasRightsAcquired,
       hasAllowLease,
       hasSyndicationUsage
     )
     case QueuedForSyndication => filters.and(
-      hasRightsAcquired,
       filters.mustNot(hasSyndicationUsage),
       filters.and(
         hasAllowLease,
@@ -95,7 +82,6 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       )
     )
     case BlockedForSyndication => filters.and(
-      hasRightsAcquired,
       hasDenyLease
     )
     case AwaitingReviewForSyndication => {
@@ -114,7 +100,6 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       )
 
       val rightsAcquiredNoLeaseFilter = filters.and(
-        hasRightsAcquired,
         syndicatableCategory,
         filters.mustNot(mustNotClauses:_*),
       )
@@ -127,7 +112,7 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
         case _ => rightsAcquiredNoLeaseFilter
       }
     }
-    case UnsuitableForSyndication => noRightsAcquired
+    case UnsuitableForSyndication => not(IsOwnedPhotograph().query)
   }
 
 }
