@@ -49,6 +49,7 @@ export const filterFields = [
     'photoshoot',
     'leasedBy',
     'is',
+    'syndicationStatus',
     ... Object.keys(fieldAliases)
 ].sort();
 // TODO: add date fields
@@ -202,6 +203,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'category': return listCategories().then(prefixFilter(value));
         case 'photoshoot': return suggestPhotoshoot(value);
         case 'is': return isSearch;
+        case 'syndicationStatus': return ['review', 'queued', 'sent', 'unsuitable'];
         // No suggestions
           default: return fieldAliases.hasOwnProperty(field) ? prefixFilter(value)(suggestFieldAliasOptions(field)) : [];
         }
