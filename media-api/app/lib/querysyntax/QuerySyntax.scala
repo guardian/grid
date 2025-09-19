@@ -36,6 +36,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     FileTypeMatch ~> Match |
     CollectionRule |
     ScopedMatch ~> Match | HashMatch |
+    SyndicationStatusMatch ~> Match |
     AnyMatch
   }
 
@@ -172,6 +173,11 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     MatchMimeTypeField ~ ':' ~ MatchMimeTypeValue
   }
 
+  def SyndicationStatusMatch = rule {
+    MatchSyndicationStatusField ~ ':' ~ MatchSyndicationStatusValue
+  }
+
+
   def AtMatch = rule { '@' ~ MatchDateRangeValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
 
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
@@ -180,8 +186,16 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     capture("fileType") ~> resolveMimeTypeField _
   }
 
+  def MatchSyndicationStatusField = rule {
+    capture("syndicationStatus") ~> resolveSyndicationStatusField _
+  }
+
   def resolveMimeTypeField(name: String): Field = name match {
     case "fileType" => SingleField(getFieldPath("mimeType"))
+  }
+
+  def resolveSyndicationStatusField(name: String): Field = name match {
+    case "syndicationStatus" => SingleField("syndicationStatus")
   }
 
   def resolveDateField(name: String): Field = name match {
@@ -210,6 +224,12 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def AllowedFileTypesValues = rule { "tiff" | "tif" | "jpg" | "jpeg" | "png" }
 
+  def MatchSyndicationStatusValue = rule {
+    capture(AllowedSyndicationStatusValues) ~> parseSyndicationStatus _
+  }
+
+  def AllowedSyndicationStatusValues = rule { "review" | "queued" | "unsuitable" | "sent" }
+
   def translateMimeType(expr: String): MimeType = expr match {
     case s if s.equals("tif") || s.equals("tiff") => Tiff
     case s if s.equals("jpg") || s.equals("jpeg") => Jpeg
@@ -217,6 +237,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def parseMimeType(expr: String): Value = Words(translateMimeType(expr).toString)
+
+  def parseSyndicationStatus(expr: String): Value = SyndicationStatusValue(expr)
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 

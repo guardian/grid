@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.{Agency, SyndicationStatus}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -59,6 +59,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         case _ => matchPhraseQuery(resolveFieldPath(field), value)
       }
       case DateRange(start, end) => rangeQuery(resolveFieldPath(field)).gte(printDateTime(start)).lte(printDateTime(end))
+      case SyndicationStatusValue(status) => new SyndicationFilter(config).statusFilter(SyndicationStatus.apply(status))
       case e => throw InvalidQuery(s"Cannot do single field query on $e")
     }
     case HierarchyField => condition.value match {
