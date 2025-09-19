@@ -485,6 +485,15 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     }
   }
 
+  describe("syndicationStatus filter") {
+    it("should find review status images") {
+      Parser.run("syndicationStatus:review") should be (List(
+        Match(SingleField(getFieldPath("syndicationStatus")), SyndicationStatusValue("review")),
+        Negation(Match(IsField,IsValue("deleted")))
+      ))
+    }
+  }
+
   describe("fileType filter") {
     it("should find jpegs images") {
       Parser.run("fileType:jpeg") should be (List(

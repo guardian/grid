@@ -29,4 +29,6 @@ trait ConditionFixtures {
   val nestedCondition: Condition = Nested(SingleField("usages"), SingleField("usages.status"), Words("pending"))
   val anotherNestedCondition: Condition = Nested(SingleField("something"), SingleField("something.field"), Phrase("dogs"))
 
+  val syndicationStatusCondition: Condition = Match(SingleField("syndicationStatus"), SyndicationStatusValue("review"))
+
 }

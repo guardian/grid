@@ -59,6 +59,15 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       query.must.head.asInstanceOf[MatchPhraseQuery].value shouldBe "avalue"
     }
 
+    it("syndication status condition should give a syndicationStatusFilter query") {
+      val conditions = List(syndicationStatusCondition)
+
+      val query = queryBuilder.makeQuery(conditions).asInstanceOf[BoolQuery]
+
+      println(query)
+      query.must.size shouldBe 1
+    }
+
     it("multiple conditions should give multiple must conditions") {
       val query = queryBuilder.makeQuery(List(fieldPhraseMatchCondition, anotherFieldPhraseMatchCondition)).asInstanceOf[BoolQuery]
 
