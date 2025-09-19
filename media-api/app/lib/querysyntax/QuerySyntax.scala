@@ -35,8 +35,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     DateRangeMatch ~> Match | AtMatch |
     FileTypeMatch ~> Match |
     CollectionRule |
-    ScopedMatch ~> Match | HashMatch |
     SyndicationStatusMatch ~> Match |
+    ScopedMatch ~> Match | HashMatch |
     AnyMatch
   }
 
