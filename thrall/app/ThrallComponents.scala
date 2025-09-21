@@ -3,7 +3,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
-import com.gu.mediaservice.lib.instances.Instances
+import com.gu.mediaservice.lib.instances.{Instances, InstancesClient}
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
@@ -31,7 +31,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config, actorSystem, applicationLifecycle)
 
-  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler, wsClient, config)
+  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler, new InstancesClient(config, wsClient))
 
   val gridClient: GridClient = GridClient(config.services)(wsClient)
 
@@ -67,7 +67,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = new MigrationSourceWithSenderFactory(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, wsClient, config).build()
+  val migrationSourceWithSender: MigrationSourceWithSender = new MigrationSourceWithSenderFactory(materializer, auth.innerServiceCall, es, gridClient, config.projectionParallelism, new InstancesClient(config, wsClient)).build()
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,

@@ -2,12 +2,13 @@ package lib
 
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.{ActorMaterializer, Materializer}
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.ByteString
 import com.gu.kinesis.KinesisRecord
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.instances.InstancesClient
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.{Instance, MigrateImageMessage, StaffPhotographer, ThrallMessage}
 import helpers.Fixtures
@@ -118,13 +119,17 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
       Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
     val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
-    val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(
+
+    lazy val mockInstancesClient = mock[InstancesClient]
+
+    val migrationSourceWithSender: MigrationSourceWithSender = new MigrationSourceWithSenderFactory(
       materializer,
       (req: WSRequest) => req,
       mockEs,
       mockGrid,
-      projectionParallelism = 1
-    )
+      projectionParallelism = 1,
+      mockInstancesClient,
+    ).build()
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
     when(mockConsumer.processMessage(any[ThrallMessage]))
@@ -139,6 +144,8 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     )
 
     it("can send messages manually") {
+      when(mockInstancesClient.getInstances()(any)).thenReturn(Future.successful(Seq.empty))
+
       val stream = streamProcessor.createStream()
 
       val request = MigrationRequest("id", 1L, anInstance)

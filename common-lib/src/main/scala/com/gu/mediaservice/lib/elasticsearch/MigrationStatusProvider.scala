@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.gu.mediaservice.lib.instances.Instances
+import com.gu.mediaservice.lib.instances.InstancesClient
 import com.gu.mediaservice.model.Instance
 import org.apache.pekko.actor.Scheduler
 
@@ -35,7 +35,7 @@ object MigrationStatusProvider {
   val COMPLETION_PREVIEW_ALIAS = "MIGRATION_COMPLETION_PREVIEW"
 }
 
-trait MigrationStatusProvider extends Instances {
+trait MigrationStatusProvider {
   self: ElasticSearchClient =>
 
   def elasticSearchConfig: ElasticSearchConfig
@@ -45,6 +45,8 @@ trait MigrationStatusProvider extends Instances {
   def imagesHistoricalAlias(instance: Instance): String = instance.id + "_" + "Images_Historical"
 
   def scheduler: Scheduler
+
+  def instancesClient: InstancesClient
 
   private val migrationStatues: ConcurrentHashMap[String, AtomicReference[MigrationStatus]] = new ConcurrentHashMap()
 
@@ -78,7 +80,7 @@ trait MigrationStatusProvider extends Instances {
     initialDelay = 0.seconds,
     interval = 5.seconds
   ) { () => {
-    val instances = Await.result(getInstances(), Duration(10, SECONDS))
+    val instances = Await.result(instancesClient.getInstances(), Duration(10, SECONDS))
     instances.foreach(refreshMigrationStatus)
   }
   }

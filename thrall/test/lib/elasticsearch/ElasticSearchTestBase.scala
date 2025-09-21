@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
+import com.gu.mediaservice.lib.instances.InstancesClient
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase
 import com.gu.mediaservice.model.Instance
@@ -15,6 +16,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
+import play.api.libs.ws.WSClient
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -43,7 +45,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
     replicas = 0
   )
 
-  lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
+  lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler], mock[InstancesClient])
 
   override def beforeAll(): Unit = {
     super.beforeAll()

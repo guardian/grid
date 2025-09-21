@@ -4,14 +4,13 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import org.apache.pekko.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
-import com.gu.mediaservice.lib.instances.Instances
+import com.gu.mediaservice.lib.instances.{InstancesClient, Instances}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Instance, MigrateImageMessage, MigrationMessage}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
-import play.api.libs.ws.{WSClient, WSRequest}
+import play.api.libs.ws.WSRequest
 
 import java.time.Instant
 import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
@@ -32,9 +31,8 @@ class MigrationSourceWithSenderFactory(
                                         es: ElasticSearch,
                                         gridClient: GridClient,
                                         projectionParallelism: Int,
-                                        val wsClient: WSClient,
-                                        val config: CommonConfig
-                                      ) extends GridLogging with Instances {
+                                        val instancesClient: InstancesClient
+                                      ) extends GridLogging {
 
   def build()(implicit ec: ExecutionContext): MigrationSourceWithSender = {
     // scroll through elasticsearch, finding image ids and versions to migrate
@@ -68,7 +66,7 @@ class MigrationSourceWithSenderFactory(
         }
 
         _ => {
-          val instances = Await.result(getInstances(), Duration(10, SECONDS))
+          val instances = Await.result(instancesClient.getInstances(), Duration(10, SECONDS))
           instances.flatMap { instance =>
             implicit val i: Instance = instance
             val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {

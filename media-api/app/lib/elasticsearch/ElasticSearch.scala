@@ -4,6 +4,7 @@ import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.instances.InstancesClient
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image, Instance}
@@ -19,7 +20,6 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
-import play.api.libs.ws.WSClient
 import play.mvc.Http.Status
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
@@ -34,7 +34,7 @@ class ElasticSearch(
   val elasticSearchConfig: ElasticSearchConfig,
   overQuotaAgencies: () => List[Agency],
   val scheduler: Scheduler,
-  val wsClient: WSClient,
+  val instancesClient: InstancesClient,
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
   private val orgOwnedAggName = "org-owned"
