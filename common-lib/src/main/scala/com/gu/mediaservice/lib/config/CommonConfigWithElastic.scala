@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.config
 
+import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 
 class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConfig(resources) {
@@ -15,7 +16,10 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
   )
 
   val persistenceIdentifier = string("persistence.identifier")
-  val queriableIdentifiers = Seq(persistenceIdentifier)
+  val queriableIdentifiers = Seq(
+    persistenceIdentifier,
+    ImageStorageProps.derivativeOfMediaIdsIdentifierKey,
+  )
 
   // note this will match any part of the collection path, e.g. "bar" will match "bar", "foo/bar", "bar/baz"
   val maybePersistOnlyTheseCollections: Option[Set[String]] = getOptionalStringSet("persistence.onlyTheseCollections")

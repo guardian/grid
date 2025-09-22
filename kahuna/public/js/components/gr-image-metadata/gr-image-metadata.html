@@ -765,7 +765,18 @@
 
             <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata" >
+                    <span ng-switch="key">
+                        <a ng-switch-when="derivative-of-media-ids"
+                           ng-repeat="id in value.split(',')"
+                           ui-sref="search.results({query: id.trim(), nonFree: true})"
+                           aria-label="Search for images with id '{{id.trim()}}'">{{id.trim()}}<br/></a>
+                        <a ng-switch-when="replaces-media-id"
+                           ui-sref="image({imageId: value})"
+                           aria-label="This image replaces image with id '{{value}}'">{{value}}</a>
+                        <span ng-switch-default>{{value}}</span>
+                    </span>
+                </dd>
             </dl>
         </div>
     </div>
