@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
@@ -55,12 +55,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def canBeDeleted(image: Image) = image.canBeDeleted
 
   def create(
-              id: String,
-              imageWrapper: SourceWrapper[Image],
-              withWritePermission: Boolean,
-              withDeleteImagePermission: Boolean,
-              withDeleteCropsOrUsagePermission: Boolean,
-              included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
+    id: String,
+    imageWrapper: SourceWrapper[Image],
+    withWritePermission: Boolean,
+    withDeleteImagePermission: Boolean,
+    withDeleteCropsOrUsagePermission: Boolean,
+    included: List[String] = List(), tier: Tier
+  )(implicit logMarker: LogMarker): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
 
@@ -68,7 +69,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       Json.toJsObject(image)(imageResponseWrites(image.id, included.contains("fileMetadata"))) ++ imageWrapper.fields
     }.recoverWith {
       case e =>
-        logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
+        logger.error(logMarker, s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
         Failure(e)
     }.get
 

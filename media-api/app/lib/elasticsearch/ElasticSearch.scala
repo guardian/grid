@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
-import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
@@ -62,7 +62,7 @@ class ElasticSearch(
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies, config)
 
-  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
+  def getImageById(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] =
     getImageWithSourceById(id).map(_.map(_.instance))
 
   private def migrationAwareGetter[T](
@@ -70,10 +70,12 @@ class ElasticSearch(
     logMessagePart: String,
     requestFromIndexName: String => GetRequest,
     resultTransformer: GetResponse => Option[T]
-  )(
-    implicit ex: ExecutionContext
-  ): Future[Option[T]] = {
-    implicit val logMarker: MarkerMap = MarkerMap("id" -> id)
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[T]] = {
+    val xlogMarker = logMarker
+
+    {
+
+    implicit val logMarker: LogMarker = xlogMarker + ("image-id" -> id)
 
     def getFromCurrentIndex = executeAndLog(
       request = requestFromIndexName(imagesCurrentAlias),
@@ -96,9 +98,9 @@ class ElasticSearch(
       }
       case _ => getFromCurrentIndex
     }
-  }
+  }}
 
-  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
+  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[SourceWrapper[Image]]] = {
     migrationAwareGetter(
       id,
       logMessagePart = "image",
@@ -107,7 +109,7 @@ class ElasticSearch(
     )
   }
 
-  def getImageUploaderById(id: String)(implicit ex: ExecutionContext): Future[Option[String]] = {
+  def getImageUploaderById(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[String]] = {
     migrationAwareGetter(
       id,
       logMessagePart = "image uploader",
@@ -116,7 +118,7 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker:MarkerMap = MarkerMap()): Future[SearchResults] = {
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
 
     val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
@@ -278,8 +280,7 @@ class ElasticSearch(
     }
   }
 
-  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SupplierUsageSummary] = {
-    implicit val logMarker: MarkerMap = MarkerMap()
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierUsageSummary] = {
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -304,7 +305,7 @@ class ElasticSearch(
     }
   }
 
-  def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
+  def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[AggregateSearchResults] = {
 
     def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[DateHistogram](name).
       buckets.map(b => BucketResult(b.date, b.docCount))
@@ -316,12 +317,12 @@ class ElasticSearch(
 
   }
 
-  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
+  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[AggregateSearchResults] = {
     aggregateSearch("metadata", params, termsAgg(name = "metadata", field = metadataField(params.field)), fromTermAggregation)
   }
 
-  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
-    logger.info("Edit aggregation requested with params.field: " + params.field)
+  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[AggregateSearchResults] = {
+    logger.info(logMarker, "Edit aggregation requested with params.field: " + params.field)
     val field = "labels" // TODO was - params.field
     aggregateSearch("edits", params, termsAgg(name = "edits", field = editsField(field)), fromTermAggregation)
   }
@@ -329,9 +330,13 @@ class ElasticSearch(
   private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[Terms](name).
     buckets.map(b => BucketResult(b.key, b.docCount))
 
-  private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    implicit val logMarker: MarkerMap = MarkerMap()
-    logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
+  private def aggregateSearch(
+    name: String,
+    params: AggregateSearchParams,
+    aggregation: Aggregation,
+    extract: (String, Aggregations) => Seq[BucketResult]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[AggregateSearchResults] = {
+    logger.info(logMarker, "aggregate search: " + name + " / " + params + " / " + aggregation)
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareSearch(query) aggregations aggregation size 0
 
