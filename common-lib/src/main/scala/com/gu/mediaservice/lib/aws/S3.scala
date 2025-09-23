@@ -64,7 +64,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   val AmazonAwsS3Endpoint: String = S3.AmazonAwsS3Endpoint
 
-  private val amazonS3: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
+  private val amazonS3: AmazonS3 = S3Ops.buildS3Client(config)
   private val googleS3: Option[AmazonS3] = S3Ops.buildGoogleS3Client(config)
   private val localS3: Option[AmazonS3] = S3Ops.buildLocalS3Client(config)
 
