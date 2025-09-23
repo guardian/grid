@@ -16,12 +16,22 @@ panelButton.controller('GrPanelButton', ['$scope', 'inject$', function($scope, i
           'Panel name': ctrl.name,
           'Action': action
       });
-      ctrl.showPanel   = () => panel.setHidden(false);
+      ctrl.showPanel   = () => {
+          panel.setHidden(false);
+          window.dispatchEvent(new CustomEvent("panelShow", {
+              detail: {panel: ctrl.name},
+              bubbles: true
+          }));
+      };
       ctrl.lockPanel   = () => panel.setLocked(true);
       ctrl.unlockPanel = () => panel.setLocked(false);
       ctrl.hidePanel   = () => {
           panel.setLocked(false);
           panel.setHidden(true);
+          window.dispatchEvent(new CustomEvent("panelHide", {
+              detail: {panel: ctrl.name},
+              bubbles: true
+          }));
       };
 
       ctrl.toolTipPosition = () => {
