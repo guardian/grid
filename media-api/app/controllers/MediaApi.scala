@@ -11,8 +11,9 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ContentDisposition, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
@@ -138,6 +139,12 @@ class MediaApi(
   }
 
   def getImage(id: String) = auth.async { request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     getImageResponseFromES(id, request) map {
       case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
@@ -149,6 +156,12 @@ class MediaApi(
     * Get the raw response from ElasticSearch.
     */
   def getImageFromElasticSearch(id: String) = auth.async { request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-image-source",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     getImageResponseFromES(id, request) map {
       case Some((source, _, imageLinks, imageActions)) =>
         respond(source, imageLinks, imageActions)
@@ -157,7 +170,12 @@ class MediaApi(
   }
 
   def uploadedBy(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "uploaded-by",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     elasticSearch.getImageUploaderById(id) map {
       case Some(uploadedBy) =>
         respond(uploadedBy)
@@ -166,6 +184,12 @@ class MediaApi(
   }
 
   def diffProjection(id: String) = auth.async { request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "diff-projection",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(request.user)
     for {
       maybeEsImage <- getImageResponseFromES(id, request)
@@ -184,7 +208,11 @@ class MediaApi(
   }
 
   def getImageFileMetadata(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-image-file-metadata",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -197,7 +225,11 @@ class MediaApi(
   }
 
   def getImageExports(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-image-exports",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -210,7 +242,12 @@ class MediaApi(
   }
 
   def getImageExport(imageId: String, exportId: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-image-export",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> imageId,
+      "exportId" -> exportId,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request.user, source) =>
@@ -221,7 +258,13 @@ class MediaApi(
 
   }
 
-  def getSoftDeletedMetadata(id: String) = auth.async {
+  def getSoftDeletedMetadata(id: String) = auth.async { request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "get-soft-deleted-metadata",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     softDeletedMetadataTable.getStatus(id)
       .map {
         case Some(scala.Right(record)) => respond(record)
@@ -232,7 +275,12 @@ class MediaApi(
   }
 
   def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "download-image-export",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> imageId,
+      "exportId" -> exportId,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request.user, source) =>
@@ -255,7 +303,11 @@ class MediaApi(
   }
 
   def hardDeleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "hard-delete-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -280,7 +332,11 @@ class MediaApi(
   }
 
   def deleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "delete-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
@@ -314,7 +370,12 @@ class MediaApi(
   }
 
   def unSoftDeleteImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "soft-undelete-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
         val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
@@ -337,12 +398,16 @@ class MediaApi(
   }
 
   def downloadOriginalImage(id: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "download-original-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
         val apiKey = request.user.accessor
-        logger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
@@ -361,13 +426,17 @@ class MediaApi(
   }
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "syndicate-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+      "partnerName" -> partnerName,
+      "startPending" -> startPending
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
-        val apiKey = request.user.accessor
-        logger.info(s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey,
-          id, partnerName, startPending)
+        logger.info(logMarker, s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}")
 
         postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id,
           Authentication.getIdentity(request.user), Option(partnerName), Option(startPending))
@@ -380,12 +449,16 @@ class MediaApi(
   }
 
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "download-optimised-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request.user, image) => {
         val apiKey = request.user.accessor
-        logger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        logger.info(logMarker, s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
@@ -406,8 +479,14 @@ class MediaApi(
     }
   }
 
-  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String,
-                   partnerName: Option[String] = None, startPending: Option[String] = None) = {
+  def postToUsages(
+    uri: String,
+    onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
+    mediaId: String,
+    user: String,
+    partnerName: Option[String] = None,
+    startPending: Option[String] = None,
+  )(implicit logMarker: LogMarker) = {
 
     val baseRequest = ws.url(uri)
       .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
@@ -428,20 +507,19 @@ class MediaApi(
           throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest"))
       )
     }
-    logger.info(s"Making usages request to $uri")
+    logger.info(logMarker, s"Making usages request to $uri")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
-  def imageSearch() = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
-
+  def imageSearch() = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
       .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
 
-    implicit val logMarker: MarkerMap = MarkerMap(
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-search",
       "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "user" -> r.user.accessor.identity
-    )
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     val include = getIncludedFromParams(request)
 
@@ -483,9 +561,9 @@ class MediaApi(
     )
   }
 
-  private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
-    implicit val r: Authentication.Request[AnyContent] = request
-
+  private def getImageResponseFromES(
+    id: String, request: Authentication.Request[AnyContent]
+  )(implicit logMarker: LogMarker): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageWithSourceById(id) map {

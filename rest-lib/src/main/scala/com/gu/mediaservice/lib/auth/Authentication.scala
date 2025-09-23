@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, OnBehalfOfPrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
@@ -76,7 +77,9 @@ class Authentication(config: CommonConfig,
     // gracePeriodCountsAsAuthenticated is set to true here, so requests using this block should accept users whose session is in the grace period
     authenticationStatus(request, gracePeriodCountsAsAuthenticated = true) match {
       // we have a principal, so process the block
-      case Right(principal) => block(new AuthenticatedRequest(principal, request))
+      case Right(principal) =>
+        block(new AuthenticatedRequest(principal, request))
+          .map(result => result.addAttr(RequestLoggingFilter.requestPrincipal, principal))
       // no principal so return a result which will either be an error or a form of redirect
       case Left(result) => result
     }

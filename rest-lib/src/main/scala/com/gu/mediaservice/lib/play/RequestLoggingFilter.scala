@@ -2,8 +2,11 @@ package com.gu.mediaservice.lib.play
 
 import org.apache.pekko.stream.Materializer
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication
+import com.gu.mediaservice.lib.play.RequestLoggingFilter.{getRequestId, loggablePrincipal, requestPrincipal, requestUuidKey}
 import net.logstash.logback.marker.Markers.appendEntries
+import play.api.libs.typedmap.TypedKey
 import play.api.mvc.{Filter, RequestHeader, Result, WrappedRequest}
 import play.api.{Logger, MarkerContext}
 
@@ -13,17 +16,23 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object RequestLoggingFilter {
-  val requestIdHeader = "x-grid-request-id"
-  def getRequestId[T](req: WrappedRequest[T]): String =
-    req.headers.get(requestIdHeader).getOrElse(UUID.randomUUID().toString)
+  val requestUuidKey = TypedKey[String]("request-uuid")
+  def getRequestId[T](req: WrappedRequest[T]): String = req.attrs.get(requestUuidKey).getOrElse("(unset request id)")
+  val requestPrincipal = TypedKey[Principal]("request-principal")
+
+  def loggablePrincipal(principal: Principal): Map[String, String] =
+    Map(
+      "api-key" -> principal.accessor.identity,
+      "api-key-tier" -> principal.accessor.tier.toString
+    )
 }
 class RequestLoggingFilter(override val mat: Materializer)(implicit ec: ExecutionContext) extends Filter {
 
   private val logger = Logger("request")
 
-  override def apply(next: (RequestHeader) => Future[Result])(request: RequestHeader): Future[Result] = {
+  override def apply(next: RequestHeader => Future[Result])(request: RequestHeader): Future[Result] = {
     val start = System.currentTimeMillis()
-    val withID = request.withHeaders(request.headers.replace(RequestLoggingFilter.requestIdHeader -> UUID.randomUUID().toString))
+    val withID = request.addAttr(requestUuidKey, UUID.randomUUID().toString)
 
     val resultFuture = next(withID)
 
@@ -44,12 +53,14 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
 
+    val authMarkers = outcome.toOption.flatMap(_.attrs.get(requestPrincipal)).map(loggablePrincipal).getOrElse(Map.empty)
+
     val mandatoryMarkers = Map(
       "origin" -> originIp,
       "referrer" -> referer,
       "method" -> request.method,
       "duration" -> duration
-    )
+    ) ++ authMarkers
 
     val markersFromRequestHeaders = List(
       Authentication.originalServiceHeaderName,
@@ -60,10 +71,11 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
       headerName -> request.headers.get(headerName)
     }
 
-    val optionalMarkers = (markersFromRequestHeaders ++ Map(
+
+    val optionalMarkers = (markersFromRequestHeaders  ++ Map(
       "status" -> outcome.map(_.header.status).toOption,
-      "requestId" -> request.headers.get(RequestLoggingFilter.requestIdHeader)
-    )).collect{
+      "requestId" -> request.attrs.get(requestUuidKey),
+    )).collect {
       case (key, Some(value)) => key -> value
     }
 
@@ -72,7 +84,7 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     outcome.fold(
       throwable => {
         logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms""")(markers)
-        logger.error(s"Error for ${request.method} ${request.uri}", throwable)
+        logger.error(s"Error for ${request.method} ${request.uri}", throwable)(markers)
       },
       response => {
         val length = response.header.headers.getOrElse("Content-Length", 0)
