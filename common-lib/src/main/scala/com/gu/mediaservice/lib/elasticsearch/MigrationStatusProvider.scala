@@ -78,7 +78,7 @@ trait MigrationStatusProvider {
 
   private val migrationStatusRefresher = scheduler.scheduleAtFixedRate(
     initialDelay = 0.seconds,
-    interval = 5.seconds
+    interval = 1.minutes
   ) { () => {
     val instances = Await.result(instancesClient.getInstances(), Duration(10, SECONDS))
     instances.foreach(refreshMigrationStatus)
