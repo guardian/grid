@@ -36,7 +36,7 @@ class UploadStatusTable(config: ImageLoaderConfig) extends GridLogging {
     val updateExpression = updateStatus.errorMessage match {
       case Some(error) =>
         val status: StatusType = updateStatus.status
-        set("status", status) and set("errorMessages", error)
+        set("status", status) and set("errorMessage", error)
       case None => set("status", updateStatus.status)
     }
     val uploadStatusTableWithCondition =
