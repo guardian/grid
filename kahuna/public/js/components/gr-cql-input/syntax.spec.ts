@@ -8,12 +8,14 @@ const queries = [
   {
     name: "plain text",
     cql: "text",
-    structuredQuery: [{ type: "text", value: "text" }]
+    structuredQuery: [{ type: "text", value: "text", filterType: "inclusion" }]
   },
-    {
+  {
     name: "quoted text",
     cql: `"text"`,
-    structuredQuery: [{ type: "text", value: `"text"` }]
+    structuredQuery: [
+      { type: "text", value: `"text"`, filterType: "inclusion" }
+    ]
   },
   {
     name: "an empty chip",
@@ -54,14 +56,18 @@ const queries = [
     name: "consecutive text",
     cql: "this should be a single text field",
     structuredQuery: [
-      { type: "text", value: "this should be a single text field" }
+      {
+        type: "text",
+        value: "this should be a single text field",
+        filterType: "inclusion"
+      }
     ]
   },
   {
     name: "chips and text in combination",
     cql: "text has:chip another:chip more text",
     structuredQuery: [
-      { type: "text", value: "text" },
+      { type: "text", value: "text", filterType: "inclusion" },
       {
         filterType: "inclusion",
         key: "has",
@@ -74,28 +80,28 @@ const queries = [
         type: "filter",
         value: "chip"
       },
-      { type: "text", value: "more text" }
+      { type: "text", value: "more text",        filterType: "inclusion"  }
     ]
   },
   {
     name: "chips with reserved chars in keys",
     cql: "text leases.leases.access:deny-use text usages@platform:print more text",
     structuredQuery: [
-      { type: "text", value: "text" },
+      { type: "text", value: "text", filterType: "inclusion" },
       {
         filterType: "inclusion",
         key: "leases.leases.access",
         type: "filter",
         value: "deny-use"
       },
-      { type: "text", value: "text" },
+      { type: "text", value: "text", filterType: "inclusion" },
       {
         filterType: "inclusion",
         key: "usages@platform",
         type: "filter",
         value: "print"
       },
-      { type: "text", value: "more text" }
+      { type: "text", value: "more text", filterType: "inclusion" }
     ]
   },
   {

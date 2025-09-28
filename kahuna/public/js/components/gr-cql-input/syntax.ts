@@ -1,5 +1,8 @@
 import { CqlBinary, CqlExpr, CqlField, CqlQuery, CqlStr } from "@guardian/cql";
-import { StructuredQuery } from "../../search/structured-query/syntax";
+import {
+  FilterType,
+  StructuredQuery
+} from "../../search/structured-query/syntax";
 
 export const cqlParserSettings = {
   operators: false,
@@ -19,15 +22,16 @@ export const structureCqlQuery = (query: CqlQuery): StructuredQuery => {
 };
 
 const structuredQueryFromExpr = (expr: CqlExpr): StructuredQuery => {
+  const filterType = expr.polarity === "NEGATIVE" ? "exclusion" : "inclusion";
   switch (expr.content.type) {
     case "CqlStr":
-      return structuredQueryFromStr(expr.content);
+      return structuredQueryFromStr(expr.content, filterType);
     case "CqlBinary":
       return structuredQueryFromBinary(expr.content);
     case "CqlGroup":
       return []; // No groups in Grid queries ... yet
     case "CqlField":
-      return structuredQueryFromField(expr.content);
+      return structuredQueryFromField(expr.content, filterType);
   }
 };
 
@@ -40,35 +44,37 @@ const structuredQueryFromBinary = (binary: CqlBinary): StructuredQuery => {
   return left.concat(right);
 };
 
-const structuredQueryFromStr = (str: CqlStr): StructuredQuery => {
+const structuredQueryFromStr = (
+  str: CqlStr,
+  filterType: FilterType,
+): StructuredQuery => {
   return [
     {
       type: "text",
       // Take the lexeme, rather than the literal, as if the string
       // is quoted we must preserve the quotes: this what Grid expects
-      value: str.token.lexeme
+      value: str.token.lexeme,
+      filterType
     }
   ];
 };
 
-const structuredQueryFromField = ({
-  key: { literal, tokenType },
-  value
-}: CqlField): StructuredQuery => {
+const structuredQueryFromField = (
+  { key: { literal }, value }: CqlField,
+  filterType: FilterType,
+): StructuredQuery => {
   if (!literal) {
     return [];
   }
 
   const type = literal === "collection" ? "static-filter" : "filter";
-  const filterType =
-    tokenType === "CHIP_KEY_NEGATIVE" ? "exclusion" : "inclusion";
 
   return [
     {
       type,
       filterType,
       key: literal,
-      value: value.literal ?? ""
+      value: value?.literal ?? ""
     }
   ];
 };

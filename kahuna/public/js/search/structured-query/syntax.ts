@@ -13,16 +13,18 @@ const falsyValuesToEmptyString = (value: string | null | undefined) => {
     }
 };
 
+export type FilterType = 'inclusion' | 'exclusion';
+
 type StructuredQueryFilter = {
   type: 'filter' | 'static-filter' | 'collection'
-  filterType?: 'inclusion' | 'exclusion',
+  filterType?: FilterType,
   key: string,
   value: string
 }
 
 type StructuredQueryText = {
   type: 'text'
-  filterType?: 'inclusion' | 'exclusion',
+  filterType?: FilterType,
   value: string
 }
 
