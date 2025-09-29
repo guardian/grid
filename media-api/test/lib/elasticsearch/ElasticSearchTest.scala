@@ -100,6 +100,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("get by id") {
     it("can load a single image by id") {
       val expectedImage = images.head
+      implicit val logMarker: LogMarker = MarkerMap()
+
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
       }
@@ -147,6 +149,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   describe("usages for supplier") {
     it("can count published agency images within the last number of days") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
       val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
       publishedAgencyImages.size shouldBe 2
 
@@ -163,6 +167,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   describe("aggregations") {
     it("can load date aggregations") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
       val aggregateSearchParams = AggregateSearchParams(field = "uploadTime", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
@@ -172,6 +178,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("can load metadata aggregations") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
       val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
