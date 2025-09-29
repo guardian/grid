@@ -122,7 +122,7 @@ const queries = [
     ]
   },
   {
-    name: "chips with quoted keys",
+    name: "chips with quoted keys and whitespace",
     cql: `"fileMetadata.iptc.By-line Title":Photographer`,
     structuredQuery: [
       {
@@ -130,6 +130,18 @@ const queries = [
         key: "fileMetadata.iptc.By-line Title",
         type: "filter",
         value: "Photographer"
+      }
+    ]
+  },
+  {
+    name: "chips with quoted keys and values",
+    cql: `"fileMetadata.xmp.xmpMM:OriginalDocumentID":"urn:uuid:4d8c1ca2-245d-43d9-82e1-a6be6ec7e059"`,
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "fileMetadata.xmp.xmpMM:OriginalDocumentID",
+        type: "filter",
+        value: "urn:uuid:4d8c1ca2-245d-43d9-82e1-a6be6ec7e059"
       }
     ]
   }
