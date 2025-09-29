@@ -103,17 +103,15 @@ function renderFilter(field: string, value: string) {
 // Serialise a structured query into a plain string query
 export function renderQuery(structuredQuery: StructuredQuery) {
     return structuredQuery.filter(item => item.value).map(item => {
+      const prefix = (item.filterType === 'exclusion') ? '-' : '';
         switch (item.type) {
         // Match both filters
         case 'static-filter':
         case 'filter':
-            const prefix = (item.filterType === 'exclusion') ? '-' : '';
             const filterExpr = renderFilter(item.key, item.value);
             return prefix + filterExpr;
-
         case 'text':
-            return item.value;
-
+            return prefix + item.value;
         default:
             return '';
         }

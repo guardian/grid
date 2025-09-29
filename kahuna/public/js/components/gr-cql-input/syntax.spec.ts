@@ -10,6 +10,11 @@ const queries = [
     cql: "text",
     structuredQuery: [{ type: "text", value: "text", filterType: "inclusion" }]
   },
+    {
+    name: "excluded plain text",
+    cql: "-text",
+    structuredQuery: [{ type: "text", value: "text", filterType: "exclusion" }]
+  },
   {
     name: "quoted text",
     cql: `"text"`,
