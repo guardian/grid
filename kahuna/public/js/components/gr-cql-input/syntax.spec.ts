@@ -10,10 +10,22 @@ const queries = [
     cql: "text",
     structuredQuery: [{ type: "text", value: "text", filterType: "inclusion" }]
   },
-    {
-    name: "excluded plain text",
+  {
+    name: "excluded terms",
     cql: "-text",
     structuredQuery: [{ type: "text", value: "text", filterType: "exclusion" }]
+  },
+  {
+    name: "consecutive excluded terms",
+    cql: "-1 2 -3 -4 -5 6",
+    structuredQuery: [
+      { type: "text", value: "1", filterType: "exclusion" },
+      { type: "text", value: "2", filterType: "inclusion" },
+      { type: "text", value: "3", filterType: "exclusion" },
+      { type: "text", value: "4", filterType: "exclusion" },
+      { type: "text", value: "5", filterType: "exclusion" },
+      { type: "text", value: "6", filterType: "inclusion" }
+    ]
   },
   {
     name: "quoted text",
@@ -85,7 +97,7 @@ const queries = [
         type: "filter",
         value: "chip"
       },
-      { type: "text", value: "more text",        filterType: "inclusion"  }
+      { type: "text", value: "more text", filterType: "inclusion" }
     ]
   },
   {
