@@ -63,7 +63,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val awsSdkV2Version = "2.31.12"
+val awsSdkV2Version = "2.32.33"
 val elastic4sVersion = "8.3.0"
 val okHttpVersion = "3.12.1"
 
@@ -109,6 +109,7 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     // declare explicit dependency on desired version of aws sdk v2 bedrock runtime
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
+    "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
     "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
   ),
@@ -166,6 +167,7 @@ lazy val thrall = playProject("thrall", 9002)
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
+      "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
       "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
@@ -190,6 +192,7 @@ lazy val usage = playProject("usage", 9009).settings(
     "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
+    "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
   dependencyOverrides ++= Seq(
@@ -206,6 +209,7 @@ lazy val scripts = project("scripts")
       "software.amazon.awssdk" % "s3" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
+      "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
       // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
       "com.beust" % "jcommander" % "1.75",
       "org.apache.commons" % "commons-compress" % "1.27.1",
