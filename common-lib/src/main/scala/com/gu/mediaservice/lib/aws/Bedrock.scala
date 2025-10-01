@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.aws
 
 import software.amazon.awssdk.services.bedrockruntime.model._
 import software.amazon.awssdk.services.bedrockruntime._
-import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.config.CommonConfig
 
 import java.util.concurrent.CompletableFuture
@@ -11,7 +10,6 @@ import software.amazon.awssdk.core.SdkBytes
 
 import java.net.URI
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.ImageEmbedding
 import play.api.libs.json.Format.GenericFormat
 import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
 import play.api.libs.json._
@@ -65,7 +63,7 @@ class Bedrock(config: CommonConfig)
     request
   }
 
-  def sendBedrockEmbeddingRequest(base64EncodedImage: String)(
+  private def sendBedrockEmbeddingRequest(base64EncodedImage: String)(
     implicit logMarker: LogMarker
   ): CompletableFuture[InvokeModelResponse] = {
     logger.info(logMarker, "Starting fetchEmbedding call")
@@ -90,7 +88,7 @@ class Bedrock(config: CommonConfig)
     }
   }
 
-  def createImageEmbedding(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageEmbedding] = {
+  def createImageEmbedding(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
     logger.info(
       logMarker,
       s"Starting image embedding creation"
@@ -109,12 +107,12 @@ class Bedrock(config: CommonConfig)
         val json = Json.parse(responseBody)
         logger.info(logMarker, s"Parsed JSON response: $json")
         // Extract the embeddings array (first element since it's an array of arrays)
-        val embeddings = (json \ "embeddings" \ "float")(0).as[List[Double]]
+        val embeddings = (json \ "embeddings" \ "float")(0).as[List[Float]]
         logger.info(
           logMarker,
           s"Successfully extracted embeddings. Vector size: ${embeddings.size}"
         )
-        ImageEmbedding(cohereEmbedEnglishV3 = embeddings)
+        embeddings
       }
   }
 }
