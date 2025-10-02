@@ -58,8 +58,10 @@ class UsageApi(
     )
 
     val printPostUri = URI.create(s"${config.usageUri}/usages/print")
+    val syndicationPostUri = URI.create(s"${config.usageUri}/usages/syndication")
     val actions = List(
-      ArgoAction("print-usage", printPostUri, "POST")
+      ArgoAction("print-usage", printPostUri, "POST"),
+      ArgoAction("syndication-usage", syndicationPostUri, "POST"),
     )
 
     respond(indexData, indexLinks, actions)
