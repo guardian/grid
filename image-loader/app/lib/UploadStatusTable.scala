@@ -26,7 +26,7 @@ class UploadStatusTable(config: ImageLoaderConfig) {
 
   def updateStatus(imageId: String, updateRequest: UploadStatus) = {
     val updateExpression = updateRequest.errorMessage match {
-      case Some(error) => set("status", updateRequest.status) and set("errorMessages", error)
+      case Some(error) => set("status", updateRequest.status) and set("errorMessage", error)
       case None => set("status", updateRequest.status)
     }
     val uploadStatusTableWithCondition =
