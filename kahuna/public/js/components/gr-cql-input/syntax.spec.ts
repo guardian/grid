@@ -1,0 +1,174 @@
+import { createParser } from "@guardian/cql";
+import { describe, it, expect } from "@jest/globals";
+import { cqlParserSettings, structureCqlQuery } from "./syntax";
+
+const parser = createParser(cqlParserSettings);
+
+const queries = [
+  {
+    name: "plain text",
+    cql: "text",
+    structuredQuery: [{ type: "text", value: "text", filterType: "inclusion" }]
+  },
+  {
+    name: "excluded terms",
+    cql: "-text",
+    structuredQuery: [{ type: "text", value: "text", filterType: "exclusion" }]
+  },
+  {
+    name: "consecutive excluded terms",
+    cql: "-1 2 -3 -4 -5 6",
+    structuredQuery: [
+      { type: "text", value: "1", filterType: "exclusion" },
+      { type: "text", value: "2", filterType: "inclusion" },
+      { type: "text", value: "3", filterType: "exclusion" },
+      { type: "text", value: "4", filterType: "exclusion" },
+      { type: "text", value: "5", filterType: "exclusion" },
+      { type: "text", value: "6", filterType: "inclusion" }
+    ]
+  },
+  {
+    name: "quoted text",
+    cql: `"text"`,
+    structuredQuery: [
+      { type: "text", value: `"text"`, filterType: "inclusion" }
+    ]
+  },
+  {
+    name: "an empty chip",
+    cql: "+:",
+    structuredQuery: []
+  },
+  {
+    name: "a single chip",
+    cql: "has:chip",
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "has",
+        type: "filter",
+        value: "chip"
+      }
+    ]
+  },
+  {
+    name: "multiple chips",
+    cql: "has:chip another:chip",
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "has",
+        type: "filter",
+        value: "chip"
+      },
+      {
+        filterType: "inclusion",
+        key: "another",
+        type: "filter",
+        value: "chip"
+      }
+    ]
+  },
+  {
+    name: "consecutive text",
+    cql: "this should be a single text field",
+    structuredQuery: [
+      {
+        type: "text",
+        value: "this should be a single text field",
+        filterType: "inclusion"
+      }
+    ]
+  },
+  {
+    name: "chips and text in combination",
+    cql: "text has:chip another:chip more text",
+    structuredQuery: [
+      { type: "text", value: "text", filterType: "inclusion" },
+      {
+        filterType: "inclusion",
+        key: "has",
+        type: "filter",
+        value: "chip"
+      },
+      {
+        filterType: "inclusion",
+        key: "another",
+        type: "filter",
+        value: "chip"
+      },
+      { type: "text", value: "more text", filterType: "inclusion" }
+    ]
+  },
+  {
+    name: "chips with reserved chars in keys",
+    cql: "text leases.leases.access:deny-use text usages@platform:print more text",
+    structuredQuery: [
+      { type: "text", value: "text", filterType: "inclusion" },
+      {
+        filterType: "inclusion",
+        key: "leases.leases.access",
+        type: "filter",
+        value: "deny-use"
+      },
+      { type: "text", value: "text", filterType: "inclusion" },
+      {
+        filterType: "inclusion",
+        key: "usages@platform",
+        type: "filter",
+        value: "print"
+      },
+      { type: "text", value: "more text", filterType: "inclusion" }
+    ]
+  },
+  {
+    name: "chips with quoted values",
+    cql: `category:"PR Image"`,
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "category",
+        type: "filter",
+        value: "PR Image"
+      }
+    ]
+  },
+  {
+    name: "chips with quoted keys and whitespace",
+    cql: `"fileMetadata.iptc.By-line Title":Photographer`,
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "fileMetadata.iptc.By-line Title",
+        type: "filter",
+        value: "Photographer"
+      }
+    ]
+  },
+  {
+    name: "chips with quoted keys and values",
+    cql: `"fileMetadata.xmp.xmpMM:OriginalDocumentID":"urn:uuid:4d8c1ca2-245d-43d9-82e1-a6be6ec7e059"`,
+    structuredQuery: [
+      {
+        filterType: "inclusion",
+        key: "fileMetadata.xmp.xmpMM:OriginalDocumentID",
+        type: "filter",
+        value: "urn:uuid:4d8c1ca2-245d-43d9-82e1-a6be6ec7e059"
+      }
+    ]
+  }
+];
+
+describe("cql -> structured-query translation", () => {
+  describe("structureCqlQuery", () => {
+    queries.forEach((query) => {
+      it(`should parse a query of '${query.name}' into a Grid structured query`, () => {
+        const cqlAst = parser(query.cql).queryAst;
+
+        const structuredQuery = structureCqlQuery(cqlAst);
+
+        expect(structuredQuery).toEqual(query.structuredQuery);
+      });
+    });
+  });
+});

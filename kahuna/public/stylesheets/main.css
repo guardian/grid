@@ -1000,6 +1000,7 @@ textarea.ng-invalid {
 .search__modifier-container {
     position: relative;
     display: flex;
+    flex-shrink: 0;
 }
 
 .search__modifier-toggle {

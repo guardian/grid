@@ -5,18 +5,36 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 /*eslint-disable max-len */
 const parserRe = /(-?)(?:(?:([\p{L}@><]+):|"([^"]+)":|'([^']+)':|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
 /*eslint-enable max-len */
-const falsyValuesToEmptyString = (value) => {
+const falsyValuesToEmptyString = (value: string | null | undefined) => {
     if (!value){
         return '';
     } else {
         return value.toString();
     }
 };
+
+export type FilterType = 'inclusion' | 'exclusion';
+
+type StructuredQueryFilter = {
+  type: 'filter' | 'static-filter' | 'collection'
+  filterType?: FilterType,
+  key: string,
+  value: string
+}
+
+type StructuredQueryText = {
+  type: 'text'
+  filterType?: FilterType,
+  value: string
+}
+
+export type StructuredQuery = (StructuredQueryFilter | StructuredQueryText)[];
+
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
-export function structureQuery(query) {
+export function structureQuery(query: string) {
 
-    const struct = [];
+    const struct: StructuredQuery = [];
     let m;
     if (query === undefined) {
         return struct;
@@ -54,7 +72,7 @@ export function structureQuery(query) {
     return orderChips(struct);
 }
 
-function orderChips(structuredQuery){
+function orderChips(structuredQuery: StructuredQuery){
     const filterChips = structuredQuery.filter(e => e.type !== 'text');
     const textChipsValues = mergeTextValues(structuredQuery);
     const textChip = {
@@ -64,7 +82,7 @@ function orderChips(structuredQuery){
 
     const cleanStruct = [textChip].concat(filterChips);
 
-    function mergeTextValues(chips){
+    function mergeTextValues(chips: StructuredQuery){
         return chips.filter(e => e.type === 'text')
             .map(e => e.value)
             .join(' ');
@@ -73,7 +91,7 @@ function orderChips(structuredQuery){
     return cleanStruct;
 }
 
-function renderFilter(field, value) {
+function renderFilter(field: string, value: string) {
     switch (field) {
     case 'label':      return getLabel(value);
     case 'collection': return getCollection(value);
@@ -83,19 +101,17 @@ function renderFilter(field, value) {
 }
 
 // Serialise a structured query into a plain string query
-export function renderQuery(structuredQuery) {
+export function renderQuery(structuredQuery: StructuredQuery) {
     return structuredQuery.filter(item => item.value).map(item => {
+      const prefix = (item.filterType === 'exclusion') ? '-' : '';
         switch (item.type) {
         // Match both filters
         case 'static-filter':
         case 'filter':
-            const prefix = (item.filterType === 'exclusion') ? '-' : '';
             const filterExpr = renderFilter(item.key, item.value);
             return prefix + filterExpr;
-
         case 'text':
-            return item.value;
-
+            return prefix + item.value;
         default:
             return '';
         }
