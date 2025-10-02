@@ -1,10 +1,10 @@
 {
   "dependencies": {
-    "@babel/polyfill": "^7.8.7",
-    "@guardian/cql": "^1.8.1",
-    "@guardian/user-telemetry-client": "^1.1.0",
-    "@sentry/browser": "^6.11.0",
-    "@sentry/integrations": "^6.11.0",
+    "@babel/polyfill": "7.8.7",
+    "@guardian/cql": "1.8.1",
+    "@guardian/user-telemetry-client": "1.1.0",
+    "@sentry/browser": "6.11.0",
+    "@sentry/integrations": "6.11.0",
     "angular": "1.8.3",
     "angular-animate": "1.8.3",
     "angular-cookies": "1.8.3",
