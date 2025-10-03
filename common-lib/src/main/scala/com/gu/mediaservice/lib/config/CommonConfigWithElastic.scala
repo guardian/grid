@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
+import scalaz.NonEmptyList
 
 class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConfig(resources) {
 
@@ -15,7 +16,12 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
     replicas = string("es6.replicas").toInt
   )
 
-  val persistenceIdentifier = string("persistence.identifier")
+  private val persistenceIdentifier = string("persistence.identifier")
+  val persistenceIdentifiers = NonEmptyList(
+    persistenceIdentifier,
+    ImageStorageProps.derivativeOfMediaIdsIdentifierKey,
+    ImageStorageProps.replacesMediaIdIdentifierKey
+  )
   val queriableIdentifiers = Seq(
     persistenceIdentifier,
     ImageStorageProps.derivativeOfMediaIdsIdentifierKey,

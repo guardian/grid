@@ -7,6 +7,7 @@ import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
 import org.joda.time.DateTime
+import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {
@@ -32,7 +33,7 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
-      case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections, config.persistenceIdentifier))
+      case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers))
       case _ => None
     }
   }
@@ -68,6 +69,6 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
   )
 }
 
-case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String)
+case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifiers: NonEmptyList[String])
   extends IsQueryFilter with ReapableEligibility {
 }
