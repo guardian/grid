@@ -21,13 +21,16 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     logger.info(s" $index -> ${processor.description}")
   }
 
+  val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
+  private val gridClient = GridClient(services)(wsClient)
+
   val store = new ImageLoaderStore(config)
   val maybeIngestQueue = config.maybeIngestSqsQueueUrl.map(queueUrl => new SimpleSqsMessageConsumer(queueUrl, config))
   val uploadStatusTable = new UploadStatusTable(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
-  val uploader = new Uploader(store, config, imageOperations, notifications, imageProcessor)
+  val uploader = new Uploader(store, config, imageOperations, notifications, imageProcessor, gridClient, auth)
   val projector = Projector(config, imageOperations, imageProcessor, auth)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
@@ -37,9 +40,6 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     case (true, None) => throw new IllegalArgumentException(s"Quarantining is enabled. upload.quarantine.enabled = ${config.uploadToQuarantineEnabled} but no bucket is configured. s3.quarantine.bucket isn't configured.")
     case (false, _) => None
   }
-
-  val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  private val gridClient = GridClient(services)(wsClient)
 
   val metrics = new ImageLoaderMetrics(config, actorSystem, applicationLifecycle)
 

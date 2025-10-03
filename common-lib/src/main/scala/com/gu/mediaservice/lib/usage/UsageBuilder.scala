@@ -3,22 +3,25 @@ package com.gu.mediaservice.lib.usage
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 
+import java.net.URI
+
 object UsageBuilder {
 
   def build(usage: MediaUsage) = Usage(
-    buildId(usage),
-    buildUsageReference(usage),
-    usage.usageType,
-    usage.mediaType,
-    buildStatusString(usage),
-    usage.dateAdded,
-    usage.dateRemoved,
-    usage.lastModified,
-    usage.printUsageMetadata,
-    usage.digitalUsageMetadata,
-    usage.syndicationUsageMetadata,
-    usage.frontUsageMetadata,
-    usage.downloadUsageMetadata
+    id = buildId(usage),
+    references = buildUsageReference(usage),
+    platform = usage.usageType,
+    media = usage.mediaType,
+    status = buildStatusString(usage),
+    dateAdded = usage.dateAdded,
+    dateRemoved = usage.dateRemoved,
+    lastModified = usage.lastModified,
+    printUsageMetadata = usage.printUsageMetadata,
+    digitalUsageMetadata = usage.digitalUsageMetadata,
+    syndicationUsageMetadata = usage.syndicationUsageMetadata,
+    frontUsageMetadata = usage.frontUsageMetadata,
+    downloadUsageMetadata = usage.downloadUsageMetadata,
+    childUsageMetadata = usage.childUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
@@ -33,6 +36,8 @@ object UsageBuilder {
       case PrintUsage => buildPrintUsageReference(usage)
       case SyndicationUsage => buildSyndicationUsageReference(usage)
       case DownloadUsage => buildDownloadUsageReference(usage)
+      case DerivativeUsage => buildChildUsageReference(usage, GridUsageReference)
+      case ReplacedUsage => buildChildUsageReference(usage, GridUsageReference)
     }
   }
 
@@ -75,6 +80,18 @@ object UsageBuilder {
     List(
       UsageReference(
         DownloadUsageReference, None, Some(metadata.downloadedBy)
+      )
+    )
+  }).getOrElse(
+    List[UsageReference]()
+  )
+
+  private def buildChildUsageReference(usage: MediaUsage, usageReferenceType: UsageReferenceType): List[UsageReference] = usage.childUsageMetadata.map (metadata => {
+    List(
+      UsageReference(
+        `type` = usageReferenceType,
+        uri = Some(new URI(metadata.childMediaId)), // should manifest as a relative link
+        name = Some(metadata.childMediaId)
       )
     )
   }).getOrElse(
