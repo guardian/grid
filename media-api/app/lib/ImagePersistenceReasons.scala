@@ -3,12 +3,13 @@ package lib
 import com.gu.mediaservice.lib.elasticsearch.PersistedQueries
 import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import scalaz.NonEmptyList
 
 
-case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String) {
+case class ImagePersistenceReasons(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifiers: NonEmptyList[String]) {
   val allReasons: List[PersistenceReason] =
     List(
-      HasPersistenceIdentifier(persistenceIdentifier),
+      HasPersistenceIdentifier(persistenceIdentifiers),
       HasExports,
       HasUsages,
       IsArchived,
@@ -31,12 +32,12 @@ sealed trait PersistenceReason {
   val reason: String
 }
 
-case class HasPersistenceIdentifier(persistenceIdentifier: String) extends PersistenceReason {
-  override def shouldPersist(image: Image): Boolean = image.identifiers.contains(persistenceIdentifier)
+case class HasPersistenceIdentifier(persistenceIdentifiers: NonEmptyList[String]) extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = persistenceIdentifiers.list.toList.exists(image.identifiers.contains)
 
   override val reason: String = "persistence-identifier"
 
-  override val query: Query = PersistedQueries.existedPreGrid(persistenceIdentifier)
+  override val query: Query = PersistedQueries.hasPersistedIdentifier(persistenceIdentifiers)
 }
 
 object HasExports extends PersistenceReason {
