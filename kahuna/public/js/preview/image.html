@@ -118,8 +118,7 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time" ng-if="!ctrl.orderTakenBy()" title="Uploaded: {{::ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm:ss'}}
       Taken: {{::(ctrl.image.data.metadata.dateTaken | date:'d MMM yyyy, HH:mm:ss') || '[none]'}}">
-                Uploaded: {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
-                {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
+                Uploaded: {{::ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
             </span>
             <span class="preview__upload-time" ng-if="ctrl.orderTakenBy()" title="Uploaded: {{::ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm:ss'}}
       Taken: {{::(ctrl.image.data.metadata.dateTaken | date:'d MMM yyyy, HH:mm:ss') || '[none]'}}">

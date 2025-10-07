@@ -7,6 +7,7 @@ import '../services/panel';
 import '../util/async';
 import '../util/rx';
 import '../util/seq';
+import '../util/storage';
 import '../util/constants/sendToCapture-config';
 import '../components/gu-lazy-table/gu-lazy-table';
 import '../components/gu-lazy-table-shortcuts/gu-lazy-table-shortcuts';
@@ -18,6 +19,18 @@ import '../components/gr-batch-export-original-images/gr-batch-export-original-i
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
 import '../components/gr-confirmation-modal/gr-confirmation-modal';
+import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-sort-control/gr-extended-sort-control';
+import {
+  manageSortSelection,
+  DefaultSortOption,
+  TAKEN_SORT,
+  HAS_DATE_TAKEN,
+  HASNT_DATE_TAKEN
+} from "../components/gr-sort-control/gr-sort-control-config";
+import {
+  TAB_WITH
+} from "../components/gr-tab-swap/gr-tab-swap";
 import {
   INVALIDIMAGES,
   sendToCaptureAllValid, sendToCaptureCancelBtnTxt, sendToCaptureConfirmBtnTxt, sendToCaptureInvalid,
@@ -42,7 +55,9 @@ export var results = angular.module('kahuna.search.results', [
     'gr.undeleteImage',
     'gr.panelButton',
     'gr.toggleButton',
-    'gr.confirmationModal'
+    'gr.confirmationModal',
+    'gr.sortControl',
+    'gr.extendedSortControl'
 ]);
 
 
@@ -79,6 +94,7 @@ results.controller('SearchResultsCtrl', [
     'panels',
     'isReloadingPreviousSearch',
     'globalErrors',
+    'storage',
 
     function($rootScope,
              $scope,
@@ -98,17 +114,88 @@ results.controller('SearchResultsCtrl', [
              results,
              panels,
              isReloadingPreviousSearch,
-             globalErrors) {
+             globalErrors,
+             storage) {
 
         const ctrl = this;
 
         ctrl.$onInit = () => {
           ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
+          ctrl.usePermissionsFilter = () => $window._clientConfig.usePermissionsFilter;
         };
 
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
+
+        //-taken and sort controls-
+        const hasTakenDateClause = HAS_DATE_TAKEN;
+        const noTakenDateClause = HASNT_DATE_TAKEN;
+        const takenSort = TAKEN_SORT;
+        ctrl.setTakenVisible = (isVisible) => storage.setJs("takenTabVisible", isVisible ? "visible" : "hidden", true);
+        ctrl.getTakenVisible = () => {
+          const vis = storage.getJs("takenTabVisible", true) ? storage.getJs("takenTabVisible", true) : "hidden";
+          return (vis == "visible");
+        };
+        ctrl.getCollectionsPanelVisible = () => storage.getJs("collectionsPanelState", false) ? !(storage.getJs("collectionsPanelState", false).hidden) : false;
+        ctrl.getInfoPanelVisible = () => storage.getJs("metadataPanelState", false) ? !(storage.getJs("metadataPanelState", false).hidden) : false;
+        ctrl.getLastTakenSort = () => storage.getJs("lastTakenSort", false) ? storage.getJs("lastTakenSort", false) : "";
+        ctrl.setLastTakenSort = (orderBy) => storage.setJs("lastTakenSort", orderBy, false);
+
+        //-sort control select-
+        function updateSortChange (sortSel, tabSelected, userSelectedTaken) {
+          var orderBy = manageSortSelection(sortSel.value);
+          var curQuery = $stateParams.query ? $stateParams.query : '';
+          ctrl.setTakenVisible(userSelectedTaken);
+          curQuery = curQuery.replace(noTakenDateClause, "").replace(hasTakenDateClause, "").trim();
+          if (sortSel.isTaken) {
+            ctrl.setLastTakenSort(orderBy);
+          }
+          if (userSelectedTaken) {
+            if (tabSelected === TAB_WITH) {
+              curQuery = `${curQuery} ${hasTakenDateClause}`.trim();
+              orderBy = ctrl.getLastTakenSort();
+            } else { // without
+              curQuery = `${curQuery} ${noTakenDateClause}`.trim();
+              orderBy = DefaultSortOption.value;
+            }
+          }
+          storage.setJs("orderBy", orderBy);
+          const toParams = {
+            ...$stateParams,
+            orderBy: orderBy,
+            query: curQuery
+          };
+          $state.go('search.results', toParams);
+        }
+
+        async function checkForNoTakenDate() {
+          let tempQuery = $stateParams.query ? $stateParams.query : '';
+          let isTaken = ($stateParams.orderBy && $stateParams.orderBy.includes(takenSort)) || tempQuery.includes(hasTakenDateClause);
+          if (!isTaken) { return 0; }
+          tempQuery = tempQuery.replace(noTakenDateClause, '').replace(hasTakenDateClause, '').trim();
+          storage.setJs("previousQuery", tempQuery, true);
+          let query =  `${tempQuery} ${noTakenDateClause}`.trim();
+          var resp = await search({query: query, length: 0});
+          return resp.total;
+        };
+
+        ctrl.extendedSortProps = {
+          onSortSelect: updateSortChange,
+          query: $stateParams.query ? $stateParams.query : "",
+          orderBy: $stateParams.orderBy ? $stateParams.orderBy : "",
+          infoPanelVisible: ctrl.getInfoPanelVisible(),
+          collectionsPanelVisible: ctrl.getCollectionsPanelVisible(),
+          userTakenSelect: ctrl.getTakenVisible(),
+          noTakenDateCount: 0
+        };
+
+        checkForNoTakenDate().then(noTakenTotal => {
+            ctrl.extendedSortProps = { ...ctrl.extendedSortProps,
+              noTakenDateCount: noTakenTotal
+            };
+        });
+        //-end sort and taken tab controls-
 
         ctrl.images = [];
         if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
@@ -144,7 +231,7 @@ results.controller('SearchResultsCtrl', [
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
-          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+            // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
             ctrl.orgOwnedCount = images.$response?.$$state?.value?.actions;
 
             ctrl.hasQuery = !!$stateParams.query;
@@ -163,6 +250,8 @@ results.controller('SearchResultsCtrl', [
             // results stream exclusively
             results.clear();
             results.resize(totalLength);
+
+            notificationMessages(ctrl.extendedSortProps, images.total);
 
             imagesPositions = new Map();
 
@@ -237,6 +326,56 @@ results.controller('SearchResultsCtrl', [
             then(scrollPosition.clear);
 
         const pollingPeriod = 15 * 1000; // ms
+
+        function notificationMessages(extendedProps, imagesTotal) {
+          if (!ctrl.usePermissionsFilter()) {
+            return;
+          }
+          if (extendedProps.orderBy.includes(takenSort) && extendedProps.query.includes(hasTakenDateClause)) {
+            if (imagesTotal === 0 && extendedProps.noTakenDateCount > 0) { // no images with taken date
+              updateSortChange(DefaultSortOption, 'with', false, extendedProps.noTakenDateCount);
+              const noMatchesStr = "There are no matching images with a taken date";
+              const notificationEvent = new CustomEvent("newNotification", {
+                  detail: {
+                    announceId: "noTakenDateImages",
+                    description: noMatchesStr,
+                    category: "information",
+                    lifespan: "transient"
+                  },
+                  bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+            } else if (0 < extendedProps.noTakenDateCount) {
+              const oldNoTakenCount = storage.getJs("lastNoTakenCount", false) ? storage.getJs("lastNoTakenCount", false) : 0;
+              let imageStr = "There are " + extendedProps.noTakenDateCount.toLocaleString() + " images with no taken date";
+              if (extendedProps.noTakenDateCount === 1) {
+                imageStr = "There is one image with no taken date";
+              }
+              if (oldNoTakenCount !== extendedProps.noTakenDateCount) {
+                const notificationEvent = new CustomEvent("newNotification", {
+                  detail: {
+                    announceId: "sortByTakenDate",
+                    description: imageStr,
+                    category: "information",
+                    lifespan: "transient"
+                  },
+                  bubbles: true
+                });
+                window.dispatchEvent(notificationEvent);
+                storage.setJs("lastNoTakenCount", extendedProps.noTakenDateCount, false);
+              }
+            } else {
+              const notificationEvent = new CustomEvent("removeNotification", {
+                detail: {
+                  announceId: "sortByTakenDate"
+                },
+                bubbles: true
+              });
+              window.dispatchEvent(notificationEvent);
+              storage.setJs("lastNoTakenCount", 0, false);
+            }
+          }
+        }
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
@@ -326,7 +465,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({until, since, offset, length, orderBy, countAll} = {}) {
+        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -344,6 +483,9 @@ results.controller('SearchResultsCtrl', [
              *                  `checkForNewImages` deals with that. If it's the first search, we
              *                  will use `stateParams.until` if available.
              */
+            if (angular.isUndefined(query)) {
+                query = $stateParams.query;
+            }
             if (angular.isUndefined(until)) {
                 until = lastSearchFirstResultTime || $stateParams.until;
             }
@@ -357,7 +499,8 @@ results.controller('SearchResultsCtrl', [
               countAll = true;
             }
 
-            return mediaApi.search($stateParams.query, angular.extend({
+
+            return mediaApi.search(query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined : true,
