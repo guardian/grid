@@ -27,10 +27,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
-
   val s3vectors = new S3Vectors(config)
-  logger.info(s"new S3 vectors client: ${s3vectors.client}")
-
   val uploader = new Uploader(store, config, imageOperations, notifications, s3vectors, imageProcessor)
   val projector = Projector(config, imageOperations, imageProcessor, auth, s3vectors)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {

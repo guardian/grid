@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
+import org.bouncycastle.util.encoders.Base64Encoder
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
 import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
@@ -26,7 +27,7 @@ class S3Vectors(config: CommonConfig)
   }
 
   private def createRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
-    logger.info("Creating request body")
+    logger.info("Creating request body for S3 Vector Store...")
 
     val vectorData: VectorData = VectorData
       .builder()
@@ -43,38 +44,46 @@ class S3Vectors(config: CommonConfig)
     val request: PutVectorsRequest = PutVectorsRequest
       .builder()
       .indexName("cohere-embed-english-v3")
-      // TODO EM: create buckets for -dev and -prod
-      .vectorBucketName("image-embeddings-test")
-//    (s"image-embeddings-${config.stage.toLowerCase}")
+      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
       .vectors(inputVector)
       .build()
 
     request
   }
 
-  // TODO EM: separate out creating the embedding from putting the vector
-  def putVector(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
-  ): Future[PutVectorsResponse] = {
-    logger.info("Starting putVector")
+  private def fetchEmbeddingFromBedrock(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+  ): Future[List[Float]] = {
+    val bedrock = new Bedrock(config)
+    bedrock.createImageEmbedding(base64EncodedImage)
+  }
 
+  private def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+  ): PutVectorsResponse = {
     try {
-      val bedrock = new Bedrock(config)
-      logger.info("Created bedrock class")
-      logger.info(s"image string length: ${base64EncodedImage.length}")
-      val embeddingFuture = bedrock.createImageEmbedding(base64EncodedImage)
-      val vectorInput = embeddingFuture.map { embedding =>
-        logger.info(s"Created embedding with length: ${embedding.length}")
-        val input = createRequestBody(embedding, imageId)
-        logger.info(s"vector request body ${input}")
-        logger.info("Now we're going to call the putVectors function...")
-        client.putVectors(input)
-      }
-      vectorInput
-    } catch {
-      case e: Exception =>
-        logger.error(logMarker, "Exception during Bedrock API call", e)
-        throw e
+      val input = createRequestBody(bedrockEmbedding, imageId)
+      logger.info("Creating S3 Vector ")
+      val response = client.putVectors(input)
+      logger.info(
+        logMarker,
+        s"S3 Vector Store API call completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      response
+    }
+   catch {
+    case e: Exception =>
+      logger.error(logMarker, "Exception during S3 Vector Store API call", e)
+      throw e
     }
   }
+
+  def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+  ): Future[PutVectorsResponse] = {
+    val embeddingFuture = fetchEmbeddingFromBedrock(base64EncodedImage: String)
+    val vectorInput = embeddingFuture.map { embedding =>
+      storeEmbeddingInS3VectorStore(embedding, imageId)
+    }
+    vectorInput
+  }
+
 //  private def searchS3VectorStore() = {}
 }
