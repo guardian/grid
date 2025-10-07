@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
 import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
 
@@ -16,18 +17,20 @@ class S3Vectors(config: CommonConfig)
 
   override def isDev: Boolean = config.isDev
 
+  override def awsRegionV2: Region = Region.EU_CENTRAL_1
+
   val client: S3VectorsClient = {
     logger.info("Creating Bedrock client")
     withAWSCredentialsV2(S3VectorsClient.builder())
       .build()
   }
 
-  private def createRequestBody(embedding: List[Float], imageId: String) = {
+  private def createRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
     logger.info("Creating request body")
 
     val vectorData: VectorData = VectorData
       .builder()
-//      TODO find out if we can do something less upsetting than this float conversion
+      //      TODO find out if we can do something less upsetting than this float conversion
       .float32(embedding.map(_.asInstanceOf[java.lang.Float]).asJava)
       .build()
 
@@ -39,8 +42,8 @@ class S3Vectors(config: CommonConfig)
 
     val request: PutVectorsRequest = PutVectorsRequest
       .builder()
-      .indexName("cohereEmbedEnglishV3")
-      .vectorBucketName(s"image-embeddings-${config.stage}")
+      .indexName("cohere-embed-english-v3")
+      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
       .vectors(inputVector)
       .build()
 
@@ -49,14 +52,15 @@ class S3Vectors(config: CommonConfig)
 
   def putVector(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
   ): Future[PutVectorsResponse] = {
-    logger.info("Starting embedding call")
+    logger.info("Starting putVector")
 
     try {
-
       val bedrock = new Bedrock(config)
-
+      logger.info("Created bedrock class")
+      logger.info("image string: ", base64EncodedImage)
       val embedding = bedrock.createImageEmbedding(base64EncodedImage)
-
+      logger.info("Created embedding, ", embedding)
+      logger.info("Now we're going to call the putVectors function...")
       val vectorInput = embedding.map { data =>
         client.putVectors(createRequestBody(data, imageId))
       }
