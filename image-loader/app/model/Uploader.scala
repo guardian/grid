@@ -160,11 +160,21 @@ object Uploader extends GridLogging {
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
-    val imageBase64: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
-    logger.info("imageBase64 from uploader: ", Files.readAllBytes(uploadRequest.tempFile.toPath))
-//    TODO: how do I get the imageid?
-    val imageId: String = "abcdef"
-    val eventualImageEmbedding = fetchImageEmbedding(imageBase64, imageId)
+//    TODO why is this not working????
+    val filePath = uploadRequest.tempFile.toPath
+    logger.info(s"filePath: ${filePath}")
+
+    val fileBytes = Files.readAllBytes(filePath)
+    logger.info(s"fileBytes length: ${fileBytes.length}")
+
+    val base64EncodedString = Base64.getEncoder().encodeToString(fileBytes)
+    logger.info(s"base64EncodedString: ${base64EncodedString.length}")
+
+//    val imageBase64: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
+//    logger.info("imageBase64 from uploader: ", Files.readAllBytes(uploadRequest.tempFile.toPath))
+
+    // TODO: check that uploadRequest.imageId is the eventual image id in elasticsearch etc
+    val eventualImageEmbedding = fetchImageEmbedding(base64EncodedString, uploadRequest.imageId)
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
@@ -352,8 +362,10 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  private def fetchImageEmbedding(base64EncodedImage: String, imageId: String)(implicit logMarker: LogMarker): Future[PutVectorsResponse] =
+  // TODO EM: this name feels wrong
+  private def fetchImageEmbedding(base64EncodedImage: String, imageId: String)(implicit logMarker: LogMarker): Future[PutVectorsResponse] = {
     s3vectors.putVector(base64EncodedImage, imageId)
+  }
 
   private def storeSource(storableOriginalImage: StorableOriginalImage)
                          (implicit logMarker: LogMarker) = store.store(storableOriginalImage)

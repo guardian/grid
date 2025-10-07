@@ -43,13 +43,16 @@ class S3Vectors(config: CommonConfig)
     val request: PutVectorsRequest = PutVectorsRequest
       .builder()
       .indexName("cohere-embed-english-v3")
-      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
+      // TODO EM: create buckets for -dev and -prod
+      .vectorBucketName("image-embeddings-test")
+//    (s"image-embeddings-${config.stage.toLowerCase}")
       .vectors(inputVector)
       .build()
 
     request
   }
 
+  // TODO EM: separate out creating the embedding from putting the vector
   def putVector(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
   ): Future[PutVectorsResponse] = {
     logger.info("Starting putVector")
@@ -57,14 +60,15 @@ class S3Vectors(config: CommonConfig)
     try {
       val bedrock = new Bedrock(config)
       logger.info("Created bedrock class")
-      logger.info("image string: ", base64EncodedImage)
-      val embedding = bedrock.createImageEmbedding(base64EncodedImage)
-      logger.info("Created embedding, ", embedding)
-      logger.info("Now we're going to call the putVectors function...")
-      val vectorInput = embedding.map { data =>
-        client.putVectors(createRequestBody(data, imageId))
+      logger.info(s"image string length: ${base64EncodedImage.length}")
+      val embeddingFuture = bedrock.createImageEmbedding(base64EncodedImage)
+      val vectorInput = embeddingFuture.map { embedding =>
+        logger.info(s"Created embedding with length: ${embedding.length}")
+        val input = createRequestBody(embedding, imageId)
+        logger.info(s"vector request body ${input}")
+        logger.info("Now we're going to call the putVectors function...")
+        client.putVectors(input)
       }
-
       vectorInput
     } catch {
       case e: Exception =>
