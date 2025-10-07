@@ -75,14 +75,14 @@ case class ImageUploadOpsCfg(
 )
 
 case class ImageUploadOpsDependencies(
-  config: ImageUploadOpsCfg,
-  imageOps: ImageOperations,
-  storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-  storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-  storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
-  tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  fetchImageEmbedding: (String, String) => Future[PutVectorsResponse]
+                                       config: ImageUploadOpsCfg,
+                                       imageOps: ImageOperations,
+                                       storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
+                                       storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
+                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
+                                       tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+                                       tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+                                       fetchEmbeddingAndStore: (String, String) => Future[PutVectorsResponse]
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -118,7 +118,7 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedImage,
-        fetchImageEmbedding,
+        fetchEmbeddingAndStore,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
@@ -130,7 +130,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         fetchImageEmbedding: (String, String) => Future[PutVectorsResponse],
+                                         fetchEmbeddingAndStore: (String, String) => Future[PutVectorsResponse],
                                          optimiseOps: OptimiseOps,
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
@@ -174,7 +174,7 @@ object Uploader extends GridLogging {
 //    logger.info("imageBase64 from uploader: ", Files.readAllBytes(uploadRequest.tempFile.toPath))
 
     // TODO: check that uploadRequest.imageId is the eventual image id in elasticsearch etc
-    val eventualImageEmbedding = fetchImageEmbedding(base64EncodedString, uploadRequest.imageId)
+    val eventualImageEmbedding = fetchEmbeddingAndStore(base64EncodedString, uploadRequest.imageId)
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
@@ -355,16 +355,15 @@ class Uploader(val store: ImageLoaderStore,
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage, fetchImageEmbedding = fetchImageEmbedding)
+      storeSource, storeThumbnail, storeOptimisedImage, fetchEmbeddingAndStore = fetchEmbeddingAndStore)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
   }
 
-  // TODO EM: this name feels wrong
-  private def fetchImageEmbedding(base64EncodedImage: String, imageId: String)(implicit logMarker: LogMarker): Future[PutVectorsResponse] = {
-    s3vectors.putVector(base64EncodedImage, imageId)
+  private def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit logMarker: LogMarker): Future[PutVectorsResponse] = {
+    s3vectors.fetchEmbeddingAndStore(base64EncodedImage, imageId)
   }
 
   private def storeSource(storableOriginalImage: StorableOriginalImage)

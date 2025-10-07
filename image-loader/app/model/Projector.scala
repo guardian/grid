@@ -177,14 +177,14 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
-      fetchImageEmbedding = imageEmbedding,
+      fetchEmbeddingAndStore = fetchEmbeddingAndStore,
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def imageEmbedding(base64EncodedImage: String, imageId: String) (implicit ec: ExecutionContext, logMarker: LogMarker): Future[PutVectorsResponse] = {
-    s3vectors.putVector(base64EncodedImage, imageId)
+  private def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[PutVectorsResponse] = {
+    s3vectors.fetchEmbeddingAndStore(base64EncodedImage, imageId)
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
