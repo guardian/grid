@@ -160,20 +160,7 @@ object Uploader extends GridLogging {
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
-//    TODO why is this not working????
-    val filePath = uploadRequest.tempFile.toPath
-    logger.info(s"filePath: ${filePath}")
-
-    val fileBytes = Files.readAllBytes(filePath)
-    logger.info(s"fileBytes length: ${fileBytes.length}")
-
-    val base64EncodedString = Base64.getEncoder().encodeToString(fileBytes)
-    logger.info(s"base64EncodedString: ${base64EncodedString.length}")
-
-//    val imageBase64: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
-//    logger.info("imageBase64 from uploader: ", Files.readAllBytes(uploadRequest.tempFile.toPath))
-
-    // TODO: check that uploadRequest.imageId is the eventual image id in elasticsearch etc
+    val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
     val eventualImageEmbedding = fetchEmbeddingAndStore(base64EncodedString, uploadRequest.imageId)
 
     val eventualImage = for {

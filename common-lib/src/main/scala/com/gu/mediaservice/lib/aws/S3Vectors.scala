@@ -21,14 +21,11 @@ class S3Vectors(config: CommonConfig)
   override def awsRegionV2: Region = Region.EU_CENTRAL_1
 
   val client: S3VectorsClient = {
-    logger.info("Creating Bedrock client")
     withAWSCredentialsV2(S3VectorsClient.builder())
       .build()
   }
 
   private def createRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
-    logger.info("Creating request body for S3 Vector Store...")
-
     val vectorData: VectorData = VectorData
       .builder()
       //      TODO find out if we can do something less upsetting than this float conversion
@@ -61,7 +58,6 @@ class S3Vectors(config: CommonConfig)
   ): PutVectorsResponse = {
     try {
       val input = createRequestBody(bedrockEmbedding, imageId)
-      logger.info("Creating S3 Vector ")
       val response = client.putVectors(input)
       logger.info(
         logMarker,
