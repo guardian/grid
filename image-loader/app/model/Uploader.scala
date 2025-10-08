@@ -161,7 +161,12 @@ object Uploader extends GridLogging {
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
     val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
-    val eventualImageEmbedding = fetchEmbeddingAndStore(base64EncodedString, uploadRequest.imageId)
+
+//    We are fetching the embedding and storing it in the S3Vectors bucket
+//    This should not block the image upload process on failure
+    fetchEmbeddingAndStore(base64EncodedString, uploadRequest.imageId).failed.foreach { failure =>
+      logger.error(logMarker, s"Failed to fetch embedding for ${uploadRequest.imageId} and store", failure)
+    }
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
@@ -178,7 +183,6 @@ object Uploader extends GridLogging {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
       }
-      imageEmbedding <- eventualImageEmbedding
       thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(thumbViewableImage.mimeType))
       colourModel <- colourModelFuture
     } yield {
