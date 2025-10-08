@@ -14,17 +14,33 @@ tooltip.directive('grTooltip', [
               }
 
                 const position = attrs.grTooltipPosition || 'bottom';
-                element.attr('data-title', attrs.grTooltip)
-                    .addClass(`titip-default`)
-                    .addClass(`titip-${position}`);
+                element.addClass('titip-default').addClass(`titip-${position}`);
 
-                const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
+              // Remove any previous .titip-content
+              element.find('.titip-content').remove();
+
+              if (attrs.grTooltipHtml !== undefined) {
+                // Use .titip-content for HTML tooltips
+                const content = attrs.grTooltip || '';
+                const contentSpan = angular.element('<span class="titip-content"></span>');
+                contentSpan.text(content);
+                element.append(contentSpan);
+              } else {
+                // Use data-title for plain text tooltips
+                element.attr('data-title', attrs.grTooltip);
+              }
+
+                 const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
 
                 if (autoUpdates) {
-                    $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
-                        element.attr('data-title', newTooltip);
-                    }));
+                  $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
+                    if (attrs.grTooltipHtml !== undefined) {
+                      element.find('.titip-content').text(newTooltip);
+                    } else {
+                      element.attr('data-title', newTooltip);
+                    }
+                  }));
                 }
-            }
+          }
     };
 }]);

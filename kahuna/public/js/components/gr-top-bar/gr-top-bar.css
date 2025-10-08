@@ -9,6 +9,8 @@ gr-top-bar {
 gr-top-bar-nav {
     display: block;
     flex-grow: 1;
+    /* Do not permit the nav to expand beyond its parent */
+    min-width: 0;
     text-align: left;
 }
 

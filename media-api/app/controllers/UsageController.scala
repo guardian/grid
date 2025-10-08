@@ -3,6 +3,8 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Agencies
 import lib._
 import lib.elasticsearch.ElasticSearch
@@ -18,8 +20,11 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
 
   val numberOfDayInPeriod = 30
 
-  def bySupplier = auth.async { request =>
-    implicit val r: Authentication.Request[AnyContent] = request
+  def bySupplier = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "usage-by-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     Future.sequence(
       Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
@@ -30,8 +35,12 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
         }
   }
 
-  def forSupplier(id: String) = auth.async { request =>
-    implicit val r: Authentication.Request[AnyContent] = request
+  def forSupplier(id: String) = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "usage-for-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
       .map((s: SupplierUsageSummary) => respond(s))
@@ -41,7 +50,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
 
   }
 
-  def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus] = for {
+  def usageStatusForImage(id: String)(implicit logMarker: LogMarker): Future[UsageStatus] = for {
     imageOption <- elasticSearch.getImageById(id)
 
     image <- Future { imageOption.get }
@@ -53,7 +62,11 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
 
 
   def quotaForImage(id: String) = auth.async { request =>
-    implicit val r: Authentication.Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "quota-for-image",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
@@ -64,11 +77,16 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
   }
 
   def quotas = auth.async { request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "quotas",
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
     usageQuota.usageStore.getUsageStatus()
       .map((s: StoreAccess) => respond(s))
       .recover {
         case e =>
-          logger.error("quota access failed", e)
+          logger.error(logMarker, "quota access failed", e)
           respondError(InternalServerError, "unknown-error", e.toString)
       }
   }

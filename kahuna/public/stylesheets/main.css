@@ -1000,6 +1000,7 @@ textarea.ng-invalid {
 .search__modifier-container {
     position: relative;
     display: flex;
+    flex-shrink: 0;
 }
 
 .search__modifier-toggle {
@@ -3084,4 +3085,9 @@ FIXME: what to do with touch devices
 .result__select__overlay__text.lease_attached {
   background-color: teal;
   color: white;
+}
+
+.titip-default .titip-content {
+  line-height: 1.4;
+  white-space: preserve nowrap;
 }

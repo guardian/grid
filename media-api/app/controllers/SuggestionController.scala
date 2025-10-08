@@ -4,6 +4,8 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Request
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import lib.elasticsearch.{AggregateSearchParams, CompletionSuggestionResults, ElasticSearch}
 import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
 
@@ -21,20 +23,26 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
   def metadataSearch(field: String, q: Option[String]) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "metadata-search",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "fieldName" -> field,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
 
   def editsSearch(field: String, q: Option[String]) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "edits-search",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "fieldName" -> field,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
 
-  private def suggestion(field: String, query: Option[String], size: Option[Int]) = auth.async { request =>
-    implicit val r: Request[AnyContent] = request
-
+  private def suggestion(field: String, query: Option[String], size: Option[Int]) = auth.async { implicit request =>
     query.flatMap(q => if (q.nonEmpty) Some(q) else None).map { q =>
       elasticSearch.completionSuggestion(field, q, size.getOrElse(10))
     }.getOrElse(
