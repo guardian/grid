@@ -18,6 +18,7 @@ class S3Vectors(config: CommonConfig)
 
   override def isDev: Boolean = config.isDev
 
+//  The S3 Vector Store is not yet available in eu-west-1, so we are using eu-central-1 because it's closest to us.
   override def awsRegionV2: Region = Region.EU_CENTRAL_1
 
   val client: S3VectorsClient = {
@@ -67,7 +68,7 @@ class S3Vectors(config: CommonConfig)
     }
    catch {
     case e: Exception =>
-      logger.error(logMarker, "Exception during S3 Vector Store API call", e)
+      logger.error(logMarker, s"Exception during S3 Vector Store API call for ImageId $imageId: ", e)
       throw e
     }
   }

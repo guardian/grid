@@ -34,8 +34,8 @@ class Bedrock(config: CommonConfig)
 
   override def isDev: Boolean = config.isDev
 
-  val client: BedrockRuntimeAsyncClient = {
-    withAWSCredentialsV2(BedrockRuntimeAsyncClient.builder())
+  val client: BedrockRuntimeClient = {
+    withAWSCredentialsV2(BedrockRuntimeClient.builder())
       .build()
   }
 
@@ -61,22 +61,16 @@ class Bedrock(config: CommonConfig)
 
   private def sendBedrockEmbeddingRequest(base64EncodedImage: String)(
     implicit logMarker: LogMarker
-  ): CompletableFuture[InvokeModelResponse] = {
+  ): InvokeModelResponse = {
     try {
-      val future = client.invokeModel(createRequestBody(base64EncodedImage))
-      future.whenComplete((response, error) => {
-        if (error != null) {
-          logger.error(logMarker, "Exception during Bedrock API call", error)
-          throw error
-        } else {
-          logger.info(
-            logMarker,
-            s"Bedrock API call completed with status: ${response.sdkHttpResponse().statusCode()}"
-          )
-        }
-      })
-      future
-    } catch {
+      val response = client.invokeModel(createRequestBody(base64EncodedImage))
+      logger.info(
+        logMarker,
+        s"Bedrock API call completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      response
+    }
+    catch {
       case e: Exception =>
         logger.error(logMarker, "Exception during Bedrock API call", e)
         throw e
@@ -84,22 +78,17 @@ class Bedrock(config: CommonConfig)
   }
 
   def createImageEmbedding(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
-    val bedrockFuture = sendBedrockEmbeddingRequest(base64EncodedImage)
-    bedrockFuture.asScala
-      .map { response =>
-        logger.info(
-          logMarker,
-          s"Received Bedrock response. Status: ${response.sdkHttpResponse().statusCode()}"
-        )
-        val responseBody = response.body().asUtf8String()
-        val json = Json.parse(responseBody)
-        // Extract the embeddings array (first element since it's an array of arrays)
-        val embeddings = (json \ "embeddings" \ "float")(0).as[List[Float]]
-        logger.info(
-          logMarker,
-          s"Successfully extracted embeddings. Vector size: ${embeddings.size}"
-        )
-        embeddings
-      }
+    val bedrockFuture = Future { sendBedrockEmbeddingRequest(base64EncodedImage) }
+    bedrockFuture.map { response =>
+      val responseBody = response.body().asUtf8String()
+      val json = Json.parse(responseBody)
+      // Extract the embeddings array (first element since it's an array of arrays)
+      val embeddings = (json \ "embeddings" \ "float")(0).as[List[Float]]
+      logger.info(
+        logMarker,
+        s"Successfully extracted embeddings. Vector size: ${embeddings.size}"
+      )
+      embeddings
+    }
   }
 }
