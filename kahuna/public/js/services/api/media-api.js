@@ -6,6 +6,31 @@ export var mediaApi = angular.module('kahuna.services.api.media', [
     'theseus'
 ]);
 
+/**
+ * @typedef {{
+ *   metadataSearch: (field: string, options: { q: string }) =>
+ *     Promise<HyperMediaResult<MetadataResult[]>>
+ *   labelsSuggest: (options: { q: string }) =>
+ *     Promise<HyperMediaResult<string[]>
+ * }} MediaApi
+ */
+
+/**
+ * @typedef {{
+ *   data: T,
+ *   length: number,
+ *   uri: string
+ * }} HyperMediaResult<T>
+ * @template T
+ */
+
+/**
+ * @typedef {{
+ *   key: string,
+ *   score: number
+ * }} MetadataResult
+ */
+
 mediaApi.factory('mediaApi',
                  ['mediaApiUri', 'theseus.client',
                   function(mediaApiUri, client) {

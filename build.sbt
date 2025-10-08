@@ -40,7 +40,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.17.2",
+  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.19.0",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -64,7 +64,7 @@ Global / concurrentRestrictions := Seq(
 
 val awsSdkVersion = "1.12.470"
 val awsSdkV2Version = "2.32.33"
-val elastic4sVersion = "8.3.0"
+val elastic4sVersion = "8.18.2"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -88,9 +88,9 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-domain" % elastic4sVersion,
+    "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
+    "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
+    "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
     "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
