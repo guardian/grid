@@ -17,6 +17,7 @@ import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,16 +57,23 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
+    def mockVectorStore = (imageBase64: String, imageId: String) =>
+      Future.successful(
+        PutVectorsResponse
+      )
+
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
+    def fetchEmbeddingAndStore: (String, String) => Future[PutVectorsResponse] = mockVectorStore
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
       imageOps,
       storeOrProjectOriginalFile,
       storeOrProjectThumbFile,
-      storeOrProjectOptimisedPNG
+      storeOrProjectOptimisedPNG,
+      fetchEmbeddingAndStore = fetchEmbeddingAndStore
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)
@@ -85,11 +93,12 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
       mockDependencies.storeOrProjectOptimisedImage,
+      fetchEmbeddingAndStore,
       OptimiseWithPngQuant,
       uploadRequest,
       mockDependencies,
       FileMetadata(),
-      ImageProcessor.identity
+      ImageProcessor.identity,
     )
 
     // Assertions; Failure will auto-fail
