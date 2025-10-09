@@ -51,7 +51,7 @@ grStructuredQuery.controller("grStructuredQueryCtrl", [
         .debounce(500);
 
       ctrl.getSuggestions = querySuggestions.getChipSuggestions;
-      ctrl.filterFields = querySuggestions.filterFields;
+      ctrl.filterFields = querySuggestions.typeaheadFields.map(_ => _.name);
 
       function valOrUndefined(str) {
         // Watch out for `false`, but we know it's a string here..
