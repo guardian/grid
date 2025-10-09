@@ -57,9 +57,10 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
+    val mockPutVectorsResponse = mock[PutVectorsResponse]
     def mockVectorStore = (imageBase64: String, imageId: String) =>
       Future.successful(
-        PutVectorsResponse
+        mockPutVectorsResponse
       )
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore

@@ -42,7 +42,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-  private val mockPutVectorsResponse = mock[PutVectorsResponse]
+  private val mockPutVectorsResponse = PutVectorsResponse.builder().build()
   private val s3vectors = mock[S3Vectors]
   when(s3vectors.fetchEmbeddingAndStore(any[String], any[String])(any[ExecutionContext], any[LogMarker]))
   .thenReturn(Future.successful(mockPutVectorsResponse))
