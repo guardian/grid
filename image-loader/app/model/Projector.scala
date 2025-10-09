@@ -8,8 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.S3Ops
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{S3Object, S3Ops, S3Vectors}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -22,6 +21,7 @@ import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
 import play.api.libs.ws.WSRequest
+import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
@@ -31,8 +31,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, s3vectors: S3Vectors)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, s3vectors)
 }
 
 case class S3FileExtractedMetadata(
@@ -85,9 +85,10 @@ class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
-                auth: Authentication) extends GridLogging {
+                auth: Authentication,
+                s3vectors: S3Vectors) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, s3vectors)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -159,7 +160,8 @@ class Projector(config: ImageUploadOpsCfg,
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
-                               s3: AmazonS3
+                               s3: AmazonS3,
+                               s3vectors: S3Vectors,
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -175,9 +177,14 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
+      fetchEmbeddingAndStore = fetchEmbeddingAndStore,
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
+  }
+
+  private def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[PutVectorsResponse] = {
+    s3vectors.fetchEmbeddingAndStore(base64EncodedImage, imageId)
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
