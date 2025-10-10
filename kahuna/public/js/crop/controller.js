@@ -4,11 +4,13 @@ import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from "../util/crop";
 import {cropOptions} from "../util/constants/cropOptions";
+import {storage as storageModule} from "../util/storage";
 
 const crop = angular.module('kahuna.crop.controller', [
   'gr.keyboardShortcut',
   radioList.name,
-  cropUtil.name
+  cropUtil.name,
+  storageModule.name
 ]);
 
 crop.controller('ImageCropCtrl', [
@@ -26,6 +28,7 @@ crop.controller('ImageCropCtrl', [
   'square',
   'freeform',
   'pollUntilCropCreated',
+  'storage',
   function(
     $scope,
     $rootScope,
@@ -40,10 +43,26 @@ crop.controller('ImageCropCtrl', [
     cropSettings,
     square,
     freeform,
-    pollUntilCropCreated) {
+    pollUntilCropCreated,
+    storage) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
+
+      const circularMaskKey = 'crop.shouldUseCircularMask';
+      try {
+        const stored = storage.getJs(circularMaskKey);
+        if (typeof stored === 'boolean') {
+          ctrl.shouldUseCircularMask = stored;
+        }
+      } catch (_) {
+      }
+
+      $scope.$watch(() => ctrl.shouldUseCircularMask, (val) => {
+        if (typeof val === 'boolean') {
+          storage.setJs(circularMaskKey, val);
+        }
+      });
 
     cropSettings.set($stateParams);
       const allCropOptions = cropSettings.getCropOptions();
@@ -231,4 +250,3 @@ crop.controller('ImageCropCtrl', [
         });
       });
     }]);
-
