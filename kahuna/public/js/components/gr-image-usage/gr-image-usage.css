@@ -18,6 +18,11 @@ gr-image-usage-list .gr-image-usage__record {
     width: 90%;
 }
 
+.gr-image-usage__message {
+    margin-bottom: 10px;
+    width: 90%;
+}
+
 gr-image-usage-list .source-list__icon svg {
     padding: 0 2px;
 }
