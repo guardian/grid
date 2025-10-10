@@ -55,7 +55,8 @@ crop.controller('ImageCropCtrl', [
         if (typeof stored === 'boolean') {
           ctrl.shouldUseCircularMask = stored;
         }
-      } catch (_) {
+      } catch (e) {
+      	console.error(`failed to store '${circularMaskKey}' to local storage', e);
       }
 
       $scope.$watch(() => ctrl.shouldUseCircularMask, (val) => {
