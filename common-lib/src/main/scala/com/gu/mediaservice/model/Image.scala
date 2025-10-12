@@ -45,18 +45,27 @@ case class Image(
 
   def syndicationStatus: SyndicationStatus = {
     // TODO Deduplicate this with syndicationFilter
-    val hasSyndicationUsage = usages.exists(_.platform == SyndicationUsage)
+    val isOwned: Boolean = usageRights match {
+      case _: Photographer => true
+      case _ => false
+    }
 
-    if (hasSyndicationUsage) {
-      SentForSyndication
+    if (!isOwned) {
+      UnsuitableForSyndication
     } else {
-      val allowSyndicationLease = leases.leases.find(_.access == AllowSyndicationLease)
-      val denySyndicationLease = leases.leases.find(_.access == DenySyndicationLease)
+      val hasSyndicationUsage = usages.exists(_.platform == SyndicationUsage)
 
-      (allowSyndicationLease, denySyndicationLease) match {
-        case (Some(_), None) => QueuedForSyndication
-        case (None, Some(_)) => BlockedForSyndication
-        case (_, _) => AwaitingReviewForSyndication
+      if (hasSyndicationUsage) {
+        SentForSyndication
+      } else {
+        val allowSyndicationLease = leases.leases.find(_.access == AllowSyndicationLease)
+        val denySyndicationLease = leases.leases.find(_.access == DenySyndicationLease)
+
+        (allowSyndicationLease, denySyndicationLease) match {
+          case (Some(_), None) => QueuedForSyndication
+          case (None, Some(_)) => BlockedForSyndication
+          case (_, _) => AwaitingReviewForSyndication
+        }
       }
     }
   }
