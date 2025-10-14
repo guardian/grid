@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{S3Object, S3Ops, S3Vectors}
+import com.gu.mediaservice.lib.aws.{Embedding, S3Object, S3Ops, S3Vectors}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -23,6 +23,7 @@ import play.api.Logger
 import play.api.libs.ws.WSRequest
 import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 
+import java.nio.file.Path
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,8 +32,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, s3vectors: S3Vectors)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, s3vectors)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbed: Option[Embedding])(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbed)
 }
 
 case class S3FileExtractedMetadata(
@@ -86,9 +87,9 @@ class Projector(config: ImageUploadOpsCfg,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication,
-                s3vectors: S3Vectors) extends GridLogging {
+                maybeEmbed: Option[Embedding]) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, s3vectors)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbed)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -161,7 +162,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
                                s3: AmazonS3,
-                               s3vectors: S3Vectors,
+                               maybeEmbed: Option[Embedding],
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -177,14 +178,18 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
-      fetchEmbeddingAndStore = fetchEmbeddingAndStore,
+      createEmbeddingAndStore = createEmbeddingAndStore,
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[PutVectorsResponse] = {
-    s3vectors.fetchEmbeddingAndStore(base64EncodedImage, imageId)
+  private def createEmbeddingAndStore(imageFilePath: Path, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+    maybeEmbed match {
+      case Some(embedding) =>
+        embedding.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
+      case None => Future.successful(None)
+    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
