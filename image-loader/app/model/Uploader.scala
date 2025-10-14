@@ -4,15 +4,10 @@ import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
 
 import java.io.File
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-import java.util.{Base64, UUID}
+import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedding, S3Object, S3Vectors, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -82,7 +77,7 @@ case class ImageUploadOpsDependencies(
                                        storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
                                        tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
                                        tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-                                       fetchEmbeddingAndStore: (String, String) => Future[PutVectorsResponse]
+                                       createEmbeddingAndStore: (Path, String) => Future[Option[PutVectorsResponse]]
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -118,7 +113,7 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedImage,
-        fetchEmbeddingAndStore,
+        createEmbeddingAndStore,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
@@ -130,7 +125,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         fetchEmbeddingAndStore: (String, String) => Future[PutVectorsResponse],
+                                         createEmbeddingAndStore: (Path, String) => Future[Option[PutVectorsResponse]],
                                          optimiseOps: OptimiseOps,
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
@@ -160,11 +155,9 @@ object Uploader extends GridLogging {
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
-    val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(uploadRequest.tempFile.toPath))
-
 //    We are fetching the embedding and storing it in the S3Vectors bucket
 //    This should not block the image upload process on failure
-    fetchEmbeddingAndStore(base64EncodedString, uploadRequest.imageId).failed.foreach { failure =>
+    createEmbeddingAndStore(uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
       logger.error(logMarker, s"Failed to fetch embedding for ${uploadRequest.imageId} and store", failure)
     }
 
@@ -339,22 +332,26 @@ class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
                val notifications: Notifications,
-               val s3vectors: S3Vectors,
+               val maybeEmbed: Option[Embedding],
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage, fetchEmbeddingAndStore = fetchEmbeddingAndStore)
+      storeSource, storeThumbnail, storeOptimisedImage, createEmbeddingAndStore = createEmbeddingAndStore)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
   }
 
-  private def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit logMarker: LogMarker): Future[PutVectorsResponse] = {
-    s3vectors.fetchEmbeddingAndStore(base64EncodedImage, imageId)
+  private def createEmbeddingAndStore(imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+    maybeEmbed match {
+      case Some(embedding) =>
+        embedding.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
+      case None => Future.successful(None)
+    }
   }
 
   private def storeSource(storableOriginalImage: StorableOriginalImage)

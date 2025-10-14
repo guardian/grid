@@ -49,13 +49,13 @@ class S3Vectors(config: CommonConfig)
     request
   }
 
-  private def fetchEmbeddingFromBedrock(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker
-  ): Future[List[Float]] = {
-    val bedrock = new Bedrock(config)
-    bedrock.createImageEmbedding(base64EncodedImage)
-  }
+//  private def createImageEmbeddingWithBedrock(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+//  ): Future[List[Float]] = {
+//    val bedrock = new Bedrock(config)
+//    bedrock.createImageEmbedding(base64EncodedImage)
+//  }
 
-  private def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+  def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
   ): PutVectorsResponse = {
     try {
       val input = createRequestBody(bedrockEmbedding, imageId)
@@ -73,14 +73,12 @@ class S3Vectors(config: CommonConfig)
     }
   }
 
-  def fetchEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
-  ): Future[PutVectorsResponse] = {
-    val embeddingFuture = fetchEmbeddingFromBedrock(base64EncodedImage: String)
-    val vectorInput = embeddingFuture.map { embedding =>
-      storeEmbeddingInS3VectorStore(embedding, imageId)
-    }
-    vectorInput
-  }
-
-//  private def searchS3VectorStore() = {}
+//  def createEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+//  ): Future[PutVectorsResponse] = {
+//    val embeddingFuture = createImageEmbeddingWithBedrock(base64EncodedImage: String)
+//    val vectorInput = embeddingFuture.map { embedding =>
+//      storeEmbeddingInS3VectorStore(embedding, imageId)
+//    }
+//    vectorInput
+//  }
 }

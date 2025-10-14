@@ -44,7 +44,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val mockPutVectorsResponse = PutVectorsResponse.builder().build()
   private val s3vectors = mock[S3Vectors]
-  when(s3vectors.fetchEmbeddingAndStore(any[String], any[String])(any[ExecutionContext], any[LogMarker]))
+  when(s3vectors.createEmbeddingAndStore(any[String], any[String])(any[ExecutionContext], any[LogMarker]))
   .thenReturn(Future.successful(mockPutVectorsResponse))
 
   private val s3 = mock[AmazonS3]

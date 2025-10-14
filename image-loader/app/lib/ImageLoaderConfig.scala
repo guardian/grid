@@ -33,7 +33,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val uploadStatusTable: String = string("dynamo.table.upload.status")
   val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
-  val embedImages: Boolean = boolean("image.embed.images")
+  val shouldEmbed: Boolean = boolean("s3.vectors.shouldEmbed")
 
   /**
     * Load in the chain of image processors from config. This can be a list of

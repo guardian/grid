@@ -24,8 +24,6 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     }
   }
 
-  def embedImage(): Boolean = config.embedImages
-
   def getS3Object(key: String)(implicit logMarker: LogMarker): S3Object = handleNotFound(key) {
     client.getObject(config.maybeIngestBucket.get, key)
   } {
