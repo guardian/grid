@@ -27,6 +27,10 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
+
+  val embedImage: Boolean = store.embedImage()
+  logger.info(s"embedImage = $embedImage")
+
   val s3vectors = new S3Vectors(config)
   val uploader = new Uploader(store, config, imageOperations, notifications, s3vectors, imageProcessor)
   val projector = Projector(config, imageOperations, imageProcessor, auth, s3vectors)
