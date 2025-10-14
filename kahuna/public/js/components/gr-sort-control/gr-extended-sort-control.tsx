@@ -34,7 +34,7 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
 
   let startSortOption = DefaultSortOption;
   if (!query.includes(noTakenDateClause) && (sortOptions.filter(o => o.value === orderBy)).length > 0) {
-    startSortOption = sortOptions.filter(o => o.value === orderBy)[0];
+    startSortOption = sortOptions.find(o => o.value === orderBy);
   }
 
   const startHasCollection = checkForCollection(query);

@@ -28,11 +28,11 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     let startSortOption = DefaultSortOption;
     if (startHasCollection) {
       if ((sortOptions.filter(o => o.isCollection)).length > 0) {
-        startSortOption = sortOptions.filter(o => o.isCollection)[0];
+        startSortOption = sortOptions.find(o => o.isCollection);
       }
     } else {
       if ((sortOptions.filter(o => o.value === orderBy)).length > 0) {
-        startSortOption = sortOptions.filter(o => o.value === orderBy)[0];
+        startSortOption = sortOptions.find(o => o.value === orderBy);
       }
     }
 

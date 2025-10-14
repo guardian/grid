@@ -204,7 +204,7 @@ query.controller('SearchQueryCtrl', [
       return collection;
     }
 
-    function getPiorOrderBy() {
+    function getPriorOrderBy() {
       const prior = storage.getJs("priorOrderBy") ? storage.getJs("priorOrderBy") : "";
       return prior;
     }
@@ -222,7 +222,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     function priorRevisedOrderBy(collectionSearch, newCollection, oldCollection) {
-      const priorOrderBy = getPiorOrderBy();
+      const priorOrderBy = getPriorOrderBy();
       if (collectionSearch && ((oldCollection !== newCollection) || ("" !== priorOrderBy))) {
         if (priorOrderBy != "") {
           setPriorOrderBy("");

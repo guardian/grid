@@ -75,16 +75,12 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   }) => {
 
   const hasCollection = startHasCollection;
-  const startSort:SortDropdownOption = startSelectedOption ? startSelectedOption : options.filter(opt => opt.value == DEFAULT_OPTION)[0];
+  const startSort:SortDropdownOption = startSelectedOption ? startSelectedOption : DefaultSortOption;
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelection] = useState(startSort);
   const [previousOption, setPrevious] = useState(startSort);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPanelVisible, setPanelVisible] = useState(panelVisible);
-
-  if (startSort.value !== selectedOption.value) {
-    setSelection(startSort);
-  }
 
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowDown' ||
