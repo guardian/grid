@@ -3,8 +3,6 @@ package com.gu.mediaservice.lib.aws
 import software.amazon.awssdk.services.bedrockruntime.model._
 import software.amazon.awssdk.services.bedrockruntime._
 import com.gu.mediaservice.lib.config.CommonConfig
-
-import java.util.concurrent.CompletableFuture
 import play.api.libs.json.Json
 import software.amazon.awssdk.core.SdkBytes
 

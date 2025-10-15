@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedding, S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedder, S3Object, S3Vectors, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -332,7 +332,7 @@ class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
                val notifications: Notifications,
-               val maybeEmbed: Option[Embedding],
+               val maybeEmbed: Option[Embedder],
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
@@ -348,8 +348,8 @@ class Uploader(val store: ImageLoaderStore,
 
   private def createEmbeddingAndStore(imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
     maybeEmbed match {
-      case Some(embedding) =>
-        embedding.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
+      case Some(embedder) =>
+        embedder.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
       case None => Future.successful(None)
     }
   }
