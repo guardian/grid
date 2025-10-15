@@ -20,6 +20,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -58,15 +59,13 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       )
 
     val mockPutVectorsResponse = mock[PutVectorsResponse]
-    def mockVectorStore = (imageBase64: String, imageId: String) =>
-      Future.successful(
-        mockPutVectorsResponse
-      )
+    def mockVectorStore = (imagePath: Path, imageId: String) =>
+      Future.successful(Some(mockPutVectorsResponse))
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
-    def createEmbeddingAndStore: (String, String) => Future[PutVectorsResponse] = mockVectorStore
+    def createEmbeddingAndStore: (Path, String) => Future[Option[PutVectorsResponse]] = mockVectorStore
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
