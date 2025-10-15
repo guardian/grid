@@ -7,7 +7,7 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.aws.S3Vectors
+import com.gu.mediaservice.lib.aws.{Embedding, S3Vectors}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -26,6 +26,7 @@ import play.api.libs.json.{JsArray, JsString}
 import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
+import java.nio.file.Path
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,14 +43,11 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-  private val mockPutVectorsResponse = PutVectorsResponse.builder().build()
-  private val s3vectors = mock[S3Vectors]
-  when(s3vectors.createEmbeddingAndStore(any[String], any[String])(any[ExecutionContext], any[LogMarker]))
-  .thenReturn(Future.successful(mockPutVectorsResponse))
+  private val maybeEmbed = None
 
   private val s3 = mock[AmazonS3]
   private val auth = mock[Authentication]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, auth, s3vectors)
+  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, auth, maybeEmbed)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
