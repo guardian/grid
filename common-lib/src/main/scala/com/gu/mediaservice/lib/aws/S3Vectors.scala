@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
-import org.bouncycastle.util.encoders.Base64Encoder
+
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
 import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
@@ -49,12 +49,6 @@ class S3Vectors(config: CommonConfig)
     request
   }
 
-//  private def createImageEmbeddingWithBedrock(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker
-//  ): Future[List[Float]] = {
-//    val bedrock = new Bedrock(config)
-//    bedrock.createImageEmbedding(base64EncodedImage)
-//  }
-
   def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
   ): PutVectorsResponse = {
     try {
@@ -73,12 +67,4 @@ class S3Vectors(config: CommonConfig)
     }
   }
 
-//  def createEmbeddingAndStore(base64EncodedImage: String, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
-//  ): Future[PutVectorsResponse] = {
-//    val embeddingFuture = createImageEmbeddingWithBedrock(base64EncodedImage: String)
-//    val vectorInput = embeddingFuture.map { embedding =>
-//      storeEmbeddingInS3VectorStore(embedding, imageId)
-//    }
-//    vectorInput
-//  }
 }
