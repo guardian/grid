@@ -92,7 +92,9 @@ grCqlInput.directive<
           "ArrowUp",
           "ArrowDown",
           "ArrowLeft",
-          "ArrowRight"
+          "ArrowRight",
+          "PageUp",
+          "PageDown"
         ];
         ["keydown", "keyup", "keypress"].forEach((eventType) => {
           cqlInput.addEventListener(eventType, (e) => {
