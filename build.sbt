@@ -166,8 +166,6 @@ lazy val thrall = playProject("thrall", 9002)
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
-      "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
       "com.gu" %% "kcl-pekko-stream" % "0.1.0",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
@@ -191,8 +189,6 @@ lazy val usage = playProject("usage", 9009).settings(
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
     "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-    "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
-    "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
   dependencyOverrides ++= Seq(
@@ -208,8 +204,6 @@ lazy val scripts = project("scripts")
       // V2 of the AWS SDK as it's easier to use for scripts and won't leak to the rest of the project from here
       "software.amazon.awssdk" % "s3" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
-      "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
       // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
       "com.beust" % "jcommander" % "1.75",
       "org.apache.commons" % "commons-compress" % "1.27.1",
