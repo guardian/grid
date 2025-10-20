@@ -14,9 +14,8 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) {
     val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(imageFilePath))
 
     val embeddingFuture = bedrock.createImageEmbedding(base64EncodedString)
-    val vectorInput = embeddingFuture.map { embedding =>
+    embeddingFuture.map { embedding =>
       s3vectors.storeEmbeddingInS3VectorStore(embedding, imageId)
     }
-    vectorInput
   }
 }

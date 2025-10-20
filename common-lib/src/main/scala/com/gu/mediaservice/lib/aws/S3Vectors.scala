@@ -29,8 +29,7 @@ class S3Vectors(config: CommonConfig)
   private def createRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
     val vectorData: VectorData = VectorData
       .builder()
-      //      TODO find out if we can do something less upsetting than this float conversion
-      .float32(embedding.map(_.asInstanceOf[java.lang.Float]).asJava)
+      .float32(embedding.map(float2Float).asJava)
       .build()
 
     val inputVector: PutInputVector = PutInputVector
@@ -49,7 +48,7 @@ class S3Vectors(config: CommonConfig)
     request
   }
 
-  def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker
+  def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit logMarker: LogMarker
   ): PutVectorsResponse = {
     try {
       val input = createRequestBody(bedrockEmbedding, imageId)
