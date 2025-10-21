@@ -77,7 +77,7 @@ case class ImageUploadOpsDependencies(
                                        storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
                                        tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
                                        tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-                                       createEmbeddingAndStore: (Path, String) => Future[Option[PutVectorsResponse]]
+                                       createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]]
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -125,7 +125,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         createEmbeddingAndStore: (Path, String) => Future[Option[PutVectorsResponse]],
+                                         createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]],
                                          optimiseOps: OptimiseOps,
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
@@ -157,7 +157,7 @@ object Uploader extends GridLogging {
 
 //    We are fetching the embedding and storing it in the S3Vectors bucket
 //    This should not block the image upload process on failure
-    createEmbeddingAndStore(uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
+    createEmbeddingAndStore(originalMimeType, uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
       logger.error(logMarker, s"Failed to fetch embedding for ${uploadRequest.imageId} and store", failure)
     }
 
@@ -346,10 +346,10 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  private def createEmbeddingAndStore(imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
     maybeEmbed match {
       case Some(embedder) =>
-        embedder.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
+        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
       case None => Future.successful(None)
     }
   }

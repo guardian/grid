@@ -182,10 +182,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def createEmbeddingAndStore(imageFilePath: Path, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
     maybeEmbed match {
-      case Some(embedding) =>
-        embedding.createEmbeddingAndStore(imageFilePath, imageId).map(Some(_))
+      case Some(embedder) =>
+        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
       case None => Future.successful(None)
     }
   }
