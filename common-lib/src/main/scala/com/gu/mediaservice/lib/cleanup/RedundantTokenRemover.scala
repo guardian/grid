@@ -21,6 +21,8 @@ object RedundantTokenRemover extends MetadataCleaner {
     "Stringer",
     "Stringer .",
     "STR",
+    "STR New",
+    "-STR",
     "supplied",
     "Supplied",
     "SUPPLIED",
