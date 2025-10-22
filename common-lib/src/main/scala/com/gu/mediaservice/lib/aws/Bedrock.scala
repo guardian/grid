@@ -8,7 +8,6 @@ import software.amazon.awssdk.core.SdkBytes
 
 import java.net.URI
 import com.gu.mediaservice.lib.logging.LogMarker
-import play.api.libs.json.Format.GenericFormat
 import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
 import play.api.libs.json._
 
@@ -22,7 +21,6 @@ object Bedrock {
 }
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 
 class Bedrock(config: CommonConfig)
   extends AwsClientV2BuilderUtils {
@@ -37,11 +35,16 @@ class Bedrock(config: CommonConfig)
       .build()
   }
 
-  private def createRequestBody(base64EncodedImage: String): InvokeModelRequest = {
+  private def createRequestBody(base64EncodedImage: String, fileType: CohereCompatibleMimeType): InvokeModelRequest = {
+    val images = fileType match {
+        case CohereJpeg =>  List(s"data:image/jpg;base64,$base64EncodedImage")
+        case CoherePng => List(s"data:image/png;base64,$base64EncodedImage")
+    }
+
     val body = Bedrock.BedrockRequest(
       input_type = "image",
       embedding_types = List("float"),
-      images = List(s"data:image/jpg;base64,$base64EncodedImage")
+      images = images
     )
     val jsonBody = Json.toJson(body).toString()
 
@@ -57,11 +60,11 @@ class Bedrock(config: CommonConfig)
     request
   }
 
-  private def sendBedrockEmbeddingRequest(base64EncodedImage: String)(
+  private def sendBedrockEmbeddingRequest(base64EncodedImage: String, fileType: CohereCompatibleMimeType)(
     implicit logMarker: LogMarker
   ): InvokeModelResponse = {
     try {
-      val response = client.invokeModel(createRequestBody(base64EncodedImage))
+      val response = client.invokeModel(createRequestBody(base64EncodedImage, fileType))
       logger.info(
         logMarker,
         s"Bedrock API call completed with status: ${response.sdkHttpResponse().statusCode()}"
@@ -75,8 +78,8 @@ class Bedrock(config: CommonConfig)
     }
   }
 
-  def createImageEmbedding(base64EncodedImage: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
-    val bedrockFuture = Future { sendBedrockEmbeddingRequest(base64EncodedImage) }
+  def createImageEmbedding(base64EncodedImage: String, fileType: CohereCompatibleMimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
+    val bedrockFuture = Future { sendBedrockEmbeddingRequest(base64EncodedImage, fileType) }
     bedrockFuture.map { response =>
       val responseBody = response.body().asUtf8String()
       val json = Json.parse(responseBody)
