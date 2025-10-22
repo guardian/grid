@@ -6,7 +6,7 @@ import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{MimeType, Png}
+import com.gu.mediaservice.model.{BrowserViewableMimeType, MimeType, Png}
 import org.joda.time.DateTime
 
 import scala.concurrent.Future
@@ -126,7 +126,13 @@ case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, me
   *                                Can be used in order to skip e.g. the stripping of incorrect colour profiles,
   *                                as in this case we have already inferred the profile upstream.
   */
-case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, isTransformedFromSource: Boolean = false) extends ImageWrapper {
+case class BrowserViewableImage(
+  id: String,
+  file: File,
+  mimeType: BrowserViewableMimeType,
+  meta: Map[String, String] = Map.empty,
+  isTransformedFromSource: Boolean = false
+) extends ImageWrapper {
   def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
   def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)
 }

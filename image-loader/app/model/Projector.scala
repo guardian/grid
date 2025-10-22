@@ -14,7 +14,7 @@ import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
+import com.gu.mediaservice.model.{BrowserViewableMimeType, Image, MimeType, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
@@ -162,7 +162,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                s3: AmazonS3
 ) extends GridLogging {
 
-  import Uploader.{fromUploadRequestShared, toMetaMap}
+  import Uploader.fromUploadRequestShared
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
@@ -189,20 +189,28 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
     Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
 
+  private def requireBrowserViewableMimeType(result: Option[(File, MimeType)]): Future[Option[(File, BrowserViewableMimeType)]] = {
+    result match {
+      case Some((f, mimeType: BrowserViewableMimeType)) => Future.successful(Some((f, mimeType)))
+      case Some((_, mimeType)) => Future.failed(new IllegalArgumentException(s"Fetched file was expected to have a browser viewable mimetype, but it was $mimeType"))
+      case None => Future.successful(None)
+    }
+  }
+
   private def fetchThumbFile(
     imageId: String, outFile: File
-  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, BrowserViewableMimeType)]] = {
     val key = fileKeyFromId(imageId)
 
-    fetchFile(config.thumbBucket, key, outFile)
+    fetchFile(config.thumbBucket, key, outFile).flatMap(requireBrowserViewableMimeType)
   }
 
   private def fetchOptimisedFile(
     imageId: String, outFile: File
-  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, BrowserViewableMimeType)]] = {
     val key = optimisedPngKeyFromId(imageId)
 
-    fetchFile(config.originalFileBucket, key, outFile)
+    fetchFile(config.originalFileBucket, key, outFile).flatMap(requireBrowserViewableMimeType)
   }
 
   private def fetchFile(

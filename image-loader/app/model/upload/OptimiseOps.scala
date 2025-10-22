@@ -1,10 +1,9 @@
 package model.upload
 
 import java.io.File
-
 import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
 import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
-import com.gu.mediaservice.model.{FileMetadata, MimeType, Png, Tiff}
+import com.gu.mediaservice.model.{BrowserViewableMimeType, FileMetadata, MimeType, Png, Tiff}
 import com.gu.mediaservice.lib.logging.MarkerMap
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,18 +12,18 @@ import scala.jdk.CollectionConverters._
 
 trait OptimiseOps {
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)
-                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)]
+                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, BrowserViewableMimeType)]
   def isTransformedFilePath(filePath: String): Boolean
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
-  def optimiseMimeType: MimeType
+  def optimiseMimeType: BrowserViewableMimeType
 }
 
 object OptimiseWithPngQuant extends OptimiseOps {
 
-  override def optimiseMimeType: MimeType = Png
+  override def optimiseMimeType: BrowserViewableMimeType = Png
 
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, optimisedFile: File)
-                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)] = Future {
+                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, BrowserViewableMimeType)] = Future {
 
     val marker = MarkerMap(
       "fileName" -> file.getName()

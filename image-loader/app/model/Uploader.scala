@@ -79,8 +79,8 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
   storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
-  tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+  tryFetchThumbFile: (String, File) => Future[Option[(File, BrowserViewableMimeType)]] = (_, _) => Future.successful(None),
+  tryFetchOptimisedFile: (String, File) => Future[Option[(File, BrowserViewableMimeType)]] = (_, _) => Future.successful(None),
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -204,7 +204,7 @@ object Uploader extends GridLogging {
                                          optimiseOps: OptimiseOps,
                                          browserViewableImage: BrowserViewableImage,
                                          optimisedFileMetadata: FileMetadata,
-                                         tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]]
+                                         tryFetchOptimisedFile: (String, File) => Future[Option[(File, BrowserViewableMimeType)]]
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[StorableOptimisedImage]] = {
     if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
       for {
@@ -301,14 +301,14 @@ object Uploader extends GridLogging {
           mimeType = mimeType,
           isTransformedFromSource = true
         )
-      case Some(mimeType) =>
+      case Some(mimeType: BrowserViewableMimeType) =>
         Future.successful(
           BrowserViewableImage(
             uploadRequest.imageId,
             file = uploadRequest.tempFile,
             mimeType = mimeType)
         )
-      case None => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
+      case _ => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
     }
   }
 

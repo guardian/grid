@@ -45,9 +45,10 @@ object MimeType extends GridLogging {
   implicit val writer: Writes[MimeType] = (mimeType: MimeType) => JsString(mimeType.toString)
 }
 
-object Jpeg extends MimeType {
+sealed trait BrowserViewableMimeType extends MimeType
+object Jpeg extends MimeType with BrowserViewableMimeType {
   override def fileExtension: String = ".jpg"
 }
 
-object Png extends MimeType
+object Png extends MimeType with BrowserViewableMimeType
 object Tiff extends MimeType

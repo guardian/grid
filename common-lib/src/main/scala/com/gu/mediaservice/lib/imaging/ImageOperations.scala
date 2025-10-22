@@ -183,7 +183,7 @@ class ImageOperations(playPath: String) extends GridLogging {
                       iccColourSpace: Option[String],
                       colourModel: Option[String],
                       orientationMetadata: Option[OrientationMetadata]
-  )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+  )(implicit logMarker: LogMarker): Future[(File, BrowserViewableMimeType)] = {
     val stopwatch = Stopwatch.start
 
     val cropSource     = addImage(browserViewableImage.file)
@@ -214,7 +214,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     * @param tempDir Location to create optimised file
     * @return The file created and the mimetype of the content of that file, in a future.
     */
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, BrowserViewableMimeType)] = {
     val stopwatch = Stopwatch.start
     for {
       // png suffix is used by imagemagick to infer the required type
