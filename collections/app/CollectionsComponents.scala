@@ -4,16 +4,17 @@ import controllers.{CollectionsController, ImageCollectionsController}
 import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
-import store.CollectionsStore
+import store.{CollectionsStore, CollectionsStoreV2}
 
 class CollectionsComponents(context: Context) extends GridComponents(context, new CollectionsConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new CollectionsStore(config)
+  val storeV2 = new CollectionsStoreV2(config)
   val metrics = new CollectionsMetrics(config, actorSystem, applicationLifecycle)
   val notifications = new Notifications(config)
 
-  val collections = new CollectionsController(auth, config, store, controllerComponents)
+  val collections = new CollectionsController(auth, config, store, storeV2, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 

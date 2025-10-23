@@ -1,7 +1,6 @@
 package controllers
 
 import java.net.URI
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.lib.auth.Authentication
@@ -14,11 +13,13 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
-import store.{CollectionsStore, CollectionsStoreError}
-import com.gu.mediaservice.lib.net.{ URI => UriOps }
+import store.{CollectionsStore, CollectionsStoreError, CollectionsStoreV2}
+import com.gu.mediaservice.lib.net.{URI => UriOps}
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava, MapHasAsScala, SeqHasAsJava}
 
 
 case class HasChildrenError(message: String) extends Throwable
@@ -30,6 +31,7 @@ object AppIndex {
 }
 
 class CollectionsController(authenticated: Authentication, config: CollectionsConfig, store: CollectionsStore,
+                            storeV2: CollectionsStoreV2,
                             val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
 
   import CollectionsManager.{getCssColour, isValidPathBit, pathToUri, uriToPath}
@@ -106,8 +108,9 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
       (collection) => collection.description)
   }
 
+
   def getCollection(collectionPathId: String) = authenticated.async {
-    store.get(uriToPath(collectionPathId)).map {
+    storeV2.get(uriToPath(collectionPathId)).map {
       case Some(collection) =>
         val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
         respond(node, actions = getActions(node))
