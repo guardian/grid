@@ -67,13 +67,13 @@ class Bedrock(config: CommonConfig)
       val response = client.invokeModel(createRequestBody(base64EncodedImage, fileType))
       logger.info(
         logMarker,
-        s"Bedrock API call completed with status: ${response.sdkHttpResponse().statusCode()}"
+        s"Bedrock API call to create image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
       )
       response
     }
     catch {
       case e: Exception =>
-        logger.error(logMarker, "Exception during Bedrock API call", e)
+        logger.error(logMarker, "Exception during Bedrock API call to create image embedding", e)
         throw e
     }
   }
@@ -83,13 +83,13 @@ class Bedrock(config: CommonConfig)
     bedrockFuture.map { response =>
       val responseBody = response.body().asUtf8String()
       val json = Json.parse(responseBody)
-      // Extract the embeddings array (first element since it's an array of arrays)
-      val embeddings = (json \ "embeddings" \ "float")(0).as[List[Float]]
+      // Extract the embedding array (first element since it's an array of arrays)
+      val embedding = (json \ "embeddings" \ "float")(0).as[List[Float]]
       logger.info(
         logMarker,
-        s"Successfully extracted embeddings. Vector size: ${embeddings.size}"
+        s"Successfully extracted image embedding. Vector size: ${embedding.size}"
       )
-      embeddings
+      embedding
     }
   }
 }
