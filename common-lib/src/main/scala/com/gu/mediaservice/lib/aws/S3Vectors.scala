@@ -18,7 +18,7 @@ class S3Vectors(config: CommonConfig)
 
   override def isDev: Boolean = config.isDev
 
-//  The S3 Vector Store is not yet available in eu-west-1, so we are using eu-central-1 because it's closest to us.
+  // The S3 Vector Store is not yet available in eu-west-1, so we are using eu-central-1 because it's closest to us.
   override def awsRegionV2: Region = Region.EU_CENTRAL_1
 
   val client: S3VectorsClient = {
