@@ -12,6 +12,7 @@ case object CohereJpeg extends CohereCompatibleMimeType
 case object CoherePng extends CohereCompatibleMimeType
 
 class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
+  // https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-embed-v3.html#:~:text=The%20image%20must%20be%20in%20either%20image/jpeg%20or%20image/png%20format%20and%20has%20a%20maximum%20size%20of%205MB
   def meetsCohereRequirements(fileType: MimeType, imageFilePath: Path)(implicit logMarker: LogMarker): Either[String, CohereCompatibleMimeType]= {
     val fileSize = Files.size(imageFilePath)
     val fiveMB = 5_000_000
