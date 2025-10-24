@@ -70,14 +70,14 @@ case class ImageUploadOpsCfg(
 )
 
 case class ImageUploadOpsDependencies(
-                                       config: ImageUploadOpsCfg,
-                                       imageOps: ImageOperations,
-                                       storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-                                       storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
-                                       tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-                                       tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-                                       createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]]
+  config: ImageUploadOpsCfg,
+  imageOps: ImageOperations,
+  storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
+  storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
+  storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
+  tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+  createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]]
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
