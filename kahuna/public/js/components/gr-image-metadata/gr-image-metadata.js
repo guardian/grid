@@ -421,14 +421,14 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.isUsefulMetadata = isUsefulMetadata;
 
-      function hasLocationInformation() {
-        return ctrl.metadata && (
-          ctrl.metadata.subLocation ||
-          ctrl.metadata.city ||
-          ctrl.metadata.state ||
-          ctrl.metadata.country
-        );
-      }
+    function hasLocationInformation() {
+      return ctrl.metadata && (
+        ctrl.metadata.subLocation ||
+        ctrl.metadata.city ||
+        ctrl.metadata.state ||
+        ctrl.metadata.country
+      );
+    }
 
       ctrl.hasLocationInformation = hasLocationInformation;
 

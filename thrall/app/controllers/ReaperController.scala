@@ -14,6 +14,7 @@ import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
+import scalaz.NonEmptyList
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -44,7 +45,7 @@ class ReaperController(
   private val isReapable = maybeCustomReapableEligibility getOrElse {
     new ReapableEligibility {
       override val maybePersistOnlyTheseCollections: Option[Set[String]] = config.maybePersistOnlyTheseCollections
-      override val persistenceIdentifier: String = config.persistenceIdentifier
+      override val persistenceIdentifiers: NonEmptyList[String] = config.persistenceIdentifiers
     }
   }
 

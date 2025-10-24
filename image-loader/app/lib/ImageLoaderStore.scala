@@ -1,11 +1,12 @@
 package lib.storage
 
-import lib.ImageLoaderConfig
-import com.gu.mediaservice.lib
 import com.amazonaws.HttpMethod
 import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest, S3Object}
+import lib.ImageLoaderConfig
+import com.gu.mediaservice.lib
 import com.gu.mediaservice.lib.logging.LogMarker
 
+import java.io.File
 import java.time.ZonedDateTime
 import java.util.Date
 
@@ -28,6 +29,16 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     client.getObject(config.maybeIngestBucket.get, key)
   } {
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
+  }
+
+  def queueS3Object(uploader: String, filename: String, s3Meta: Map[String, String], file: File)(implicit logMarker: LogMarker): Unit = {
+    store(
+        config.maybeIngestBucket.get,
+        s"$uploader/$filename",
+        file,
+        mimeType = None, // we don't care as this is just the queue bucket
+        meta = s3Meta,
+      )
   }
 
   def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {

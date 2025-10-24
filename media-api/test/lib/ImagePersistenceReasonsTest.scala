@@ -6,6 +6,7 @@ import com.gu.mediaservice.model.usage.Usage
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 
 class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
 
@@ -15,8 +16,8 @@ class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
 
     val persistedIdentifier = "test-p-id"
     val persistedCollections = Set("coll1", "coll2", "coll3")
-    val imgPersistenceReasons = ImagePersistenceReasons(Some(persistedCollections), persistedIdentifier)
-    val imagePersistenceReasonsWithEmptyListOfPersistedCollections = ImagePersistenceReasons(Some(Set.empty), persistedIdentifier)
+    val imgPersistenceReasons = ImagePersistenceReasons(Some(persistedCollections), NonEmptyList(persistedIdentifier))
+    val imagePersistenceReasonsWithEmptyListOfPersistedCollections = ImagePersistenceReasons(Some(Set.empty), NonEmptyList(persistedIdentifier))
 
     imgPersistenceReasons.reasons(img) shouldBe Nil
     val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))

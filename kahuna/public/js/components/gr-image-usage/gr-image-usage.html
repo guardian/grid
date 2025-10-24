@@ -5,7 +5,7 @@
 </div>
 <div ng-if="ctrl.showSendToPhotoSales">
     <image-usage-photo-sales props="{'usages':ctrl.photoSalesUsages}"></image-usage-photo-sales>
-    <div ng-repeat="(type, usages) in ctrl.usages" ng-if="type ==='downloaded'">
+    <div ng-repeat="(type, usages) in ctrl.usages" ng-if="(type ==='downloaded' || type ==='replaced')">
         <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
     </div>
 </div>

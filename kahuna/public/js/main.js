@@ -440,9 +440,14 @@ kahuna.filter('getInitials', function() {
         .join('');
 });
 
-kahuna.filter('spaceWords', function() {
-    return str => str.charAt(0).toUpperCase() + str.replace( /([A-Z]+)/g, " $1").slice(1)
-});
+kahuna.filter('spaceWords', () => str => {
+    switch (str) {
+      case 'picdarurn': return 'Picdar URN';
+      case 'derivative-of-media-ids': return 'Derivative of Media ID(s)';
+      case 'replaces-media-id': return 'Replaces Media ID';
+      default: return str.charAt(0).toUpperCase() + str.replace( /([A-Z]+)/g, " $1").slice(1)
+    }
+  });
 
 kahuna.directive('uiDragData', function() {
     return {
