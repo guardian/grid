@@ -156,7 +156,7 @@ object Uploader extends GridLogging {
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
     // We are fetching the embedding and storing it in the S3Vectors bucket
-//    This should not block the image upload process on failure
+    // This should not block the image upload process on failure
     createEmbeddingAndStore(originalMimeType, uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
       logger.error(logMarker, s"Failed to fetch embedding for ${uploadRequest.imageId} and store", failure)
     }
