@@ -30,8 +30,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbed: Option[Embedder])(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbed)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbedder)
 }
 
 case class S3FileExtractedMetadata(
@@ -85,9 +85,9 @@ class Projector(config: ImageUploadOpsCfg,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication,
-                maybeEmbed: Option[Embedder]) extends GridLogging {
+                maybeEmbedder: Option[Embedder]) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbed)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -160,7 +160,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
                                s3: AmazonS3,
-                               maybeEmbed: Option[Embedder],
+                               maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -183,7 +183,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   }
 
   private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
-    maybeEmbed match {
+    maybeEmbedder match {
       case Some(embedder) =>
         embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
       case None => Future.successful(None)

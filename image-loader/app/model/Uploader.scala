@@ -332,7 +332,7 @@ class Uploader(val store: ImageLoaderStore,
                val config: ImageLoaderConfig,
                val imageOps: ImageOperations,
                val notifications: Notifications,
-               val maybeEmbed: Option[Embedder],
+               val maybeEmbedder: Option[Embedder],
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
@@ -347,7 +347,7 @@ class Uploader(val store: ImageLoaderStore,
   }
 
   private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
-    maybeEmbed match {
+    maybeEmbedder match {
       case Some(embedder) =>
         embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
       case None => Future.successful(None)

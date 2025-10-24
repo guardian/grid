@@ -30,8 +30,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
 
   val maybeEmbedder: Option[Embedder] = if (config.shouldEmbed) Some(new Embedder(new S3Vectors(config), new Bedrock(config))) else None
 
-  val uploader = new Uploader(store, config, imageOperations, notifications, embedder, imageProcessor)
-  val projector = Projector(config, imageOperations, imageProcessor, auth, embedder)
+  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor)
+  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)
