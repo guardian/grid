@@ -342,11 +342,13 @@ class ImageLoaderController(auth: Authentication,
     val tempFile = createTempFile("requestBody")(initialContext)
     val bodyParser = DigestBodyParser.create(tempFile)
 
-    AuthenticatedAndAuthorised(bodyParser) { req =>
+    AuthenticatedAndAuthorised.async(bodyParser) { req =>
 
-      val s3UserMetaMap = identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty) ++ Map(
+      val allIdentifiers = identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty) ++ Map(
         ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> derivativeOfMediaIds
-      ).map { case (k, v) =>
+      )
+
+      val s3UserMetaMap = allIdentifiers.map { case (k, v) =>
         (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
       }
 
@@ -355,13 +357,12 @@ class ImageLoaderController(auth: Authentication,
         filename = filename,
         s3Meta = s3UserMetaMap,
         file =  tempFile
-      )
+      ).map {_ =>
+        val newMediaId: String = req.body.digest
 
-      val newMediaId: String = req.body.digest
-
-      // TODO consider returning newMediaId (probably need kahuna to show loading page for image whilst it's queued, probs using status table) OR return uploadStatusUri
-
-      Accepted(newMediaId)
+        // return just the new media ID for now, though perhaps in future we could track these in the upload status table and provide the URI to the relevant entry
+        Accepted(newMediaId)
+      }
     }
   }
 
