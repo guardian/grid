@@ -158,7 +158,7 @@ object Uploader extends GridLogging {
     // We are fetching the embedding and storing it in the S3Vectors bucket
     // This should not block the image upload process on failure
     createEmbeddingAndStore(originalMimeType, uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
-      logger.error(logMarker, s"Failed to fetch embedding for ${uploadRequest.imageId} and store", failure)
+      logger.error(logMarker, s"Failed to create and store image embedding for ${uploadRequest.imageId}", failure)
     }
 
     val eventualImage = for {

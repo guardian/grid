@@ -55,13 +55,13 @@ class S3Vectors(config: CommonConfig)
       val response = client.putVectors(request)
       logger.info(
         logMarker,
-        s"S3 Vector Store API call completed with status: ${response.sdkHttpResponse().statusCode()}"
+        s"S3 Vector Store API call to store image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
       )
       response
     }
    catch {
     case e: Exception =>
-      logger.error(logMarker, s"Exception during S3 Vector Store API call for ImageId $imageId: ", e)
+      logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId: ", e)
       throw e
     }
   }
