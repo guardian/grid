@@ -51,8 +51,8 @@ class S3Vectors(config: CommonConfig)
   def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit logMarker: LogMarker
   ): PutVectorsResponse = {
     try {
-      val input = createRequestBody(bedrockEmbedding, imageId)
-      val response = client.putVectors(input)
+      val request = createRequestBody(bedrockEmbedding, imageId)
+      val response = client.putVectors(request)
       logger.info(
         logMarker,
         s"S3 Vector Store API call completed with status: ${response.sdkHttpResponse().statusCode()}"
