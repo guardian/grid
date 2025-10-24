@@ -31,7 +31,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
 
-  def queueS3Object(uploader: String, filename: String, s3Meta: Map[String, String], file: File)(implicit logMarker: LogMarker): Unit = {
+  def queueS3Object(uploader: String, filename: String, s3Meta: Map[String, String], file: File)(implicit logMarker: LogMarker) = {
     store(
         config.maybeIngestBucket.get,
         s"$uploader/$filename",
