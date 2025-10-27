@@ -1237,6 +1237,13 @@ textarea.ng-invalid {
     position: relative;
 }
 
+.results--alternate {
+    display: flex;
+    flex-wrap: wrap;
+    top: 96px;
+    position: relative;
+}
+
 .results-controls {
     background: white;
     padding: 10px;
@@ -1276,7 +1283,7 @@ textarea.ng-invalid {
     display: none;
 
     /* above thumbnail and overlay */
-    z-index: 2;
+    z-index: 1;
 }
 
 .result__select--no-pointer-events {
@@ -1537,7 +1544,7 @@ textarea.ng-invalid {
 .image-no-results {
     font-size: 3rem;
     text-align: center;
-    margin-top: 4rem;
+    margin-top: 10rem;
 }
 
 .image-loading-results {
@@ -3073,7 +3080,7 @@ FIXME: what to do with touch devices
   text-align: left;
 
   /* above thumbnail and overlay */
-  z-index: 2;
+  z-index: 1;
 }
 .result__select__overlay__text.alert {
   background-color: red;

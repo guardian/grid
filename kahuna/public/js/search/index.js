@@ -16,6 +16,7 @@ import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-sort-control/gr-sort-control';
+import '../components/gr-sort-control/gr-extended-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
 import '../components/gr-search-wrapper/gr-search-wrapper';
@@ -29,7 +30,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
-
+import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
 export var search = angular.module('kahuna.search', [
     'ct.ui.router.extras.dsr',
@@ -43,6 +44,7 @@ export var search = angular.module('kahuna.search', [
     'gr.panels',
     'gr.keyboardShortcut',
     'gr.sortControl',
+    'gr.extendedSortControl',
     'gr.permissionsFilter',
     'gr.myUploads',
     'gr-searchWrapper',
@@ -324,17 +326,14 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
             $state.go('search.results', null, {reload: true});
         }
     });
-    $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
+    $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
         if (toState.name === 'search.results') {
             //If moving to a collection, sorts images by time added to a collection by default
-            //allows sorting by newest first if set by user.
-            if (toParams.query && toParams.query.indexOf('~') === 0) {
-                const sameQuery = toParams.query === fromParams.query;
-                toParams.orderBy = sameQuery ? toParams.orderBy : 'dateAddedToCollection';
-            }
-            //If moving from a collection to a non-collection, reset order to default.
-            else if (toParams.orderBy === 'dateAddedToCollection') {
-                delete toParams.orderBy;
+            //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
+            const checkForCollection = (query) => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+            const toQuery = toParams.query ? toParams.query : "";
+            if (!checkForCollection(toQuery) && toParams.orderBy === COLLECTION_SORT_VALUE) {
+              delete toParams.orderBy;
             }
         }
     });
