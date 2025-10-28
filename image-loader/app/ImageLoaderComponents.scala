@@ -32,14 +32,9 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
 
   val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor)
   val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
-  val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.maybeQuarantineBucket) match {
-    case (true, Some(bucketName)) =>{
-      val quarantineStore = new QuarantineStore(config)
-      Some(new QuarantineUploader(quarantineStore, config))
-    }
-    case (true, None) => throw new IllegalArgumentException(s"Quarantining is enabled. upload.quarantine.enabled = ${config.uploadToQuarantineEnabled} but no bucket is configured. s3.quarantine.bucket isn't configured.")
-    case (false, _) => None
-  }
+  val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
+    new QuarantineUploader(new QuarantineStore(config), config)
+  )
 
   val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   private val gridClient = GridClient(services)(wsClient)
