@@ -32,7 +32,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
 
   def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {
     val request = new GeneratePresignedUrlRequest(
-      config.maybeIngestBucket.get, // bucket
+      (if(config.uploadToQuarantineEnabled) config.maybeQuarantineBucket else config.maybeIngestBucket).get, // bucket
       s"$uploadedBy/$filename", // key
     )
       .withMethod(HttpMethod.PUT)
