@@ -17,8 +17,10 @@ import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -56,16 +58,22 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
+    val mockPutVectorsResponse = mock[PutVectorsResponse]
+    def mockVectorStore = (fileType: MimeType, imagePath: Path, imageId: String) =>
+      Future.successful(Some(mockPutVectorsResponse))
+
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
+    def createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]] = mockVectorStore
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
       imageOps,
       storeOrProjectOriginalFile,
       storeOrProjectThumbFile,
-      storeOrProjectOptimisedPNG
+      storeOrProjectOptimisedPNG,
+      createEmbeddingAndStore = createEmbeddingAndStore
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)
@@ -85,11 +93,12 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
       mockDependencies.storeOrProjectOptimisedImage,
+      createEmbeddingAndStore,
       OptimiseWithPngQuant,
       uploadRequest,
       mockDependencies,
       FileMetadata(),
-      ImageProcessor.identity
+      ImageProcessor.identity,
     )
 
     // Assertions; Failure will auto-fail
