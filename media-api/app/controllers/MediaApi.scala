@@ -26,6 +26,8 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
+import scala.jdk.CollectionConverters._
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -526,28 +528,30 @@ class MediaApi(
     logger.info(logMarker, s"Semantic search: $q from user: ${Authentication.getIdentity(request.user)}")
 
 //    We will send a search to the S3 Vector Store
-      embedder.createEmbeddingAndSearch(q)
+//    We will receive a maximum of 30 results
+    val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(q)
 
-//    We will receive 30 results
-    val top30Results: List[String] = List(
-      "59c5f086f010d2ae6da0811acf856df5162a4339",
-      "ba9fa9a2c484134b4b875dd30a411a66f7f7986e",
-    )
+    val imageIds = semanticSearchResult.map { result =>
+      logger.info(logMarker, s"Printing the vector results:")
+      logger.info(logMarker, s"${result.vectors() }")
+      val results: java.util.List[QueryOutputVector] = result.vectors()
+      results.asScala.map(_.key()).toList
+    }
 
-    val searchParams = SearchParams(
-      query = Some(q),
-      ids = Some(top30Results),
-      tier = request.user.accessor.tier,
-    )
+    imageIds.flatMap { ids =>
+      val searchParams = SearchParams(
+        query = Some(q),
+        ids = Some(ids),
+        tier = request.user.accessor.tier,
+      )
 
-    SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        errors.map(_.message).mkString(", "))
-      ),
-      params => respondSuccess(params)
-    )
-
+      SearchParams.validate(searchParams).fold(
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          errors.map(_.message).mkString(", "))
+        ),
+        params => respondSuccess(params)
+      )
+    }
   }
 
   private def respondSuccess(searchParams: SearchParams)(implicit request: Authentication.Request[AnyContent], logMarker: LogMarker) = {
