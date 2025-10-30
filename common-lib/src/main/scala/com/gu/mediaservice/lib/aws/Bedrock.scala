@@ -12,12 +12,19 @@ import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
 import play.api.libs.json._
 
 object Bedrock {
-  private case class BedrockRequest(
+  private case class BedrockImageRequest(
    input_type: String,
    embedding_types: List[String],
    images: List[String]
  )
-  private implicit val bedrockRequestFormat: OFormat[BedrockRequest] = Json.format[BedrockRequest]
+  private case class BedrockTextRequest(
+    input_type: String,
+    embedding_types: List[String],
+    texts: List[String]
+  )
+
+  private implicit val bedrockImageRequestFormat: OFormat[BedrockImageRequest] = Json.format[BedrockImageRequest]
+  private implicit val bedrockTextRequestFormat: OFormat[BedrockTextRequest] = Json.format[BedrockTextRequest]
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,7 +48,7 @@ class Bedrock(config: CommonConfig)
         case CoherePng => List(s"data:image/png;base64,$base64EncodedImage")
     }
 
-    val body = Bedrock.BedrockRequest(
+    val body = Bedrock.BedrockImageRequest(
       input_type = "image",
       embedding_types = List("float"),
       images = images
@@ -60,11 +67,11 @@ class Bedrock(config: CommonConfig)
     request
   }
 
-  private def sendBedrockEmbeddingRequest(base64EncodedImage: String, fileType: CohereCompatibleMimeType)(
+  private def sendBedrockEmbeddingRequest(requestBody: InvokeModelRequest)(
     implicit logMarker: LogMarker
   ): InvokeModelResponse = {
     try {
-      val response = client.invokeModel(createRequestBody(base64EncodedImage, fileType))
+      val response = client.invokeModel(requestBody)
       logger.info(
         logMarker,
         s"Bedrock API call to create image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
@@ -79,7 +86,8 @@ class Bedrock(config: CommonConfig)
   }
 
   def createImageEmbedding(base64EncodedImage: String, fileType: CohereCompatibleMimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
-    val bedrockFuture = Future { sendBedrockEmbeddingRequest(base64EncodedImage, fileType) }
+    val requestBody = createRequestBody(base64EncodedImage, fileType)
+    val bedrockFuture = Future { sendBedrockEmbeddingRequest(requestBody) }
     bedrockFuture.map { response =>
       val responseBody = response.body().asUtf8String()
       val json = Json.parse(responseBody)
@@ -88,6 +96,42 @@ class Bedrock(config: CommonConfig)
       logger.info(
         logMarker,
         s"Successfully extracted image embedding. Vector size: ${embedding.size}"
+      )
+      embedding
+    }
+  }
+
+  def createSearchTermEmbedding(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
+    logger.info(logMarker, s"Creating embedding for search term: $q")
+
+    val body = Bedrock.BedrockTextRequest(
+      input_type = "search_document",
+      embedding_types = List("float"),
+      texts = List(q)
+    )
+    val jsonBody = Json.toJson(body).toString()
+
+    val requestBody: InvokeModelRequest = {
+      InvokeModelRequest
+        .builder()
+        .accept("*/*")
+        .body(SdkBytes.fromUtf8String(jsonBody))
+        .contentType("application/json")
+        .modelId("cohere.embed-english-v3")
+        .build()
+    }
+
+    val bedrockFuture = Future {
+      sendBedrockEmbeddingRequest(requestBody)
+    }
+    bedrockFuture.map { response =>
+      val responseBody = response.body().asUtf8String()
+      val json = Json.parse(responseBody)
+      // Extract the embedding array (first element since it's an array of arrays)
+      val embedding = (json \ "embeddings" \ "float")(0).as[List[Float]]
+      logger.info(
+        logMarker,
+        s"Successfully extracted search term embedding. Vector size: ${embedding.size}"
       )
       embedding
     }
