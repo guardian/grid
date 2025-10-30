@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -42,7 +42,8 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
-                authorisation: Authorisation
+                authorisation: Authorisation,
+                embedder: Embedder,
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
@@ -510,6 +511,79 @@ class MediaApi(
     }
     logger.info(logMarker, s"Making usages request to $uri")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
+
+  def semanticSearch(q: String) = auth.async { implicit request =>
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
+      .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
+
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "semantic-image-search",
+      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    logger.info(logMarker, s"Semantic search: $q from user: ${Authentication.getIdentity(request.user)}")
+
+//    We will send a search to the S3 Vector Store
+      embedder.createEmbeddingAndSearch(q)
+
+//    We will receive 30 results
+    val top30Results: List[String] = List(
+      "59c5f086f010d2ae6da0811acf856df5162a4339",
+      "ba9fa9a2c484134b4b875dd30a411a66f7f7986e",
+    )
+
+    val searchParams = SearchParams(
+      query = Some(q),
+      ids = Some(top30Results),
+      tier = request.user.accessor.tier,
+    )
+
+    SearchParams.validate(searchParams).fold(
+      // TODO: respondErrorCollection?
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      params => respondSuccess(params)
+    )
+
+  }
+
+  private def respondSuccess(searchParams: SearchParams)(implicit request: Authentication.Request[AnyContent], logMarker: LogMarker) = {
+    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
+      .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
+
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-search",
+      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
+      "requestId" -> RequestLoggingFilter.getRequestId(request)
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val include = getIncludedFromParams(request)
+
+    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
+      val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
+      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
+      val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
+
+      val (imageData, imageLinks, imageActions) =
+        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
+      val id = (imageData \ "id").as[String]
+      val imageUri = URI.create(s"${config.rootUri}/images/$id")
+      EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
+    }
+    for {
+      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+        searchParams.copy(
+          shouldFlagGraphicImages = shouldFlagGraphicImages,
+        )
+      )
+      imageEntities = hits map (hitToImageEntity _).tupled
+      prevLink = getPrevLink(searchParams)
+      nextLink = getNextLink(searchParams, totalCount)
+      links = List(prevLink, nextLink).flatten
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
   }
 
   def imageSearch() = auth.async { implicit request =>
