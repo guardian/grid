@@ -20,9 +20,6 @@ class DynamoDBV2(config: CommonConfig, tableName: String){
     response.asScala.map(_.item().get(path)).map(attrToJsValue)
   }
 
-//  val attr = AttributeValue.builder().m(Map("path" -> AttributeValue.builder().l(List(AttributeValue.builder().s("s").build()).asJava).build()).asJava).build()
-//  println(attrToJsValue(attr))
-  // Convert AttributeValue map → JSON
   def attrToJsValue(attr: AttributeValue): JsValue = {
     if (attr.s() != null) {
       JsString(attr.s())

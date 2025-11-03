@@ -1,6 +1,6 @@
 package store
 
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
+import com.gu.mediaservice.lib.aws.{DynamoDB, DynamoDBV2, NoItemFound}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.Collection
 import lib.CollectionsConfig
@@ -11,6 +11,7 @@ import scala.concurrent.Future
 
 class CollectionsStore(config: CollectionsConfig) {
   val dynamo = new DynamoDB[Collection](config, config.collectionsTable)
+  val dynamoV2 = new DynamoDBV2(config, config.collectionsTable)
 
   def getAll: Future[List[Collection]] = dynamo.scan() map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
@@ -27,6 +28,15 @@ class CollectionsStore(config: CollectionsConfig) {
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
     dynamo.get(path).map(json => (json \ "collection").asOpt[Collection])
+  } recover {
+    case NoItemFound => None
+    case e => throw CollectionsStoreError(e)
+  }
+
+  def getV2(collectionPath: List[String]): Future[Option[Collection]] = {
+    val path = CollectionsManager.pathToPathId(collectionPath)
+    dynamoV2.get(path, "collection").foreach(r => println(r))
+    dynamoV2.get(path, "collection").map(_.asOpt[Collection])
   } recover {
     case NoItemFound => None
     case e => throw CollectionsStoreError(e)

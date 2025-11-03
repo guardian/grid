@@ -10,11 +10,10 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new CollectionsStore(config)
-  val storeV2 = new CollectionsStoreV2(config)
   val metrics = new CollectionsMetrics(config, actorSystem, applicationLifecycle)
   val notifications = new Notifications(config)
 
-  val collections = new CollectionsController(auth, config, store, storeV2, controllerComponents)
+  val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 

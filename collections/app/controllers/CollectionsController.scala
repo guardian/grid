@@ -31,7 +31,6 @@ object AppIndex {
 }
 
 class CollectionsController(authenticated: Authentication, config: CollectionsConfig, store: CollectionsStore,
-                            storeV2: CollectionsStoreV2,
                             val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
 
   import CollectionsManager.{getCssColour, isValidPathBit, pathToUri, uriToPath}
@@ -110,7 +109,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
 
 
   def getCollection(collectionPathId: String) = authenticated.async {
-    storeV2.get(uriToPath(collectionPathId)).map {
+    store.getV2(uriToPath(collectionPathId)).map {
       case Some(collection) =>
         val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
         respond(node, actions = getActions(node))
