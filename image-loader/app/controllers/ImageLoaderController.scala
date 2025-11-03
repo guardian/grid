@@ -30,12 +30,14 @@ import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
 import play.api.data.Form
 import play.api.data.Forms._
+import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
 import play.api.mvc._
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -53,19 +55,34 @@ class ImageLoaderController(auth: Authentication,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
                             authorisation: Authorisation,
-                            metrics: ImageLoaderMetrics)
+                            metrics: ImageLoaderMetrics,
+                            applicationLifecycle: ApplicationLifecycle)
                            (implicit val ec: ExecutionContext, materializer: Materializer)
   extends BaseController with ArgoHelpers with SqsHelpers {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
+
+  private val activeProcessingMessage = new AtomicReference[Option[SQSMessage]](None)
+
+  // when shutting down, make best efforts to make currently processing image available on the queue again
+  applicationLifecycle.addStopHook(() => {
+    (activeProcessingMessage.get(), maybeIngestQueue) match {
+      case (Some(message), Some(ingestQueue)) =>
+        Future { ingestQueue.makeMessageVisible(message) }
+      case _ =>
+        Future.successful(())
+    }
+  })
 
   val maybeIngestQueueAndProcessor: Option[(SimpleSqsMessageConsumer, Future[Done])] = maybeIngestQueue.map { ingestQueue =>
     val processor = Source.repeat(())
       .mapAsyncUnordered(parallelism=1)(_ => {
         ingestQueue.getNextMessage(attrApproximateReceiveCount) match {
           case None =>
+            activeProcessingMessage.set(None)
             Future.successful(logger.debug(s"No message at ${DateTimeUtils.now()}"))
           case Some(sqsMessage) =>
+            activeProcessingMessage.set(Some(sqsMessage))
             val logMarker: LogMarker = MarkerMap(
               "requestType" -> "handleMessageFromIngestBucket",
               "requestId" -> sqsMessage.getMessageId,
@@ -77,10 +94,12 @@ class ImageLoaderController(auth: Authentication,
               .map { _ =>
                 logger.info(logMarker, "Deleting message")
                 ingestQueue.deleteMessage(sqsMessage)
+                activeProcessingMessage.set(None)
               }
               .recover {
                 case t: Throwable =>
                   metrics.failedIngestsFromQueue.increment()
+                  activeProcessingMessage.set(None)
                   logger.error(logMarker, s"Failed to process message", t)
               }
         }
