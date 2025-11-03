@@ -13,7 +13,7 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
-import store.{CollectionsStore, CollectionsStoreError, CollectionsStoreV2}
+import store.{CollectionsStore, CollectionsStoreError}
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
@@ -109,7 +109,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
 
 
   def getCollection(collectionPathId: String) = authenticated.async {
-    store.getV2(uriToPath(collectionPathId)).map {
+    store.get(uriToPath(collectionPathId)).map {
       case Some(collection) =>
         val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
         respond(node, actions = getActions(node))

@@ -4,7 +4,7 @@ import controllers.{CollectionsController, ImageCollectionsController}
 import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
-import store.{CollectionsStore, CollectionsStoreV2}
+import store.CollectionsStore
 
 class CollectionsComponents(context: Context) extends GridComponents(context, new CollectionsConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo

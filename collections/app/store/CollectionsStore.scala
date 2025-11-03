@@ -27,15 +27,6 @@ class CollectionsStore(config: CollectionsConfig) {
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
-    dynamo.get(path).map(json => (json \ "collection").asOpt[Collection])
-  } recover {
-    case NoItemFound => None
-    case e => throw CollectionsStoreError(e)
-  }
-
-  def getV2(collectionPath: List[String]): Future[Option[Collection]] = {
-    val path = CollectionsManager.pathToPathId(collectionPath)
-    dynamoV2.get(path, "collection").foreach(r => println(r))
     dynamoV2.get(path, "collection").map(_.asOpt[Collection])
   } recover {
     case NoItemFound => None
