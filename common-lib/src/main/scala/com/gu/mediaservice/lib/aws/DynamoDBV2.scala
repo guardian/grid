@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.aws
 
 import com.amazonaws.services.dynamodbv2.document.Item
+import com.amazonaws.services.dynamodbv2.document.spec.PutItemSpec
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue}
+import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, Reads, Writes}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, GetItemRequest}
 
