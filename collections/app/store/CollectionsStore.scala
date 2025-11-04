@@ -18,7 +18,6 @@ import cats.implicits._
 case class Record(id: String, collection: Collection)
 
 class CollectionsStore(config: CollectionsConfig) {
-  val dynamo = new DynamoDB[Collection](config, config.collectionsTable)
   lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =

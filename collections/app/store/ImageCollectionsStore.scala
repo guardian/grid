@@ -1,0 +1,5 @@
+package store
+
+class ImageCollectionsStore {
+
+}
