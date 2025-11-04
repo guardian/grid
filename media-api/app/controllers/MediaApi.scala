@@ -539,7 +539,7 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
-    def respondSuccess(searchParams: SearchParams) = for {
+    def performSearchAndRespond(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
@@ -556,7 +556,8 @@ class MediaApi(
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
     val searchForSimilar = _searchParams.query.flatMap(_.split(" ").find(_.startsWith("similar:")))
-    val searchParams = if (searchForSimilar.isDefined) {
+
+    if (searchForSimilar.isDefined) {
       val extractedImageId = searchForSimilar.get.split(":")(1)
 
       val semanticSearchResult: QueryVectorsResponse = embedder.imageToImageSearch(extractedImageId)
@@ -570,20 +571,35 @@ class MediaApi(
         length = _searchParams.length,
         tier = request.user.accessor.tier
       )
-    } else if(canViewDeletedImages) {
-      _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-    }
-    else {
-      _searchParams
+
+      for {
+        SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids,  offset = _searchParams.offset, length = _searchParams.length)
+        imageEntities = hits map (hitToImageEntity _).tupled
+        links = List()
+      } yield {
+        respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+      }
+
+
+    } else {
+
+      val searchParams = if(canViewDeletedImages) {
+        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+      }
+      else {
+        _searchParams
+      }
+
+      SearchParams.validate(searchParams).fold(
+        // TODO: respondErrorCollection?
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          errors.map(_.message).mkString(", "))
+        ),
+        params => performSearchAndRespond(params)
+      )
     }
 
-    SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        errors.map(_.message).mkString(", "))
-      ),
-      params => respondSuccess(params)
-    )
+
   }
 
   private def getImageResponseFromES(
