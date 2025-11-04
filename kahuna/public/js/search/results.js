@@ -380,6 +380,9 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
+                if ($stateParams.orderBy === 'relevance') {
+                  return;
+                }
                 // Use explicit `until`, or blank it to find new images
                 const until = $stateParams.until || null;
                 const latestTime = lastSearchFirstResultTime;

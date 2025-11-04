@@ -312,7 +312,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: ctrl.filter.query,
+      query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
