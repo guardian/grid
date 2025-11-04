@@ -515,7 +515,7 @@ class MediaApi(
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
-  def semanticSearch(q: String) = auth.async { implicit request =>
+  def searchForSimilar(imageId: String) = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
       .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
 
@@ -525,33 +525,28 @@ class MediaApi(
       "requestId" -> RequestLoggingFilter.getRequestId(request)
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    logger.info(logMarker, s"Semantic search: $q from user: ${Authentication.getIdentity(request.user)}")
+    logger.info(logMarker, s"Image similarity search for imageId: ${imageId} from user: ${Authentication.getIdentity(request.user)}")
 
 //    We will send a search to the S3 Vector Store
 //    We will receive a maximum of 30 results
-    val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(q)
+    val semanticSearchResult: QueryVectorsResponse = embedder.imageToImageSearch(imageId)
+    logger.info(logMarker, s"Printing the vector results:")
+    logger.info(logMarker, s"${semanticSearchResult }")
+    val results: java.util.List[QueryOutputVector] = semanticSearchResult.vectors()
+    val ids = results.asScala.map(_.key()).toList
 
-    val imageIds = semanticSearchResult.map { result =>
-      logger.info(logMarker, s"Printing the vector results:")
-      logger.info(logMarker, s"${result.vectors() }")
-      val results: java.util.List[QueryOutputVector] = result.vectors()
-      results.asScala.map(_.key()).toList
-    }
+    val searchParams = SearchParams(
+      query = Some(""),
+      ids = Some(ids),
+      tier = request.user.accessor.tier,
+    )
 
-    imageIds.flatMap { ids =>
-      val searchParams = SearchParams(
-        query = Some(q),
-        ids = Some(ids),
-        tier = request.user.accessor.tier,
-      )
-
-      SearchParams.validate(searchParams).fold(
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => respondSuccess(params)
-      )
-    }
+    SearchParams.validate(searchParams).fold(
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      params => respondSuccess(params)
+    )
   }
 
   private def respondSuccess(searchParams: SearchParams)(implicit request: Authentication.Request[AnyContent], logMarker: LogMarker) = {

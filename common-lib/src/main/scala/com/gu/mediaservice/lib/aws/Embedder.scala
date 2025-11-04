@@ -50,6 +50,15 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
       .build()
   }
 
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): QueryVectorsResponse = {
+//    Find image in vector store
+//    We are assuming that the image is already in the vector store.
+//    From image_id --> vectorData
+    val vector = s3vectors.findVectorForImageId(imageId)
+//    Run cosine similarity over image
+      s3vectors.searchVectorStore(vector)
+  }
+
   def createEmbeddingAndSearch(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {
 
     logger.info(logMarker, s"Searching for image embedding for $q")

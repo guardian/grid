@@ -13,11 +13,11 @@ GET     /images/:id/softDeletedMetadata                             controllers.
 GET     /images/aggregations/date/:field                            controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
 # Images
-GET     /images/semantic-search                                     controllers.MediaApi.semanticSearch(q: String)
 GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
 GET     /images/:id/_elasticsearch                                  controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/projection/diff                                 controllers.MediaApi.diffProjection(id: String)
 GET     /images/:id/fileMetadata                                    controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:imageId/similar                                    controllers.MediaApi.searchForSimilar(imageId: String)
 GET     /images/:imageId/uploadedBy                                 controllers.MediaApi.uploadedBy(imageId: String)
 GET     /images/:imageId/export/:exportId                           controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export/:exportId/asset/:width/download     controllers.MediaApi.downloadImageExport(imageId: String, exportId: String, width: Int)
