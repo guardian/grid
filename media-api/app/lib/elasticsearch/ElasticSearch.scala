@@ -118,22 +118,38 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
+  private val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
-    val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
-    def resolveHit(hit: SearchHit) = mapImageFrom(
-      hit.sourceAsString,
-      hit.id,
-      hit.index,
-      fields = hit.fields match {
-        case null => JsObject.empty
-        case _ => Json.obj(
-          isPotentiallyGraphicFieldName -> hit.fields.get(isPotentiallyGraphicFieldName).map(_.asInstanceOf[List[Boolean]].headOption)
-        )
+  private def resolveHit(hit: SearchHit) = mapImageFrom(
+    hit.sourceAsString,
+    hit.id,
+    hit.index,
+    fields = hit.fields match {
+      case null => JsObject.empty
+      case _ => Json.obj(
+        isPotentiallyGraphicFieldName -> hit.fields.get(isPotentiallyGraphicFieldName).map(_.asInstanceOf[List[Boolean]].headOption)
+      )
+    }
+  )
+
+  def lookupIds(ids: List[String], offset: Int, length: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val query = filters.pinnedIds(ids)
+
+    val searchRequest = prepareSearch(query)
+      .trackTotalHits(true)
+      .storedFields("_source")
+      .from(offset)
+      .size(length)
+
+    executeAndLog(searchRequest, "ids lookup")
+      .map { r =>
+        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        SearchResults(hits = imageHits, total = r.result.totalHits, maybeOrgOwnedCount = None)
       }
-    )
+  }
 
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
     val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
