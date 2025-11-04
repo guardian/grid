@@ -30,11 +30,17 @@ class CollectionsStore(config: CollectionsConfig) {
   private lazy val collectionsTable =
     Table[Record](config.collectionsTable)
 
+  private def handleError[T, U](result: Either[DynamoReadError, T], f: T => U) = {
+    result.fold(
+      error => Future.failed(CollectionsStoreDynamoError(error)),
+      success => Future.successful(f(success))
+    )
+  }
+
   def getAll: Future[List[Collection]] = {
-    ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).flatMap(_.fold(
-      error   => Future.failed(CollectionsStoreDynamoError(error)),
-      records => Future.successful(records.map(_.collection))
-    ))
+    ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).flatMap(res =>
+      handleError[List[Record], List[Collection]](res, records => records.map(_.collection))
+    )
   }
 
   def add(collection: Collection): Future[Collection] = {
@@ -43,10 +49,7 @@ class CollectionsStore(config: CollectionsConfig) {
         "id" === collection.pathId,
         set("collection", collection)
       )
-    ).flatMap(_.fold (
-      error => Future.failed(CollectionsStoreDynamoError(error)),
-      record => Future.successful(record.collection)
-    ))
+    ).flatMap(res => handleError[Record, Collection](res, record => record.collection))
   }
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
@@ -54,10 +57,9 @@ class CollectionsStore(config: CollectionsConfig) {
     ScanamoAsync(client).exec(collectionsTable.get("id" === path)).flatMap(maybeEither =>
       maybeEither.fold[Future[Option[Collection]]](
         Future.successful(None)
-      )(_.fold(
-        error => Future.failed(CollectionsStoreDynamoError(error)),
-        result => Future.successful(Some(result.collection))
-      ))
+      )(res =>
+        handleError[Record, Option[Collection]](res, record => Some(record.collection))
+      )
     )
   }
 
