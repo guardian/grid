@@ -12,12 +12,14 @@ import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
+import store.ImageCollectionsStore
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
 class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
+                                 imageCollectionsStore: ImageCollectionsStore,
                                  override val controllerComponents: ControllerComponents)
   extends BaseController with MessageSubjects with ArgoHelpers {
 
@@ -26,7 +28,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   val dynamo = new DynamoDB[Collection](config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
-    dynamo.listGet(id, "collections").map { collections =>
+    imageCollectionsStore.get(id).map { collections =>
       respond(onlyLatest(collections))
     } recover {
       case NoItemFound => respondNotFound("No collections found")
