@@ -13,6 +13,10 @@
             <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
         </a>
 
+        <gr-more-like-this class="top-bar-item clickable"
+                           image="ctrl.image">
+        </gr-more-like-this>
+
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
