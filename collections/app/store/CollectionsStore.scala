@@ -31,12 +31,10 @@ class CollectionsStore(config: CollectionsConfig) {
     Table[Record](config.collectionsTable)
 
   def getAll: Future[List[Collection]] = {
-    ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).map {
-      case Right(records) => records.map(_.collection)
-      case Left(error) => throw CollectionsStoreDynamoError(error)
-    } recover {
-      case e => throw CollectionsStoreError(e)
-    }
+    ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).flatMap(_.fold(
+      error   => Future.failed(CollectionsStoreDynamoError(error)),
+      records => Future.successful(records.map(_.collection))
+    ))
   }
 
   def add(collection: Collection): Future[Collection] = {
@@ -45,29 +43,27 @@ class CollectionsStore(config: CollectionsConfig) {
         "id" === collection.pathId,
         set("collection", collection)
       )
-    ).map {
-      case Right(value) => value.collection
-      case Left(error) => throw CollectionsStoreDynamoError(error)
-    } recover {
-      case e => throw CollectionsStoreError(e)
-    }
+    ).flatMap(_.fold (
+      error => Future.failed(CollectionsStoreDynamoError(error)),
+      record => Future.successful(record.collection)
+    ))
   }
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
-    ScanamoAsync(client).exec(collectionsTable.get("id" === path)).map(result => result.flatMap(eit => eit match{
-      case Right(value) => Some(value.collection)
-      case Left(error) => throw CollectionsStoreDynamoError(error)
-    }))
-  } recover {
-    case e => throw CollectionsStoreError(e)
+    ScanamoAsync(client).exec(collectionsTable.get("id" === path)).flatMap(maybeEither =>
+      maybeEither.fold[Future[Option[Collection]]](
+        Future.successful(None)
+      )(_.fold(
+        error => Future.failed(CollectionsStoreDynamoError(error)),
+        result => Future.successful(Some(result.collection))
+      ))
+    )
   }
 
   def remove(collectionPath: List[String]): Future[Unit] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
     ScanamoAsync(client).exec(collectionsTable.delete("id" === path))
-  } recover {
-    case e => throw CollectionsStoreError(e)
   }
 }
 
