@@ -1,18 +1,18 @@
 package store
 
-import com.gu.mediaservice.lib.aws.{DynamoDB, DynamoDBV2, NoItemFound}
+import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
 import lib.CollectionsConfig
 import org.joda.time.DateTime
 import org.scanamo.generic.auto.genericDerivedFormat
-import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table, TypeCoercionError}
+import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
 import org.scanamo.syntax._
-import play.api.libs.json.{JsValue, Json}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import cats.implicits._
 
 
 case class Record(id: String, collection: Collection)
@@ -30,10 +30,13 @@ class CollectionsStore(config: CollectionsConfig) {
   private lazy val collectionsTable =
     Table[Record](config.collectionsTable)
 
-  def getAll: Future[List[Collection]] = dynamo.scan() map { jsonList =>
-    jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
-  } recover {
-    case e => throw CollectionsStoreError(e)
+  def getAll: Future[List[Collection]] = {
+    ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).map {
+      case Right(records) => records.map(_.collection)
+      case Left(error) => throw CollectionsStoreDynamoError(error)
+    } recover {
+      case e => throw CollectionsStoreError(e)
+    }
   }
 
   def add(collection: Collection): Future[Collection] = {
