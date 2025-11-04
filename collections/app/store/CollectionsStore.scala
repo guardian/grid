@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.{ActionData, Collection}
 import lib.CollectionsConfig
 import org.joda.time.DateTime
 import org.scanamo.generic.auto.genericDerivedFormat
-import org.scanamo.{DynamoFormat, ScanamoAsync, Table, TypeCoercionError}
+import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table, TypeCoercionError}
 import org.scanamo.syntax._
 import play.api.libs.json.{JsValue, Json}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
@@ -47,10 +47,9 @@ class CollectionsStore(config: CollectionsConfig) {
     val path = CollectionsManager.pathToPathId(collectionPath)
     ScanamoAsync(client).exec(collectionsTable.get("id" === path)).map(result => result.flatMap(eit => eit match{
       case Right(value) => Some(value.collection)
-      case Left(error) => None
+      case Left(error) => throw CollectionsStoreDynamoError(error)
     }))
   } recover {
-    case NoItemFound => None
     case e => throw CollectionsStoreError(e)
   }
 
@@ -69,3 +68,8 @@ case class InvalidCollectionJson(json: JsValue) extends Throwable {
 case class CollectionsStoreError(e: Throwable) extends Throwable {
   val message: String = s"Error accessing collection store: ${e.getMessage}"
 }
+
+case class CollectionsStoreDynamoError(err: DynamoReadError) extends Throwable {
+  val message: String = s"Error accessing collection store: ${err.toString}"
+}
+
