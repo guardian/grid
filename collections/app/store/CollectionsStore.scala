@@ -38,9 +38,17 @@ class CollectionsStore(config: CollectionsConfig) {
   }
 
   def add(collection: Collection): Future[Collection] = {
-    dynamo.objPut(collection.pathId, "collection", collection)
-  } recover {
-    case e => throw CollectionsStoreError(e)
+    ScanamoAsync(client).exec(
+      collectionsTable.update(
+        "id" === collection.pathId,
+        set("collection", collection)
+      )
+    ).map {
+      case Right(value) => value.collection
+      case Left(error) => throw CollectionsStoreDynamoError(error)
+    } recover {
+      case e => throw CollectionsStoreError(e)
+    }
   }
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
