@@ -13,7 +13,7 @@ import org.scanamo.syntax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-case class Record(id: String, collection: List[Collection])
+case class ImageRecord(id: String, collections: List[Collection])
 
 class ImageCollectionsStore(config: CollectionsConfig) {
 
@@ -24,9 +24,9 @@ class ImageCollectionsStore(config: CollectionsConfig) {
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
   implicit val actionData: DynamoFormat[ActionData] = deriveDynamoFormat[ActionData]
   implicit val collection: DynamoFormat[Collection] = deriveDynamoFormat[Collection]
-  implicit val Record: DynamoFormat[Record] = deriveDynamoFormat[Record]
+  implicit val imageRecord: DynamoFormat[ImageRecord] = deriveDynamoFormat[ImageRecord]
 
-  private lazy val imageCollectionsTable = Table[Record](config.collectionsTable)
+  private lazy val imageCollectionsTable = Table[ImageRecord](config.imageCollectionsTable)
 
   private def handleError[T, U](result: Either[DynamoReadError, T])(f: T => U) = {
     result.fold(
@@ -40,9 +40,8 @@ class ImageCollectionsStore(config: CollectionsConfig) {
       maybeEither.fold[Future[List[Collection]]](
         Future.failed(NoItemFound)
       )(res =>
-        handleError(res)(record => record.collection)
+        handleError(res)(record => record.collections)
       )
     )
   }
-
 }
