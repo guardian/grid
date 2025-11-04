@@ -13,13 +13,12 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
 
 
 case class Record(id: String, collection: Collection)
+
 class CollectionsStore(config: CollectionsConfig) {
   val dynamo = new DynamoDB[Collection](config, config.collectionsTable)
-  val dynamoV2 = new DynamoDBV2(config, config.collectionsTable)
   lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =
@@ -63,14 +62,10 @@ class CollectionsStore(config: CollectionsConfig) {
 
   def remove(collectionPath: List[String]): Future[Unit] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
-    dynamo.deleteItem(path)
+    ScanamoAsync(client).exec(collectionsTable.delete("id" === path))
   } recover {
     case e => throw CollectionsStoreError(e)
   }
-}
-
-case class InvalidCollectionJson(json: JsValue) extends Throwable {
-  val message: String = s"Invalid Collection JSON: ${json.toString}"
 }
 
 case class CollectionsStoreError(e: Throwable) extends Throwable {
