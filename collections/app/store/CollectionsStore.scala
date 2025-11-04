@@ -30,7 +30,7 @@ class CollectionsStore(config: CollectionsConfig) {
   private lazy val collectionsTable =
     Table[Record](config.collectionsTable)
 
-  private def handleError[T, U](result: Either[DynamoReadError, T], f: T => U) = {
+  private def handleError[T, U](result: Either[DynamoReadError, T])(f: T => U) = {
     result.fold(
       error => Future.failed(CollectionsStoreDynamoError(error)),
       success => Future.successful(f(success))
@@ -39,7 +39,7 @@ class CollectionsStore(config: CollectionsConfig) {
 
   def getAll: Future[List[Collection]] = {
     ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).flatMap(res =>
-      handleError[List[Record], List[Collection]](res, records => records.map(_.collection))
+      handleError(res)(records => records.map(_.collection))
     )
   }
 
@@ -49,7 +49,7 @@ class CollectionsStore(config: CollectionsConfig) {
         "id" === collection.pathId,
         set("collection", collection)
       )
-    ).flatMap(res => handleError[Record, Collection](res, record => record.collection))
+    ).flatMap(res => handleError(res)(record => record.collection))
   }
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
@@ -58,7 +58,7 @@ class CollectionsStore(config: CollectionsConfig) {
       maybeEither.fold[Future[Option[Collection]]](
         Future.successful(None)
       )(res =>
-        handleError[Record, Option[Collection]](res, record => Some(record.collection))
+        handleError(res)(record => Some(record.collection))
       )
     )
   }
