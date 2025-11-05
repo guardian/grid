@@ -253,7 +253,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/opt/docker/conf/application.conf",
         s"-Dlogger.file=/opt/docker/conf/logback.xml",
-        "-XX:+PrintCommandLineFlags", "-XX:MaxRAMPercentage=50"
+        "-XX:+PrintCommandLineFlags", "-XX:MaxRAMPercentage=70"
       ))
     )
 }
