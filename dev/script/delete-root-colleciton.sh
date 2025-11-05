@@ -5,7 +5,7 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR=${DIR}/../..
 
-COLLECTION_NAME=${1:-TEST}
+COLLECTION_NAME=${1:-HELLO}
 
 # load values from .env into environment variables
 # see https://stackoverflow.com/a/30969768/3868241
@@ -14,8 +14,9 @@ set -o allexport
 source "$ROOT_DIR/dev/.env"
 set +o allexport
 
-echo "deleting images collection $COLLECTION_NAME"
+echo "deleting collection $COLLECTION_NAME"
 
 curl -s -X DELETE -H "X-Gu-Media-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  "https://media-collections.$DOMAIN/images/$COLLECTION_NAME/$COLLECTION_NAME"
+  -d '{ "data": "'"$COLLECTION_NAME"'" }' \
+  "https://media-collections.$DOMAIN/collections/$COLLECTION_NAME"

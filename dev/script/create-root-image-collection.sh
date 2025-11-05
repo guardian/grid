@@ -14,8 +14,9 @@ set -o allexport
 source "$ROOT_DIR/dev/.env"
 set +o allexport
 
-echo "deleting images collection $COLLECTION_NAME"
+echo "creating root collection $COLLECTION_NAME"
 
-curl -s -X DELETE -H "X-Gu-Media-Key: $API_KEY" \
+curl -s -X POST -H "X-Gu-Media-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  "https://media-collections.$DOMAIN/images/$COLLECTION_NAME/$COLLECTION_NAME"
+  -d '{ "data": ["'"$COLLECTION_NAME"'"] }' \
+  "https://media-collections.$DOMAIN/images/$COLLECTION_NAME"
