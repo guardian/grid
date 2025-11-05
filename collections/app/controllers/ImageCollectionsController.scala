@@ -38,7 +38,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
-        imageCollectionsStore.add(id, List(collection))
+        imageCollectionsStore.addOrUpdate(id, List(collection))
         .map(publish(id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
@@ -50,12 +50,13 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
     // Dynamo Lists, like other lists do respect order.
-    dynamo.listGet(id, "collections") flatMap { collections =>
+    imageCollectionsStore.get(id) flatMap { collections =>
       CollectionsManager.findIndexes(path, collections) match {
         case Nil =>
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
         case indexes =>
-          dynamo.listRemoveIndexes(id, "collections", indexes)
+          val updatedCollections = CollectionsManager.filterCollectionsByIndexes(indexes, collections)
+          imageCollectionsStore.addOrUpdate(id, updatedCollections)
             .map(publish(id))
             .map(cols => respond(cols))
       }
