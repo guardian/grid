@@ -44,4 +44,10 @@ class ImageCollectionsStore(config: CollectionsConfig) {
       )
     )
   }
+
+  def add(id: String, collections: List[Collection]): Future[List[Collection]] = {
+    ScanamoAsync(client).exec(imageCollectionsTable.update("id" === id, set("collections", collections))).flatMap(res => {
+      handleError(res)(res => res.collections)
+    })
+  }
 }

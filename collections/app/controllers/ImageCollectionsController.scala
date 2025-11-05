@@ -38,7 +38,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
-      dynamo.listAdd(id, "collections", collection)
+        imageCollectionsStore.add(id, List(collection))
         .map(publish(id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
