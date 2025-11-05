@@ -74,16 +74,15 @@ class EditsController(
   def getAllMetadata(id: String) = auth.async {
     val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
     editsStore.get(id) map { dynamoEntry =>
-      dynamoEntry.asOpt[Edits]
+      dynamoEntry
         .map(respond(_)(editsEntity(id)))
         .getOrElse(emptyResponse)
-    } recover { case NoItemFound => emptyResponse }
+    }
   }
 
   def getEdits(id: String) = auth.async {
     editsStore.get(id) map { dynamoEntry =>
-      val edits = dynamoEntry.asOpt[Edits]
-      respond(data = edits)
+      respond(data = dynamoEntry)
     } recover { case NoItemFound => NotFound }
   }
 

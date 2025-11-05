@@ -37,13 +37,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       table.getItem(new GetItemSpec().withPrimaryKey(IdKey, id))
   } map(Option(_).isDefined)
 
-  def get(id: String)
-         (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    table.getItem(
-      new GetItemSpec().
-        withPrimaryKey(IdKey, id)
-    )
-  } flatMap itemOrNotFound map asJsObject
+
 
   private def get(id: String, key: String)
          (implicit ex: ExecutionContext): Future[Item] = Future {
