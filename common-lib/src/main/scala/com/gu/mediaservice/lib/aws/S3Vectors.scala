@@ -66,7 +66,7 @@ class S3Vectors(config: CommonConfig)
     }
   }
 
-  def findVectorForImageId(imageId: String)(implicit logMarker: LogMarker): VectorData = {
+  def findVectorForImageId(imageId: String)(implicit logMarker: LogMarker): GetVectorsResponse = {
     val request: GetVectorsRequest = GetVectorsRequest
       .builder()
       .indexName("cohere-embed-english-v3")
@@ -84,7 +84,7 @@ class S3Vectors(config: CommonConfig)
       logger.info(logMarker, s"${response}")
       //      See https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3vectors/model/GetVectorsResponse.html#vectors()
       //      We may want to add more error handling here
-      response.vectors().asScala.head.data()
+      response
     }
     catch {
       case e: Exception =>

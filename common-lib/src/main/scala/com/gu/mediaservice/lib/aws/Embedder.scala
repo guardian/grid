@@ -6,7 +6,7 @@ import software.amazon.awssdk.services.s3vectors.model.{PutVectorsResponse, Quer
 import java.nio.file.{Files, Path}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.SeqHasAsJava
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
@@ -50,13 +50,15 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
       .build()
   }
 
-  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): QueryVectorsResponse = {
-//    Find image in vector store
-//    We are assuming that the image is already in the vector store.
-//    From image_id --> vectorData
-    val vector = s3vectors.findVectorForImageId(imageId)
-//    Run cosine similarity over image
-      s3vectors.searchVectorStore(vector)
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Option[QueryVectorsResponse] = {
+    val maybeVector = s3vectors.findVectorForImageId(imageId)
+    if (maybeVector.vectors().isEmpty) {
+      logger.error(logMarker, s"No embedding found for ${imageId}")
+      None
+    } else {
+      val vector: VectorData = maybeVector.vectors().asScala.head.data()
+      Some(s3vectors.searchVectorStore(vector))
+    }
   }
 
   def createEmbeddingAndSearch(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {

@@ -26,11 +26,11 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
-import scala.jdk.CollectionConverters._
+import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.util.Try
 
 class MediaApi(
@@ -560,27 +560,32 @@ class MediaApi(
     if (searchForSimilar.isDefined) {
       val extractedImageId = searchForSimilar.get.split(":")(1)
 
-      val semanticSearchResult: QueryVectorsResponse = embedder.imageToImageSearch(extractedImageId)
-      val results: java.util.List[QueryOutputVector] = semanticSearchResult.vectors()
-      val ids = results.asScala.map(_.key()).toList
+      val semanticSearchResult: Option[QueryVectorsResponse] = embedder.imageToImageSearch(extractedImageId)
 
-      SearchParams(
-        query = Some(""),
-        ids = Some(ids),
-        offset = _searchParams.offset,
-        length = _searchParams.length,
-        tier = request.user.accessor.tier
-      )
+      semanticSearchResult match {
+        case None =>
+          //          What behaviour do we want in this case?
+          logger.info(logMarker, "No result found")
+          Future.successful(respondError(NotFound, "Not Found",
+            "The image you have selected is not yet in the S3 Vector Store. We cannot do a similarity search on it yet."))
+        case Some(results) =>
+          val ids = results.vectors().asScala.map(_.key()).toList
+          SearchParams(
+            query = Some(""),
+            ids = Some(ids),
+            offset = _searchParams.offset,
+            length = _searchParams.length,
+            tier = request.user.accessor.tier
+          )
 
-      for {
-        SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids,  offset = _searchParams.offset, length = _searchParams.length)
-        imageEntities = hits map (hitToImageEntity _).tupled
-        links = List()
-      } yield {
-        respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+          for {
+            SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+            imageEntities = hits map (hitToImageEntity _).tupled
+            links = List()
+          } yield {
+            respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+          }
       }
-
-
     } else {
 
       val searchParams = if(canViewDeletedImages) {
@@ -598,8 +603,6 @@ class MediaApi(
         params => performSearchAndRespond(params)
       )
     }
-
-
   }
 
   private def getImageResponseFromES(
