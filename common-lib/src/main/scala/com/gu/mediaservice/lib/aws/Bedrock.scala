@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.bedrockruntime._
 import software.amazon.awssdk.services.bedrockruntime.model._
 
 import java.net.URI
+import scala.concurrent.blocking
 
 object Bedrock {
   private case class BedrockRequest(
@@ -34,11 +35,10 @@ class Bedrock(config: CommonConfig)
   private val noRetriesSdkConfiguration = ClientOverrideConfiguration.builder()
     .retryStrategy(DefaultRetryStrategy.doNotRetry())
     .build()
-  private val client: BedrockRuntimeClient = withAWSCredentialsV2(
-    BedrockRuntimeClient
-      .builder()
+  private val client: BedrockRuntimeClient =
+    withAWSCredentialsV2(BedrockRuntimeClient.builder())
       .overrideConfiguration(noRetriesSdkConfiguration)
-  ).build()
+      .build()
 
   private def createRequestBody(base64EncodedImage: String, fileType: CohereCompatibleMimeType): InvokeModelRequest = {
     val images = fileType match {
@@ -69,7 +69,7 @@ class Bedrock(config: CommonConfig)
     implicit logMarker: LogMarker
   ): InvokeModelResponse = {
     try {
-      val response = client.invokeModel(createRequestBody(base64EncodedImage, fileType))
+      val response = blocking { client.invokeModel(createRequestBody(base64EncodedImage, fileType)) }
       logger.info(
         logMarker,
         s"Bedrock API call to create image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
