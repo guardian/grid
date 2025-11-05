@@ -7,14 +7,14 @@ export const moreLikeThis = angular.module('gr.moreLikeThis', []);
 moreLikeThis.controller('MoreLikeThisCtrl', [
   '$scope',
 
-  function Controller($scope) {
+  function Controller() {
 
     let ctrl = this;
 
     ctrl.$onInit = () => {
       ctrl.getMoreLikeThisQuery = function() {
         return `similar:${ctrl.image.data.id}`;
-      }
+      };
     };
   }]);
 

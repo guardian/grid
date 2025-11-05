@@ -24,7 +24,7 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
     const orderBy = props.orderBy;
     const query = props.query;
     const startHasCollection = checkForCollection(query);
-    const isSimilarity = (query ?? '').includes("similar:")
+    const isSimilarity = (query ?? '').includes("similar:");
 
     let startSortOption = DefaultSortOption;
     if (isSimilarity) {
