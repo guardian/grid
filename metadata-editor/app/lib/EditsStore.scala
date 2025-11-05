@@ -1,19 +1,17 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.model.{Collection, Edits, ImageMetadata}
+import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
 import org.scanamo.generic.auto.genericDerivedFormat
 import org.scanamo.generic.semiauto.deriveDynamoFormat
-import play.api.libs.json.JsObject
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import cats.implicits._
 import org.scanamo.syntax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.editsTable, Some(Edits.LastModified))  {
+class EditsStore(config: EditsConfig)   {
   private val tableName = config.editsTable
   lazy val dynamoClient: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   implicit val edits: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
