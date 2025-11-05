@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.bedrockruntime.model._
 
 import java.net.URI
 import scala.concurrent.blocking
+import scala.concurrent.duration.DurationInt
+import scala.jdk.DurationConverters.ScalaDurationOps
 
 object Bedrock {
   private case class BedrockRequest(
@@ -34,6 +36,7 @@ class Bedrock(config: CommonConfig)
 
   private val noRetriesSdkConfiguration = ClientOverrideConfiguration.builder()
     .retryStrategy(DefaultRetryStrategy.doNotRetry())
+    .apiCallAttemptTimeout(10.seconds.toJava)
     .build()
   private val client: BedrockRuntimeClient =
     withAWSCredentialsV2(BedrockRuntimeClient.builder())
