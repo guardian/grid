@@ -16,6 +16,12 @@ object UseCqlChips extends FeatureSwitch(
   default = false
 )
 
+object SemanticSearchEnabled extends FeatureSwitch(
+  key = "semantic-search-enabled",
+  title = "Enable semantic search",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".

@@ -1,0 +1,41 @@
+gr-more-like-thiser .more-like-this {
+  display: inline-flex;
+  height: 100%;
+}
+
+button .more-like-this:hover {
+  color: white;
+}
+
+.top-bar-item .more-like-this a:hover {
+  background-color: #666666;
+  color: white;
+  cursor: pointer;
+}
+
+.top-bar-item .more-like-this a {
+  display: inline-flex;
+}
+
+.top-bar-item .more-like-this .clickable {
+  padding-right: 12px;
+  padding-left: 5px;
+}
+
+.results-toolbar .more-like-this .clickable {
+  margin-left: 0px;
+}
+
+.results-toolbar .more-like-this a, .results-toolbar .more-like-this span {
+  display: inline-flex;
+}
+
+.more-like-this-warning {
+  color: yellow;
+  padding-left: 5px;
+  margin-left: -6px;
+}
+
+.more-like-this-button {
+  height: 36px;
+}
