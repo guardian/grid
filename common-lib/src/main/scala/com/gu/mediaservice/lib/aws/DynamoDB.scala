@@ -55,13 +55,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     }
   }
 
-  def removeKey(id: String, key: String)
-               (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"REMOVE $key"
-    )
-
   def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
@@ -82,10 +75,10 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withBoolean(":value", value)
     )
 
-  def booleanSetOrRemove(id: String, key: String, value: Boolean)
-                        (implicit ex: ExecutionContext): Future[JsObject] =
-    if (value) booleanSet(id, key, value)
-    else removeKey(id, key)
+//  def booleanSetOrRemove(id: String, key: String, value: Boolean)
+//                        (implicit ex: ExecutionContext): Future[JsObject] =
+//    if (value) booleanSet(id, key, value)
+//    else removeKey(id, key)
 
   def stringSet(id: String, key: String, value: JsValue)
                 (implicit ex: ExecutionContext): Future[JsObject] =

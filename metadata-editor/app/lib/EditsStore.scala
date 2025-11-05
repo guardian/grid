@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import cats.implicits._
 import org.scanamo.syntax._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.editsTable, Some(Edits.LastModified))  {
@@ -25,8 +26,7 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
     )
   }
 
-  def get(id: String)
-         (implicit ex: ExecutionContext): Future[Option[Edits]] =
+  def get(id: String): Future[Option[Edits]] =
     ScanamoAsync(dynamoClient).exec(editsTable.get("id" === id)).flatMap(maybeEither =>
       maybeEither.fold[Future[Option[Edits]]](
         Future.successful(None)
@@ -34,7 +34,31 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
         handleResponse(res)(r => Some(r))
       )
     )
+
+
+  def updateKey[T](id: String, key: String, value: T) = {
+    ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, set(key, value))).flatMap(res =>
+      handleResponse(res)(identity)
+    )
   }
+
+  def deleteKey[T](id: String, key: String, value: T): Future[Edits] = {
+    ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, delete(key, value))).flatMap(res =>
+      handleResponse(res)(identity)
+    )
+  }
+
+  def removeKey(id: String, key: String): Future[Edits] = {
+    ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, remove(key))).map(res =>
+      handleResponse(res)(identity)
+    )
+  }
+
+  def setOrRemoveArchived(id: String, archived: Boolean) = {
+    if(archived) updateKey(id, Edits.Archived, archived)
+    else removeKey(id, Edits.Archived)
+  }
+}
 
 case class StoreDynamoError(err: DynamoReadError, tableName: String) extends Throwable {
   val message: String = s"Error accessing ${tableName} store: ${err.toString}"
