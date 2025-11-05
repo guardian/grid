@@ -1,15 +1,19 @@
 package com.gu.mediaservice.lib.aws
 
-import software.amazon.awssdk.services.bedrockruntime.model._
-import software.amazon.awssdk.services.bedrockruntime._
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.libs.json.Json
-import software.amazon.awssdk.core.SdkBytes
-
-import java.net.URI
 import com.gu.mediaservice.lib.logging.LogMarker
 import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
 import play.api.libs.json._
+import software.amazon.awssdk.core.SdkBytes
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
+import software.amazon.awssdk.retries.DefaultRetryStrategy
+import software.amazon.awssdk.services.bedrockruntime._
+import software.amazon.awssdk.services.bedrockruntime.model._
+
+import java.net.URI
+import scala.concurrent.blocking
+import scala.concurrent.duration.DurationInt
+import scala.jdk.DurationConverters.ScalaDurationOps
 
 object Bedrock {
   private case class BedrockImageRequest(
@@ -37,10 +41,14 @@ class Bedrock(config: CommonConfig)
 
   override def isDev: Boolean = config.isDev
 
-  val client: BedrockRuntimeClient = {
+  private val noRetriesSdkConfiguration = ClientOverrideConfiguration.builder()
+    .retryStrategy(DefaultRetryStrategy.doNotRetry())
+    .apiCallAttemptTimeout(10.seconds.toJava)
+    .build()
+  private val client: BedrockRuntimeClient =
     withAWSCredentialsV2(BedrockRuntimeClient.builder())
+      .overrideConfiguration(noRetriesSdkConfiguration)
       .build()
-  }
 
   private def createRequestBody(base64EncodedImage: String, fileType: CohereCompatibleMimeType): InvokeModelRequest = {
     val images = fileType match {
@@ -71,7 +79,7 @@ class Bedrock(config: CommonConfig)
     implicit logMarker: LogMarker
   ): InvokeModelResponse = {
     try {
-      val response = client.invokeModel(requestBody)
+      val response = blocking { client.invokeModel(requestBody) }
       logger.info(
         logMarker,
         s"Bedrock API call to create image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
