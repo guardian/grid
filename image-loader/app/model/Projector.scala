@@ -1,15 +1,13 @@
 package model
 
 import java.io.{File, FileOutputStream}
-import java.util.UUID
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.S3Ops
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -20,9 +18,10 @@ import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.Logger
 import play.api.libs.ws.WSRequest
+import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 
+import java.nio.file.Path
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,8 +30,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbedder)
 }
 
 case class S3FileExtractedMetadata(
@@ -85,9 +84,10 @@ class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
-                auth: Authentication) extends GridLogging {
+                auth: Authentication,
+                maybeEmbedder: Option[Embedder]) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -159,7 +159,8 @@ class Projector(config: ImageUploadOpsCfg,
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
-                               s3: AmazonS3
+                               s3: AmazonS3,
+                               maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -175,9 +176,18 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
+      createEmbeddingAndStore = createEmbeddingAndStore,
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
+  }
+
+  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+    maybeEmbedder match {
+      case Some(embedder) =>
+        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
+      case None => Future.successful(None)
+    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

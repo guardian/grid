@@ -69,7 +69,13 @@ panels.directive('grPanel', ['$timeout', '$window', 'inject$', 'subscribe$',
 
             // Then hide the panel
             subscribe$(scope, scrollWhileVisAndUnlocked$, () => {
-                scope.$apply(() => panel.setHidden(true));
+                scope.$apply(() => {
+                  panel.setHidden(true);
+                  window.dispatchEvent(new CustomEvent("panelHide", {
+                    detail: {panel: "scroll"},
+                    bubbles: true
+                  }));
+                });
             });
         }
     };
