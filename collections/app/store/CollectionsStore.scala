@@ -1,23 +1,23 @@
 package store
 
-import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
 import lib.CollectionsConfig
 import org.joda.time.DateTime
 import org.scanamo.generic.auto.genericDerivedFormat
-import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
+import org.scanamo.{DynamoFormat, ScanamoAsync, Table}
 import org.scanamo.syntax._
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import cats.implicits._
-
+import org.scanamo.generic.semiauto.FieldName
 
 case class Record(id: String, collection: Collection)
 
-class CollectionsStore(config: CollectionsConfig) {
+class CollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
+  override val tableName: FieldName = config.collectionsTable
   lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =
@@ -26,19 +26,11 @@ class CollectionsStore(config: CollectionsConfig) {
   implicit val collection: DynamoFormat[Collection] = deriveDynamoFormat[Collection]
   implicit val Record: DynamoFormat[Record] = deriveDynamoFormat[Record]
 
-  private lazy val collectionsTable =
-    Table[Record](config.collectionsTable)
-
-  private def handleError[T, U](result: Either[DynamoReadError, T])(f: T => U) = {
-    result.fold(
-      error => Future.failed(CollectionsStoreDynamoError(error)),
-      success => Future.successful(f(success))
-    )
-  }
+  private lazy val collectionsTable = Table[Record](tableName)
 
   def getAll: Future[List[Collection]] = {
     ScanamoAsync(client).exec(collectionsTable.scan()).map(_.sequence).flatMap(res =>
-      handleError(res)(records => records.map(_.collection))
+      handleResponse(res)(records => records.map(_.collection))
     )
   }
 
@@ -48,7 +40,7 @@ class CollectionsStore(config: CollectionsConfig) {
         "id" === collection.pathId,
         set("collection", collection)
       )
-    ).flatMap(res => handleError(res)(record => record.collection))
+    ).flatMap(res => handleResponse(res)(record => record.collection))
   }
 
   def get(collectionPath: List[String]): Future[Option[Collection]] = {
@@ -57,7 +49,7 @@ class CollectionsStore(config: CollectionsConfig) {
       maybeEither.fold[Future[Option[Collection]]](
         Future.successful(None)
       )(res =>
-        handleError(res)(record => Some(record.collection))
+        handleResponse(res)(record => Some(record.collection))
       )
     )
   }
@@ -72,7 +64,4 @@ case class CollectionsStoreError(e: Throwable) extends Throwable {
   val message: String = s"Error accessing collection store: ${e.getMessage}"
 }
 
-case class CollectionsStoreDynamoError(err: DynamoReadError) extends Throwable {
-  val message: String = s"Error accessing collection store: ${err.toString}"
-}
 
