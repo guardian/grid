@@ -176,7 +176,7 @@ class EditsController(
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
-    editsStore.get(id) flatMap { dynamoEntry =>
+    editsStore.getV2(id) flatMap { dynamoEntry =>
       gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
         val edits = dynamoEntry.as[Edits]
         val originalUserMetadata = edits.metadata
