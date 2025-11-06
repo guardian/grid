@@ -32,7 +32,7 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
     )
   }
 
-  def get(id: String): Future[Option[Edits]] =
+  def getV2(id: String): Future[Option[Edits]] =
     ScanamoAsync(dynamoClient).exec(editsTable.get("id" === id)).flatMap(maybeEither =>
       maybeEither.fold[Future[Option[Edits]]](
         Future.successful(None)
@@ -41,27 +41,27 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
       )
     )
 
-  def updateKey[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
+  def updateKeyV2[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
     ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, set(key, value))).flatMap(res =>
       handleResponse(res)(identity)
     )
   }
 
-  def deleteKey[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
+  def deleteKeyV2[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
     ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, delete(key, value))).flatMap(res =>
       handleResponse(res)(identity)
     )
   }
 
-  def removeKey(id: String, key: String): Future[Edits] = {
+  def removeKeyV2(id: String, key: String): Future[Edits] = {
     ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, remove(key))).flatMap(res =>
       handleResponse(res)(identity)
     )
   }
 
-  def setOrRemoveArchived(id: String, archived: Boolean): Future[Edits] = {
-    if (archived) updateKey(id, Edits.Archived, archived)
-    else removeKey(id, Edits.Archived)
+  def setOrRemoveArchivedV2(id: String, archived: Boolean): Future[Edits] = {
+    if (archived) updateKeyV2(id, Edits.Archived, archived)
+    else removeKeyV2(id, Edits.Archived)
   }
 }
 

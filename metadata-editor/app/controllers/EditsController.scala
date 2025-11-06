@@ -73,7 +73,7 @@ class EditsController(
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = auth.async {
     val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
-    editsStore.get(id) map { record =>
+    editsStore.getV2(id) map { record =>
       record
         .map(respond(_)(editsEntity(id)))
         .getOrElse(emptyResponse)
@@ -81,13 +81,13 @@ class EditsController(
   }
 
   def getEdits(id: String) = auth.async {
-    editsStore.get(id) map { record =>
+    editsStore.getV2(id) map { record =>
       respond(data = record)
     } recover { case NoItemFound => NotFound }
   }
 
   def getArchived(id: String) = auth.async {
-    editsStore.get(id) map { record =>
+    editsStore.getV2(id) map { record =>
       respond(record.exists(_.archived))
     }
   }
@@ -97,21 +97,21 @@ class EditsController(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       archived =>
-        editsStore.setOrRemoveArchived(id, archived)
+        editsStore.setOrRemoveArchivedV2(id, archived)
           .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = auth.async {
-    editsStore.removeKey(id, Edits.Archived)
+    editsStore.removeKeyV2(id, Edits.Archived)
       .map(publishV2(id, UpdateImageUserMetadata))
       .map(_ => respond(false))
   }
 
 
   def getLabels(id: String) = auth.async {
-    editsStore.get(id)
+    editsStore.getV2(id)
       .map(record =>
         record.fold(respond(Array[String]())){ e =>
           val (_, labels) = labelsCollection(id, e.labels.toSet)
@@ -126,7 +126,7 @@ class EditsController(
         Future.successful(BadRequest(errors.toString())),
       labels =>
         editsStore
-          .updateKey(id, Edits.Labels, labels)
+          .updateKeyV2(id, Edits.Labels, labels)
           .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
@@ -136,7 +136,7 @@ class EditsController(
   }
 
   def removeLabel(id: String, label: String) = auth.async {
-    editsStore.deleteKey(id, Edits.Labels, decodeUriParam(label))
+    editsStore.deleteKeyV2(id, Edits.Labels, decodeUriParam(label))
       .map(publishV2(id, UpdateImageUserMetadata))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
@@ -144,7 +144,7 @@ class EditsController(
 
 
   def getMetadata(id: String) = auth.async {
-    editsStore.get(id).map { recordOpt =>
+    editsStore.getV2(id).map { recordOpt =>
       recordOpt.fold(
         respond(Json.toJson(JsObject(Nil)))
       )(record => {
@@ -168,7 +168,7 @@ class EditsController(
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
-        editsStore.updateKey(id, Edits.Metadata, validatedMetadata)
+        editsStore.updateKeyV2(id, Edits.Metadata, validatedMetadata)
           .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
       }
@@ -176,7 +176,7 @@ class EditsController(
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
-    editsStore.get(id) flatMap   { dynamoEntry =>
+    editsStore.getV2(id) flatMap   { dynamoEntry =>
       dynamoEntry.fold(
         Future.successful(respondError(NotFound, "item-not-found", "Could not find image"))
       )(edits => {
@@ -193,7 +193,7 @@ class EditsController(
               imageType = metadata.imageType orElse originalUserMetadata.imageType
             )
 
-            editsStore.updateKey(id, Edits.Metadata, mergedMetadata)
+            editsStore.updateKeyV2(id, Edits.Metadata, mergedMetadata)
               .map(e => publishV2(id, UpdateImageUserMetadata)(e))
               .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
 
@@ -207,7 +207,7 @@ class EditsController(
   }
 
   def getUsageRights(id: String) = auth.async {
-    editsStore.get(id).map(_.fold(
+    editsStore.getV2(id).map(_.fold(
         respondNotFound("No usage rights overrides found")
     )(edits => {
         respond(edits.usageRights)
@@ -216,14 +216,14 @@ class EditsController(
 
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
-      editsStore.updateKey(id, Edits.UsageRights, usageRight)
+      editsStore.updateKeyV2(id, Edits.UsageRights, usageRight)
         .map(publishV2(id, UpdateImageUserMetadata))
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
   def deleteUsageRights(id: String) = auth.async { req =>
-    editsStore.removeKey(id, Edits.UsageRights).map(publishV2(id, UpdateImageUserMetadata)).map(edits => Accepted)
+    editsStore.removeKeyV2(id, Edits.UsageRights).map(publishV2(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
