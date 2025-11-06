@@ -114,9 +114,8 @@ class EditsController(
     editsStore.get(id)
       .map(record =>
         record.fold(respond(Array[String]())){ e =>
-          e.labels
-            .map(labelsCollection(id, _))
-            .map {case (uri, labels) => respondCollection(labels)}
+          val (_, labels) = labelsCollection(id, e.labels.toSet)
+          respondCollection(labels)
         }
       )
   }

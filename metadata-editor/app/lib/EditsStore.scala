@@ -1,21 +1,40 @@
 package lib
 
-import com.gu.mediaservice.model.{Edits, ImageMetadata}
+import com.gu.mediaservice.model.{Edits, ImageMetadata, UsageRights}
 import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
+import org.scanamo.generic.semiauto._
 import org.scanamo.generic.auto.genericDerivedFormat
 import org.scanamo.generic.semiauto.deriveDynamoFormat
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import cats.implicits._
+import org.joda.time.DateTime
 import org.scanamo.syntax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import play.api.libs.json.JsValue
 
 class EditsStore(config: EditsConfig)   {
   private val tableName = config.editsTable
   lazy val dynamoClient: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
-  implicit val edits: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
+  implicit val dateTimeFormat: Typeclass[DateTime] =
+    DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
+  implicit val jsValue: DynamoFormat[JsValue] =
+    DynamoFormat.xmap[JsValue, String](
+      x =>
+        Try(Json.parse(x)) match {
+          case Success(y) => Right(y)
+          case Failure(t) => Left(TypeCoercionError(t))
+        },
+      x => (Json.stringify(x))
+    )
+  implicit val mapJsValueFormat: DynamoFormat[Map[String, JsValue]] =
+    DynamoFormat.mapFormat(jsValue)
+  implicit val mapOfMapJsValueFormat: DynamoFormat[Map[String, Map[String, JsValue]]] =
+    DynamoFormat.mapFormat(mapJsValueFormat)
+  implicit val usageRights: DynamoFormat[UsageRights] = deriveDynamoFormat[UsageRights]
   implicit val imageMetadata: DynamoFormat[ImageMetadata] = deriveDynamoFormat[ImageMetadata]
+  implicit val edits: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
   private lazy val editsTable = Table[Edits](tableName)
   def handleResponse[T, U](result: Either[DynamoReadError, T])(f: T => U): Future[U] = {
     result.fold(
@@ -34,7 +53,7 @@ class EditsStore(config: EditsConfig)   {
     )
 
 
-  def updateKey[T](id: String, key: String, value: T) = {
+  def updateKey[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
     ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, set(key, value))).flatMap(res =>
       handleResponse(res)(identity)
     )
@@ -52,8 +71,8 @@ class EditsStore(config: EditsConfig)   {
     )
   }
 
-  def setOrRemoveArchived(id: String, archived: Boolean) = {
-    if(archived) updateKey(id, Edits.Archived, archived)
+  def setOrRemoveArchived(id: String, archived: Boolean): Future[Edits] = {
+    if (archived) updateKey(id, Edits.Archived, archived)
     else removeKey(id, Edits.Archived)
   }
 }
