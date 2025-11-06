@@ -515,80 +515,6 @@ class MediaApi(
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
-  def semanticSearch(q: String) = auth.async { implicit request =>
-    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
-      .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
-
-    implicit val logMarker: LogMarker = MarkerMap(
-      "requestType" -> "semantic-image-search",
-      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "requestId" -> RequestLoggingFilter.getRequestId(request)
-    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
-
-    logger.info(logMarker, s"Semantic search: $q from user: ${Authentication.getIdentity(request.user)}")
-
-//    We will send a search to the S3 Vector Store
-//    We will receive a maximum of 30 results
-    val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(q)
-
-    val imageIds = semanticSearchResult.map { result =>
-      logger.info(logMarker, s"Printing the vector results:")
-      logger.info(logMarker, s"${result.vectors() }")
-      val results: java.util.List[QueryOutputVector] = result.vectors()
-      results.asScala.map(_.key()).toList
-    }
-
-    imageIds.flatMap { ids =>
-      val searchParams = SearchParams(
-        query = Some(q),
-        ids = Some(ids),
-        tier = request.user.accessor.tier,
-      )
-
-      SearchParams.validate(searchParams).fold(
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => respondSuccess(params)
-      )
-    }
-  }
-
-  private def respondSuccess(searchParams: SearchParams)(implicit request: Authentication.Request[AnyContent], logMarker: LogMarker) = {
-    val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
-      .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
-
-    implicit val logMarker: LogMarker = MarkerMap(
-      "requestType" -> "image-search",
-      "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "requestId" -> RequestLoggingFilter.getRequestId(request)
-    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
-
-    val include = getIncludedFromParams(request)
-
-    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
-      val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
-      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
-      val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
-
-      val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
-      val id = (imageData \ "id").as[String]
-      val imageUri = URI.create(s"${config.rootUri}/images/$id")
-      EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
-    }
-    for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
-        searchParams.copy(
-          shouldFlagGraphicImages = shouldFlagGraphicImages,
-        )
-      )
-      imageEntities = hits map (hitToImageEntity _).tupled
-      prevLink = getPrevLink(searchParams)
-      nextLink = getNextLink(searchParams, totalCount)
-      links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
-  }
 
   def imageSearch() = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
@@ -633,28 +559,30 @@ class MediaApi(
     val searchForSimilar = _searchParams.query.flatMap(_.split(" ").find(_.startsWith("similar:")))
 
     if (searchForSimilar.isDefined) {
-      val extractedImageId = searchForSimilar.get.split(":")(1)
+      val extractedSearchTerm = searchForSimilar.get.split(":")(1)
 
-      val semanticSearchResult: QueryVectorsResponse = embedder.imageToImageSearch(extractedImageId)
-      val results: java.util.List[QueryOutputVector] = semanticSearchResult.vectors()
-      val ids = results.asScala.map(_.key()).toList
+      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(extractedSearchTerm)
 
-      SearchParams(
-        query = Some(""),
-        ids = Some(ids),
-        offset = _searchParams.offset,
-        length = _searchParams.length,
-        tier = request.user.accessor.tier
-      )
-
-      for {
-        SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids,  offset = _searchParams.offset, length = _searchParams.length)
-        imageEntities = hits map (hitToImageEntity _).tupled
-        links = List()
-      } yield {
-        respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+      val imageIds = semanticSearchResult.map { result =>
+        val results: java.util.List[QueryOutputVector] = result.vectors()
+        results.asScala.map(_.key()).toList
       }
 
+      imageIds.flatMap { ids =>
+        SearchParams(
+          query = Some(extractedSearchTerm),
+          ids = Some(ids),
+          tier = request.user.accessor.tier,
+        )
+
+        for {
+          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+          imageEntities = hits map (hitToImageEntity _).tupled
+          links = List()
+        } yield {
+          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+        }
+      }
 
     } else {
 

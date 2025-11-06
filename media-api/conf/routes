@@ -13,7 +13,6 @@ GET     /images/:id/softDeletedMetadata                             controllers.
 GET     /images/aggregations/date/:field                            controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
 # Images
-GET     /images/semantic-search                                     controllers.MediaApi.semanticSearch(q: String)
 GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
 GET     /images/:id/_elasticsearch                                  controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/projection/diff                                 controllers.MediaApi.diffProjection(id: String)
