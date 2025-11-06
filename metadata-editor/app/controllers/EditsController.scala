@@ -177,32 +177,32 @@ class EditsController(
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
     editsStore.getV2(id) flatMap { dynamoEntry =>
-      gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
-        val edits = dynamoEntry.as[Edits]
-        val originalUserMetadata = edits.metadata
-        val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
-        val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, imageMetadata, staffPhotographerPublications))
+      dynamoEntry.fold(
+        Future.successful(respondError(NotFound, "item-not-found", "Could not find image"))
+      )(edits => {
+        gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
+          val originalUserMetadata = edits.metadata
+          val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
+          val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, imageMetadata, staffPhotographerPublications))
 
-        metadataOpt map { metadata =>
-          val mergedMetadata = originalUserMetadata.copy(
-            byline = metadata.byline orElse originalUserMetadata.byline,
-            credit = metadata.credit orElse originalUserMetadata.credit,
-            copyright = metadata.copyright orElse originalUserMetadata.copyright,
-            imageType = metadata.imageType orElse originalUserMetadata.imageType
-          )
+          metadataOpt map { metadata =>
+            val mergedMetadata = originalUserMetadata.copy(
+              byline = metadata.byline orElse originalUserMetadata.byline,
+              credit = metadata.credit orElse originalUserMetadata.credit,
+              copyright = metadata.copyright orElse originalUserMetadata.copyright,
+              imageType = metadata.imageType orElse originalUserMetadata.imageType
+            )
 
-          editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
-            .map(publish(id, UpdateImageUserMetadata))
-            .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
-        } getOrElse {
-          // just return the unmodified
-          Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+            editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
+              .map(publish(id, UpdateImageUserMetadata))
+              .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+          } getOrElse {
+            // just return the unmodified
+            Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+          }
         }
-      }
-    } recover {
-      case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-    }
-  }
+    })
+  }}
 
   def getUsageRights(id: String) = auth.async {
     editsStore.getV2(id).map(_.fold(
