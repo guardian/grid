@@ -98,14 +98,14 @@ class EditsController(
         Future.successful(BadRequest(errors.toString())),
       archived =>
         editsStore.setOrRemoveArchived(id, archived)
-          .map(publish(id, UpdateImageUserMetadata))
+          .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = auth.async {
     editsStore.removeKey(id, Edits.Archived)
-      .map(publish(id, UpdateImageUserMetadata))
+      .map(publishV2(id, UpdateImageUserMetadata))
       .map(_ => respond(false))
   }
 
@@ -127,7 +127,7 @@ class EditsController(
       labels =>
         editsStore
           .updateKey(id, Edits.Labels, labels)
-          .map(publish(id, UpdateImageUserMetadata))
+          .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
             case _: AmazonServiceException => BadRequest
@@ -137,7 +137,7 @@ class EditsController(
 
   def removeLabel(id: String, label: String) = auth.async {
     editsStore.deleteKey(id, Edits.Labels, decodeUriParam(label))
-      .map(publish(id, UpdateImageUserMetadata))
+      .map(publishV2(id, UpdateImageUserMetadata))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
@@ -168,17 +168,17 @@ class EditsController(
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
-        editsStore.updateKey(id, Edits.Metadata, metadataAsMap(validatedMetadata))
-          .map(publish(id, UpdateImageUserMetadata))
+        editsStore.updateKey(id, Edits.Metadata, validatedMetadata)
+          .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
       }
     )
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
-    editsStore.get(id) flatMap { dynamoEntry =>
+    editsStore.get(id) flatMap   { dynamoEntry =>
       dynamoEntry.fold(
-        respondError(NotFound, "item-not-found", "Could not find image")
+        Future.successful(respondError(NotFound, "item-not-found", "Could not find image"))
       )(edits => {
         gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
           val originalUserMetadata = edits.metadata
@@ -193,16 +193,16 @@ class EditsController(
               imageType = metadata.imageType orElse originalUserMetadata.imageType
             )
 
-            editsStore.updateKey(id, Edits.Metadata, metadataAsMap(mergedMetadata))
-              .map(publish(id, UpdateImageUserMetadata))
+            editsStore.updateKey(id, Edits.Metadata, mergedMetadata)
+              .map(e => publishV2(id, UpdateImageUserMetadata)(e))
               .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+
           } getOrElse {
             // just return the unmodified
             Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
           }
         }
       })
-
     }
   }
 
@@ -217,21 +217,17 @@ class EditsController(
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
       editsStore.updateKey(id, Edits.UsageRights, usageRight)
-        .map(publish(id, UpdateImageUserMetadata))
+        .map(publishV2(id, UpdateImageUserMetadata))
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
   def deleteUsageRights(id: String) = auth.async { req =>
-    editsStore.removeKey(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
+    editsStore.removeKey(id, Edits.UsageRights).map(publishV2(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
     (labelsUri(id), labels.map(setUnitEntity(id, Edits.Labels, _)).toSeq)
-
-  def metadataAsMap(metadata: ImageMetadata) = {
-    (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
-  }
 
 }
 
