@@ -22,24 +22,8 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
   lazy val dynamoClient: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
-//  implicit val edits: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
-implicit val editsFormat: DynamoFormat[Edits] = {
-  val derived = deriveDynamoFormat[Edits]
-  new DynamoFormat[Edits] {
-    def read(value: DynamoValue): Either[DynamoReadError, Edits] =
-      derived.read(value).left.flatMap {
-        case InvalidPropertiesError(errs)
-          if errs.exists(_._1 == "usageRights") =>
-          // Try reading again after dropping the null
-          value.asObject match {
-            case Some(fields) => derived.read(DynamoValue.fromDynamoObject(fields - "usageRights"))
-            case None => Left(TypeCoercionError(new Exception("Invalid Edits structure")))
-          }
-        case other => Left(other)
-      }
-    def write(v: Edits): DynamoValue = derived.write(v)
-  }
-}
+  implicit val editsFormat: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
+
   private lazy val editsTable = Table[Edits](tableName)
 
   def handleResponse[T, U](result: Either[DynamoReadError, T])(f: T => U): Future[U] = {
