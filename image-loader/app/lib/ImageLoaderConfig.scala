@@ -18,6 +18,9 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val quarantineBucket: Option[String] = stringOpt("s3.quarantine.bucket")
   val uploadToQuarantineEnabled: Boolean = boolean("upload.quarantine.enabled")
 
+  val lowerEnvironmentSamplingPercentageAsDecimal = intOpt("s3.sampling.percentage").getOrElse(1) / 100.0
+  val maybeLowerEnvironmentQueueBucketToSampleInto = sys.env.get("LOWER_ENVIRONMENT_QUEUE_BUCKET_TO_SAMPLE_INTO")
+
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256
