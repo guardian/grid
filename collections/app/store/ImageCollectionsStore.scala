@@ -40,7 +40,13 @@ class ImageCollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
     )
   }
 
-  def addOrUpdate(id: String, collections: List[Collection]): Future[List[Collection]] = {
+  def add(id: String, collection: Collection): Future[List[Collection]] = {
+    ScanamoAsync(client).exec(imageCollectionsTable.update("id" === id, append("collections", collection))).flatMap(res => {
+      handleResponse(res)(res => res.collections)
+    })
+  }
+
+  def update(id: String, collections: List[Collection]): Future[List[Collection]] = {
     ScanamoAsync(client).exec(imageCollectionsTable.update("id" === id, set("collections", collections))).flatMap(res => {
       handleResponse(res)(res => res.collections)
     })

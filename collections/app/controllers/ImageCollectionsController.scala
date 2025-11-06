@@ -38,7 +38,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
-        imageCollectionsStore.addOrUpdate(id, List(collection))
+        imageCollectionsStore.add(id, collection)
         .map(publish(id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
@@ -56,8 +56,8 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
         case indexes =>
           val updatedCollections = CollectionsManager.filterCollectionsByIndexes(indexes, collections)
-          imageCollectionsStore.addOrUpdate(id, updatedCollections)
-            .map(publish(id))
+          imageCollectionsStore.update(id, updatedCollections)
+            .map(cols => publish(id)(cols))
             .map(cols => respond(cols))
       }
     } recover {
