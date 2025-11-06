@@ -63,5 +63,3 @@ class CollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
 case class CollectionsStoreError(e: Throwable) extends Throwable {
   val message: String = s"Error accessing collection store: ${e.getMessage}"
 }
-
-
