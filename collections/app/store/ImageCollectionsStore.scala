@@ -1,5 +1,6 @@
 package store
 
+import com.gu.mediaservice.lib.aws.DynamoHelpers
 import com.gu.mediaservice.model.{ActionData, Collection}
 import lib.CollectionsConfig
 import org.joda.time.DateTime

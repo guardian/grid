@@ -1,8 +1,8 @@
 package lib
 
 import com.gu.mediaservice.model.{Edits, ImageMetadata, UsageRights}
-import com.gu.mediaservice.lib.aws.DynamoDB
-import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table, DynamoValue, InvalidPropertiesError, TypeCoercionError}
+import com.gu.mediaservice.lib.aws.{DynamoDB, DynamoHelpers}
+import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
 import org.scanamo.generic.semiauto._
 import org.scanamo.generic.auto.genericDerivedFormat
 import org.scanamo.generic.semiauto.deriveDynamoFormat
@@ -17,21 +17,14 @@ import play.api.libs.json.JsValue
 import ImageMetadata._
 import UsageRights._
 
-class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.editsTable, Some(Edits.LastModified)) {
-  private val tableName = config.editsTable
+class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.editsTable, Some(Edits.LastModified)) with DynamoHelpers {
+  val tableName = config.editsTable
   lazy val dynamoClient: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
   implicit val editsFormat: DynamoFormat[Edits] = deriveDynamoFormat[Edits]
 
   private lazy val editsTable = Table[Edits](tableName)
-
-  def handleResponse[T, U](result: Either[DynamoReadError, T])(f: T => U): Future[U] = {
-    result.fold(
-      error => Future.failed(StoreDynamoError(error, tableName)),
-      success => Future.successful(f(success))
-    )
-  }
 
   def getV2(id: String): Future[Option[Edits]] =
     ScanamoAsync(dynamoClient).exec(editsTable.get("id" === id)).flatMap(maybeEither =>
@@ -66,6 +59,4 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
   }
 }
 
-case class StoreDynamoError(err: DynamoReadError, tableName: String) extends Throwable {
-  val message: String = s"Error accessing ${tableName} store: ${err.toString}"
-}
+
