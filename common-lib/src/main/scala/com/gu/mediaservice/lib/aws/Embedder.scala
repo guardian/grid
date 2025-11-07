@@ -36,7 +36,7 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
         val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(imageFilePath))
         val embeddingFuture = bedrock.createImageEmbedding(base64EncodedString, imageType)
         embeddingFuture.map { embedding =>
-          Some(s3vectors.storeEmbeddingInS3VectorStore(embedding, imageId))
+          Some(s3vectors.storeEmbedding(embedding, imageId))
         }
       }
     }

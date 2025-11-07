@@ -4,6 +4,7 @@ import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
+import com.gu.mediaservice.lib.aws.S3Vectors
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
@@ -24,6 +25,7 @@ import scala.util.{Failure, Success}
 class ReaperController(
   es: ElasticSearch,
   store: ThrallStore,
+  s3Vectors: S3Vectors,
   authorisation: Authorisation,
   config: ThrallConfig,
   scheduler: Scheduler,
@@ -123,12 +125,19 @@ class ReaperController(
           isDeleted = true
         )
       ))
+      _ <- s3Vectors.deleteEmbeddings(esIdsActuallySoftDeleted)
     } yield {
       metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size)
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
         val detail = Map(
           "ES" -> wasSoftDeletedInES,
+          // Currently deleting vectors is all or nothing.
+          // So assume all succeeded, if the future didn't fail.
+          // If we try to delete a vector that doesn't exist, we
+          // would still get a 200, and we can consider the vector gone
+          // (because it was never there in the first place).
+          "s3Vectors" -> true
         )
         logger.info(s"Soft deleted image $id : $detail")
         id -> detail
