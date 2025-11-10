@@ -58,6 +58,18 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
 
+    const switchesSource = (window._clientConfig && window._clientConfig.featureSwitches) || window.featureSwitches || [];
+
+    ctrl.featureSwitches = {};
+    if (Array.isArray(switchesSource)) {
+      switchesSource.forEach(s => {
+        ctrl.featureSwitches[s.key] = (s.value === 'true');
+      });
+    }
+
+    ctrl.featureSwitchValue = function(key) {
+      return !!ctrl.featureSwitches[key];
+    };
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
@@ -70,6 +82,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.filter = {
         uploadedByMe: false
     };
+    ctrl.useAISearch = true;
 
     ctrl.dateFilter = {
         // filled in by the watcher below
