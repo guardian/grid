@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.model.{Edits, ImageMetadata, UsageRights}
+import com.gu.mediaservice.model.{Edits, ImageMetadata, Photoshoot, UsageRights}
 import com.gu.mediaservice.lib.aws.{DynamoDB, DynamoHelpers}
 import org.scanamo.{DynamoFormat, DynamoReadError, ScanamoAsync, Table}
 import org.scanamo.generic.semiauto._
@@ -37,12 +37,6 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
 
   def updateKeyV2[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
     ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, set(key, value))).flatMap(res =>
-      handleResponse(res)(identity)
-    )
-  }
-
-  def deleteKeyV2[T: DynamoFormat](id: String, key: String, value: T): Future[Edits] = {
-    ScanamoAsync(dynamoClient).exec(editsTable.update("id" === id, delete(key, value))).flatMap(res =>
       handleResponse(res)(identity)
     )
   }
