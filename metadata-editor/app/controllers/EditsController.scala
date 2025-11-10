@@ -97,16 +97,16 @@ class EditsController(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       archived =>
-        editsStore.booleanSetOrRemove(id, "archived", archived)
-          .map(publish(id, UpdateImageUserMetadata))
+        editsStore.setOrRemoveArchivedV2(id, archived)
+          .map(e => publishV2(id, UpdateImageUserMetadata)(e))
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = auth.async {
-    editsStore.removeKey(id, Edits.Archived)
-      .map(publish(id, UpdateImageUserMetadata))
-      .map(_ => respond(false))
+    editsStore.setOrRemoveArchivedV2(id, false)
+      .map(e => publishV2(id, UpdateImageUserMetadata)(e))
+      .map(edits => respond(false))
   }
 
 
@@ -122,22 +122,27 @@ class EditsController(
 
   def addLabels(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").validate[List[String]].fold(
-      errors =>
-        Future.successful(BadRequest(errors.toString())),
-      labels =>
+      errors => {
+        Future.successful(BadRequest(errors.toString()))
+      },
+      labels => {
         editsStore
-          .setAdd(id, Edits.Labels, labels)
-          .map(publish(id, UpdateImageUserMetadata))
-          .map(edits => labelsCollection(id, edits.labels.toSet))
-          .map { case (uri, l) => respondCollection(l) } recover {
-          case _: AmazonServiceException => BadRequest
-        }
+          .updateKeyV2(id, Edits.Labels, labels)
+          .map(e => {
+            val edits = publishV2(id, UpdateImageUserMetadata)(e)
+            val (_, l) = labelsCollection(id, edits.labels.toSet)
+            respondCollection(l)
+          })
+
+      }
     )
   }
 
   def removeLabel(id: String, label: String) = auth.async {
-    editsStore.setDelete(id, Edits.Labels, decodeUriParam(label))
-      .map(publish(id, UpdateImageUserMetadata))
+    editsStore.removeKeyV2(id, Edits.Labels)
+      .map(e => {
+        publishV2(id, UpdateImageUserMetadata)(e)
+      })
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
@@ -214,14 +219,14 @@ class EditsController(
 
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
-      editsStore.jsonAdd(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
-        .map(publish(id, UpdateImageUserMetadata))
+      editsStore.updateKeyV2(id, Edits.UsageRights, usageRight)
+        .map(publishV2(id, UpdateImageUserMetadata))
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
   def deleteUsageRights(id: String) = auth.async { req =>
-    editsStore.removeKey(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
+    editsStore.removeKeyV2(id, Edits.UsageRights).map(publishV2(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
   def metadataAsMap(metadata: ImageMetadata) = {
