@@ -25,8 +25,21 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     $grChipsCtrl.caretEndOffset = null;
 
     $grChipsCtrl.configureNgModel = function(ngModelCtrl, onChangeExpr, autoCompleteExpr,
-                                             validKeysExpr, autofocus, placeholder) {
-        $grChipsCtrl.placeholder = placeholder;
+                                             validKeysExpr, autofocus, placeholder, useAiSearchExpr) {
+        $grChipsCtrl.defaultPlaceholder = placeholder || 'Search for images... (type + for advanced search)';
+        $grChipsCtrl.aiSearchPlaceholder = 'Using AI search';
+
+        // Watch useAiSearch value and update placeholder
+        if (useAiSearchExpr) {
+            $scope.$watch(() => useAiSearchExpr($scope), (useAiSearch) => {
+                $grChipsCtrl.placeholder = useAiSearch ?
+                    $grChipsCtrl.aiSearchPlaceholder :
+                    $grChipsCtrl.defaultPlaceholder;
+            });
+        } else {
+            $grChipsCtrl.placeholder = $grChipsCtrl.defaultPlaceholder;
+        }
+
         $grChipsCtrl.onChange = () => onChangeExpr($scope, {$chips: $grChipsCtrl.items});
         $grChipsCtrl.getSuggestions = ($chip) => autoCompleteExpr($scope, {$chip});
 
@@ -174,6 +187,7 @@ grChips.directive('grChips', ['$parse', function($parse) {
             const autoCompleteExpr = $parse(attrs.grAutocomplete);
             const onChangeExpr = $parse(attrs.grOnChange);
             const validKeysExpr = $parse(attrs.grValidKeys);
+            const useAiSearchExpr = attrs.useAiSearch ? $parse(attrs.useAiSearch) : null;
             return function link(scope, element, attrs, $grChipsCtrl) {
                 const ngModelCtrl = element.controller('ngModel');
                 const autofocus = 'autofocus' in attrs;
@@ -184,7 +198,8 @@ grChips.directive('grChips', ['$parse', function($parse) {
                     autoCompleteExpr,
                     validKeysExpr,
                     autofocus,
-                    placeholder
+                    placeholder,
+                    useAiSearchExpr
                 );
             };
         }
