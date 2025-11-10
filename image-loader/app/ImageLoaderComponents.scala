@@ -47,7 +47,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val metrics = new ImageLoaderMetrics(config, actorSystem, applicationLifecycle)
 
   val controller = new ImageLoaderController(
-    auth, downloader, store, maybeIngestQueue, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation, metrics)
+    auth, downloader, store, maybeIngestQueue, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation, metrics, applicationLifecycle)
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
   val imageLoaderManagement = new ImageLoaderManagement(controllerComponents, buildInfo, controller.maybeIngestQueueAndProcessor)
