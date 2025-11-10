@@ -198,8 +198,8 @@ class EditsController(
               imageType = metadata.imageType orElse originalUserMetadata.imageType
             )
 
-            editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
-              .map(publish(id, UpdateImageUserMetadata))
+            editsStore.updateKeyV2(id, Edits.Metadata,  mergedMetadata)
+              .map(publishV2(id, UpdateImageUserMetadata))
               .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
           } getOrElse {
             // just return the unmodified
