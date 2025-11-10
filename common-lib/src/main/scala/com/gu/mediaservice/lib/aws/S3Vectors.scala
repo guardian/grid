@@ -1,13 +1,14 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
-
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.retries.DefaultRetryStrategy
 import software.amazon.awssdk.services.s3vectors._
 import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
 
 import java.net.URI
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters._
 
 class S3Vectors(config: CommonConfig)
@@ -21,8 +22,12 @@ class S3Vectors(config: CommonConfig)
   // The S3 Vector Store is not yet available in eu-west-1, so we are using eu-central-1 because it's closest to us.
   override def awsRegionV2: Region = Region.EU_CENTRAL_1
 
+  private val noRetriesSdkConfiguration = ClientOverrideConfiguration.builder()
+    .retryStrategy(DefaultRetryStrategy.doNotRetry())
+    .build()
   val client: S3VectorsClient = {
     withAWSCredentialsV2(S3VectorsClient.builder())
+      .overrideConfiguration(noRetriesSdkConfiguration)
       .build()
   }
 
@@ -52,7 +57,7 @@ class S3Vectors(config: CommonConfig)
   ): PutVectorsResponse = {
     try {
       val request = createRequestBody(bedrockEmbedding, imageId)
-      val response = client.putVectors(request)
+      val response = blocking { client.putVectors(request) }
       logger.info(
         logMarker,
         s"S3 Vector Store API call to store image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
