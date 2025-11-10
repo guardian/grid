@@ -58,8 +58,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-    ctrl.shouldEnableAISearch = () => ctrl.featureSwitchValue;
-    ctrl.featureSwitchValue = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
