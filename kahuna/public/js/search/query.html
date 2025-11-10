@@ -53,6 +53,15 @@
                 </label>
             </li>
 
+            <li id="ai-search-checkbox" class="search__modifier-item search__modifier-checkbox"
+                ng-if="searchQuery.featureSwitchValue('enable-ai-search')">
+                <label>
+                    <input type="checkbox"
+                           ng-model="searchQuery.useAISearch" />
+                    Use AI search
+                </label>
+            </li>
+
             <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
