@@ -229,13 +229,7 @@ class EditsController(
     editsStore.removeKeyV2(id, Edits.UsageRights).map(publishV2(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
-  def metadataAsMap(metadata: ImageMetadata) = {
-    (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
-  }
-
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
     (labelsUri(id), labels.map(setUnitEntity(id, Edits.Labels, _)).toSeq)
 
 }
-
-case class EditsValidationError(key: String, message: String) extends Throwable
