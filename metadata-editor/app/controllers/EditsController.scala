@@ -173,8 +173,8 @@ class EditsController(
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
-        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(validatedMetadata))
-          .map(publish(id, UpdateImageUserMetadata))
+        editsStore.updateKeyV2(id, Edits.Metadata, validatedMetadata)
+          .map(publishV2(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
       }
     )
