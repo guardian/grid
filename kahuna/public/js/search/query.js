@@ -26,6 +26,7 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
+import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -57,19 +58,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-
-    const switchesSource = (window._clientConfig && window._clientConfig.featureSwitches) || window.featureSwitches || [];
-
-    ctrl.featureSwitches = {};
-    if (Array.isArray(switchesSource)) {
-      switchesSource.forEach(s => {
-        ctrl.featureSwitches[s.key] = (s.value === 'true');
-      });
-    }
-
-    ctrl.featureSwitchValue = function(key) {
-      return !!ctrl.featureSwitches[key];
-    };
+    ctrl.shouldEnableAISearch = () => ctrl.featureSwitchValue;
+    ctrl.featureSwitchValue = getFeatureSwitchActive("enable-ai-search");
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;

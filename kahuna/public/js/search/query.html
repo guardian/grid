@@ -54,7 +54,7 @@
             </li>
 
             <li id="ai-search-checkbox" class="search__modifier-item search__modifier-checkbox"
-                ng-if="searchQuery.featureSwitchValue('enable-ai-search')">
+                ng-if="searchQuery.shouldEnableAISearch()">
                 <label>
                     <input type="checkbox"
                            ng-model="searchQuery.useAISearch" />
