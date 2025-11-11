@@ -58,7 +58,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
@@ -71,7 +70,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.filter = {
         uploadedByMe: false
     };
-    ctrl.useAISearch = true;
+    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.useAISearch = ctrl.shouldDisplayAISearchOption;
 
     ctrl.dateFilter = {
         // filled in by the watcher below
