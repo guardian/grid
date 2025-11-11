@@ -32,10 +32,8 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock)(implicit ec: ExecutionCon
       }
       case Right(imageType) => {
         val base64EncodedString: String = Base64.getEncoder().encodeToString(Files.readAllBytes(imageFilePath))
-        for {
-          embedding <- bedrock.createImageEmbedding(base64EncodedString, imageType)
-          _ <- s3vectors.storeEmbedding(embedding, imageId)
-        } yield {}
+        bedrock.createImageEmbedding(base64EncodedString, imageType)
+          .flatMap(s3vectors.storeEmbedding(_, imageId))
       }
     }
   }
