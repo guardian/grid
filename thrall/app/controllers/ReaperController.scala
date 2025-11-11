@@ -130,16 +130,11 @@ class ReaperController(
       metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size)
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
-        val detail = Map(
-          "ES" -> Some(wasSoftDeletedInES),
-          // Currently deleting vectors is all or nothing.
-          // So assume all succeeded, if the future didn't fail.
-          // If we try to delete a vector that doesn't exist, we
-          // would still get a 200, and we can consider the vector gone
-          // (because it was never there in the first place).
-          "s3Vectors" -> s3VectorsDeletions.get(id).map(_ == S3Vectors.DeletionStatus.deleted)
+        val detail = Json.obj(
+          "ES" -> wasSoftDeletedInES,
+          "s3Vectors" -> s3VectorsDeletions.get(id).map(_.toString)
         )
-        logger.info(s"Soft deleted image $id : $detail")
+        logger.info(s"Soft deleted image $id : ${Json.stringify(detail)}")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))
@@ -165,13 +160,13 @@ class ReaperController(
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
-        val detail = Map(
-          "ES" -> Some(wasHardDeletedFromES),
+        val detail = Json.obj(
+          "ES" -> wasHardDeletedFromES,
           "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
+          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id))
         )
-        logger.info(s"Hard deleted image $id : $detail")
+        logger.info(s"Hard deleted image $id : ${Json.stringify(detail)}")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))
