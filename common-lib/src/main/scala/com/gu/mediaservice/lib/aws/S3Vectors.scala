@@ -101,22 +101,23 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   def deleteEmbeddings(imageIds: Set[String])(implicit logMarker: LogMarker): Future[Map[String, DeletionStatus.Value]] = Future {
     // We can only delete 500 keys at once
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
-    val batches = imageIds.grouped(500)
+    val batches = imageIds.grouped(500).toList
     batches.zipWithIndex.flatMap { case (batch, i) =>
+      val batchLogging = s"batch ${i+1} of ${batches.length}"
       try {
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
         // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
         val vectorsBefore = getVectors(batch)
-        logger.info(logMarker, s"Deleting ${vectorsBefore.length} vectors from batch of ${batch.size} (batch $i of ${batches.length})")
+        logger.info(logMarker, s"Deleting ${vectorsBefore.length} vectors from batch of ${batch.size} ($batchLogging)")
 
         deleteVectors(batch)
 
         val vectorsAfter = getVectors(batch)
         if (vectorsAfter.nonEmpty) {
-          logger.warn(s"${vectorsAfter.length} of ${vectorsBefore.length} failed to delete (batch $i of ${batches.length})")
+          logger.warn(logMarker, s"${vectorsAfter.length} of ${vectorsBefore.length} failed to delete ($batchLogging)")
         }
-        logger.info(logMarker, s"${vectorsBefore.length - vectorsAfter.length} vectors deleted from batch of ${batch.size} (batch $i of ${batches.length})")
+        logger.info(logMarker, s"${vectorsBefore.length - vectorsAfter.length} vectors deleted from batch of ${batch.size} ($batchLogging)")
 
         batch.map(key => key -> {
           if (!vectorsBefore.contains(key)) DeletionStatus.notFound
@@ -125,7 +126,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         })
       } catch {
         case e: Exception =>
-          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors (batch $i of ${batches.length})", e)
+          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
           throw e
       }
     }.toMap
