@@ -3,14 +3,23 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model.{DeleteVectorsRequest, PutInputVector, PutVectorsRequest, PutVectorsResponse, S3VectorsRequest, VectorData}
+import software.amazon.awssdk.services.s3vectors.model.{DeleteVectorsRequest, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
-class S3Vectors(config: CommonConfig)
+object S3Vectors {
+  object DeletionStatus extends Enumeration {
+    val deleted: Value = Value("deleted")
+    val notFound: Value = Value("not found")
+    val notDeleted: Value = Value("not deleted")
+  }
+}
+
+class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   extends AwsClientV2BuilderUtils {
+  import S3Vectors.DeletionStatus
 
   // TODO: figure out what the more usual pattern for turning off localstack behaviour is
   override def awsLocalEndpointUri: Option[URI] = None
@@ -25,19 +34,42 @@ class S3Vectors(config: CommonConfig)
       .build()
   }
 
-  val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
-  val indexName: String = "cohere-embed-english-v3"
+  private val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
+  private val indexName: String = "cohere-embed-english-v3"
 
-  private def createPutVectorsRequest(embedding: List[Float], imageId: String): PutVectorsRequest = {
+  private def getVectors(keys: Set[String]): List[GetOutputVector] =
+    // GetVectors has a max of 100
+    keys.grouped(100).flatMap { batch =>
+      val request = GetVectorsRequest.builder()
+        .indexName(indexName)
+        .vectorBucketName(vectorBucketName)
+        .keys(batch.asJavaCollection)
+        .build()
+
+      val response = client.getVectors(request)
+      response.vectors().asScala.toList
+    }.toList
+
+  private def deleteVectors(keys: Set[String]) = {
+    val request = DeleteVectorsRequest.builder()
+      .indexName(indexName)
+      .vectorBucketName(vectorBucketName)
+      .keys(keys.asJavaCollection)
+      .build()
+
+    client.deleteVectors(request)
+  }
+
+  private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
     val vectorData: VectorData = VectorData
       .builder()
-      .float32(embedding.map(float2Float).asJava)
+      .float32(vector.map(float2Float).asJava)
       .build()
 
     val inputVector: PutInputVector = PutInputVector
       .builder()
       .data(vectorData)
-      .key(imageId)
+      .key(key)
       .build()
 
     val request: PutVectorsRequest = PutVectorsRequest
@@ -47,19 +79,16 @@ class S3Vectors(config: CommonConfig)
       .vectors(inputVector)
       .build()
 
-    request
+    client.putVectors(request)
   }
 
-  // TODO make this a future too
-  def storeEmbedding(bedrockEmbedding: List[Float], imageId: String)(implicit logMarker: LogMarker): PutVectorsResponse = {
+  def storeEmbedding(embedding: List[Float], imageId: String)(implicit logMarker: LogMarker): Future[Unit] = Future {
     try {
-      val request = createPutVectorsRequest(bedrockEmbedding, imageId)
-      val response = client.putVectors(request)
+      val response = putVector(embedding, imageId)
       logger.info(
         logMarker,
         s"S3 Vector Store API call to store image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
       )
-      response
     } catch {
       case e: Exception =>
         // TODO: do we need logging here or will we catch and log higher up?
@@ -69,42 +98,36 @@ class S3Vectors(config: CommonConfig)
     }
   }
 
-  // Q&A
-  // - what happens if I delete vectors that are not there? Nothing, you just a 200!
-  // - in the reaper for comprehension, what happens if a previous operation fails? The whole thing fails!
-  // - "Write requests per second per vector index: Up to 5" https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-limitations.html
-  // are both DeleteVectors and PutVectors considered writes?
-  // "Your application can achieve at least five PutVectors and DeleteVectors requests per second per vector index." https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-best-practices.html
-  // TODO: rename embeddings => vectors?
-  def deleteEmbeddings(imageIds: Set[String])(
-    implicit logMarker: LogMarker,
-    executionContext: ExecutionContext
-  ): Future[Unit] = Future {
+  def deleteEmbeddings(imageIds: Set[String])(implicit logMarker: LogMarker): Future[Map[String, DeletionStatus.Value]] = Future {
     // We can only delete 500 keys at once
-    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html#:~:text=Maximum%20number%20of%20500%20items
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
     val batches = imageIds.grouped(500)
-    batches.zipWithIndex.foreach { case (batch, i) =>
+    batches.zipWithIndex.flatMap { case (batch, i) =>
       try {
-        val request = DeleteVectorsRequest.builder()
-          .indexName(indexName)
-          .vectorBucketName(vectorBucketName)
-          .keys(batch.asJavaCollection)
-          .build()
-
-        client.deleteVectors(request)
-
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
-        // We could figure this out, but it would require making GetVectors requests
-        // before & after (and GetVectors has a lower max of 100 keys at once).
-        logger.info(logMarker, s"${batch.size} vectors were deleted or didn't exist (batch $i of ${batches.length})")
+        // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
+        val vectorsBefore = getVectors(batch)
+        logger.info(logMarker, s"Deleting ${vectorsBefore.length} vectors from batch of ${batch.size} (batch $i of ${batches.length})")
+
+        deleteVectors(batch)
+
+        val vectorsAfter = getVectors(batch)
+        if (vectorsAfter.nonEmpty) {
+          logger.warn(s"${vectorsAfter.length} of ${vectorsBefore.length} failed to delete (batch $i of ${batches.length})")
+        }
+        logger.info(logMarker, s"${vectorsBefore.length - vectorsAfter.length} vectors deleted from batch of ${batch.size} (batch $i of ${batches.length})")
+
+        batch.map(key => key -> {
+          if (!vectorsBefore.contains(key)) DeletionStatus.notFound
+          else if (vectorsAfter.contains(key)) DeletionStatus.notDeleted
+          else DeletionStatus.deleted
+        })
       } catch {
         case e: Exception =>
-          // TODO question: do we need logging here or is it fine to let it log higher up?
-          // TODO: show some of the imageIds in the log message
-          logger.error(logMarker, s"Failed to delete ${batch.size} vectors (batch $i of ${batches.length})", e)
+          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors (batch $i of ${batches.length})", e)
           throw e
       }
-    }
+    }.toMap
   }
 }

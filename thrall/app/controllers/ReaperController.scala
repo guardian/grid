@@ -125,19 +125,19 @@ class ReaperController(
           isDeleted = true
         )
       ))
-      _ <- s3Vectors.deleteEmbeddings(esIdsActuallySoftDeleted)
+      s3VectorsDeletions <- s3Vectors.deleteEmbeddings(esIdsActuallySoftDeleted)
     } yield {
       metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size)
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
         val detail = Map(
-          "ES" -> wasSoftDeletedInES,
+          "ES" -> Some(wasSoftDeletedInES),
           // Currently deleting vectors is all or nothing.
           // So assume all succeeded, if the future didn't fail.
           // If we try to delete a vector that doesn't exist, we
           // would still get a 200, and we can consider the vector gone
           // (because it was never there in the first place).
-          "s3Vectors" -> true
+          "s3Vectors" -> s3VectorsDeletions.get(id).map(_ == S3Vectors.DeletionStatus.deleted)
         )
         logger.info(s"Soft deleted image $id : $detail")
         id -> detail
