@@ -91,9 +91,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       )
     } catch {
       case e: Exception =>
-        // TODO: do we need logging here or will we catch and log higher up?
-        // TODO: also, the `cause` param doesn't get interpolated into the message like in a JS console.error call, so remove the colon
-        logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId: ", e)
+        logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId", e)
         throw e
     }
   }
