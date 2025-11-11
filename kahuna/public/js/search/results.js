@@ -468,7 +468,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
+        function search({query, until, since, offset, length, orderBy, useAISearch, countAll} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -498,6 +498,9 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
+            if (angular.isUndefined(useAISearch)) {
+                useAISearch = $stateParams.useAISearch;
+            }
             if (angular.isUndefined(countAll)) {
               countAll = true;
             }
@@ -519,6 +522,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
+                useAISearch: useAISearch,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,

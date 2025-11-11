@@ -42,7 +42,7 @@ mediaApi.factory('mediaApi',
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
-                                 syndicationStatus, countAll, persisted} = {}) {
+                                 syndicationStatus, countAll, persisted, useAISearch} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -64,15 +64,16 @@ mediaApi.factory('mediaApi',
             hasExports: maybeStringToBoolean(hasCrops), // Grid API calls crops exports...
             syndicationStatus: syndicationStatus,
             countAll,
-            persisted
+            persisted,
+            useAISearch: maybeStringToBoolean(useAISearch)
         }).get();
     }
 
     function maybeStringToBoolean(maybeString) {
-        if (maybeString === 'true') {
+        if (maybeString === 'true' || maybeString === true) {
             return true;
         }
-        if (maybeString === 'false') {
+        if (maybeString === 'false' || maybeString === false) {
             return false;
         }
 

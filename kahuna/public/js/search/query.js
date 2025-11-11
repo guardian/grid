@@ -71,7 +71,10 @@ query.controller('SearchQueryCtrl', [
         uploadedByMe: false
     };
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
-    ctrl.useAISearch = ctrl.shouldDisplayAISearchOption;
+    // Initialize from URL params if present, otherwise use feature switch default
+    ctrl.useAISearch = $stateParams.useAISearch === 'true' ? true :
+                       $stateParams.useAISearch === 'false' ? false :
+                       ctrl.shouldDisplayAISearchOption;
 
     ctrl.dateFilter = {
         // filled in by the watcher below
@@ -286,10 +289,10 @@ query.controller('SearchQueryCtrl', [
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
         raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value}});
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value, useAISearch: ctrl.useAISearch}});
       } else {
         raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"], useAISearch: ctrl.useAISearch}});
       }
     }
 
@@ -309,7 +312,7 @@ query.controller('SearchQueryCtrl', [
     function updateSortChips (sortSel) {
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
       storage.setJs("orderBy", ctrl.ordering["orderBy"]);
-      $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering['orderBy']}});
+      // Note: orderBy watch will trigger $state.go with both orderBy and useAISearch
     }
 
     ctrl.sortProps = {
@@ -441,7 +444,11 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: newVal}});
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: newVal, useAISearch: ctrl.useAISearch}});
+    }));
+
+    $scope.$watch(() => ctrl.useAISearch, onValChange(newVal => {
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering.orderBy, useAISearch: newVal}});
     }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
@@ -453,7 +460,9 @@ query.controller('SearchQueryCtrl', [
             takenUntil:    field === 'taken'    ? until : null,
             modifiedSince: field === 'modified' ? since : null,
             modifiedUntil: field === 'modified' ? until : null,
-            dateField:     field
+            dateField:     field,
+            orderBy:       ctrl.ordering.orderBy,
+            useAISearch:   ctrl.useAISearch
         }});
     }));
 

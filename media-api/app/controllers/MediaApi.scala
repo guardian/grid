@@ -78,7 +78,8 @@ class MediaApi(
     "hasRightsAcquired",
     "syndicationStatus",
     "countAll",
-    "persisted"
+    "persisted",
+    "useAISearch"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -523,7 +524,7 @@ class MediaApi(
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "image-search",
       "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "requestId" -> RequestLoggingFilter.getRequestId(request)
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     val include = getIncludedFromParams(request)
@@ -553,6 +554,7 @@ class MediaApi(
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
 
     val _searchParams = SearchParams(request)
+    logger.info(s"useAISearch is ${_searchParams.useAISearch}")
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
