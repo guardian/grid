@@ -37,8 +37,9 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   private val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
   private val indexName: String = "cohere-embed-english-v3"
 
-  private def getVectors(keys: Set[String]): List[GetOutputVector] =
+  private def getVectors(keys: Set[String]): List[GetOutputVector] = {
     // GetVectors has a max of 100
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetVectors.html
     keys.grouped(100).flatMap { batch =>
       val request = GetVectorsRequest.builder()
         .indexName(indexName)
@@ -49,6 +50,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       val response = client.getVectors(request)
       response.vectors().asScala.toList
     }.toList
+  }
 
   private def deleteVectors(keys: Set[String]) = {
     val request = DeleteVectorsRequest.builder()
