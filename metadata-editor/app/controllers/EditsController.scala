@@ -83,7 +83,7 @@ class EditsController(
   def getEdits(id: String) = auth.async {
     editsStore.getV2(id) map { record =>
       respond(data = record)
-    } recover { case NoItemFound => NotFound }
+    }
   }
 
   def getArchived(id: String) = auth.async {
