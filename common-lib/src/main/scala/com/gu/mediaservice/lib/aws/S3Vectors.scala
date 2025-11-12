@@ -34,14 +34,21 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       .build()
   }
 
+  private def time[T](msg: String)(block: => T)(implicit logMarker: LogMarker): T = {
+    val startTime = System.currentTimeMillis()
+    val result = block
+    val duration = System.currentTimeMillis() - startTime
+    logger.info(logMarker, s"${msg} [took ${duration}ms]")
+    result
+  }
+
   private val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
   private val indexName: String = "cohere-embed-english-v3"
 
   private def getVectors(keys: Set[String])(implicit logMarker: LogMarker): List[GetOutputVector] = {
-    val startTime = System.currentTimeMillis()
     // GetVectors has a max of 100
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetVectors.html
-    val result = keys.grouped(100).flatMap { batch =>
+    keys.grouped(100).flatMap { batch =>
       val request = GetVectorsRequest.builder()
         .indexName(indexName)
         .vectorBucketName(vectorBucketName)
@@ -51,9 +58,6 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       val response = client.getVectors(request)
       response.vectors().asScala.toList
     }.toList
-    val duration = System.currentTimeMillis() - startTime
-    logger.info(logMarker, s"[debug] getVectors for ${keys.size} keys took ${duration}ms")
-    result
   }
 
   private def deleteVectors(keys: Set[String])(implicit logMarker: LogMarker) = {
@@ -118,7 +122,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
         // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
-        val vectorsBefore = getVectors(batch).map(_.key).toSet
+        val vectorsBefore = time(s"[debug] getVectors (before) for ${batch.size} key") { getVectors(batch).map(_.key).toSet }
 
         val batchResult = if (vectorsBefore.isEmpty) {
           logger.info(logMarker, s"[debug] 0 vectors to delete from batch of ${batch.size} ($batchLogging)")
@@ -127,7 +131,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
           logger.info(logMarker, s"[debug] Deleting ${vectorsBefore.size} vectors from batch of ${batch.size} ($batchLogging)")
           deleteVectors(batch)
 
-          val vectorsAfter = getVectors(batch).map(_.key).toSet
+          val vectorsAfter = time(s"[debug] Get ${batch.size} vectors after") { getVectors(batch).map(_.key).toSet }
           if (vectorsAfter.nonEmpty) {
             logger.warn(logMarker, s"[debug] ${vectorsAfter.size} of ${vectorsBefore.size} failed to delete ($batchLogging)")
           }
@@ -141,7 +145,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         }
 
         val batchDuration = System.currentTimeMillis() - batchStartTime
-        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed in ${batchDuration}ms. Result: ${batchResult}")
+        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed [took ${batchDuration}ms]. Result: ${batchResult}")
         batchResult
       } catch {
         case e: Exception =>
