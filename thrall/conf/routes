@@ -29,7 +29,9 @@ POST    /unPreviewMigrationCompletion                 controllers.ThrallControll
 # reaper
 GET    /reaper                                        controllers.ReaperController.index
 GET    /reaper/:key                                   controllers.ReaperController.reaperRecord(key: String)
++nocsrf
 DELETE /doBatchSoftReap                               controllers.ReaperController.doBatchSoftReap(count: Int)
++nocsrf
 DELETE /doBatchHardReap                               controllers.ReaperController.doBatchHardReap(count: Int)
 +nocsrf
 POST   /pauseReaper                                   controllers.ReaperController.pauseReaper
