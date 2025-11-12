@@ -16,6 +16,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
@@ -52,8 +53,15 @@ class ReaperController(
 
   (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
+      // We always want the reaps to occur at predictable times (e.g. on the hour, then 15, 30, 45 minutes past)
+      // However, if the first reap is imminent, then skip it, to avoid double reaps during deployment when both
+      // instances are up and running simultaneously
+      val delayUntilFirstReap = DateTimeUtils.timeUntilNextInterval(INTERVAL) match {
+        case delay if delay < 5.minutes => delay.plus(INTERVAL)
+        case delay => delay
+      }
       scheduler.scheduleAtFixedRate(
-        initialDelay = DateTimeUtils.timeUntilNextInterval(INTERVAL), // so we always start on multiples of the interval past the hour
+        initialDelay = delayUntilFirstReap,
         interval = INTERVAL,
       ){ () =>
         try {
