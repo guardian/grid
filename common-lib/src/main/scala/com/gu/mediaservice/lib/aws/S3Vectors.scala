@@ -37,10 +37,11 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   private val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
   private val indexName: String = "cohere-embed-english-v3"
 
-  private def getVectors(keys: Set[String]): List[GetOutputVector] = {
+  private def getVectors(keys: Set[String])(implicit logMarker: LogMarker): List[GetOutputVector] = {
+    val startTime = System.currentTimeMillis()
     // GetVectors has a max of 100
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetVectors.html
-    keys.grouped(100).flatMap { batch =>
+    val result = keys.grouped(100).flatMap { batch =>
       val request = GetVectorsRequest.builder()
         .indexName(indexName)
         .vectorBucketName(vectorBucketName)
@@ -50,16 +51,23 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       val response = client.getVectors(request)
       response.vectors().asScala.toList
     }.toList
+    val duration = System.currentTimeMillis() - startTime
+    logger.info(logMarker, s"getVectors for ${keys.size} keys took ${duration}ms")
+    result
   }
 
-  private def deleteVectors(keys: Set[String]) = {
+  private def deleteVectors(keys: Set[String])(implicit logMarker: LogMarker) = {
+    val startTime = System.currentTimeMillis()
     val request = DeleteVectorsRequest.builder()
       .indexName(indexName)
       .vectorBucketName(vectorBucketName)
       .keys(keys.asJavaCollection)
       .build()
 
-    client.deleteVectors(request)
+    val response = client.deleteVectors(request)
+    val duration = System.currentTimeMillis() - startTime
+    logger.info(logMarker, s"deleteVectors for ${keys.size} keys took ${duration}ms")
+    response
   }
 
   private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
@@ -99,10 +107,12 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   }
 
   def deleteEmbeddings(imageIds: Set[String])(implicit logMarker: LogMarker): Future[Map[String, DeletionStatus.Value]] = Future {
+    val overallStartTime = System.currentTimeMillis()
     // We can only delete 500 keys at once
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
     val batches = imageIds.grouped(500).toList
-    batches.zipWithIndex.flatMap { case (batch, i) =>
+    val result = batches.zipWithIndex.flatMap { case (batch, i) =>
+      val batchStartTime = System.currentTimeMillis()
       val batchLogging = s"batch ${i+1} of ${batches.length}"
       try {
         // Currently AWS don't provide any information on which deletes succeeded or failed.
@@ -119,16 +129,22 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         }
         logger.info(logMarker, s"${vectorsBefore.length - vectorsAfter.length} vectors deleted from batch of ${batch.size} ($batchLogging)")
 
-        batch.map(key => key -> {
+        val batchResult = batch.map(key => key -> {
           if (!vectorsBefore.contains(key)) DeletionStatus.notFound
           else if (vectorsAfter.contains(key)) DeletionStatus.notDeleted
           else DeletionStatus.deleted
         })
+        val batchDuration = System.currentTimeMillis() - batchStartTime
+        logger.info(logMarker, s"Batch ${i+1} of ${batches.length} completed in ${batchDuration}ms. Result: ${batchResult}")
+        batchResult
       } catch {
         case e: Exception =>
           logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
           throw e
       }
     }.toMap
+    val overallDuration = System.currentTimeMillis() - overallStartTime
+    logger.info(logMarker, s"deleteEmbeddings completed for ${imageIds.size} imageIds in ${overallDuration}ms")
+    result
   }
 }
