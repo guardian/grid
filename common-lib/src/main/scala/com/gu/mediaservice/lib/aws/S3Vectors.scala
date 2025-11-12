@@ -141,7 +141,10 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         }
 
         val batchDuration = System.currentTimeMillis() - batchStartTime
-        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed [took ${batchDuration}ms]. Result: ${batchResult}")
+        val deleted = batchResult.count(_._2 == DeletionStatus.deleted)
+        val notFound = batchResult.count(_._2 == DeletionStatus.notFound)
+        val notDeleted = batchResult.count(_._2 == DeletionStatus.notDeleted)
+        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed [took ${batchDuration}ms]. Batch size: ${batch.size}, deleted: ${deleted}, not found: ${notFound}, not deleted: ${notDeleted}")
         batchResult
       } catch {
         case e: Exception =>
