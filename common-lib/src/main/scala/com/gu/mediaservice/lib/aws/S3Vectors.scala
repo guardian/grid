@@ -52,7 +52,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       response.vectors().asScala.toList
     }.toList
     val duration = System.currentTimeMillis() - startTime
-    logger.info(logMarker, s"getVectors for ${keys.size} keys took ${duration}ms")
+    logger.info(logMarker, s"[debug] getVectors for ${keys.size} keys took ${duration}ms")
     result
   }
 
@@ -66,7 +66,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
 
     val response = client.deleteVectors(request)
     val duration = System.currentTimeMillis() - startTime
-    logger.info(logMarker, s"deleteVectors for ${keys.size} keys took ${duration}ms")
+    logger.info(logMarker, s"[debug] deleteVectors for ${keys.size} keys took ${duration}ms")
     response
   }
 
@@ -118,33 +118,39 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
         // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
-        val vectorsBefore = getVectors(batch)
-        logger.info(logMarker, s"Deleting ${vectorsBefore.length} vectors from batch of ${batch.size} ($batchLogging)")
+        val vectorsBefore = getVectors(batch).map(_.key).toSet
 
-        deleteVectors(batch)
+        val batchResult = if (vectorsBefore.isEmpty) {
+          logger.info(logMarker, s"[debug] 0 vectors to delete from batch of ${batch.size} ($batchLogging)")
+          batch.map(key => key -> DeletionStatus.notFound)
+        } else {
+          logger.info(logMarker, s"[debug] Deleting ${vectorsBefore.size} vectors from batch of ${batch.size} ($batchLogging)")
+          deleteVectors(batch)
 
-        val vectorsAfter = getVectors(batch)
-        if (vectorsAfter.nonEmpty) {
-          logger.warn(logMarker, s"${vectorsAfter.length} of ${vectorsBefore.length} failed to delete ($batchLogging)")
+          val vectorsAfter = getVectors(batch).map(_.key).toSet
+          if (vectorsAfter.nonEmpty) {
+            logger.warn(logMarker, s"[debug] ${vectorsAfter.size} of ${vectorsBefore.size} failed to delete ($batchLogging)")
+          }
+          logger.info(logMarker, s"[debug] ${vectorsBefore.size - vectorsAfter.size} vectors deleted from batch of ${batch.size} ($batchLogging)")
+
+          batch.map(key => key -> {
+            if (!vectorsBefore.contains(key)) DeletionStatus.notFound
+            else if (vectorsAfter.contains(key)) DeletionStatus.notDeleted
+            else DeletionStatus.deleted
+          })
         }
-        logger.info(logMarker, s"${vectorsBefore.length - vectorsAfter.length} vectors deleted from batch of ${batch.size} ($batchLogging)")
 
-        val batchResult = batch.map(key => key -> {
-          if (!vectorsBefore.contains(key)) DeletionStatus.notFound
-          else if (vectorsAfter.contains(key)) DeletionStatus.notDeleted
-          else DeletionStatus.deleted
-        })
         val batchDuration = System.currentTimeMillis() - batchStartTime
-        logger.info(logMarker, s"Batch ${i+1} of ${batches.length} completed in ${batchDuration}ms. Result: ${batchResult}")
+        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed in ${batchDuration}ms. Result: ${batchResult}")
         batchResult
       } catch {
         case e: Exception =>
-          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
+          logger.error(logMarker, s"[debug] Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
           throw e
       }
     }.toMap
     val overallDuration = System.currentTimeMillis() - overallStartTime
-    logger.info(logMarker, s"deleteEmbeddings completed for ${imageIds.size} imageIds in ${overallDuration}ms")
+    logger.info(logMarker, s"[debug] deleteEmbeddings completed for ${imageIds.size} imageIds in ${overallDuration}ms")
     result
   }
 }
