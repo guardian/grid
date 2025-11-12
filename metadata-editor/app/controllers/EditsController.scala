@@ -82,7 +82,8 @@ class EditsController(
 
   def getEdits(id: String) = auth.async {
     editsStore.getV2(id) map { record =>
-      respond(data = record)
+      record.map(r => respond(data = r))
+        .getOrElse(NotFound)
     }
   }
 
