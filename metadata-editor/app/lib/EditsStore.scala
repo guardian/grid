@@ -32,7 +32,7 @@ class EditsStore(config: EditsConfig) extends DynamoDB[Edits](config, config.edi
             if errs.exists(_._1 == "usageRights") =>
             // Try reading again after dropping the null
             value.asObject match {
-              case Some(fields) => derived.read(DynamoValue.fromDynamoObject(fields - "usageRightsgit a"))
+              case Some(fields) => derived.read(DynamoValue.fromDynamoObject(fields - "usageRights"))
               case None => Left(TypeCoercionError(new Exception("Invalid Edits structure")))
             }
           case other => Left(other)
