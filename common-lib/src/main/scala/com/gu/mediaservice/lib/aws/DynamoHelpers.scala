@@ -1,4 +1,4 @@
-package store
+package com.gu.mediaservice.lib.aws
 
 import org.scanamo.DynamoReadError
 
