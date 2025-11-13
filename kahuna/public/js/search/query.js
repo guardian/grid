@@ -70,11 +70,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.filter = {
         uploadedByMe: false
     };
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
-    // Initialize from URL params if present, otherwise use feature switch default
-    ctrl.useAISearch = $stateParams.useAISearch === 'true' ? true :
-                       $stateParams.useAISearch === 'false' ? false :
-                       ctrl.shouldDisplayAISearchOption;
 
     ctrl.dateFilter = {
         // filled in by the watcher below
@@ -83,6 +78,10 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
+
+    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    manageInitialiseAISearch();
+    ctrl.useAISearch = $stateParams.useAISearch;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -117,6 +116,13 @@ query.controller('SearchQueryCtrl', [
           bubbles: true
         });
         window.dispatchEvent(customEvent);
+      }
+    }
+
+    // When a user flips the feature switch and reloads the page we need to remove the URL parameter
+    function manageInitialiseAISearch() {
+      if (!ctrl.shouldDisplayAISearchOption) {
+        $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
       }
     }
 
@@ -289,10 +295,10 @@ query.controller('SearchQueryCtrl', [
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
         raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value, useAISearch: ctrl.useAISearch}});
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value}});
       } else {
         raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"], useAISearch: ctrl.useAISearch}});
+        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
       }
     }
 
@@ -312,7 +318,7 @@ query.controller('SearchQueryCtrl', [
     function updateSortChips (sortSel) {
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
       storage.setJs("orderBy", ctrl.ordering["orderBy"]);
-      // Note: orderBy watch will trigger $state.go with both orderBy and useAISearch
+      $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering['orderBy']}});
     }
 
     ctrl.sortProps = {
@@ -382,10 +388,11 @@ query.controller('SearchQueryCtrl', [
         'dateField', 'since', 'until', 'takenSince', 'takenUntil',
         'modifiedSince', 'modifiedUntil'
     ];
+    const specialParams = [...dateFilterParams, 'useAISearch'];
 
     Object.keys($stateParams).
-        // Exclude date-related filters, managed separately in dateFilter
-        filter(key => dateFilterParams.indexOf(key) === -1).
+        // Exclude date-related filters and other special params managed separately
+        filter(key => specialParams.indexOf(key) === -1).
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -444,11 +451,10 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: newVal, useAISearch: ctrl.useAISearch}});
+        $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
-
     $scope.$watch(() => ctrl.useAISearch, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering.orderBy, useAISearch: newVal}});
+        $state.go('search.results', {...ctrl.filter,  useAISearch: newVal ? true : undefined});
     }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
@@ -460,9 +466,7 @@ query.controller('SearchQueryCtrl', [
             takenUntil:    field === 'taken'    ? until : null,
             modifiedSince: field === 'modified' ? since : null,
             modifiedUntil: field === 'modified' ? until : null,
-            dateField:     field,
-            orderBy:       ctrl.ordering.orderBy,
-            useAISearch:   ctrl.useAISearch
+            dateField:     field
         }});
     }));
 

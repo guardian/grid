@@ -70,10 +70,10 @@ mediaApi.factory('mediaApi',
     }
 
     function maybeStringToBoolean(maybeString) {
-        if (maybeString === 'true' || maybeString === true) {
+        if (maybeString === 'true') {
             return true;
         }
-        if (maybeString === 'false' || maybeString === false) {
+        if (maybeString === 'false') {
             return false;
         }
 
@@ -81,8 +81,8 @@ mediaApi.factory('mediaApi',
     }
 
     function getOrder(orderBy) {
-        if (orderBy === 'dateAddedToCollection' || orderBy === 'relevance') {
-            return orderBy;
+        if (orderBy === 'dateAddedToCollection') {
+            return 'dateAddedToCollection';
         }
         else if (orderBy && orderBy.includes('taken')) {
             return orderBy;
