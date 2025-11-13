@@ -43,22 +43,11 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
     }
   }
 
-  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
-    VectorData
-      .builder()
-      .float32(embedding.map(float2Float).asJava)
-      .build()
-  }
-
-  def createEmbeddingAndSearch(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {
-
-    logger.info(logMarker, s"Searching for image embedding for $q")
-
-    val embeddingFuture = bedrock.createSearchTermEmbedding(q: String)
+  def createEmbeddingAndSearch(query: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {
+    logger.info(logMarker, s"Searching for image embedding for $query")
+    val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
     embeddingFuture.map { embedding =>
-//      We need to convert the embedding to a VectorData object for the S3 Vector Store API
-      val vectorData = convertEmbeddingToVectorData(embedding)
-      s3vectors.searchVectorStore(vectorData)
+      s3vectors.searchVectorStore(embedding, query)
     }
   }
 
