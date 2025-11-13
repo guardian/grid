@@ -554,16 +554,17 @@ class MediaApi(
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
 
     val _searchParams = SearchParams(request)
-    logger.info(s"useAISearch is ${_searchParams.useAISearch}")
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
-    val searchForSimilar = _searchParams.query.flatMap(_.split(" ").find(_.startsWith("similar:")))
+    if (_searchParams.useAISearch.contains(true)) {
 
-    if (searchForSimilar.isDefined) {
-      val extractedSearchTerm = searchForSimilar.get.split(":")(1)
+      val searchTerm = _searchParams.query match {
+        case Some(q) => q
+        case None => ""
+      }
 
-      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(extractedSearchTerm)
+      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
 
       val imageIds = semanticSearchResult.map { result =>
         val results: java.util.List[QueryOutputVector] = result.vectors()
@@ -572,7 +573,7 @@ class MediaApi(
 
       imageIds.flatMap { ids =>
         SearchParams(
-          query = Some(extractedSearchTerm),
+          query = _searchParams.query,
           ids = Some(ids),
           tier = request.user.accessor.tier,
         )
