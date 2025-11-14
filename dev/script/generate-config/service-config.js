@@ -57,6 +57,26 @@ function getCommonConfig(config) {
         |  photographers=["Example Contracted Illustrator"]
         |}]
         |usageRightsConfigProvider.config.staffIllustrators=["Example Staff Illustrator"]
+        |agencyPicks.ingredients={
+        |    "metadata.description": [
+        |      "topshot", // Getty
+        |      "topshots", // Getty
+        |      "bestpix", // Getty
+        |      "PABest", // PA
+        |      "TPX IMAGES OF THE DAY", // Reuters
+        |      "epaselect", // EPA
+        |      "APTOPIX", // AP
+        |    ],
+        |    "metadata.keywords": [
+        |      "epaselect", // EPA
+        |      "aptopix", // AP
+        |      "APTOPIX", // AP
+        |      "SPOTLIGHT", // Rex/Shutterstock
+        |      "spotlight", // Rex/Shutterstock
+        |      "Spotlight" // Rex/Shutterstock
+        |    ]
+        |}
+>>>>>>> 3e403bd7f (add `is:agency-pick` with 'ticker' (which has breakdown by `usageRights.supplier`) with red border on matching images (definition is in common.conf under `agencyPicks.ingredients`))
         |`;
 }
 

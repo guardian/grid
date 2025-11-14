@@ -1512,9 +1512,8 @@ textarea.ng-invalid {
     margin-left: 5px;
 }
 
-.image-results-count__org-owned {
+.image-results-ticker {
     font-family: inherit;
-    background-color: #005689;
     color: white;
     display: inline-block;
     padding: 2px 4px;
@@ -1650,6 +1649,11 @@ textarea.ng-invalid {
 
 .preview__image.preview__image--staff {
     border: 10px solid #005689;
+    box-sizing: border-box;
+}
+
+.preview__image.preview__image--agency-pick {
+    border: 10px solid #970201;
     box-sizing: border-box;
 }
 

@@ -16,6 +16,7 @@
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
   imageTypes: String,
+  agencyPicksIngredients: String
 )
 <!DOCTYPE html>
 <html>
@@ -88,6 +89,7 @@
           maybeUploadLimitInBytes: @kahunaConfig.maybeUploadLimitInBytes.getOrElse(0),
           announcements: @Html(announcements),
           imageTypes: @Html(imageTypes),
+          agencyPicksIngredients: @Html(agencyPicksIngredients),
         }
     </script>
 
