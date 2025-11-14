@@ -3,7 +3,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.gu.kinesis.{KinesisRecord, KinesisSource, ConsumerConfig => KclPekkoStreamConfig}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
+import com.gu.mediaservice.lib.aws.{S3Ops, S3Vectors, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
@@ -74,6 +74,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val s3 = S3Ops.buildS3Client(config)
+  val s3Vectors = new S3Vectors(config)
   val syncChecker = new SyncChecker(
     s3,
     es,
@@ -86,7 +87,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)
 
   val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
-  val reaperController = new ReaperController(es, store, authorisation, config, actorSystem.scheduler, maybeCustomReapableEligibility, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents)
+  val reaperController = new ReaperController(es, store, s3Vectors, authorisation, config, actorSystem.scheduler, maybeCustomReapableEligibility, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 

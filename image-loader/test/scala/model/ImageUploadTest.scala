@@ -58,14 +58,13 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
-    val mockPutVectorsResponse = mock[PutVectorsResponse]
     def mockVectorStore = (fileType: MimeType, imagePath: Path, imageId: String) =>
-      Future.successful(Some(mockPutVectorsResponse))
+      Future.successful(())
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
-    def createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]] = mockVectorStore
+    def createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit] = mockVectorStore
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
