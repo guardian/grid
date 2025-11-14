@@ -211,7 +211,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.loading = true;
 
         ctrl.revealNewImages = revealNewImages;
-        ctrl.applyOrgOwnedFilter = applyOrgOwnedFilter;
+        ctrl.applyFilter = applyFilter;
 
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
@@ -232,7 +232,9 @@ results.controller('SearchResultsCtrl', [
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
             // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-            ctrl.orgOwnedCount = images.$response?.$$state?.value?.actions;
+            ctrl.tickerCounts = Object.entries(
+              images.$response?.$$state?.value?.actions?.tickerCounts
+            ).map(([name, extraCount]) => ({ name, ...extraCount }));
 
             ctrl.hasQuery = !!$stateParams.query;
             ctrl.initialSearchUri = images.uri;
@@ -389,7 +391,7 @@ results.controller('SearchResultsCtrl', [
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
                     // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-                    ctrl.newOrgOwnedCount = resp.$response?.$$state?.value?.actions;
+                    ctrl.newTickerCounts = resp.$response?.$$state?.value?.actions?.tickerCounts;
 
                     if (ctrl.newImagesCount > 0) {
                         $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
@@ -416,16 +418,15 @@ results.controller('SearchResultsCtrl', [
         }
 
         ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-        const isOrgOwnedClause = `is:${ctrl.maybeOrgOwnedValue}`;
-        function applyOrgOwnedFilter() {
+        function applyFilter(searchClause) {
           $window.scrollTo(0,0);
-          const toParams = $stateParams.query?.includes(isOrgOwnedClause)
+          const toParams = $stateParams.query?.includes(searchClause)
               ? $stateParams
               : {
                   ...$stateParams,
                   query: $stateParams.query
-                    ? `${$stateParams.query} ${isOrgOwnedClause}`
-                    : isOrgOwnedClause
+                    ? `${$stateParams.query} ${searchClause}`
+                    : searchClause
               };
           $state.transitionTo(
             $state.current,

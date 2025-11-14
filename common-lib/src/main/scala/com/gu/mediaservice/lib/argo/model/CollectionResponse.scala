@@ -7,6 +7,21 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.lib.argo.WriteHelpers
 
+case class ExtraCountConfig(
+  searchClause: String,
+  backgroundColour: String,
+)
+
+case class ExtraCount(
+  value: Long,
+  searchClause: String,
+  backgroundColour: String,
+  subCounts: Option[Map[String, ExtraCount]] = None
+)
+
+case class ExtraCounts(
+  tickerCounts: Map[String, ExtraCount]
+)
 
 case class CollectionResponse[T](
   uri: Option[URI] = None,
@@ -16,10 +31,13 @@ case class CollectionResponse[T](
   data: Seq[T],
   links: List[Link] = List(),
   // FIXME: the 'theseus' library used on the client mandates a strict set of top level keys, so crow-barring something else into 'actions' here (https://github.com/argo-rest/theseus [last updated 2015] needs to move into grid repo, so we can update it for this use-case and others)
-  actions: Option[Long] = None
+  actions: Option[ExtraCounts] = None
 )
 
 object CollectionResponse extends WriteHelpers {
+
+  implicit val extraCountWrites: Writes[ExtraCount] = Json.writes[ExtraCount]
+  implicit val extraCountsWrites: Writes[ExtraCounts] = Json.writes[ExtraCounts]
 
   implicit def collectionResponseWrites[T: Writes]: Writes[CollectionResponse[T]] = (
     (__ \ "uri").writeNullable[String].contramap((_: Option[URI]).map(_.toString)) ~
@@ -28,7 +46,7 @@ object CollectionResponse extends WriteHelpers {
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
       (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
-      (__ \ "actions").writeNullable[Long]
+      (__ \ "actions").writeNullable[ExtraCounts]
     )(unlift(CollectionResponse.unapply[T]))
 
 }
