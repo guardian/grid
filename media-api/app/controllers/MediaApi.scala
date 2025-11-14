@@ -542,7 +542,7 @@ class MediaApi(
     }
 
     def performSearchAndRespond(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+      SearchResults(hits, totalCount, extraCounts) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
@@ -551,7 +551,7 @@ class MediaApi(
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), extraCounts, links)
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)

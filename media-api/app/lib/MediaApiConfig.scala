@@ -1,11 +1,15 @@
 package lib
 
-import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
+import com.gu.mediaservice.lib.elasticsearch.filters
+import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
+import com.sksamuel.elastic4s.ElasticDsl.matchQuery
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.matches.MatchQuery
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
-import java.security.PrivateKey
+import scala.collection.immutable
 import scala.util.Try
 
 case class StoreConfig(
@@ -70,4 +74,11 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val restrictDownload: Boolean = boolean("restrictDownload")
 
+  val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
+    filters.or(
+      ingredients.flatMap {
+        case (field, values) => values.map(matchPhraseQuery(field, _))
+      }.toList: _*
+    )
+  }
 }
