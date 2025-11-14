@@ -1,7 +1,7 @@
 <input data-cy="image-search-input"
        type="text"
        autocomplete="off"
-       placeholder="Search for images... (type + for advanced search)"
+       placeholder="{{$grTextChipCtrl.getPlaceholder()}}"
        ng-trim="false"
        gr-chip-input
        gr-chip-input-backspace-at-start="$grTextChipCtrl.removePrevious()"

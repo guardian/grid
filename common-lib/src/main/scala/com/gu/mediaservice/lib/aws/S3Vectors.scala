@@ -1,10 +1,9 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
-
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
+import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, QueryVectorsRequest, QueryVectorsResponse, VectorData}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,11 +25,15 @@ class S3Vectors(config: CommonConfig)
       .build()
   }
 
-  private def createRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
-    val vectorData: VectorData = VectorData
+  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
+    VectorData
       .builder()
       .float32(embedding.map(float2Float).asJava)
       .build()
+  }
+
+  private def createPutRequestBody(embedding: List[Float], imageId: String): PutVectorsRequest = {
+    val vectorData: VectorData = convertEmbeddingToVectorData(embedding)
 
     val inputVector: PutInputVector = PutInputVector
       .builder()
@@ -48,10 +51,24 @@ class S3Vectors(config: CommonConfig)
     request
   }
 
+  private def createQueryRequestBody(embedding: List[Float]): QueryVectorsRequest = {
+    val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
+
+    val request: QueryVectorsRequest = QueryVectorsRequest
+      .builder()
+      .indexName("cohere-embed-english-v3")
+      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
+      .topK(30)
+      .queryVector(queryVector)
+      .build()
+
+    request
+  }
+
   def storeEmbeddingInS3VectorStore(bedrockEmbedding: List[Float], imageId: String)(implicit logMarker: LogMarker
   ): PutVectorsResponse = {
     try {
-      val request = createRequestBody(bedrockEmbedding, imageId)
+      val request = createPutRequestBody(bedrockEmbedding, imageId)
       val response = client.putVectors(request)
       logger.info(
         logMarker,
@@ -63,6 +80,26 @@ class S3Vectors(config: CommonConfig)
     case e: Exception =>
       logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId: ", e)
       throw e
+    }
+  }
+
+  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker
+  ): QueryVectorsResponse = {
+    logger.info(logMarker, s"Searching for image embedding")
+    try {
+      val request = createQueryRequestBody(queryEmbedding)
+      val response = client.queryVectors(request)
+      logger.info(
+        logMarker,
+        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      logger.info(logMarker, s"${response}")
+      response
+    }
+    catch {
+      case e: Exception =>
+        logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
+        throw e
     }
   }
 

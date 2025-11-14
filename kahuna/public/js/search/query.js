@@ -26,6 +26,7 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
+import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -57,7 +58,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
@@ -78,6 +78,10 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
+
+    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    manageInitialiseAISearch();
+    ctrl.useAISearch = $stateParams.useAISearch;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -112,6 +116,13 @@ query.controller('SearchQueryCtrl', [
           bubbles: true
         });
         window.dispatchEvent(customEvent);
+      }
+    }
+
+    // When a user flips the feature switch and reloads the page we need to remove the URL parameter
+    function manageInitialiseAISearch() {
+      if (!ctrl.shouldDisplayAISearchOption) {
+        $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
       }
     }
 
@@ -312,7 +323,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: ctrl.filter.query,
+      query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
@@ -377,10 +388,11 @@ query.controller('SearchQueryCtrl', [
         'dateField', 'since', 'until', 'takenSince', 'takenUntil',
         'modifiedSince', 'modifiedUntil'
     ];
+    const specialParams = [...dateFilterParams, 'useAISearch'];
 
     Object.keys($stateParams).
-        // Exclude date-related filters, managed separately in dateFilter
-        filter(key => dateFilterParams.indexOf(key) === -1).
+        // Exclude date-related filters and other special params managed separately
+        filter(key => specialParams.indexOf(key) === -1).
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -439,7 +451,10 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: newVal}});
+        $state.go('search.results', {...ctrl.filter, orderBy: newVal});
+    }));
+    $scope.$watch(() => ctrl.useAISearch, onValChange(newVal => {
+        $state.go('search.results', {...ctrl.filter,  useAISearch: newVal ? true : undefined});
     }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {

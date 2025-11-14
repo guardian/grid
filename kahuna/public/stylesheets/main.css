@@ -1028,6 +1028,10 @@ textarea.ng-invalid {
     cursor: pointer;
 }
 
+#ai-search-checkbox {
+    align-self: center;
+}
+
 .search__advanced-toggle-lbl {
   margin-right: 6px;
 }

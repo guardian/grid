@@ -1,11 +1,12 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import software.amazon.awssdk.services.s3vectors.model.{PutVectorsResponse, QueryVectorsResponse, VectorData}
 
 import java.nio.file.{Files, Path}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.SeqHasAsJava
 
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
@@ -41,4 +42,13 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock) extends GridLogging {
       }
     }
   }
+
+  def createEmbeddingAndSearch(query: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {
+    logger.info(logMarker, s"Searching for image embedding for $query")
+    val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
+    embeddingFuture.map { embedding =>
+      s3vectors.searchVectorStore(embedding, query)
+    }
+  }
+
 }
