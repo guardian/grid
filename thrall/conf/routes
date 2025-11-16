@@ -3,6 +3,7 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
++nocsrf
 GET     /upsertProject                                controllers.ThrallController.upsertProjectPage(imageId: Option[String])
 GET     /restoreFromReplica                           controllers.ThrallController.restoreFromReplica
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
