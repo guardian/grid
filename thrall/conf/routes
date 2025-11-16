@@ -18,6 +18,7 @@ POST    /pauseMigration                               controllers.ThrallControll
 POST    /resumeMigration                              controllers.ThrallController.resumeMigration
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
++nocsrf
 POST    /upsertProject                                controllers.ThrallController.upsertFromProjectionSingleImage
 +nocsrf
 POST    /completeMigration                            controllers.ThrallController.completeMigration()
