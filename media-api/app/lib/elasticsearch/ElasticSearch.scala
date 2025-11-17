@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
@@ -38,7 +39,23 @@ class ElasticSearch(
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
-  private val orgOwnedAggName = "org-owned"
+
+
+  private val aggregationsNameToSearchClauseMap = Map.empty ++ (
+    if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+      Map(s"${config.staffPhotographerOrganisation}-owned" -> ExtraCountConfig(
+        searchClause = s"is:${config.staffPhotographerOrganisation}-owned",
+        backgroundColour = "#005689"
+      ))
+    else
+      Nil
+    ) ++ Map(
+    "agency picks" -> ExtraCountConfig(
+      searchClause = "is:agency-pick",
+      backgroundColour = "#970201",
+      subCountsNameToQuery = Some(config.agencyPickQueries)
+    )
+  )
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -118,7 +135,7 @@ class ElasticSearch(
     )
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
+  def search(params: SearchParams)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
 
     val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
@@ -254,10 +271,14 @@ class ElasticSearch(
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
-      .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
-        orgOwnedAggName,
-        queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
-      )) else Nil)
+      .aggregations(aggregationsNameToSearchClauseMap.flatMap {
+        case (name, ExtraCountConfig(searchClause, _, maybeSubCountNamesToSearchClauses)) =>
+          maybeSubCountNamesToSearchClauses.fold(
+            Iterable(filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))))
+          )(_.map {
+            case (subCountName, subCountQuery) => filterAgg(s"$name::$subCountName", subCountQuery)
+          })
+      })
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -271,11 +292,21 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        maybeOrgOwnedCount =
-          if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
-            Some(r.result.aggregations.filter(orgOwnedAggName).docCount)
-          else
-            None
+        extraCounts = ExtraCounts(
+          tickerCounts = aggregationsNameToSearchClauseMap.map {
+            case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubCountNamesToSearchClauses)) =>
+              val maybeSubCounts = maybeSubCountNamesToSearchClauses.map(_.map {
+                case (subCountName, _) =>
+                  subCountName -> r.result.aggregations.filter(s"$name::$subCountName").docCount
+              })
+              name -> ExtraCount(
+                value = maybeSubCounts.fold(r.result.aggregations.filter(name).docCount)(_.values.sum),
+                searchClause,
+                backgroundColour,
+                subCounts = maybeSubCounts
+              )
+          }
+        )
       )
     }
   }

@@ -1508,9 +1508,8 @@ textarea.ng-invalid {
     margin-left: 5px;
 }
 
-.image-results-count__org-owned {
+.image-results-ticker {
     font-family: inherit;
-    background-color: #005689;
     color: white;
     display: inline-block;
     padding: 2px 4px;

@@ -31,13 +31,18 @@
                         gr-tooltip-updates>
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
-                <button ng-if="ctrl.orgOwnedCount !== undefined && ctrl.orgOwnedCount !== ctrl.totalResults && (ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0))"
-                        ng-click="ctrl.applyOrgOwnedFilter()"
-                        class="image-results-count__org-owned"
+                <button ng-repeat="tickerCount in ctrl.tickerCounts"
+                        ng-if="tickerCount.value !== ctrl.totalResults && (tickerCount + (ctrl.newTickerCounts[tickerCount.name].value || 0))"
+                        ng-click="ctrl.applyFilter(tickerCount.searchClause)"
+                        class="image-results-ticker"
+                        style="background-color: {{tickerCount.backgroundColour}}; text-align: left"
                         gr-tooltip="last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}"
+                        gr-tooltip-html
                         gr-tooltip-position="bottom"
                         gr-tooltip-updates>
-                    {{(ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)) | toLocaleString}} {{ctrl.maybeOrgOwnedValue}}
+                    {{(tickerCount.value + (ctrl.newTickerCounts[tickerCount.name].value || 0)) | toLocaleString}} {{tickerCount.name}}
+                    <div ng-if="tickerCount.tooltipSuffix" class="titip-content" style="z-index: 99999">last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}
+                        {{tickerCount.tooltipSuffix}}</div>
                 </button>
             </div>
 
