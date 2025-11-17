@@ -81,7 +81,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
     manageInitialiseAISearch();
-    ctrl.useAISearch = $stateParams.useAISearch;
+    ctrl.useAISearch = $stateParams.useAISearch === 'true' || $stateParams.useAISearch === true;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
