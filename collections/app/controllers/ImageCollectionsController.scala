@@ -12,12 +12,14 @@ import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
+import store.ImageCollectionsStore
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
 class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
+                                 imageCollectionsStore: ImageCollectionsStore,
                                  override val controllerComponents: ControllerComponents)
   extends BaseController with MessageSubjects with ArgoHelpers {
 
@@ -26,7 +28,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   val dynamo = new DynamoDB[Collection](config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
-    dynamo.listGet(id, "collections").map { collections =>
+    imageCollectionsStore.get(id).map { collections =>
       respond(onlyLatest(collections))
     } recover {
       case NoItemFound => respondNotFound("No collections found")
@@ -36,7 +38,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
       val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
-      dynamo.listAdd(id, "collections", collection)
+        imageCollectionsStore.add(id, collection)
         .map(publish(id))
         .map(cols => respond(collection))
     } getOrElse Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
@@ -48,13 +50,14 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
     // Dynamo Lists, like other lists do respect order.
-    dynamo.listGet(id, "collections") flatMap { collections =>
+    imageCollectionsStore.get(id) flatMap { collections =>
       CollectionsManager.findIndexes(path, collections) match {
         case Nil =>
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
         case indexes =>
-          dynamo.listRemoveIndexes(id, "collections", indexes)
-            .map(publish(id))
+          val updatedCollections = CollectionsManager.filterCollectionsByIndexes(indexes, collections)
+          imageCollectionsStore.update(id, updatedCollections)
+            .map(cols => publish(id)(cols))
             .map(cols => respond(cols))
       }
     } recover {
