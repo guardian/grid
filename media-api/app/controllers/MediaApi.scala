@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -26,9 +26,11 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.util.Try
 
 class MediaApi(
@@ -42,7 +44,8 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
-                authorisation: Authorisation
+                authorisation: Authorisation,
+                embedder: Embedder,
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
@@ -536,7 +539,7 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
-    def respondSuccess(searchParams: SearchParams) = for {
+    def performSearchAndRespond(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
@@ -551,15 +554,55 @@ class MediaApi(
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
-    val searchParams = if(canViewDeletedImages) _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user))) else _searchParams
 
-    SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        errors.map(_.message).mkString(", "))
-      ),
-      params => respondSuccess(params)
-    )
+    val searchForSimilar = _searchParams.query.flatMap(_.split(" ").find(_.startsWith("similar:")))
+
+    if (searchForSimilar.isDefined) {
+      val extractedImageId = searchForSimilar.get.split(":")(1)
+
+      val semanticSearchResult: Option[QueryVectorsResponse] = embedder.imageToImageSearch(extractedImageId)
+
+      semanticSearchResult match {
+        case None =>
+          //          What behaviour do we want in this case?
+          logger.info(logMarker, "No result found")
+          Future.successful(respondError(NotFound, "Not Found",
+            "The image you have selected is not yet in the S3 Vector Store. We cannot do a similarity search on it yet."))
+        case Some(results) =>
+          val ids = results.vectors().asScala.map(_.key()).toList
+          SearchParams(
+            query = Some(""),
+            ids = Some(ids),
+            offset = _searchParams.offset,
+            length = _searchParams.length,
+            tier = request.user.accessor.tier
+          )
+
+          for {
+            SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+            imageEntities = hits map (hitToImageEntity _).tupled
+            links = List()
+          } yield {
+            respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+          }
+      }
+    } else {
+
+      val searchParams = if(canViewDeletedImages) {
+        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+      }
+      else {
+        _searchParams
+      }
+
+      SearchParams.validate(searchParams).fold(
+        // TODO: respondErrorCollection?
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          errors.map(_.message).mkString(", "))
+        ),
+        params => performSearchAndRespond(params)
+      )
+    }
   }
 
   private def getImageResponseFromES(
