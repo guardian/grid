@@ -17,6 +17,11 @@ trait Edit extends MessageSubjects {
     notifications.publish(updateMessage)
     edits
   }
+  def publishV2(id: String, subject: String)(edits: Edits): Edits = {
+    val updateMessage = UpdateMessage(subject = subject, id = Some(id), edits = Some(edits))
+    notifications.publish(updateMessage)
+    edits
+  }
 
 }
 

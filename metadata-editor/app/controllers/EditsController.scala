@@ -73,25 +73,23 @@ class EditsController(
   // TODO: Think about calling this `overrides` or something that isn't metadata
   def getAllMetadata(id: String) = auth.async {
     val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
-    editsStore.get(id) map { dynamoEntry =>
-      dynamoEntry.asOpt[Edits]
+    editsStore.getV2(id) map { record =>
+      record
         .map(respond(_)(editsEntity(id)))
         .getOrElse(emptyResponse)
-    } recover { case NoItemFound => emptyResponse }
+    }
   }
 
   def getEdits(id: String) = auth.async {
-    editsStore.get(id) map { dynamoEntry =>
-      val edits = dynamoEntry.asOpt[Edits]
-      respond(data = edits)
-    } recover { case NoItemFound => NotFound }
+    editsStore.getV2(id) map { record =>
+      record.map(r => respond(data = r))
+        .getOrElse(NotFound)
+    }
   }
 
   def getArchived(id: String) = auth.async {
-    editsStore.booleanGet(id, Edits.Archived) map { archived =>
-      respond(archived.getOrElse(false))
-    } recover {
-      case NoItemFound => respond(false)
+    editsStore.getV2(id) map { record =>
+      respond(record.exists(_.archived))
     }
   }
 
@@ -114,11 +112,13 @@ class EditsController(
 
 
   def getLabels(id: String) = auth.async {
-    editsStore.setGet(id, Edits.Labels)
-      .map(labelsCollection(id, _))
-      .map {case (uri, labels) => respondCollection(labels)} recover {
-      case NoItemFound => respond(Array[String]())
-    }
+    editsStore.getV2(id)
+      .map(record =>
+        record.fold(respond(Array[String]())){ e =>
+          val (_, labels) = labelsCollection(id, e.labels.toSet)
+          respondCollection(labels)
+        }
+      )
   }
 
   def addLabels(id: String) = auth.async(parse.json) { req =>
@@ -131,8 +131,8 @@ class EditsController(
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
-            case _: AmazonServiceException => BadRequest
-          }
+          case _: AmazonServiceException => BadRequest
+        }
     )
   }
 
@@ -145,11 +145,12 @@ class EditsController(
 
 
   def getMetadata(id: String) = auth.async {
-    editsStore.jsonGet(id, Edits.Metadata).map { dynamoEntry =>
-      val metadata = (dynamoEntry \ Edits.Metadata).as[ImageMetadata]
-      respond(metadata)
-    } recover {
-      case NoItemFound => respond(Json.toJson(JsObject(Nil)))
+    editsStore.getV2(id).map { recordOpt =>
+      recordOpt.fold(
+        respond(Json.toJson(JsObject(Nil)))
+      )(record => {
+        respond(record.metadata)
+      })
     }
   }
 
@@ -176,41 +177,40 @@ class EditsController(
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
-    editsStore.get(id) flatMap { dynamoEntry =>
-      gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
-        val edits = dynamoEntry.as[Edits]
-        val originalUserMetadata = edits.metadata
-        val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
-        val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, imageMetadata, staffPhotographerPublications))
+    editsStore.getV2(id) flatMap { dynamoEntry =>
+      dynamoEntry.fold(
+        Future.successful(respondError(NotFound, "item-not-found", "Could not find image"))
+      )(edits => {
+        gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
+          val originalUserMetadata = edits.metadata
+          val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
+          val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, imageMetadata, staffPhotographerPublications))
 
-        metadataOpt map { metadata =>
-          val mergedMetadata = originalUserMetadata.copy(
-            byline = metadata.byline orElse originalUserMetadata.byline,
-            credit = metadata.credit orElse originalUserMetadata.credit,
-            copyright = metadata.copyright orElse originalUserMetadata.copyright,
-            imageType = metadata.imageType orElse originalUserMetadata.imageType
-          )
+          metadataOpt map { metadata =>
+            val mergedMetadata = originalUserMetadata.copy(
+              byline = metadata.byline orElse originalUserMetadata.byline,
+              credit = metadata.credit orElse originalUserMetadata.credit,
+              copyright = metadata.copyright orElse originalUserMetadata.copyright,
+              imageType = metadata.imageType orElse originalUserMetadata.imageType
+            )
 
-          editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
-            .map(publish(id, UpdateImageUserMetadata))
-            .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
-        } getOrElse {
-          // just return the unmodified
-          Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+            editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
+              .map(publish(id, UpdateImageUserMetadata))
+              .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+          } getOrElse {
+            // just return the unmodified
+            Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+          }
         }
-      }
-    } recover {
-      case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
-    }
-  }
+    })
+  }}
 
   def getUsageRights(id: String) = auth.async {
-    editsStore.jsonGet(id, Edits.UsageRights).map { dynamoEntry =>
-      val usageRights = (dynamoEntry \ Edits.UsageRights).as[UsageRights]
-      respond(usageRights)
-    } recover {
-      case NoItemFound => respondNotFound("No usage rights overrides found")
-    }
+    editsStore.getV2(id).map(_.fold(
+        respondNotFound("No usage rights overrides found")
+    )(edits => {
+        respond(edits.usageRights)
+    }))
   }
 
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
@@ -225,12 +225,12 @@ class EditsController(
     editsStore.removeKey(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
-  def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
-    (labelsUri(id), labels.map(setUnitEntity(id, Edits.Labels, _)).toSeq)
-
   def metadataAsMap(metadata: ImageMetadata) = {
     (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
   }
+
+  def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
+    (labelsUri(id), labels.map(setUnitEntity(id, Edits.Labels, _)).toSeq)
 
 }
 
