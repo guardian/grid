@@ -35,11 +35,14 @@
                         ng-if="tickerCount.value !== ctrl.totalResults && (tickerCount + (ctrl.newTickerCounts[tickerCount.name].value || 0))"
                         ng-click="ctrl.applyFilter(tickerCount.searchClause)"
                         class="image-results-ticker"
-                        style="background-color: {{tickerCount.backgroundColour}}"
+                        style="background-color: {{tickerCount.backgroundColour}}; text-align: left"
                         gr-tooltip="last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}"
+                        gr-tooltip-html
                         gr-tooltip-position="bottom"
                         gr-tooltip-updates>
                     {{(tickerCount.value + (ctrl.newTickerCounts[tickerCount.name].value || 0)) | toLocaleString}} {{tickerCount.name}}
+                    <div ng-if="tickerCount.tooltipSuffix" class="titip-content" style="z-index: 99999">last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}
+                        {{tickerCount.tooltipSuffix}}</div>
                 </button>
             </div>
 

@@ -39,6 +39,8 @@ class ElasticSearch(
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
+
+
   private val aggregationsNameToSearchClauseMap = Map.empty ++ (
     if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
       Map(s"${config.staffPhotographerOrganisation}-owned" -> ExtraCountConfig(
@@ -47,7 +49,13 @@ class ElasticSearch(
       ))
     else
       Nil
-    ) // TODO add agency picks here (hopefully derived from config - see aliases mechanism)
+    ) ++ Map(
+    "agency picks" -> ExtraCountConfig(
+      searchClause = "is:agency-pick",
+      backgroundColour = "#970201",
+      subCountsNameToQuery = Some(config.agencyPickQueries)
+    )
+  )
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -263,9 +271,13 @@ class ElasticSearch(
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
-      .aggregations(aggregationsNameToSearchClauseMap.map{
-        case (name, ExtraCountConfig(searchClause, _)) =>
-          filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause)))
+      .aggregations(aggregationsNameToSearchClauseMap.flatMap {
+        case (name, ExtraCountConfig(searchClause, _, maybeSubCountNamesToSearchClauses)) =>
+          maybeSubCountNamesToSearchClauses.fold(
+            Iterable(filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))))
+          )(_.map {
+            case (subCountName, subCountQuery) => filterAgg(s"$name::$subCountName", subCountQuery)
+          })
       })
       .from(params.offset)
       .size(params.length)
@@ -282,11 +294,16 @@ class ElasticSearch(
         total = if (trackTotalHits) r.result.totalHits else 0,
         extraCounts = ExtraCounts(
           tickerCounts = aggregationsNameToSearchClauseMap.map {
-            case (name, ExtraCountConfig(searchClause, backgroundColour)) =>
+            case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubCountNamesToSearchClauses)) =>
+              val maybeSubCounts = maybeSubCountNamesToSearchClauses.map(_.map {
+                case (subCountName, _) =>
+                  subCountName -> r.result.aggregations.filter(s"$name::$subCountName").docCount
+              })
               name -> ExtraCount(
-                value = r.result.aggregations.filter(name).docCount,
+                value = maybeSubCounts.fold(r.result.aggregations.filter(name).docCount)(_.values.sum),
                 searchClause,
-                backgroundColour
+                backgroundColour,
+                subCounts = maybeSubCounts
               )
           }
         )

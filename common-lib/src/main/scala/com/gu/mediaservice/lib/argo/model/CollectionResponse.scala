@@ -1,22 +1,22 @@
 package com.gu.mediaservice.lib.argo.model
 
 import java.net.URI
-
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-
 import com.gu.mediaservice.lib.argo.WriteHelpers
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 
 case class ExtraCountConfig(
   searchClause: String,
   backgroundColour: String,
+  subCountsNameToQuery: Option[Map[String, Query]] = None
 )
 
 case class ExtraCount(
   value: Long,
   searchClause: String,
   backgroundColour: String,
-  subCounts: Option[Map[String, ExtraCount]] = None
+  subCounts: Option[Map[String, Long]] = None
 )
 
 case class ExtraCounts(

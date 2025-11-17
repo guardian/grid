@@ -2,6 +2,9 @@ package lib
 
 import com.amazonaws.services.cloudfront.util.SignerUtils
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
+import com.gu.mediaservice.lib.elasticsearch.filters
+import com.sksamuel.elastic4s.ElasticDsl.{matchPhraseQuery, matchQuery}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
@@ -69,5 +72,59 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
 
   val restrictDownload: Boolean = boolean("restrictDownload")
+
+
+  private case class AgencyPickIngredient(
+    credit: NonEmptyList[String],
+    description: List[String] = Nil,
+    keywords: List[String] = Nil
+  )
+
+  // TODO move to actual config
+  private val agencyPicksIngredients: Map[String, AgencyPickIngredient] = Map(
+    "Getty" -> AgencyPickIngredient(
+      credit = NonEmptyList("Getty Images"),
+      description = List("topshot", "topshots", "bestpix")
+    ),
+    "PA"    -> AgencyPickIngredient(
+      credit = NonEmptyList("PA"),
+      description = List("PABest")
+    ),
+    "Reuters" -> AgencyPickIngredient(
+      credit = NonEmptyList("Reuters"),
+      description = List("TPX IMAGES OF THE DAY")
+    ),
+    "EPA"   -> AgencyPickIngredient(
+      credit = NonEmptyList("EPA"),
+      description = List("epaselect"),
+      keywords = List("epaselect")
+    ),
+    "AP" -> AgencyPickIngredient(
+      credit = NonEmptyList("AP"),
+      description = List("APTOPIX"),
+      keywords = List("aptopix", "APTOPIX")
+    ),
+    "Rex/Shutterstock" -> AgencyPickIngredient(
+      credit = NonEmptyList("Rex Features", "Shutterstock"),
+      keywords = List("SPOTLIGHT", "spotlight", "Spotlight")
+    )
+  )
+
+  val agencyPickQueries: Map[String, Query] = agencyPicksIngredients.map {
+    case (name, ingredient) =>
+      val creditQueries = ingredient.credit.map(matchPhraseQuery("metadata.credit", _))
+      val innerQueries = ingredient.description.map(matchQuery("metadata.description", _)) ++
+        ingredient.keywords.map(matchQuery("metadata.keywords", _))
+
+
+
+      name -> filters.or(
+        creditQueries.list.toList.map(creditQuery => filters.and(
+          creditQuery,
+          filters.or(
+            innerQueries:_*
+          )
+        )):_*)
+  }
 
 }

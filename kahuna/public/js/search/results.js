@@ -234,7 +234,12 @@ results.controller('SearchResultsCtrl', [
             // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
             ctrl.tickerCounts = Object.entries(
               images.$response?.$$state?.value?.actions?.tickerCounts
-            ).map(([name, extraCount]) => ({ name, ...extraCount }));
+            ).map(([name, extraCount]) => ({
+              name,
+              ...extraCount,
+              tooltipSuffix: extraCount.subCounts && "\n" + Object.entries(extraCount.subCounts).map(
+                ([subCountName, subCount]) => `• ${subCountName}: ${subCount.toLocaleString()}`).join("\n")
+            }));
 
             ctrl.hasQuery = !!$stateParams.query;
             ctrl.initialSearchUri = images.uri;
