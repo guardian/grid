@@ -388,11 +388,9 @@ query.controller('SearchQueryCtrl', [
         'dateField', 'since', 'until', 'takenSince', 'takenUntil',
         'modifiedSince', 'modifiedUntil'
     ];
-    const specialParams = [...dateFilterParams, 'useAISearch'];
-
     Object.keys($stateParams).
-        // Exclude date-related filters and other special params managed separately
-        filter(key => specialParams.indexOf(key) === -1).
+        // Exclude date-related filters, managed separately in dateFilter
+        filter(key => dateFilterParams.indexOf(key) === -1).
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -403,7 +401,7 @@ query.controller('SearchQueryCtrl', [
     function setAndWatchParam(key) {
         //this value has been set on ctrl.order
         if (key !== 'orderBy') {
-            ctrl.filter[key] = valOrUndefined($stateParams[key]);
+          ctrl.filter[key] = valOrUndefined($stateParams[key]);
         }
 
         ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
@@ -453,9 +451,30 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
-    $scope.$watch(() => ctrl.useAISearch, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter,  useAISearch: newVal ? true : undefined});
-    }));
+    $scope.$watch(() => ctrl.useAISearch, () => {
+      switch (ctrl.useAISearch) {
+        case true:
+          // Clear filter parameters when AI Search is enabled
+          ctrl.filter.nonFree = undefined;
+          ctrl.filter.uploadedBy = undefined;
+          ctrl.filter.uploadedByMe = false;
+          ctrl.filter.orgOwned = false;
+          ctrl.filterMyUploads = false;
+
+          $state.go('search.results', {
+            ...ctrl.filter,
+            useAISearch: true,
+            nonFree: undefined,
+            uploadedBy: undefined,
+            uploadedByMe: undefined
+          });
+
+          break;
+        case false:
+          $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
+          break;
+      }
+    });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params
