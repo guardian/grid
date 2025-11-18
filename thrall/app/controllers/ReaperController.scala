@@ -142,7 +142,7 @@ class ReaperController(
           "ES" -> wasSoftDeletedInES,
           "s3Vectors" -> s3VectorsDeletions.get(id).map(_.toString)
         )
-        logger.info(s"[debug] Soft deleted image $id : ${Json.stringify(detail)}")
+        logger.info(s"Soft deleted image $id : ${Json.stringify(detail)}")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))

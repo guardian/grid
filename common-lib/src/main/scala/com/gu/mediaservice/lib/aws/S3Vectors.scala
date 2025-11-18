@@ -37,13 +37,14 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   private val vectorBucketName: String = s"image-embeddings-${config.stage.toLowerCase}"
   private val indexName: String = "cohere-embed-english-v3"
 
-  private def getVectors(keys: Set[String], phase: String)(implicit logMarker: LogMarker): List[GetOutputVector] = {
-    val startTime = System.currentTimeMillis()
+  private def getVectors(keys: Set[String], returnData: Boolean, returnMetadata: Boolean): List[GetOutputVector] =
     // GetVectors has a max of 100
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_GetVectors.html
-    val result = keys.grouped(100).flatMap { batch =>
+    keys.grouped(100).flatMap { batch =>
       val request = GetVectorsRequest.builder()
         .indexName(indexName)
+        .returnData(returnData)
+        .returnMetadata(returnMetadata)
         .vectorBucketName(vectorBucketName)
         .keys(batch.asJavaCollection)
         .build()
@@ -51,23 +52,15 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       val response = client.getVectors(request)
       response.vectors().asScala.toList
     }.toList
-    val duration = System.currentTimeMillis() - startTime
-    logger.info(logMarker, s"[debug] getVectors ($phase) for ${keys.size} keys returned ${result.size} vectors [took ${duration}ms]")
-    result
-  }
 
-  private def deleteVectors(keys: Set[String])(implicit logMarker: LogMarker) = {
-    val startTime = System.currentTimeMillis()
+  private def deleteVectors(keys: Set[String]) = {
     val request = DeleteVectorsRequest.builder()
       .indexName(indexName)
       .vectorBucketName(vectorBucketName)
       .keys(keys.asJavaCollection)
       .build()
 
-    val response = client.deleteVectors(request)
-    val duration = System.currentTimeMillis() - startTime
-    logger.info(logMarker, s"[debug] deleteVectors for ${keys.size} keys took ${duration}ms")
-    response
+    client.deleteVectors(request)
   }
 
   private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
@@ -107,31 +100,29 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   }
 
   def deleteEmbeddings(imageIds: Set[String])(implicit logMarker: LogMarker): Future[Map[String, DeletionStatus.Value]] = Future {
-    val overallStartTime = System.currentTimeMillis()
+    val startTime = System.currentTimeMillis()
     // We can only delete 500 keys at once
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
     val batches = imageIds.grouped(500).toList
     val result = batches.zipWithIndex.flatMap { case (batch, i) =>
-      val batchStartTime = System.currentTimeMillis()
       val batchLogging = s"batch ${i+1} of ${batches.length}"
       try {
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
         // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
-        val vectorsBefore = getVectors(batch, "before").map(_.key).toSet
+        val vectorsBefore = getVectors(batch, returnData = false, returnMetadata = false).map(_.key).toSet
 
-        val batchResult = if (vectorsBefore.isEmpty) {
-          logger.info(logMarker, s"[debug] 0 vectors to delete from batch of ${batch.size} ($batchLogging)")
+        logger.info(logMarker, s"${vectorsBefore.size} vectors to delete from batch of ${batch.size} ($batchLogging)")
+        if (vectorsBefore.isEmpty) {
           batch.map(key => key -> DeletionStatus.notFound)
         } else {
-          logger.info(logMarker, s"[debug] Deleting ${vectorsBefore.size} vectors from batch of ${batch.size} ($batchLogging)")
           deleteVectors(batch)
 
-          val vectorsAfter = getVectors(batch, "after").map(_.key).toSet
+          val vectorsAfter = getVectors(batch, returnData = false, returnMetadata = false).map(_.key).toSet
           if (vectorsAfter.nonEmpty) {
-            logger.warn(logMarker, s"[debug] ${vectorsAfter.size} of ${vectorsBefore.size} failed to delete ($batchLogging)")
+            logger.warn(logMarker, s"${vectorsAfter.size} of ${vectorsBefore.size} failed to delete ($batchLogging)")
           }
-          logger.info(logMarker, s"[debug] ${vectorsBefore.size - vectorsAfter.size} vectors deleted from batch of ${batch.size} ($batchLogging)")
+          logger.info(logMarker, s"${vectorsBefore.size - vectorsAfter.size} vectors deleted from batch of ${batch.size} ($batchLogging)")
 
           batch.map(key => key -> {
             if (!vectorsBefore.contains(key)) DeletionStatus.notFound
@@ -139,21 +130,15 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
             else DeletionStatus.deleted
           })
         }
-
-        val batchDuration = System.currentTimeMillis() - batchStartTime
-        val deleted = batchResult.count(_._2 == DeletionStatus.deleted)
-        val notFound = batchResult.count(_._2 == DeletionStatus.notFound)
-        val notDeleted = batchResult.count(_._2 == DeletionStatus.notDeleted)
-        logger.info(logMarker, s"[debug] Batch ${i+1} of ${batches.length} completed [took ${batchDuration}ms]. Batch size: ${batch.size}, deleted: ${deleted}, not found: ${notFound}, not deleted: ${notDeleted}")
-        batchResult
       } catch {
         case e: Exception =>
-          logger.error(logMarker, s"[debug] Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
+          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
           throw e
       }
     }.toMap
-    val overallDuration = System.currentTimeMillis() - overallStartTime
-    logger.info(logMarker, s"[debug] deleteEmbeddings completed for ${imageIds.size} imageIds in ${overallDuration}ms")
+    val duration = System.currentTimeMillis() - startTime
+    val stats = result.values.groupBy(identity).view.mapValues(_.size)
+    logger.info(logMarker, s"deleteEmbeddings took ${duration}ms for ${imageIds.size} images, deleted: ${stats.get(DeletionStatus.deleted)}, not found: ${stats.get(DeletionStatus.notFound)}, not deleted: ${stats.get(DeletionStatus.notDeleted)}")
     result
   }
 }
