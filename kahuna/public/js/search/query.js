@@ -80,8 +80,11 @@ query.controller('SearchQueryCtrl', [
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
-    manageInitialiseAISearch();
-    ctrl.useAISearch = $stateParams.useAISearch === 'true' || $stateParams.useAISearch === true;
+    if (!ctrl.shouldDisplayAISearchOption) {
+      ctrl.useAISearch = false;
+    } else {
+      ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+    }
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -116,13 +119,6 @@ query.controller('SearchQueryCtrl', [
           bubbles: true
         });
         window.dispatchEvent(customEvent);
-      }
-    }
-
-    // When a user flips the feature switch and reloads the page we need to remove the URL parameter
-    function manageInitialiseAISearch() {
-      if (!ctrl.shouldDisplayAISearchOption) {
-        $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
       }
     }
 
@@ -452,27 +448,26 @@ query.controller('SearchQueryCtrl', [
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
     $scope.$watch(() => ctrl.useAISearch, () => {
-      switch (ctrl.useAISearch) {
-        case true:
-          // Clear filter parameters when AI Search is enabled
-          ctrl.filter.nonFree = undefined;
-          ctrl.filter.uploadedBy = undefined;
-          ctrl.filter.uploadedByMe = false;
-          ctrl.filter.orgOwned = false;
-          ctrl.filterMyUploads = false;
-
-          $state.go('search.results', {
-            ...ctrl.filter,
-            useAISearch: true,
-            nonFree: undefined,
-            uploadedBy: undefined,
-            uploadedByMe: undefined
-          });
-
-          break;
-        case false:
+      // TODO question: why does this get triggered after the init run of the controller code?
+      // maybe the answer is here? https://docs.angularjs.org/api/ng/type/$rootScope.Scope#$watch
+      if (ctrl.useAISearch) {
+        // Clear filter parameters when AI Search is enabled
+        // TODO question: do we really want to clear these? what if someone wants to preserve their other filters
+        // when they switch AI on/off?
+        ctrl.filter.nonFree = undefined;
+        ctrl.filter.uploadedBy = undefined;
+        ctrl.filter.uploadedByMe = false;
+        ctrl.filter.orgOwned = false;
+        ctrl.filterMyUploads = false;
+        $state.go('search.results', {
+          ...ctrl.filter,
+          useAISearch: true,
+          nonFree: undefined,
+          uploadedBy: undefined,
+          uploadedByMe: undefined
+        });
+      } else {
           $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
-          break;
       }
     });
 
