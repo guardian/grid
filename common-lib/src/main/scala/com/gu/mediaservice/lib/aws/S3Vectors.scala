@@ -13,7 +13,7 @@ object S3Vectors {
   object DeletionStatus extends Enumeration {
     val deleted: Value = Value("deleted")
     val notFound: Value = Value("not found")
-    val notDeleted: Value = Value("not deleted")
+    val failed: Value = Value("failed to delete")
   }
 }
 
@@ -100,25 +100,35 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   }
 
   def deleteEmbeddings(imageIds: Set[String])(implicit logMarker: LogMarker): Future[Map[String, DeletionStatus.Value]] = Future {
-    val startTime = System.currentTimeMillis()
-    // We can only delete 500 keys at once
-    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
-    val batches = imageIds.grouped(500).toList
-    val result = batches.zipWithIndex.flatMap { case (batch, i) =>
-      val batchLogging = s"batch ${i+1} of ${batches.length}"
-      try {
+    try {
+      val startTime = System.currentTimeMillis()
+      // We can only delete 500 keys at once
+      // https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_DeleteVectors.html
+      val batches = imageIds.grouped(500).toList
+      val result = batches.zipWithIndex.flatMap { case (batch, i) =>
+        val batchLogging = s"batch ${i+1} of ${batches.length}"
+
         // Currently AWS don't provide any information on which deletes succeeded or failed.
         // It returns 200 even if none of the provided keys currently exist.
         // So in order to tell what was actually deleted, we need to make GetVectors requests before & after.
         val vectorsBefore = getVectors(batch, returnData = false, returnMetadata = false).map(_.key).toSet
 
         logger.info(logMarker, s"${vectorsBefore.size} vectors to delete from batch of ${batch.size} ($batchLogging)")
-        if (vectorsBefore.isEmpty) {
-          batch.map(key => key -> DeletionStatus.notFound)
-        } else {
-          deleteVectors(batch)
 
+        if (vectorsBefore.isEmpty) {
+          batch.map(_ -> DeletionStatus.notFound)
+        } else {
+          try {
+            deleteVectors(batch)
+          } catch {
+            // Swallow this error. Because there is a low write throughput across Puts and Deletes
+            // (5 per second), we may get failures here (though hopefully mitigated by the SDK retry logic).
+            // If we recover at this granularity, then we can still try and report exactly
+            // what did and didn't get deleted through the subsequent GetVectors call.
+            case e: Exception => logger.error(logMarker, s"Exception during S3 Vector Store API call to delete batch of ${batch.size} vectors ($batchLogging)", e)
+          }
           val vectorsAfter = getVectors(batch, returnData = false, returnMetadata = false).map(_.key).toSet
+
           if (vectorsAfter.nonEmpty) {
             logger.warn(logMarker, s"${vectorsAfter.size} of ${vectorsBefore.size} failed to delete ($batchLogging)")
           }
@@ -126,19 +136,23 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
 
           batch.map(key => key -> {
             if (!vectorsBefore.contains(key)) DeletionStatus.notFound
-            else if (vectorsAfter.contains(key)) DeletionStatus.notDeleted
+            else if (vectorsAfter.contains(key)) DeletionStatus.failed
             else DeletionStatus.deleted
           })
         }
-      } catch {
-        case e: Exception =>
-          logger.error(logMarker, s"Failed to delete a batch of ${batch.size} vectors ($batchLogging)", e)
-          throw e
-      }
-    }.toMap
-    val duration = System.currentTimeMillis() - startTime
-    val stats = result.values.groupBy(identity).view.mapValues(_.size)
-    logger.info(logMarker, s"deleteEmbeddings took ${duration}ms for ${imageIds.size} images, deleted: ${stats.get(DeletionStatus.deleted)}, not found: ${stats.get(DeletionStatus.notFound)}, not deleted: ${stats.get(DeletionStatus.notDeleted)}")
-    result
+      }.toMap
+
+      val duration = System.currentTimeMillis() - startTime
+      val stats = result.values.groupBy(identity).view.mapValues(_.size)
+      logger.info(logMarker, s"deleteEmbeddings took ${duration}ms for ${imageIds.size} images, deleted: ${stats.get(DeletionStatus.deleted)}, not found: ${stats.get(DeletionStatus.notFound)}, not deleted: ${stats.get(DeletionStatus.failed)}")
+      result
+    } catch {
+      case e: Exception =>
+        // Swallow this error and assume all images failed to delete,
+        // so we don't affect the rest of the reaping process and can still report the results.
+        logger.error("Unexpected exception when deleting embeddings", e)
+        imageIds.map(key => key -> DeletionStatus.failed).toMap
+    }
+
   }
 }
