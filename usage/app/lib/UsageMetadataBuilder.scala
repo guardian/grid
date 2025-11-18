@@ -18,7 +18,8 @@ class UsageMetadataBuilder(config: UsageConfig) {
   def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
     Try {
       DownloadUsageMetadata(
-        metadataMap("downloadedBy").asInstanceOf[String]
+        metadataMap("downloadedBy").asInstanceOf[String],
+        metadataMap("isPrivate").asInstanceOf[Boolean]
       )
     }.toOption
   }

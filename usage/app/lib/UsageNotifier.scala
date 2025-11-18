@@ -31,14 +31,22 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
 
   def send(usageNoticeWithContext: WithLogMarker[UsageNotice]): LogMarker = {
     val usageNotice = usageNoticeWithContext.value
-    logger.info(usageNoticeWithContext.logMarker, s"Sending usage notice for ${usageNotice.mediaId}")
-    publish(
-      UpdateMessage(
-        subject = UpdateImageUsages,
-        id = Some(usageNotice.mediaId),
-        usageNotice = Some(usageNotice)
+    val allPrivateUsages = usageNotice.usageJson.value.forall { jsObj =>
+      (jsObj \ "downloadUsageMetadata" \ "isPrivate").asOpt[Boolean].contains(true)
+    }
+
+    if (allPrivateUsages) {
+      logger.info(usageNoticeWithContext.logMarker, s"Only Private Usages for ${usageNotice.mediaId} - no publish")
+    } else {
+      logger.info(usageNoticeWithContext.logMarker, s"Sending usage notice for ${usageNotice.mediaId}")
+      publish(
+        UpdateMessage(
+          subject = UpdateImageUsages,
+          id = Some(usageNotice.mediaId),
+          usageNotice = Some(usageNotice)
+        )
       )
-    )
+    }
     usageNoticeWithContext.logMarker
   }
 }

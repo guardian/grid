@@ -195,7 +195,8 @@ object MappingTest {
         front = "uk/news"
       )),
       downloadUsageMetadata = Some(DownloadUsageMetadata(
-        downloadedBy = "me"
+        downloadedBy = "me",
+        isPrivate = false
       ))
     )),
     leases = LeasesByMedia.build(List(

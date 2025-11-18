@@ -296,7 +296,8 @@ object Mappings {
   ))
 
   def downloadUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
-    keywordField("downloadedBy")
+    keywordField("downloadedBy"),
+    booleanField("isPrivate")
   ))
 
   def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
