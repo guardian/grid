@@ -294,7 +294,7 @@ class ImageLoaderController(auth: Authentication,
           "requestId" -> RequestLoggingFilter.getRequestId(req)
         )
 
-      val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
+      val uploadStatus = if(config.maybeQuarantineBucket.isDefined) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
       val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
       val result = for {
