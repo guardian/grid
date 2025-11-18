@@ -448,23 +448,12 @@ query.controller('SearchQueryCtrl', [
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
     $scope.$watch(() => ctrl.useAISearch, () => {
-      // TODO question: why does this get triggered after the init run of the controller code?
-      // maybe the answer is here? https://docs.angularjs.org/api/ng/type/$rootScope.Scope#$watch
+      // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle
       if (ctrl.useAISearch) {
-        // Clear filter parameters when AI Search is enabled
-        // TODO question: do we really want to clear these? what if someone wants to preserve their other filters
-        // when they switch AI on/off?
-        ctrl.filter.nonFree = undefined;
-        ctrl.filter.uploadedBy = undefined;
-        ctrl.filter.uploadedByMe = false;
-        ctrl.filter.orgOwned = false;
-        ctrl.filterMyUploads = false;
         $state.go('search.results', {
           ...ctrl.filter,
-          useAISearch: true,
-          nonFree: undefined,
-          uploadedBy: undefined,
-          uploadedByMe: undefined
+          useAISearch: true
         });
       } else {
           $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
