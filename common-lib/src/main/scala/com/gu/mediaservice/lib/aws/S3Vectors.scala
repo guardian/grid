@@ -124,7 +124,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       } catch {
         // Swallow this error. Because there is a low write throughput across Puts and Deletes
         // (5 per second), we may get failures here (though hopefully mitigated by the SDK retry logic).
-        // If we recover at this granularity, then we can still try and report exactly
+        // By recovering at this granularity, we can still try and report exactly
         // what did and didn't get deleted through the subsequent GetVectors call.
         case e: Exception =>
           logger.error(logMarker, s"Exception during S3 Vector Store API call to delete batch of ${batch.size} vectors ($batchCount)", e)
