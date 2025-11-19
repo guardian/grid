@@ -40,9 +40,9 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock)(implicit ec: ExecutionCon
   }
 
   def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = {
-    logger.info(logMarker, s"Searching for image embedding for $query")
+    logger.info(logMarker, s"Searching for image embedding for query: $query")
     val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
-    embeddingFuture.map { embedding =>
+    embeddingFuture.flatMap { embedding =>
       s3vectors.searchVectorStore(embedding, query)
     }
   }

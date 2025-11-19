@@ -109,33 +109,30 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     }
   }
 
-  private def createQueryRequestBody(embedding: List[Float]): QueryVectorsRequest = {
+  private def queryVectors(embedding: List[Float]): QueryVectorsResponse = {
     val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
 
     val request: QueryVectorsRequest = QueryVectorsRequest
       .builder()
-      .indexName("cohere-embed-english-v3")
-      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
+      .indexName(indexName)
+      .vectorBucketName(vectorBucketName)
       .topK(30)
       .queryVector(queryVector)
       .build()
 
-    request
+    client.queryVectors(request)
   }
 
-  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): QueryVectorsResponse = {
-    logger.info(logMarker, s"Searching for image embedding")
+  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
     try {
-      val request = createQueryRequestBody(queryEmbedding)
-      val response = client.queryVectors(request)
+      val response = queryVectors(queryEmbedding)
       logger.info(
         logMarker,
         s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
       )
       logger.info(logMarker, s"${response}")
       response
-    }
-    catch {
+    } catch {
       case e: Exception =>
         logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
         throw e
