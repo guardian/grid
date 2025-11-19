@@ -17,10 +17,9 @@ class UsageMetadataBuilder(config: UsageConfig) {
 
   def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
     Try {
-      DownloadUsageMetadata(
-        metadataMap("downloadedBy").asInstanceOf[String],
-        metadataMap("isPrivate").asInstanceOf[Boolean]
-      )
+      val downloadedBy = metadataMap("downloadedBy").asInstanceOf[String]
+      val isPrivate    = metadataMap.get("isPrivate").map(_.asInstanceOf[Boolean]).getOrElse(false)
+      DownloadUsageMetadata(downloadedBy, isPrivate)
     }.toOption
   }
 
