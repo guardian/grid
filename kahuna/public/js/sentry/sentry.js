@@ -76,7 +76,9 @@ sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
     if (sentryEnabled) {
       Sentry.init({dsn: sentryDsn,
         integrations: [
-          new CaptureConsole({})
+          new CaptureConsole({
+            levels: ['warn', 'error']
+          })
         ]});
       // Ensures user data is blank
       Sentry.setContext('session_id', window._clientConfig.sessionId);
