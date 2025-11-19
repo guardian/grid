@@ -4,6 +4,7 @@ import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
+import com.gu.mediaservice.lib.aws.S3Vectors
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
@@ -25,6 +26,7 @@ import scala.util.{Failure, Success}
 class ReaperController(
   es: ElasticSearch,
   store: ThrallStore,
+  s3Vectors: S3Vectors,
   authorisation: Authorisation,
   config: ThrallConfig,
   scheduler: Scheduler,
@@ -131,14 +133,16 @@ class ReaperController(
           isDeleted = true
         )
       ))
+      s3VectorsDeletions <- s3Vectors.deleteEmbeddings(esIdsActuallySoftDeleted)
     } yield {
       metrics.softReaped.increment(n = esIdsActuallySoftDeleted.size)
       esIds.map { id =>
         val wasSoftDeletedInES = esIdsActuallySoftDeleted.contains(id)
-        val detail = Map(
+        val detail = Json.obj(
           "ES" -> wasSoftDeletedInES,
+          "s3Vectors" -> s3VectorsDeletions.get(id).map(_.toString)
         )
-        logger.info(s"Soft deleted image $id : $detail")
+        logger.info(s"Soft deleted image $id : ${Json.stringify(detail)}")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))
@@ -164,13 +168,13 @@ class ReaperController(
       metrics.hardReaped.increment(n = esIdsActuallyDeleted.size)
       esIds.map { id =>
         val wasHardDeletedFromES = esIdsActuallyDeleted.contains(id)
-        val detail = Map(
-          "ES" -> Some(wasHardDeletedFromES),
+        val detail = Json.obj(
+          "ES" -> wasHardDeletedFromES,
           "mainImage" -> mainImagesS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
           "thumb" -> thumbsS3Deletions.get(ImageIngestOperations.fileKeyFromId(id)),
-          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id)),
+          "optimisedPng" -> pngsS3Deletions.get(ImageIngestOperations.optimisedPngKeyFromId(id))
         )
-        logger.info(s"Hard deleted image $id : $detail")
+        logger.info(s"Hard deleted image $id : ${Json.stringify(detail)}")
         id -> detail
       }.toMap
     }).map(Json.toJson(_))
