@@ -26,6 +26,7 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
+import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -57,7 +58,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
     ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
@@ -78,6 +78,13 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
+
+    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    if (!ctrl.shouldDisplayAISearchOption) {
+      ctrl.useAISearch = false;
+    } else {
+      ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+    }
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -312,7 +319,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: ctrl.filter.query,
+      query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
@@ -377,7 +384,6 @@ query.controller('SearchQueryCtrl', [
         'dateField', 'since', 'until', 'takenSince', 'takenUntil',
         'modifiedSince', 'modifiedUntil'
     ];
-
     Object.keys($stateParams).
         // Exclude date-related filters, managed separately in dateFilter
         filter(key => dateFilterParams.indexOf(key) === -1).
@@ -391,7 +397,7 @@ query.controller('SearchQueryCtrl', [
     function setAndWatchParam(key) {
         //this value has been set on ctrl.order
         if (key !== 'orderBy') {
-            ctrl.filter[key] = valOrUndefined($stateParams[key]);
+          ctrl.filter[key] = valOrUndefined($stateParams[key]);
         }
 
         ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
@@ -439,8 +445,20 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: newVal}});
+        $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
+    $scope.$watch(() => ctrl.useAISearch, () => {
+      // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      if (ctrl.useAISearch) {
+        $state.go('search.results', {
+          ...ctrl.filter,
+          useAISearch: true
+        });
+      } else {
+          $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
+      }
+    });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params

@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -26,6 +26,8 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
+import scala.jdk.CollectionConverters._
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,7 +44,8 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
-                authorisation: Authorisation
+                authorisation: Authorisation,
+                embedder: Embedder,
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
@@ -75,7 +78,8 @@ class MediaApi(
     "hasRightsAcquired",
     "syndicationStatus",
     "countAll",
-    "persisted"
+    "persisted",
+    "useAISearch"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -512,6 +516,7 @@ class MediaApi(
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
+
   def imageSearch() = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
       .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
@@ -519,7 +524,7 @@ class MediaApi(
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "image-search",
       "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "requestId" -> RequestLoggingFilter.getRequestId(request)
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     val include = getIncludedFromParams(request)
@@ -536,7 +541,7 @@ class MediaApi(
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 
-    def respondSuccess(searchParams: SearchParams) = for {
+    def performSearchAndRespond(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
@@ -551,15 +556,56 @@ class MediaApi(
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
-    val searchParams = if(canViewDeletedImages) _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user))) else _searchParams
 
-    SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        errors.map(_.message).mkString(", "))
-      ),
-      params => respondSuccess(params)
-    )
+    if (_searchParams.useAISearch.contains(true)) {
+
+      val searchTerm = _searchParams.query match {
+        case Some(q) => q
+        case None => ""
+      }
+
+      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
+
+      val imageIds = semanticSearchResult.map { result =>
+        val results: java.util.List[QueryOutputVector] = result.vectors()
+        results.asScala.map(_.key()).toList
+      }
+
+      imageIds.flatMap { ids =>
+        SearchParams(
+          query = _searchParams.query,
+          ids = Some(ids),
+          tier = request.user.accessor.tier,
+        )
+
+        for {
+          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+          imageEntities = hits map (hitToImageEntity _).tupled
+          links = List()
+        } yield {
+          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+        }
+      }
+
+    } else {
+
+      val searchParams = if(canViewDeletedImages) {
+        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+      }
+      else {
+        _searchParams
+      }
+
+      SearchParams.validate(searchParams).fold(
+        // TODO: respondErrorCollection?
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          errors.map(_.message).mkString(", "))
+        ),
+        params => performSearchAndRespond(params)
+      )
+    }
+
+
   }
 
   private def getImageResponseFromES(

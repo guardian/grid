@@ -3,7 +3,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model.{DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
+import software.amazon.awssdk.services.s3vectors.model._
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -69,11 +69,15 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.deleteVectors(request)
   }
 
-  private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
-    val vectorData: VectorData = VectorData
+  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
+    VectorData
       .builder()
-      .float32(vector.map(float2Float).asJava)
+      .float32(embedding.map(float2Float).asJava)
       .build()
+  }
+
+  private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
+    val vectorData: VectorData = convertEmbeddingToVectorData(vector)
 
     val inputVector: PutInputVector = PutInputVector
       .builder()
@@ -101,6 +105,36 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     } catch {
       case e: Exception =>
         logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId", e)
+        throw e
+    }
+  }
+
+  private def queryVectors(embedding: List[Float]): QueryVectorsResponse = {
+    val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
+
+    val request: QueryVectorsRequest = QueryVectorsRequest
+      .builder()
+      .indexName(indexName)
+      .vectorBucketName(vectorBucketName)
+      .topK(30)
+      .queryVector(queryVector)
+      .build()
+
+    client.queryVectors(request)
+  }
+
+  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
+    try {
+      val response = queryVectors(queryEmbedding)
+      logger.info(
+        logMarker,
+        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      logger.info(logMarker, s"${response}")
+      response
+    } catch {
+      case e: Exception =>
+        logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
         throw e
     }
   }

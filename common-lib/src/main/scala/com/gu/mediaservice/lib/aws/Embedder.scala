@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
+import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 
 import java.nio.file.{Files, Path}
 import java.util.Base64
@@ -37,4 +38,13 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock)(implicit ec: ExecutionCon
       }
     }
   }
+
+  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = {
+    logger.info(logMarker, s"Searching for image embedding for query: $query")
+    val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
+    embeddingFuture.flatMap { embedding =>
+      s3vectors.searchVectorStore(embedding, query)
+    }
+  }
+
 }
