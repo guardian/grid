@@ -3,7 +3,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model.{DeleteVectorsRequest, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
+import software.amazon.awssdk.services.s3vectors.model.{DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,7 +59,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       response.vectors().asScala.toList
     }.toList
 
-  private def deleteVectors(keys: Set[String]) = {
+  private def deleteVectors(keys: Set[String]): DeleteVectorsResponse = {
     val request = DeleteVectorsRequest.builder()
       .indexName(indexName)
       .vectorBucketName(vectorBucketName)
