@@ -3,10 +3,12 @@ package com.gu.mediaservice.model.usage
 import play.api.libs.json.{Json, Reads, Writes}
 
 case class DownloadUsageMetadata(
-  downloadedBy: String
+  downloadedBy: String,
+  isPrivate: Boolean
 ) extends UsageMetadata {
   override def toMap: Map[String, Any] = Map(
-    "downloadedBy" -> downloadedBy
+    "downloadedBy" -> downloadedBy,
+    "isPrivate" -> isPrivate
   )
 }
 
