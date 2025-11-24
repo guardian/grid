@@ -324,7 +324,7 @@ class ElasticSearch(
                   ListMap(termsAgg.buckets.sortBy(_.docCount).reverse.map { bucket =>
                     (bucket.key, bucket.docCount)
                   }: _*) + ("other" -> termsAgg.otherDocCount)
-                }
+                }.filter(_.exists { case (_, count) => count > 0 })
               )
           }
         ))
