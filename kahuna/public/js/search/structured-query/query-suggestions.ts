@@ -62,6 +62,10 @@ if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
 }
 
+if (window._clientConfig.agencyPicksIngredients) {
+  isSearch.push("agency-pick");
+}
+
 type TypeaheadField = {
   fieldName: string;
   resolver?: ((value: string) => string[]) | string[];
