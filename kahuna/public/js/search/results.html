@@ -32,7 +32,7 @@
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
                 <button ng-repeat="(name, tickerCount) in ctrl.tickerCounts"
-                        ng-if="tickerCount.value !== ctrl.totalResults"
+                        ng-if="tickerCount.value !== ctrl.totalResults && tickerCount.value > 0"
                         ng-click="ctrl.applyFilter(tickerCount.searchClause)"
                         class="image-results-ticker"
                         ng-style="{'background-color': tickerCount.backgroundColour}"
@@ -41,10 +41,11 @@
                         gr-tooltip-position="bottom"
                         gr-tooltip-updates>
                     {{tickerCount.value | toLocaleString}} {{name}}
-                    <div ng-if="tickerCount.subCounts" class="titip-content"
+                    <div class="titip-content"
                          style="z-index: 99999; white-space: initial; text-align: center; width: max-content;">
-                        <span>last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}</span><hr/>
-                        <table style="border: none; width: max-content;">
+                        <span>last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}</span>
+                        <hr ng-if="tickerCount.subCounts"/>
+                        <table ng-if="tickerCount.subCounts" style="border: none; width: max-content;">
                             <caption style="display: none">Breakdown of ticker: {{name}}</caption>
                             <tr ng-repeat="(subCountName, count) in tickerCount.subCounts"
                                 ng-if="count > 0">

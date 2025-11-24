@@ -1520,6 +1520,10 @@ textarea.ng-invalid {
     border-radius: 2px;
     margin-left: 5px;
 }
+.image-results-ticker .titip-content {
+  transition: opacity 0.25s ease;
+  transition-delay: 0.5s;
+}
 
 .image-results-count {
     border-left: 0;
