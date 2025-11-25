@@ -6,7 +6,6 @@ import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
-import org.joda.time.DateTime
 import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {
@@ -19,6 +18,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case _: IsDeleted => "deleted"
     case _: IsUnderQuota => "under-quota"
     case _: IsReapable => "reapable"
+    case _: IsAgencyPick => "agency-pick"
   }
 }
 
@@ -33,6 +33,7 @@ object IsQueryFilter {
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
       case "deleted" => Some(IsDeleted(true))
       case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections, config.persistenceIdentifier))
+      case "agency-pick" => config.maybeAgencyPickQuery.map(IsAgencyPick)
       case _ => None
     }
   }
@@ -71,3 +72,5 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
 case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifier: String)
   extends IsQueryFilter with ReapableEligibility {
 }
+
+case class IsAgencyPick(query: Query) extends IsQueryFilter

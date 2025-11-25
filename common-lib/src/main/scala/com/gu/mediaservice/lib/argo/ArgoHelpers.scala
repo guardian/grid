@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.argo
 
 import java.net.URI
-import play.api.libs.json.{Json, Writes}
+import play.api.libs.json.{JsObject, Json, Writes}
 import play.api.mvc.{Cookie, Result, Results}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -25,7 +25,7 @@ trait ArgoHelpers extends Results with GridLogging {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, maybeOrgOwnedCount: Option[Long] = None,
+  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None, maybeExtraCounts: Option[ExtraCounts] = None,
                            links: List[Link] = Nil, uri: Option[URI] = None)
                           (implicit writes: Writes[T]): Result = {
     val response = CollectionResponse(
@@ -35,8 +35,8 @@ trait ArgoHelpers extends Results with GridLogging {
       total  = total,
       data   = data,
       links  = links,
-      //FIXME using actions below is a hack to get the org owned count into the response (until such time as we move theseus into the grid, so client can safely parse the response)
-      actions = maybeOrgOwnedCount
+      //FIXME using actions below is a hack to get extra counts into the response (until such time as we move theseus into the grid, so client can safely parse the response)
+      actions = maybeExtraCounts
     )
 
     serializeAndWrap(response, Ok)

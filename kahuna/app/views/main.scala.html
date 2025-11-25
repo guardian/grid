@@ -16,6 +16,7 @@
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
   imageTypes: String,
+  agencyPicksIngredients: String
 )
 <!DOCTYPE html>
 <html>
@@ -43,6 +44,11 @@
 
     <style>
         .ng-cloak { display: none }
+
+        .preview__image.preview__image--agency-pick {
+            border: 10px solid @kahunaConfig.agencyPicksColour;
+            box-sizing: border-box;
+        }
     </style>
 
     <script>
@@ -88,6 +94,7 @@
           maybeUploadLimitInBytes: @kahunaConfig.maybeUploadLimitInBytes.getOrElse(0),
           announcements: @Html(announcements),
           imageTypes: @Html(imageTypes),
+          agencyPicksIngredients: @Html(agencyPicksIngredients),
         }
     </script>
 

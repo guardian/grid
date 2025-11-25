@@ -43,6 +43,9 @@ declare global {
       maybeUploadLimitInBytes: number;
       imageTypes: string[];
       staffPhotographerOrganisation: string;
+      agencyPicksIngredients: {
+        [field: string]: string[];
+      }
     };
   }
 }

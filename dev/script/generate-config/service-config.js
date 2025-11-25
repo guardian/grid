@@ -27,6 +27,25 @@ function getCommonConfig(config) {
         |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
         |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
+        |agencyPicks.ingredients={
+        |    "metadata.description": [
+        |      "topshot", // Getty
+        |      "topshots", // Getty
+        |      "bestpix", // Getty
+        |      "PABest", // PA
+        |      "TPX IMAGES OF THE DAY", // Reuters
+        |      "epaselect", // EPA
+        |      "APTOPIX", // AP
+        |    ],
+        |    "metadata.keywords": [
+        |      "epaselect", // EPA
+        |      "aptopix", // AP
+        |      "APTOPIX", // AP
+        |      "SPOTLIGHT", // Rex/Shutterstock
+        |      "spotlight", // Rex/Shutterstock
+        |      "Spotlight" // Rex/Shutterstock
+        |    ]
+        |}
         |`;
 }
 
