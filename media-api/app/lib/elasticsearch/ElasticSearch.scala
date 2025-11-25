@@ -53,7 +53,7 @@ class ElasticSearch(
     config.maybeAgencyPickQuery.map(_ =>
       "agency picks" -> ExtraCountConfig(
         searchClause = "is:agency-pick",
-        backgroundColour = "#970201",
+        backgroundColour = config.agencyPicksColour,
         maybeSubAggregation = Some(
           termsAgg(name = "byAgency", field = "usageRights.supplier").size(9)
         )
