@@ -1656,11 +1656,6 @@ textarea.ng-invalid {
     box-sizing: border-box;
 }
 
-.preview__image.preview__image--agency-pick {
-    border: 10px solid #970201;
-    box-sizing: border-box;
-}
-
 .preview__info {
     font-size: 1.3rem;
     padding-left: 10px;
