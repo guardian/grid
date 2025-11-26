@@ -1,0 +1,171 @@
+/* ==========================================================================
+   preview-view
+   ========================================================================== */
+
+.preview-view {
+    position: relative;
+    height: calc(100vh - 100px); /* screen - top bar */
+    top: 35px; /* results bar height */
+    background-color: #333333;
+}
+
+.preview-view-item {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: baseline;
+    align-content: center;
+    padding: 10px;
+}
+
+.preview-view-item__preview {
+    width: 100%;
+    box-sizing: border-box;
+    border: 5px solid transparent;
+}
+
+.preview-view-item__preview--selected {
+    border-color: #00adee;
+}
+
+.preview-view__controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: .5;
+    transition: opacity .1s;
+}
+
+.preview-view__controls:hover {
+    opacity: 1;
+}
+
+.preview-view__control {
+    padding: 10px;
+    border: 1px solid #565656;
+    background: #333333;
+    transition: opacity .1s;
+}
+
+/* TODO: abstract repeated results styles */
+.preview-view-item__select input[type=checkbox] {
+    visibility: hidden;
+}
+
+.preview-view-item__select {
+    position: absolute;
+    display: none;
+
+    /* above thumbnail */
+    z-index: 1;
+}
+
+.preview-view-item__select--no-pointer-events {
+    pointer-events: none;
+}
+
+.preview-view-item__select__checkbox__label {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    cursor: pointer;
+}
+
+.preview-view-item__select .preview-view-item__select__checkbox__label gr-icon {
+    font-size: 25px;
+    color: white;
+}
+
+.preview-view-item__select--selected .preview-view-item__select__checkbox__label gr-icon {
+    color: #00adee;
+}
+
+.preview-view-item--selected,
+.preview-view-item--selected:hover {
+    border-color: #00adee;
+}
+
+/* Hacky: Hide gr-archiver-status "Add to Library" (unarchived state) unless hovering */
+.preview-view-item .gr-archiver-status--unarchived {
+    display: none;
+}
+
+.preview-view-item:hover .preview-view-item__select,
+.preview-view-item:hover .preview__fade,
+.preview-view-item:hover .image-actions-container,
+.preview-view-item:hover .gr-archiver-status--unarchived {
+    display: block;
+}
+
+.preview-view-item:hover .gr-add-label--inactive {
+    display: inline-block;
+}
+
+.preview-view-item--selected:hover .preview__fade {
+    display: none;
+}
+
+.preview-view-item .preview__image {
+     max-height: calc(100vh - 190px);
+}
+
+.preview-view-item .loading .preview__image {
+    display: none;
+}
+
+.preview-view-item .preview__loading {
+    height: calc(100vh - 190px);
+    position:relative;
+    display: none;
+}
+
+.preview-view-item .loading .preview__loading {
+    display: block;
+}
+
+.preview-view-item .preview__loading__icon {
+    height: 30px;
+    width: 30px;
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 100%;
+    margin: 0 auto;
+    animation: spin 1000ms infinite linear;
+    font-size: 30px;
+}
+
+@keyframes spin {
+    from {transform:rotate(0deg);}
+    to {transform:rotate(360deg);}
+}
+
+.preview-view-item__select--selected {
+    display: initial;
+}
+
+.preview-view-item__preview .preview__info-container {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+.preview-view-item__preview .preview__info-container,
+.preview-view-item__preview .loading .preview__info-container {
+    display: none;
+}
+
+.preview-view-item__preview:hover .preview__info-container {
+    display: block;
+}

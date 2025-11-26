@@ -1,0 +1,57 @@
+<div class="preview-view" gu:lazy-preview-shortcuts>
+
+    <div class="preview-view-item" ng-if="previewCtrl.item">
+
+        <div class="preview-view-item__select preview-view-item__select--selected"
+             ng-if="ctrl.imageHasBeenSelected(previewCtrl.item)">
+            <input type="checkbox"
+                   class="preview-view-item__select__checkbox"
+                   id="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
+                   checked="true"
+                   ng-click="ctrl.deselect(previewCtrl.item)"/>
+            <label for="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
+                   class="preview-view-item__select__checkbox__label">
+                <gr-icon>check_box</gr-icon>
+            </label>
+        </div>
+        <div class="preview-view-item__select"
+             ng-if="!ctrl.imageHasBeenSelected(previewCtrl.item)"
+             ng-class="{ 'preview-view-item__select--no-pointer-events': ctrl.inSelectionMode}">
+            <input type="checkbox"
+                   class="preview-view-item__select__checkbox"
+                   id="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
+                   ng-click="ctrl.select(previewCtrl.item)" />
+            <label for="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
+                   class="preview-view-item__select__checkbox__label">
+                <gr-icon>check_box</gr-icon>
+            </label>
+        </div>
+
+        <ui-preview-image-large class="preview-view-item__preview"
+                                ng-class="{ 'preview-view-item__preview--selected': ctrl.imageHasBeenSelected(previewCtrl.item)}"
+                                image="previewCtrl.item"
+                                selection-mode="inSelectionMode">
+            <button class="mark-as-seen image-action"
+                    title="Mark all images until this point as seen">
+                <gr-icon>remove_red_eye</gr-icon>
+            </button>
+        </ui-preview-image-large>
+
+    </div>
+
+    <div class="preview-view__controls">
+
+        <button class="preview-view__control preview-view__control--left"
+                ng-click="previewCtrl.prevItem()"
+                title="Previous">
+            <gr-icon>navigate_before</gr-icon>
+        </button>
+
+        <button class="preview-view__control preview-view__control--right"
+                ng-click="previewCtrl.nextItem()"
+                title="Next">
+            <gr-icon>navigate_next</gr-icon>
+        </button>
+    </div>
+
+</div>
