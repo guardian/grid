@@ -85,7 +85,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getSyndicationForImage(id: String)
                             (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] = {
-    syndicationStore.jsonGet(id, syndicationRightsFieldName)
+    syndicationStore.getV2(id)
       // It's OK for the image to _not_ exist in the syndication store, so this needs to be recovered
       .recover { case NoItemFound => JsNull }
       .flatMap(dynamoEntry => (dynamoEntry \ syndicationRightsFieldName).toOption match {
@@ -156,7 +156,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getPhotoshootForImage(id: String)
                            (implicit ec: ExecutionContext): Future[Option[Photoshoot]] =
-    editsStore.jsonGet(id, Edits.Photoshoot)
+    editsStore.getV2(id)
       .map(dynamoEntry => (dynamoEntry \ Edits.Photoshoot).toOption map {
         photoshootJson => photoshootJson.as[Photoshoot]
       })

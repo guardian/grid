@@ -46,14 +46,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   private def itemKey(key: String) = Key.builder().partitionValue(key).build()
 
-  def get(id: String)
-    (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    table.getItem(
-      new GetItemSpec().
-        withPrimaryKey(IdKey, id)
-    )
-  } flatMap itemOrNotFound map asJsObject
-
   def getV2(id: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
     table2.getItem(itemKey(id))
   } flatMap docOrNotFound map asJsObject
@@ -65,10 +57,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
         .withAttributesToGet(attribute)
     )
   } flatMap itemOrNotFound
-
-//  private def getV2(id: String, key: String)(implicit ex: ExecutionContext): Future[Item] = Future {
-//    table2.getItem(itemKey(id)).
-//  }
 
   private def docOrNotFound(docOrNull: EnhancedDocument): Future[EnhancedDocument] = {
     Option(docOrNull) match {
@@ -161,18 +149,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withStringSet(":value", value:_*)
     )
 
-
-  def jsonGet(id: String, key: String)
-             (implicit ex: ExecutionContext): Future[JsObject] =
-    get(id, key).map(item => asJsObject(item))
-
-  def jsonGetV2(id: String, key: String)
-    (implicit ex: ExecutionContext): Future[JsObject] = {
-    Future {
-      table2.getItem(itemKey(id))
-    }.flatMap(docOrNotFound).map(asJsObject)
-  }
-
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
     val keyChunkList = ids
@@ -232,17 +208,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withStringSet(":value", value)
     )
 
-  def listGet(id: String, key: String)
-                (implicit ex: ExecutionContext, reads: Reads[T]): Future[List[T]] = {
-
-    get(id, key) map { item =>
-      Option(item.toJSON) match {
-        case Some(json) => (Json.parse(json) \ key).as[List[T]]
-        case None      => Nil
-      }
-    }
-  }
-
   def listAdd(id: String, key: String, value: T)
                 (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
 
@@ -286,10 +251,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     // As PutItem only returns `null` if the item didn't exist, or the old item if it did,
     // all we care about is whether it completed.
   } map (_ => value)
-
-  def scan()(implicit ex: ExecutionContext) = Future {
-    table.scan().iterator.asScala.toList
-  } map (_.map(asJsObject))
 
   def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext) = Future {
     val index = table.getIndex(indexName)
