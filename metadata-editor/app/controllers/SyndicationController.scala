@@ -24,7 +24,7 @@ class SyndicationController(auth: Authentication,
   override val metadataBaseUri: String = config.services.metadataBaseUri
 
   def getPhotoshoot(id: String) = auth.async {
-    editsStore.jsonGet(id, Edits.Photoshoot).map(dynamoEntry => {
+    editsStore.getV2(id).map(dynamoEntry => {
       (dynamoEntry \ Edits.Photoshoot).toOption match {
         case Some(photoshoot) => respond(photoshoot.as[Photoshoot])
         case None => respondNotFound("No photoshoot found")
@@ -50,11 +50,11 @@ class SyndicationController(auth: Authentication,
 
   def getSyndication(id: String): Action[AnyContent] = auth.async {
     getSyndicationForImage(id)
-    .map {
-      case Some(rights) => respond(rights)
-      // If no rights, send a 404 - no syndication rights for this id.  Either id is duff, or it really has none.
-      case None => NotFound
-    }
+      .map {
+        case Some(rights) => respond(rights)
+        // If no rights, send a 404 - no syndication rights for this id.  Either id is duff, or it really has none.
+        case None => NotFound
+      }
   }
 
   def setSyndication(id: String): Action[JsValue] = auth.async(parse.json) { req => {
