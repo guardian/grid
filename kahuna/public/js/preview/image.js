@@ -202,7 +202,7 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
 
                 const optimisedImage$ = image$.flatMap((image) => {
                     return Rx.Observable.fromPromise(imgops.getFullScreenUri(image));
-                }).debounce(5);
+                });
 
                 scope.$watch(() => ctrl.image.data.id, () => {
                     ctrl.loading = true;
