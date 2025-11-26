@@ -1,7 +1,6 @@
 package com.gu.mediaservice.lib.aws
 
 import java.util
-
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
@@ -12,10 +11,13 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
+import software.amazon.awssdk.enhanced.dynamodb._
+import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.annotation.tailrec
-import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 object NoItemFound extends Throwable("item not found")
 
@@ -27,32 +29,40 @@ object NoItemFound extends Throwable("item not found")
   * @tparam T The type of this table
   */
 class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Option[String] = None) extends GridLogging {
+  lazy val client2: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val dynamo2: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client2).build()
+  lazy val tableSchema = TableSchema.documentSchemaBuilder()
+    .addIndexPartitionKey(TableMetadata.primaryIndexName(), IdKey, AttributeValueType.S)
+    .attributeConverterProviders(AttributeConverterProvider.defaultProvider())
+    .build()
+  lazy val table2 = dynamo2.table(tableName, tableSchema)
+
   lazy val client: AmazonDynamoDBAsync = config.withAWSCredentials(AmazonDynamoDBAsyncClientBuilder.standard()).build()
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
 
-  val IdKey = "id"
+  private val IdKey = "id"
 
-  def exists(id: String)(implicit ex: ExecutionContext): Future[Boolean] = Future {
-      table.getItem(new GetItemSpec().withPrimaryKey(IdKey, id))
-  } map(Option(_).isDefined)
+  private def itemKey(key: String) = Key.builder().partitionValue(key).build()
 
-  def get(id: String)
-         (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    table.getItem(
-      new GetItemSpec().
-        withPrimaryKey(IdKey, id)
-    )
-  } flatMap itemOrNotFound map asJsObject
+  def get(id: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
+    table2.getItem(itemKey(id))
+  } flatMap docOrNotFound map asJsObject
 
-  private def get(id: String, key: String)
-         (implicit ex: ExecutionContext): Future[Item] = Future {
+  private def get(id: String, key: String)(implicit ex: ExecutionContext): Future[Item] = Future {
     table.getItem(
       new GetItemSpec()
         .withPrimaryKey(IdKey, id)
         .withAttributesToGet(key)
     )
   } flatMap itemOrNotFound
+
+  private def docOrNotFound(docOrNull: EnhancedDocument): Future[EnhancedDocument] = {
+    Option(docOrNull) match {
+      case Some(doc) => Future.successful(doc)
+      case None       => Future.failed(NoItemFound)
+    }
+  }
 
   private def itemOrNotFound(itemOrNull: Item): Future[Item] = {
     Option(itemOrNull) match {
@@ -294,9 +304,11 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
 
   // FIXME: surely there must be a better way to convert?
-  def asJsObject(item: Item): JsObject = {
+  def asJsObject(item: Item): JsObject =
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
-  }
+
+  def asJsObject(doc: EnhancedDocument): JsObject =
+    jsonWithNullAsEmptyString(Json.parse(doc.toJson)).as[JsObject] - IdKey
 
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     Option(outcome.getItem) map asJsObject getOrElse Json.obj()
