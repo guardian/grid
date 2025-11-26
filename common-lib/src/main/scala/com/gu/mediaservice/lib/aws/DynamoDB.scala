@@ -13,6 +13,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
+import software.amazon.awssdk.enhanced.dynamodb.model.GetItemEnhancedRequest
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.annotation.tailrec
@@ -45,17 +46,29 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   private def itemKey(key: String) = Key.builder().partitionValue(key).build()
 
-  def get(id: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
+  def get(id: String)
+    (implicit ex: ExecutionContext): Future[JsObject] = Future {
+    table.getItem(
+      new GetItemSpec().
+        withPrimaryKey(IdKey, id)
+    )
+  } flatMap itemOrNotFound map asJsObject
+
+  def getV2(id: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
     table2.getItem(itemKey(id))
   } flatMap docOrNotFound map asJsObject
 
-  private def get(id: String, key: String)(implicit ex: ExecutionContext): Future[Item] = Future {
+  private def get(id: String, attribute: String)(implicit ex: ExecutionContext): Future[Item] = Future {
     table.getItem(
       new GetItemSpec()
         .withPrimaryKey(IdKey, id)
-        .withAttributesToGet(key)
+        .withAttributesToGet(attribute)
     )
   } flatMap itemOrNotFound
+
+//  private def getV2(id: String, key: String)(implicit ex: ExecutionContext): Future[Item] = Future {
+//    table2.getItem(itemKey(id)).
+//  }
 
   private def docOrNotFound(docOrNull: EnhancedDocument): Future[EnhancedDocument] = {
     Option(docOrNull) match {
@@ -82,13 +95,13 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
 
-  def booleanGet(id: String, key: String)
-                (implicit ex: ExecutionContext): Future[Option[Boolean]] =
-    // TODO: add Option to item as it can be null
-    get(id, key).map{ item => item.get(key) match {
-      case b: java.lang.Boolean => Some(b.booleanValue)
-      case _ => None
-    }}
+  def booleanGetV2(id: String, key: String)
+    (implicit ex: ExecutionContext): Future[Option[Boolean]] = {
+    Future {
+      val item = Option(table2.getItem(itemKey(id)))
+      item.map(_.getBoolean(key).booleanValue())
+    }
+  }
 
   def booleanSet(id: String, key: String, value: Boolean)
                 (implicit ex: ExecutionContext): Future[JsObject] =
@@ -123,13 +136,14 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
   }
 
-  def setGet(id: String, key: String)
-            (implicit ex: ExecutionContext): Future[Set[String]] =
-    get(id, key).map{ item => Option(item.getStringSet(key)) match {
-        case Some(set) => set.asScala.toSet
-        case None      => Set()
-      }
+  def setGetV2(id: String, key: String)
+    (implicit ex: ExecutionContext): Future[Set[String]] = {
+    Future {
+      val item = Option(table2.getItem(itemKey(id)))
+      item.map(_.getStringSet(key).asScala.toSet)
+        .getOrElse(Set.empty)
     }
+  }
 
   def setAdd(id: String, key: String, value: String)
             (implicit ex: ExecutionContext): Future[JsObject] =
@@ -149,8 +163,15 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
 
   def jsonGet(id: String, key: String)
-             (implicit ex: ExecutionContext): Future[JsValue] =
+             (implicit ex: ExecutionContext): Future[JsObject] =
     get(id, key).map(item => asJsObject(item))
+
+  def jsonGetV2(id: String, key: String)
+    (implicit ex: ExecutionContext): Future[JsObject] = {
+    Future {
+      table2.getItem(itemKey(id))
+    }.flatMap(docOrNotFound).map(asJsObject)
+  }
 
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
