@@ -6,10 +6,10 @@
              ng-if="ctrl.imageHasBeenSelected(previewCtrl.item)">
             <input type="checkbox"
                    class="preview-view-item__select__checkbox"
-                   id="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
+                   id="id-{{previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
                    checked="true"
                    ng-click="ctrl.deselect(previewCtrl.item)"/>
-            <label for="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
+            <label for="id-{{previewCtrl.item.data.id}}-preview-view-item__select__checkbox--select"
                    class="preview-view-item__select__checkbox__label">
                 <gr-icon>check_box</gr-icon>
             </label>
@@ -19,9 +19,9 @@
              ng-class="{ 'preview-view-item__select--no-pointer-events': ctrl.inSelectionMode}">
             <input type="checkbox"
                    class="preview-view-item__select__checkbox"
-                   id="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
+                   id="id-{{previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
                    ng-click="ctrl.select(previewCtrl.item)" />
-            <label for="id-{{::previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
+            <label for="id-{{previewCtrl.item.data.id}}-preview-view-item__select__checkbox--deselect"
                    class="preview-view-item__select__checkbox__label">
                 <gr-icon>check_box</gr-icon>
             </label>
