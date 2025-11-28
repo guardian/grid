@@ -144,7 +144,7 @@
             gu:lazy-table-load-range="ctrl.loadRange($start, $end)"
             gu-lazy-table-shortcuts>
 
-            <li ng-repeat="image in ctrl.images track by image.data.id"
+            <li ng-repeat="image in ctrl.images track by $index+image.data.id"
                 gu:lazy-table-cell="image">
 
                 <div class="result"
@@ -180,6 +180,7 @@
                     </div>
 
                     <ui-preview-image image="image"
+                                      nnn-object="ctrl.nnnObject($index)"
                                       is-selected="ctrl.imageHasBeenSelected(image)"
                                       draggable="true"
                                       selection-mode="ctrl.inSelectionMode"

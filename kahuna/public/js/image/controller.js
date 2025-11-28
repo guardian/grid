@@ -74,6 +74,7 @@ image.controller('ImageCtrl', [
   'optimisedImageUri',
   'lowResImageUri',
   'cropKey',
+  'nnnObject',
   'mediaCropper',
   'imageService',
   'imageUsagesService',
@@ -98,6 +99,7 @@ image.controller('ImageCtrl', [
             optimisedImageUri,
             lowResImageUri,
             cropKey,
+            nnnObject,
             mediaCropper,
             imageService,
             imageUsagesService,
@@ -109,11 +111,58 @@ image.controller('ImageCtrl', [
 
     let ctrl = this;
 
+    // TODO reuse nnnObject for 'Back to search' button
+    // TODO add chevron buttons for prev/next and reuse this function
+    const navigateNNN = (direction) => mediaApi.search(...nnnObject).then(result => {
+      const [query, params] = nnnObject;
+      const ids = result.data.map(_ => _.data.id);
+      const currentImagePositionInIds = ids.indexOf(ctrl.image.data.id);
+      if (currentImagePositionInIds === -1) {
+        alert("Something has gone wrong with the search results used for navigation");
+        //TODO probably navigate back to search results
+        return;
+      }
+      debugger;
+      if (currentImagePositionInIds === 0 && direction === 'previous') {
+        //at start of results - can't go previous
+        return;
+      }
+      if (currentImagePositionInIds === ids.length - 1 && direction === 'next') {
+        //at end of results - can't go next
+        return;
+      }
+      const newNnnObject = [
+        query,
+        {
+          ...params,
+          offset: direction === 'next' ? params.offset + currentImagePositionInIds : Math.max(0, params.offset - 1)
+        }
+      ];
+      const targetImageId = ids[direction === 'next' ? currentImagePositionInIds + 1 : currentImagePositionInIds - 1];
+      $state.go('image', {imageId: targetImageId, nnnObject: JSON.stringify(newNnnObject)}); //TODO persist whether currently in fullscreen
+    });
+
     keyboardShortcut.bindTo($scope)
       .add({
         combo: 'c',
         description: 'Crop image',
         callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+      })
+      .add({
+        combo: 'left',
+        description: "previous image in search results",
+        callback: () => {
+          console.log("left arrow pressed");
+          navigateNNN('previous');
+        }
+      })
+      .add({
+        combo: 'right',
+        description: "next image in search results",
+        callback: () => {
+          console.log("right arrow pressed");
+          navigateNNN('next');
+        }
       })
       .add({
         combo: 'f',
