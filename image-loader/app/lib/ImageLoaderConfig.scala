@@ -16,6 +16,9 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
 
+  val lowerEnvironmentSamplingPercentageAsDecimal = intOpt("s3.sampling.percentage").getOrElse(1) / 100.0
+  val maybeLowerEnvironmentQueueBucketToSampleInto = sys.env.get("LOWER_ENVIRONMENT_QUEUE_BUCKET_TO_SAMPLE_INTO")
+
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256
