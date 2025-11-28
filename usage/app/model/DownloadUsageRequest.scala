@@ -7,9 +7,10 @@ import play.api.libs.json.{JodaReads, JodaWrites, Json, Reads, Writes}
 case class DownloadUsageRequest (
   dateAdded: DateTime,
   downloadedBy: String,
-  mediaId: String
+  mediaId: String,
+  isPrivate: Option[Boolean]
 ) {
-  val metadata: DownloadUsageMetadata = DownloadUsageMetadata(downloadedBy)
+  val metadata: DownloadUsageMetadata = DownloadUsageMetadata(downloadedBy, isPrivate.getOrElse(false))
   val status: UsageStatus = DownloadedUsageStatus
 }
 object DownloadUsageRequest {

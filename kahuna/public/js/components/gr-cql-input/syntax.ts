@@ -83,7 +83,8 @@ const combineConsecutiveTextFields = (
   query: StructuredQuery,
 ): StructuredQuery =>
   query.reduce((previousFields, structuredField) => {
-    const previousField = previousFields.at(-1);
+    //const previousField = previousFields.at(-1);
+    const previousField = previousFields[previousFields.length - 1];
     const joinedFieldsContainExclusion = structuredField.filterType === "exclusion" || previousField?.filterType === "exclusion";
     const joinedFieldsAreBothText = structuredField.type === "text" && previousField?.type === "text";
     if (!joinedFieldsAreBothText || joinedFieldsContainExclusion) {
