@@ -30,7 +30,8 @@
         <ui-preview-image-large class="preview-view-item__preview"
                                 ng-class="{ 'preview-view-item__preview--selected': ctrl.imageHasBeenSelected(previewCtrl.item)}"
                                 image="previewCtrl.item"
-                                selection-mode="ctrl.inSelectionMode">
+                                selection-mode="ctrl.inSelectionMode"
+                                ng-click="ctrl.onImageClick(previewCtrl.item, $event)">
             <button class="mark-as-seen image-action"
                     title="Mark all images until this point as seen">
                 <gr-icon>remove_red_eye</gr-icon>
