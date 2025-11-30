@@ -121,6 +121,12 @@
                              ng-if="ctrl.selectionCount > 0 && !ctrl.isDeleted">
                 </gr-archiver>
 
+                <gr-toggle-button class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
+                                  gr-toggle="ctrl.previewView"
+                                  gr-icon="find_in_page"
+                                  gr-name="Preview">
+                </gr-toggle-button>
+
                 <gr-panel-button
                     class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
                     gr-panel="ctrl.metadataPanel"
@@ -137,6 +143,7 @@
 
         <ul ng-class="{'results': !ctrl.usePermissionsFilter(),
                        'results--alternate': ctrl.usePermissionsFilter()}"
+            ng-if="!ctrl.previewView"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="303"
@@ -195,6 +202,15 @@
                 </div>
             </li>
         </ul>
+
+        <gu:lazy-preview
+            ng-if="ctrl.previewView"
+            gu:lazy-preview-items="ctrl.images"
+            gu:lazy-preview-items-total="ctrl.imagesAll"
+            gu:lazy-preview-preloaded-items="20"
+            gu:lazy-preview-load-range="ctrl.loadRange(start, end)"
+            gu:lazy-preview-selection-mode="ctrl.inSelectionMode">
+        </gu:lazy-preview>
 
         <div ng-if="ctrl.totalResults > ctrl.maxResults && !ctrl.previewView"
              class="image-results-more">

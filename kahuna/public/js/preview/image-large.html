@@ -1,0 +1,165 @@
+<div class="preview image-actions-container">
+
+    <ul class="image-actions">
+        <li>
+            <a class="image-action image-action--first"
+               rel="noopener"
+               target="_blank"
+               title="Pop out"
+               ng-href="/images/{{ctrl.image.data.id}}"
+               gr-stop-propagation="click"
+               gr-track-click="Popout button">
+                <gr-icon>open_in_new</gr-icon>
+            </a>
+        </li>
+
+        <li ng-if="! ctrl.selectionMode">
+            <a class="image-action"
+               title="crop"
+               ng-if="ctrl.states.isValid"
+               ui-sref="crop({ imageId: ctrl.image.data.id })">
+                <gr-icon>crop</gr-icon>
+            </a>
+        </li>
+        <li ng-if="! ctrl.selectionMode">
+            <ng-transclude></ng-transclude>
+        </li>
+    </ul>
+
+    <a ng-if="! ctrl.selectionMode" class="preview__link preview__link--large"
+       ui-sref="image({imageId: ctrl.image.data.id})"
+       ui-drag-data="ctrl.image | asImageDragData">
+       <div class="preview__fade"></div>
+       <div class="preview__loading">
+           <gr-icon class="preview__loading__icon">autorenew</gr-icon>
+       </div>
+       <img class="preview__image"
+            alt="{{ctrl.image.data.metadata.description}}"
+            ng-src="{{ctrl.optimisedImage }}"
+            ng-if="!ctrl.loading"
+            gr-image-fade-on-load />
+    </a>
+
+    <span ng-if="ctrl.selectionMode" class="preview__no-link preview__no-link--large">
+        <div class="preview__fade"></div>
+        <div class="preview__loading">
+            <gr-icon class="preview__loading__icon">autorenew</gr-icon>
+        </div>
+        <img class="preview__image"
+             alt="{{ctrl.image.data.metadata.description}}"
+             ng-src="{{ctrl.optimisedImage }}"
+             ui-drag-data="ctrl.image | asImageDragData"
+             ng-if="!ctrl.loading"
+             gr-image-preloader />
+    </span>
+
+    <div class="preview__info-container">
+
+        <div class="preview__info preview__info--large" ng-if="! ctrl.hideInfo">
+            <div class="flex-container">
+                <ul class="bottom-bar__meta-item preview__collections">
+                    <li class="preview__collections__collection"
+                        ng-repeat="collection in ctrl.image.data.collections"
+                        gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
+                        gr-tooltip-position="top">
+                        <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter), nonFree: ctrl.srefNonfree()})"
+                           ng-attr-style="{{ctrl.getCollectionStyle(collection)}}"
+                           class="preview__collections__collection__value">
+                            {{collection.data.description}}
+                        </a>
+                    </li>
+                </ul>
+
+                <ui-list-editor-compact class="preview__labeller"
+                                     images="ctrl.imageAsArray"
+                                     disabled="ctrl.selectionMode"
+                                     ng-if="!ctrl.inputtingLabel"
+                                     add-to-images="ctrl.addLabelToImages"
+                                     remove-from-images="ctrl.removeLabelFromImages"
+                                     accessor="ctrl.labelAccessor"
+                                     query-filter="queryLabelFilter">
+                </ui-list-editor-compact>
+                <span class="flex-spacer"></span>
+                <gr-add-label class="gr-add-label"
+                              ng-if="!ctrl.selectionMode"
+                              images="ctrl.imageAsArray"
+                              gr-small="true"
+                              active="ctrl.inputtingLabel"
+                              ng-class="{'gr-add-label--inactive': !ctrl.inputtingLabel}">
+                </gr-add-label>
+            </div>
+
+            <p class="preview__description preview__description--gallery"
+               title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+                <!-- Ensure contents in P to maintain height -->
+                {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
+            </p>
+        </div>
+
+        <div class="preview__bottom-bar bottom-bar preview__bottom-bar--large">
+            <div class="bottom-bar__meta">
+                <span class="preview__upload-time">
+                    Uploaded: {{ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
+                    {{ctrl.image.data.uploadTime | date:'HH:mm'}}
+                </span>
+
+                <span class="bottom-bar__meta-item preview__has-crops"
+                      title="this image has crops"
+                      ng-if="ctrl.states.hasCrops">
+
+                    <gr-icon gr-small>crop</gr-icon>
+                </span>
+
+                <span class="bottom-bar__meta-item preview__has-print-usages"
+                      title="This image has been used {{ctrl.usageListRecent.length >0 ? 'RECENTLY': '' }} in Print Content"
+                      ng-if="ctrl.hasPrintUsages">
+
+                    <gr-icon gr-small ng-class="{'icon-warning': ctrl.usageListRecent.length >0}">local_library</gr-icon>
+                </span>
+
+                <span class="bottom-bar__meta-item preview__has-web-usages"
+                      title="This image has been used {{ctrl.usageListRecent.length >0 ? 'RECENTLY': '' }} in Digital Content"
+                      ng-if="ctrl.hasDigitalUsages">
+
+                    <gr-icon gr-small ng-class="{'icon-warning': ctrl.usageListRecent.length >0}">phonelink</gr-icon>
+                </span>
+            </div>
+            <div>
+                <gr-archiver-status class="bottom-bar__action"
+                                    image="ctrl.image"
+                                    readonly="ctrl.selectionMode">
+                </gr-archiver-status>
+
+                <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
+                     ng-if="ctrl.states.costState !== 'free'"
+                     ng-switch="ctrl.states.costState">
+                    <div ng-switch-when="pay"
+                         class="cost cost--pay">
+                        <!-- material icons doesn't have a £ icon -->
+                        <span title="pay to use">£</span>
+                    </div>
+
+                    <div ng-switch-when="no_rights"
+                        class="cost cost--no_rights">
+
+                        <!-- material icons doesn't have a £ icon -->
+                        <gr-icon>warning</gr-icon>
+                    </div>
+
+                    <div ng-switch-when="overquota"
+                         class="cost cost--pay">
+                        <gr-icon>trending_up</gr-icon>
+                    </div>
+
+                    <div ng-switch-when="conditional"
+                         class="cost cost--conditional"
+                         title="{{ctrl.image.data.usageRights.restrictions}}">
+                         <!-- As `conditional` can only be set with usageRights, let's
+                         just assume it's here. We might need to revisit this. -->
+                        <gr-icon>flag</gr-icon>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
