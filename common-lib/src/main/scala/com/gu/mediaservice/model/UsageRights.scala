@@ -4,6 +4,8 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.scalalogging.StrictLogging
+import org.scanamo.DynamoFormat
+import org.scanamo.generic.semiauto.deriveDynamoFormat
 import play.api.ConfigLoader
 import play.api.libs.json._
 import scalaz.NonEmptyList
@@ -56,6 +58,7 @@ object UsageRights {
   val photographer: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
   val illustrator: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
   val whollyOwned: NonEmptyList[UsageRightsSpec] = photographer append illustrator
+  implicit val usageRights: DynamoFormat[UsageRights] = deriveDynamoFormat[UsageRights]
 
   // this is a convenience method so that we use the same formatting for all subtypes
   // i.e. use the standard `Json.writes`. I still can't find a not have to pass the `f:Format[T]`

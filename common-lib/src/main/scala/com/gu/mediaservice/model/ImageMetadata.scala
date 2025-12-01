@@ -2,8 +2,12 @@ package com.gu.mediaservice.model
 
 import com.gu.mediaservice.lib.formatting._
 import org.joda.time.DateTime
+import org.scanamo.DynamoFormat
+import org.scanamo.generic.semiauto.deriveDynamoFormat
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
+
+import scala.util.Right
 
 /* following are standard metadata fields that exist in multiple schemas,
 most canonical being https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata */
@@ -55,6 +59,11 @@ case class ImageMetadata(
 }
 
 object ImageMetadata {
+  import org.scanamo._
+  import org.scanamo.generic.semiauto._
+  import org.scanamo.DynamoFormat._
+  import play.api.libs.json._
+  import scala.util.{Try, Success, Failure}
   val empty = ImageMetadata()
 
   implicit val ImageMetadataReads: Reads[ImageMetadata] = (
@@ -102,5 +111,22 @@ object ImageMetadata {
       (__ \ "domainMetadata").writeNullable[Map[String, Map[String, JsValue]]].contramap((l: Map[String, Map[String, JsValue]]) => if (l.isEmpty) None else Some(l)) ~
       (__ \ "imageType").writeNullable[String]
     )(unlift(ImageMetadata.unapply))
+  implicit val dateTimeFormat: Typeclass[DateTime] =
+    DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
+  implicit val jsValue: DynamoFormat[JsValue] =
+    DynamoFormat.xmap[JsValue, String](
+      x =>
+        Try(Json.parse(x)) match {
+          case Success(y) => Right(y)
+          case Failure(t) => Left(TypeCoercionError(t))
+        },
+      x => (Json.stringify(x))
+    )
+  implicit val mapJsValueFormat: DynamoFormat[Map[String, JsValue]] =
+    DynamoFormat.mapFormat(jsValue)
+  implicit val mapOfMapJsValueFormat: DynamoFormat[Map[String, Map[String, JsValue]]] =
+    DynamoFormat.mapFormat(mapJsValueFormat)
+
+  implicit val imageMetadata: DynamoFormat[ImageMetadata] = deriveDynamoFormat[ImageMetadata]
 
 }
