@@ -5,7 +5,7 @@ import type { App } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { Architecture } from "aws-cdk-lib/aws-lambda";
 
-export class ImageEmbedderLambda extends GuStack {
+export class MediaService extends GuStack {
   constructor(scope: App, id: string, props: GuStackProps) {
     super(scope, id, props);
 

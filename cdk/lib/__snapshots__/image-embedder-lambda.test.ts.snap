@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
+exports[`The MediaService stack matches the snapshot 1`] = `
 {
   "Metadata": {
     "gu:cdk:constructs": [
@@ -30,12 +30,12 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
           "S3Bucket": {
             "Ref": "DistributionBucketName",
           },
-          "S3Key": "image-embedder-lambda/TEST/image-embedder-handler/image-embedder.zip",
+          "S3Key": "media-service/TEST/image-embedder-handler/image-embedder.zip",
         },
         "Environment": {
           "Variables": {
             "APP": "image-embedder-handler",
-            "STACK": "image-embedder-lambda",
+            "STACK": "media-service",
             "STAGE": "TEST",
           },
         },
@@ -67,7 +67,7 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
           },
           {
             "Key": "Stack",
-            "Value": "image-embedder-lambda",
+            "Value": "media-service",
           },
           {
             "Key": "Stage",
@@ -121,7 +121,7 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
           },
           {
             "Key": "Stack",
-            "Value": "image-embedder-lambda",
+            "Value": "media-service",
           },
           {
             "Key": "Stage",
@@ -170,7 +170,7 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
                       {
                         "Ref": "DistributionBucketName",
                       },
-                      "/image-embedder-lambda/TEST/image-embedder-handler/image-embedder.zip",
+                      "/media-service/TEST/image-embedder-handler/image-embedder.zip",
                     ],
                   ],
                 },
@@ -191,7 +191,7 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/TEST/image-embedder-lambda/image-embedder-handler",
+                    ":parameter/TEST/media-service/image-embedder-handler",
                   ],
                 ],
               },
@@ -214,7 +214,7 @@ exports[`The ImageEmbedderLambda stack matches the snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/TEST/image-embedder-lambda/image-embedder-handler/*",
+                    ":parameter/TEST/media-service/image-embedder-handler/*",
                   ],
                 ],
               },

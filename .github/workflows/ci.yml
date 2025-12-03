@@ -82,20 +82,20 @@ jobs:
         run: ./scripts/embedder-deploy/cdk.sh
       - name: Image embedder bundling
         run: ./scripts/embedder-deploy/build.sh
-         - uses: guardian/actions-riff-raff@v4
-        env:
-          GU_RIFF_RAFF_ROLE_ARN: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
-        if: ${{ env.GU_RIFF_RAFF_ROLE_ARN }}
-        with:
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          roleArn: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
-          projectName: media-service::grid::embedder
-          configPath: cdk/cdk.out/riff-raff.yaml
-          contentDirectories: |
-            cdk.out:
-              - cdk/cdk.out
-            image-embedder-lambda:
-              - image-embedder.zip
+      # - uses: guardian/actions-riff-raff@v4
+      #   env:
+      #     GU_RIFF_RAFF_ROLE_ARN: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
+      #   if: ${{ env.GU_RIFF_RAFF_ROLE_ARN }}
+      #   with:
+      #     githubToken: ${{ secrets.GITHUB_TOKEN }}
+      #     roleArn: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
+      #     projectName: media-service::grid::embedder
+      #     configPath: cdk/cdk.out/riff-raff.yaml
+      #     contentDirectories: |
+      #       cdk.out:
+      #         - cdk/cdk.out
+      #       image-embedder-lambda:
+      #         - image-embedder.zip
       - uses: guardian/actions-riff-raff@v4.2.3
         if: "! github.event.pull_request.head.repo.fork"
         with:
@@ -128,5 +128,11 @@ jobs:
               - thrall/target/thrall.deb
             usage:
               - usage/target/usage.deb
+            
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
+            
+            cdk.out:
+              - cdk/cdk.out
+            image-embedder-lambda:
+              - image-embedder.zip

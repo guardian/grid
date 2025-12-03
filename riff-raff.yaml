@@ -119,3 +119,43 @@ deployments:
       fileName: image-counter-lambda.zip
       functionNames:
         - "image-counter-lambda-function-"
+
+  lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-handler:
+    type: aws-lambda
+    regions:
+      - eu-west-1
+    app: image-embedder-handler
+    contentDirectory: image-embedder-handler
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-embedder.zip
+    actions:
+      - uploadLambda
+  cfn-eu-west-1-image-embedder-lambda-image-embedder-lambda:
+    type: cloud-formation
+    regions:
+      - eu-west-1
+    app: image-embedder-lambda
+    contentDirectory: cdk.out
+    parameters:
+      templateStagePaths:
+        PROD: ImageEmbedderLambda-euwest-1-PROD.template.json
+        TEST: ImageEmbedderLambda-euwest-1-TEST.template.json
+    dependencies:
+      - lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-handler
+  lambda-update-eu-west-1-image-embedder-lambda-image-embedder-handler:
+    type: aws-lambda
+    regions:
+      - eu-west-1
+    app: image-embedder-handler
+    contentDirectory: image-embedder-handler
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-embedder.zip
+    actions:
+      - updateLambda
+    dependencies:
+      - cfn-eu-west-1-image-embedder-lambda-image-embedder-lambda
+
