@@ -20,7 +20,7 @@ export class MediaService extends GuStack {
         runtime: LAMBDA_NODE_VERSION,
         architecture: Architecture.ARM_64,
         handler: 'dist.handler',
-        app: 'image-embedder-handler',
+        app: 'image-embedder-lambda',
       },
     );
 

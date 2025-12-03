@@ -120,12 +120,12 @@ deployments:
       functionNames:
         - "image-counter-lambda-function-"
 
-  lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-handler:
+  lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-lambda:
     type: aws-lambda
     regions:
       - eu-west-1
-    app: image-embedder-handler
-    contentDirectory: image-embedder-handler
+    app: image-embedder-lambda
+    contentDirectory: image-embedder-lambda
     parameters:
       bucketSsmLookup: true
       lookupByTags: true
@@ -143,13 +143,13 @@ deployments:
         PROD: ImageEmbedderLambda-euwest-1-PROD.template.json
         TEST: ImageEmbedderLambda-euwest-1-TEST.template.json
     dependencies:
-      - lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-handler
-  lambda-update-eu-west-1-image-embedder-lambda-image-embedder-handler:
+      - lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-lambda
+  lambda-update-eu-west-1-image-embedder-lambda-image-embedder-lambda:
     type: aws-lambda
     regions:
       - eu-west-1
-    app: image-embedder-handler
-    contentDirectory: image-embedder-handler
+    app: image-embedder-lambda
+    contentDirectory: image-embedder-lambda
     parameters:
       bucketSsmLookup: true
       lookupByTags: true
