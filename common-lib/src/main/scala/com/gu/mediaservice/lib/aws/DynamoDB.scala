@@ -50,6 +50,13 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     table2.getItem(itemKey(id))
   } flatMap docOrNotFound map asJsObject
 
+  private def getV2(id: String, attribute: String)(implicit ex: ExecutionContext): Future[EnhancedDocument] = Future {
+    Option(table2.getItem(itemKey(id))).flatMap(doc => Option.when(doc.isPresent(attribute))(doc))
+  } flatMap {
+    case Some(doc) => Future.successful(doc)
+    case None => Future.failed(NoItemFound)
+  }
+
   private def get(id: String, attribute: String)(implicit ex: ExecutionContext): Future[Item] = Future {
     table.getItem(
       new GetItemSpec()
@@ -84,11 +91,8 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   }
 
   def booleanGetV2(id: String, key: String)
-    (implicit ex: ExecutionContext): Future[Option[Boolean]] = {
-    Future {
-      val item = Option(table2.getItem(itemKey(id)))
-      item.map(_.getBoolean(key).booleanValue())
-    }
+    (implicit ex: ExecutionContext): Future[Boolean] = {
+      getV2(id, key).map(_.getBoolean(key).booleanValue())
   }
 
   def booleanSet(id: String, key: String, value: Boolean)
@@ -126,11 +130,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def setGetV2(id: String, key: String)
     (implicit ex: ExecutionContext): Future[Set[String]] = {
-    Future {
-      val item = Option(table2.getItem(itemKey(id)))
-      item.map(_.getStringSet(key).asScala.toSet)
-        .getOrElse(Set.empty)
-    }
+      getV2(id, key).map(_.getStringSet(key).asScala.toSet)
   }
 
   def setAdd(id: String, key: String, value: String)
