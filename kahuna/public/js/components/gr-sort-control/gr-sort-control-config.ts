@@ -1,28 +1,9 @@
 import {SortDropdownOption} from "./gr-sort-control";
 
-export function manageSortSelection(newSelection:string): string {
-  let newVal;
-  switch (newSelection) {
-    case "newest":
-      newVal = "newest";
-      break;
-    case "oldest":
-      newVal = "oldest";
-      break;
-    case "-taken":
-      newVal = "-taken";
-      break;
-    case "taken":
-      newVal = "taken";
-      break;
-    case "dateAddedToCollection":
-      newVal = "dateAddedToCollection";
-      break;
-    default:
-      newVal = "newest";
-      break;
-  }
-  return newVal;
+export function manageSortSelection(newSelection: string): string {
+  if (["newest", "oldest", "-taken", "taken", "dateAddedToCollection"].includes(newSelection)) {
+    return newSelection;
+  } else { return "newest"; }
 }
 
 export const SortOptions: SortDropdownOption[] = [

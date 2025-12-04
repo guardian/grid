@@ -1,4 +1,12 @@
 <form class="search">
+    <span id="ai-search-checkbox" class="search__modifier-item search__modifier-checkbox"
+        ng-if="searchQuery.shouldDisplayAISearchOption">
+        <label>
+            <input type="checkbox"
+                   ng-model="searchQuery.useAISearch"/>
+            Use AI search
+        </label>
+    </span>
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
@@ -22,7 +30,7 @@
         <gr-icon>info_outline</gr-icon>
     </button>
 
-    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter && !searchQuery.useAISearch" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -84,7 +92,7 @@
         </ul>
     </div>
 
-    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter && !searchQuery.useAISearch" class="search__modifier-container">
         <div class="search__modifier-sort">
             <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
         </div>

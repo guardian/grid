@@ -56,6 +56,8 @@ object filters {
 
   def ids(idList: List[String]): Query = idsQuery(idList)
 
+  def pinnedIds(idList: List[String]): Query = pinnedQuery(ids = idList, organic = matchNoneQuery())
+
   def bool() = BoolQuery()
 
   def mustNot(queries: Query*): Query = ElasticDsl.not(queries)

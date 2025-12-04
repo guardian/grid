@@ -50,9 +50,9 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val showSendToPhotoSales: Option[Boolean] = booleanOpt("showSendToPhotoSales")
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
-  val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeIngestBucket.map { ingestBucket =>
+  val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeBucketForUIUploads.map { bucket =>
     if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
-    else s"https://$ingestBucket.s3.$awsRegion.amazonaws.com"
+    else s"https://$bucket.s3.$awsRegion.amazonaws.com"
   } ++ telemetryUri
   val fontSources: Set[String] = getStringSet("security.fontSources")
   val imageSources: Set[String] = getStringSet("security.imageSources")
@@ -91,4 +91,3 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val shouldUploadStraightToBucket: Boolean = maybeIngestBucket.isDefined
 }
-

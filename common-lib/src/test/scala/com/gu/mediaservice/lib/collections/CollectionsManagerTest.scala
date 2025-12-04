@@ -85,6 +85,26 @@ class CollectionsManagerTest extends AnyFunSpec with Matchers {
       noIndex shouldBe Nil
       multiIndex shouldBe List(3, 4)
     }
+    it ("should find the filter the collections by index") {
+      val actionData = ActionData("me@you.com", DateTime.now())
 
+      val collection1 = Collection.build(List("g2"), actionData)
+      val collections2 = Collection.build(List("g2", "art"), actionData)
+      val collections3 = Collection.build(List("observer", "feature"), actionData)
+
+      val collections = List(
+        collection1,
+        collections2,
+        collections3
+      )
+
+      val index = CollectionsManager.findIndexes(List("g2", "art"), collections)
+      val updatedColllections = CollectionsManager.filterCollectionsByIndexes(indexes = index, collections = collections)
+
+      updatedColllections shouldEqual List(
+        collection1,
+        collections3
+      )
+    }
   }
 }

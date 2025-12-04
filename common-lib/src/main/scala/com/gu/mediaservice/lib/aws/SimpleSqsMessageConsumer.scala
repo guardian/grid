@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.amazonaws.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
 
 import scala.jdk.CollectionConverters._
 
@@ -21,6 +21,9 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
 
   def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
+
+  def makeMessageVisible(message: SQSMessage): Unit =
+    client.changeMessageVisibility(new ChangeMessageVisibilityRequest(queueUrl, message.getReceiptHandle, 0))
 
   def getStatus: Map[String, String] = {
    client.getQueueAttributes(queueUrl, List(

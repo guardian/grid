@@ -30,6 +30,9 @@ object CollectionsManager {
       case (collection, i) if collection.path == path => i
     }
 
+  def filterCollectionsByIndexes(indexes: List[Int], collections: List[Collection]) = {
+    collections.zipWithIndex.filterNot({case(_, i) => indexes.contains(i)}).map(_._1)
+  }
   def onlyLatest(collections: List[Collection]): List[Collection] =
     collections filter { collection =>
       // if there isn't a collection with the same path created after itself.

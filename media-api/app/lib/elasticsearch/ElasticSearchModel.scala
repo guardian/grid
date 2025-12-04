@@ -87,6 +87,7 @@ case class SearchParams(
   countAll: Option[Boolean] = None,
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
+  useAISearch: Option[Boolean] = None,
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -173,6 +174,8 @@ object SearchParams {
       request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus,
       request.getQueryString("countAll") flatMap parseBooleanFromQuery,
       printUsageFilters,
+      shouldFlagGraphicImages = false,
+      request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
     )
   }
 

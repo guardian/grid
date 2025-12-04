@@ -66,14 +66,14 @@ function getImageLoaderConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
-        |s3.quarantine.bucket="${config.coreStackProps.QuarantineBucket}"
+        |#uncomment to enable the quarantine bucket
+        |#s3.quarantine.bucket="${config.coreStackProps.QuarantineBucket}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |dynamo.table.upload.status="UploadStatusTable"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
-        |upload.quarantine.enabled=false
         |s3.vectors.shouldEmbed=false
         |`;
 }
