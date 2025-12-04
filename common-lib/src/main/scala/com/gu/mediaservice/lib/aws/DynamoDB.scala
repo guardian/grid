@@ -13,8 +13,9 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
-import software.amazon.awssdk.enhanced.dynamodb.model.GetItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue => AttributeValueV2, UpdateItemRequest, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -103,9 +104,18 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withBoolean(":value", value)
     )
 
+  def booleanSetV2(id: String, key: String, value: Boolean)
+                (implicit ex: ExecutionContext): Future[JsObject] = Future {
+    updateV2(
+      id,
+      s"SET $key = :value",
+      value
+    )
+  }
+
   def booleanSetOrRemove(id: String, key: String, value: Boolean)
                         (implicit ex: ExecutionContext): Future[JsObject] =
-    if (value) booleanSet(id, key, value)
+    if (value) booleanSetV2(id, key, value)
     else removeKey(id, key)
 
   def stringSet(id: String, key: String, value: JsValue)
@@ -262,6 +272,29 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
     val items: List[Item] = index.query(spec).iterator.asScala.toList
     items map (a => a.getString("id"))
+  }
+
+  def updateV2(id: String, expression: String, jsValue: JsValue) = {
+    val updateRequest = UpdateItemRequest.builder()
+      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
+      .updateExpression(expression)
+      .expressionAttributeValues(EnhancedDocument.fromJson(jsValue.toString()).toMap)
+      .tableName(tableName)
+      .build()
+    client2.updateItem(updateRequest)
+  }
+
+  def updateV2(id: String, expression: String, bool: Boolean) = {
+    val updateRequest = UpdateItemRequest.builder()
+      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
+      .updateExpression(expression)
+      .expressionAttributeValues(Map(":value" -> AttributeValueV2.fromBool(bool)).asJava)
+      .returnValues(ReturnValueV2.ALL_NEW)
+      .tableName(tableName)
+      .build()
+    val updateItemResponse = client2.updateItem(updateRequest)
+    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
+    Json.parse(jsonString).as[JsObject]
   }
 
   def update(id: String, expression: String, valueMap: ValueMap)
