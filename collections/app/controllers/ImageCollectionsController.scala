@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getIdentity
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
@@ -24,8 +24,6 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
   extends BaseController with MessageSubjects with ArgoHelpers {
 
   import CollectionsManager.onlyLatest
-
-  val dynamo = new DynamoDB[Collection](config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
     imageCollectionsStore.get(id).map { collections =>
