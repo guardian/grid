@@ -89,7 +89,7 @@ class EditsController(
 
   def getArchived(id: String) = auth.async {
     editsStore.booleanGetV2(id, Edits.Archived) map { archived =>
-      respond(archived.getOrElse(false))
+      respond(archived)
     } recover {
       case NoItemFound => respond(false)
     }
