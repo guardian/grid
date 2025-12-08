@@ -231,6 +231,17 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
+  // We cannot update, so make sure you send over the WHOLE document
+  def jsonAddV2(id: String, key: String, value: Map[String, JsValue])
+             (implicit ex: ExecutionContext): Future[JsObject] = Future {
+    updateV2(
+      id,
+      s"SET $key = :value",
+      AttributeValueV2.fromM(value.view.mapValues(DynamoDB.jsonToAttributeValue).toMap.asJava)
+    )
+  }
+
+
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -427,6 +438,20 @@ object DynamoDB {
     }
     valueMap
   }
+
+  def jsonToAttributeValue(json: JsValue): AttributeValueV2 = {
+    json match {
+      case JsString(v)  => AttributeValueV2.fromS(v)
+      case JsBoolean(b) => AttributeValueV2.fromBool(b)
+      case JsTrue => AttributeValueV2.fromBool(true)
+      case JsFalse => AttributeValueV2.fromBool(false)
+      case JsNumber(n)  => AttributeValueV2.fromN(n.toString())
+      case JsNull => AttributeValueV2.fromNul(true)
+      case JsObject(obj)  => AttributeValueV2.fromM(obj.view.mapValues(s => jsonToAttributeValue(s)).toMap.asJava)
+      case JsArray(arr)   => AttributeValueV2.fromL(arr.toList.map(jsonToAttributeValue).asJava)
+    }
+  }
+  
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, JsValue] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, JsValue]]
 
