@@ -118,7 +118,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     updateV2(
       id,
       s"SET $key = :value",
-      value
+      AttributeValueV2.fromBool(value)
     )
   }
 
@@ -310,28 +310,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     items map (a => a.getString("id"))
   }
 
-  def updateV2(id: String, expression: String, jsValue: JsValue) = {
-    val updateRequest = UpdateItemRequest.builder()
-      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
-      .updateExpression(expression)
-      .expressionAttributeValues(EnhancedDocument.fromJson(jsValue.toString()).toMap)
-      .tableName(tableName)
-      .build()
-    client2.updateItem(updateRequest)
-  }
-
-  def updateV2(id: String, expression: String, bool: Boolean) = {
-    val updateRequest = UpdateItemRequest.builder()
-      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
-      .updateExpression(expression)
-      .expressionAttributeValues(Map(":value" -> AttributeValueV2.fromBool(bool)).asJava)
-      .returnValues(ReturnValueV2.ALL_NEW)
-      .tableName(tableName)
-      .build()
-    val updateItemResponse = client2.updateItem(updateRequest)
-    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
-    Json.parse(jsonString).as[JsObject]
-  }
   def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
     val updateRequest = UpdateItemRequest.builder()
       .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
