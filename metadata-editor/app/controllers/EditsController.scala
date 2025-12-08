@@ -216,7 +216,7 @@ class EditsController(
 
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
-      editsStore.jsonAdd(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
+      editsStore.jsonAddV2(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
         .map(publish(id, UpdateImageUserMetadata))
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
