@@ -100,14 +100,14 @@ class EditsController(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       archived =>
-        editsStore.booleanSetOrRemove(id, "archived", archived)
+        editsStore.booleanSetOrRemoveV2(id, "archived", archived)
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = auth.async {
-    editsStore.removeKey(id, Edits.Archived)
+    editsStore.removeKeyV2(id, Edits.Archived)
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(false))
   }
