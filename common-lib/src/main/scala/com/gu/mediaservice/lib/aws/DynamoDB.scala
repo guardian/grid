@@ -87,6 +87,9 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"REMOVE $key"
     )
 
+  def removeKeyV2(id: String, key: String)(implicit ex: ExecutionContext) = Future{
+    updateV2(id, s"Remove $key")
+  }
   def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
@@ -115,8 +118,13 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def booleanSetOrRemove(id: String, key: String, value: Boolean)
                         (implicit ex: ExecutionContext): Future[JsObject] =
-    if (value) booleanSetV2(id, key, value)
+    if (value) booleanSet(id, key, value)
     else removeKey(id, key)
+
+  def booleanSetOrRemoveV2(id: String, key: String, value: Boolean)
+                        (implicit ex: ExecutionContext): Future[JsObject] =
+    if (value) booleanSetV2(id, key, value)
+    else removeKeyV2(id, key)
 
   def stringSet(id: String, key: String, value: JsValue)
                 (implicit ex: ExecutionContext): Future[JsObject] =
@@ -289,6 +297,18 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
       .updateExpression(expression)
       .expressionAttributeValues(Map(":value" -> AttributeValueV2.fromBool(bool)).asJava)
+      .returnValues(ReturnValueV2.ALL_NEW)
+      .tableName(tableName)
+      .build()
+    val updateItemResponse = client2.updateItem(updateRequest)
+    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
+    Json.parse(jsonString).as[JsObject]
+  }
+
+  def updateV2(id: String, expression: String) = {
+    val updateRequest = UpdateItemRequest.builder()
+      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
+      .updateExpression(expression)
       .returnValues(ReturnValueV2.ALL_NEW)
       .tableName(tableName)
       .build()
