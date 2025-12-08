@@ -94,7 +94,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
 
-
   def deleteItemV2(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table2.deleteItem(
       Key.builder().partitionValue(id).build()
@@ -310,13 +309,17 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     items map (a => a.getString("id"))
   }
 
-  def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
-    val updateRequest = UpdateItemRequest.builder()
+  private def updateRequestBuilder(id: String, expression: String) = {
+    UpdateItemRequest.builder()
       .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
       .updateExpression(expression)
-      .expressionAttributeValues(Map(":value" -> attribute).asJava)
       .returnValues(ReturnValueV2.ALL_NEW)
       .tableName(tableName)
+  }
+
+  def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
+    val updateRequest = updateRequestBuilder(id, expression)
+      .expressionAttributeValues(Map(":value" -> attribute).asJava)
       .build()
     val updateItemResponse = client2.updateItem(updateRequest)
     val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
@@ -324,12 +327,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   }
 
   def updateV2(id: String, expression: String) = {
-    val updateRequest = UpdateItemRequest.builder()
-      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
-      .updateExpression(expression)
-      .returnValues(ReturnValueV2.ALL_NEW)
-      .tableName(tableName)
-      .build()
+    val updateRequest = updateRequestBuilder(id, expression).build()
     val updateItemResponse = client2.updateItem(updateRequest)
     val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
     Json.parse(jsonString).as[JsObject]
