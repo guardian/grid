@@ -58,34 +58,12 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     case None => Future.failed(NoItemFound)
   }
 
-  private def get(id: String, attribute: String)(implicit ex: ExecutionContext): Future[Item] = Future {
-    table.getItem(
-      new GetItemSpec()
-        .withPrimaryKey(IdKey, id)
-        .withAttributesToGet(attribute)
-    )
-  } flatMap itemOrNotFound
-
   private def docOrNotFound(docOrNull: EnhancedDocument): Future[EnhancedDocument] = {
     Option(docOrNull) match {
       case Some(doc) => Future.successful(doc)
       case None       => Future.failed(NoItemFound)
     }
   }
-
-  private def itemOrNotFound(itemOrNull: Item): Future[Item] = {
-    Option(itemOrNull) match {
-      case Some(item) => Future.successful(item)
-      case None       => Future.failed(NoItemFound)
-    }
-  }
-
-  def removeKey(id: String, key: String)
-               (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"REMOVE $key"
-    )
 
   def removeKeyV2(id: String, key: String)(implicit ex: ExecutionContext) = Future{
     updateV2(id, s"Remove $key")
@@ -104,14 +82,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       getV2(id, key).map(_.getBoolean(key).booleanValue())
   }
 
-  def booleanSet(id: String, key: String, value: Boolean)
-                (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"SET $key = :value",
-      new ValueMap().withBoolean(":value", value)
-    )
-
   def booleanSetV2(id: String, key: String, value: Boolean)
                 (implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(
@@ -121,60 +91,19 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
   }
 
-  def booleanSetOrRemove(id: String, key: String, value: Boolean)
-                        (implicit ex: ExecutionContext): Future[JsObject] =
-    if (value) booleanSet(id, key, value)
-    else removeKey(id, key)
-
   def booleanSetOrRemoveV2(id: String, key: String, value: Boolean)
                         (implicit ex: ExecutionContext): Future[JsObject] =
     if (value) booleanSetV2(id, key, value)
     else removeKeyV2(id, key)
 
-  def stringSet(id: String, key: String, value: JsValue)
-                (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"SET $key = :value",
-      valueMapWithNullForEmptyString(Map(":value" -> value))
-    )
-
   def stringSetV2(id: String, key: String, value: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(id, s"SET $key = :value", AttributeValueV2.fromS(value))
-  }
-
-  def stringListSet(id: String, keyValues: (String, JsValue)*)
-                   (implicit ex: ExecutionContext): Future[JsObject] = {
-    val keyValueMap = keyValues.toMap
-    val expressionParts = keyValueMap.keys.map(key => s"$key = :$key")
-    val valueMap = keyValueMap.map {case (key, value) => (s":$key", value)}
-    update(
-      id,
-      expression = s"SET ${expressionParts.mkString(",")}",
-      valueMapWithNullForEmptyString(valueMap)
-    )
   }
 
   def setGetV2(id: String, key: String)
     (implicit ex: ExecutionContext): Future[Set[String]] = {
       getV2(id, key).map(_.getStringSet(key).asScala.toSet)
   }
-
-  def setAdd(id: String, key: String, value: String)
-            (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"ADD $key :value",
-      new ValueMap().withStringSet(":value", value)
-    )
-
-  def setAdd(id: String, key: String, value: List[String])
-            (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"ADD $key :value",
-      new ValueMap().withStringSet(":value", value:_*)
-    )
 
   def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(id, s"ADD $key :value", AttributeValueV2.fromSs(value.asJava))
@@ -220,16 +149,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       .map(chunkIterator => chunkIterator.fold(Map.empty)((acc, result) => acc ++ result))
   }
 
-
-  // We cannot update, so make sure you send over the WHOLE document
-  def jsonAdd(id: String, key: String, value: Map[String, JsValue])
-             (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"SET $key = :value",
-        new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
-    )
-
   def jsonAddV2(id: String, key: String, value: Map[String, JsValue])
              (implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(
@@ -239,63 +158,11 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
   }
 
-  def setDelete(id: String, key: String, value: String)
-               (implicit ex: ExecutionContext): Future[JsObject] =
-    update(
-      id,
-      s"DELETE $key :value",
-      new ValueMap().withStringSet(":value", value)
-    )
-
   def setDeleteV2(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(id, s"DELETE $key :value", AttributeValueV2.fromSs(List(value).asJava))
-
   }
 
-  def listAdd(id: String, key: String, value: T)
-                (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
-
-    // TODO: Deal with the case that we don't have JSON serialisers, for now we just fail.
-    val json = Json.toJson(value).as[JsObject]
-    val valueMap = DynamoDB.jsonToValueMap(json)
-    def append =
-      update(
-        id, s"SET $key = list_append($key, :value)",
-        new ValueMap().withList(":value", valueMap)
-      )
-
-    def create =
-      update(
-        id, s"SET $key = :value",
-        new ValueMap().withList(":value", valueMap)
-      )
-
-    // DynamoDB doesn't seem to have a way of saying create the list if it doesn't exist then
-    // append to it. So what we're saying here is:
-    // Append to the list => if it doesn't exist => create it with the initial value.
-    append.map(j => (j \ key).as[List[T]]) recoverWith {
-      case err: AmazonServiceException => create.map(j => (j \ key).as[List[T]])
-      case err => throw err
-    }
-  }
-
-  def listRemoveIndexes(id: String, key: String, indexes: List[Int])
-                          (implicit ex: ExecutionContext, rjs: Reads[T]): Future[List[T]] =
-    update(
-      id, s"REMOVE ${indexes.map(i => s"$key[$i]").mkString(",")}"
-    ) map(j => (j \ key).as[List[T]])
-
-  def objPut(id: String, key: String, value: T)
-                 (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
-
-    val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
-
-    val spec = new PutItemSpec().withItem(item)
-    table.putItem(spec)
-    // As PutItem only returns `null` if the item didn't exist, or the old item if it did,
-    // all we care about is whether it completed.
-  } map (_ => value)
 
   def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext) = Future {
     val index = table.getIndex(indexName)
@@ -333,27 +200,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     Json.parse(jsonString).as[JsObject]
   }
 
-  def update(id: String, expression: String, valueMap: ValueMap)
-            (implicit ex: ExecutionContext): Future[JsObject] =
-    update(id, expression, Some(valueMap))
-
-  def update(id: String, expression: String, valueMap: Option[ValueMap] = None)
-            (implicit ex: ExecutionContext): Future[JsObject] = Future {
-
-    val baseUpdateSpec = new UpdateItemSpec().
-      withPrimaryKey(IdKey, id).
-      withUpdateExpression(expression).
-      withReturnValues(ReturnValue.ALL_NEW).
-      withValueMap(valueMap.orNull)
-
-    val updateSpec = lastModifiedKey.map { key =>
-      DynamoDB.addLastModifiedUpdate(baseUpdateSpec, key, DateTime.now)
-    }.getOrElse(baseUpdateSpec)
-
-    table.updateItem(updateSpec)
-  } map asJsObject
-
-
   // FIXME: surely there must be a better way to convert?
   def asJsObject(item: Item): JsObject =
     jsonWithNullAsEmptyString(Json.parse(item.toJSON)).as[JsObject] - IdKey
@@ -378,14 +224,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
     case JsNull => JsString("")
     case value => value
-  }
-
-  def valueMapWithNullForEmptyString(value: Map[String, JsValue]) = {
-    val valueMap = new ValueMap()
-    value.map     { case(k, v) => (k, if (v == JsNull) null else v) }
-         .foreach { case(k, v) => valueMap.withJSON(k, Json.stringify(v)) }
-
-    valueMap
   }
 
 }

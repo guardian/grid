@@ -48,8 +48,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
                                 (implicit ec: ExecutionContext): Future[Unit] =
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false) { () =>
       for {
-        edits <- editsStore.removeKey(id, Edits.Photoshoot)
-        _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
+        edits <- editsStore.removeKeyV2(id, Edits.Photoshoot)
+        _ <- editsStore.removeKeyV2(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield ()
     }
