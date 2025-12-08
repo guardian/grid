@@ -167,6 +167,9 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withStringSet(":value", value:_*)
     )
 
+  def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
+    updateV2(id, s"ADD $key :value", AttributeValueV2.fromSs(value.asJava))
+  }
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
     val keyChunkList = ids
@@ -225,6 +228,12 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"DELETE $key :value",
       new ValueMap().withStringSet(":value", value)
     )
+
+  def setDeleteV2(id: String, key: String, value: String)
+               (implicit ex: ExecutionContext): Future[JsObject] = Future {
+    updateV2(id, s"DELETE $key :value", AttributeValueV2.fromSs(List(value).asJava))
+
+  }
 
   def listAdd(id: String, key: String, value: T)
                 (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
@@ -297,6 +306,18 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
       .updateExpression(expression)
       .expressionAttributeValues(Map(":value" -> AttributeValueV2.fromBool(bool)).asJava)
+      .returnValues(ReturnValueV2.ALL_NEW)
+      .tableName(tableName)
+      .build()
+    val updateItemResponse = client2.updateItem(updateRequest)
+    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
+    Json.parse(jsonString).as[JsObject]
+  }
+  def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
+    val updateRequest = UpdateItemRequest.builder()
+      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
+      .updateExpression(expression)
+      .expressionAttributeValues(Map(":value" -> attribute).asJava)
       .returnValues(ReturnValueV2.ALL_NEW)
       .tableName(tableName)
       .build()

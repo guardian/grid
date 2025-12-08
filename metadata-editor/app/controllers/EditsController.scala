@@ -127,7 +127,7 @@ class EditsController(
         Future.successful(BadRequest(errors.toString())),
       labels =>
         editsStore
-          .setAdd(id, Edits.Labels, labels)
+          .setAddV2(id, Edits.Labels, labels)
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
@@ -137,7 +137,7 @@ class EditsController(
   }
 
   def removeLabel(id: String, label: String) = auth.async {
-    editsStore.setDelete(id, Edits.Labels, decodeUriParam(label))
+    editsStore.setDeleteV2(id, Edits.Labels, decodeUriParam(label))
       .map(publish(id, UpdateImageUserMetadata))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
