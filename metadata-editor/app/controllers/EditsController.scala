@@ -168,7 +168,7 @@ class EditsController(
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
-        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(validatedMetadata))
+        editsStore.jsonAddV2(id, Edits.Metadata, metadataAsMap(validatedMetadata))
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
       }
@@ -192,7 +192,7 @@ class EditsController(
             imageType = metadata.imageType orElse originalUserMetadata.imageType
           )
 
-          editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
+          editsStore.jsonAddV2(id, Edits.Metadata, metadataAsMap(mergedMetadata))
             .map(publish(id, UpdateImageUserMetadata))
             .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
         } getOrElse {
