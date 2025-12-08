@@ -5,7 +5,7 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, KeysAndAttributes, ReturnValue}
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -15,7 +15,7 @@ import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue => AttributeValueV2, UpdateItemRequest, ReturnValue => ReturnValueV2}
+import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -94,6 +94,12 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
 
+
+  def deleteItemV2(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
+    table2.deleteItem(
+      Key.builder().partitionValue(id).build()
+    )
+  }
   def booleanGetV2(id: String, key: String)
     (implicit ex: ExecutionContext): Future[Boolean] = {
       getV2(id, key).map(_.getBoolean(key).booleanValue())
@@ -133,6 +139,10 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"SET $key = :value",
       valueMapWithNullForEmptyString(Map(":value" -> value))
     )
+
+  def stringSetV2(id: String, key: String, value: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
+    updateV2(id, s"SET $key = :value", AttributeValueV2.fromS(value))
+  }
 
   def stringListSet(id: String, keyValues: (String, JsValue)*)
                    (implicit ex: ExecutionContext): Future[JsObject] = {

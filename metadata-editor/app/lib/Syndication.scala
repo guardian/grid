@@ -59,7 +59,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
       for {
         editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
-        _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
+        _ <- editsStore.stringSetV2(id, Edits.PhotoshootTitle, newPhotoshoot.title) // store - don't care about return
         _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
@@ -68,7 +68,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
-      syndicationStore.deleteItem(id)
+      syndicationStore.deleteItemV2(id)
       // Always publish, in case there is no photoshoot
       publish(Map(id -> None), UpdateImageSyndicationMetadata)
     }
