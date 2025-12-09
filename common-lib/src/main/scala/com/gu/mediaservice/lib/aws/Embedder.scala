@@ -45,38 +45,18 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock)(implicit ec: ExecutionCon
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
     embeddingFuture.flatMap { embedding =>
-      s3vectors.searchVectorStore(embedding, query)
+      s3vectors.searchVectorStoreWithQueryString(embedding, query)
     }
   }
 
-  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
-    VectorData
-      .builder()
-      .float32(embedding.map(float2Float).asJava)
-      .build()
-  }
-
-  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Option[QueryVectorsResponse] = {
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Option[Future[QueryVectorsResponse]] = {
     val maybeVector = s3vectors.findVectorForImageId(imageId)
     if (maybeVector.vectors().isEmpty) {
       logger.error(logMarker, s"No embedding found for ${imageId}")
       None
     } else {
       val vector: VectorData = maybeVector.vectors().asScala.head.data()
-      Some(s3vectors.searchVectorStore(vector))
+      Some(s3vectors.searchVectorStoreForSimilarImages(vector))
     }
   }
-
-  def createEmbeddingAndSearch(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[QueryVectorsResponse] = {
-
-    logger.info(logMarker, s"Searching for image embedding for $q")
-
-    val embeddingFuture = bedrock.createSearchTermEmbedding(q: String)
-    embeddingFuture.map { embedding =>
-//      We need to convert the embedding to a VectorData object for the S3 Vector Store API
-      val vectorData = convertEmbeddingToVectorData(embedding)
-      s3vectors.searchVectorStore(vectorData)
-    }
-  }
-
 }

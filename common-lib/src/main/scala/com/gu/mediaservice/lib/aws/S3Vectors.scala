@@ -1,10 +1,12 @@
 package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
-
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model.{PutInputVector, PutVectorsRequest, PutVectorsResponse, VectorData}
+import software.amazon.awssdk.services.s3vectors.model.{
+  DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest,
+  PutVectorsResponse, VectorData, QueryVectorsRequest, QueryVectorsResponse, GetVectorsResponse
+}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -124,7 +126,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.queryVectors(request)
   }
 
-  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
+  def searchVectorStoreWithQueryString(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
     try {
       val response = queryVectors(queryEmbedding)
       logger.info(
@@ -167,8 +169,8 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     }
   }
 
-  def searchVectorStore(queryVector: VectorData)(implicit logMarker: LogMarker
-  ): QueryVectorsResponse = {
+  def searchVectorStoreForSimilarImages(queryVector: VectorData)(implicit logMarker: LogMarker
+  ): Future[QueryVectorsResponse] = Future {
     logger.info(logMarker, s"Searching for image embedding")
     try {
       val request: QueryVectorsRequest = QueryVectorsRequest

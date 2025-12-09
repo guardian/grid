@@ -566,29 +566,41 @@ class MediaApi(
         case None => ""
       }
 
-      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
+      val searchForSimilar = searchTerm.split(" ").find(_.startsWith("similar:"))
 
-      val imageIds = semanticSearchResult.map { result =>
-        val results: java.util.List[QueryOutputVector] = result.vectors()
-        results.asScala.map(_.key()).toList
+      val semanticSearchResult: Option[Future[QueryVectorsResponse]] = if (searchForSimilar.isDefined) {
+        val extractedImageId = searchForSimilar.get.split(":")(1)
+         embedder.imageToImageSearch(extractedImageId)
+      } else {
+        Some(embedder.createEmbeddingAndSearch(searchTerm))
       }
 
-      imageIds.flatMap { ids =>
-        SearchParams(
-          query = _searchParams.query,
-          ids = Some(ids),
-          tier = request.user.accessor.tier,
-        )
+      semanticSearchResult match {
+        case None =>
+        Future.successful(respondError(NotFound, "Not Found",
+          "The image you have selected is not yet in the S3 Vector Store. We cannot do a similarity search on it yet."))
+        case Some(results) =>
+        val imageIds = results.map { result =>
+          val results: java.util.List[QueryOutputVector] = result.vectors()
+          results.asScala.map(_.key()).toList
+        }
 
-        for {
-          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-          imageEntities = hits map (hitToImageEntity _).tupled
-          links = List()
-        } yield {
-          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+        imageIds.flatMap { ids =>
+          SearchParams(
+            query = _searchParams.query,
+            ids = Some(ids),
+            tier = request.user.accessor.tier,
+          )
+
+          for {
+            SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+            imageEntities = hits map (hitToImageEntity _).tupled
+            links = List()
+          } yield {
+            respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+          }
         }
       }
-
     } else {
 
       val searchParams = if(canViewDeletedImages) {

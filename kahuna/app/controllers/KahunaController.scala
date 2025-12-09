@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import lib.{EnableAISearch, ExampleSwitch, FeatureSwitches, KahunaConfig, UseCqlChips}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, SemanticSearchEnabled, UseCqlChips}
 import play.api.mvc.ControllerComponents
 import play.api.libs.json._
 
