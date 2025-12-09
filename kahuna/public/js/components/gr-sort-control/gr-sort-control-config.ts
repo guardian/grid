@@ -1,7 +1,7 @@
 import {SortDropdownOption} from "./gr-sort-control";
 
 export function manageSortSelection(newSelection: string): string {
-  if (["newest", "oldest", "-taken", "taken", "dateAddedToCollection"].includes(newSelection)) {
+  if (["newest", "oldest", "-taken", "taken", "dateAddedToCollection", "relevance"].includes(newSelection)) {
     return newSelection;
   } else { return "newest"; }
 }
@@ -38,6 +38,14 @@ export const SortOptions: SortDropdownOption[] = [
     isTaken: false
   }
 ];
+
+export const RelevanceSortOption =
+  {
+    value: "relevance",
+    label: "Relevance",
+    isCollection: false,
+    isTaken: false
+  };
 
 export const DefaultSortOption: SortDropdownOption = SortOptions[0];
 export const CollectionSortOption: SortDropdownOption = SortOptions[4];

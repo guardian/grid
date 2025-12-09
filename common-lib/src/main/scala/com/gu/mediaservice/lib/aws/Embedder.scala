@@ -2,10 +2,12 @@ package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
+import software.amazon.awssdk.services.s3vectors.model.{PutVectorsResponse, QueryVectorsResponse, VectorData}
 
 import java.nio.file.{Files, Path}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
@@ -43,8 +45,18 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock)(implicit ec: ExecutionCon
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
     embeddingFuture.flatMap { embedding =>
-      s3vectors.searchVectorStore(embedding, query)
+      s3vectors.searchVectorStoreWithQueryString(embedding, query)
     }
   }
 
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Option[Future[QueryVectorsResponse]] = {
+    val maybeVector = s3vectors.findVectorForImageId(imageId)
+    if (maybeVector.vectors().isEmpty) {
+      logger.error(logMarker, s"No embedding found for ${imageId}")
+      None
+    } else {
+      val vector: VectorData = maybeVector.vectors().asScala.head.data()
+      Some(s3vectors.searchVectorStoreForSimilarImages(vector))
+    }
+  }
 }
