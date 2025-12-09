@@ -32,14 +32,9 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
 
   val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor)
   val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
-  val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
-    case (true, Some(bucketName)) =>{
-      val quarantineStore = new QuarantineStore(config)
-      Some(new QuarantineUploader(quarantineStore, config))
-    }
-    case (true, None) => throw new IllegalArgumentException(s"Quarantining is enabled. upload.quarantine.enabled = ${config.uploadToQuarantineEnabled} but no bucket is configured. s3.quarantine.bucket isn't configured.")
-    case (false, _) => None
-  }
+  val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
+    new QuarantineUploader(new QuarantineStore(config), config)
+  )
 
   val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   private val gridClient = GridClient(services)(wsClient)
@@ -47,7 +42,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val metrics = new ImageLoaderMetrics(config, actorSystem, applicationLifecycle)
 
   val controller = new ImageLoaderController(
-    auth, downloader, store, maybeIngestQueue, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation, metrics)
+    auth, downloader, store, maybeIngestQueue, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation, metrics, applicationLifecycle)
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
   val imageLoaderManagement = new ImageLoaderManagement(controllerComponents, buildInfo, controller.maybeIngestQueueAndProcessor)

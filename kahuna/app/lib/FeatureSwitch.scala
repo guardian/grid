@@ -16,9 +16,9 @@ object UseCqlChips extends FeatureSwitch(
   default = false
 )
 
-object SemanticSearchEnabled extends FeatureSwitch(
-  key = "semantic-search-enabled",
-  title = "Enable semantic search",
+object EnableAISearch extends FeatureSwitch(
+  key = "enable-ai-search",
+  title = "Enable the use of AI search",
   default = false
 )
 

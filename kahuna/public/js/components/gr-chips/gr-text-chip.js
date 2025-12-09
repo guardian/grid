@@ -23,6 +23,11 @@ grTextChip.controller('grTextChipCtrl', function() {
     $grTextChipCtrl.init = function($grChipsCtrl_, $grChipCtrl_) {
         $grChipsCtrl = $grChipsCtrl_;
         $grChipCtrl = $grChipCtrl_;
+
+        // Access placeholder from parent controller via getter method
+        $grTextChipCtrl.getPlaceholder = function() {
+            return $grChipsCtrl.getPlaceholder();
+        };
     };
 
     $grTextChipCtrl.removePrevious = function() {

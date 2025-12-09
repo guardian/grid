@@ -77,7 +77,7 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
   tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]]
+  createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit]
 )
 
 case class UploadStatusUri (uri: String) extends AnyVal {
@@ -125,7 +125,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         createEmbeddingAndStore: (MimeType, Path, String) => Future[Option[PutVectorsResponse]],
+                                         createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit],
                                          optimiseOps: OptimiseOps,
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
@@ -346,11 +346,11 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Option[PutVectorsResponse]] = {
+  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Unit] = {
     maybeEmbedder match {
       case Some(embedder) =>
         embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
-      case None => Future.successful(None)
+      case None => Future.successful(())
     }
   }
 

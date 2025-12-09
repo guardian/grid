@@ -26,6 +26,8 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
+import scala.jdk.CollectionConverters._
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 
 import java.net.URI
@@ -78,7 +80,8 @@ class MediaApi(
     "hasRightsAcquired",
     "syndicationStatus",
     "countAll",
-    "persisted"
+    "persisted",
+    "useAISearch"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -515,6 +518,7 @@ class MediaApi(
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
+
   def imageSearch() = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
       .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
@@ -522,7 +526,7 @@ class MediaApi(
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "image-search",
       "shouldFlagGraphicImages" -> shouldFlagGraphicImages,
-      "requestId" -> RequestLoggingFilter.getRequestId(request)
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     val include = getIncludedFromParams(request)
@@ -555,37 +559,36 @@ class MediaApi(
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
-    val searchForSimilar = _searchParams.query.flatMap(_.split(" ").find(_.startsWith("similar:")))
+    if (_searchParams.useAISearch.contains(true)) {
 
-    if (searchForSimilar.isDefined) {
-      val extractedImageId = searchForSimilar.get.split(":")(1)
-
-      val semanticSearchResult: Option[QueryVectorsResponse] = embedder.imageToImageSearch(extractedImageId)
-
-      semanticSearchResult match {
-        case None =>
-          //          What behaviour do we want in this case?
-          logger.info(logMarker, "No result found")
-          Future.successful(respondError(NotFound, "Not Found",
-            "The image you have selected is not yet in the S3 Vector Store. We cannot do a similarity search on it yet."))
-        case Some(results) =>
-          val ids = results.vectors().asScala.map(_.key()).toList
-          SearchParams(
-            query = Some(""),
-            ids = Some(ids),
-            offset = _searchParams.offset,
-            length = _searchParams.length,
-            tier = request.user.accessor.tier
-          )
-
-          for {
-            SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-            imageEntities = hits map (hitToImageEntity _).tupled
-            links = List()
-          } yield {
-            respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
-          }
+      val searchTerm = _searchParams.query match {
+        case Some(q) => q
+        case None => ""
       }
+
+      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
+
+      val imageIds = semanticSearchResult.map { result =>
+        val results: java.util.List[QueryOutputVector] = result.vectors()
+        results.asScala.map(_.key()).toList
+      }
+
+      imageIds.flatMap { ids =>
+        SearchParams(
+          query = _searchParams.query,
+          ids = Some(ids),
+          tier = request.user.accessor.tier,
+        )
+
+        for {
+          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+          imageEntities = hits map (hitToImageEntity _).tupled
+          links = List()
+        } yield {
+          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+        }
+      }
+
     } else {
 
       val searchParams = if(canViewDeletedImages) {
@@ -603,6 +606,8 @@ class MediaApi(
         params => performSearchAndRespond(params)
       )
     }
+
+
   }
 
   private def getImageResponseFromES(

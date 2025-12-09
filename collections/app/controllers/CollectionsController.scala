@@ -1,7 +1,6 @@
 package controllers
 
 import java.net.URI
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.lib.auth.Authentication
@@ -15,10 +14,12 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 import store.{CollectionsStore, CollectionsStoreError}
-import com.gu.mediaservice.lib.net.{ URI => UriOps }
+import com.gu.mediaservice.lib.net.{URI => UriOps}
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava, MapHasAsScala, SeqHasAsJava}
 
 
 case class HasChildrenError(message: String) extends Throwable

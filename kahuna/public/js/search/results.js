@@ -521,6 +521,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
+                useAISearch: $stateParams.useAISearch,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
