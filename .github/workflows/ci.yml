@@ -81,7 +81,7 @@ jobs:
       - name: Image embedder cdk
         run: ./scripts/embedder-deploy/cdk.sh
       - name: Image embedder bundling
-        run: ./scripts/embedder-deploy/build.sh
+        run: ./scripts/embedder-deploy/bundle.sh
       # - uses: guardian/actions-riff-raff@v4
       #   env:
       #     GU_RIFF_RAFF_ROLE_ARN: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}

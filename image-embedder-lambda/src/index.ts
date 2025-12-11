@@ -6,7 +6,7 @@
 // Whether it's worth it to do that 
 // We can also reuse the lambda for the backfill
 
-import { Context, S3Event, APIGatewayProxyEvent } from 'aws-lambda';
+import { Context, S3Event } from 'aws-lambda';
 
 export const handler = async (event: S3Event, context: Context) => {
     console.log('Hello world!');

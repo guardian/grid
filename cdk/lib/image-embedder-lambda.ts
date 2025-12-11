@@ -19,7 +19,7 @@ export class MediaService extends GuStack {
         functionName: `image-embedder-${props.stage}`,
         runtime: LAMBDA_NODE_VERSION,
         architecture: Architecture.ARM_64,
-        handler: 'dist.handler',
+        handler: 'index.handler',
         app: 'image-embedder-lambda',
       },
     );

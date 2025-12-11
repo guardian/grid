@@ -40,7 +40,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         },
         "FunctionName": "image-embedder-TEST",
-        "Handler": "dist.handler",
+        "Handler": "index.handler",
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
