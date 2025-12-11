@@ -176,7 +176,6 @@ class EditsController(
   }
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
-    // FIXME figure out why supplier config isn't working on DEV
     editsStore.getV2(id) flatMap { dynamoEntry =>
       gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
         val edits = dynamoEntry.as[Edits]
