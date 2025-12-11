@@ -1,0 +1,22 @@
+{
+  "name": "image-embedder-lambda",
+  "version": "1.0.0",
+  "description": "This is a service responsible for embedding uploaded images to the Grid and writing those embeddings to the S3 Vector Store.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^25.0.0",
+    "esbuild": "0.27.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.948.0",
+    "@aws-sdk/client-s3": "^3.948.0",
+    "node-fetch": "^3.3.2"
+  }
+}
