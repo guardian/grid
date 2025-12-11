@@ -559,16 +559,16 @@ class MediaApi(
 
     if (_searchParams.useAISearch.contains(true)) {
 
-      val searchTerm = _searchParams.query match {
-        case Some(q) => q
-        case None => ""
-      }
-
-      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
-
-      val imageIds = semanticSearchResult.map { result =>
-        val results: java.util.List[QueryOutputVector] = result.vectors()
-        results.asScala.map(_.key()).toList
+      val imageIds: Future[List[String]] = _searchParams.query match {
+        case Some(q) if !q.isBlank =>
+          embedder.createEmbeddingAndSearch(q).map { result =>
+            val results: java.util.List[QueryOutputVector] = result.vectors()
+            results.asScala.map(_.key()).toList
+          }
+        // Empty queries do not make sense for AI search as we can
+        // only rank results once we have a meaningful vector to compare with.
+        // So return 0 results if the query was empty.
+        case _ => Future(Nil)
       }
 
       imageIds.flatMap { ids =>

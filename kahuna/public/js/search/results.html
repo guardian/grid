@@ -204,7 +204,8 @@
 
         <div ng-if="ctrl.totalResults == 0"
              class="image-no-results">
-            No matches, sorry! Try altering your search.
+            <span ng-if="!ctrl.needsQuery">No matches, sorry! Try altering your search.</span>
+            <span ng-if="ctrl.needsQuery">Please enter a query</span>
         </div>
     </div>
 </div>
