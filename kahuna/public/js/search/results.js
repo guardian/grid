@@ -202,6 +202,8 @@ results.controller('SearchResultsCtrl', [
         ctrl.newImagesCount = 0;
         ctrl.newImagesLastCheckedMoment = moment();
 
+        ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
+
         // Map to track image->position and help remove duplicates
         let imagesPositions;
 
