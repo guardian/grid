@@ -6,79 +6,117 @@
 // Whether it's worth it to do that 
 // We can also reuse the lambda for the backfill
 
+// Send the S3 link to the image via image-loader
+
 import { Context, SQSEvent, SQSRecord } from 'aws-lambda';
-// import { BedrockRuntimeClient, BedrockRuntimeClientConfig, InvokeModelCommand, InvokeModelCommandOutput } from "@aws-sdk/client-bedrock-runtime";
-// import fetch from "node-fetch";
-// import { GetObjectAclCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput, InvokeModelCommandOutput } from "@aws-sdk/client-bedrock-runtime";
+import { GetObjectCommand, GetObjectCommandOutput, GetObjectRequest, S3Client } from "@aws-sdk/client-s3"
 
-// const model: string = "cohere.embed-english-v3";
+const model: string = "cohere.embed-english-v3";
+const bedrockClient = new BedrockRuntimeClient({
+    region: "eu-west-1"
+});
+const s3Client = new S3Client({region: "eu-west-1"})
+interface SQSMessageBody {
+    imageId: string;
+    bucket: string;
+    filePath: string;
+}
 
-// const bedrockClient = new BedrockRuntimeClient({
-//     region: "eu-west-1"
-// });
-
-const GRID_API_KEY = process.env.GRID_API_KEY || "";
-
-// async function getImageFromGrid(imageId: string, apiKey: string) {
-
-//     const imageUri = `https://api.media.gutools.co.uk/images/${imageId}`;
-//     console.log(`Fetching metadata for image from ${imageUri}`);
+async function getImageFromS3(bucket: string, filePath: string): Promise<Uint8Array | undefined> {
     
-//     const response = await fetch(imageUri, {
-//         headers: { "X-Gu-Media-Key": apiKey }
-//     });
-//     const imageMetadata = await response.json();
-    
-//     const secureUrl = imageMetadata.data.source.secureUrl;
-//     console.log("Fetching image from secureUrl");
-    
-//     const imageResponse = await fetch(secureUrl);
-//     const imageBytes = await imageResponse.arrayBuffer();
-    
-//     console.log(`The bytes string are: ${imageBytes}`);
-//     return imageBytes;
-// }
+    const input: GetObjectRequest = {
+        Bucket: bucket,
+        Key: filePath,
+    };
 
-// async function getCredentials(s3Client: S3Client) {
-    
-//     const params = {
-//         Bucket: "grid-conf",
-//         Key: `TEST/image-embedder-lambda/conf.json`
-//     };
+    console.log(`Fetching image from S3: bucket=${bucket}, key=${filePath}`);
 
-//     const command = new GetObjectCommand(params)
-    
-//     const data = await s3Client.send(command)
-//     const body = data.Body?.toString("utf8") || "";
-    
-//     return JSON.parse(body);  
-// }
+    try {
+        const command = new GetObjectCommand(input);
+        const response: GetObjectCommandOutput = await s3Client.send(command);
+        
+        if (!response) {
+            console.log(`Returning undefined: no response object`);
+            return undefined;
+        }
 
-// async function embedImage(inputData: Array<String>): Promise<InvokeModelCommandOutput> {
-//     const body = {
-//         inputType: "image",
-//         embeddingTypes: ["float"],
-//         images: inputData
-//     }
+        // Log response metadata for debugging
+        console.log(`Response metadata: ${JSON.stringify(response.$metadata)}`);
+        console.log(`Content-Length: ${response.ContentLength}`);
+        console.log(`Content-Type: ${response.ContentType}`);
+        console.log(`Body type: ${response.Body?.constructor.name}`);
+
+        if (!response.Body) {
+            console.log(`Returning undefined: response.Body is falsy`);
+            return undefined;
+        }
+
+        if (response.ContentLength === 0) {
+            console.log(`Warning: ContentLength is 0, file may be empty`);
+        }
+
+        const bytes = await response.Body.transformToByteArray();
+        console.log(`Bytes array length: ${bytes.length}`);
+        return bytes;
+    } catch (error) {
+        console.error(`Error fetching from S3:`, error);
+        if (error instanceof Error) {
+            console.error(`Error name: ${error.name}`);
+            console.error(`Error message: ${error.message}`);
+            console.error(`Error stack: ${error.stack}`);
+        }
+        throw error;
+    }
+}
+
+async function embedImage(inputData: String[]): Promise<InvokeModelCommandOutput> {
+    const body = {
+        input_type: "image",
+        embedding_types: ["float"],
+        images: inputData
+    };
+    const jsonBody = JSON.stringify(body);
  
-//     const input = {
-//         modelId: model,
-//         body: body,
-//         accept: "*/*",
-//         contentType: "application/json",
-//     }
+    const input: InvokeModelCommandInput = {
+        modelId: model,
+        body: jsonBody,
+        accept: "*/*",
+        contentType: "application/json",
+    }
+    console.log(`Invoking Bedrock model: ${model}`);
     
-//     const command = new InvokeModelCommand(input);
-    
-//     const chatCompletion = await bedrockClient.send(command);
-//     return chatCompletion
-// }
+    try {
+        const command = new InvokeModelCommand(input);
+        const response = await bedrockClient.send(command);
+        
+        console.log(`Bedrock response metadata: ${JSON.stringify(response.$metadata)}`);
+        console.log(`Response body length: ${response.body?.length}`);
+        
+        return response;
+    } catch (error) {
+        console.error(`Bedrock invocation error:`, error);
+        if (error instanceof Error) {
+            console.error(`Error name: ${error.name}`);
+            console.error(`Error message: ${error.message}`);
+        }
+        throw error;
+    }
+}
 
 export const handler = async (event: SQSEvent, context: Context) => {
 
     console.log(`Starting handler embedding pipeline`);
     const records: SQSRecord[] = event.Records;
-    const recordBody = records[0].body
-    console.log(`recordBody: ${recordBody}`);
-    console.log(`secret (DUMMY VALUE ATM OBVS BECAUSE PRINTING): ${GRID_API_KEY}`);
+    const recordBody: SQSMessageBody = JSON.parse(records[0].body);
+    
+    const gridImage = await getImageFromS3(recordBody.bucket, recordBody.filePath);
+
+    const base64Image = Buffer.from(gridImage).toString('base64');
+    const inputImage = `data:image/jpg;base64,${base64Image}`
+
+    // TODO: downscale image if neceesary
+
+    const embedding = await embedImage([inputImage]);
+
 };
