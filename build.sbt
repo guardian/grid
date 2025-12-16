@@ -107,6 +107,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.scanamo" %% "scanamo" % "2.0.0",
     // declare explicit dependency on desired version of aws sdk v2 dynamo
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
+    "software.amazon.awssdk" % "dynamodb-enhanced" % awsSdkV2Version,
     // declare explicit dependency on desired version of aws sdk v2 bedrock runtime
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
