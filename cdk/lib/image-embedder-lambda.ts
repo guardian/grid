@@ -67,7 +67,7 @@ export class MediaService extends GuStack {
           's3vectors:ListVectors'
 			  ],
 			  resources: [
-				  `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-test/index/*`,
+				  `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,
 			  ],
 			}),
 		);

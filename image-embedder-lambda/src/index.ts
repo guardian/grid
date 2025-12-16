@@ -9,14 +9,16 @@
 // Send the S3 link to the image via image-loader
 
 import { Context, SQSEvent, SQSRecord } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput, InvokeModelCommandOutput } from "@aws-sdk/client-bedrock-runtime";
+import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput, InvokeModelCommandOutput, ServiceInputTypes } from "@aws-sdk/client-bedrock-runtime";
 import { GetObjectCommand, GetObjectCommandOutput, GetObjectRequest, S3Client } from "@aws-sdk/client-s3"
+import { PutInputVector, PutVectorsCommand, PutVectorsCommandInput, S3VectorsClient, VectorData } from "@aws-sdk/client-s3vectors"
+
 
 const model: string = "cohere.embed-english-v3";
-const bedrockClient = new BedrockRuntimeClient({
-    region: "eu-west-1"
-});
-const s3Client = new S3Client({region: "eu-west-1"})
+const config = {region: "eu-west-1"};
+const bedrockClient = new BedrockRuntimeClient(config);
+const s3Client = new S3Client(config);
+const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 interface SQSMessageBody {
     imageId: string;
     bucket: string;
@@ -104,6 +106,44 @@ async function embedImage(inputData: String[]): Promise<InvokeModelCommandOutput
     }
 }
 
+async function storeEmbedding(embedding: number[], key: string) {
+    console.log(`Storing embedding for key: ${key}`);
+    console.log(`Embedding length: ${embedding.length}`);
+
+    const inputVector: PutInputVector = {
+        key: key,
+        data: {
+            float32: embedding
+        }
+    };
+
+    const input: PutVectorsCommandInput = {
+        vectorBucketName: "image-embeddings-via-lambda",
+        indexName: "cohere.embed-english-v3",
+        vectors: [inputVector],
+    };
+
+    console.log(`PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}`);
+
+    try {
+        const command = new PutVectorsCommand(input);
+        const response = await s3VectorsClient.send(command);
+        
+        console.log(`S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`);
+        console.log(`Successfully stored embedding for key: ${key}`);
+        
+        return response;
+    } catch (error) {
+        console.error(`Error storing embedding for key: ${key}`, error);
+        if (error instanceof Error) {
+            console.error(`Error name: ${error.name}`);
+            console.error(`Error message: ${error.message}`);
+            console.error(`Error stack: ${error.stack}`);
+        }
+        throw error;
+    }
+}
+
 export const handler = async (event: SQSEvent, context: Context) => {
 
     console.log(`Starting handler embedding pipeline`);
@@ -117,6 +157,17 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
     // TODO: downscale image if neceesary
 
-    const embedding = await embedImage([inputImage]);
+    const embeddingResponse = await embedImage([inputImage]);
+    
+    // Parse the response body (it's a Uint8Array that needs to be decoded)
+    const responseBody = JSON.parse(new TextDecoder().decode(embeddingResponse.body));
+    
+    // Extract the embedding array (first element since we only sent one image)
+    const embedding: number[] = responseBody.embeddings.float[0];
+    
+    console.log(`Embedding length: ${embedding.length}`);
+    console.log(`First 5 values: ${embedding.slice(0, 5)}`);
+
+    const store = await storeEmbedding(embedding, recordBody.imageId);
 
 };

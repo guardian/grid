@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.948.0",
     "@aws-sdk/client-s3": "^3.948.0",
+    "@aws-sdk/client-s3vectors": "^3.952.0",
     "node-fetch": "^3.3.2"
   }
 }

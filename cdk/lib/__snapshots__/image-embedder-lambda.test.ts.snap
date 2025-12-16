@@ -271,7 +271,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":bucket/image-embeddings-test/index/*",
+                    ":bucket/image-embeddings-via-lambda/index/*",
                   ],
                 ],
               },
