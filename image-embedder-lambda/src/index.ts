@@ -119,7 +119,7 @@ async function storeEmbedding(embedding: number[], key: string) {
 
     const input: PutVectorsCommandInput = {
         vectorBucketName: "image-embeddings-via-lambda",
-        indexName: "cohere.embed-english-v3",
+        indexName: "cohere-embed-english-v3",
         vectors: [inputVector],
     };
 
