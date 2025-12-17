@@ -114,7 +114,7 @@ jobs:
               - thrall/target/thrall.deb
             usage:
               - usage/target/usage.deb
-            
+
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
             

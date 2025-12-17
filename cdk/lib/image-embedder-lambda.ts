@@ -6,7 +6,6 @@ import { Duration, aws_lambda as lambda, Stack } from "aws-cdk-lib";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
-import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 
 export class MediaService extends GuStack {
@@ -14,12 +13,6 @@ export class MediaService extends GuStack {
     super(scope, id, props);
 
     const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
-
-    const imageEmbedderApiKey = Secret.fromSecretNameV2(
-			this,
-			'imageEmbedderApiKey',
-			`media-service/${props.stage}/image-embedder-lambda/api-key`,
-		);
 
     const imageEmbedderLambda = new GuLambdaFunction(
       this,
@@ -31,9 +24,6 @@ export class MediaService extends GuStack {
         architecture: Architecture.ARM_64,
         handler: 'index.handler',
         app: 'image-embedder-lambda',
-        environment: {
-					"GRID_API_KEY": imageEmbedderApiKey.secretValue.toString()
-				}
       },
     );
 
@@ -61,10 +51,10 @@ export class MediaService extends GuStack {
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
 			  actions: [
-          's3vectors:PutVectors',
-          's3vectors:GetVectors',
-          's3vectors:QueryVectors',
-          's3vectors:ListVectors'
+				's3vectors:PutVectors',
+				's3vectors:GetVectors',
+				's3vectors:QueryVectors',
+				's3vectors:ListVectors'
 			  ],
 			  resources: [
 				  `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,
@@ -89,7 +79,7 @@ export class MediaService extends GuStack {
 			  resources: [
 				  `arn:aws:s3:::image-embedding-test/*`,
 			  ],
-			}),
+  			}),
 		);
   }
 }

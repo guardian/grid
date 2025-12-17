@@ -35,26 +35,6 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-lambda",
-            "GRID_API_KEY": {
-              "Fn::Join": [
-                "",
-                [
-                  "{{resolve:secretsmanager:arn:",
-                  {
-                    "Ref": "AWS::Partition",
-                  },
-                  ":secretsmanager:",
-                  {
-                    "Ref": "AWS::Region",
-                  },
-                  ":",
-                  {
-                    "Ref": "AWS::AccountId",
-                  },
-                  ":secret:media-service/TEST/image-embedder-lambda/api-key:SecretString:::}}",
-                ],
-              ],
-            },
             "STACK": "media-service",
             "STAGE": "TEST",
           },

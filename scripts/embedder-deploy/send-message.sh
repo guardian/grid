@@ -18,7 +18,7 @@ QUEUE_URL=$(
 aws sqs send-message \
   --queue-url "$QUEUE_URL" \
   --message-body \
-  '{"imageId": "3909f6ce899a70ebaf7065fe10f28fe4ebcff6d3", "bucket": "image-embedding-test", "filePath": "test-folder/Rex_Shutterstock_QuinsvBayonne_16081571ib (6b3eb5ee8562807483e165144d46d0dac0571773).jpg"}' \
+  '{"imageId": "793e7c27f213ed60b32bace6957fac428af8dbe2", "fileType": "image/tiff", "bucket": "image-embedding-test", "filePath": "test-folder/Edita Schubert ca 1983. Photo Marijan Susovski (793e7c27f213ed60b32bace6957fac428af8dbe2).tiff "}' \
   --profile media-service \
   --region eu-west-1
 
