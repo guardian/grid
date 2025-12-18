@@ -145,11 +145,11 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
     const config = {region: "eu-west-1"};
 
-    // Iff it's a Tiff then we should just exit
+    // If it's a Tiff then we should just exit
     // It shouldn't end up on the DLQ because we won't be able to process it at all
     if (recordBody.fileType === "image/tiff") {
-        console.log(`Unsupported file type: ${recordBody.fileType}, ending execution`);
-        return 
+        console.error(`Unsupported file type: ${recordBody.fileType}, ending execution`);
+        throw new Error(`Unsupported file type: ${recordBody.fileType}`); 
     }
     
     const s3Client = new S3Client(config);
