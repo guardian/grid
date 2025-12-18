@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "Error: Index name and vector key arguments are required"
+  echo "Error: Vector key argument is required"
   echo ""
   echo "Usage: $0 <VECTOR_KEY>"
   echo ""
