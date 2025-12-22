@@ -21,7 +21,7 @@ ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
 val commonSettings = Seq(
-  scalaVersion := "2.13.16",
+  scalaVersion := "2.13.18",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
