@@ -4,6 +4,7 @@ import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.net.URI.ensureSecure
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient
 
 import scala.util.Try
 
@@ -81,4 +82,6 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
       logger.error(s"App name is invalid: $name")
       sys.exit(1)
   }
+
+  lazy val autoscaling = withAWSCredentialsV2(AutoScalingClient.builder()).build()
 }
