@@ -145,8 +145,8 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
     const config = {region: "eu-west-1"};
 
-    // If it's a Tiff then we should just exit
-    // It shouldn't end up on the DLQ because we won't be able to process it at all
+    // If it's a Tiff then we should throw an error
+    // So that it ends on the DLQ for processing when we add tiff handling
     if (recordBody.fileType === "image/tiff") {
         console.error(`Unsupported file type: ${recordBody.fileType}, ending execution`);
         throw new Error(`Unsupported file type: ${recordBody.fileType}`); 
