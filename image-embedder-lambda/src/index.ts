@@ -47,11 +47,6 @@ async function getImageFromS3(
         return bytes;
     } catch (error) {
         console.error(`Error fetching from S3:`, error);
-        if (error instanceof Error) {
-            console.error(`Error name: ${error.name}`);
-            console.error(`Error message: ${error.message}`);
-            console.error(`Error stack: ${error.stack}`);
-        }
         throw error;
     }
 }
@@ -87,10 +82,6 @@ async function embedImage(
         return response;
     } catch (error) {
         console.error(`Bedrock invocation error:`, error);
-        if (error instanceof Error) {
-            console.error(`Error name: ${error.name}`);
-            console.error(`Error message: ${error.message}`);
-        }
         throw error;
     }
 }
@@ -128,11 +119,6 @@ async function storeEmbedding(
         return response;
     } catch (error) {
         console.error(`Error storing embedding for key: ${key}`, error);
-        if (error instanceof Error) {
-            console.error(`Error name: ${error.name}`);
-            console.error(`Error message: ${error.message}`);
-            console.error(`Error stack: ${error.stack}`);
-        }
         throw error;
     }
 }
