@@ -1,26 +1,26 @@
-import { Context, PreSignUpTriggerHandler, SQSEvent, SQSRecord } from 'aws-lambda';
+import { Context, SQSEvent, SQSRecord } from 'aws-lambda';
 import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput, InvokeModelCommandOutput, ServiceInputTypes } from "@aws-sdk/client-bedrock-runtime";
 import { GetObjectCommand, GetObjectCommandOutput, GetObjectRequest, S3Client } from "@aws-sdk/client-s3"
 import { PutInputVector, PutVectorsCommand, PutVectorsCommandInput, S3VectorsClient, VectorData } from "@aws-sdk/client-s3vectors"
 interface SQSMessageBody {
     imageId: string;
-    bucket: string;
-    filePath: string;
+    s3Bucket: string;
+    s3Key: string;
     fileType: string;
 }
 
 async function getImageFromS3(
-    bucket: string, 
-    filePath: string,
+    s3Bucket: string, 
+    s3Key: string,
     client: S3Client
 ): Promise<Uint8Array | undefined> {
     
     const input: GetObjectRequest = {
-        Bucket: bucket,
-        Key: filePath,
+        Bucket: s3Bucket,
+        Key: s3Key,
     };
 
-    console.log(`Fetching image from S3: bucket=${bucket}, key=${filePath}`);
+    console.log(`Fetching image from S3: bucket=${s3Bucket}, key=${s3Key}`);
 
     try {
         const command = new GetObjectCommand(input);
@@ -153,7 +153,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
     }
     
     const s3Client = new S3Client(config);
-    const gridImage = await getImageFromS3(recordBody.bucket, recordBody.filePath, s3Client);
+    const gridImage = await getImageFromS3(recordBody.s3Bucket, recordBody.s3Key, s3Client);
     const base64Image = Buffer.from(gridImage).toString('base64');
     const inputImage = `data:${recordBody.fileType};base64,${base64Image}`
 
