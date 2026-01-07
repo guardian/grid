@@ -1,6 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+# Check for required arguments
+if [ $# -ne 4 ]; then
+  echo "Usage: $0 <imageId> <fileType> <s3Bucket> <s3Key>"
+  exit 1
+fi
+
+IMAGE_ID="$1"
+FILE_TYPE="$2"
+S3_BUCKET="$3"
+S3_KEY="$4"
+
 # Fixed stage
 STAGE="TEST"
 
@@ -18,7 +29,7 @@ QUEUE_URL=$(
 aws sqs send-message \
   --queue-url "$QUEUE_URL" \
   --message-body \
-  '{"imageId": "793e7c27f213ed60b32bace6957fac428af8dbe2", "fileType": "image/tiff", "s3Bucket": "image-embedding-test", "s3Key": "test-folder/Edita Schubert ca 1983. Photo Marijan Susovski (793e7c27f213ed60b32bace6957fac428af8dbe2).tiff "}' \
+  "{\"imageId\": \"${IMAGE_ID}\", \"fileType\": \"${FILE_TYPE}\", \"s3Bucket\": \"${S3_BUCKET}\", \"s3Key\": \"${S3_KEY}\"}" \
   --profile media-service \
   --region eu-west-1
 
