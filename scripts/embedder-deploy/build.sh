@@ -5,6 +5,6 @@ set -e
 (
     cd image-embedder-lambda
     npm install
-    npm run bundle
+    npm run build
     zip -r ../image-embedder.zip index.js
 )

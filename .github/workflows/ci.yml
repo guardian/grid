@@ -81,7 +81,7 @@ jobs:
       - name: Image embedder cdk
         run: ./scripts/embedder-deploy/cdk.sh
       - name: Image embedder bundling
-        run: ./scripts/embedder-deploy/bundle.sh
+        run: ./scripts/embedder-deploy/build.sh
       - uses: guardian/actions-riff-raff@v4.2.3
         if: "! github.event.pull_request.head.repo.fork"
         with:
