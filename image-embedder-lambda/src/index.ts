@@ -2,6 +2,13 @@ import { Context, SQSEvent, SQSRecord } from 'aws-lambda';
 import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput, InvokeModelCommandOutput, ServiceInputTypes } from "@aws-sdk/client-bedrock-runtime";
 import { GetObjectCommand, GetObjectCommandOutput, GetObjectRequest, S3Client } from "@aws-sdk/client-s3"
 import { PutInputVector, PutVectorsCommand, PutVectorsCommandInput, S3VectorsClient, VectorData } from "@aws-sdk/client-s3vectors"
+
+// Initialise clients at module level (cold start only)
+const config = { region: "eu-west-1" };
+const s3Client = new S3Client(config);
+const bedrockClient = new BedrockRuntimeClient(config);
+const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
+
 interface SQSMessageBody {
     imageId: string;
     s3Bucket: string;
@@ -138,7 +145,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
         throw new Error(`Unsupported file type: ${recordBody.fileType}`); 
     }
     
-    const s3Client = new S3Client(config);
     const gridImage = await getImageFromS3(recordBody.s3Bucket, recordBody.s3Key, s3Client);
     const base64Image = Buffer.from(gridImage).toString('base64');
     const inputImage = `data:${recordBody.fileType};base64,${base64Image}`
@@ -147,7 +153,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     // Currently the image will end up on the DLQ if it's too big 
     // because the embedding will fail
 
-    const bedrockClient = new BedrockRuntimeClient(config);
     const embeddingResponse = await embedImage([inputImage], bedrockClient);
     const responseBody = JSON.parse(new TextDecoder().decode(embeddingResponse.body));
     // Extract the embedding array (first element since we only sent one image)
@@ -156,7 +161,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     console.log(`Embedding length: ${embedding.length}`);
     console.log(`First 5 values: ${embedding.slice(0, 5)}`);
 
-    const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
     await storeEmbedding(embedding, recordBody.imageId, s3VectorsClient);
 
     console.log(`Finished image image pipeline successfully!`)
