@@ -7,5 +7,5 @@ set -e
     npm install
     npm run build
     cd dist
-    zip -r ../image-embedder.zip index.js
+    zip -r ../../image-embedder.zip index.js
 )
