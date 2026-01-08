@@ -52,9 +52,6 @@ export class MediaService extends GuStack {
 			new PolicyStatement({
 			  actions: [
 				's3vectors:PutVectors',
-				's3vectors:GetVectors',
-				's3vectors:QueryVectors',
-				's3vectors:ListVectors'
 			  ],
 			  resources: [
 				  `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,

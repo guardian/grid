@@ -236,12 +236,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
               },
             },
             {
-              "Action": [
-                "s3vectors:PutVectors",
-                "s3vectors:GetVectors",
-                "s3vectors:QueryVectors",
-                "s3vectors:ListVectors",
-              ],
+              "Action": "s3vectors:PutVectors",
               "Effect": "Allow",
               "Resource": {
                 "Fn::Join": [
