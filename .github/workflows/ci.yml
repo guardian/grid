@@ -121,4 +121,4 @@ jobs:
             cdk.out:
               - cdk/cdk.out
             image-embedder-lambda:
-              - image-embedder-lambda/dist/image-embedder.zip
+              - image-embedder.zip
