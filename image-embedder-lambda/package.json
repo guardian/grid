@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "type-check": "tsc --noEmit",
-    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=index.js",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.js",
     "build": "run-p --print-label type-check bundle"
   },
   "author": "",
