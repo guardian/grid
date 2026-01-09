@@ -98,8 +98,7 @@ async function storeEmbedding(
     key: string,
     client: S3VectorsClient
 ) {
-    console.log(`Storing embedding for key: ${key}`);
-    console.log(`Embedding length: ${embedding.length}`);
+    console.log(`Storing embedding of length ${embedding.length} for key: ${key}`);
 
     const inputVector: PutInputVector = {
         key: key,
@@ -136,8 +135,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     const records: SQSRecord[] = event.Records;
     const recordBody: SQSMessageBody = JSON.parse(records[0].body);
 
-    const config = {region: "eu-west-1"};
-
     // If it's a Tiff then we should throw an error
     // So that it ends on the DLQ for processing when we add tiff handling
     if (recordBody.fileType === "image/tiff") {
@@ -158,7 +155,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     // Extract the embedding array (first element since we only sent one image)
     const embedding: number[] = responseBody.embeddings.float[0];
     
-    console.log(`Embedding length: ${embedding.length}`);
     console.log(`First 5 values: ${embedding.slice(0, 5)}`);
 
     await storeEmbedding(embedding, recordBody.imageId, s3VectorsClient);
