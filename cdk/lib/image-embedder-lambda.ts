@@ -47,7 +47,7 @@ export class MediaService extends GuStack {
 			new SqsEventSource(imageEmbedderQueue),
 		);
 
-    // Allow reading and writing vectors to S3 vector index
+    // Allow writing vectors to S3 vector index
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
 			  actions: [
