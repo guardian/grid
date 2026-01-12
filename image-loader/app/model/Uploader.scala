@@ -77,8 +77,9 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
   tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit]
+  queueImageToEmbed: (String) => Unit
 )
+
 
 case class UploadStatusUri (uri: String) extends AnyVal {
   def toJsObject = Json.obj("uri" -> uri)
@@ -113,7 +114,7 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedImage,
-        createEmbeddingAndStore,
+        queueImageToEmbed,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
@@ -125,8 +126,9 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit],
+                                         queueImageToEmbed: (String) => Unit,
                                          optimiseOps: OptimiseOps,
+
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
                                          fileMetadata: FileMetadata,
@@ -155,12 +157,6 @@ object Uploader extends GridLogging {
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
 
-    // We are fetching the embedding and storing it in the S3Vectors bucket
-    // This should not block the image upload process on failure
-    createEmbeddingAndStore(originalMimeType, uploadRequest.tempFile.toPath, uploadRequest.imageId).failed.foreach { failure =>
-      logger.error(logMarker, s"Failed to create and store image embedding for ${uploadRequest.imageId}", failure)
-    }
-
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
@@ -182,6 +178,7 @@ object Uploader extends GridLogging {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
 
+      logger.info(logMarker, s"s3Source.uri: ${s3Source.uri}, s3Source.metadata: ${s3Source.metadata}")
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
@@ -197,9 +194,12 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
     }
-    eventualImage.onComplete{ _ =>
+    eventualImage.onComplete { _ =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
+      //      Now that the image has been uploaded, we can queue it for embedding
+      logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
+      queueImageToEmbed(s"{\"imageId\": \"${uploadRequest.imageId}\", \"fileType\": \"${originalMimeType}\", \"s3Bucket\": \"\", \"s3Key\": \"\"}")
     }
     eventualImage
   }
@@ -339,18 +339,25 @@ class Uploader(val store: ImageLoaderStore,
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage, createEmbeddingAndStore = createEmbeddingAndStore)
+      storeSource, storeThumbnail, storeOptimisedImage, queueImageToEmbed = queueImageToEmbed)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
   }
 
-  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Unit] = {
+//  So here (or somewhere at this point in the pipeline) we'll write to SQS instead
+//  Arguments needed:
+//    imageId: string;
+//    s3Bucket: string;
+//    s3Key: string;
+//    fileType: string;
+
+  private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
-        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
-      case None => Future.successful(())
+        embedder.queueImageToEmbed(messageBody)
+      case None => ()
     }
   }
 
