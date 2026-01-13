@@ -32,11 +32,6 @@ async function getImageFromS3(
     try {
         const command = new GetObjectCommand(input);
         const response: GetObjectCommandOutput = await client.send(command);
-        
-        if (!response) {
-            console.log(`Returning undefined: no response object`);
-            return undefined;
-        }
 
         console.log(`S3 response metadata: ${JSON.stringify(response.$metadata)}`);
 

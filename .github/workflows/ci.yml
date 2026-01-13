@@ -41,6 +41,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "cdk/package-lock.json"
       - name: Kahuna (client-side)
         working-directory: ./kahuna
         run: |
@@ -72,12 +74,6 @@ jobs:
           npm install-clean
           npm test
           npm run build
-      # Node is needed for CDK
-      - uses: actions/setup-node@v3
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: "cdk/package-lock.json"
       - name: Image embedder cdk
         run: ./scripts/embedder-deploy/cdk.sh
       - name: Image embedder bundling
