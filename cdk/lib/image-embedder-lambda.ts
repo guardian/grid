@@ -51,32 +51,34 @@ export class ImageEmbedder extends GuStack {
     // Allow writing vectors to S3 vector index
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
-			  actions: [
-				's3vectors:PutVectors',
-			  ],
-			  resources: [
-				  `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,
-			  ],
+				actions: [
+					's3vectors:PutVectors',
+				],
+				resources: [
+					`arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,
+				],
 			}),
 		);
 
     // Allow invoking the Bedrock Cohere embeddings model
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
-			  actions: ['bedrock:InvokeModel'],
-			  resources: [
-				  `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-english-v3`,
-			  ],
+				actions: ['bedrock:InvokeModel'],
+				resources: [
+					`arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-english-v3`,
+				],
 			}),
 		);
 
 	// Allow fetching the image from S3
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
-			  actions: ['s3:GetObject'],
-			  resources: [
-				  `arn:aws:s3:::image-embedding-test/*`,
-			  ],
+				actions: ['s3:GetObject'],
+				resources: [
+					`arn:aws:s3:::image-embedding-test/*`,
+					`arn:aws:s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*`,
+					`arn:aws:s3:::media-service-prod-imagebucket-1luk2yux3owkh/*`
+				],
   			}),
 		);
   }
