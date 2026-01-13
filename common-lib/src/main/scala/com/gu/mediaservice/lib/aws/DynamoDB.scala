@@ -5,7 +5,7 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, KeysAndAttributes, ReturnValue}
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -13,9 +13,8 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
-import software.amazon.awssdk.enhanced.dynamodb.model
+import software.amazon.awssdk.enhanced.dynamodb.model.GetItemEnhancedRequest
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -87,18 +86,10 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"REMOVE $key"
     )
 
-  def removeKeyV2(id: String, key: String)(implicit ex: ExecutionContext) = Future{
-    updateV2(id, s"Remove $key")
-  }
   def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
   }
 
-  def deleteItemV2(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
-    table2.deleteItem(
-      Key.builder().partitionValue(id).build()
-    )
-  }
   def booleanGetV2(id: String, key: String)
     (implicit ex: ExecutionContext): Future[Boolean] = {
       getV2(id, key).map(_.getBoolean(key).booleanValue())
@@ -112,24 +103,10 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withBoolean(":value", value)
     )
 
-  def booleanSetV2(id: String, key: String, value: Boolean)
-                (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(
-      id,
-      s"SET $key = :value",
-      AttributeValueV2.fromBool(value)
-    )
-  }
-
   def booleanSetOrRemove(id: String, key: String, value: Boolean)
                         (implicit ex: ExecutionContext): Future[JsObject] =
     if (value) booleanSet(id, key, value)
     else removeKey(id, key)
-
-  def booleanSetOrRemoveV2(id: String, key: String, value: Boolean)
-                        (implicit ex: ExecutionContext): Future[JsObject] =
-    if (value) booleanSetV2(id, key, value)
-    else removeKeyV2(id, key)
 
   def stringSet(id: String, key: String, value: JsValue)
                 (implicit ex: ExecutionContext): Future[JsObject] =
@@ -138,10 +115,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"SET $key = :value",
       valueMapWithNullForEmptyString(Map(":value" -> value))
     )
-
-  def stringSetV2(id: String, key: String, value: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"SET $key = :value", AttributeValueV2.fromS(value))
-  }
 
   def stringListSet(id: String, keyValues: (String, JsValue)*)
                    (implicit ex: ExecutionContext): Future[JsObject] = {
@@ -176,9 +149,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       new ValueMap().withStringSet(":value", value:_*)
     )
 
-  def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"ADD $key :value", AttributeValueV2.fromSs(value.asJava))
-  }
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
     val keyChunkList = ids
@@ -230,15 +200,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
-  def jsonAddV2(id: String, key: String, value: Map[String, JsValue])
-             (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(
-      id,
-      s"SET $key = :value",
-      AttributeValueV2.fromM(value.view.mapValues(DynamoDB.jsonToAttributeValue).toMap.asJava)
-    )
-  }
-
   def setDelete(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -246,12 +207,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       s"DELETE $key :value",
       new ValueMap().withStringSet(":value", value)
     )
-
-  def setDeleteV2(id: String, key: String, value: String)
-               (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"DELETE $key :value", AttributeValueV2.fromSs(List(value).asJava))
-
-  }
 
   def listAdd(id: String, key: String, value: T)
                 (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
@@ -307,30 +262,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
     val items: List[Item] = index.query(spec).iterator.asScala.toList
     items map (a => a.getString("id"))
-  }
-
-  private def updateRequestBuilder(id: String, expression: String) = {
-    UpdateItemRequest.builder()
-      .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
-      .updateExpression(expression)
-      .returnValues(ReturnValueV2.ALL_NEW)
-      .tableName(tableName)
-  }
-
-  def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
-    val updateRequest = updateRequestBuilder(id, expression)
-      .expressionAttributeValues(Map(":value" -> attribute).asJava)
-      .build()
-    val updateItemResponse = client2.updateItem(updateRequest)
-    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
-    Json.parse(jsonString).as[JsObject]
-  }
-
-  def updateV2(id: String, expression: String) = {
-    val updateRequest = updateRequestBuilder(id, expression).build()
-    val updateItemResponse = client2.updateItem(updateRequest)
-    val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
-    Json.parse(jsonString).as[JsObject]
   }
 
   def update(id: String, expression: String, valueMap: ValueMap)
@@ -412,20 +343,6 @@ object DynamoDB {
     }
     valueMap
   }
-
-  def jsonToAttributeValue(json: JsValue): AttributeValueV2 = {
-    json match {
-      case JsString(v)  => AttributeValueV2.fromS(v)
-      case JsBoolean(b) => AttributeValueV2.fromBool(b)
-      case JsTrue => AttributeValueV2.fromBool(true)
-      case JsFalse => AttributeValueV2.fromBool(false)
-      case JsNumber(n)  => AttributeValueV2.fromN(n.toString())
-      case JsNull => AttributeValueV2.fromNul(true)
-      case JsObject(obj)  => AttributeValueV2.fromM(obj.view.mapValues(s => jsonToAttributeValue(s)).toMap.asJava)
-      case JsArray(arr)   => AttributeValueV2.fromL(arr.toList.map(jsonToAttributeValue).asJava)
-    }
-  }
-
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, JsValue] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, JsValue]]
 

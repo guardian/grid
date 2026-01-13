@@ -58,8 +58,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
                              (implicit ec: ExecutionContext): Future[Photoshoot] = {
     publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
       for {
-        editsAsJsonResponse <- editsStore.jsonAddV2(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
-        _ <- editsStore.stringSetV2(id, Edits.PhotoshootTitle, newPhotoshoot.title) // store - don't care about return
+        editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
+        _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
         _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
@@ -68,7 +68,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
-      syndicationStore.deleteItemV2(id)
+      syndicationStore.deleteItem(id)
       // Always publish, in case there is no photoshoot
       publish(Map(id -> None), UpdateImageSyndicationMetadata)
     }
@@ -77,7 +77,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
     publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
-      val result = syndicationStore.jsonAddV2(id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
+      val result = syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
       // Always publish, in case there is no photoshoot
       publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
       result

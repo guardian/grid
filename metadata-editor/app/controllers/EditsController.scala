@@ -100,14 +100,14 @@ class EditsController(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       archived =>
-        editsStore.booleanSetOrRemoveV2(id, "archived", archived)
+        editsStore.booleanSetOrRemove(id, "archived", archived)
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.archived))
     )
   }
 
   def unsetArchived(id: String) = auth.async {
-    editsStore.removeKeyV2(id, Edits.Archived)
+    editsStore.removeKey(id, Edits.Archived)
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(false))
   }
@@ -127,7 +127,7 @@ class EditsController(
         Future.successful(BadRequest(errors.toString())),
       labels =>
         editsStore
-          .setAddV2(id, Edits.Labels, labels)
+          .setAdd(id, Edits.Labels, labels)
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
@@ -137,7 +137,7 @@ class EditsController(
   }
 
   def removeLabel(id: String, label: String) = auth.async {
-    editsStore.setDeleteV2(id, Edits.Labels, decodeUriParam(label))
+    editsStore.setDelete(id, Edits.Labels, decodeUriParam(label))
       .map(publish(id, UpdateImageUserMetadata))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
@@ -168,7 +168,7 @@ class EditsController(
           })
 
         val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
-        editsStore.jsonAddV2(id, Edits.Metadata, metadataAsMap(validatedMetadata))
+        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(validatedMetadata))
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
       }
@@ -191,7 +191,7 @@ class EditsController(
             imageType = metadata.imageType orElse originalUserMetadata.imageType
           )
 
-          editsStore.jsonAddV2(id, Edits.Metadata, metadataAsMap(mergedMetadata))
+          editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
             .map(publish(id, UpdateImageUserMetadata))
             .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
         } getOrElse {
@@ -216,16 +216,17 @@ class EditsController(
 
   def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
-      editsStore.jsonAddV2(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
+      editsStore.jsonAdd(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
         .map(publish(id, UpdateImageUserMetadata))
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
-  //TODO - remove as a second step
   def deleteUsageRights(id: String) = auth.async { req =>
-    editsStore.removeKeyV2(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
+    editsStore.removeKey(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
+
+
 
   private def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
     (labelsUri(id), labels.map(setUnitEntity(id, Edits.Labels, _)).toSeq)
