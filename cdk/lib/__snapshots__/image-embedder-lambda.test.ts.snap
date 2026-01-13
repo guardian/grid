@@ -359,6 +359,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "imageEmbedderDLQ4A6F48C5": {
       "DeletionPolicy": "Delete",
       "Properties": {
+        "MessageRetentionPeriod": 1209600,
         "QueueName": "image-embedder-DLQ-TEST",
         "Tags": [
           {

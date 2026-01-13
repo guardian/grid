@@ -29,6 +29,7 @@ export class ImageEmbedder extends GuStack {
 
     const imageEmbedderDLQ = new Queue(this, 'imageEmbedderDLQ', {
 			queueName: `image-embedder-DLQ-${this.stage}`,
+			retentionPeriod: Duration.days(14)
 		});
 
 		const imageEmbedderQueue = new Queue(
