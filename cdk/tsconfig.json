@@ -1,0 +1,12 @@
+{
+  "extends": "@guardian/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS"
+  },
+  "include": ["lib/**/*", "bin/**/*"],
+  "exclude": [
+    "node_modules",
+    "cdk.out",
+    "lib/**/__snapshots__/**"
+  ]
+}
