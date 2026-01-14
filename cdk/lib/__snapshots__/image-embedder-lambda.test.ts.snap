@@ -270,7 +270,10 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             {
               "Action": "s3:GetObject",
               "Effect": "Allow",
-              "Resource": "arn:aws:s3:::image-embedding-test/*",
+              "Resource": [
+                "arn:aws:s3:::image-embedding-test/*",
+                "arn:aws:s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*",
+              ],
             },
           ],
           "Version": "2012-10-17",
