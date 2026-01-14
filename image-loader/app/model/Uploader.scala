@@ -187,28 +187,37 @@ object Uploader extends GridLogging {
 
       val processedImage = processor(baseImage)
 
-      val s3Bucket = s3Source.uri.getHost.split('.').head
-      val s3Key = s3Source.uri.getPath.stripPrefix("/")
-
-      // Queue for embedding now that we have s3Source in scope
-      logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
-      queueImageToEmbed(
-        s"{\"imageId\": \"${uploadRequest.imageId}\", \"fileType\": \"${originalMimeType}\", \"s3Bucket\": \"${s3Bucket}\", \"s3Key\": \"${s3Key}\"}"
-      )
-
       logger.info(logMarker, s"Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-      processedImage.copy(
+      val finalImage = processedImage.copy(
         originalMetadata = processedImage.metadata,
         originalUsageRights = processedImage.usageRights
       )
+
+      val s3Bucket = s3Source.uri.getHost.split('.').head
+      val s3Key = s3Source.uri.getPath.stripPrefix("/")
+
+      // Return both the image and the S3 path needed for embedding
+      (finalImage, s3Bucket, s3Key)
     }
-    eventualImage.onComplete { _ =>
+    eventualImage.onComplete{ imageFuture =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
 
+      imageFuture match {
+        case scala.util.Success((_, s3Bucket, s3Key)) =>
+          logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
+          queueImageToEmbed(
+            s"""{"imageId": "${uploadRequest.imageId}", "fileType": "${originalMimeType}", "s3Bucket": "${s3Bucket}", "s3Key": "${s3Key}"}"""
+          )
+        case scala.util.Failure(exception) =>
+          logger.error(
+            logMarker, s"Image upload failed, not queueing for embedding: ${exception.getMessage}"
+          )
+      }
     }
-    eventualImage
+    // Map to return just the finalImage
+    eventualImage.map(_._1)
   }
 
   private def getStorableOptimisedImage(
