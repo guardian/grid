@@ -7,6 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
+import com.gu.mediaservice.lib.aws.DynamoDB.{deleteExpr, setExpr}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
@@ -88,7 +89,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
 
   def removeKeyV2(id: String, key: String)(implicit ex: ExecutionContext) = Future{
-    updateV2(id, s"Remove $key")
+    updateV2(id, DynamoDB.removeExpr(key, lastModifiedKey))
   }
   def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
@@ -116,7 +117,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
                 (implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(
       id,
-      s"SET $key = :value",
+      DynamoDB.setExpr(key, lastModifiedKey),
       AttributeValueV2.fromBool(value)
     )
   }
@@ -140,7 +141,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
 
   def stringSetV2(id: String, key: String, value: String)(implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"SET $key = :value", AttributeValueV2.fromS(value))
+    updateV2(id,  DynamoDB.setExpr(key, lastModifiedKey), AttributeValueV2.fromS(value))
   }
 
   def stringListSet(id: String, keyValues: (String, JsValue)*)
@@ -177,7 +178,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     )
 
   def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"ADD $key :value", AttributeValueV2.fromSs(value.asJava))
+    updateV2(id, DynamoDB.addExpr(key, lastModifiedKey), AttributeValueV2.fromSs(value.asJava))
   }
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
@@ -226,7 +227,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
              (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
-      s"SET $key = :value",
+      setExpr(key, lastModifiedKey),
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
@@ -234,7 +235,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
              (implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(
       id,
-      s"SET $key = :value",
+      setExpr(key, lastModifiedKey),
       AttributeValueV2.fromM(value.view.mapValues(DynamoDB.jsonToAttributeValue).toMap.asJava)
     )
   }
@@ -249,8 +250,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def setDeleteV2(id: String, key: String, value: String)
                (implicit ex: ExecutionContext): Future[JsObject] = Future {
-    updateV2(id, s"DELETE $key :value", AttributeValueV2.fromSs(List(value).asJava))
-
+    updateV2(id,  deleteExpr(key, lastModifiedKey), AttributeValueV2.fromSs(List(value).asJava))
   }
 
   def listAdd(id: String, key: String, value: T)
@@ -455,5 +455,26 @@ object DynamoDB {
     update
       .withUpdateExpression(newExpression)
       .withValueMap(valueMap)
+  }
+
+  def setExpr[T](key: String, lastModifiedKey: Option[String]) = {
+    val baseExpression = s"SET $key = :value"
+    lastModifiedKey.fold(baseExpression)(lastModified => s"$baseExpression, $lastModified = :$lastModified")
+  }
+
+  def removeExpr(key: String, lastModifiedKey: Option[String]) = {
+    generateExpression(s"REMOVE $key", lastModifiedKey)
+  }
+
+  def addExpr(key: String, lastModifiedKey: Option[String]) = {
+    generateExpression(s"ADD $key :value", lastModifiedKey)
+  }
+
+  def deleteExpr(key: String, lastModifiedKey: Option[String]) = {
+    generateExpression(s"DELETE $key :value", lastModifiedKey)
+  }
+
+  def generateExpression(baseExpression: String, lastModifiedKey: Option[String]) = {
+    lastModifiedKey.fold(baseExpression)(lastModified => s"$baseExpression SET $lastModified = :$lastModified")
   }
 }
