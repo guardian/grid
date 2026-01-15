@@ -319,7 +319,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
     val baseValuesMap = Map(":value" -> attribute)
-    val valuesMap = lastModifiedKey.fold(baseValuesMap)(key => baseValuesMap ++ Map(s":${key}" -> DateTime.now().toString))
+    val valuesMap = lastModifiedKey.fold(baseValuesMap)(key => baseValuesMap ++ Map(s":${key}" -> AttributeValueV2.fromS(DateTime.now().toString)))
     val updateRequest = updateRequestBuilder(id, expression)
       .expressionAttributeValues(valuesMap.asJava)
       .build()
