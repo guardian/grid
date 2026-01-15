@@ -8,7 +8,7 @@
     "type-check": "tsc --noEmit",
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.js",
     "build": "run-p --print-label type-check bundle",
-    "local": "npm run build && node local-runner.js"
+    "local": "ts-node local-runner.ts"
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +17,7 @@
     "@types/node": "^25.0.0",
     "esbuild": "0.27.0",
     "npm-run-all": "^4.1.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {

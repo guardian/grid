@@ -1,16 +1,17 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node
 
 /**
  * Local runner for the image-embedder lambda
  * Polls the localstack SQS queue and invokes the lambda handler when messages arrive
  */
 
-const {
+import {
   SQSClient,
   ReceiveMessageCommand,
   DeleteMessageCommand,
-} = require("@aws-sdk/client-sqs");
-const { handler } = require("./dist/index.js");
+} from "@aws-sdk/client-sqs";
+import { Context, SQSEvent } from "aws-lambda";
+import { handler } from "./src/index";
 
 // Configure for localstack
 const LOCALSTACK_ENDPOINT =
@@ -19,6 +20,8 @@ const QUEUE_URL =
   process.env.QUEUE_URL ||
   "http://localhost:4566/000000000000/image-embedder-DEV";
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "5000", 10);
+
+process.env.AWS_PROFILE = "media-service";
 
 const sqsClient = new SQSClient({
   region: "eu-west-1",
@@ -40,7 +43,7 @@ console.log("");
 
 let isProcessing = false;
 
-async function pollQueue() {
+async function pollQueue(): Promise<void> {
   if (isProcessing) {
     return;
   }
@@ -64,15 +67,20 @@ async function pollQueue() {
 
         try {
           // Convert SQS message to Lambda SQS event format
-          const event = {
+          const event: SQSEvent = {
             Records: [
               {
-                messageId: message.MessageId,
-                receiptHandle: message.ReceiptHandle,
-                body: message.Body,
-                attributes: message.Attributes || {},
-                messageAttributes: message.MessageAttributes || {},
-                md5OfBody: message.MD5OfBody,
+                messageId: message.MessageId!,
+                receiptHandle: message.ReceiptHandle!,
+                body: message.Body!,
+                attributes: {
+                  ApproximateReceiveCount: "1",
+                  SentTimestamp: Date.now().toString(),
+                  SenderId: "local",
+                  ApproximateFirstReceiveTimestamp: Date.now().toString(),
+                },
+                messageAttributes: {},
+                md5OfBody: message.MD5OfBody!,
                 eventSource: "aws:sqs",
                 eventSourceARN: `arn:aws:sqs:eu-west-1:000000000000:image-embedder-DEV`,
                 awsRegion: "eu-west-1",
@@ -81,13 +89,20 @@ async function pollQueue() {
           };
 
           // Mock Lambda context
-          const context = {
+          const context: Context = {
+            callbackWaitsForEmptyEventLoop: true,
             functionName: "image-embedder-DEV",
+            functionVersion: "$LATEST",
             invokedFunctionArn:
               "arn:aws:lambda:eu-west-1:000000000000:function:image-embedder-DEV",
+            memoryLimitInMB: "512",
             awsRequestId: Math.random().toString(36).substring(7),
             logGroupName: "/aws/lambda/image-embedder-DEV",
             logStreamName: new Date().toISOString(),
+            getRemainingTimeInMillis: () => 60000,
+            done: () => {},
+            fail: () => {},
+            succeed: () => {},
           };
 
           console.log("Invoking lambda handler...");
