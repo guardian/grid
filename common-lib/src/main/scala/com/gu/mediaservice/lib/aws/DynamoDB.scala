@@ -318,8 +318,10 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   }
 
   def updateV2(id: String, expression: String, attribute: AttributeValueV2) = {
+    val baseValuesMap = Map(":value" -> attribute)
+    val valuesMap = lastModifiedKey.fold(baseValuesMap)(key => baseValuesMap ++ Map(s":${key}" -> DateTime.now().toString))
     val updateRequest = updateRequestBuilder(id, expression)
-      .expressionAttributeValues(Map(":value" -> attribute).asJava)
+      .expressionAttributeValues(valuesMap.asJava)
       .build()
     val updateItemResponse = client2.updateItem(updateRequest)
     val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
@@ -459,7 +461,7 @@ object DynamoDB {
 
   def setExpr[T](key: String, lastModifiedKey: Option[String]) = {
     val baseExpression = s"SET $key = :value"
-    lastModifiedKey.fold(baseExpression)(lastModified => s"$baseExpression, $lastModified = :$lastModified")
+    lastModifiedKey.fold(baseExpression)(lastModifiedKey => s"$baseExpression, $lastModifiedKey = :$lastModifiedKey")
   }
 
   def removeExpr(key: String, lastModifiedKey: Option[String]) = {
@@ -475,6 +477,6 @@ object DynamoDB {
   }
 
   def generateExpression(baseExpression: String, lastModifiedKey: Option[String]) = {
-    lastModifiedKey.fold(baseExpression)(lastModified => s"$baseExpression SET $lastModified = :$lastModified")
+    lastModifiedKey.fold(baseExpression)(lastModifiedKey => s"$baseExpression SET $lastModifiedKey = :$lastModifiedKey")
   }
 }
