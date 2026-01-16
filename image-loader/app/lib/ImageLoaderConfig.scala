@@ -32,7 +32,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
   val shouldEmbed: Boolean = boolean("s3.vectors.shouldEmbed")
-
+  val maybeImageEmbedderQueueUrl: Option[String] = stringOpt("sqs.image.embedder.queue.url")
   /**
     * Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.

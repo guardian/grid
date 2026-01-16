@@ -362,13 +362,6 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-//  So here (or somewhere at this point in the pipeline) we'll write to SQS instead
-//  Arguments needed:
-//    imageId: string;
-//    s3Bucket: string;
-//    s3Key: string;
-//    fileType: string;
-
   private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
