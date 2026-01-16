@@ -24,6 +24,9 @@ export class ImageEmbedder extends GuStack {
         architecture: Architecture.ARM_64,
         handler: 'index.handler',
         app: 'image-embedder-lambda',
+        environment: {
+          STAGE: props.stage,
+        },
       },
     );
 

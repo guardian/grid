@@ -23,6 +23,9 @@ const LOCALSTACK_ENDPOINT =
   process.env.LOCALSTACK_ENDPOINT || "http://localhost:4566";
 const isLocal = process.env.IS_LOCAL === "true";
 
+// Determine stage: dev for local, otherwise from environment (test or prod)
+const STAGE = isLocal ? "dev" : process.env.STAGE;
+
 const s3Config = {
   region: "eu-west-1",
   ...(isLocal && {
@@ -34,6 +37,9 @@ const s3Config = {
     },
   }),
 };
+
+console.log(`Stage: ${STAGE}`);
+console.log(`IS_LOCAL: ${isLocal}`);
 
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
@@ -134,7 +140,7 @@ async function storeEmbedding(
   };
 
   const input: PutVectorsCommandInput = {
-    vectorBucketName: "image-embeddings-via-lambda",
+    vectorBucketName: `image-embeddings-${STAGE}`,
     indexName: "cohere-embed-english-v3",
     vectors: [inputVector],
   };
