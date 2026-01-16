@@ -28,7 +28,16 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
 
-  val maybeEmbedder: Option[Embedder] = if (config.shouldEmbed) Some(new Embedder(new S3Vectors(config), new Bedrock(config))) else None
+  val maybeEmbedder: Option[Embedder] = for {
+    queueUrl <- config.maybeImageEmbedderQueueUrl
+  if config.shouldEmbed
+  } yield {
+    new Embedder(
+      new S3Vectors(config),
+      new Bedrock(config),
+      new SimpleSqsMessageConsumer(queueUrl, config)
+    )
+  }
 
   val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor)
   val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)

@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: Core resources for Grid in DEV
 Resources:
   ThrallMessageStream:
@@ -15,7 +15,7 @@ Resources:
       RetentionPeriodHours: 168
 
   IngestSqsQueue:
-    Type: AWS::SQS::Queue  # standard queue will suffice (Fifo not worth performance penalty)
+    Type: AWS::SQS::Queue # standard queue will suffice (Fifo not worth performance penalty)
     Properties:
       QueueName: IngestSqsQueue
       ReceiveMessageWaitTimeSeconds: 20 # maximum - most efficient for long polling
@@ -29,15 +29,15 @@ Resources:
         CorsRules:
           - Id: AllowUploadsFromBrowser
             AllowedHeaders:
-              - '*'
+              - "*"
             AllowedMethods:
               - PUT
             AllowedOrigins:
-              - 'https://media.local.dev-gutools.co.uk'
+              - "https://media.local.dev-gutools.co.uk"
       NotificationConfiguration:
         QueueConfigurations:
-        - Event: "s3:ObjectCreated:*"
-          Queue: !GetAtt IngestSqsQueue.Arn
+          - Event: "s3:ObjectCreated:*"
+            Queue: !GetAtt IngestSqsQueue.Arn
 
   IngestQueueFailBucket:
     Type: AWS::S3::Bucket
@@ -47,13 +47,13 @@ Resources:
     Properties:
       CorsConfiguration:
         CorsRules:
-        - AllowedMethods:
-          - GET
-          AllowedOrigins:
-          - '*'
-          ExposedHeaders:
-          - Date
-          MaxAge: '3600'
+          - AllowedMethods:
+              - GET
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - Date
+            MaxAge: "3600"
 
   ThumbBucket:
     Type: AWS::S3::Bucket
@@ -130,19 +130,19 @@ Resources:
           Projection:
             ProjectionType: KEYS_ONLY
           ProvisionedThroughput:
-            ReadCapacityUnits: '4'
-            WriteCapacityUnits: '2'
+            ReadCapacityUnits: "4"
+            WriteCapacityUnits: "2"
 
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: CollectionsTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -152,11 +152,11 @@ Resources:
     Properties:
       TableName: ImageCollectionsTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -166,26 +166,26 @@ Resources:
     Properties:
       TableName: LeasesTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
-      - AttributeName: mediaId
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: mediaId
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       GlobalSecondaryIndexes:
-      - IndexName: mediaId
-        KeySchema:
-        - AttributeName: mediaId
-          KeyType: HASH
-        Projection:
-          ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        - IndexName: mediaId
+          KeySchema:
+            - AttributeName: mediaId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
   IndexedImageTopic:
@@ -193,34 +193,47 @@ Resources:
     DependsOn: IndexedImageMetadataQueue
     Properties:
       Subscription:
-      - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
-        Protocol: sqs
+        - Endpoint: !GetAtt "IndexedImageMetadataQueue.Arn"
+          Protocol: sqs
+  ImageEmbedderDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: image-embedder-DLQ-DEV
+      MessageRetentionPeriod: 1209600 # 14 days
+  ImageEmbedderQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: image-embedder-DEV
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ImageEmbedderDLQ.Arn
+        maxReceiveCount: 3
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: UsageRecordTable
       AttributeDefinitions:
-      - AttributeName: usage_id
-        AttributeType: S
-      - AttributeName: grouping
-        AttributeType: S
-      - AttributeName: media_id
-        AttributeType: S
-      KeySchema:
-      - AttributeName: grouping
-        KeyType: HASH
-      - AttributeName: usage_id
-        KeyType: RANGE
-      GlobalSecondaryIndexes:
-      - IndexName: media_id
-        KeySchema:
+        - AttributeName: usage_id
+          AttributeType: S
+        - AttributeName: grouping
+          AttributeType: S
         - AttributeName: media_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: grouping
           KeyType: HASH
-        Projection:
-          ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        - AttributeName: usage_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: media_id
+          KeySchema:
+            - AttributeName: media_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -230,26 +243,25 @@ Resources:
     Properties:
       TableName: LiveContentPollTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
-
 
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: PreviewContentPollTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -259,11 +271,11 @@ Resources:
     Properties:
       TableName: UploadStatusTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
@@ -287,54 +299,58 @@ Resources:
 
 Outputs:
   ImageBucket:
-    Value: !Ref 'ImageBucket'
+    Value: !Ref "ImageBucket"
   ThumbBucket:
-    Value: !Ref 'ThumbBucket'
+    Value: !Ref "ThumbBucket"
   KeyBucket:
-    Value: !Ref 'KeyBucket'
+    Value: !Ref "KeyBucket"
   ImageOriginBucket:
-    Value: !Ref 'ImageOriginBucket'
+    Value: !Ref "ImageOriginBucket"
   ImageOriginWebsite:
-    Value: !GetAtt 'ImageOriginBucket.WebsiteURL'
+    Value: !GetAtt "ImageOriginBucket.WebsiteURL"
   ConfigBucket:
-    Value: !Ref 'ConfigBucket'
+    Value: !Ref "ConfigBucket"
   CollectionsBucket:
-    Value: !Ref 'CollectionsBucket'
+    Value: !Ref "CollectionsBucket"
   S3WatcherIngestBucket:
-    Value: !Ref 'S3WatcherIngestBucket'
+    Value: !Ref "S3WatcherIngestBucket"
   S3WatcherFailBucket:
-    Value: !Ref 'S3WatcherFailBucket'
+    Value: !Ref "S3WatcherFailBucket"
   UsageMailBucket:
-    Value: !Ref 'UsageMailBucket'
+    Value: !Ref "UsageMailBucket"
   SyndicationDynamoTable:
-    Value: !Ref 'SyndicationDynamoTable'
+    Value: !Ref "SyndicationDynamoTable"
   EditsDynamoTable:
-    Value: !Ref 'EditsDynamoTable'
+    Value: !Ref "EditsDynamoTable"
   CollectionsDynamoTable:
-    Value: !Ref 'CollectionsDynamoTable'
+    Value: !Ref "CollectionsDynamoTable"
   ImageCollectionsDynamoTable:
-    Value: !Ref 'ImageCollectionsDynamoTable'
+    Value: !Ref "ImageCollectionsDynamoTable"
   LeasesDynamoTable:
-    Value: !Ref 'LeasesDynamoTable'
+    Value: !Ref "LeasesDynamoTable"
   IndexedImageTopicArn:
-    Value: !Ref 'IndexedImageTopic'
+    Value: !Ref "IndexedImageTopic"
   IndexedImageMetadataQueueUrl:
-    Value: !Ref 'IndexedImageMetadataQueue'
+    Value: !Ref "IndexedImageMetadataQueue"
   UsageRecordTable:
-    Value: !Ref 'UsageRecordTable'
+    Value: !Ref "UsageRecordTable"
   LiveContentPollTable:
-    Value: !Ref 'LiveContentPollTable'
+    Value: !Ref "LiveContentPollTable"
   PreviewContentPollTable:
-    Value: !Ref 'PreviewContentPollTable'
+    Value: !Ref "PreviewContentPollTable"
   UploadStatusTable:
-    Value: !Ref 'UploadStatusTable'
+    Value: !Ref "UploadStatusTable"
   SoftDeletedMetadataTable:
-    Value: !Ref 'SoftDeletedMetadataTable'
+    Value: !Ref "SoftDeletedMetadataTable"
   IngestSqsQueueUrl:
-   Value: !Ref 'IngestSqsQueue'
+    Value: !Ref "IngestSqsQueue"
   IngestSqsQueueArn:
-   Value: !GetAtt IngestSqsQueue.Arn
+    Value: !GetAtt IngestSqsQueue.Arn
   IngestQueueBucket:
-    Value: !Ref 'IngestQueueBucket'
+    Value: !Ref "IngestQueueBucket"
   IngestQueueFailBucket:
-    Value: !Ref 'IngestQueueFailBucket'
+    Value: !Ref "IngestQueueFailBucket"
+  ImageEmbedderQueueUrl:
+    Value: !Ref "ImageEmbedderQueue"
+  ImageEmbedderQueueArn:
+    Value: !GetAtt ImageEmbedderQueue.Arn

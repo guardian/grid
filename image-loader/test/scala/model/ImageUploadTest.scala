@@ -58,13 +58,10 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
-    def mockVectorStore = (fileType: MimeType, imagePath: Path, imageId: String) =>
-      Future.successful(())
-
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
-    def createEmbeddingAndStore: (MimeType, Path, String) => Future[Unit] = mockVectorStore
+    def queueImageToEmbed: String => Unit = (messageBody: String) => ()
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
@@ -72,7 +69,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       storeOrProjectOriginalFile,
       storeOrProjectThumbFile,
       storeOrProjectOptimisedPNG,
-      createEmbeddingAndStore = createEmbeddingAndStore
+      queueImageToEmbed = queueImageToEmbed,
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)
@@ -92,7 +89,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
       mockDependencies.storeOrProjectOptimisedImage,
-      createEmbeddingAndStore,
+      queueImageToEmbed,
       OptimiseWithPngQuant,
       uploadRequest,
       mockDependencies,

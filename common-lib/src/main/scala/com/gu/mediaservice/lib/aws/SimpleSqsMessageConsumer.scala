@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder
-import com.amazonaws.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.amazonaws.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, ReceiveMessageRequest, SendMessageRequest, SendMessageResult, Message => SQSMessage}
 
 import scala.jdk.CollectionConverters._
 
@@ -31,5 +31,14 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
       "ApproximateNumberOfMessages",
       "ApproximateNumberOfMessagesNotVisible"
     ).asJava).getAttributes.asScala.toMap
+  }
+
+  def sendMessage(messageBody: String): SendMessageResult = {
+    val sendMessageRequest: SendMessageRequest = new SendMessageRequest()
+      .withQueueUrl(queueUrl)
+      .withMessageBody(messageBody)
+      //      TODO what should the delay be here?
+      .withDelaySeconds(5)
+    client.sendMessage(sendMessageRequest)
   }
 }
