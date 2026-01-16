@@ -5,7 +5,6 @@ import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 
 import java.nio.file.{Files, Path}
-import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait CohereCompatibleMimeType

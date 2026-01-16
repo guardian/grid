@@ -1,19 +1,6 @@
 #!/usr/bin/env ts-node
 
-/**
- * Local runner for the image-embedder lambda
- * Polls the localstack SQS queue and invokes the lambda handler when messages arrive
- */
-
-import {
-  SQSClient,
-  ReceiveMessageCommand,
-  DeleteMessageCommand,
-} from "@aws-sdk/client-sqs";
-import { Context, SQSEvent } from "aws-lambda";
-import { handler } from "./src/index";
-
-// Configure for localstack
+// Configure for localstack - MUST be set before importing handler
 const LOCALSTACK_ENDPOINT =
   process.env.LOCALSTACK_ENDPOINT || "http://localhost:4566";
 const QUEUE_URL =
@@ -22,6 +9,17 @@ const QUEUE_URL =
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "5000", 10);
 
 process.env.AWS_PROFILE = "media-service";
+process.env.IS_LOCAL = "true";
+process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
+
+// Import handler AFTER setting environment variables
+import {
+  SQSClient,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+} from "@aws-sdk/client-sqs";
+import { Context, SQSEvent } from "aws-lambda";
+import { handler } from "./src/index";
 
 const sqsClient = new SQSClient({
   region: "eu-west-1",
