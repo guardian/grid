@@ -81,6 +81,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     logger.info(s"Saving image to file: " + outputFile.getAbsolutePath)
     image.jpegsave(outputFile.getAbsolutePath,
       VipsOption.Int("Q", qual.toInt),
+      VipsOption.Boolean("optimize-coding", true),
       VipsOption.Boolean("strip", true)
     )
     outputFile
