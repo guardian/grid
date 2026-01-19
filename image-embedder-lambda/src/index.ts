@@ -140,7 +140,7 @@ async function storeEmbedding(
   };
 
   const input: PutVectorsCommandInput = {
-    vectorBucketName: `image-embeddings-${STAGE}`,
+    vectorBucketName: `image-embeddings-${STAGE}`.toLowerCase(),
     indexName: "cohere-embed-english-v3",
     vectors: [inputVector],
   };
