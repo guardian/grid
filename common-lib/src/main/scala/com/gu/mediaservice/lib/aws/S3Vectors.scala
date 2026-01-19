@@ -95,20 +95,6 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.putVectors(request)
   }
 
-  def storeEmbedding(embedding: List[Float], imageId: String)(implicit logMarker: LogMarker): Future[Unit] = Future {
-    try {
-      val response = putVector(embedding, imageId)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to store image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-    } catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId", e)
-        throw e
-    }
-  }
-
   private def queryVectors(embedding: List[Float]): QueryVectorsResponse = {
     val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
 
