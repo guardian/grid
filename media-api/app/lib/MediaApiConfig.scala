@@ -70,4 +70,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val restrictDownload: Boolean = boolean("restrictDownload")
 
+  val queueUrl: String = string("sqs.embedder.queue.url")
+
 }
