@@ -76,7 +76,6 @@ function getCommonConfig(config) {
         |      "Spotlight" // Rex/Shutterstock
         |    ]
         |}
->>>>>>> 3e403bd7f (add `is:agency-pick` with 'ticker' (which has breakdown by `usageRights.supplier`) with red border on matching images (definition is in common.conf under `agencyPicks.ingredients`))
         |`;
 }
 
