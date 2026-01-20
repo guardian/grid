@@ -50,8 +50,7 @@ export class ImageEmbedder extends GuStack {
 			new PolicyStatement({
 				actions: ['s3vectors:PutVectors'],
 				resources: [
-					// `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-via-lambda/index/*`,
-					`arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage}/index/*`,
+					`arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
 				],
 			}),
 		);
@@ -71,7 +70,6 @@ export class ImageEmbedder extends GuStack {
 			new PolicyStatement({
 				actions: ['s3:GetObject'],
 				resources: [
-					// `arn:aws:s3:::image-embedding-test/*`,
 					`arn:aws:s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*`,
 					`arn:aws:s3:::media-service-prod-imagebucket-1luk2yux3owkh/*`,
 				],
