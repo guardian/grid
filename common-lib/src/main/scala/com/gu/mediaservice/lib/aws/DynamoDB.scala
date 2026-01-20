@@ -227,7 +227,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
              (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
-      setExpr(key, lastModifiedKey),
+      s"SET $key = :value",
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
