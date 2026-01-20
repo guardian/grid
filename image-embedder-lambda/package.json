@@ -8,7 +8,7 @@
     "type-check": "tsc --noEmit",
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.js",
     "build": "run-p --print-label type-check bundle",
-    "local": "ts-node local-runner.ts"
+    "local": "ts-node localRun.ts"
   },
   "author": "",
   "license": "ISC",
