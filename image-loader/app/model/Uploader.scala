@@ -177,8 +177,7 @@ object Uploader extends GridLogging {
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
-
-      logger.info(logMarker, s"s3Source.uri: ${s3Source.uri}, s3Source.metadata: ${s3Source.metadata}")
+      
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
