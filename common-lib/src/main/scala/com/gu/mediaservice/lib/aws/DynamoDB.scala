@@ -227,7 +227,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
              (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
-      s"SET $key = :value",
+      setExpr(key, lastModifiedKey),
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
@@ -334,7 +334,6 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       .expressionAttributeValues(valuesMap.asJava)
       .build()
     val updateItemResponse = client2.updateItem(updateRequest)
-
     val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
     Json.parse(jsonString).as[JsObject]
   }

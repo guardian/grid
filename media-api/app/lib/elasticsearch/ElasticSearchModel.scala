@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.argo.model.ExtraCounts
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
@@ -8,14 +9,11 @@ import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
-import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
-import scalaz.syntax.validation._
-import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
-case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, maybeOrgOwnedCount: Option[Long])
+case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, extraCounts: Option[ExtraCounts])
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 

@@ -31,13 +31,29 @@
                         gr-tooltip-updates>
                     {{ctrl.newImagesCount | toLocaleString}} new
                 </button>
-                <button ng-if="ctrl.orgOwnedCount !== undefined && ctrl.orgOwnedCount !== ctrl.totalResults && (ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0))"
-                        ng-click="ctrl.applyOrgOwnedFilter()"
-                        class="image-results-count__org-owned"
+                <button ng-repeat="(name, tickerCount) in ctrl.tickerCounts"
+                        ng-if="tickerCount.value !== ctrl.totalResults && tickerCount.value > 0"
+                        ng-click="ctrl.applyFilter(tickerCount.searchClause)"
+                        class="image-results-ticker"
+                        ng-style="{'background-color': tickerCount.backgroundColour}"
                         gr-tooltip="last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}"
+                        gr-tooltip-html
                         gr-tooltip-position="bottom"
                         gr-tooltip-updates>
-                    {{(ctrl.orgOwnedCount + (ctrl.newOrgOwnedCount || 0)) | toLocaleString}} {{ctrl.maybeOrgOwnedValue}}
+                    {{tickerCount.value | toLocaleString}} {{name}}
+                    <div class="titip-content"
+                         style="z-index: 99999; white-space: initial; text-align: center; width: max-content;">
+                        <span>last updated {{ctrl.newImagesLastCheckedMoment.from(moment())}}</span>
+                        <hr ng-if="tickerCount.subCounts"/>
+                        <table ng-if="tickerCount.subCounts" style="border: none; width: max-content;">
+                            <caption style="display: none">Breakdown of ticker: {{name}}</caption>
+                            <tr ng-repeat="(subCountName, count) in tickerCount.subCounts"
+                                ng-if="count > 0">
+                                <td style="text-align: right; border: none">{{count.toLocaleString()}}</td>
+                                <td style="text-align: left; border: none">{{subCountName}}</td>
+                            </tr>
+                        </table>
+                    </div>
                 </button>
             </div>
 
