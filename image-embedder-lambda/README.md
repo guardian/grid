@@ -4,26 +4,26 @@ This is a service responsible for embedding uploaded images to the Grid and writ
 
 ## Running Locally with Localstack
 
-The ImageEmbedder queue can be run locally by polling the localstack SQS queue and **executing the actual lambda code**.
+The ImageEmbedder queue can be run locally by polling the localstack SQS queue and executing the lambda code with the help of the `localRun` script.
 
 ### What Actually Runs
 
 The local runner:
 
-- ✅ **Polls the real localstack SQS queue** for messages
-- ✅ **Executes your actual lambda handler code** (not a mock!)
-- ✅ **Fetches images from localstack S3** (when running locally)
-- ⚠️ **Calls real AWS Bedrock** for embeddings (requires AWS credentials)
-- ⚠️ **Stores vectors in real AWS S3 Vectors** (requires AWS credentials)
+- ✅ **Polls the localstack SQS queue** for messages
+- ✅ **Executes the lambda handler code**
+- ✅ **Fetches images from localstack S3**
+- ⚠️ **Calls AWS Bedrock** for embeddings (requires AWS credentials)
+- ⚠️ **Stores vectors in AWS S3 Vectors** (requires AWS credentials)
 
-**Important:** Bedrock and S3 Vectors are not available in localstack, so the lambda will connect to **real AWS services**. Make sure you have AWS credentials configured with access to TEST environment resources.
+**Important:** Bedrock and S3 Vectors are not available in localstack, so the lambda will connect to **AWS services**. Make sure you have AWS credentials configured.
 
 ### Prerequisites
 
-1. Localstack running via `docker-compose up -d`
-2. Core CloudFormation stack deployed to localstack (run `dev/script/setup.sh`)
-3. Dependencies installed: `npm install`
-4. **AWS credentials configured** for Bedrock and S3 Vectors access
+1. Core CloudFormation stack deployed to localstack (run `dev/script/setup.sh`)
+1. Localstack running via `dev/script/start.sh`
+1. Dependencies installed: `npm install`
+1. **AWS credentials configured** for Bedrock and S3 Vectors access
 
 ### Start the Local Runner
 
@@ -35,7 +35,7 @@ This will:
 
 - Build the lambda code
 - Start polling the localstack SQS queue (`image-embedder-DEV`)
-- **Execute the real lambda handler** when messages arrive
+- Execute the lambda handler when messages arrive
 - Delete messages from the queue on success
 - Allow failed messages to retry or go to the DLQ
 
