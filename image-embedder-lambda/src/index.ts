@@ -16,7 +16,7 @@ interface SQSMessageBody {
     fileType: string;
 }
 
-async function getImageFromS3(
+export async function getImageFromS3(
     s3Bucket: string, 
     s3Key: string,
     client: S3Client
@@ -53,7 +53,7 @@ async function getImageFromS3(
     }
 }
 
-async function embedImage(
+export async function embedImage(
     inputData: String[], 
     client: BedrockRuntimeClient
 ): Promise<InvokeModelCommandOutput> {
