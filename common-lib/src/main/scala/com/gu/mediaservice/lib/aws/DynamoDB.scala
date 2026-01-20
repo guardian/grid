@@ -227,7 +227,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
              (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
-      setExpr(key, lastModifiedKey),
+      s"SET $key = :value",
         new ValueMap().withMap(":value", valueMapWithNullForEmptyString(value))
     )
 
@@ -329,8 +329,12 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   }
 
   def updateV2(id: String, expression: String) = {
-    val updateRequest = updateRequestBuilder(id, expression).build()
+    val valuesMap = lastModifiedKey.fold(Map.empty[String, AttributeValueV2])(key =>  Map(s":${key}" -> AttributeValueV2.fromS(DateTime.now().toString)))
+    val updateRequest = updateRequestBuilder(id, expression)
+      .expressionAttributeValues(valuesMap.asJava)
+      .build()
     val updateItemResponse = client2.updateItem(updateRequest)
+
     val jsonString = EnhancedDocument.fromAttributeValueMap(updateItemResponse.attributes()).toJson
     Json.parse(jsonString).as[JsObject]
   }
