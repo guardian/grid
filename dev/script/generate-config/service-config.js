@@ -57,6 +57,25 @@ function getCommonConfig(config) {
         |  photographers=["Example Contracted Illustrator"]
         |}]
         |usageRightsConfigProvider.config.staffIllustrators=["Example Staff Illustrator"]
+        |agencyPicks.ingredients={
+        |    "metadata.description": [
+        |      "topshot", // Getty
+        |      "topshots", // Getty
+        |      "bestpix", // Getty
+        |      "PABest", // PA
+        |      "TPX IMAGES OF THE DAY", // Reuters
+        |      "epaselect", // EPA
+        |      "APTOPIX", // AP
+        |    ],
+        |    "metadata.keywords": [
+        |      "epaselect", // EPA
+        |      "aptopix", // AP
+        |      "APTOPIX", // AP
+        |      "SPOTLIGHT", // Rex/Shutterstock
+        |      "spotlight", // Rex/Shutterstock
+        |      "Spotlight" // Rex/Shutterstock
+        |    ]
+        |}
         |`;
 }
 
