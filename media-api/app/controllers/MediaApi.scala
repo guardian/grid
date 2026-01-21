@@ -560,26 +560,12 @@ class MediaApi(
 
       val imageIds: Future[List[String]] = _searchParams.query match {
         case Some(q) if !q.isBlank =>
+          // Check if it's an image-to-image similarity search
           q.split(" ").find(_.startsWith("similar:")) match {
             case Some(similarQuery) =>
-              logger.info(logMarker, "Using image-to-image search for query")
               val extractedImageId = similarQuery.split(":")(1)
-              logger.info(logMarker, s"Extracted image ID for similarity search: $extractedImageId")
               embedder.imageToImageSearch(extractedImageId)
-              match {
-                case Some(futureResult) =>
-                  futureResult.map { result =>
-                  val results: java.util.List[QueryOutputVector] = result.vectors()
-                  results.asScala.map(_.key()).toList
-                }
-                case None => Future(Nil)
-              }
-            case None =>
-              logger.info(logMarker, "Using text-to-image search for query")
-              embedder.createEmbeddingAndSearch(q).map { result =>
-                val results: java.util.List[QueryOutputVector] = result.vectors()
-                results.asScala.map(_.key()).toList
-              }
+            case None => embedder.createEmbeddingAndSearch(q)
           }
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
