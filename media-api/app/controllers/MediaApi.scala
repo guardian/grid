@@ -560,53 +560,46 @@ class MediaApi(
 
       val imageIds: Future[List[String]] = _searchParams.query match {
         case Some(q) if !q.isBlank =>
-          embedder.createEmbeddingAndSearch(q).map { result =>
-            val results: java.util.List[QueryOutputVector] = result.vectors()
-            results.asScala.map(_.key()).toList
+          q.split(" ").find(_.startsWith("similar:")) match {
+            case Some(similarQuery) =>
+              logger.info(logMarker, "Using image-to-image search for query")
+              val extractedImageId = similarQuery.split(":")(1)
+              logger.info(logMarker, s"Extracted image ID for similarity search: $extractedImageId")
+              embedder.imageToImageSearch(extractedImageId)
+              match {
+                case Some(futureResult) =>
+                  futureResult.map { result =>
+                  val results: java.util.List[QueryOutputVector] = result.vectors()
+                  results.asScala.map(_.key()).toList
+                }
+                case None => Future(Nil)
+              }
+            case None =>
+              logger.info(logMarker, "Using text-to-image search for query")
+              embedder.createEmbeddingAndSearch(q).map { result =>
+                val results: java.util.List[QueryOutputVector] = result.vectors()
+                results.asScala.map(_.key()).toList
+              }
           }
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
         case _ => Future(Nil)
       }
-      val searchTerm = _searchParams.query match {
-        case Some(q) => q
-        case None => ""
-      }
 
-      val searchForSimilar = searchTerm.split(" ").find(_.startsWith("similar:"))
+      imageIds.flatMap { ids =>
+        SearchParams(
+          query = _searchParams.query,
+          ids = Some(ids),
+          tier = request.user.accessor.tier,
+        )
 
-      val semanticSearchResult: Option[Future[QueryVectorsResponse]] = if (searchForSimilar.isDefined) {
-        val extractedImageId = searchForSimilar.get.split(":")(1)
-         embedder.imageToImageSearch(extractedImageId)
-      } else {
-        Some(embedder.createEmbeddingAndSearch(searchTerm))
-      }
-
-      semanticSearchResult match {
-        case None =>
-        Future.successful(respondError(NotFound, "Not Found",
-          "The image you have selected is not yet in the S3 Vector Store. We cannot do a similarity search on it yet."))
-        case Some(results) =>
-        val imageIds = results.map { result =>
-          val results: java.util.List[QueryOutputVector] = result.vectors()
-          results.asScala.map(_.key()).toList
-        }
-
-        imageIds.flatMap { ids =>
-          SearchParams(
-            query = _searchParams.query,
-            ids = Some(ids),
-            tier = request.user.accessor.tier,
-          )
-
-          for {
-            SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-            imageEntities = hits map (hitToImageEntity _).tupled
-            links = List()
-          } yield {
-            respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
-          }
+        for {
+          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
+          imageEntities = hits map (hitToImageEntity _).tupled
+          links = List()
+        } yield {
+          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
         }
       }
     } else {
@@ -626,8 +619,6 @@ class MediaApi(
         params => performSearchAndRespond(params)
       )
     }
-
-
   }
 
   private def getImageResponseFromES(
