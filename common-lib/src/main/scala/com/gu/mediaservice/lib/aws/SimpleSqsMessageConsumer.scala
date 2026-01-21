@@ -37,8 +37,6 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
     val sendMessageRequest: SendMessageRequest = new SendMessageRequest()
       .withQueueUrl(queueUrl)
       .withMessageBody(messageBody)
-      //      TODO what should the delay be here?
-      .withDelaySeconds(5)
     client.sendMessage(sendMessageRequest)
   }
 }
