@@ -55,7 +55,7 @@ interface SQSMessageBody {
 async function getImageFromS3(
   s3Bucket: string,
   s3Key: string,
-  client: S3Client
+  client: S3Client,
 ): Promise<Uint8Array | undefined> {
   const input: GetObjectRequest = {
     Bucket: s3Bucket,
@@ -89,7 +89,7 @@ async function getImageFromS3(
 
 async function embedImage(
   inputData: String[],
-  client: BedrockRuntimeClient
+  client: BedrockRuntimeClient,
 ): Promise<InvokeModelCommandOutput> {
   const model = "cohere.embed-english-v3";
   const body = {
@@ -101,7 +101,7 @@ async function embedImage(
 
   const input: InvokeModelCommandInput = {
     modelId: model,
-    body: jsonBody,
+    body: new TextEncoder().encode(jsonBody),
     accept: "*/*",
     contentType: "application/json",
   };
@@ -112,7 +112,7 @@ async function embedImage(
     const response = await client.send(command);
 
     console.log(
-      `Bedrock response metadata: ${JSON.stringify(response.$metadata)}`
+      `Bedrock response metadata: ${JSON.stringify(response.$metadata)}`,
     );
     console.log(`Response body length: ${response.body?.length}`);
 
@@ -126,10 +126,10 @@ async function embedImage(
 async function storeEmbedding(
   embedding: number[],
   key: string,
-  client: S3VectorsClient
+  client: S3VectorsClient,
 ) {
   console.log(
-    `Storing embedding of length ${embedding.length} for key: ${key}`
+    `Storing embedding of length ${embedding.length} for key: ${key}`,
   );
 
   const inputVector: PutInputVector = {
@@ -146,7 +146,7 @@ async function storeEmbedding(
   };
 
   console.log(
-    `PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}`
+    `PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}`,
   );
 
   try {
@@ -154,7 +154,7 @@ async function storeEmbedding(
     const response = await client.send(command);
 
     console.log(
-      `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`
+      `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
     console.log(`Successfully stored embedding for key: ${key}`);
 
@@ -174,7 +174,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
   // So that it ends on the DLQ for processing when we add tiff handling
   if (recordBody.fileType === "image/tiff") {
     console.error(
-      `Unsupported file type: ${recordBody.fileType}, ending execution`
+      `Unsupported file type: ${recordBody.fileType}, ending execution`,
     );
     throw new Error(`Unsupported file type: ${recordBody.fileType}`);
   }
@@ -182,7 +182,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
   const gridImage = await getImageFromS3(
     recordBody.s3Bucket,
     recordBody.s3Key,
-    s3Client
+    s3Client,
   );
   const base64Image = Buffer.from(gridImage).toString("base64");
   const inputImage = `data:${recordBody.fileType};base64,${base64Image}`;
@@ -193,7 +193,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
   const embeddingResponse = await embedImage([inputImage], bedrockClient);
   const responseBody = JSON.parse(
-    new TextDecoder().decode(embeddingResponse.body)
+    new TextDecoder().decode(embeddingResponse.body),
   );
   // Extract the embedding array (first element since we only sent one image)
   const embedding: number[] = responseBody.embeddings.float[0];
