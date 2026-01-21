@@ -102,7 +102,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       .builder()
       .indexName(indexName)
       .vectorBucketName(vectorBucketName)
-      .topK(30)
+      .topK(100)
       .queryVector(queryVector)
       .build()
 
