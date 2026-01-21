@@ -28,11 +28,8 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
 import scala.jdk.CollectionConverters._
-import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
-
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.util.Try
 
 class MediaApi(
@@ -544,7 +541,7 @@ class MediaApi(
     }
 
     def performSearchAndRespond(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+      SearchResults(hits, totalCount, extraCounts) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
@@ -553,7 +550,7 @@ class MediaApi(
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), extraCounts, links)
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
@@ -561,6 +558,17 @@ class MediaApi(
 
     if (_searchParams.useAISearch.contains(true)) {
 
+      val imageIds: Future[List[String]] = _searchParams.query match {
+        case Some(q) if !q.isBlank =>
+          embedder.createEmbeddingAndSearch(q).map { result =>
+            val results: java.util.List[QueryOutputVector] = result.vectors()
+            results.asScala.map(_.key()).toList
+          }
+        // Empty queries do not make sense for AI search as we can
+        // only rank results once we have a meaningful vector to compare with.
+        // So return 0 results if the query was empty.
+        case _ => Future(Nil)
+      }
       val searchTerm = _searchParams.query match {
         case Some(q) => q
         case None => ""

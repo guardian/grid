@@ -36,11 +36,13 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "cdk/package-lock.json"
       - name: Kahuna (client-side)
         working-directory: ./kahuna
         run: |
@@ -72,6 +74,10 @@ jobs:
           npm install-clean
           npm test
           npm run build
+      - name: Image embedder cdk
+        run: ./scripts/embedder-deploy/cdk.sh
+      - name: Image embedder bundling
+        run: ./scripts/embedder-deploy/build.sh
       - uses: guardian/actions-riff-raff@v4.2.3
         if: "! github.event.pull_request.head.repo.fork"
         with:
@@ -107,5 +113,8 @@ jobs:
 
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
-
-
+            
+            cdk.out:
+              - cdk/cdk.out
+            image-embedder-lambda:
+              - image-embedder.zip

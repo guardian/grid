@@ -119,15 +119,6 @@ class Bedrock(config: CommonConfig)
     }
   }
 
-  def createImageEmbedding(base64EncodedImage: String, fileType: CohereCompatibleMimeType)
-                          (implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
-    val images = fileType match {
-      case CohereJpeg =>  s"data:image/jpg;base64,$base64EncodedImage"
-      case CoherePng => s"data:image/png;base64,$base64EncodedImage"
-    }
-    createEmbedding(InputType.Image, images)
-  }
-
   def createSearchTermEmbedding(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
     logger.info(logMarker, s"Creating embedding for search term: $q")
 

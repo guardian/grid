@@ -27,6 +27,55 @@ function getCommonConfig(config) {
         |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
         |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
+        |usageRightsConfigProvider.config.freeSuppliers=[
+        |  "AAP",
+        |  "Alamy",
+        |  "Allstar Picture Library",
+        |  "AP",
+        |  "EPA",
+        |  "Getty Images",
+        |  "PA",
+        |  "Reuters",
+        |  "Rex Features",
+        |  "Ronald Grant Archive",
+        |  "Action Images"
+        |]
+        |usageRightsConfigProvider.config.externalStaffPhotographers=[{
+        |  name="Example publication",
+        |  photographers=["Example External Photographer"],
+        |}]
+        |usageRightsConfigProvider.config.internalStaffPhotographers=[{
+        |  name="Example publication",
+        |  photographers=["Example Internal Photographer"]
+        |}]
+        |usageRightsConfigProvider.config.contractedPhotographers=[{
+        |  name="Example publication",
+        |  photographers=["Example Contracted Photographer"]
+        |}]
+        |usageRightsConfigProvider.config.contractIllustrators=[{
+        |  name="Example publication",
+        |  photographers=["Example Contracted Illustrator"]
+        |}]
+        |usageRightsConfigProvider.config.staffIllustrators=["Example Staff Illustrator"]
+        |agencyPicks.ingredients={
+        |    "metadata.description": [
+        |      "topshot", // Getty
+        |      "topshots", // Getty
+        |      "bestpix", // Getty
+        |      "PABest", // PA
+        |      "TPX IMAGES OF THE DAY", // Reuters
+        |      "epaselect", // EPA
+        |      "APTOPIX", // AP
+        |    ],
+        |    "metadata.keywords": [
+        |      "epaselect", // EPA
+        |      "aptopix", // AP
+        |      "APTOPIX", // AP
+        |      "SPOTLIGHT", // Rex/Shutterstock
+        |      "spotlight", // Rex/Shutterstock
+        |      "Spotlight" // Rex/Shutterstock
+        |    ]
+        |}
         |`;
 }
 
@@ -75,6 +124,7 @@ function getImageLoaderConfig(config) {
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
         |s3.vectors.shouldEmbed=false
+        |sqs.image.embedder.queue.url="${config.coreStackProps.ImageEmbedderQueue}"
         |`;
 }
 

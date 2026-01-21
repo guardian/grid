@@ -43,6 +43,20 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
             staffCategories.includes(image.data.usageRights.category);
     }
 
+
+  function isAgencyPick(image) {
+    return Object.entries(window._clientConfig.agencyPicksIngredients || {}).some(([field, values]) => values.some(value => {
+      const fieldValue = field.split('.').reduce((a, b) => a[b], image.data);
+      if (typeof fieldValue === 'string'){
+        return fieldValue.toLowerCase().includes(value.toLowerCase());
+      }
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.includes(value);
+      }
+      return false;
+    }));
+  }
+
     function getPersistenceExplanation(image) {
         const persistReasons = imageAccessor.readPersistedReasons(image);
         return persistReasons.map(reason => {
@@ -111,6 +125,7 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         getArchivedState,
         getPersistenceExplanation,
         isStaffPhotographer,
+        isAgencyPick,
         getSyndicationStatus,
         getSyndicationReason,
         hasSyndicationRights,
