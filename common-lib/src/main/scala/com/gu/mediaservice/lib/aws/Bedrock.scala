@@ -119,4 +119,39 @@ class Bedrock(config: CommonConfig)
     }
   }
 
+  def createSearchTermEmbedding(q: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
+    logger.info(logMarker, s"Creating embedding for search term: $q")
+
+    val body = Bedrock.BedrockTextRequest(
+      input_type = "search_document",
+      embedding_types = List("float"),
+      texts = List(q)
+    )
+    val jsonBody = Json.toJson(body).toString()
+
+    val requestBody: InvokeModelRequest = {
+      InvokeModelRequest
+        .builder()
+        .accept("*/*")
+        .body(SdkBytes.fromUtf8String(jsonBody))
+        .contentType("application/json")
+        .modelId("cohere.embed-english-v3")
+        .build()
+    }
+
+    val bedrockFuture = Future {
+      sendBedrockEmbeddingRequest(requestBody)
+    }
+    bedrockFuture.map { response =>
+      val responseBody = response.body().asUtf8String()
+      val json = Json.parse(responseBody)
+      // Extract the embedding array (first element since it's an array of arrays)
+      val embedding = (json \ "embeddings" \ "float")(0).as[List[Float]]
+      logger.info(
+        logMarker,
+        s"Successfully extracted search term embedding. Vector size: ${embedding.size}"
+      )
+      embedding
+    }
+  }
 }

@@ -3,7 +3,10 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model._
+import software.amazon.awssdk.services.s3vectors.model.{
+  DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest,
+  PutVectorsResponse, VectorData, QueryVectorsRequest, QueryVectorsResponse, GetVectorsResponse
+}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -109,7 +112,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.queryVectors(request)
   }
 
-  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
+  def searchVectorStoreWithQueryString(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
     try {
       val response = queryVectors(queryEmbedding)
       logger.info(
@@ -121,6 +124,60 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     } catch {
       case e: Exception =>
         logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
+        throw e
+    }
+  }
+
+  def findVectorForImageId(imageId: String)(implicit logMarker: LogMarker): GetVectorsResponse = {
+    val request: GetVectorsRequest = GetVectorsRequest
+      .builder()
+      .indexName("cohere-embed-english-v3")
+      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
+      .keys(imageId)
+      .returnData(true)
+      .build()
+
+    try {
+      val response = client.getVectors(request)
+      logger.info(
+        logMarker,
+        s"S3 Vector Store API call to retrieve embedding for imageId ${imageId} completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      logger.info(logMarker, s"${response}")
+      //      See https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3vectors/model/GetVectorsResponse.html#vectors()
+      //      We may want to add more error handling here
+      response
+    }
+    catch {
+      case e: Exception =>
+        logger.error(logMarker, s"Exception during vector retrieval for imageId ${imageId}:", e)
+        throw e
+    }
+  }
+
+  def searchVectorStoreForSimilarImages(queryVector: VectorData)(implicit logMarker: LogMarker
+  ): Future[QueryVectorsResponse] = Future {
+    logger.info(logMarker, s"Searching for image embedding")
+    try {
+      val request: QueryVectorsRequest = QueryVectorsRequest
+        .builder()
+        .indexName("cohere-embed-english-v3")
+        .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
+        .topK(30)
+        .queryVector(queryVector)
+        .build()
+
+      val response = client.queryVectors(request)
+      logger.info(
+        logMarker,
+        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
+      )
+      logger.info(logMarker, s"${response}")
+      response
+    }
+    catch {
+      case e: Exception =>
+        logger.error(logMarker, s"Exception during S3 Vector Store API call for query [...]", e)
         throw e
     }
   }

@@ -81,8 +81,8 @@ mediaApi.factory('mediaApi',
     }
 
     function getOrder(orderBy) {
-        if (orderBy === 'dateAddedToCollection') {
-            return 'dateAddedToCollection';
+        if (orderBy === 'dateAddedToCollection' || orderBy === 'relevance') {
+            return orderBy;
         }
         else if (orderBy && orderBy.includes('taken')) {
             return orderBy;

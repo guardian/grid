@@ -3,7 +3,7 @@ import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useEffect, useState } from "react";
 import { BaseSortControl, SortDropdownOption } from "./base-sort-control";
-import { SortOptions, DefaultSortOption } from "./gr-sort-control-config";
+import {SortOptions, DefaultSortOption, RelevanceSortOption} from "./gr-sort-control-config";
 
 export type { SortDropdownOption };
 export interface SortProps {
@@ -20,13 +20,18 @@ const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.
 
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
-    const sortOptions = SortOptions;
+    let sortOptions = SortOptions;
     const orderBy = props.orderBy;
     const query = props.query;
     const startHasCollection = checkForCollection(query);
+    const isSimilarity = (query ?? '').includes("similar:");
 
     let startSortOption = DefaultSortOption;
-    if (startHasCollection) {
+    if (isSimilarity) {
+      startSortOption = RelevanceSortOption;
+      sortOptions = [RelevanceSortOption];
+      props.onSortSelect(RelevanceSortOption);
+    } else if (startHasCollection) {
       if ((sortOptions.filter(o => o.isCollection)).length > 0) {
         startSortOption = sortOptions.find(o => o.isCollection);
       }
