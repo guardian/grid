@@ -125,7 +125,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def setGetV2(id: String, key: String)
     (implicit ex: ExecutionContext): Future[Set[String]] = {
-      get(id, key).map(_.getStringSet(key).asScala.toSet)
+    getV2(id, key).map(_.getStringSet(key).asScala.toSet)
   }
 
   def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
