@@ -43,7 +43,9 @@ export class ImageEmbedder extends GuStack {
 				maxReceiveCount: 3,
 			},
 		});
-		imageEmbedderLambda.addEventSource(new SqsEventSource(imageEmbedderQueue));
+		imageEmbedderLambda.addEventSource(
+			new SqsEventSource(imageEmbedderQueue, { batchSize: 1 }),
+		);
 
 		// Allow writing vectors to S3 vector index
 		imageEmbedderLambda.role?.addToPrincipalPolicy(

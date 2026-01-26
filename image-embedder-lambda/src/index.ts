@@ -168,6 +168,13 @@ async function storeEmbedding(
 export const handler = async (event: SQSEvent, context: Context) => {
   console.log(`Starting handler embedding pipeline`);
   const records: SQSRecord[] = event.Records;
+
+  if (records.length !== 1) {
+    throw new Error(
+      `Expected exactly 1 SQS record, but received ${records.length}`,
+    );
+  }
+
   const recordBody: SQSMessageBody = JSON.parse(records[0].body);
 
   // If it's a Tiff then we should throw an error
