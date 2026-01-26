@@ -209,5 +209,5 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
   await storeEmbedding(embedding, recordBody.imageId, s3VectorsClient);
 
-  console.log(`Finished image image pipeline successfully!`);
+  console.log(`Finished image embedding pipeline successfully!`);
 };
