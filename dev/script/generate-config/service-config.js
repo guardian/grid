@@ -124,6 +124,7 @@ function getImageLoaderConfig(config) {
         |metrics.request.enabled=false
         |transcoded.mime.types="image/tiff"
         |s3.vectors.shouldEmbed=false
+        |sqs.image.embedder.queue.url="${config.coreStackProps.ImageEmbedderQueue}"
         |`;
 }
 

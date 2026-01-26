@@ -176,17 +176,17 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
-      createEmbeddingAndStore = createEmbeddingAndStore,
+      queueImageToEmbed = queueImageToEmbed
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Unit] = {
+  private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
-        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
-      case None => Future.successful(None)
+        embedder.queueImageToEmbed(messageBody)
+      case None => ()
     }
   }
 

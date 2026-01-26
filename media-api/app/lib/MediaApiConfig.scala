@@ -74,6 +74,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val restrictDownload: Boolean = boolean("restrictDownload")
 
+  val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
+
   val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
     filters.or(
       ingredients.flatMap {
