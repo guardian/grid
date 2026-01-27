@@ -68,7 +68,7 @@ const TEST_IMAGES: TestImage[] = [
   },
 ];
 
-describe("Bedrock embedding (integration)", () => {
+describe("Embedding with Cohere v3 via Bedrock", () => {
   const s3Client = new S3Client({ region: "eu-west-1" });
   const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 
