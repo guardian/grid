@@ -35,7 +35,7 @@ case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
 
   def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
-                  fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
+                  fileMetadata: FileMetadata, metadata: ImageMetadata, imageEmbedding: ImageEmbedding): Image = {
     val usageRights = NoRights
     Image(
       uploadRequest.imageId,
@@ -56,7 +56,7 @@ case object ImageUpload {
       usageRights,
       List(),
       List(),
-      imageEmbedding = (0 to 1023).map(_ * 0.001).toList
+      imageEmbedding = Some(imageEmbedding)
     )
   }
 }
@@ -157,6 +157,8 @@ object Uploader extends GridLogging {
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
+    // TODO: this is where we'll be calling to bedrock!
+    val eventualImageEmbedding = Future.successful(ImageEmbedding(cohereEmbedEnglishV3 = (0 to 1023).map(_ * 0.001).toList))
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
@@ -173,6 +175,7 @@ object Uploader extends GridLogging {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
       }
+      imageEmbedding <- eventualImageEmbedding
       thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(thumbViewableImage.mimeType))
       colourModel <- colourModelFuture
     } yield {
@@ -183,8 +186,15 @@ object Uploader extends GridLogging {
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(mergedUploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
-
+      val baseImage = ImageUpload.createImage(
+        mergedUploadRequest, 
+        sourceAsset, 
+        thumbAsset, 
+        pngAsset, 
+        fullFileMetadata, 
+        metadata, 
+        imageEmbedding
+      )
       val processedImage = processor(baseImage)
 
       logger.info(logMarker, s"Ending image ops")
