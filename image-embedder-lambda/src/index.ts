@@ -49,9 +49,11 @@ interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
+  // TODO: rename to imageMimeType
   fileType: string;
 }
 
+// TODO: it never gets treated as undefined??
 export async function getImageFromS3(
   s3Bucket: string,
   s3Key: string,
@@ -77,7 +79,7 @@ export async function getImageFromS3(
     if (response.ContentLength === 0) {
       console.log(`Warning: ContentLength is 0, file may be empty`);
     }
-
+    
     const bytes = await response.Body.transformToByteArray();
     console.log(`Bytes array length: ${bytes.length}`);
     return bytes;
@@ -88,20 +90,21 @@ export async function getImageFromS3(
 }
 
 export async function embedImage(
-  inputData: String[],
+  imageBytes: Uint8Array,
+  imageMimeType: string,
   client: BedrockRuntimeClient,
 ): Promise<InvokeModelCommandOutput> {
+  const base64Image = Buffer.from(imageBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
     embedding_types: ["float"],
-    images: inputData,
+    images: [`data:${imageMimeType};base64,${base64Image}`],
   };
-  const jsonBody = JSON.stringify(body);
 
   const input: InvokeModelCommandInput = {
     modelId: model,
-    body: new TextEncoder().encode(jsonBody),
+    body: JSON.stringify(body),
     accept: "*/*",
     contentType: "application/json",
   };
@@ -179,19 +182,19 @@ export const handler = async (event: SQSEvent, context: Context) => {
     throw new Error(`Unsupported file type: ${recordBody.fileType}`);
   }
 
-  const gridImage = await getImageFromS3(
+  // TODO: why is this being inferred as `Uint8Array` when the
+  // return type is `Uint8Array | undefined`?
+  const gridImageBytes = await getImageFromS3(
     recordBody.s3Bucket,
     recordBody.s3Key,
     s3Client,
   );
-  const base64Image = Buffer.from(gridImage).toString("base64");
-  const inputImage = `data:${recordBody.fileType};base64,${base64Image}`;
 
   // TODO: downscale image if necessary
   // Currently the image will end up on the DLQ if it's too big
   // because the embedding will fail
 
-  const embeddingResponse = await embedImage([inputImage], bedrockClient);
+  const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
   const responseBody = JSON.parse(
     new TextDecoder().decode(embeddingResponse.body),
   );
