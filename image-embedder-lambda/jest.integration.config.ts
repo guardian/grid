@@ -11,20 +11,6 @@ const config: Config = {
   silent: true,
   // Show individual test results
   verbose: true,
-  // Required for AWS SDK v3 compatibility
-  transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
-      {
-        useESM: false,
-        tsconfig: {
-          module: "commonjs",
-          moduleResolution: "node",
-          esModuleInterop: true,
-        },
-      },
-    ],
-  },
 };
 
 export default config;
