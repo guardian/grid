@@ -161,20 +161,22 @@ export const handler = async (event: SQSEvent, context: Context) => {
   console.log(`Processing ${records.length} SQS records`);
 
   const vectors: PutInputVector[] = [];
+  const batchItemFailures: { itemIdentifier: string }[] = [];
 
   for (const record of records) {
-    const recordBody: SQSMessageBody = JSON.parse(record.body);
-
-    // If it's a Tiff then we should throw an error
-    // So that it ends on the DLQ for processing when we add tiff handling
-    if (recordBody.fileType === "image/tiff") {
-      console.error(
-        `Unsupported file type: ${recordBody.fileType} for image ${recordBody.imageId}, skipping`,
-      );
-      continue;
-    }
-
     try {
+      const recordBody: SQSMessageBody = JSON.parse(record.body);
+
+      // If it's a Tiff then we should throw an error
+      // So that it ends on the DLQ for processing when we add tiff handling
+      if (recordBody.fileType === "image/tiff") {
+        console.error(
+          `Unsupported file type: ${recordBody.fileType} for image ${recordBody.imageId}`,
+        );
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+        continue;
+      }
+
       const gridImage = await getImageFromS3(
         recordBody.s3Bucket,
         recordBody.s3Key,
@@ -205,8 +207,8 @@ export const handler = async (event: SQSEvent, context: Context) => {
         },
       });
     } catch (error) {
-      console.error(`Error processing image ${recordBody.imageId}:`, error);
-      throw error;
+      console.error(`Error processing record ${record.messageId}:`, error);
+      batchItemFailures.push({ itemIdentifier: record.messageId });
     }
   }
 
@@ -218,4 +220,12 @@ export const handler = async (event: SQSEvent, context: Context) => {
   } else {
     console.log(`No vectors to store`);
   }
+
+  if (batchItemFailures.length > 0) {
+    console.log(
+      `Failed to process ${batchItemFailures.length} records. They will be retried.`,
+    );
+  }
+
+  return { batchItemFailures };
 };
