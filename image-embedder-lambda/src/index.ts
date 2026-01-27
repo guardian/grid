@@ -167,7 +167,8 @@ export const handler = async (event: SQSEvent, context: Context) => {
     try {
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
-      // If it's a Tiff then we should throw an error
+      // If it's a Tiff then we should log an error
+      // And add it to the BatchItemFailures
       // So that it ends on the DLQ for processing when we add tiff handling
       if (recordBody.fileType === "image/tiff") {
         console.error(
@@ -187,7 +188,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
 
       // TODO: downscale image if necessary
       // Currently the image will end up on the DLQ if it's too big
-      // because the embedding will fail
+      // because the embedding will fail and it will be added to the BatchItemFailures
 
       const embeddingResponse = await embedImage([inputImage], bedrockClient);
       const responseBody = JSON.parse(
