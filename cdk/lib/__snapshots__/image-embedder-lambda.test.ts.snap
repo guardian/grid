@@ -289,7 +289,6 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
     "ImageEmbedderHandlerSqsEventSourceImageEmbedderLambdaimageEmbedder4169931F5A3D671C": {
       "Properties": {
-        "BatchSize": 1,
         "EventSourceArn": {
           "Fn::GetAtt": [
             "imageEmbedder9F00A33D",
