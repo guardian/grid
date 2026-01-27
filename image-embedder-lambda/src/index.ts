@@ -49,11 +49,9 @@ interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
-  // TODO: rename to imageMimeType
   fileType: string;
 }
 
-// TODO: it never gets treated as undefined??
 export async function getImageFromS3(
   s3Bucket: string,
   s3Key: string,
@@ -182,8 +180,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     throw new Error(`Unsupported file type: ${recordBody.fileType}`);
   }
 
-  // TODO: why is this being inferred as `Uint8Array` when the
-  // return type is `Uint8Array | undefined`?
   const gridImageBytes = await getImageFromS3(
     recordBody.s3Bucket,
     recordBody.s3Key,

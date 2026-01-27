@@ -23,9 +23,6 @@ interface TestImage {
   mimeType: "image/jpeg" | "image/png" | "image/tiff";
 }
 
-// To delete:
-// - 0dc623402c55cb2f9e3617390377b68de83136b3
-// - 9743f91fb073d88eb9dcb13d66beacf47919cb3e
 const TEST_IMAGES: TestImage[] = [
   {
     name: "JPEG over 5 MB but just under 5 MiB",
