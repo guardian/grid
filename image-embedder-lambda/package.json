@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "test:integration": "AWS_PROFILE=media-service NODE_OPTIONS='--experimental-vm-modules' jest --config jest.integration.config.js",
+    "test:integration": "AWS_PROFILE=media-service NODE_OPTIONS='--experimental-vm-modules' jest --config jest.integration.config.ts",
     "type-check": "tsc --noEmit",
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.js",
     "build": "run-p --print-label type-check bundle",
