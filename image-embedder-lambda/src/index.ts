@@ -1,4 +1,10 @@
-import { Context, SQSEvent, SQSRecord } from "aws-lambda";
+import {
+  Context,
+  SQSBatchItemFailure,
+  SQSBatchResponse,
+  SQSEvent,
+  SQSRecord,
+} from "aws-lambda";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -155,13 +161,16 @@ async function storeEmbeddings(
   }
 }
 
-export const handler = async (event: SQSEvent, context: Context) => {
+export const handler = async (
+  event: SQSEvent,
+  context: Context,
+): Promise<SQSBatchResponse> => {
   console.log(`Starting handler embedding pipeline`);
   const records: SQSRecord[] = event.Records;
   console.log(`Processing ${records.length} SQS records`);
 
   const vectors: PutInputVector[] = [];
-  const batchItemFailures: { itemIdentifier: string }[] = [];
+  const batchItemFailures: SQSBatchItemFailure[] = [];
 
   for (const record of records) {
     try {
@@ -171,11 +180,9 @@ export const handler = async (event: SQSEvent, context: Context) => {
       // And add it to the BatchItemFailures
       // So that it ends on the DLQ for processing when we add tiff handling
       if (recordBody.fileType === "image/tiff") {
-        console.error(
+        throw new Error(
           `Unsupported file type: ${recordBody.fileType} for image ${recordBody.imageId}`,
         );
-        batchItemFailures.push({ itemIdentifier: record.messageId });
-        continue;
       }
 
       const gridImage = await getImageFromS3(
@@ -213,19 +220,15 @@ export const handler = async (event: SQSEvent, context: Context) => {
     }
   }
 
+  console.log(
+    `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures} failed`,
+  );
+
   if (vectors.length > 0) {
     await storeEmbeddings(vectors, s3VectorsClient);
-    console.log(
-      `Finished image embedding pipeline successfully! Processed ${vectors.length} images`,
-    );
+    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
-  }
-
-  if (batchItemFailures.length > 0) {
-    console.log(
-      `Failed to process ${batchItemFailures.length} records. They will be retried.`,
-    );
   }
 
   return { batchItemFailures };
