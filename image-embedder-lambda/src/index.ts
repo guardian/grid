@@ -221,7 +221,7 @@ export const handler = async (
   }
 
   console.log(
-    `Processed ${records.length} records, ${vectors.length || 0} images successfully embedded, ${batchItemFailures || 0} failed`,
+    `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
 
   if (vectors.length > 0) {
