@@ -57,7 +57,7 @@ case object ImageUpload {
       List(),
       List(),
       //      ImageEmbedding will be written by lambda later
-      embedding = None,
+      embedding = Some(Embedding(cohereEmbedEnglishV3= CohereV3Embedding(image = (0 to 1023).map(_ * 0.001).toList)))
     )
   }
 }

@@ -81,8 +81,10 @@ object Mappings {
   }
 
   def embeddingMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
-    new DenseVectorField(name="cohereEmbedEnglishV3", dims=Some(1024)),
-  ))
+    nonDynamicObjectField("cohereEmbedEnglishV3").copy(properties = Seq(
+      new DenseVectorField(name="image", dims=Some(1024)),
+    )
+  )))
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),
