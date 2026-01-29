@@ -5,6 +5,7 @@ import {
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
 } from "@aws-sdk/client-bedrock-runtime";
+import sharp from "sharp";
 import {
   GetObjectCommand,
   GetObjectCommandOutput,
@@ -87,12 +88,77 @@ export async function getImageFromS3(
   }
 }
 
+// Bedrock Cohere model has a 5 MiB limit for images
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+export async function downscaleImageIfNeeded(
+  imageBytes: Uint8Array,
+  mimeType: string,
+): Promise<Uint8Array> {
+  if (imageBytes.length <= MAX_IMAGE_SIZE_BYTES) {
+    console.log(`Image size ${imageBytes.length} bytes is within limit, no downscaling needed`);
+    return imageBytes;
+  }
+
+  console.log(`Image size ${imageBytes.length} bytes exceeds ${MAX_IMAGE_SIZE_BYTES} limit, downscaling...`);
+
+  const metadata = await sharp(imageBytes).metadata();
+  const originalWidth = metadata.width || 0;
+  const originalHeight = metadata.height || 0;
+
+  // Estimate the scale factor needed based on file size ratio
+  // We use sqrt because scaling affects both dimensions
+  const sizeRatio = MAX_IMAGE_SIZE_BYTES / imageBytes.length;
+  // Be conservative: target 80% of max size to account for compression variance
+  let scaleFactor = Math.sqrt(sizeRatio * 0.8);
+
+  let result: Uint8Array = imageBytes;
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (result.length > MAX_IMAGE_SIZE_BYTES && attempts < maxAttempts) {
+    attempts++;
+    const newWidth = Math.round(originalWidth * scaleFactor);
+    const newHeight = Math.round(originalHeight * scaleFactor);
+
+    console.log(`Attempt ${attempts}: scaling to ${newWidth}x${newHeight} (factor: ${scaleFactor.toFixed(3)})`);
+
+    let pipeline = sharp(imageBytes).resize(newWidth, newHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+
+    // Output in the same format
+    if (mimeType === "image/jpeg") {
+      pipeline = pipeline.jpeg({ quality: 85 });
+    } else if (mimeType === "image/png") {
+      pipeline = pipeline.png({ compressionLevel: 9 });
+    }
+
+    result = new Uint8Array(await pipeline.toBuffer());
+    console.log(`Result size: ${result.length} bytes`);
+
+    // If still too large, reduce scale factor further
+    if (result.length > MAX_IMAGE_SIZE_BYTES) {
+      scaleFactor *= 0.7;
+    }
+  }
+
+  if (result.length > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error(`Failed to downscale image below ${MAX_IMAGE_SIZE_BYTES} bytes after ${maxAttempts} attempts`);
+  }
+
+  console.log(`Downscaled from ${imageBytes.length} to ${result.length} bytes`);
+  return result;
+}
+
 export async function embedImage(
   imageBytes: Uint8Array,
   imageMimeType: string,
   client: BedrockRuntimeClient,
 ): Promise<InvokeModelCommandOutput> {
-  const base64Image = Buffer.from(imageBytes).toString("base64");
+  const processedBytes = await downscaleImageIfNeeded(imageBytes, imageMimeType);
+  const base64Image = Buffer.from(processedBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
@@ -185,10 +251,6 @@ export const handler = async (event: SQSEvent, context: Context) => {
     recordBody.s3Key,
     s3Client,
   );
-
-  // TODO: downscale image if necessary
-  // Currently the image will end up on the DLQ if it's too big
-  // because the embedding will fail
 
   const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
   const responseBody = JSON.parse(
