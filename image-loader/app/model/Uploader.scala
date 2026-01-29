@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, S3Vectors, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -79,7 +79,7 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
   tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  queueImageToEmbed: (String) => Unit
+  queueImageToEmbed: (EmbedderMessage) => Unit
 )
 
 
@@ -128,7 +128,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         queueImageToEmbed: (String) => Unit,
+                                         queueImageToEmbed: (EmbedderMessage) => Unit,
                                          optimiseOps: OptimiseOps,
 
                                          uploadRequest: UploadRequest,
@@ -215,7 +215,7 @@ object Uploader extends GridLogging {
         case scala.util.Success((_, s3Bucket, s3Key)) =>
           logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
           queueImageToEmbed(
-            s"""{"imageId": "${uploadRequest.imageId}", "fileType": "${originalMimeType}", "s3Bucket": "${s3Bucket}", "s3Key": "${s3Key}"}"""
+            EmbedderMessage(uploadRequest.imageId, originalMimeType.name, s3Bucket, s3Key)
           )
         case scala.util.Failure(exception) =>
           logger.error(
@@ -369,10 +369,10 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
+  private def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
-        embedder.queueImageToEmbed(messageBody)
+        embedder.queueImageToEmbed(message)
       case None => ()
     }
   }
