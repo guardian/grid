@@ -349,7 +349,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         "collections" -> writes(image.collections.map(collectionsEntity(id, _))),
         "syndicationRights" -> writesOpt(image.syndicationRights),
         "userMetadataLastModified" -> writesOpt(image.userMetadataLastModified),
-        "imageEmbedding" -> writes(image.imageEmbedding),
+        "embedding" -> writes(image.embedding),
       ).collect { case (key, Some(value)) => (key, value) })
     }
   }

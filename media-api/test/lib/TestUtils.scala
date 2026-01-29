@@ -22,7 +22,7 @@ object TestUtils {
     originalMetadata = null,
     usageRights = null,
     originalUsageRights = null,
-    imageEmbedding = None,
+    embedding = None,
   )
 
 }

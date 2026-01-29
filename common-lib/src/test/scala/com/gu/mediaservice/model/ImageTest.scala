@@ -164,7 +164,7 @@ object ImageTest {
       syndicationRights = syndicationRights,
       usages = usages,
       leases = leases.getOrElse(LeasesByMedia.build(Nil)),
-      imageEmbedding = None,
+      embedding = None,
     )
   }
 
