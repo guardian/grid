@@ -158,7 +158,6 @@ object Image {
         "collections" -> writes(image.collections),
         "syndicationRights" -> writes(image.syndicationRights),
         "userMetadataLastModified" -> writes(printOptDateTime(image.userMetadataLastModified)),
-        "imageEmbedding" -> writes(image.imageEmbedding),
       ))
     }
   }
