@@ -190,6 +190,13 @@ export const handler = async (
         recordBody.s3Key,
         s3Client,
       );
+
+      if (!gridImage) {
+        throw new Error(
+          `Failed to retrieve image from S3 for image ${recordBody.imageId}`,
+        );
+      }
+
       const base64Image = Buffer.from(gridImage).toString("base64");
       const inputImage = `data:${recordBody.fileType};base64,${base64Image}`;
 
