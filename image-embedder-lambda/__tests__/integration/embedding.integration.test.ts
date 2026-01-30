@@ -74,7 +74,9 @@ describe("Embedding with Cohere v3 via Bedrock", () => {
 
   it.each(TEST_IMAGES)("should embed $name", async (image) => {
     const imageBytes = await getImageFromS3(TEST_BUCKET, image.key, s3Client);
-    expect(imageBytes).toBeDefined();
+    if (!imageBytes) {
+      throw new Error(`Couldn't get image ${image.key} from bucket ${TEST_BUCKET}`);
+    }
     expect(imageBytes.length).toBe(image.expectedBytes);
 
     const response = await embedImage(imageBytes, image.mimeType, bedrockClient);

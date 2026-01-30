@@ -1,4 +1,10 @@
-import { Context, SQSEvent, SQSRecord } from "aws-lambda";
+import {
+  Context,
+  SQSBatchItemFailure,
+  SQSBatchResponse,
+  SQSEvent,
+  SQSRecord,
+} from "aws-lambda";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -78,7 +84,7 @@ export async function getImageFromS3(
     if (response.ContentLength === 0) {
       console.log(`Warning: ContentLength is 0, file may be empty`);
     }
-    
+
     const bytes = await response.Body.transformToByteArray();
     console.log(`Bytes array length: ${bytes.length}`);
     return bytes;
@@ -190,30 +196,20 @@ export async function embedImage(
   }
 }
 
-async function storeEmbedding(
-  embedding: number[],
-  key: string,
+async function storeEmbeddings(
+  vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
-  console.log(
-    `Storing embedding of length ${embedding.length} for key: ${key}`,
-  );
-
-  const inputVector: PutInputVector = {
-    key: key,
-    data: {
-      float32: embedding,
-    },
-  };
+  console.log(`Storing ${vectors.length} embeddings to vector store`);
 
   const input: PutVectorsCommandInput = {
     vectorBucketName: `image-embeddings-${STAGE}`.toLowerCase(),
     indexName: "cohere-embed-english-v3",
-    vectors: [inputVector],
+    vectors: vectors,
   };
 
   console.log(
-    `PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}`,
+    `PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}, vectorCount=${vectors.length}`,
   );
 
   try {
@@ -223,45 +219,88 @@ async function storeEmbedding(
     console.log(
       `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(`Successfully stored embedding for key: ${key}`);
+    console.log(`Successfully stored ${vectors.length} embeddings`);
 
     return response;
   } catch (error) {
-    console.error(`Error storing embedding for key: ${key}`, error);
+    console.error(`Error storing embeddings:`, error);
     throw error;
   }
 }
 
-export const handler = async (event: SQSEvent, context: Context) => {
+export const handler = async (
+  event: SQSEvent,
+  context: Context,
+): Promise<SQSBatchResponse> => {
   console.log(`Starting handler embedding pipeline`);
   const records: SQSRecord[] = event.Records;
-  const recordBody: SQSMessageBody = JSON.parse(records[0].body);
+  console.log(`Processing ${records.length} SQS records`);
 
-  // If it's a Tiff then we should throw an error
-  // So that it ends on the DLQ for processing when we add tiff handling
-  if (recordBody.fileType === "image/tiff") {
-    console.error(
-      `Unsupported file type: ${recordBody.fileType}, ending execution`,
-    );
-    throw new Error(`Unsupported file type: ${recordBody.fileType}`);
+  const vectors: PutInputVector[] = [];
+  const batchItemFailures: SQSBatchItemFailure[] = [];
+
+  for (const record of records) {
+    try {
+      const recordBody: SQSMessageBody = JSON.parse(record.body);
+
+      // If it's a Tiff then we should log an error
+      // And add it to the BatchItemFailures
+      // So that it ends on the DLQ for processing when we add tiff handling
+      if (recordBody.fileType === "image/tiff") {
+        throw new Error(
+          `Unsupported file type: ${recordBody.fileType} for image ${recordBody.imageId}`,
+        );
+      }
+
+      const gridImageBytes = await getImageFromS3(
+        recordBody.s3Bucket,
+        recordBody.s3Key,
+        s3Client,
+      );
+
+      if (!gridImageBytes) {
+        throw new Error(
+          `Failed to retrieve image from S3 for image ${recordBody.imageId}`,
+        );
+      }
+
+      // TODO: downscale image if necessary
+      // Currently the image will end up on the DLQ if it's too big
+      // because the embedding will fail and it will be added to the BatchItemFailures
+
+      const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
+      const responseBody = JSON.parse(
+        new TextDecoder().decode(embeddingResponse.body),
+      );
+      // Extract the embedding array (first element since we only sent one image)
+      const embedding: number[] = responseBody.embeddings.float[0];
+
+      console.log(
+        `Generated embedding for ${recordBody.imageId}, first 5 values: ${embedding.slice(0, 5)}`,
+      );
+
+      vectors.push({
+        key: recordBody.imageId,
+        data: {
+          float32: embedding,
+        },
+      });
+    } catch (error) {
+      console.error(`Error processing record ${record.messageId}:`, error);
+      batchItemFailures.push({ itemIdentifier: record.messageId });
+    }
   }
 
-  const gridImageBytes = await getImageFromS3(
-    recordBody.s3Bucket,
-    recordBody.s3Key,
-    s3Client,
+  console.log(
+    `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
 
-  const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
-  const responseBody = JSON.parse(
-    new TextDecoder().decode(embeddingResponse.body),
-  );
-  // Extract the embedding array (first element since we only sent one image)
-  const embedding: number[] = responseBody.embeddings.float[0];
+  if (vectors.length > 0) {
+    await storeEmbeddings(vectors, s3VectorsClient);
+    console.log(`Stored ${vectors.length} vectors`);
+  } else {
+    console.log(`No vectors to store`);
+  }
 
-  console.log(`First 5 values: ${embedding.slice(0, 5)}`);
-
-  await storeEmbedding(embedding, recordBody.imageId, s3VectorsClient);
-
-  console.log(`Finished image image pipeline successfully!`);
+  return { batchItemFailures };
 };
