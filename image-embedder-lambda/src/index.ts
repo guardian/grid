@@ -58,7 +58,7 @@ interface SQSMessageBody {
   fileType: string;
 }
 
-async function getImageFromS3(
+export async function getImageFromS3(
   s3Bucket: string,
   s3Key: string,
   client: S3Client,
@@ -93,21 +93,22 @@ async function getImageFromS3(
   }
 }
 
-async function embedImage(
-  inputData: String[],
+export async function embedImage(
+  imageBytes: Uint8Array,
+  imageMimeType: string,
   client: BedrockRuntimeClient,
 ): Promise<InvokeModelCommandOutput> {
+  const base64Image = Buffer.from(imageBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
     embedding_types: ["float"],
-    images: inputData,
+    images: [`data:${imageMimeType};base64,${base64Image}`],
   };
-  const jsonBody = JSON.stringify(body);
 
   const input: InvokeModelCommandInput = {
     modelId: model,
-    body: new TextEncoder().encode(jsonBody),
+    body: JSON.stringify(body),
     accept: "*/*",
     contentType: "application/json",
   };
@@ -185,26 +186,23 @@ export const handler = async (
         );
       }
 
-      const gridImage = await getImageFromS3(
+      const gridImageBytes = await getImageFromS3(
         recordBody.s3Bucket,
         recordBody.s3Key,
         s3Client,
       );
 
-      if (!gridImage) {
+      if (!gridImageBytes) {
         throw new Error(
           `Failed to retrieve image from S3 for image ${recordBody.imageId}`,
         );
       }
 
-      const base64Image = Buffer.from(gridImage).toString("base64");
-      const inputImage = `data:${recordBody.fileType};base64,${base64Image}`;
-
       // TODO: downscale image if necessary
       // Currently the image will end up on the DLQ if it's too big
       // because the embedding will fail and it will be added to the BatchItemFailures
 
-      const embeddingResponse = await embedImage([inputImage], bedrockClient);
+      const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),
       );
