@@ -45,6 +45,18 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
         r._1.isFile should be(true)
       }
     }
+
+    it("render PNG with alpha correctly") {
+      val image = fileAt("with-alpha.png")
+
+      val outputFile = tempFileNamed("thumbnail-png-with-alpha", ".jpg")
+      val browserViewableImageImage = BrowserViewableImage("an-image-id", image, Tiff, Map.empty, isTransformedFromSource = false)
+
+      val eventualThumbnail = vipsImageOperations.createThumbnail(browserViewableImageImage, 1000, 95, outputFile, None, None, None)
+      whenReady(eventualThumbnail) { r =>
+        r._1.isFile should be(true)
+      }
+    }
   }
 
   def fileAt(resourcePath: String): File = {
