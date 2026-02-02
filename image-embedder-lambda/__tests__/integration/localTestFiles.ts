@@ -47,6 +47,9 @@ export async function getTestImage(
   }
 }
 
+// Output images are *not* cached,
+// because that would defeat the point of the tests
+// when the downscaling logic is changed.
 export async function writeOutputImage(
   imageBytes: Uint8Array,
   s3Key: string,

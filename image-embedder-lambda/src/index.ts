@@ -126,7 +126,9 @@ export async function downscaleImageIfNeeded(
 	});
 
 	if (mimeType === 'image/jpeg') {
-		// JPEG compression is lossy, so let's be conservative here
+		// JPEG compression is lossy, so let's be conservative here.
+		// Also, 95 matches what we do for master crops:
+		// https://github.com/guardian/grid/blob/40be8f93f8a6da61c8188332c8e98796dc351ecd/cropper/app/lib/Crops.scala#L24
 		sharpImage = sharpImage.jpeg({ quality: 95 });
 	} else if (mimeType === 'image/png') {
 		// PNG compression is lossless, so let's crank it to the max
