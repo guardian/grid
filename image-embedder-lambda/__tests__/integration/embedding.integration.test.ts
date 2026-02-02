@@ -1,17 +1,18 @@
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import { S3Client } from "@aws-sdk/client-s3";
-import { getImageFromS3, embedImage } from "../../src/index";
+import { embedImage } from "../../src/index";
+import { ensureDirectoriesExist, getTestImage } from "./localTestFiles";
 
 /**
  * Integration tests for Bedrock embedding.
  *
  * These tests call real AWS services and require:
  * - Valid AWS credentials with S3 and Bedrock permissions
- * - Test images uploaded to the specified S3 bucket
+ * - Test images uploaded to the specified S3 bucket (first run only)
  *
  * Run with: npm run test:integration
  *
- * Some tests will fail until we implement resizing/conversion.
+ * Downloaded images are cached locally in __tests__/integration/test-data/input/
  */
 
 const TEST_BUCKET = "image-embedding-test";
@@ -72,14 +73,19 @@ describe("Embedding with Cohere v3 via Bedrock", () => {
   const s3Client = new S3Client({ region: "eu-west-1" });
   const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 
+  beforeAll(async () => {
+    await ensureDirectoriesExist();
+  });
+
   it.each(TEST_IMAGES)("should embed $name", async (image) => {
-    const imageBytes = await getImageFromS3(TEST_BUCKET, image.key, s3Client);
-    if (!imageBytes) {
-      throw new Error(`Couldn't get image ${image.key} from bucket ${TEST_BUCKET}`);
-    }
+    const imageBytes = await getTestImage(TEST_BUCKET, image.key, s3Client);
     expect(imageBytes.length).toBe(image.expectedBytes);
 
-    const response = await embedImage(imageBytes, image.mimeType, bedrockClient);
+    const response = await embedImage(
+      imageBytes,
+      image.mimeType,
+      bedrockClient,
+    );
     expect(response.$metadata.httpStatusCode).toBe(200);
   });
 });

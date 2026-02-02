@@ -71,3 +71,11 @@ The lambda will:
 2. Try to fetch the image from the S3 bucket specified (localstack if bucket exists there, or real AWS)
 3. Send the image to AWS Bedrock for embedding
 4. Store the embedding in AWS S3 Vectors
+
+## Integration Tests
+
+Run manually (not in CI) with `npm run test:integration`. Requires AWS credentials with S3 and Bedrock access.
+
+- Input images are downloaded from S3 once and cached locally in `test-data/input/`
+- Output images (e.g. downscaled) are written to `test-data/output/`
+- Both directories are gitignored; having files locally allows quick visual inspection to check images haven't been mangled
