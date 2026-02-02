@@ -115,6 +115,9 @@ export async function downscaleImageIfNeeded(
   }
 
   const pixelRatio = maxPixels / pixels;
+
+  // Why square root? Because the ratio comes from the multiplied width * height,
+  // but we want to use it to scale just the width.
   const scaleFactor = Math.sqrt(pixelRatio);
   const newWidth = Math.floor(width * scaleFactor);
   sharpImage = sharpImage.resize(newWidth);
