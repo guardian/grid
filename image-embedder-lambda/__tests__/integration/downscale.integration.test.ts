@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { downscaleImageIfNeeded } from "../../src/index";
 import {
   MAX_IMAGE_SIZE_BYTES,
-  MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+  MAX_PIXELS_COHERE_V4,
 } from "../../src/constants";
 import {
   ensureDirectoriesExist,
@@ -120,7 +120,7 @@ function formatTestName(tc: DownscaleTestCase): string {
     : `${tc.mimeType}: ${input} (no change needed)`;
 }
 
-describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING.toLocaleString()} pixels`, () => {
+describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_COHERE_V4.toLocaleString()} pixels`, () => {
 	const s3Client = new S3Client({ region: "eu-west-1" });
 
 	beforeAll(async () => {
@@ -140,7 +140,7 @@ describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString
 				inputImage,
 				tc.mimeType,
 				MAX_IMAGE_SIZE_BYTES,
-				MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+				MAX_PIXELS_COHERE_V4,
 			);
 
 			if (tc.shouldDownscale) {
@@ -157,7 +157,7 @@ describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString
 			if (tc.shouldDownscale) {
 				expect(outputImage.length).toBeLessThan(inputImage.length);
 				expect(outputDimensions.pixels).toBeLessThanOrEqual(
-					MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+					MAX_PIXELS_COHERE_V4,
 				);
 			} else {
 				expect(outputImage).toBe(inputImage);

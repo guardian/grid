@@ -27,7 +27,7 @@ import {
 } from "@aws-sdk/client-s3vectors";
 import {
   MAX_IMAGE_SIZE_BYTES,
-  MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+  MAX_PIXELS_COHERE_V4,
 } from "./constants";
 
 // Initialise clients at module level (cold start only)
@@ -165,7 +165,7 @@ export async function embedImage(
     imageBytes,
     imageMimeType,
     MAX_IMAGE_SIZE_BYTES,
-    MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+    MAX_PIXELS_COHERE_V4,
   );
   const base64Image = Buffer.from(processedBytes).toString("base64");
   const model = "cohere.embed-english-v3";
