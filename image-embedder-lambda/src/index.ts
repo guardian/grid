@@ -112,7 +112,7 @@ export async function downscaleImageIfNeeded(
   const pixelsExceedsLimit = pixels > maxPixels;
   const needsDownscale = bytesExceedsLimit || pixelsExceedsLimit;
   console.log(
-    `Image: ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`
+    `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`
   );
   if (!needsDownscale) {
     return imageBytes;
@@ -142,11 +142,11 @@ export async function downscaleImageIfNeeded(
   const result = new Uint8Array(await sharpImage.toBuffer());
   if (result.byteLength > maxImageSizeBytes) {
     throw new Error(
-      `Image size was over ${maxImageSizeBytes.toLocaleString()} limit (${result.byteLength.toLocaleString()} bytes) after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px)`,
+      `Image has ${result.byteLength.toLocaleString()} bytes (over limit of ${maxImageSizeBytes.toLocaleString()} bytes) after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px)`,
     );
   }
   console.log(
-    `Image size is ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()}) px`,
+    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()}) px`,
   );
 
   return result;
