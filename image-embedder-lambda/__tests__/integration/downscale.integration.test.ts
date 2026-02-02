@@ -73,9 +73,9 @@ const TEST_CASES: DownscaleTestCase[] = [
     inputHeight: 3395,
     inputBytes: 10_360_979,
     expectedOutputWidth: 1907,
-    expectedOutputHeight: 1288,
-    expectedOutputPixels: 2_456_216,
-    expectedOutputBytes: 492_622,
+    expectedOutputHeight: 1289,
+    expectedOutputPixels: 2_458_123,
+    expectedOutputBytes: 494_080,
     shouldDownscale: true,
   },
   {
@@ -97,13 +97,16 @@ const TEST_CASES: DownscaleTestCase[] = [
     inputHeight: 5380,
     inputBytes: 16_368_332,
     expectedOutputWidth: 1235,
-    expectedOutputHeight: 1990,
-    expectedOutputPixels: 2_457_650,
-    expectedOutputBytes: 3_900_827,
+    expectedOutputHeight: 1989,
+    expectedOutputPixels: 2_456_415,
+    expectedOutputBytes: 3_898_056,
     shouldDownscale: true,
   },
 ];
 
+// Give test names like this,
+// so we can see at a glance how much downscaling actually happened:
+//  ✓ image/jpeg: 6976x4634 (32,326,784 px, 5,242,808 B) → 1923x1277 (2,455,671 px, 797,314 B)
 function formatTestName(tc: DownscaleTestCase): string {
   const inputPixels = tc.inputWidth * tc.inputHeight;
   const input = `${tc.inputWidth}x${tc.inputHeight} (${inputPixels.toLocaleString()} px, ${tc.inputBytes.toLocaleString()} B)`;
@@ -113,50 +116,50 @@ function formatTestName(tc: DownscaleTestCase): string {
     : `${tc.mimeType}: ${input} (no change needed)`;
 }
 
-describe('downscaleImageIfNeeded', () => {
-  const s3Client = new S3Client({ region: 'eu-west-1' });
+describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING.toLocaleString()} pixels`, () => {
+	const s3Client = new S3Client({ region: 'eu-west-1' });
 
-  beforeAll(async () => {
-    await ensureDirectoriesExist();
-  });
+	beforeAll(async () => {
+		await ensureDirectoriesExist();
+	});
 
-  for (const tc of TEST_CASES) {
-    it(formatTestName(tc), async () => {
-      const inputImage = await getTestImage(TEST_BUCKET, tc.s3Key, s3Client);
+	for (const tc of TEST_CASES) {
+		it(formatTestName(tc), async () => {
+			const inputImage = await getTestImage(TEST_BUCKET, tc.s3Key, s3Client);
 
-      const inputDimensions = await getImageDimensions(inputImage);
-      expect(inputDimensions.width).toBe(tc.inputWidth);
-      expect(inputDimensions.height).toBe(tc.inputHeight);
-      expect(inputImage.length).toBe(tc.inputBytes);
+			const inputDimensions = await getImageDimensions(inputImage);
+			expect(inputDimensions.width).toBe(tc.inputWidth);
+			expect(inputDimensions.height).toBe(tc.inputHeight);
+			expect(inputImage.length).toBe(tc.inputBytes);
 
-      const outputImage = await downscaleImageIfNeeded(
-        inputImage,
-        tc.mimeType,
-        MAX_IMAGE_SIZE_BYTES,
-        MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
-      );
+			const outputImage = await downscaleImageIfNeeded(
+				inputImage,
+				tc.mimeType,
+				MAX_IMAGE_SIZE_BYTES,
+				MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+			);
 
-      if (tc.shouldDownscale) {
-        await writeOutputImage(outputImage, tc.s3Key, '_downscaled');
-      }
+			if (tc.shouldDownscale) {
+				await writeOutputImage(outputImage, tc.s3Key, '_downscaled');
+			}
 
-      const outputDimensions = await getImageDimensions(outputImage);
+			const outputDimensions = await getImageDimensions(outputImage);
 
-      expect(outputDimensions.width).toBe(tc.expectedOutputWidth);
-      expect(outputDimensions.height).toBe(tc.expectedOutputHeight);
-      expect(outputDimensions.pixels).toBe(tc.expectedOutputPixels);
-      expect(outputImage.length).toBe(tc.expectedOutputBytes);
+			expect(outputDimensions.width).toBe(tc.expectedOutputWidth);
+			expect(outputDimensions.height).toBe(tc.expectedOutputHeight);
+			expect(outputDimensions.pixels).toBe(tc.expectedOutputPixels);
+			expect(outputImage.length).toBe(tc.expectedOutputBytes);
 
-      if (tc.shouldDownscale) {
-        expect(outputImage.length).toBeLessThan(inputImage.length);
-        expect(outputDimensions.pixels).toBeLessThanOrEqual(
-          MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
-        );
-      } else {
-        expect(outputImage).toBe(inputImage);
-      }
+			if (tc.shouldDownscale) {
+				expect(outputImage.length).toBeLessThan(inputImage.length);
+				expect(outputDimensions.pixels).toBeLessThanOrEqual(
+					MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
+				);
+			} else {
+				expect(outputImage).toBe(inputImage);
+			}
 
-      expect(outputImage.length).toBeLessThanOrEqual(MAX_IMAGE_SIZE_BYTES);
-    });
-  }
+			expect(outputImage.length).toBeLessThanOrEqual(MAX_IMAGE_SIZE_BYTES);
+		});
+	}
 });

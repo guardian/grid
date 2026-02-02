@@ -117,13 +117,10 @@ export async function downscaleImageIfNeeded(
 	const pixelRatio = maxPixels / pixels;
 	const scaleFactor = Math.sqrt(pixelRatio);
 	const newWidth = Math.floor(width * scaleFactor);
-	const newHeight = Math.floor(height * scaleFactor);
+	sharpImage = sharpImage.resize(newWidth);
+	// Should auto-scale height because we only passed width
+	const { height: newHeight } = await sharpImage.metadata();
 	const newPixels = newWidth * newHeight;
-	sharpImage = sharpImage.resize({
-		// todo: just pass one of these?
-		width: newWidth,
-		height: newHeight,
-	});
 
 	if (mimeType === 'image/jpeg') {
 		// JPEG compression is lossy, so let's be conservative here.
