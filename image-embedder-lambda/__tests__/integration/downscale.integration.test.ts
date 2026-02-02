@@ -1,17 +1,17 @@
-import { S3Client } from '@aws-sdk/client-s3';
-import sharp from 'sharp';
-import { downscaleImageIfNeeded } from '../../src/index';
+import { S3Client } from "@aws-sdk/client-s3";
+import sharp from "sharp";
+import { downscaleImageIfNeeded } from "../../src/index";
 import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING,
-} from '../../src/constants';
+} from "../../src/constants";
 import {
   ensureDirectoriesExist,
   getTestImage,
   writeOutputImage,
-} from './localTestFiles';
+} from "./localTestFiles";
 
-const TEST_BUCKET = 'image-embedding-test';
+const TEST_BUCKET = "image-embedding-test";
 
 interface ImageDimensions {
   width: number;
@@ -30,7 +30,7 @@ async function getImageDimensions(
 
 interface DownscaleTestCase {
   s3Key: string;
-  mimeType: 'image/jpeg' | 'image/png';
+  mimeType: "image/jpeg" | "image/png";
   inputWidth: number;
   inputHeight: number;
   inputBytes: number;
@@ -43,8 +43,8 @@ interface DownscaleTestCase {
 
 const TEST_CASES: DownscaleTestCase[] = [
   {
-    s3Key: 'large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg',
-    mimeType: 'image/jpeg',
+    s3Key: "large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg",
+    mimeType: "image/jpeg",
     inputWidth: 6976,
     inputHeight: 4634,
     inputBytes: 5_242_808,
@@ -55,8 +55,8 @@ const TEST_CASES: DownscaleTestCase[] = [
     shouldDownscale: true,
   },
   {
-    s3Key: 'large-images/5f8871b3686d06dadf3e7556cca2601c3b276288.jpeg',
-    mimeType: 'image/jpeg',
+    s3Key: "large-images/5f8871b3686d06dadf3e7556cca2601c3b276288.jpeg",
+    mimeType: "image/jpeg",
     inputWidth: 3454,
     inputHeight: 2303,
     inputBytes: 5_242_970,
@@ -67,8 +67,8 @@ const TEST_CASES: DownscaleTestCase[] = [
     shouldDownscale: true,
   },
   {
-    s3Key: 'large-images/fed92369dbbc961708ab883da815fc4c7f52597e.jpeg',
-    mimeType: 'image/jpeg',
+    s3Key: "large-images/fed92369dbbc961708ab883da815fc4c7f52597e.jpeg",
+    mimeType: "image/jpeg",
     inputWidth: 5024,
     inputHeight: 3395,
     inputBytes: 10_360_979,
@@ -79,8 +79,8 @@ const TEST_CASES: DownscaleTestCase[] = [
     shouldDownscale: true,
   },
   {
-    s3Key: 'pngs/339d129c0b0f47507f7d299bf28046d40c12d368.png',
-    mimeType: 'image/png',
+    s3Key: "pngs/339d129c0b0f47507f7d299bf28046d40c12d368.png",
+    mimeType: "image/png",
     inputWidth: 725,
     inputHeight: 725,
     inputBytes: 131_137,
@@ -91,8 +91,8 @@ const TEST_CASES: DownscaleTestCase[] = [
     shouldDownscale: false,
   },
   {
-    s3Key: 'pngs/c2039d7b0ba13910d7f8147128b86199784465ae.png',
-    mimeType: 'image/png',
+    s3Key: "pngs/c2039d7b0ba13910d7f8147128b86199784465ae.png",
+    mimeType: "image/png",
     inputWidth: 3340,
     inputHeight: 5380,
     inputBytes: 16_368_332,
@@ -117,7 +117,7 @@ function formatTestName(tc: DownscaleTestCase): string {
 }
 
 describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_BEFORE_COHERE_V4_DOWNSAMPLING.toLocaleString()} pixels`, () => {
-	const s3Client = new S3Client({ region: 'eu-west-1' });
+	const s3Client = new S3Client({ region: "eu-west-1" });
 
 	beforeAll(async () => {
 		await ensureDirectoriesExist();
@@ -140,7 +140,7 @@ describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString
 			);
 
 			if (tc.shouldDownscale) {
-				await writeOutputImage(outputImage, tc.s3Key, '_downscaled');
+				await writeOutputImage(outputImage, tc.s3Key, "_downscaled");
 			}
 
 			const outputDimensions = await getImageDimensions(outputImage);
