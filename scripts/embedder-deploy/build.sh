@@ -9,7 +9,11 @@ set -e
     npm install --cpu=arm64 --os=linux --libc=glibc sharp
     npm run build
 
-    # Copy sharp and all its dependencies into dist for packaging
+    # Unfortunately because sharp contains native C++ code, we can't bundle
+    # it into the single JS file produced by esbuild.
+    # Instead, we have to declare it external and add it and its depedencies
+    # to the deploy zip ourselves.
+    # https://sharp.pixelplumbing.com/install/#esbuild
     mkdir -p dist/node_modules/@img
     cp -r node_modules/sharp dist/node_modules/
     cp -r node_modules/@img/sharp-linux-arm64 dist/node_modules/@img/
