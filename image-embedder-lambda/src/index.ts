@@ -112,7 +112,7 @@ export async function downscaleImageIfNeeded(
   const pixelsExceedsLimit = pixels > maxPixels;
   const needsDownscale = bytesExceedsLimit || pixelsExceedsLimit;
   console.log(
-    `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`
+    `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
   );
   if (!needsDownscale) {
     return imageBytes;
@@ -123,11 +123,10 @@ export async function downscaleImageIfNeeded(
   // Why square root? Because the ratio comes from the multiplied width * height,
   // but we want to use it to scale just the width.
   const scaleFactor = Math.sqrt(pixelRatio);
+  // Floor because we want to make sure we're under the limit afterwards
   const newWidth = Math.floor(width * scaleFactor);
+
   sharpImage = sharpImage.resize(newWidth);
-  // Should auto-scale height because we only passed width
-  const { height: newHeight } = await sharpImage.metadata();
-  const newPixels = newWidth * newHeight;
 
   if (mimeType === "image/jpeg") {
     // JPEG compression is lossy, so let"s be conservative here.
@@ -139,7 +138,12 @@ export async function downscaleImageIfNeeded(
     sharpImage = sharpImage.png({ compressionLevel: 9 });
   }
 
-  const result = new Uint8Array(await sharpImage.toBuffer());
+  const buffer = await sharpImage.toBuffer();
+  const result = new Uint8Array(buffer);
+
+  // Wasteful to re-read, but avoids replicating libvips rounding behaviour
+  const { height: newHeight } = await sharp(buffer).metadata();
+  const newPixels = newWidth * newHeight;
   if (result.byteLength > maxImageSizeBytes) {
     throw new Error(
       `Image has ${result.byteLength.toLocaleString()} bytes (over limit of ${maxImageSizeBytes.toLocaleString()} bytes) after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px)`,
