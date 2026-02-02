@@ -224,9 +224,6 @@ export const handler = async (
   event: SQSEvent,
   context: Context,
 ): Promise<SQSBatchResponse> => {
-  console.log("");
-  console.log("================================");
-  console.log("================================");
   console.log(`Starting handler embedding pipeline`);
   const records: SQSRecord[] = event.Records;
   console.log(`Processing ${records.length} SQS records`);
@@ -238,7 +235,7 @@ export const handler = async (
     try {
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
-      // If it"s a Tiff then we should log an error
+      // If it's a Tiff then we should log an error
       // And add it to the BatchItemFailures
       // So that it ends on the DLQ for processing when we add tiff handling
       if (recordBody.fileType === "image/tiff") {
