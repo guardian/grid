@@ -2,6 +2,10 @@
 
 This is a service responsible for embedding uploaded images to the Grid and writing those embeddings to the S3 Vector Store.
 
+## Documentation
+
+- [Native Modules & Bundling](docs/native-modules-bundling.md) - How we handle `sharp` and other native Node.js modules for Lambda deployment
+
 ## Running Locally with Localstack
 
 The ImageEmbedder queue can be run locally by polling the localstack SQS queue and executing the lambda code with the help of the `localRun` script.
