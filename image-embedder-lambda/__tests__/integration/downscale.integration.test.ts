@@ -41,6 +41,10 @@ interface DownscaleTestCase {
   shouldDownscale: boolean;
 }
 
+// These values would need to be adjusted if the downscaling logic changes,
+// but the test will still assert that they are within the limits required by Cohere via Bedrock.
+// This acts a sanity check that we're not excessively reducing the size by mistake.
+// It also allows us to see at a glance in the test names precisely what resizing takes places.
 const TEST_CASES: DownscaleTestCase[] = [
   {
     s3Key: "large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg",
