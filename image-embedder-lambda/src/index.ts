@@ -7,6 +7,7 @@ import {
 } from "aws-lambda";
 import {
   BedrockRuntimeClient,
+  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
@@ -90,7 +91,7 @@ export async function getImageFromS3(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Bytes array length: ${bytes.length}`);
+    console.log(`Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`);
     return bytes;
   } catch (error) {
     console.error(`Error fetching from S3:`, error);
@@ -107,7 +108,15 @@ export async function downscaleImageIfNeeded(
   let sharpImage = sharp(imageBytes);
   const { width, height } = await sharpImage.metadata();
   const pixels = width * height;
-  if (imageBytes.length <= maxImageSizeBytes && width * height <= maxPixels) {
+  if (imageBytes.length > maxImageSizeBytes) {
+    console.log(
+      `Image size ${imageBytes.length.toLocaleString()} bytes exceeds Bedrock Cohere v3/v4 limit of ${maxImageSizeBytes.toLocaleString()} bytes. Downscaling image`
+    );
+  } else if (width * height > maxPixels) {
+    console.log(
+      `Image size ${pixels.toLocaleString()} pixels exceeds Bedrock Cohere v4 limit of ${pixels.toLocaleString()} pixels. Downscaling image`,
+    );
+  } else {
     console.log(
       `Image size ${imageBytes.length.toLocaleString()} bytes and ${pixels.toLocaleString()} pixels is within limit, no downscaling needed`,
     );
@@ -180,9 +189,8 @@ export async function embedImage(
     const response = await client.send(command);
 
     console.log(
-      `Bedrock response metadata: ${JSON.stringify(response.$metadata)}`,
+      `Got response body of length ${response.body?.length.toLocaleString()} bytes from invoking Bedrock model ${model}, metadata: ${JSON.stringify(response.$metadata)}, `,
     );
-    console.log(`Response body length: ${response.body?.length}`);
 
     return response;
   } catch (error) {
@@ -292,7 +300,6 @@ export const handler = async (
 
   if (vectors.length > 0) {
     await storeEmbeddings(vectors, s3VectorsClient);
-    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
