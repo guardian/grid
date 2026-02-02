@@ -108,18 +108,13 @@ export async function downscaleImageIfNeeded(
   let sharpImage = sharp(imageBytes);
   const { width, height } = await sharpImage.metadata();
   const pixels = width * height;
-  if (imageBytes.length > maxImageSizeBytes) {
-    console.log(
-      `Image size ${imageBytes.length.toLocaleString()} bytes exceeds Bedrock Cohere v3/v4 limit of ${maxImageSizeBytes.toLocaleString()} bytes. Downscaling image`
-    );
-  } else if (width * height > maxPixels) {
-    console.log(
-      `Image size ${pixels.toLocaleString()} pixels exceeds Bedrock Cohere v4 limit of ${pixels.toLocaleString()} pixels. Downscaling image`,
-    );
-  } else {
-    console.log(
-      `Image size ${imageBytes.length.toLocaleString()} bytes and ${pixels.toLocaleString()} pixels is within limit, no downscaling needed`,
-    );
+  const bytesExceedsLimit = imageBytes.length > maxImageSizeBytes;
+  const pixelsExceedsLimit = pixels > maxPixels;
+  const needsDownscale = bytesExceedsLimit || pixelsExceedsLimit;
+  console.log(
+    `Image: ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`
+  );
+  if (!needsDownscale) {
     return imageBytes;
   }
 
