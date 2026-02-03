@@ -53,5 +53,3 @@ Grid uses [pan-domain-authentication](https://github.com/guardian/pan-domain-aut
 If you decide to run a local authentication stack, this value is used during the authentication of the [default users](../../dev/config/users.json).
 
 A value of `news.com` will result in a user `grid-demo-account@news.com`.
-
-<!-- Add something here about the localstack URLs -->
