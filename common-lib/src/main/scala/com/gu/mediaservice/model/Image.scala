@@ -159,7 +159,7 @@ object Image {
         "syndicationRights" -> writes(image.syndicationRights),
         "userMetadataLastModified" -> writes(printOptDateTime(image.userMetadataLastModified)),
         "embedding" -> writes(image.embedding),
-      ).filterNot(_._2 == JsNull))
+      ))
     }
   }
 }
