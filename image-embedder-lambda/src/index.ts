@@ -332,8 +332,9 @@ export const handler = async (
   const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
 
-  for (const record of records) {
+  for (const [i, record] of records.entries()) {
     try {
+      console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
       // If it's a Tiff then we should log an error
