@@ -60,9 +60,6 @@ const s3Config = {
   }),
 };
 
-console.log(`Stage: ${STAGE}`);
-console.log(`IS_LOCAL: ${isLocal}`);
-
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
