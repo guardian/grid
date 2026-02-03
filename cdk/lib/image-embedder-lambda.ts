@@ -51,7 +51,8 @@ export class ImageEmbedder extends GuStack {
 			}),
 		);
 		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
-			app: appName
+			app: appName,
+			bucketName: `${this.stack}-${this.stage.toLowerCase()}-${appName}-downscaled-images`
 		});
 		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
