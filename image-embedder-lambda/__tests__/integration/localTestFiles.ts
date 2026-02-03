@@ -34,7 +34,6 @@ export async function getTestImage(
     console.log(`Using cached file: ${cachePath}`);
     return new Uint8Array(cached);
   } catch {
-    // Cache miss - download from S3
     console.log(`Cache miss, downloading from S3: ${s3Key}`);
     const imageBytes = await getImageFromS3(bucket, s3Key, s3Client);
     if (!imageBytes) {
