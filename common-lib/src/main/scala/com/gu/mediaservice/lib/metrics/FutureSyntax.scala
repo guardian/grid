@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.metrics
 
-import com.amazonaws.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 import scala.concurrent.{ExecutionContext, Future}
 
