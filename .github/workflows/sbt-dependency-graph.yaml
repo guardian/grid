@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Checkout branch
         id: checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.1
       - name: Install Java
         id: java
         uses: actions/setup-java@b36c23c0d998641eff861008f374ee103c25ac73 # v4.4.0
