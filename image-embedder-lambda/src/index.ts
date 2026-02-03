@@ -129,19 +129,22 @@ export async function downscaleImageIfNeeded(
   sharpImage = sharpImage.resize(newWidth);
 
   if (mimeType === "image/jpeg") {
-    // JPEG compression is lossy, so let"s be conservative here.
+    // JPEG compression is lossy, so let's be conservative here.
     // Also, 95 matches what we do for master crops:
     // https://github.com/guardian/grid/blob/40be8f93f8a6da61c8188332c8e98796dc351ecd/cropper/app/lib/Crops.scala#L24
     sharpImage = sharpImage.jpeg({ quality: 95 });
   } else if (mimeType === "image/png") {
-    // PNG compression is lossless, so let"s crank it to the max
+    // PNG compression is lossless, so let's crank it to the max
     sharpImage = sharpImage.png({ compressionLevel: 9 });
   }
 
   const buffer = await sharpImage.toBuffer();
   const result = new Uint8Array(buffer);
 
-  // Wasteful to re-read, but avoids replicating libvips rounding behaviour
+  // Q. Why not calculate height ourselves?
+  // A. We want the same rounding that sharp uses when it auto-resizes
+  // Q. Why not read the new height from the existing `sharpImage` object?
+  // A. Surprisingly, metadata doesn't get updated on calling resize. We need to output to buffer first.
   const { height: newHeight } = await sharp(buffer).metadata();
   const newPixels = newWidth * newHeight;
   if (result.byteLength > maxImageSizeBytes) {
