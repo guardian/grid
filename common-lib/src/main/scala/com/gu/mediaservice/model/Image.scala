@@ -135,7 +135,7 @@ object Image {
     def writes[T](v: T)(implicit writer: Writes[T]): JsValue =
       writer writes v
     Writes { image =>
-      JsObject(Map(
+      JsObject(Seq(
         "id" -> writes(image.id),
         "uploadTime" -> writes(printDateTime(image.uploadTime)),
         "uploadedBy" -> writes(image.uploadedBy),
@@ -159,7 +159,7 @@ object Image {
         "syndicationRights" -> writes(image.syndicationRights),
         "userMetadataLastModified" -> writes(printOptDateTime(image.userMetadataLastModified)),
         "embedding" -> writes(image.embedding),
-      ))
+      ).filterNot(_._2 == JsNull))
     }
   }
 }
