@@ -21,6 +21,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "DownscaledImageBucketImageembedderE1B3D588": {
       "DeletionPolicy": "Retain",
       "Properties": {
+        "BucketName": "media-service-test-image-embedder-downscaled-images",
         "PublicAccessBlockConfiguration": {
           "BlockPublicAcls": true,
           "BlockPublicPolicy": true,
@@ -71,6 +72,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-lambda",
+            "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
