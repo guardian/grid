@@ -17,6 +17,7 @@ import {
   GetObjectCommand,
   GetObjectCommandOutput,
   GetObjectRequest,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import {
@@ -37,6 +38,15 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
+
+// For now, we just leave this unset when running locally,
+// disabling the caching behaviour.
+// Integration tests do not depend on it either.
+const DOWNSCALED_IMAGE_BUCKET = process.env.DOWNSCALED_IMAGE_BUCKET;
+
+if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
+  console.error("DOWNSCALED_IMAGE_BUCKET not set, caching is disabled");
+}
 
 const s3Config = {
   region: "eu-west-1",
@@ -159,17 +169,98 @@ export async function downscaleImageIfNeeded(
   return result;
 }
 
+// Matches the partitioned key structure used by Grid's image bucket for S3 performance at scale
+// e.g. imageId "51bfb4107d1640aa74c45aaa51985e4e03852440" → "5/1/b/f/b/4/51bfb4107d1640aa74c45aaa51985e4e03852440"
+function toPartitionedKey(imageId: string): string {
+  const prefix = imageId.slice(0, 6).split("").join("/");
+  return `${prefix}/${imageId}`;
+}
+
+async function getCachedDownscaledImage(
+  imageId: string,
+  client: S3Client,
+): Promise<Uint8Array | undefined> {
+  if (!DOWNSCALED_IMAGE_BUCKET) {
+    console.log(`No downscaled image bucket configured, skipping cache lookup`);
+    return undefined;
+  }
+
+  const key = toPartitionedKey(imageId);
+  try {
+    const command = new GetObjectCommand({
+      Bucket: DOWNSCALED_IMAGE_BUCKET,
+      Key: key,
+    });
+    const response = await client.send(command);
+
+    if (!response.Body) {
+      return undefined;
+    }
+
+    const bytes = await response.Body.transformToByteArray();
+    console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
+    return bytes;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "NoSuchKey") {
+      console.log(`Cache miss: no downscaled image for ${imageId}`);
+      return undefined;
+    }
+    // Log but don't throw - cache failures shouldn't break the pipeline
+    console.warn(`Error checking cache for ${imageId}:`, error);
+    return undefined;
+  }
+}
+
+async function cacheDownscaledImage(
+  imageId: string,
+  imageBytes: Uint8Array,
+  mimeType: string,
+  client: S3Client,
+): Promise<void> {
+  if (!DOWNSCALED_IMAGE_BUCKET) {
+    return;
+  }
+
+  const key = toPartitionedKey(imageId);
+  try {
+    const command = new PutObjectCommand({
+      Bucket: DOWNSCALED_IMAGE_BUCKET,
+      Key: key,
+      Body: imageBytes,
+      ContentType: mimeType,
+    });
+    await client.send(command);
+    console.log(`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`);
+  } catch (error) {
+    // Log but don't throw - cache failures shouldn't break the pipeline
+    console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
+  }
+}
+
 export async function embedImage(
+  imageId: string,
   imageBytes: Uint8Array,
   imageMimeType: string,
-  client: BedrockRuntimeClient,
+  bedrockClient: BedrockRuntimeClient,
+  s3Client: S3Client,
 ): Promise<InvokeModelCommandOutput> {
-  const processedBytes = await downscaleImageIfNeeded(
-    imageBytes,
-    imageMimeType,
-    MAX_IMAGE_SIZE_BYTES,
-    MAX_PIXELS_COHERE_V4,
-  );
+  // Try to get cached downscaled image first
+  let processedBytes = await getCachedDownscaledImage(imageId, s3Client);
+
+  if (!processedBytes) {
+    processedBytes = await downscaleImageIfNeeded(
+      imageBytes,
+      imageMimeType,
+      MAX_IMAGE_SIZE_BYTES,
+      MAX_PIXELS_COHERE_V4,
+    );
+
+    // Cache if we actually downscaled (bytes changed)
+    if (processedBytes !== imageBytes) {
+      await cacheDownscaledImage(imageId, processedBytes, imageMimeType, s3Client);
+    }
+  }
+
   const base64Image = Buffer.from(processedBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
@@ -188,7 +279,7 @@ export async function embedImage(
 
   try {
     const command = new InvokeModelCommand(input);
-    const response = await client.send(command);
+    const response = await bedrockClient.send(command);
 
     console.log(
       `Got response body of length ${response.body?.length.toLocaleString()} bytes from invoking Bedrock model ${model}, metadata: ${JSON.stringify(response.$metadata)}, `,
@@ -270,9 +361,11 @@ export const handler = async (
       }
 
       const embeddingResponse = await embedImage(
+        recordBody.imageId,
         gridImageBytes,
         recordBody.fileType,
         bedrockClient,
+        s3Client,
       );
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),

@@ -82,9 +82,11 @@ describe("Embedding with Cohere v3 via Bedrock", () => {
     expect(imageBytes.length).toBe(image.expectedBytes);
 
     const response = await embedImage(
+      image.key,
       imageBytes,
       image.mimeType,
       bedrockClient,
+      s3Client,
     );
     expect(response.$metadata.httpStatusCode).toBe(200);
   });

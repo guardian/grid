@@ -16,6 +16,8 @@ export class ImageEmbedder extends GuStack {
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
 
 		const appName = 'image-embedder'
+		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
+
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
 			'ImageEmbedderHandler',
@@ -28,6 +30,7 @@ export class ImageEmbedder extends GuStack {
 				app: `${appName}-lambda`,
 				environment: {
 					STAGE: props.stage,
+					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 				},
 			},
 		);
@@ -52,7 +55,7 @@ export class ImageEmbedder extends GuStack {
 		);
 		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
 			app: appName,
-			bucketName: `${this.stack}-${this.stage.toLowerCase()}-${appName}-downscaled-images`
+			bucketName: downscaledImageBucketName,
 		});
 		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
