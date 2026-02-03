@@ -213,7 +213,6 @@ object Uploader extends GridLogging {
 
       imageFuture match {
         case scala.util.Success((_, s3Bucket, s3Key)) =>
-          logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
           queueImageToEmbed(
             EmbedderMessage(uploadRequest.imageId, originalMimeType.name, s3Bucket, s3Key)
           )
@@ -372,6 +371,7 @@ class Uploader(val store: ImageLoaderStore,
   private def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
+        logger.info(logMarker, s"Queueing image ${message.imageId} for embedding")
         embedder.queueImageToEmbed(message)
       case None => ()
     }
