@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import type { ImageResponse } from '@/types/api'
 import { ArrowLeft } from 'lucide-react'
 import MetadataItem from '@/components/MetadataItem'
+import { useAppSelector } from '@/store/hooks'
 
 export const Route = createFileRoute('/images/$imageId')({
   component: ImageDetail,
@@ -10,9 +11,16 @@ export const Route = createFileRoute('/images/$imageId')({
 
 function ImageDetail() {
   const { imageId } = Route.useParams()
+  const navigate = useNavigate()
   const [imageData, setImageData] = useState<ImageResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Get images from Redux to enable navigation
+  const { images } = useAppSelector((state) => state.images)
+  const currentIndex = images.findIndex((img) => img.data.id === imageId)
+  const hasPrevious = currentIndex > 0
+  const hasNext = currentIndex >= 0 && currentIndex < images.length - 1
 
   useEffect(() => {
     const fetchImage = async () => {
@@ -37,6 +45,22 @@ function ImageDetail() {
 
     fetchImage()
   }, [imageId])
+
+  // Keyboard navigation for slideshow
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' && hasPrevious) {
+        const prevImage = images[currentIndex - 1]
+        navigate({ to: '/images/$imageId', params: { imageId: prevImage.data.id } })
+      } else if (event.key === 'ArrowRight' && hasNext) {
+        const nextImage = images[currentIndex + 1]
+        navigate({ to: '/images/$imageId', params: { imageId: nextImage.data.id } })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentIndex, images, hasPrevious, hasNext, navigate])
 
   if (loading) {
     return (
