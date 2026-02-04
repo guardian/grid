@@ -7,6 +7,9 @@ interface SearchParams {
 
 export const Route = createFileRoute('/')({
   component: ImageGrid,
+  head: () => ({
+    meta: [{ title: 'search | the Grid '}]
+  }),
   validateSearch: (search: Record<string, unknown>): SearchParams => {
     return {
       query: typeof search.query === 'string' ? search.query : undefined,

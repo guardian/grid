@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import type { ImageListResponse, Image } from '@/types/api'
+import type { Image } from '@/types/api'
+import { fetchImagesList } from '@/api/images'
 
 interface ImagesState {
   images: Image[]
@@ -32,14 +33,7 @@ export const fetchImages = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await fetch(
-        `https://api.media.local.dev-gutools.co.uk/images?q=${query}&length=${length}&offset=${offset}`,
-        { credentials: 'include' }
-      )
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data: ImageListResponse = await response.json()
+      const data = await fetchImagesList({ query, length, offset })
       return data
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch images')

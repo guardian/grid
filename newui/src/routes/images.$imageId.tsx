@@ -4,9 +4,13 @@ import type { ImageResponse } from '@/types/api'
 import { ArrowLeft } from 'lucide-react'
 import MetadataPanel from '@/components/MetadataPanel'
 import { useAppSelector } from '@/store/hooks'
+import { fetchImageById } from '@/api/images'
 
 export const Route = createFileRoute('/images/$imageId')({
   component: ImageDetail,
+  head: () => ({
+    meta: [{ title: 'image | the Grid '}]
+  })
 })
 
 function ImageDetail() {
@@ -27,14 +31,7 @@ function ImageDetail() {
       try {
         setLoading(true)
         setError(null)
-        const response = await fetch(
-          `https://api.media.local.dev-gutools.co.uk/images/${imageId}`,
-          { credentials: 'include' }
-        )
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data: ImageResponse = await response.json()
+        const data = await fetchImageById(imageId)
         setImageData(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch image')
