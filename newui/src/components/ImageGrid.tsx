@@ -6,7 +6,7 @@ import ImageCard from './ImageCard'
 import MetadataPanel from './MetadataPanel'
 
 export default function ImageGrid() {
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set())
   const dispatch = useAppDispatch()
   const urlSearch = useSearch({ from: '/' })
   const { images, offset, total, query, loading, loadingMore, error } = useAppSelector(
@@ -15,10 +15,11 @@ export default function ImageGrid() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
 
-  // Get selected image data for metadata panel
-  const selectedImage = selectedImageId
-    ? images.find((img) => img.data.id === selectedImageId)
-    : null
+  // Get selected images data for metadata panel
+  const selectedImages = Array.from(selectedImageIds)
+    .map((id) => images.find((img) => img.data.id === id))
+    .filter((img): img is typeof images[0] => img !== undefined)
+    .map((img) => img.data)
 
   // Initial load - only if not already loaded by Header
   useEffect(() => {
@@ -90,8 +91,16 @@ export default function ImageGrid() {
               <ImageCard
                 key={image.data.id}
                 image={image}
-                isSelected={selectedImageId === image.data.id}
-                onSelect={() => selectedImageId === image.data.id ? setSelectedImageId(null) : setSelectedImageId(image.data.id)}
+                isSelected={selectedImageIds.has(image.data.id)}
+                onSelect={() => {
+                  const newSelected = new Set(selectedImageIds)
+                  if (newSelected.has(image.data.id)) {
+                    newSelected.delete(image.data.id)
+                  } else {
+                    newSelected.add(image.data.id)
+                  }
+                  setSelectedImageIds(newSelected)
+                }}
               />
             ))}
           </div>
@@ -115,7 +124,7 @@ export default function ImageGrid() {
 
       {/* Metadata panel - always reserve space to prevent layout shift */}
       <div className="w-80 border-l border-gray-200 overflow-y-auto">
-        {selectedImage && <MetadataPanel imageData={selectedImage.data} />}
+        {selectedImages.length > 0 && <MetadataPanel imageData={selectedImages} />}
       </div>
     </div>
   )
