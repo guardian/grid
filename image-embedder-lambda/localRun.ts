@@ -130,7 +130,6 @@ async function main() {
             };
 
             // Mock Lambda context
-            // Mock Lambda context
             const context: Context = {
               callbackWaitsForEmptyEventLoop: true,
               functionName: "image-embedder-DEV",
