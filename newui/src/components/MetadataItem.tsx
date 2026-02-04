@@ -7,7 +7,7 @@ import { updateImageData } from '@/store/imagesSlice';
 
 interface MetadataItemProps {
   label: string;
-  value: (string | undefined | null)[] | string | undefined | null;
+  value: (string | undefined | null)[];
   fieldKey?: string;
   imageId?: string;
   editable?: boolean;
@@ -103,8 +103,6 @@ export default function MetadataItem({
       setIsSaving(false);
     }
   };
-  // If value is an array, handle multiple values
-  if (Array.isArray(value)) {
     // Filter out undefined/null values
     const validValues = value.filter(
       (v): v is string => v !== undefined && v !== null,
@@ -232,63 +230,4 @@ export default function MetadataItem({
         </div>
       </div>
     );
-  }
-
-  // Single value handling (for backward compatibility)
-  return (
-    <div
-      className="mb-4 group relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
-        {label}
-      </div>
-      {isEditing ? (
-        <div className="flex gap-2 items-center">
-          <input
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
-            autoFocus
-          />
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="p-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            title="Save"
-          >
-            <Check size={16} />
-          </button>
-          <button
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="p-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-            title="Cancel"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      ) : (
-        <>
-          <div
-            className={`text-sm ${value ? 'text-gray-900' : 'text-gray-400 italic'}`}
-            style={{wordBreak: "break-word"}}
-          >
-            {value || 'Unknown'}
-          </div>
-          {editable && isHovered && (
-            <button
-              onClick={handleEdit}
-              className="absolute right-0 top-0 p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-              title="Edit"
-            >
-              <Pencil size={14} />
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
 }
