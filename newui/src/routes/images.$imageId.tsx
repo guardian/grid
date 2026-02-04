@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import MetadataPanel from '@/components/MetadataPanel';
-import { useAppSelector } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchSingleImage } from '@/store/imagesSlice';
 
 export const Route = createFileRoute('/images/$imageId')({
   component: ImageDetail,
@@ -14,14 +15,20 @@ export const Route = createFileRoute('/images/$imageId')({
 function ImageDetail() {
   const { imageId } = Route.useParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   // Get images from Redux store
-  const { images } = useAppSelector((state) => state.images);
+  const { images, loading, error } = useAppSelector((state) => state.images);
   const currentIndex = images.findIndex((img) => img.data.id === imageId);
   const imageData = currentIndex >= 0 ? images[currentIndex].data : null;
   const hasPrevious = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < images.length - 1;
 
+  useEffect(() => {
+    if (!imageData && !loading && !error) {
+      dispatch(fetchSingleImage(imageId));
+    }
+  }, []);
   // Keyboard navigation for slideshow
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

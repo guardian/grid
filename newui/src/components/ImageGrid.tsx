@@ -24,7 +24,7 @@ export default function ImageGrid() {
 
   // Initial load - only if not already loaded by Header
   useEffect(() => {
-    if (images.length === 0 && !loading && !error) {
+    if (!loading && !error) {
       dispatch(fetchImages({ query: urlSearch.query, offset: 0, length: 10 }));
     }
   }, []);

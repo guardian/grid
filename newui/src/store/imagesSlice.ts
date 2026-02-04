@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Image, ImageData } from '@/types/api';
-import { fetchImagesList } from '@/api/images';
+import { fetchImageById, fetchImagesList } from '@/api/images';
 
 interface ImagesState {
   images: Image[];
@@ -21,6 +21,20 @@ const initialState: ImagesState = {
   loadingMore: false,
   error: null,
 };
+
+export const fetchSingleImage = createAsyncThunk(
+  'images/fetchSingleImage',
+  async (imageId: string, { rejectWithValue }) => {
+    try {
+      const data = await fetchImageById(imageId);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to fetch image',
+      );
+    }
+  },
+);
 
 export const fetchImages = createAsyncThunk(
   'images/fetchImages',
@@ -85,6 +99,35 @@ const imagesSlice = createSlice({
       .addCase(fetchImages.rejected, (state, action) => {
         state.loading = false;
         state.loadingMore = false;
+        state.error = action.payload as string;
+      })
+      .addCase(fetchSingleImage.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSingleImage.fulfilled, (state, action) => {
+        state.loading = false;
+        const existingIndex = state.images.findIndex(img => img.data.id === action.payload.data.id);
+        if (existingIndex !== -1) {
+          // Update existing image data
+          state.images[existingIndex] = {
+            uri: `/images/${action.payload.data.id}`,
+            data: action.payload.data,
+            links: action.payload.links,
+            actions: action.payload.actions,
+          };
+        } else {
+          // Replace images with the single fetched image (for detail view)
+          state.images = [{
+            uri: `/images/${action.payload.data.id}`,
+            data: action.payload.data,
+            links: action.payload.links,
+            actions: action.payload.actions,
+          }];
+        }
+      })
+      .addCase(fetchSingleImage.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload as string;
       });
   },
