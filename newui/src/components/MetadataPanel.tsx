@@ -1,6 +1,6 @@
-import type { ImageData, Lease } from '@/types/api';
+import type { ImageData } from '@/types/api';
 import MetadataItem from './MetadataItem';
-import { LeaseDisplay, LeasesDisplay } from './LeaseDisplay';
+import { LeasesDisplay } from './LeaseDisplay';
 
 interface MetadataPanelProps {
   imageData: ImageData | ImageData[];
@@ -8,9 +8,10 @@ interface MetadataPanelProps {
 
 export default function MetadataPanel({ imageData }: MetadataPanelProps) {
   const imageDatas = Array.isArray(imageData) ? imageData : [imageData];
+  const imageId = imageDatas[0]?.id;
 
   return (
-    <div className="lg:w-[300px] flex-shrink-0 overflow-y-auto">
+    <div className="lg:w-[300px] flex-shrink-0 overflow-y-auto overflow-x-hidden">
       <div className="bg-white shadow-lg p-6">
         <h2 className="text-lg font-bold mb-6 pb-4 border-b border-gray-200">
           Image Details
@@ -22,16 +23,25 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <MetadataItem
           label="Title"
           value={imageDatas.map((img) => img.metadata.title)}
+          fieldKey="title"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem
           label="Description"
           value={imageDatas.map((img) => img.metadata.description)}
+          fieldKey="description"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem
           label="Special Instructions"
           value={imageDatas.map((img) => img.metadata.specialInstructions)}
+          fieldKey="specialInstructions"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem
@@ -46,11 +56,17 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <MetadataItem
           label="Byline"
           value={imageDatas.map((img) => img.metadata.byline)}
+          fieldKey="byline"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem
           label="Credit"
           value={imageDatas.map((img) => img.metadata.credit)}
+          fieldKey="credit"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem
@@ -65,6 +81,9 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <MetadataItem
           label="Copyright"
           value={imageDatas.map((img) => img.metadata.copyright)}
+          fieldKey="copyright"
+          imageId={imageId}
+          editable
         />
 
         <MetadataItem

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { Image } from '@/types/api';
+import type { Image, ImageData } from '@/types/api';
 import { fetchImagesList } from '@/api/images';
 
 interface ImagesState {
@@ -46,7 +46,14 @@ export const fetchImages = createAsyncThunk(
 const imagesSlice = createSlice({
   name: 'images',
   initialState,
-  reducers: {},
+  reducers: {
+    updateImageData: (state, action: { payload: { imageId: string; data: ImageData } }) => {
+      const index = state.images.findIndex(img => img.data.id === action.payload.imageId);
+      if (index !== -1) {
+        state.images[index].data = action.payload.data;
+      }
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchImages.pending, (state, action) => {
@@ -82,5 +89,7 @@ const imagesSlice = createSlice({
       });
   },
 });
+
+export const { updateImageData } = imagesSlice.actions;
 
 export default imagesSlice.reducer;

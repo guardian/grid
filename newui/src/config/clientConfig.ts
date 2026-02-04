@@ -99,3 +99,17 @@ export function getMediaApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
   return `${baseUrl}${normalizedPath}`;
 }
+
+export function getMetadataEditorBaseUrl(): string {
+  const rootUri = new URL(getRootUri());
+  const hostnameParts = rootUri.host.split('.');
+  hostnameParts[0] = hostnameParts[0] + '-metadata';
+  rootUri.host = hostnameParts.join('.');
+  return rootUri.toString();
+}
+
+export function getMetadataEditorUrl(path: string): string {
+  const baseUri = getMetadataEditorBaseUrl();
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${baseUri}/metadata/${normalizedPath}`;
+}

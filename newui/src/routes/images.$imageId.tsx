@@ -1,10 +1,8 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
-import type { ImageResponse } from '@/types/api';
+import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import MetadataPanel from '@/components/MetadataPanel';
 import { useAppSelector } from '@/store/hooks';
-import { fetchImageById } from '@/api/images';
 
 export const Route = createFileRoute('/images/$imageId')({
   component: ImageDetail,
@@ -16,32 +14,13 @@ export const Route = createFileRoute('/images/$imageId')({
 function ImageDetail() {
   const { imageId } = Route.useParams();
   const navigate = useNavigate();
-  const [imageData, setImageData] = useState<ImageResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Get images from Redux to enable navigation
+  // Get images from Redux store
   const { images } = useAppSelector((state) => state.images);
   const currentIndex = images.findIndex((img) => img.data.id === imageId);
+  const imageData = currentIndex >= 0 ? images[currentIndex].data : null;
   const hasPrevious = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < images.length - 1;
-
-  useEffect(() => {
-    const fetchImage = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchImageById(imageId);
-        setImageData(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch image');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchImage();
-  }, [imageId]);
 
   // Keyboard navigation for slideshow
   useEffect(() => {
@@ -65,20 +44,10 @@ function ImageDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, images, hasPrevious, hasNext, navigate]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading image...</div>
-      </div>
-    );
-  }
-
-  if (error || !imageData) {
+  if (!imageData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <div className="text-xl text-red-600">
-          Error: {error || 'Image not found'}
-        </div>
+        <div className="text-xl text-red-600">Image not found</div>
         <Link
           to="/"
           className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
@@ -110,8 +79,8 @@ function ImageDetail() {
           <div className="bg-white h-full">
             <div className="flex items-center justify-center bg-gray-100 p-4 h-full">
               <img
-                src={imageData.data.source.secureUrl}
-                alt={imageData.data.metadata.title || 'Image'}
+                src={imageData.source.secureUrl}
+                alt={imageData.metadata.title || 'Image'}
                 className="max-w-full max-h-full object-contain"
               />
             </div>
@@ -119,7 +88,7 @@ function ImageDetail() {
         </div>
 
         {/* Metadata panel - right side */}
-        <MetadataPanel imageData={imageData.data} />
+        <MetadataPanel imageData={imageData} />
       </div>
     </div>
   );
