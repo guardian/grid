@@ -61,8 +61,13 @@ const imagesSlice = createSlice({
   name: 'images',
   initialState,
   reducers: {
-    updateImageData: (state, action: { payload: { imageId: string; data: ImageData } }) => {
-      const index = state.images.findIndex(img => img.data.id === action.payload.imageId);
+    updateImageData: (
+      state,
+      action: { payload: { imageId: string; data: ImageData } },
+    ) => {
+      const index = state.images.findIndex(
+        (img) => img.data.id === action.payload.imageId,
+      );
       if (index !== -1) {
         state.images[index].data = action.payload.data;
       }
@@ -107,7 +112,9 @@ const imagesSlice = createSlice({
       })
       .addCase(fetchSingleImage.fulfilled, (state, action) => {
         state.loading = false;
-        const existingIndex = state.images.findIndex(img => img.data.id === action.payload.data.id);
+        const existingIndex = state.images.findIndex(
+          (img) => img.data.id === action.payload.data.id,
+        );
         if (existingIndex !== -1) {
           // Update existing image data
           state.images[existingIndex] = {
@@ -118,12 +125,14 @@ const imagesSlice = createSlice({
           };
         } else {
           // Replace images with the single fetched image (for detail view)
-          state.images = [{
-            uri: `/images/${action.payload.data.id}`,
-            data: action.payload.data,
-            links: action.payload.links,
-            actions: action.payload.actions,
-          }];
+          state.images = [
+            {
+              uri: `/images/${action.payload.data.id}`,
+              data: action.payload.data,
+              links: action.payload.links,
+              actions: action.payload.actions,
+            },
+          ];
         }
       })
       .addCase(fetchSingleImage.rejected, (state, action) => {

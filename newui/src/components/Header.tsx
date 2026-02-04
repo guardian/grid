@@ -33,7 +33,7 @@ export default function Header() {
 
       // Trigger search with query at offset 0
       dispatch(fetchImages({ query: newQuery, offset: 0, length: 10 }));
-      
+
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 300);
