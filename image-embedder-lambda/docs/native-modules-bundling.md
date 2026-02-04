@@ -109,12 +109,9 @@ Then `cdk deploy` uploads assets to S3 and creates/updates the stack.
 
 ### Why we're not using it (yet)
 
-Breaks assumptions of standard Guardian CI/CD:
-- Riff-Raff expects pre-built artifacts
-- Separation between build and deploy stages
-- `cdk synth` would need to run in CI with all build dependencies
+Don't think anyone else in Guardian P&E is using this approach, so it may break some assumptions of standard Guardian CI/CD, e.g. that the CloudFormation deploy artifact doesn't contain the application code.
 
-Could revisit if we want tighter CDK integration.
+We should definitely try it out at some point to see what the pain points are!
 
 ## References
 
