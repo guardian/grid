@@ -1,6 +1,5 @@
 import type { ImageListResponse, ImageResponse } from '@/types/api';
-
-const MEDIA_API_BASE_URL = 'https://api.media.local.dev-gutools.co.uk';
+import { getMediaApiUrl } from '@/config/clientConfig';
 
 interface FetchImagesParams {
   query?: string;
@@ -17,7 +16,7 @@ export async function fetchImagesList(
   const { query = '', length = 10, offset = 0 } = params;
 
   const response = await fetch(
-    `${MEDIA_API_BASE_URL}/images?q=${query}&length=${length}&offset=${offset}`,
+    getMediaApiUrl(`images?q=${query}&length=${length}&offset=${offset}`),
     { credentials: 'include' },
   );
 
@@ -33,7 +32,7 @@ export async function fetchImagesList(
  * Fetch a single image by ID
  */
 export async function fetchImageById(imageId: string): Promise<ImageResponse> {
-  const response = await fetch(`${MEDIA_API_BASE_URL}/images/${imageId}`, {
+  const response = await fetch(getMediaApiUrl(`images/${imageId}`), {
     credentials: 'include',
   });
 

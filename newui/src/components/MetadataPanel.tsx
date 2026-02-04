@@ -1,5 +1,6 @@
-import type { ImageData } from '@/types/api';
+import type { ImageData, Lease } from '@/types/api';
 import MetadataItem from './MetadataItem';
+import { LeaseDisplay, LeasesDisplay } from './LeaseDisplay';
 
 interface MetadataPanelProps {
   imageData: ImageData | ImageData[];
@@ -14,6 +15,9 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <h2 className="text-lg font-bold mb-6 pb-4 border-b border-gray-200">
           Image Details
         </h2>
+
+        {/* Leases section */}
+        <LeasesDisplay imageDatas={imageDatas} />
 
         <MetadataItem
           label="Title"

@@ -70,8 +70,20 @@ export interface UserMetadataData {
 }
 
 export interface LeaseData {
-  leases: unknown[];
+  leases: Lease[];
   lastModified: string | null;
+}
+
+export interface Lease {
+  id: string;
+  leasedBy: string;
+  startDate?: string;
+  endDate?: string;
+  access: 'allow-use' | 'deny-use' | 'allow-syndication' | 'deny-syndication';
+  notes?: string;
+  mediaId: string;
+  createdAt: string;
+  active: boolean;
 }
 
 export interface ImageData {
