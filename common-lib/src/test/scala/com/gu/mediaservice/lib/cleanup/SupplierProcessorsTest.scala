@@ -484,6 +484,79 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
 
       processedImage.usageRights should be (Agency("Rex Features"))
     }
+
+    val rexFixtures = List(
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "NurPhoto/Shutterstock",
+        "specialInstructions" -> "RESTRICTED TO EDITORIAL USE",
+        "by" -> "Jose Breton",
+        "suppliersReference" -> "16507315bs",
+        "description" -> """
+          |RESTRICTED TO EDITORIAL USE
+          |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock (16507315bs)
+          |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+          |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+          |""".stripMargin
+      ) -> """
+       |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+       |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+       |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "ITV/Shutterstock",
+        "specialInstructions" -> "Editorial use only",
+        "by" -> "Ken McKay",
+        "suppliersReference" -> "16513246a",
+        "description" -> """
+          |Editorial use only
+          |Mandatory Credit: Photo by Ken McKay/ITV/Shutterstock (16513246a)
+          |Katie Piper
+          |'Loose Women' TV show, London, UK - 04 Feb 2026
+          |""".stripMargin
+      ) -> """
+       |Katie Piper
+       |'Loose Women' TV show, London, UK - 04 Feb 2026
+       |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "ITV/Shutterstock",
+        "by" -> "Action Press",
+        "suppliersReference" -> "16512200n",
+        "description" -> """
+          |Mandatory Credit: Photo by Action Press/Shutterstock (16512200n)
+          |Mark Tallman
+          |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
+          |""".stripMargin
+      ) -> """
+       |Mark Tallman
+       |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
+       |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "ITV/Shutterstock",
+        "by" -> "Action Press",
+        "suppliersReference" -> "16501549o",
+        "description" -> """
+         |Mandatory Credit: Photo by Anthony Harvey/Shutterstock (16501549o)
+         |Alison Oliver
+         |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
+         |""".stripMargin
+      ) -> """
+       |Alison Oliver
+       |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
+       |""".stripMargin
+    )
+
+    it("should remove instructions and credit information from description") {
+      rexFixtures.foreach {
+        case (image, expectedDescription) =>
+          val processedImage = applyProcessors(image)
+
+          processedImage.usageRights should be (Agency("Rex Features"))
+          processedImage.metadata.description should be (Some(expectedDescription))
+      }
+    }
   }
 
 
