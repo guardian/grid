@@ -4,6 +4,8 @@ import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConf
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
 
+import scala.util.matching.Regex
+
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
   */
@@ -444,12 +446,12 @@ object RexParser extends ImageProcessor {
 
     def removeSpecialInstructions(description: String) = {
       image.metadata.specialInstructions
-        .map(specialInstructions => description.replaceAll(s"$specialInstructions\n", ""))
+        .map(specialInstructions => description.replaceAll(s"${Regex.quote(specialInstructions)}\n", ""))
         .getOrElse(description)
     }
 
     def removeCredit(description: String) = image.metadata.suppliersReference
-      .map(suppliersReference => description.replaceAll(s"Mandatory Credit:(.*)?\\($suppliersReference\\)\n", ""))
+      .map(suppliersReference => description.replaceAll(s"Mandatory Credit:(.*)?\\(${Regex.quote(suppliersReference)}\\)\n", ""))
       .getOrElse(description)
 
     val description = image.metadata.description
