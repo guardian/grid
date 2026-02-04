@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { useAppDispatch } from '@/store/hooks';
 import { fetchImages } from '@/store/imagesSlice';
@@ -14,44 +14,30 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState(urlQuery || '');
   const dispatch = useAppDispatch();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isInitialMount = useRef(true);
 
-  // Initialize search from URL on mount
-  useEffect(() => {
-    if (urlQuery && isInitialMount.current) {
-      setSearchQuery(urlQuery);
-      dispatch(fetchImages({ query: urlQuery, offset: 0, length: 10 }));
-    }
-    isInitialMount.current = false;
-  }, []);
+  const handleSearchChange = (newQuery: string) => {
+    setSearchQuery(newQuery);
 
-  // Debounced search handler with URL update
-  useEffect(() => {
-    if (isInitialMount.current) return;
-
+    // Clear existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
+    // Set new debounced search
     debounceTimerRef.current = setTimeout(() => {
       // Update URL with query parameter
       navigate({
         to: '/',
-        search: { query: searchQuery || undefined },
+        search: { query: newQuery || undefined },
       });
 
       // Trigger search with query at offset 0
-      dispatch(fetchImages({ query: searchQuery, offset: 0, length: 10 }));
+      dispatch(fetchImages({ query: newQuery, offset: 0, length: 10 }));
+      
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 300);
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [searchQuery, dispatch, navigate]);
+  };
 
   return (
     <header className="p-4 flex items-center gap-4 bg-gray-800 text-white shadow-lg">
@@ -64,7 +50,7 @@ export default function Header() {
           type="text"
           placeholder="Search images..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="ml-2 flex-1 bg-transparent outline-none text-white placeholder-gray-400"
         />
       </div>
