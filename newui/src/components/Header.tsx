@@ -1,36 +1,36 @@
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
-import { Search } from 'lucide-react'
-import { useAppDispatch } from '@/store/hooks'
-import { fetchImages } from '@/store/imagesSlice'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useState, useEffect, useRef } from 'react';
+import { Search } from 'lucide-react';
+import { useAppDispatch } from '@/store/hooks';
+import { fetchImages } from '@/store/imagesSlice';
 
 export default function Header() {
-  const navigate = useNavigate()
-  const routerState = useRouterState()
+  const navigate = useNavigate();
+  const routerState = useRouterState();
   const urlQuery =
     routerState.location.pathname === '/'
       ? (routerState.location.search as { query?: string })?.query
-      : undefined
-  const [searchQuery, setSearchQuery] = useState(urlQuery || '')
-  const dispatch = useAppDispatch()
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const isInitialMount = useRef(true)
+      : undefined;
+  const [searchQuery, setSearchQuery] = useState(urlQuery || '');
+  const dispatch = useAppDispatch();
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMount = useRef(true);
 
   // Initialize search from URL on mount
   useEffect(() => {
     if (urlQuery && isInitialMount.current) {
-      setSearchQuery(urlQuery)
-      dispatch(fetchImages({ query: urlQuery, offset: 0, length: 10 }))
+      setSearchQuery(urlQuery);
+      dispatch(fetchImages({ query: urlQuery, offset: 0, length: 10 }));
     }
-    isInitialMount.current = false
-  }, [])
+    isInitialMount.current = false;
+  }, []);
 
   // Debounced search handler with URL update
   useEffect(() => {
-    if (isInitialMount.current) return
+    if (isInitialMount.current) return;
 
     if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
+      clearTimeout(debounceTimerRef.current);
     }
 
     debounceTimerRef.current = setTimeout(() => {
@@ -38,20 +38,20 @@ export default function Header() {
       navigate({
         to: '/',
         search: { query: searchQuery || undefined },
-      })
+      });
 
       // Trigger search with query at offset 0
-      dispatch(fetchImages({ query: searchQuery, offset: 0, length: 10 }))
+      dispatch(fetchImages({ query: searchQuery, offset: 0, length: 10 }));
       // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 300)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 300);
 
     return () => {
       if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
+        clearTimeout(debounceTimerRef.current);
       }
-    }
-  }, [searchQuery, dispatch, navigate])
+    };
+  }, [searchQuery, dispatch, navigate]);
 
   return (
     <header className="p-4 flex items-center gap-4 bg-gray-800 text-white shadow-lg">
@@ -69,5 +69,5 @@ export default function Header() {
         />
       </div>
     </header>
-  )
+  );
 }

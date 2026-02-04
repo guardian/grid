@@ -1,61 +1,67 @@
-import { useEffect, useRef, useState } from 'react'
-import { useSearch } from '@tanstack/react-router'
-import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { fetchImages } from '@/store/imagesSlice'
-import ImageCard from './ImageCard'
-import MetadataPanel from './MetadataPanel'
+import { useEffect, useRef, useState } from 'react';
+import { useSearch } from '@tanstack/react-router';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchImages } from '@/store/imagesSlice';
+import ImageCard from './ImageCard';
+import MetadataPanel from './MetadataPanel';
 
 export default function ImageGrid() {
-  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set())
-  const dispatch = useAppDispatch()
-  const urlSearch = useSearch({ from: '/' })
-  const { images, offset, total, query, loading, loadingMore, error } = useAppSelector(
-    (state) => state.images
-  )
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  const observerRef = useRef<IntersectionObserver | null>(null)
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const dispatch = useAppDispatch();
+  const urlSearch = useSearch({ from: '/' });
+  const { images, offset, total, query, loading, loadingMore, error } =
+    useAppSelector((state) => state.images);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Get selected images data for metadata panel
   const selectedImages = Array.from(selectedImageIds)
     .map((id) => images.find((img) => img.data.id === id))
-    .filter((img): img is typeof images[0] => img !== undefined)
-    .map((img) => img.data)
+    .filter((img): img is (typeof images)[0] => img !== undefined)
+    .map((img) => img.data);
 
   // Initial load - only if not already loaded by Header
   useEffect(() => {
     if (images.length === 0 && !loading && !error && !urlSearch.query) {
-      dispatch(fetchImages({ offset: 0, length: 10 }))
+      dispatch(fetchImages({ offset: 0, length: 10 }));
     }
-  }, [])
+  }, []);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading && !loadingMore && offset < total) {
-          dispatch(fetchImages({ query, offset, length: 10 }))
+        if (
+          entries[0].isIntersecting &&
+          !loading &&
+          !loadingMore &&
+          offset < total
+        ) {
+          dispatch(fetchImages({ query, offset, length: 10 }));
         }
       },
-      { threshold: 0.1 }
-    )
+      { threshold: 0.1 },
+    );
 
     if (sentinelRef.current) {
-      observerRef.current.observe(sentinelRef.current)
+      observerRef.current.observe(sentinelRef.current);
     }
 
     return () => {
       if (observerRef.current) {
-        observerRef.current.disconnect()
+        observerRef.current.disconnect();
       }
-    }
-  }, [query, offset, total, loading, loadingMore, dispatch])
+    };
+  }, [query, offset, total, loading, loadingMore, dispatch]);
 
   if (loading && images.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl">Loading images...</div>
       </div>
-    )
+    );
   }
 
   if (error && images.length === 0) {
@@ -63,7 +69,7 @@ export default function ImageGrid() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl text-red-600">Error: {error}</div>
       </div>
-    )
+    );
   }
 
   if (images.length === 0) {
@@ -71,7 +77,7 @@ export default function ImageGrid() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl">No images found</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -93,13 +99,13 @@ export default function ImageGrid() {
                 image={image}
                 isSelected={selectedImageIds.has(image.data.id)}
                 onSelect={() => {
-                  const newSelected = new Set(selectedImageIds)
+                  const newSelected = new Set(selectedImageIds);
                   if (newSelected.has(image.data.id)) {
-                    newSelected.delete(image.data.id)
+                    newSelected.delete(image.data.id);
                   } else {
-                    newSelected.add(image.data.id)
+                    newSelected.add(image.data.id);
                   }
-                  setSelectedImageIds(newSelected)
+                  setSelectedImageIds(newSelected);
                 }}
               />
             ))}
@@ -124,8 +130,10 @@ export default function ImageGrid() {
 
       {/* Metadata panel - always reserve space to prevent layout shift */}
       <div className="w-80 border-l border-gray-200 overflow-y-auto">
-        {selectedImages.length > 0 && <MetadataPanel imageData={selectedImages} />}
+        {selectedImages.length > 0 && (
+          <MetadataPanel imageData={selectedImages} />
+        )}
       </div>
     </div>
-  )
+  );
 }

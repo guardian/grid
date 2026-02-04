@@ -1,12 +1,12 @@
-import type { ImageData } from '@/types/api'
-import MetadataItem from './MetadataItem'
+import type { ImageData } from '@/types/api';
+import MetadataItem from './MetadataItem';
 
 interface MetadataPanelProps {
-  imageData: ImageData | ImageData[]
+  imageData: ImageData | ImageData[];
 }
 
 export default function MetadataPanel({ imageData }: MetadataPanelProps) {
-  const imageDatas = Array.isArray(imageData) ? imageData : [imageData]
+  const imageDatas = Array.isArray(imageData) ? imageData : [imageData];
 
   return (
     <div className="lg:w-[300px] flex-shrink-0 overflow-y-auto">
@@ -33,20 +33,28 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <MetadataItem
           label="Date Taken"
           value={imageDatas.map((img) =>
-            img.metadata.dateTaken ? new Date(img.metadata.dateTaken).toLocaleString() : undefined
+            img.metadata.dateTaken
+              ? new Date(img.metadata.dateTaken).toLocaleString()
+              : undefined,
           )}
         />
 
-        <MetadataItem label="Byline" value={imageDatas.map((img) => img.metadata.byline)} />
+        <MetadataItem
+          label="Byline"
+          value={imageDatas.map((img) => img.metadata.byline)}
+        />
 
-        <MetadataItem label="Credit" value={imageDatas.map((img) => img.metadata.credit)} />
+        <MetadataItem
+          label="Credit"
+          value={imageDatas.map((img) => img.metadata.credit)}
+        />
 
         <MetadataItem
           label="Location"
           value={imageDatas.map((img) =>
             img.metadata.city && img.metadata.country
               ? `${img.metadata.city}, ${img.metadata.country}`
-              : img.metadata.city || img.metadata.country
+              : img.metadata.city || img.metadata.country,
           )}
         />
 
@@ -58,23 +66,31 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
         <MetadataItem
           label="Date Uploaded"
           value={imageDatas.map((img) =>
-            img.uploadTime ? new Date(img.uploadTime).toLocaleString() : undefined
+            img.uploadTime
+              ? new Date(img.uploadTime).toLocaleString()
+              : undefined,
           )}
         />
 
-        <MetadataItem label="Uploader" value={imageDatas.map((img) => img.uploadedBy)} />
+        <MetadataItem
+          label="Uploader"
+          value={imageDatas.map((img) => img.uploadedBy)}
+        />
 
-        <MetadataItem label="Filename" value={imageDatas.map((img) => img.uploadInfo.filename)} />
+        <MetadataItem
+          label="Filename"
+          value={imageDatas.map((img) => img.uploadInfo.filename)}
+        />
 
         <MetadataItem
           label="Subjects"
           value={imageDatas.map((img) =>
             img.metadata.subjects && img.metadata.subjects.length > 0
               ? img.metadata.subjects.join(', ')
-              : undefined
+              : undefined,
           )}
         />
       </div>
     </div>
-  )
+  );
 }

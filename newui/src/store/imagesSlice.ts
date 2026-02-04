@@ -1,15 +1,15 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import type { Image } from '@/types/api'
-import { fetchImagesList } from '@/api/images'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import type { Image } from '@/types/api';
+import { fetchImagesList } from '@/api/images';
 
 interface ImagesState {
-  images: Image[]
-  offset: number
-  total: number
-  query: string
-  loading: boolean
-  loadingMore: boolean
-  error: string | null
+  images: Image[];
+  offset: number;
+  total: number;
+  query: string;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
 }
 
 const initialState: ImagesState = {
@@ -20,7 +20,7 @@ const initialState: ImagesState = {
   loading: false,
   loadingMore: false,
   error: null,
-}
+};
 
 export const fetchImages = createAsyncThunk(
   'images/fetchImages',
@@ -30,16 +30,18 @@ export const fetchImages = createAsyncThunk(
       length = 10,
       offset = 0,
     }: { query?: string; length?: number; offset?: number } = {},
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
-      const data = await fetchImagesList({ query, length, offset })
-      return data
+      const data = await fetchImagesList({ query, length, offset });
+      return data;
     } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch images')
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to fetch images',
+      );
     }
-  }
-)
+  },
+);
 
 const imagesSlice = createSlice({
   name: 'images',
@@ -50,35 +52,35 @@ const imagesSlice = createSlice({
       .addCase(fetchImages.pending, (state, action) => {
         // Distinguish between initial load and pagination
         if (action.meta.arg?.offset === 0 || action.meta.arg === undefined) {
-          state.loading = true
-          state.error = null
+          state.loading = true;
+          state.error = null;
         } else {
-          state.loadingMore = true
+          state.loadingMore = true;
         }
         // Store the query from the request
         if (action.meta.arg?.query !== undefined) {
-          state.query = action.meta.arg.query
+          state.query = action.meta.arg.query;
         }
       })
       .addCase(fetchImages.fulfilled, (state, action) => {
-        state.loading = false
-        state.loadingMore = false
-        state.total = action.payload.total
-        state.offset = action.payload.offset + action.payload.length
+        state.loading = false;
+        state.loadingMore = false;
+        state.total = action.payload.total;
+        state.offset = action.payload.offset + action.payload.length;
 
         // Append new images if pagination, otherwise replace
         if (action.payload.offset === 0) {
-          state.images = action.payload.data
+          state.images = action.payload.data;
         } else {
-          state.images = [...state.images, ...action.payload.data]
+          state.images = [...state.images, ...action.payload.data];
         }
       })
       .addCase(fetchImages.rejected, (state, action) => {
-        state.loading = false
-        state.loadingMore = false
-        state.error = action.payload as string
-      })
+        state.loading = false;
+        state.loadingMore = false;
+        state.error = action.payload as string;
+      });
   },
-})
+});
 
-export default imagesSlice.reducer
+export default imagesSlice.reducer;
