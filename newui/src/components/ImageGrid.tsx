@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearch } from '@tanstack/react-router'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { fetchImages } from '@/store/imagesSlice'
@@ -6,6 +6,7 @@ import ImageCard from './ImageCard'
 import MetadataPanel from './MetadataPanel'
 
 export default function ImageGrid() {
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const dispatch = useAppDispatch()
   const urlSearch = useSearch({ from: '/' })
   const { images, offset, total, query, loading, loadingMore, error } = useAppSelector(
@@ -13,6 +14,11 @@ export default function ImageGrid() {
   )
   const sentinelRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+
+  // Get selected image data for metadata panel
+  const selectedImage = selectedImageId
+    ? images.find((img) => img.data.id === selectedImageId)
+    : null
 
   // Initial load - only if not already loaded by Header
   useEffect(() => {
@@ -81,7 +87,12 @@ export default function ImageGrid() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {images.map((image) => (
-              <ImageCard key={image.data.id} image={image} />
+              <ImageCard
+                key={image.data.id}
+                image={image}
+                isSelected={selectedImageId === image.data.id}
+                onSelect={() => selectedImageId === image.data.id ? setSelectedImageId(null) : setSelectedImageId(image.data.id)}
+              />
             ))}
           </div>
 
@@ -102,8 +113,10 @@ export default function ImageGrid() {
         </div>
       </div>
 
-      {/* Metadata panel for first image */}
-      {images.length > 0 && <MetadataPanel imageData={images[0].data} />}
+      {/* Metadata panel - always reserve space to prevent layout shift */}
+      <div className="w-80 border-l border-gray-200 overflow-y-auto">
+        {selectedImage && <MetadataPanel imageData={selectedImage.data} />}
+      </div>
     </div>
   )
 }
