@@ -111,5 +111,5 @@ export function getMetadataEditorBaseUrl(): string {
 export function getMetadataEditorUrl(path: string): string {
   const baseUri = getMetadataEditorBaseUrl();
   const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
-  return `${baseUri}/metadata/${normalizedPath}`;
+  return `${baseUri}${normalizedPath}`;
 }

@@ -9,7 +9,7 @@ interface MetadataItemProps {
   label: string;
   value: (string | undefined | null)[];
   fieldKey?: string;
-  imageId?: string;
+  imageIds: string[];
   editable?: boolean;
 }
 
@@ -17,7 +17,7 @@ export default function MetadataItem({
   label,
   value,
   fieldKey,
-  imageId,
+  imageIds,
   editable = false,
 }: MetadataItemProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -26,11 +26,13 @@ export default function MetadataItem({
   const [isSaving, setIsSaving] = useState(false);
   const dispatch = useAppDispatch();
 
+  const firstValue = value[0];
+  const allValuesMatch = value.every((v) => v === firstValue);
+
   const handleEdit = () => {
-    const currentValue = Array.isArray(value)
-      ? value.find((v) => v !== undefined && v !== null) || ''
-      : value || '';
-    setEditValue(currentValue);
+    setEditValue(
+      typeof firstValue === 'string' && allValuesMatch ? firstValue : '',
+    );
     setIsEditing(true);
   };
 
@@ -40,67 +42,81 @@ export default function MetadataItem({
   };
 
   const handleSave = async () => {
-    if (!fieldKey || !imageId) return;
+    if (!fieldKey || imageIds.length === 0) return;
 
     setIsSaving(true);
     try {
-      const url = getMetadataEditorUrl(`/metadata/${imageId}/metadata`);
+      // Update metadata for each image
+      const updatePromises = imageIds.map(async (imgId) => {
+        const url = getMetadataEditorUrl(`/metadata/${imgId}/metadata`);
 
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          data: {
-            [fieldKey]: editValue,
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          credentials: 'include',
+          body: JSON.stringify({
+            data: {
+              [fieldKey]: editValue,
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Poll the API until the updated value is returned
-      const maxAttempts = 10;
-      const pollInterval = 500; // 500ms between polls
-      let attempts = 0;
-      let updated = false;
-
-      while (attempts < maxAttempts && !updated) {
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-        try {
-          const imageResponse = await fetchImageById(imageId);
-          const currentValue =
-            imageResponse.data.metadata[
-              fieldKey as keyof typeof imageResponse.data.metadata
-            ];
-
-          if (currentValue === editValue) {
-            // Value has been updated, update the store
-            dispatch(
-              updateImageData({
-                imageId,
-                data: imageResponse.data,
-              }),
-            );
-            updated = true;
-          }
-        } catch (pollError) {
-          console.error('Polling error:', pollError);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        attempts++;
-      }
+        return imgId;
+      });
 
-      if (!updated) {
-        console.warn(
-          'Metadata update polling timed out, but changes may still be processing',
-        );
-      }
+      await Promise.all(updatePromises);
+
+      // Poll the API for each image until the updated value is returned
+      const maxAttempts = 10;
+      const pollInterval = 500; // 500ms between polls
+
+      const pollPromises = imageIds.map(async (imgId) => {
+        let attempts = 0;
+        let updated = false;
+
+        while (attempts < maxAttempts && !updated) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+          try {
+            const imageResponse = await fetchImageById(imgId);
+            const currentValue =
+              imageResponse.data.metadata[
+                fieldKey as keyof typeof imageResponse.data.metadata
+              ];
+
+            if (currentValue === editValue) {
+              // Value has been updated, update the store
+              dispatch(
+                updateImageData({
+                  imageId: imgId,
+                  data: imageResponse.data,
+                }),
+              );
+              updated = true;
+            }
+          } catch (pollError) {
+            console.error('Polling error:', pollError);
+          }
+
+          attempts++;
+        }
+
+        if (!updated) {
+          console.warn(
+            `Metadata update polling timed out for image ${imgId}, but changes may still be processing`,
+          );
+        }
+
+        return updated;
+      });
+
+      await Promise.all(pollPromises);
 
       setIsEditing(false);
     } catch (error) {
@@ -171,8 +187,7 @@ export default function MetadataItem({
   }
 
   // If all values are the same, show that value
-  const firstValue = value[0];
-  if (value.every((v) => v === firstValue)) {
+  if (allValuesMatch) {
     return (
       <div
         className="mb-4 group relative"
@@ -228,13 +243,56 @@ export default function MetadataItem({
 
   // If values differ, show "Multiple <label>s"
   return (
-    <div className="mb-4">
+    <div
+      className="mb-4 group relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
         {label}
       </div>
-      <div className="text-sm text-gray-600 italic">
-        Multiple {label.toLowerCase()}s
-      </div>
+      {isEditing ? (
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+            autoFocus
+          />
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="p-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            title="Save"
+          >
+            <Check size={16} />
+          </button>
+          <button
+            onClick={handleCancel}
+            disabled={isSaving}
+            className="p-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+            title="Cancel"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="text-sm text-gray-600 italic">
+            Multiple {label.toLowerCase()}s
+          </div>
+          {editable && isHovered && (
+            <button
+              onClick={handleEdit}
+              className="absolute right-0 top-0 p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              title="Edit"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

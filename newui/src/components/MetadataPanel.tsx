@@ -8,7 +8,7 @@ interface MetadataPanelProps {
 
 export default function MetadataPanel({ imageData }: MetadataPanelProps) {
   const imageDatas = Array.isArray(imageData) ? imageData : [imageData];
-  const imageId = imageDatas[0]?.id;
+  const imageIds = imageDatas.map((img) => img.id);
 
   return (
     <div className="lg:w-[300px] flex-shrink-0 overflow-y-auto overflow-x-hidden">
@@ -24,7 +24,7 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Title"
           value={imageDatas.map((img) => img.metadata.title)}
           fieldKey="title"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
@@ -32,7 +32,7 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Description"
           value={imageDatas.map((img) => img.metadata.description)}
           fieldKey="description"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
@@ -40,12 +40,13 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Special Instructions"
           value={imageDatas.map((img) => img.metadata.specialInstructions)}
           fieldKey="specialInstructions"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
         <MetadataItem
           label="Date Taken"
+          imageIds={imageIds}
           value={imageDatas.map((img) =>
             img.metadata.dateTaken
               ? new Date(img.metadata.dateTaken).toLocaleString()
@@ -57,7 +58,7 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Byline"
           value={imageDatas.map((img) => img.metadata.byline)}
           fieldKey="byline"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
@@ -65,12 +66,13 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Credit"
           value={imageDatas.map((img) => img.metadata.credit)}
           fieldKey="credit"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
         <MetadataItem
           label="Location"
+          imageIds={imageIds}
           value={imageDatas.map((img) =>
             img.metadata.city && img.metadata.country
               ? `${img.metadata.city}, ${img.metadata.country}`
@@ -82,12 +84,13 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
           label="Copyright"
           value={imageDatas.map((img) => img.metadata.copyright)}
           fieldKey="copyright"
-          imageId={imageId}
+          imageIds={imageIds}
           editable
         />
 
         <MetadataItem
           label="Date Uploaded"
+          imageIds={imageIds}
           value={imageDatas.map((img) =>
             img.uploadTime
               ? new Date(img.uploadTime).toLocaleString()
@@ -97,16 +100,19 @@ export default function MetadataPanel({ imageData }: MetadataPanelProps) {
 
         <MetadataItem
           label="Uploader"
+          imageIds={imageIds}
           value={imageDatas.map((img) => img.uploadedBy)}
         />
 
         <MetadataItem
           label="Filename"
+          imageIds={imageIds}
           value={imageDatas.map((img) => img.uploadInfo.filename)}
         />
 
         <MetadataItem
           label="Subjects"
+          imageIds={imageIds}
           value={imageDatas.map((img) =>
             img.metadata.subjects && img.metadata.subjects.length > 0
               ? img.metadata.subjects.join(', ')
