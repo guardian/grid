@@ -545,7 +545,23 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       ) -> """
        |Alison Oliver
        |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
-       |""".stripMargin
+       |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "NurPhoto/Shutterstock",
+        "specialInstructions" -> "(RESTRICTED TO EDITORIAL USE",
+        "by" -> "Jose Breton",
+        "suppliersReference" -> "(16507315bs",
+        "description" -> """
+           |(RESTRICTED TO EDITORIAL USE
+           |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock ((16507315bs)
+           |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+           |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+           |""".stripMargin
+      ) -> """
+             |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+             |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+             |""".stripMargin
     )
 
     it("should remove instructions and credit information from description") {
