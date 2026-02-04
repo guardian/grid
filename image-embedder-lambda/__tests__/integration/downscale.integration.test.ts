@@ -22,9 +22,7 @@ interface ImageDimensions {
 async function getImageDimensions(
   imageBytes: Uint8Array,
 ): Promise<ImageDimensions> {
-  const metadata = await sharp(imageBytes).metadata();
-  const width = metadata.width!;
-  const height = metadata.height!;
+  const { width, height } = await sharp(imageBytes).metadata();
   return { width, height, pixels: width * height };
 }
 
