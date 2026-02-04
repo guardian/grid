@@ -215,6 +215,7 @@ async function cacheDownscaledImage(
   client: S3Client,
 ): Promise<void> {
   if (!DOWNSCALED_IMAGE_BUCKET) {
+    console.log("No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image");
     return;
   }
 
