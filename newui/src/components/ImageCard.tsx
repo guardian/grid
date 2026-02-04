@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { Image } from '@/types/api'
 
 interface ImageCardProps {
@@ -6,7 +7,11 @@ interface ImageCardProps {
 
 export default function ImageCard({ image }: ImageCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col">
+    <Link
+      to="/images/$imageId"
+      params={{ imageId: image.data.id }}
+      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
+    >
       <div className="bg-gray-100 flex items-center justify-center">
         <img
           src={image.data.thumbnail.secureUrl}
@@ -28,6 +33,6 @@ export default function ImageCard({ image }: ImageCardProps) {
           <p className="text-xs text-gray-500">{image.data.metadata.credit}</p>
         )}
       </div>
-    </div>
+    </Link>
   )
 }

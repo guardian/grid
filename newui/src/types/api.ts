@@ -30,6 +30,8 @@ export interface ImageMetadata {
   title?: string
   suppliersReference?: string
   source?: string
+  specialInstructions?: string
+  copyright?: string
   keywords?: string[]
   city?: string
   country?: string
@@ -137,4 +139,10 @@ export interface ImageListResponse {
   actions: {
     tickerCounts: Record<string, TickerCount>
   }
+}
+
+export interface ImageResponse {
+  data: ImageData
+  links: Link[]
+  actions: Action[]
 }

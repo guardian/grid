@@ -6,9 +6,11 @@ import Header from '../components/Header'
 
 export const Route = createRootRoute({
   component: () => (
-    <>
+    <div className="flex flex-col h-screen">
       <Header />
-      <Outlet />
+      <div className="flex-1 min-h-0">
+        <Outlet />
+      </div>
       <TanStackDevtools
         config={{
           position: 'bottom-right',
@@ -20,6 +22,6 @@ export const Route = createRootRoute({
           },
         ]}
       />
-    </>
+    </div>
   ),
 })
