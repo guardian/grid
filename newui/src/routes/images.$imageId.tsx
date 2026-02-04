@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import type { ImageResponse } from '@/types/api'
 import { ArrowLeft } from 'lucide-react'
-import MetadataItem from '@/components/MetadataItem'
+import MetadataPanel from '@/components/MetadataPanel'
 import { useAppSelector } from '@/store/hooks'
 
 export const Route = createFileRoute('/images/$imageId')({
@@ -111,68 +111,7 @@ function ImageDetail() {
         </div>
 
         {/* Metadata panel - right side */}
-        <div className="lg:w-[300px] flex-shrink-0 overflow-y-auto">
-          <div className="bg-white shadow-lg p-6">
-            <h2 className="text-lg font-bold mb-6 pb-4 border-b border-gray-200">
-              Image Details
-            </h2>
-
-            <MetadataItem label="Title" value={imageData.data.metadata.title} />
-
-            <MetadataItem label="Description" value={imageData.data.metadata.description} />
-
-            <MetadataItem
-              label="Special Instructions"
-              value={imageData.data.metadata.specialInstructions}
-            />
-
-            <MetadataItem
-              label="Date Taken"
-              value={
-                imageData.data.metadata.dateTaken
-                  ? new Date(imageData.data.metadata.dateTaken).toLocaleString()
-                  : undefined
-              }
-            />
-
-            <MetadataItem label="Byline" value={imageData.data.metadata.byline} />
-
-            <MetadataItem label="Credit" value={imageData.data.metadata.credit} />
-
-            <MetadataItem
-              label="Location"
-              value={
-                imageData.data.metadata.city && imageData.data.metadata.country
-                  ? `${imageData.data.metadata.city}, ${imageData.data.metadata.country}`
-                  : imageData.data.metadata.city || imageData.data.metadata.country
-              }
-            />
-
-            <MetadataItem label="Copyright" value={imageData.data.metadata.copyright} />
-
-            <MetadataItem
-              label="Date Uploaded"
-              value={
-                imageData.data.uploadTime
-                  ? new Date(imageData.data.uploadTime).toLocaleString()
-                  : undefined
-              }
-            />
-
-            <MetadataItem label="Uploader" value={imageData.data.uploadedBy} />
-
-            <MetadataItem label="Filename" value={imageData.data.uploadInfo.filename} />
-
-            <MetadataItem
-              label="Subjects"
-              value={
-                imageData.data.metadata.subjects && imageData.data.metadata.subjects.length > 0
-                  ? imageData.data.metadata.subjects.join(', ')
-                  : undefined
-              }
-            />
-          </div>
-        </div>
+        <MetadataPanel imageData={imageData.data} />
       </div>
     </div>
   )
