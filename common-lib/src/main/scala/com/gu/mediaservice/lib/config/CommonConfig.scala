@@ -67,6 +67,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val rootAppName: String = stringDefault("app.name.root", "media")
   val serviceHosts = ServiceHosts(
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
+    stringDefault("hosts.newMedPrefix", s"new.$rootAppName."),
     stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
     stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
     stringDefault("hosts.projectionPrefix", s"loader-projection.$rootAppName."),

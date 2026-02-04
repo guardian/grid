@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.config
 
 case class ServiceHosts(
   kahunaPrefix: String,
+  newMedPrefix: String,
   apiPrefix: String,
   loaderPrefix: String,
   projectionPrefix: String,
@@ -23,6 +24,7 @@ object ServiceHosts {
 
     ServiceHosts(
       kahunaPrefix = s"$rootAppName.",
+      newMedPrefix = s"new.$rootAppName.",
       apiPrefix = s"api.$rootAppName.",
       loaderPrefix = s"loader.$rootAppName.",
       projectionPrefix = s"loader-projection.$rootAppName",
@@ -40,6 +42,7 @@ object ServiceHosts {
 
 class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String], domainRootOverride: Option[String] = None) {
   val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
+  val newMedHost: String      = s"${hosts.newMedPrefix}$domainRoot"
   val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
   val loaderHost: String      = s"${hosts.loaderPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val cropperHost: String     = s"${hosts.cropperPrefix}${domainRootOverride.getOrElse(domainRoot)}"
@@ -54,6 +57,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
 
 
   val kahunaBaseUri      = baseUri(kahunaHost)
+  val newMedBaseUri      = baseUri(newMedHost)
   val apiBaseUri         = baseUri(apiHost)
   val loaderBaseUri      = baseUri(loaderHost)
   val projectionBaseUri  = baseUri(projectionHost)
@@ -68,6 +72,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
 
   val allInternalUris = Seq(
     kahunaBaseUri,
+    newMedBaseUri,
     apiBaseUri,
     loaderBaseUri,
     cropperBaseUri,
@@ -81,7 +86,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
-  val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri) + kahunaBaseUri + apiBaseUri + thrallBaseUri
+  val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri) + kahunaBaseUri + apiBaseUri + thrallBaseUri + newMedBaseUri
 
   val redirectUriParam = "redirectUri"
   val redirectUriPlaceholder = s"{?$redirectUriParam}"
