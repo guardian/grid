@@ -1,8 +1,16 @@
 import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
 import { GuStack } from '@guardian/cdk/lib/constructs/core';
+import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import type { App } from 'aws-cdk-lib';
-import { Duration, aws_lambda as lambda, Stack } from 'aws-cdk-lib';
+import {
+	Duration,
+	aws_ec2 as ec2,
+	Fn,
+	aws_lambda as lambda,
+	Stack,
+} from 'aws-cdk-lib';
+import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -14,6 +22,41 @@ export class ImageEmbedder extends GuStack {
 
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
 
+		const vpcid = new GuParameter(this, 'VpcIdParam', {
+			fromSSM: true,
+			default: `/account/vpc/primary/id`,
+		});
+
+		const publicSubnetIds = new GuParameter(this, 'VpcPublicParam', {
+			fromSSM: true,
+			default: '/account/vpc/primary/subnets/public',
+			type: 'List<String>',
+		});
+
+		const privateSubnetIds = new GuParameter(this, 'VpcPrivateParam', {
+			fromSSM: true,
+			default: '/account/vpc/primary/subnets/private',
+			type: 'List<String>',
+		});
+
+		const vpc = Vpc.fromVpcAttributes(this, 'VPC', {
+			vpcId: vpcid.valueAsString,
+			publicSubnetIds: publicSubnetIds.valueAsList,
+			privateSubnetIds: privateSubnetIds.valueAsList,
+			// Use Fn.getAzs to get the AZs for this region, matching the number of subnets
+			availabilityZones: Fn.getAzs(),
+		});
+
+		const lambdaSecurityGroup = new ec2.SecurityGroup(
+			this,
+			'ImageEmbedderLambdaSG',
+			{
+				vpc,
+				description: 'Security group for image embedder lambda',
+				allowAllOutbound: true,
+			},
+		);
+
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
 			'ImageEmbedderHandler',
@@ -24,9 +67,11 @@ export class ImageEmbedder extends GuStack {
 				architecture: Architecture.ARM_64,
 				handler: 'index.handler',
 				app: 'image-embedder-lambda',
+				vpc,
+				securityGroups: [lambdaSecurityGroup],
 				environment: {
 					STAGE: props.stage,
-					// TODO what should this be?
+					// TODO: Get ES URL from SSM parameter or config
 					ES_URL: ``,
 				},
 			},
@@ -83,7 +128,9 @@ export class ImageEmbedder extends GuStack {
 		);
 
 		// Note: Elasticsearch access is controlled via VPC security groups
-		// The lambda needs to be in the same VPC as the Elasticsearch cluster
-		// and the security group must allow inbound traffic from the lambda
+		// The lambda is now in the VPC and has a security group.
+		// You'll need to update the Elasticsearch cluster's security group to allow
+		// inbound traffic from ImageEmbedderLambdaSecurityGroup on port 9200 (or 443 if using HTTPS)
+		// This is typically done manually or via the Elasticsearch stack's CloudFormation
 	}
 }
