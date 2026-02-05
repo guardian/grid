@@ -477,7 +477,7 @@ object RexParser extends ImageProcessor {
       maybeBylinesInCreditLine.forall { bylinesInCreditLine =>
           val bylinesWithMetadataRemoved = bylinesInMetadata
             // Remove all the bylines from the credit string
-            .foldLeft(bylinesInCreditLine)((desc, toRemove) => desc.replaceAll(toRemove, ""))
+            .foldLeft(bylinesInCreditLine.toLowerCase)((desc, toRemove) => desc.replaceAll(toRemove.toLowerCase, ""))
             // Get rid of whitespace and delimiters
             .replaceAll("[\\s/]", "")
 
