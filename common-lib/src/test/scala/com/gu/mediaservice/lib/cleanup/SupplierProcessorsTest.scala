@@ -596,8 +596,8 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         case (image, expectedDescription) =>
           val processedImage = applyProcessors(image)
 
-          processedImage.usageRights should be (Agency("Rex Features"))
-          processedImage.metadata.description should be (Some(expectedDescription))
+          processedImage.usageRights should be(Agency("Rex Features"))
+          processedImage.metadata.description should be(Some(expectedDescription))
       }
     }
   }
