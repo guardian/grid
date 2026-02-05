@@ -23,6 +23,8 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
+import { Client } from "@elastic/elasticsearch";
+import { after } from "node:test";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -31,6 +33,11 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
+const ES_URL = process.env.ES_URL || "http://localhost:9200";
+
+if (!ES_URL) {
+  throw new Error("ES_URL environment variable is required");
+}
 
 const s3Config = {
   region: "eu-west-1",
@@ -51,11 +58,30 @@ const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
+const esClient = new Client({
+  node: ES_URL,
+  // Note: Authentication handled via IAM or network security groups in AWS
+  // Local dev will use localstack endpoint via ES_URL
+});
+
 interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
   fileType: string;
+}
+
+export interface CohereV3Embedding {
+  image: number[];
+}
+
+export interface Embedding {
+  cohereEmbedEnglishV3: CohereV3Embedding;
+}
+
+export interface Embeddings {
+  imageId: string;
+  embedding: Embedding;
 }
 
 export async function getImageFromS3(
@@ -130,7 +156,7 @@ export async function embedImage(
   }
 }
 
-async function storeEmbeddings(
+async function storeEmbeddingsInS3VectorStore(
   vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
@@ -159,6 +185,139 @@ async function storeEmbeddings(
   } catch (error) {
     console.error(`Error storing embeddings:`, error);
     throw error;
+  }
+}
+
+function convertToEsStructure(vectors: PutInputVector[]): Embeddings[] {
+  const embeddings = vectors.map((vector) => {
+    // Check for any vectors with undefined data - this should cause the batch to fail and retry/DLQ
+    if (
+      vector.data === undefined ||
+      vector.data.float32 === undefined ||
+      vector.key === undefined
+    ) {
+      throw new Error(
+        `Vector found with undefined data. This batch will be retried or sent to DLQ.`,
+      );
+    }
+
+    const embedding: Embedding = {
+      cohereEmbedEnglishV3: {
+        image: vector.data.float32!,
+      },
+    };
+
+    return {
+      imageId: vector.key,
+      embedding: embedding,
+    };
+  });
+  return embeddings;
+}
+
+async function storeEmbeddingsInElasticsearch(
+  vectors: PutInputVector[],
+  client: Client,
+) {
+  console.log(`Storing ${vectors.length} embeddings to Elasticsearch`);
+
+  const embeddings: Embeddings[] = convertToEsStructure(vectors);
+  console.log(`Converted ${embeddings.length} vectors to Embedding format`);
+
+  // Check BEFORE update - search for the first document
+  if (embeddings.length > 0) {
+    const firstId = embeddings[0].imageId;
+    console.log(`\n=== BEFORE UPDATE ===`);
+    const beforeSearch = await client.search({
+      index: "images",
+      query: { ids: { values: [firstId] } },
+      _source: ["embedding"],
+    });
+    const hit = beforeSearch.hits.hits[0];
+    if (hit?._source) {
+      const emb = (hit._source as any).embedding;
+      if (emb?.cohereEmbedEnglishV3?.image) {
+        console.log(
+          `Document ${firstId} has embedding with ${emb.cohereEmbedEnglishV3.image.length} dimensions`,
+        );
+        console.log(
+          `First 5 values:`,
+          emb.cohereEmbedEnglishV3.image.slice(0, 5),
+        );
+      } else {
+        console.log(`Document ${firstId} embedding:`, emb);
+      }
+    } else {
+      console.log(`Document ${firstId} not found`);
+    }
+  }
+
+  const operations = embeddings.flatMap((doc) => [
+    { update: { _index: "images", _id: doc.imageId } },
+    { doc: { embedding: doc.embedding } },
+  ]);
+
+  console.log(`Sending bulk update with ${operations.length / 2} operations`);
+  console.log(`Sample operation:`, JSON.stringify(operations[0], null, 2));
+  console.log(
+    `Sample doc update (first 100 chars):`,
+    JSON.stringify(operations[1]).substring(0, 100),
+  );
+
+  const bulkResponse = await client.bulk({ operations, refresh: true });
+
+  console.log(
+    `Bulk response - errors: ${bulkResponse.errors}, took: ${bulkResponse.took}ms`,
+  );
+
+  if (bulkResponse.errors) {
+    console.error("Bulk indexing had errors:");
+    bulkResponse.items?.forEach((item) => {
+      if (item.update?.error) {
+        console.error(
+          `Error for ${item.update._id}:`,
+          JSON.stringify(item.update.error, null, 2),
+        );
+      }
+    });
+  } else {
+    console.log(`Successfully indexed ${embeddings.length} documents`);
+    // Log successful updates
+    bulkResponse.items?.forEach((item) => {
+      if (item.update) {
+        console.log(
+          `Updated document ${item.update._id}: result=${item.update.result}, status=${item.update.status}`,
+        );
+      }
+    });
+  }
+
+  // Check AFTER update - search for the first document again
+  if (embeddings.length > 0) {
+    const firstId = embeddings[0].imageId;
+    console.log(`\n=== AFTER UPDATE ===`);
+    const afterSearch = await client.search({
+      index: "images",
+      query: { ids: { values: [firstId] } },
+      _source: ["embedding"],
+    });
+    const hit = afterSearch.hits.hits[0];
+    if (hit?._source) {
+      const emb = (hit._source as any).embedding;
+      if (emb?.cohereEmbedEnglishV3?.image) {
+        console.log(
+          `Document ${firstId} has embedding with ${emb.cohereEmbedEnglishV3.image.length} dimensions`,
+        );
+        console.log(
+          `First 5 values:`,
+          emb.cohereEmbedEnglishV3.image.slice(0, 5),
+        );
+      } else {
+        console.log(`Document ${firstId} embedding:`, emb);
+      }
+    } else {
+      console.log(`Document ${firstId} not found`);
+    }
   }
 }
 
@@ -202,7 +361,11 @@ export const handler = async (
       // Currently the image will end up on the DLQ if it's too big
       // because the embedding will fail and it will be added to the BatchItemFailures
 
-      const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
+      const embeddingResponse = await embedImage(
+        gridImageBytes,
+        recordBody.fileType,
+        bedrockClient,
+      );
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),
       );
@@ -230,7 +393,8 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    await storeEmbeddings(vectors, s3VectorsClient);
+    await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+    await storeEmbeddingsInElasticsearch(vectors, esClient);
     console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);

@@ -104,12 +104,18 @@ class ElasticSearch(
       val painlessSource =
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
         """
+          | def oldLastModified = ctx._source.lastModified;
+          |
           | if (ctx._source.identifiers != null) {
           |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
           |   params.update_doc.identifiers = ctx._source.identifiers
           | }
           |
           | ctx._source.putAll(params.update_doc);
+          |
+          | if (oldLastModified != null) {
+          |   ctx._source.lastModified = oldLastModified;
+          | }
           |
           | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
           |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
@@ -764,6 +770,8 @@ class ElasticSearch(
       """
 
   // Script that updates the "lastModified" property using the "lastModified" parameter
+  // Note: This script must be executed AFTER the main update logic that does putAll,
+  // so we need to preserve the original lastModified value before it gets overwritten
   private val updateLastModifiedScript =
     """
       | def lastModifiedDate = ctx._source.lastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.lastModified))) : null;
