@@ -26,6 +26,8 @@ export class ImageEmbedder extends GuStack {
 				app: 'image-embedder-lambda',
 				environment: {
 					STAGE: props.stage,
+					// TODO what should this be?
+					ES_URL: ``,
 				},
 			},
 		);
@@ -79,5 +81,9 @@ export class ImageEmbedder extends GuStack {
 				],
 			}),
 		);
+
+		// Note: Elasticsearch access is controlled via VPC security groups
+		// The lambda needs to be in the same VPC as the Elasticsearch cluster
+		// and the security group must allow inbound traffic from the lambda
 	}
 }
