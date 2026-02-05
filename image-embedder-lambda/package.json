@@ -29,6 +29,8 @@
     "@aws-sdk/client-s3": "^3.971.0",
     "@aws-sdk/client-s3vectors": "^3.971.0",
     "@aws-sdk/client-sqs": "^3.948.0",
-    "@elastic/elasticsearch": "^9.2.1"
+    "@elastic/elasticsearch": "^8.19.1",
+    "install": "^0.13.0",
+    "npm": "^11.9.0"
   }
 }

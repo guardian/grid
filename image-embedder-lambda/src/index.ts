@@ -223,9 +223,26 @@ async function storeEmbeddingsInElasticsearch(
   const embeddings: Embeddings[] = convertToEsStructure(vectors);
   console.log(`Converted ${embeddings.length} vectors to Embedding format`);
 
-  // Let's search!
-  const result = await client.info();
-  console.log("Elasticsearch info:", JSON.stringify(result, null, 2));
+  const operations = embeddings.flatMap((doc) => [
+    { update: { _index: "images", _id: doc.imageId } },
+    { doc: { embedding: doc.embedding } },
+  ]);
+
+  const bulkResponse = await client.bulk({ operations });
+
+  if (bulkResponse.errors) {
+    console.error("Bulk indexing had errors:");
+    bulkResponse.items?.forEach((item) => {
+      if (item.update?.error) {
+        console.error(
+          `Error for ${item.update._id}:`,
+          JSON.stringify(item.update.error, null, 2),
+        );
+      }
+    });
+  } else {
+    console.log(`Successfully indexed ${embeddings.length} documents`);
+  }
 }
 
 export const handler = async (
