@@ -31,6 +31,7 @@
     "@aws-sdk/client-s3vectors": "^3.971.0",
     "@aws-sdk/client-sqs": "^3.948.0",
     "package-lock.json": "^1.0.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "@elastic/elasticsearch": "^9.2.1"
   }
 }
