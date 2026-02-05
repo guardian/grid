@@ -101,6 +101,40 @@ The app bootstraps in `src/main.tsx`, registers routes from `src/routeTree.gen` 
 - Use `vitest` syntax (compatible with Jest)
 - Test components in isolation using rendered elements from `render()`
 
+### Asynchronous Mutations Pattern
+
+**CRITICAL**: When implementing user actions that mutate data (create, update, delete):
+
+1. **Always use `useAsyncMutation` hook** from `@/hooks/useAsyncMutation`
+2. Backend mutations are applied **asynchronously** (202 Accepted responses)
+3. Frontend must **poll** the API to verify changes before updating UI
+4. Redux store should only be updated **after polling confirms** the change
+
+**Pattern**:
+```tsx
+const mutation = useAsyncMutation({
+  mutateFn: () => apiCall(), // The mutation (create/update/delete)
+  pollFn: async (imageId) => {
+    const response = await fetchImageById(imageId);
+    return /* check if change is applied */;
+  },
+  imageId: 'image-id',
+  onSuccess: () => {/* optional callback */},
+});
+
+// Use mutation.execute(), mutation.isLoading, mutation.error
+```
+
+**Examples**:
+- Delete lease: Poll until lease no longer exists in response
+- Create lease: Poll until new lease appears with correct ID
+- Update metadata: Poll until metadata field matches new value
+
+**Do NOT**:
+- Update Redux immediately after API call
+- Assume 200/201 responses mean data is persisted
+- Skip polling verification step
+
 ## Project-Specific Notes
 
 - **No context in Router**: App initializes `context: {}` in `main.tsx` — add global state via hooks or context providers if needed

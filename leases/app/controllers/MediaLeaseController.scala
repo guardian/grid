@@ -49,9 +49,9 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   private def prepareLeaseForSave(mediaLease: MediaLease, userId: Option[String]): MediaLease =
     mediaLease.prepareForSave.copy(id = Some(UUID.randomUUID().toString), leasedBy = userId)
 
-  private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
+  private def addLease(mediaLease: MediaLease, userId: Option[String]): Future[JsValue] = {
     val lease = prepareLeaseForSave(mediaLease, userId)
-    if (lease.isSyndication) {
+    (if (lease.isSyndication) {
       for {
         leasesForMedia <- store.getForMedia(mediaLease.mediaId)
         leasesWithoutSyndication = leasesForMedia.filter(!_.isSyndication)
@@ -61,7 +61,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       store.put(lease).map { _ =>
         notifications.sendAddLease(lease)
       }
-    }
+    }).map(_ => Json.toJson(Map("leaseId" -> lease.id)))
   }
 
   private def addLeases(mediaLeases: List[MediaLease], userId: Option[String]) = {
@@ -97,7 +97,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
       case JsSuccess(mediaLease, _) =>
-        addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+        addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(v => Accepted(v))
 
       case JsError(errors) =>
         Future.successful(badRequest(errors))

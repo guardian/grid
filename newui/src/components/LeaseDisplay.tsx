@@ -1,4 +1,11 @@
 import type { Lease, ImageData } from '@/types/api';
+import { useState } from 'react';
+import { Trash2, Plus } from 'lucide-react';
+import { deleteLease, createLease } from '@/api/leases';
+import { fetchImageById } from '@/api/images';
+import { useAppDispatch } from '@/store/hooks';
+import { updateImageData } from '@/store/imagesSlice';
+import { useAsyncMutation } from '@/hooks/useAsyncMutation';
 
 /**
  * Format a date as a friendly relative string (e.g., "in 2 days", "2 days ago")
@@ -32,7 +39,30 @@ function formatFriendlyDate(dateString: string): string {
 /**
  * Lease display component with hover details
  */
-export function LeaseDisplay({ lease }: { lease: Lease }) {
+export function LeaseDisplay({ 
+  lease, 
+  onDelete
+}: { 
+  lease: Lease; 
+  onDelete?: () => void;
+}) {
+  const deleteMutation = useAsyncMutation({
+    mutateFn: () => deleteLease(lease.id),
+    pollFn: async (imageId) => {
+      const response = await fetchImageById(imageId);
+      return !response.data.leases.data.leases.some(l => l.id === lease.id);
+    },
+    imageId: lease.mediaId,
+    onSuccess: () => onDelete?.(),
+  });
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this lease?')) {
+      return;
+    }
+    await deleteMutation.execute();
+  };
+  
   const startDate = lease.startDate ? new Date(lease.startDate) : null;
   const endDate = lease.endDate ? new Date(lease.endDate) : null;
   const friendlyStart = lease.startDate
@@ -46,19 +76,29 @@ export function LeaseDisplay({ lease }: { lease: Lease }) {
 
   return (
     <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-200 group relative">
-      <div className="text-sm text-gray-900 space-y-1">
-        <div>
-          <span className="font-semibold">{lease.access}</span>
-        </div>
-        {friendlyStart && (
-          <div className="text-xs text-gray-600">Starts: {friendlyStart}</div>
-        )}
-        <div className="text-xs text-gray-600">Ends: {friendlyEnd}</div>
-        {lease.notes && (
-          <div className="text-xs text-gray-700 mt-2 italic">
-            Notes: {lease.notes}
+      <div className="flex justify-between items-start gap-2">
+        <div className="text-sm text-gray-900 space-y-1 flex-1">
+          <div>
+            <span className="font-semibold">{lease.access}</span>
           </div>
-        )}
+          {friendlyStart && (
+            <div className="text-xs text-gray-600">Starts: {friendlyStart}</div>
+          )}
+          <div className="text-xs text-gray-600">Ends: {friendlyEnd}</div>
+          {lease.notes && (
+            <div className="text-xs text-gray-700 mt-2 italic">
+              Notes: {lease.notes}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleDelete}
+          disabled={deleteMutation.isLoading}
+          className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+          title="Delete lease"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
 
       {/* Hover tooltip with detailed info */}
@@ -85,13 +125,90 @@ export function LeaseDisplay({ lease }: { lease: Lease }) {
 }
 
 export function LeasesDisplay({ imageDatas }: { imageDatas: ImageData[] }) {
+  const [isCreating, setIsCreating] = useState(false);
+  const dispatch = useAppDispatch();
+
   const nImagesWithLeases = imageDatas.filter(
     (imageData) => imageData.leases.data.leases.length > 0,
   ).length;
+
+  const handleCreateLease = async () => {
+    // For now, create a basic allow-use lease for the first image
+    // In a real implementation, this would show a form
+    if (imageDatas.length === 0) return;
+
+    const mediaId = imageDatas[0].id;
+    const now = new Date();
+    const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+    setIsCreating(true);
+    try {
+      const { leaseId } = await createLease({
+        startDate: now.toISOString(),
+        endDate: endDate.toISOString(),
+        access: 'allow-use',
+        notes: '',
+        mediaId,
+        active: true,
+      });
+
+      // Poll the API until the lease appears in the response
+      const maxAttempts = 10;
+      const pollInterval = 500; // 500ms between polls
+      let attempts = 0;
+      let added = false;
+
+      while (attempts < maxAttempts && !added) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        try {
+          const imageResponse = await fetchImageById(mediaId);
+          const leaseExists = imageResponse.data.leases.data.leases.some(
+            l => l.id === leaseId
+          );
+          
+          if (leaseExists) {
+            // Lease has been added, update the store
+            dispatch(updateImageData({
+              imageId: mediaId,
+              data: imageResponse.data,
+            }));
+            added = true;
+          }
+        } catch (pollError) {
+          console.error('Polling error:', pollError);
+        }
+        
+        attempts++;
+      }
+
+      if (!added) {
+        console.warn('Lease creation polling timed out, but changes may still be processing');
+      }
+    } catch (error) {
+      console.error('Failed to create lease:', error);
+      alert('Failed to create lease. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
-    <div className="mt-6 pt-6 border-t border-gray-200">
-      <div className="text-xs font-semibold text-gray-500 uppercase mb-3">
-        Leases
+    <div className="mb-4 pb-4 border-b border-gray-200">
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-xs font-semibold text-gray-500 uppercase">
+          Leases
+        </div>
+        {imageDatas.length === 1 && (
+          <button
+            onClick={handleCreateLease}
+            disabled={isCreating}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+            title="Create lease"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
       {imageDatas.length > 1 ? (
         <div className="text-sm text-gray-400 italic">
@@ -101,7 +218,11 @@ export function LeasesDisplay({ imageDatas }: { imageDatas: ImageData[] }) {
         </div>
       ) : (
         imageDatas[0].leases.data.leases.map((lease) => (
-          <LeaseDisplay key={lease.id} lease={lease} />
+          <LeaseDisplay 
+            key={lease.id} 
+            lease={lease}
+            onDelete={() => {}}
+          />
         ))
       )}
     </div>
