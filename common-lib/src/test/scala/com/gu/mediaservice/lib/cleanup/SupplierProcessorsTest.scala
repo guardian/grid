@@ -490,78 +490,105 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "source" -> "Shutterstock Editorial",
         "credit" -> "NurPhoto/Shutterstock",
         "specialInstructions" -> "RESTRICTED TO EDITORIAL USE",
-        "by" -> "Jose Breton",
+        "byline" -> "Jose Breton",
         "suppliersReference" -> "16507315bs",
-        "description" -> """
-          |RESTRICTED TO EDITORIAL USE
-          |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock (16507315bs)
+        "description" ->
+          """
+            |RESTRICTED TO EDITORIAL USE
+            |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock (16507315bs)
+            |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+            |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
           |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
           |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-          |""".stripMargin
-      ) -> """
-       |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
-       |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-       |""".stripMargin,
+          |""".stripMargin,
       createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
         "specialInstructions" -> "Editorial use only",
-        "by" -> "Ken McKay",
+        "byline" -> "Ken McKay",
         "suppliersReference" -> "16513246a",
-        "description" -> """
-          |Editorial use only
-          |Mandatory Credit: Photo by Ken McKay/ITV/Shutterstock (16513246a)
+        "description" ->
+          """
+            |Editorial use only
+            |Mandatory Credit: Photo by Ken McKay/ITV/Shutterstock (16513246a)
+            |Katie Piper
+            |'Loose Women' TV show, London, UK - 04 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
           |Katie Piper
           |'Loose Women' TV show, London, UK - 04 Feb 2026
-          |""".stripMargin
-      ) -> """
-       |Katie Piper
-       |'Loose Women' TV show, London, UK - 04 Feb 2026
-       |""".stripMargin,
+          |""".stripMargin,
       createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
-        "by" -> "Action Press",
+        "byline" -> "Action Press",
         "suppliersReference" -> "16512200n",
-        "description" -> """
-          |Mandatory Credit: Photo by Action Press/Shutterstock (16512200n)
+        "description" ->
+          """
+            |Mandatory Credit: Photo by Action Press/Shutterstock (16512200n)
+            |Mark Tallman
+            |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
           |Mark Tallman
           |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
-          |""".stripMargin
-      ) -> """
-       |Mark Tallman
-       |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
-       |""".stripMargin,
+          |""".stripMargin,
       createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
-        "by" -> "Action Press",
+        "byline" -> "Anthony Harvey",
         "suppliersReference" -> "16501549o",
-        "description" -> """
-         |Mandatory Credit: Photo by Anthony Harvey/Shutterstock (16501549o)
-         |Alison Oliver
-         |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
-         |""".stripMargin
-      ) -> """
-       |Alison Oliver
-       |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
-       |""".stripMargin,
+        "description" ->
+          """
+            |Mandatory Credit: Photo by Anthony Harvey/Shutterstock (16501549o)
+            |Alison Oliver
+            |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
+          |Alison Oliver
+          |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
+          |""".stripMargin,
       createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "NurPhoto/Shutterstock",
         "specialInstructions" -> "(RESTRICTED TO EDITORIAL USE",
-        "by" -> "Jose Breton",
+        "byline" -> "Jose Breton",
         "suppliersReference" -> "(16507315bs",
-        "description" -> """
-           |(RESTRICTED TO EDITORIAL USE
-           |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock ((16507315bs)
-           |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
-           |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-           |""".stripMargin
-      ) -> """
-             |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
-             |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-             |""".stripMargin
+        "description" ->
+          """
+            |(RESTRICTED TO EDITORIAL USE
+            |Mandatory Credit: Photo by Jose Breton/NurPhoto/Shutterstock ((16507315bs)
+            |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+            |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
+          |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
+          |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
+          |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Rex Features",
+        "credit" -> "REX/Shutterstock",
+        "byline" -> "ZUMA Wire",
+        "suppliersReference" -> "9011672i",
+        "description" ->
+          """
+            |Mandatory Credit: Photo by Sachelle Babbar/ZUMA Wire/REX/Shutterstock (9011672i)
+            |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
+            |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
+            |""".stripMargin
+      ) -> //
+        """
+          |Mandatory Credit: Photo by Sachelle Babbar/ZUMA Wire/REX/Shutterstock (9011672i)
+          |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
+          |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
+          |""".stripMargin,
     )
 
     it("should remove instructions and credit information from description") {
