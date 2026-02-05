@@ -4,6 +4,9 @@ exports[`The MediaService stack matches the snapshot 1`] = `
 {
   "Metadata": {
     "gu:cdk:constructs": [
+      "GuParameter",
+      "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
       "GuS3Bucket",
@@ -15,6 +18,18 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Default": "/account/services/artifact.bucket",
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
       "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "VpcIdParam": {
+      "Default": "/account/vpc/primary/id",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "VpcPrivateParam": {
+      "Default": "/account/vpc/primary/subnets/private",
+      "Type": "AWS::SSM::Parameter::Value<List<String>>",
+    },
+    "VpcPublicParam": {
+      "Default": "/account/vpc/primary/subnets/public",
+      "Type": "AWS::SSM::Parameter::Value<List<String>>",
     },
   },
   "Resources": {
@@ -73,6 +88,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "Variables": {
             "APP": "image-embedder-lambda",
             "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
+            "ES_URL": "",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
@@ -113,6 +129,19 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         ],
         "Timeout": 30,
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::GetAtt": [
+                "ImageEmbedderLambdaSG1F658F64",
+                "GroupId",
+              ],
+            },
+          ],
+          "SubnetIds": {
+            "Ref": "VpcPrivateParam",
+          },
+        },
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -140,6 +169,18 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                   "Ref": "AWS::Partition",
                 },
                 ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
               ],
             ],
           },
@@ -400,6 +441,40 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         ],
       },
       "Type": "AWS::Lambda::EventSourceMapping",
+    },
+    "ImageEmbedderLambdaSG1F658F64": {
+      "Properties": {
+        "GroupDescription": "Security group for image embedder lambda",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VpcId": {
+          "Ref": "VpcIdParam",
+        },
+      },
+      "Type": "AWS::EC2::SecurityGroup",
     },
     "imageEmbedder9F00A33D": {
       "DeletionPolicy": "Delete",
