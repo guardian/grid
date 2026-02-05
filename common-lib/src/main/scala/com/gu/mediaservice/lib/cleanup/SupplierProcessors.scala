@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
 
@@ -450,9 +450,20 @@ object RexParser extends ImageProcessor {
         .getOrElse(description)
     }
 
-    def removeCredit(description: String) = image.metadata.suppliersReference
-      .map(suppliersReference => description.replaceAll(s"Mandatory Credit:(.*)?\\(${Regex.quote(suppliersReference)}\\)\n", ""))
-      .getOrElse(description)
+    /**
+     * Matches e.g. `Anthony Harvey` in `Mandatory Credit: Photo by Anthony Harvey/Shutterstock (16501549o)`
+     *
+     * The assumption is the byline that maps to a person is the first in the list.
+     */
+    def getFirstBylineFromDescription(description: String) =
+      "Mandatory Credit: Photo by (?<byline>.*?)/".r.findFirstMatchIn(description).flatMap(_.subgroups.headOption)
+
+    def removeCredit(description: String) = (image.metadata.suppliersReference, image.metadata.byline) match {
+      // Only remove the credit if the byline is already present in the image metadata
+      case (Some(suppliersReference), Some(byline)) if getFirstBylineFromDescription(description).contains(byline) =>
+        description.replaceAll(s"Mandatory Credit:(.*)?\\(${Regex.quote(suppliersReference)}\\)\n", "")
+      case _ => description
+    }
 
     val description = image.metadata.description
       .map(removeSpecialInstructions)
