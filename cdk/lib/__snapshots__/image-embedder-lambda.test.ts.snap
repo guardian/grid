@@ -7,6 +7,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "GuParameter",
       "GuParameter",
       "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
       "GuS3Bucket",
@@ -17,6 +18,10 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "DistributionBucketName": {
       "Default": "/account/services/artifact.bucket",
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "EsURL": {
+      "Default": "/TEST/media-service/elasticsearch/url",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
     "VpcIdParam": {
@@ -88,7 +93,9 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "Variables": {
             "APP": "image-embedder-lambda",
             "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
-            "ES_URL": "",
+            "ES_URL": {
+              "Ref": "EsURL",
+            },
             "STACK": "media-service",
             "STAGE": "TEST",
           },
