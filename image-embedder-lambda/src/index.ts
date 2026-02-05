@@ -63,8 +63,6 @@ const esClient = new Client({
   // Local dev will use localstack endpoint via ES_URL
 });
 
-console.log(`Elasticsearch URL: ${ES_URL}`);
-
 interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
@@ -224,6 +222,10 @@ async function storeEmbeddingsInElasticsearch(
 
   const embeddings: Embeddings[] = convertToEsStructure(vectors);
   console.log(`Converted ${embeddings.length} vectors to Embedding format`);
+
+  // Let's search!
+  const result = await client.info();
+  console.log("Elasticsearch info:", JSON.stringify(result, null, 2));
 }
 
 export const handler = async (
