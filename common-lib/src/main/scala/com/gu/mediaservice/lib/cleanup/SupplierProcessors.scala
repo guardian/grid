@@ -450,19 +450,47 @@ object RexParser extends ImageProcessor {
         .getOrElse(description)
     }
 
-    /**
-     * Matches e.g. `Anthony Harvey` in `Mandatory Credit: Photo by Anthony Harvey/Shutterstock (16501549o)`
-     *
-     * The assumption is the byline that maps to a person is the first in the list.
-     */
-    def getFirstBylineFromDescription(description: String) =
-      "Mandatory Credit: Photo by (?<byline>.*?)/".r.findFirstMatchIn(description).flatMap(_.subgroups.headOption)
+    def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*)?\\(${Regex.quote(suppliersReference)}\\)\n"
 
-    def removeCredit(description: String) = (image.metadata.suppliersReference, image.metadata.byline) match {
-      // Only remove the credit if the byline is already present in the image metadata
-      case (Some(suppliersReference), Some(byline)) if getFirstBylineFromDescription(description).contains(byline) =>
-        description.replaceAll(s"Mandatory Credit:(.*)?\\(${Regex.quote(suppliersReference)}\\)\n", "")
-      case _ => description
+    /**
+     * Does the image metadata include every byline in the image description's credit line?
+     *
+     * An example credit line might look like:
+     *
+     * `Mandatory Credit: Photo by Action Press/Shutterstock (16512200n)`
+     *
+     * If the image metadata contained
+     *
+     *  "credit" -> "ITV/Shutterstock"
+     *  "byline" -> "Action Press"
+     *
+     * then this function would return `true`.
+     */
+    def imageMetadataAccountsForCreditLine(description: String, suppliersReference: String) = {
+      val bylinesInMetadata = image.metadata.byline.toList ++ image.metadata.credit.toList.flatMap(_.split("/").toList)
+
+      val maybeBylinesInCreditLine = matchMandatoryCreditBylines(suppliersReference)
+        .r
+        .findFirstMatchIn(description)
+        .flatMap(_.subgroups.headOption)
+
+      maybeBylinesInCreditLine.forall { bylinesInCreditLine =>
+          val bylinesWithMetadataRemoved = bylinesInMetadata
+            // Remove all the bylines from the credit string
+            .foldLeft(bylinesInCreditLine)((desc, toRemove) => desc.replaceAll(toRemove, ""))
+            // Get rid of whitespace and delimiters
+            .replaceAll("[\\s/]", "")
+
+        bylinesWithMetadataRemoved == ""
+      }
+    }
+
+    def removeCredit(description: String): String = {
+      image.metadata.suppliersReference match {
+        case Some(suppliersReference) if imageMetadataAccountsForCreditLine(description, suppliersReference) =>
+          description.replaceAll(matchMandatoryCreditBylines(suppliersReference), "")
+        case _ => description
+      }
     }
 
     val description = image.metadata.description
