@@ -57,6 +57,11 @@ export class ImageEmbedder extends GuStack {
 			},
 		);
 
+		const esUrl = new GuParameter(this, 'EsURL', {
+			fromSSM: true,
+			default: `/${props.stage}/media-service/elasticsearch/url`,
+		});
+
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
 			'ImageEmbedderHandler',
@@ -72,7 +77,7 @@ export class ImageEmbedder extends GuStack {
 				environment: {
 					STAGE: props.stage,
 					// TODO: Get ES URL from SSM parameter or config
-					ES_URL: ``,
+					ES_URL: esUrl.valueAsString,
 				},
 			},
 		);
