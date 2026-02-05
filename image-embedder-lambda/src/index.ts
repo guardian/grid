@@ -30,6 +30,7 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_PIXELS_COHERE_V4,
 } from "./constants";
+import { Client } from "@elastic/elasticsearch";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -38,6 +39,11 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
+const ES_URL = process.env.ES_URL || "http://localhost:9200";
+
+if (!ES_URL) {
+  throw new Error("ES_URL environment variable is required");
+}
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
@@ -63,6 +69,14 @@ const s3Config = {
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
+
+const esClient = new Client({
+  node: ES_URL,
+  // Note: Authentication handled via IAM or network security groups in AWS
+  // Local dev will use localstack endpoint via ES_URL
+});
+
+console.log(`Elasticsearch URL: ${ES_URL}`);
 
 interface SQSMessageBody {
   imageId: string;
@@ -366,7 +380,10 @@ function convertToEsStructure(vectors: PutInputVector[]): Embeddings[] {
   return embeddings;
 }
 
-async function storeEmbeddingsInElasticsearch(vectors: PutInputVector[]) {
+async function storeEmbeddingsInElasticsearch(
+  vectors: PutInputVector[],
+  client: Client,
+) {
   console.log(`Storing ${vectors.length} embeddings to Elasticsearch`);
 
   const embeddings: Embeddings[] = convertToEsStructure(vectors);
@@ -445,7 +462,7 @@ export const handler = async (
 
   if (vectors.length > 0) {
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-    await storeEmbeddingsInElasticsearch(vectors);
+    await storeEmbeddingsInElasticsearch(vectors, esClient);
     console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
