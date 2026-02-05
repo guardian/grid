@@ -589,6 +589,23 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
           |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
           |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
           |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Rex Features",
+        "credit" -> "REX/Shutterstock",
+        "byline" -> "ZUMA Wire",
+        "suppliersReference" -> "9011672i",
+        "description" ->
+          """
+            |Mandatory Credit: Photo by ZUMA Wire/Sachelle Babbar/REX/Shutterstock (9011672i)
+            |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
+            |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
+            |""".stripMargin
+      ) -> //
+        """
+          |Mandatory Credit: Photo by ZUMA Wire/Sachelle Babbar/REX/Shutterstock (9011672i)
+          |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
+          |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
+          |""".stripMargin,
     )
 
     it("should remove instructions and credit information from description") {
