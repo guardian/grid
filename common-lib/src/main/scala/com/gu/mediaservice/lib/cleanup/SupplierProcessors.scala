@@ -439,18 +439,17 @@ object RexParser extends ImageProcessor {
     }
   }
 
+  private def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*)?\\(${Regex.quote(suppliersReference)}\\)\n"
+
   private def format(image: Image): Image = {
     val usageRights: UsageRights =
       if (image.metadata.specialInstructions exists(_.toLowerCase.startsWith("exclusive"))) NoRights
       else rexAgency
 
-    def removeSpecialInstructions(description: String) = {
+    def removeSpecialInstructions(description: String) =
       image.metadata.specialInstructions
         .map(specialInstructions => description.replaceAll(s"${Regex.quote(specialInstructions)}\n", ""))
         .getOrElse(description)
-    }
-
-    def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*)?\\(${Regex.quote(suppliersReference)}\\)\n"
 
     /**
      * Does the image metadata include every byline in the image description's credit line?
@@ -481,17 +480,16 @@ object RexParser extends ImageProcessor {
             // Get rid of whitespace and delimiters
             .replaceAll("[\\s/]", "")
 
-        bylinesWithMetadataRemoved == ""
+        bylinesWithMetadataRemoved.isEmpty
       }
     }
 
-    def removeCredit(description: String): String = {
+    def removeCredit(description: String): String =
       image.metadata.suppliersReference match {
         case Some(suppliersReference) if imageMetadataAccountsForCreditLine(description, suppliersReference) =>
           description.replaceAll(matchMandatoryCreditBylines(suppliersReference), "")
         case _ => description
       }
-    }
 
     val description = image.metadata.description
       .map(removeSpecialInstructions)
