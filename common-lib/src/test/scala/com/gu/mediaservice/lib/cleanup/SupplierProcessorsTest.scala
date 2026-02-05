@@ -606,6 +606,40 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
           |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
           |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
           |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "Pool/Yuri Gripas - Pool/CNP/Shutterstock",
+        "byline" -> "Yuri Gripas",
+        "suppliersReference" -> "16452941i",
+        "description" ->
+          """
+            |Mandatory Credit: Photo by Yuri Gripas - Pool via CNP/Shutterstock (16452941i)
+            |White House Press Secretary Karoline Leavitt holds a press briefing in the James S Brady Press Briefing Room of the White House in Washington, DC, USA,.
+            |Karoline Leavitt press briefing - Washington, Washington, District of Columbia, USA - 26 Jan 2026
+            |""".stripMargin
+      ) ->
+        """
+          |Mandatory Credit: Photo by Yuri Gripas - Pool via CNP/Shutterstock (16452941i)
+          |White House Press Secretary Karoline Leavitt holds a press briefing in the James S Brady Press Briefing Room of the White House in Washington, DC, USA,.
+          |Karoline Leavitt press briefing - Washington, Washington, District of Columbia, USA - 26 Jan 2026
+          |""".stripMargin,
+      createImageFromMetadata(
+        "source" -> "Shutterstock Editorial",
+        "credit" -> "Nexpher/ZUMA Press Wire/Shutterstock",
+        "byline" -> "Kobe Li",
+        "suppliersReference" -> "16520092w",
+        "description" ->
+          """
+            |Mandatory Credit: Photo by Kobe Li/Nexpher via ZUMA Press Wire/Shutterstock (16520092w)
+            |English snooker player, Mark Selby during a game at the 2026 World Snooker Grand Prix on February 5, 2026 in Hong Kong.
+            |2026 World Snooker Grand Prix - Day 3, Hong Kong, China - 05 Feb 2026
+            |""".stripMargin
+      ) ->
+        """
+          |Mandatory Credit: Photo by Kobe Li/Nexpher via ZUMA Press Wire/Shutterstock (16520092w)
+          |English snooker player, Mark Selby during a game at the 2026 World Snooker Grand Prix on February 5, 2026 in Hong Kong.
+          |2026 World Snooker Grand Prix - Day 3, Hong Kong, China - 05 Feb 2026
+          |""".stripMargin,
     )
 
     it("should remove instructions and credit information from description") {
