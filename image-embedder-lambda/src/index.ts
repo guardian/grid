@@ -71,6 +71,19 @@ interface SQSMessageBody {
   fileType: string;
 }
 
+export interface CohereV3Embedding {
+  image: number[];
+}
+
+export interface Embedding {
+  cohereEmbedEnglishV3: CohereV3Embedding;
+}
+
+export interface Embeddings {
+  imageId: string;
+  embedding: Embedding;
+}
+
 export async function getImageFromS3(
   s3Bucket: string,
   s3Key: string,
@@ -294,7 +307,7 @@ export async function embedImage(
   }
 }
 
-async function storeEmbeddings(
+async function storeEmbeddingsInS3VectorStore(
   vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
@@ -324,6 +337,40 @@ async function storeEmbeddings(
     console.error(`Error storing embeddings:`, error);
     throw error;
   }
+}
+
+function convertToEsStructure(vectors: PutInputVector[]): Embeddings[] {
+  const embeddings = vectors.map((vector) => {
+    // Check for any vectors with undefined data - this should cause the batch to fail and retry/DLQ
+    if (
+      vector.data === undefined ||
+      vector.data.float32 === undefined ||
+      vector.key === undefined
+    ) {
+      throw new Error(
+        `Vector found with undefined data. This batch will be retried or sent to DLQ.`,
+      );
+    }
+
+    const embedding: Embedding = {
+      cohereEmbedEnglishV3: {
+        image: vector.data.float32!,
+      },
+    };
+
+    return {
+      imageId: vector.key,
+      embedding: embedding,
+    };
+  });
+  return embeddings;
+}
+
+async function storeEmbeddingsInElasticsearch(vectors: PutInputVector[]) {
+  console.log(`Storing ${vectors.length} embeddings to Elasticsearch`);
+
+  const embeddings: Embeddings[] = convertToEsStructure(vectors);
+  console.log(`Converted ${embeddings.length} vectors to Embedding format`);
 }
 
 export const handler = async (
@@ -397,7 +444,9 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    await storeEmbeddings(vectors, s3VectorsClient);
+    await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+    await storeEmbeddingsInElasticsearch(vectors);
+    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
