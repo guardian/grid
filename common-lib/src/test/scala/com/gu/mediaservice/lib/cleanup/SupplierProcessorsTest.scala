@@ -485,8 +485,10 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.usageRights should be (Agency("Rex Features"))
     }
 
+    case class ImageDescriptionSpec(specDescription: String, image: Image, expectedDescription: String)
+
     val rexFixtures = List(
-      createImageFromMetadata(
+      ImageDescriptionSpec("should remove instructions and credit when they match the metadata, 1", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "NurPhoto/Shutterstock",
         "specialInstructions" -> "RESTRICTED TO EDITORIAL USE",
@@ -499,12 +501,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
             |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
           |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should remove instructions and credit when they match the metadata, 2", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
         "specialInstructions" -> "Editorial use only",
@@ -517,12 +519,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |Katie Piper
             |'Loose Women' TV show, London, UK - 04 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Katie Piper
           |'Loose Women' TV show, London, UK - 04 Feb 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should remove credit when it matches the metadata, 1", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
         "byline" -> "Action Press",
@@ -533,12 +535,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |Mark Tallman
             |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Mark Tallman
           |Apple TV+ Press Day, Santa Monica, USA - 03 Feb 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should remove credit when it matches the metadata, 2", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "ITV/Shutterstock",
         "byline" -> "Anthony Harvey",
@@ -549,12 +551,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |Alison Oliver
             |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Alison Oliver
           |'Wuthering Heights' film photocall, London, UK - 04 Feb 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should not blow up when regex reserved chars are in relevant metadata", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "NurPhoto/Shutterstock",
         "specialInstructions" -> "(RESTRICTED TO EDITORIAL USE",
@@ -567,12 +569,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
             |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Marcus Rashford left winger of Barcelona and England during the Copa del Rey quarter-final match between Albacete Balompie and FC Barcelona at Estadio Carlos Belmonte on February 3, 2026 in Albacete, Spain.
           |Albacete Balompie v FC Barcelona - Copa Del Rey, Spain - 03 Feb 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should not remove credit when the credit includes a byline that is not in the metadata - 1", createImageFromMetadata(
         "source" -> "Rex Features",
         "credit" -> "REX/Shutterstock",
         "byline" -> "ZUMA Wire",
@@ -583,13 +585,13 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
             |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
             |""".stripMargin
-      ) -> //
+      ),
         """
           |Mandatory Credit: Photo by Sachelle Babbar/ZUMA Wire/REX/Shutterstock (9011672i)
           |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
           |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should not remove credit when the credit includes a byline that is not in the metadata - 2", createImageFromMetadata(
         "source" -> "Rex Features",
         "credit" -> "REX/Shutterstock",
         "byline" -> "ZUMA Wire",
@@ -600,13 +602,13 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
             |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
             |""".stripMargin
-      ) -> //
+      ),
         """
           |Mandatory Credit: Photo by ZUMA Wire/Sachelle Babbar/REX/Shutterstock (9011672i)
           |New Yorkers demonstrate at 780 3rd avenue in Manhattan, the location of the Bank of Korea and the offices of Senator Chuck Schumer and Kirstin Gillibrand, against the sabre-rattling by both the Trump Administration and the government of the DPRK, also known as North Korea.
           |Anti-nuclear war demonstration, New York, USA - 21 Aug 2017
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should not remove credit when the credit includes a byline that is not in the metadata - 3", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "Pool/Yuri Gripas - Pool/CNP/Shutterstock",
         "byline" -> "Yuri Gripas",
@@ -617,13 +619,13 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |White House Press Secretary Karoline Leavitt holds a press briefing in the James S Brady Press Briefing Room of the White House in Washington, DC, USA,.
             |Karoline Leavitt press briefing - Washington, Washington, District of Columbia, USA - 26 Jan 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Mandatory Credit: Photo by Yuri Gripas - Pool via CNP/Shutterstock (16452941i)
           |White House Press Secretary Karoline Leavitt holds a press briefing in the James S Brady Press Briefing Room of the White House in Washington, DC, USA,.
           |Karoline Leavitt press briefing - Washington, Washington, District of Columbia, USA - 26 Jan 2026
-          |""".stripMargin,
-      createImageFromMetadata(
+          |""".stripMargin),
+      ImageDescriptionSpec("should not remove credit when the credit includes a byline that is not in the metadata - 4", createImageFromMetadata(
         "source" -> "Shutterstock Editorial",
         "credit" -> "Nexpher/ZUMA Press Wire/Shutterstock",
         "byline" -> "Kobe Li",
@@ -634,22 +636,22 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
             |English snooker player, Mark Selby during a game at the 2026 World Snooker Grand Prix on February 5, 2026 in Hong Kong.
             |2026 World Snooker Grand Prix - Day 3, Hong Kong, China - 05 Feb 2026
             |""".stripMargin
-      ) ->
+      ),
         """
           |Mandatory Credit: Photo by Kobe Li/Nexpher via ZUMA Press Wire/Shutterstock (16520092w)
           |English snooker player, Mark Selby during a game at the 2026 World Snooker Grand Prix on February 5, 2026 in Hong Kong.
           |2026 World Snooker Grand Prix - Day 3, Hong Kong, China - 05 Feb 2026
-          |""".stripMargin,
+          |""".stripMargin),
     )
 
-    it("should remove instructions and credit information from description") {
-      rexFixtures.foreach {
-        case (image, expectedDescription) =>
+    rexFixtures.foreach {
+      case ImageDescriptionSpec(spec, image, expectedDescription) =>
+        it(spec) {
           val processedImage = applyProcessors(image)
 
           processedImage.usageRights should be(Agency("Rex Features"))
           processedImage.metadata.description should be(Some(expectedDescription))
-      }
+        }
     }
   }
 
