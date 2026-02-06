@@ -237,6 +237,15 @@ async function cacheDownscaledImage(
   }
 }
 
+function requestBodyFromImage(imageBytes: Uint8Array, imageMimeType: string) {
+  const base64Image = Buffer.from(imageBytes).toString("base64");
+  return {
+    input_type: "image",
+    embedding_types: ["float"],
+    images: [`data:${imageMimeType};base64,${base64Image}`],
+  };
+}
+
 export async function embedImage(
   imageId: string,
   imageBytes: Uint8Array,
@@ -261,23 +270,39 @@ export async function embedImage(
     }
   }
 
-  const base64Image = Buffer.from(processedBytes).toString("base64");
   const model = "cohere.embed-english-v3";
-  const body = {
-    input_type: "image",
-    embedding_types: ["float"],
-    images: [`data:${imageMimeType};base64,${base64Image}`],
-  };
-
+  
   const input: InvokeModelCommandInput = {
     modelId: model,
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBodyFromImage(processedBytes, imageMimeType)),
     accept: "*/*",
     contentType: "application/json",
   };
   console.log(`Invoking Bedrock model: ${model}`);
 
   try {
+    // Testing code, remove!
+    // Redundantly embed the original image to see how much
+    // time downsizing saves us in the actual embedding process itself
+    let embedOriginalMs: number | null = null; 
+    if (processedBytes !== imageBytes && imageBytes.length < MAX_IMAGE_SIZE_BYTES) {
+      const embedStart = performance.now();
+      await bedrockClient.send(
+        new InvokeModelCommand({
+          modelId: model,
+          body: JSON.stringify(
+            requestBodyFromImage(imageBytes, imageMimeType),
+          ),
+          accept: "*/*",
+          contentType: "application/json",
+        }),
+      );
+      embedOriginalMs = performance.now() - embedStart;
+
+      console.log(
+        `Embedding original image took ${embedOriginalMs.toFixed(0)}ms`,
+      );
+    }
     const embedStart = performance.now();
     const command = new InvokeModelCommand(input);
     const response = await bedrockClient.send(command);
@@ -286,7 +311,9 @@ export async function embedImage(
     console.log(
       `Embedding took ${embedMs.toFixed(0)}ms, response ${response.body?.length.toLocaleString()} bytes, metadata: ${JSON.stringify(response.$metadata)}`,
     );
-
+    if (embedOriginalMs !== null) {
+      console.log(`We saved ${embedOriginalMs - embedMs}ms in embedding time by downsizing`);
+    }
     return response;
   } catch (error) {
     console.error(`Bedrock invocation error:`, error);
