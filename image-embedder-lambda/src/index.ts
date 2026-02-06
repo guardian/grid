@@ -112,6 +112,7 @@ export async function downscaleImageIfNeeded(
   maxImageSizeBytes: number,
   maxPixels: number,
 ): Promise<Uint8Array> {
+  const start = performance.now();
   let sharpImage = sharp(imageBytes);
   const { width, height } = await sharpImage.metadata();
   const pixels = width * height;
@@ -122,6 +123,7 @@ export async function downscaleImageIfNeeded(
     `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
   );
   if (!needsDownscale) {
+    console.log(`Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`);
     return imageBytes;
   }
 
@@ -160,7 +162,7 @@ export async function downscaleImageIfNeeded(
     );
   }
   console.log(
-    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px) `,
+    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px) in ${(performance.now() - start).toFixed(0)}ms`,
   );
 
   return result;
@@ -276,11 +278,13 @@ export async function embedImage(
   console.log(`Invoking Bedrock model: ${model}`);
 
   try {
+    const embedStart = performance.now();
     const command = new InvokeModelCommand(input);
     const response = await bedrockClient.send(command);
+    const embedMs = performance.now() - embedStart;
 
     console.log(
-      `Got response body of length ${response.body?.length.toLocaleString()} bytes from invoking Bedrock model ${model}, metadata: ${JSON.stringify(response.$metadata)}, `,
+      `Embedding took ${embedMs.toFixed(0)}ms, response ${response.body?.length.toLocaleString()} bytes, metadata: ${JSON.stringify(response.$metadata)}`,
     );
 
     return response;
