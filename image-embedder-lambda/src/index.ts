@@ -39,9 +39,9 @@ const isLocal = process.env.IS_LOCAL === "true";
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
 
-// For now, we just leave this unset when running locally,
-// disabling the caching behaviour.
-// Integration tests do not depend on it either.
+// Set in TEST/PROD by CDK to the appropriate AWS bucket,
+// or locally by `localRun.ts` to the localstack bucket.
+// If not set, caching of downscaled images will be disabled.
 const DOWNSCALED_IMAGE_BUCKET = process.env.DOWNSCALED_IMAGE_BUCKET;
 
 if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
