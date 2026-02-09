@@ -162,7 +162,7 @@ export async function downscaleImageIfNeeded(
     );
   }
   console.log(
-    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px) in ${(performance.now() - start).toFixed(0)}ms`,
+    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px), took ${(performance.now() - start).toFixed(0)}ms`,
   );
 
   return result;
