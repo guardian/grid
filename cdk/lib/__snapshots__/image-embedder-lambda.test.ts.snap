@@ -10,6 +10,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
+      "GuS3Bucket",
     ],
     "gu:cdk:version": "TEST",
   },
@@ -37,6 +38,42 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
   },
   "Resources": {
+    "DownscaledImageBucketImageembedderE1B3D588": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketName": "media-service-test-image-embedder-downscaled-images",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
+    },
     "ImageEmbedderHandler2C9410B9": {
       "DependsOn": [
         "ImageEmbedderHandlerServiceRoleDefaultPolicy613DB8F0",
@@ -58,6 +95,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "ES_URL": {
               "Ref": "EsURL",
             },
+            "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
@@ -282,6 +320,43 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                   "Arn",
                 ],
               },
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "DownscaledImageBucketImageembedderE1B3D588",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "DownscaledImageBucketImageembedderE1B3D588",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
             },
             {
               "Action": "s3vectors:PutVectors",

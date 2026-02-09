@@ -2,6 +2,7 @@ import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
 import { GuStack } from '@guardian/cdk/lib/constructs/core';
 import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
+import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
 import {
 	Duration,
@@ -21,6 +22,9 @@ export class ImageEmbedder extends GuStack {
 		super(scope, id, props);
 
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
+
+		const appName = 'image-embedder';
+		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
 
 		const vpcid = new GuParameter(this, 'VpcIdParam', {
 			fromSSM: true,
@@ -66,16 +70,17 @@ export class ImageEmbedder extends GuStack {
 			this,
 			'ImageEmbedderHandler',
 			{
-				fileName: 'image-embedder.zip',
-				functionName: `image-embedder-${props.stage}`,
+				fileName: `${appName}.zip`,
+				functionName: `${appName}-${props.stage}`,
 				runtime: LAMBDA_NODE_VERSION,
 				architecture: Architecture.ARM_64,
 				handler: 'index.handler',
-				app: 'image-embedder-lambda',
+				app: `${appName}-lambda`,
 				vpc,
 				securityGroups: [lambdaSecurityGroup],
 				environment: {
 					STAGE: props.stage,
+					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 					// TODO: Get ES URL from SSM parameter or config
 					ES_URL: esUrl.valueAsString,
 				},
@@ -83,12 +88,12 @@ export class ImageEmbedder extends GuStack {
 		);
 
 		const imageEmbedderDLQ = new Queue(this, 'imageEmbedderDLQ', {
-			queueName: `image-embedder-DLQ-${this.stage}`,
+			queueName: `${appName}-DLQ-${this.stage}`,
 			retentionPeriod: Duration.days(14),
 		});
 
 		const imageEmbedderQueue = new Queue(this, 'imageEmbedder', {
-			queueName: `image-embedder-${this.stage}`,
+			queueName: `${appName}-${this.stage}`,
 			visibilityTimeout: Duration.seconds(60),
 			deadLetterQueue: {
 				queue: imageEmbedderDLQ,
@@ -100,6 +105,15 @@ export class ImageEmbedder extends GuStack {
 				reportBatchItemFailures: true,
 			}),
 		);
+		const downscaledImageBucket = new GuS3Bucket(
+			this,
+			'DownscaledImageBucket',
+			{
+				app: appName,
+				bucketName: downscaledImageBucketName,
+			},
+		);
+		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
 		// Allow writing vectors to S3 vector index
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
