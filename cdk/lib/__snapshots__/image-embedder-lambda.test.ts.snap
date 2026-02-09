@@ -92,10 +92,10 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-lambda",
+            "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
             "ES_URL": {
               "Ref": "EsURL",
             },
-            "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
