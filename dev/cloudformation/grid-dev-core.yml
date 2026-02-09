@@ -195,6 +195,9 @@ Resources:
       Subscription:
         - Endpoint: !GetAtt "IndexedImageMetadataQueue.Arn"
           Protocol: sqs
+  DownscaledImageBucket:
+    Type: AWS::S3::Bucket
+
   ImageEmbedderDLQ:
     Type: AWS::SQS::Queue
     Properties:
@@ -354,3 +357,5 @@ Outputs:
     Value: !Ref "ImageEmbedderQueue"
   ImageEmbedderQueueArn:
     Value: !GetAtt ImageEmbedderQueue.Arn
+  DownscaledImageBucket:
+    Value: !Ref "DownscaledImageBucket"
