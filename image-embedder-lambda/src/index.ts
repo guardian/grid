@@ -24,7 +24,6 @@ import {
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
 import { Client } from "@elastic/elasticsearch";
-import { after } from "node:test";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -224,51 +223,12 @@ async function storeEmbeddingsInElasticsearch(
   const embeddings: Embeddings[] = convertToEsStructure(vectors);
   console.log(`Converted ${embeddings.length} vectors to Embedding format`);
 
-  // Check BEFORE update - search for the first document
-  if (embeddings.length > 0) {
-    const firstId = embeddings[0].imageId;
-    console.log(`\n=== BEFORE UPDATE ===`);
-    const beforeSearch = await client.search({
-      index: "images",
-      query: { ids: { values: [firstId] } },
-      _source: ["embedding"],
-    });
-    const hit = beforeSearch.hits.hits[0];
-    if (hit?._source) {
-      const emb = (hit._source as any).embedding;
-      if (emb?.cohereEmbedEnglishV3?.image) {
-        console.log(
-          `Document ${firstId} has embedding with ${emb.cohereEmbedEnglishV3.image.length} dimensions`,
-        );
-        console.log(
-          `First 5 values:`,
-          emb.cohereEmbedEnglishV3.image.slice(0, 5),
-        );
-      } else {
-        console.log(`Document ${firstId} embedding:`, emb);
-      }
-    } else {
-      console.log(`Document ${firstId} not found`);
-    }
-  }
-
   const operations = embeddings.flatMap((doc) => [
     { update: { _index: "images", _id: doc.imageId } },
     { doc: { embedding: doc.embedding } },
   ]);
 
-  console.log(`Sending bulk update with ${operations.length / 2} operations`);
-  console.log(`Sample operation:`, JSON.stringify(operations[0], null, 2));
-  console.log(
-    `Sample doc update (first 100 chars):`,
-    JSON.stringify(operations[1]).substring(0, 100),
-  );
-
-  const bulkResponse = await client.bulk({ operations, refresh: true });
-
-  console.log(
-    `Bulk response - errors: ${bulkResponse.errors}, took: ${bulkResponse.took}ms`,
-  );
+  const bulkResponse = await client.bulk({ operations });
 
   if (bulkResponse.errors) {
     console.error("Bulk indexing had errors:");
@@ -290,34 +250,6 @@ async function storeEmbeddingsInElasticsearch(
         );
       }
     });
-  }
-
-  // Check AFTER update - search for the first document again
-  if (embeddings.length > 0) {
-    const firstId = embeddings[0].imageId;
-    console.log(`\n=== AFTER UPDATE ===`);
-    const afterSearch = await client.search({
-      index: "images",
-      query: { ids: { values: [firstId] } },
-      _source: ["embedding"],
-    });
-    const hit = afterSearch.hits.hits[0];
-    if (hit?._source) {
-      const emb = (hit._source as any).embedding;
-      if (emb?.cohereEmbedEnglishV3?.image) {
-        console.log(
-          `Document ${firstId} has embedding with ${emb.cohereEmbedEnglishV3.image.length} dimensions`,
-        );
-        console.log(
-          `First 5 values:`,
-          emb.cohereEmbedEnglishV3.image.slice(0, 5),
-        );
-      } else {
-        console.log(`Document ${firstId} embedding:`, emb);
-      }
-    } else {
-      console.log(`Document ${firstId} not found`);
-    }
   }
 }
 
