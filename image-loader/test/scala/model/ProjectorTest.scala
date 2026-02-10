@@ -191,8 +191,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
         leases = LeasesByMedia.empty,
         collections = Nil,
         syndicationRights = None,
-        userMetadataLastModified = None,
-        embedding = None,
+        userMetadataLastModified = None
       )
 
     val extractedS3Meta = S3FileExtractedMetadata(

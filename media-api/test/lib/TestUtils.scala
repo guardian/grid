@@ -22,7 +22,6 @@ object TestUtils {
     originalMetadata = null,
     usageRights = null,
     originalUsageRights = null,
-    embedding = None,
   )
 
 }

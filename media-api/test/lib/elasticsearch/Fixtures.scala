@@ -81,7 +81,6 @@ trait Fixtures {
       syndicationRights = syndicationRights,
       leases = leases.getOrElse(LeasesByMedia.build(Nil)),
       usages = usages,
-      embedding = None,
     )
   }
 

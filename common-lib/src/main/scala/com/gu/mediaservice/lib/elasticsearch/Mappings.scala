@@ -74,17 +74,10 @@ object Mappings {
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explicit copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections"),
-        esInfoMapping("esInfo"),
-        embeddingMapping("embedding")
+        esInfoMapping("esInfo")
       )
     )
   }
-
-  def embeddingMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
-    nonDynamicObjectField("cohereEmbedEnglishV3").copy(properties = Seq(
-      new DenseVectorField(name="image", dims=Some(1024)),
-    )
-  )))
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),

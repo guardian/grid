@@ -47,7 +47,6 @@ class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
     originalMetadata = ImageMetadata(),
     usageRights = NoRights,
     originalUsageRights = NoRights,
-    embedding = None,
   )
 
   private  val validImageMetadata = ImageMetadata(

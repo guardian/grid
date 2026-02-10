@@ -30,7 +30,6 @@ trait MetadataHelper {
       originalUsageRights = usageRights,
       usages = List(),
       exports = List(),
-      embedding = None
     )
   }
 

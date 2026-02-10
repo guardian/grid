@@ -36,7 +36,6 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
       thumbnail = None,
       metadata = ImageMetadata(),
       usageRights = Handout(None),
-      embedding = None,
     )
     val json = Json.toJson(image)
     inside(json) {
@@ -67,7 +66,6 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
           "collections", 
           "syndicationRights", 
           "userMetadataLastModified", 
-          "embedding", 
           "extraField"
         )
     }
