@@ -3,9 +3,7 @@ package controllers
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
-import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -33,6 +31,7 @@ import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
 import play.api.mvc._
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
@@ -154,8 +153,8 @@ class ImageLoaderController(auth: Authentication,
           "isUiUpload" -> isUiUpload,
         ) ++ s3IngestObject.maybeMediaIdFromUiUpload.map("mediaId" -> _).toMap
         val metricDimensions = List(
-          new Dimension().withName("UploadedBy").withValue(s3IngestObject.uploadedBy),
-          new Dimension().withName("IsUiUpload").withValue(isUiUpload.toString),
+          Dimension.builder().name("UploadedBy").value(s3IngestObject.uploadedBy).build(),
+          Dimension.builder().name("IsUiUpload").value(isUiUpload.toString).build(),
         )
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
