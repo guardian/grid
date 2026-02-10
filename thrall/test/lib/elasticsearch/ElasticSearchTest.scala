@@ -427,25 +427,39 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "last modified does not get updated in wrong order" in {
         val id = UUID.randomUUID().toString
         val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        println(s"[DEBUG] Initial image:\n${Json.prettyPrint(Json.toJson(image))}")
 
         val earlierDate = now.withSecondOfMinute(0)
         val laterDate = earlierDate.withSecondOfMinute(30)  // Clearly thirty seconds later.
+        println(s"[DEBUG] earlierDate: $earlierDate, laterDate: $laterDate")
 
         // Write second date first
         Await.result(ES.migrationAwareIndexImage(id, image, laterDate), fiveSeconds)
 
-        val updatedImage = eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+        val imageAfterFirstIndex = eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
           val image = reloadedImage(id)
           image.get
         })
+        println(s"[DEBUG] Image after first index (with laterDate):\n${Json.prettyPrint(Json.toJson(imageAfterFirstIndex))}")
+
+        val updatedImage = imageAfterFirstIndex
           .copy(lastModified = Some(earlierDate))
           .copy(usageRights = StaffPhotographer("Dr. Pamela Lillian Isley", "Poison Ivy Inc."))
+        println(s"[DEBUG] Updated image (to be indexed with earlierDate):\n${Json.prettyPrint(Json.toJson(updatedImage))}")
 
         // Write first date second
         Await.result(ES.migrationAwareIndexImage(id, updatedImage, earlierDate), fiveSeconds)
 
+        val imageAfterSecondIndex = reloadedImage(id).get
+        println(s"[DEBUG] Image after second index (with earlierDate):\n${Json.prettyPrint(Json.toJson(imageAfterSecondIndex))}")
+
+        var lastImage: Option[Image] = None
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
-          val image =  reloadedImage(id)
+          val image = reloadedImage(id)
+          if (lastImage != image) {
+            println(s"[DEBUG] Final image in eventually block:\n${Json.prettyPrint(Json.toJson(image.get))}")
+            lastImage = image
+          }
           image.get.lastModified.get shouldBe laterDate
         })
       }
