@@ -7,14 +7,17 @@ import {
 } from "aws-lambda";
 import {
   BedrockRuntimeClient,
+  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
 } from "@aws-sdk/client-bedrock-runtime";
+import sharp from "sharp";
 import {
   GetObjectCommand,
   GetObjectCommandOutput,
   GetObjectRequest,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import {
@@ -23,6 +26,10 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_PIXELS_COHERE_V4,
+} from "./constants";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -31,6 +38,15 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
+
+// Set in TEST/PROD by CDK to the appropriate AWS bucket,
+// or locally by `localRun.ts` to the localstack bucket.
+// If not set, caching of downscaled images will be disabled.
+const DOWNSCALED_IMAGE_BUCKET = process.env.DOWNSCALED_IMAGE_BUCKET;
+
+if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
+  console.error("DOWNSCALED_IMAGE_BUCKET not set, caching is disabled");
+}
 
 const s3Config = {
   region: "eu-west-1",
@@ -43,9 +59,6 @@ const s3Config = {
     },
   }),
 };
-
-console.log(`Stage: ${STAGE}`);
-console.log(`IS_LOCAL: ${isLocal}`);
 
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
@@ -85,7 +98,7 @@ export async function getImageFromS3(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Bytes array length: ${bytes.length}`);
+    console.log(`Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`);
     return bytes;
   } catch (error) {
     console.error(`Error fetching from S3:`, error);
@@ -93,12 +106,162 @@ export async function getImageFromS3(
   }
 }
 
+export async function downscaleImageIfNeeded(
+  imageBytes: Uint8Array,
+  mimeType: string,
+  maxImageSizeBytes: number,
+  maxPixels: number,
+): Promise<Uint8Array> {
+  const start = performance.now();
+  let sharpImage = sharp(imageBytes);
+  const { width, height } = await sharpImage.metadata();
+  const pixels = width * height;
+  const bytesExceedsLimit = imageBytes.length > maxImageSizeBytes;
+  const pixelsExceedsLimit = pixels > maxPixels;
+  const needsDownscale = bytesExceedsLimit || pixelsExceedsLimit;
+  console.log(
+    `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
+  );
+  if (!needsDownscale) {
+    console.log(`Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`);
+    return imageBytes;
+  }
+
+  const pixelRatio = maxPixels / pixels;
+
+  // Why square root? Because the ratio comes from the multiplied width * height,
+  // but we want to use it to scale just the width.
+  const scaleFactor = Math.sqrt(pixelRatio);
+  // Floor because we want to make sure we're under the limit afterwards
+  const newWidth = Math.floor(width * scaleFactor);
+
+  sharpImage = sharpImage.resize(newWidth);
+
+  if (mimeType === "image/jpeg") {
+    // JPEG compression is lossy, so let's be conservative here.
+    // Also, 95 matches what we do for master crops:
+    // https://github.com/guardian/grid/blob/40be8f93f8a6da61c8188332c8e98796dc351ecd/cropper/app/lib/Crops.scala#L24
+    sharpImage = sharpImage.jpeg({ quality: 95 });
+  } else if (mimeType === "image/png") {
+    // PNG compression is lossless, so let's crank it to the max
+    sharpImage = sharpImage.png({ compressionLevel: 9 });
+  }
+
+  const buffer = await sharpImage.toBuffer();
+  const result = new Uint8Array(buffer);
+
+  // Q. Why not calculate height ourselves?
+  // A. We want the same rounding that sharp uses when it auto-resizes
+  // Q. Why not read the new height from the existing `sharpImage` object?
+  // A. Surprisingly, metadata doesn't get updated on calling resize. We need to output to buffer first.
+  const { height: newHeight } = await sharp(buffer).metadata();
+  const newPixels = newWidth * newHeight;
+  if (result.byteLength > maxImageSizeBytes) {
+    throw new Error(
+      `Image has ${result.byteLength.toLocaleString()} bytes (over limit of ${maxImageSizeBytes.toLocaleString()} bytes) after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px)`,
+    );
+  }
+  console.log(
+    `Image has ${result.byteLength.toLocaleString()} bytes after downscaling from ${width}x${height} (${pixels.toLocaleString()} px) to ${newWidth}x${newHeight} (${newPixels.toLocaleString()} px), took ${(performance.now() - start).toFixed(0)}ms`,
+  );
+
+  return result;
+}
+
+// Matches the partitioned key structure used by Grid's image bucket for S3 performance at scale
+// e.g. imageId "51bfb4107d1640aa74c45aaa51985e4e03852440" → "5/1/b/f/b/4/51bfb4107d1640aa74c45aaa51985e4e03852440"
+function toPartitionedKey(imageId: string): string {
+  const prefix = imageId.slice(0, 6).split("").join("/");
+  return `${prefix}/${imageId}`;
+}
+
+async function getCachedDownscaledImage(
+  imageId: string,
+  client: S3Client,
+): Promise<Uint8Array | undefined> {
+  if (!DOWNSCALED_IMAGE_BUCKET) {
+    console.log(`No downscaled image bucket configured, skipping cache lookup`);
+    return undefined;
+  }
+
+  const key = toPartitionedKey(imageId);
+  try {
+    const command = new GetObjectCommand({
+      Bucket: DOWNSCALED_IMAGE_BUCKET,
+      Key: key,
+    });
+    const response = await client.send(command);
+
+    if (!response.Body) {
+      return undefined;
+    }
+
+    const bytes = await response.Body.transformToByteArray();
+    console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
+    return bytes;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "NoSuchKey") {
+      console.log(`Cache miss: no downscaled image for ${imageId}`);
+      return undefined;
+    }
+    // Log but don't throw - cache failures shouldn't break the pipeline
+    console.warn(`Error checking cache for ${imageId}:`, error);
+    return undefined;
+  }
+}
+
+async function cacheDownscaledImage(
+  imageId: string,
+  imageBytes: Uint8Array,
+  mimeType: string,
+  client: S3Client,
+): Promise<void> {
+  if (!DOWNSCALED_IMAGE_BUCKET) {
+    console.log("No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image");
+    return;
+  }
+
+  const key = toPartitionedKey(imageId);
+  try {
+    const command = new PutObjectCommand({
+      Bucket: DOWNSCALED_IMAGE_BUCKET,
+      Key: key,
+      Body: imageBytes,
+      ContentType: mimeType,
+    });
+    await client.send(command);
+    console.log(`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`);
+  } catch (error) {
+    // Log but don't throw - cache failures shouldn't break the pipeline
+    console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
+  }
+}
+
 export async function embedImage(
+  imageId: string,
   imageBytes: Uint8Array,
   imageMimeType: string,
-  client: BedrockRuntimeClient,
+  bedrockClient: BedrockRuntimeClient,
+  s3Client: S3Client,
 ): Promise<InvokeModelCommandOutput> {
-  const base64Image = Buffer.from(imageBytes).toString("base64");
+  // Try to get cached downscaled image first
+  let processedBytes = await getCachedDownscaledImage(imageId, s3Client);
+
+  if (!processedBytes) {
+    processedBytes = await downscaleImageIfNeeded(
+      imageBytes,
+      imageMimeType,
+      MAX_IMAGE_SIZE_BYTES,
+      MAX_PIXELS_COHERE_V4,
+    );
+
+    // Cache if we actually downscaled (bytes changed)
+    if (processedBytes !== imageBytes) {
+      await cacheDownscaledImage(imageId, processedBytes, imageMimeType, s3Client);
+    }
+  }
+
+  const base64Image = Buffer.from(processedBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
@@ -115,13 +278,14 @@ export async function embedImage(
   console.log(`Invoking Bedrock model: ${model}`);
 
   try {
+    const embedStart = performance.now();
     const command = new InvokeModelCommand(input);
-    const response = await client.send(command);
+    const response = await bedrockClient.send(command);
+    const embedMs = performance.now() - embedStart;
 
     console.log(
-      `Bedrock response metadata: ${JSON.stringify(response.$metadata)}`,
+      `Embedding took ${embedMs.toFixed(0)}ms, response ${response.body?.length.toLocaleString()} bytes, metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(`Response body length: ${response.body?.length}`);
 
     return response;
   } catch (error) {
@@ -173,8 +337,9 @@ export const handler = async (
   const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
 
-  for (const record of records) {
+  for (const [i, record] of records.entries()) {
     try {
+      console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
       // If it's a Tiff then we should log an error
@@ -198,11 +363,13 @@ export const handler = async (
         );
       }
 
-      // TODO: downscale image if necessary
-      // Currently the image will end up on the DLQ if it's too big
-      // because the embedding will fail and it will be added to the BatchItemFailures
-
-      const embeddingResponse = await embedImage(gridImageBytes, recordBody.fileType, bedrockClient);
+      const embeddingResponse = await embedImage(
+        recordBody.imageId,
+        gridImageBytes,
+        recordBody.fileType,
+        bedrockClient,
+        s3Client,
+      );
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),
       );
@@ -231,7 +398,6 @@ export const handler = async (
 
   if (vectors.length > 0) {
     await storeEmbeddings(vectors, s3VectorsClient);
-    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }

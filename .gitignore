@@ -30,3 +30,6 @@ coverage/
 .bsp
 
 image-embedder.zip
+
+# Integration test data (cached S3 downloads and outputs)
+image-embedder-lambda/__tests__/integration/test-data/
