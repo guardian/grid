@@ -8,33 +8,33 @@ interface AsyncMutationOptions<T> {
    * The mutation function to execute (e.g., API call to create/update/delete)
    */
   mutateFn: () => Promise<T>;
-  
+
   /**
    * Poll function that checks if the mutation has been applied
    * Should return true when the change is confirmed in the API response
    */
   pollFn: (imageId: string) => Promise<boolean>;
-  
+
   /**
    * The image ID to poll and update
    */
   imageId: string;
-  
+
   /**
    * Optional callback on success
    */
   onSuccess?: () => void;
-  
+
   /**
    * Optional callback on error
    */
   onError?: (error: Error) => void;
-  
+
   /**
    * Maximum polling attempts (default: 10)
    */
   maxAttempts?: number;
-  
+
   /**
    * Polling interval in milliseconds (default: 500)
    */
@@ -43,13 +43,13 @@ interface AsyncMutationOptions<T> {
 
 /**
  * Hook for handling asynchronous mutations with polling and Redux updates
- * 
+ *
  * Common pattern:
  * 1. Execute mutation (create/update/delete API call)
  * 2. Poll the image API to verify the change was applied
  * 3. Update Redux store when confirmed
  * 4. Handle loading states and errors
- * 
+ *
  * @example
  * const { execute, isLoading, error } = useAsyncMutation({
  *   mutateFn: () => deleteLease(leaseId),

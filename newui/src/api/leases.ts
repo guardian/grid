@@ -32,7 +32,9 @@ export async function deleteLease(leaseId: string): Promise<void> {
 /**
  * Create a new lease
  */
-export async function createLease(lease: Omit<Lease, 'id' | 'createdAt' | 'leasedBy'>): Promise<{ leaseId: string}> {
+export async function createLease(
+  lease: Omit<Lease, 'id' | 'createdAt' | 'leasedBy'>,
+): Promise<{ leaseId: string }> {
   const url = getLeasesApiUrl('leases');
 
   const response = await fetch(url, {

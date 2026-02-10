@@ -4,6 +4,7 @@ import { getMetadataEditorUrl } from '@/config/clientConfig';
 import { fetchImageById } from '@/api/images';
 import { useAppDispatch } from '@/store/hooks';
 import { updateImageData } from '@/store/imagesSlice';
+import { checkMetadataUpdateApplied, saveUpdatedMetadata, useMutation } from '@/hooks/useMutation';
 
 interface MetadataItemProps {
   label: string;
@@ -23,8 +24,10 @@ export default function MetadataItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isHovered, setIsHovered] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // const [isSaving, setIsSaving] = useState(false);
   const dispatch = useAppDispatch();
+
+  const {isSaving, error, handleSave} = useMutation({ imageIds });
 
   const firstValue = value[0];
   const allValuesMatch = value.every((v) => v === firstValue);
@@ -41,91 +44,96 @@ export default function MetadataItem({
     setEditValue('');
   };
 
-  const handleSave = async () => {
-    if (!fieldKey || imageIds.length === 0) return;
-
-    setIsSaving(true);
-    try {
-      // Update metadata for each image
-      const updatePromises = imageIds.map(async (imgId) => {
-        const url = getMetadataEditorUrl(`/metadata/${imgId}/metadata`);
-
-        const response = await fetch(url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            data: {
-              [fieldKey]: editValue,
-            },
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return imgId;
-      });
-
-      await Promise.all(updatePromises);
-
-      // Poll the API for each image until the updated value is returned
-      const maxAttempts = 10;
-      const pollInterval = 500; // 500ms between polls
-
-      const pollPromises = imageIds.map(async (imgId) => {
-        let attempts = 0;
-        let updated = false;
-
-        while (attempts < maxAttempts && !updated) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-          try {
-            const imageResponse = await fetchImageById(imgId);
-            const currentValue =
-              imageResponse.data.metadata[
-                fieldKey as keyof typeof imageResponse.data.metadata
-              ];
-
-            if (currentValue === editValue) {
-              // Value has been updated, update the store
-              dispatch(
-                updateImageData({
-                  imageId: imgId,
-                  data: imageResponse.data,
-                }),
-              );
-              updated = true;
-            }
-          } catch (pollError) {
-            console.error('Polling error:', pollError);
-          }
-
-          attempts++;
-        }
-
-        if (!updated) {
-          console.warn(
-            `Metadata update polling timed out for image ${imgId}, but changes may still be processing`,
-          );
-        }
-
-        return updated;
-      });
-
-      await Promise.all(pollPromises);
-
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save metadata:', error);
-      alert('Failed to save changes. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
+  const proposedUpdate = {
+    [fieldKey]: editValue,
   };
+  const doSave = handleSave(saveUpdatedMetadata(proposedUpdate), checkMetadataUpdateApplied(proposedUpdate));
+
+  // const handleSave = async () => {
+  //   if (!fieldKey || imageIds.length === 0) return;
+
+  //   setIsSaving(true);
+  //   try {
+  //     // Update metadata for each image
+  //     const updatePromises = imageIds.map(async (imgId) => {
+  //       const url = getMetadataEditorUrl(`/metadata/${imgId}/metadata`);
+
+  //       const response = await fetch(url, {
+  //         method: 'PUT',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //         },
+  //         credentials: 'include',
+  //         body: JSON.stringify({
+  //           data: {
+  //             [fieldKey]: editValue,
+  //           },
+  //         }),
+  //       });
+
+  //       if (!response.ok) {
+  //         throw new Error(`HTTP error! status: ${response.status}`);
+  //       }
+
+  //       return imgId;
+  //     });
+
+  //     await Promise.all(updatePromises);
+
+  //     // Poll the API for each image until the updated value is returned
+  //     const maxAttempts = 10;
+  //     const pollInterval = 500; // 500ms between polls
+
+  //     const pollPromises = imageIds.map(async (imgId) => {
+  //       let attempts = 0;
+  //       let updated = false;
+
+  //       while (attempts < maxAttempts && !updated) {
+  //         await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+  //         try {
+  //           const imageResponse = await fetchImageById(imgId);
+  //           const currentValue =
+  //             imageResponse.data.metadata[
+  //               fieldKey as keyof typeof imageResponse.data.metadata
+  //             ];
+
+  //           if (currentValue === editValue) {
+  //             // Value has been updated, update the store
+  //             dispatch(
+  //               updateImageData({
+  //                 imageId: imgId,
+  //                 data: imageResponse.data,
+  //               }),
+  //             );
+  //             updated = true;
+  //           }
+  //         } catch (pollError) {
+  //           console.error('Polling error:', pollError);
+  //         }
+
+  //         attempts++;
+  //       }
+
+  //       if (!updated) {
+  //         console.warn(
+  //           `Metadata update polling timed out for image ${imgId}, but changes may still be processing`,
+  //         );
+  //       }
+
+  //       return updated;
+  //     });
+
+  //     await Promise.all(pollPromises);
+
+  //     setIsEditing(false);
+  //   } catch (error) {
+  //     console.error('Failed to save metadata:', error);
+  //     alert('Failed to save changes. Please try again.');
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
   // Filter out undefined/null values
   const validValues = value.filter(
     (v): v is string => v !== undefined && v !== null,

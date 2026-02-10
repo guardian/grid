@@ -39,18 +39,18 @@ function formatFriendlyDate(dateString: string): string {
 /**
  * Lease display component with hover details
  */
-export function LeaseDisplay({ 
-  lease, 
-  onDelete
-}: { 
-  lease: Lease; 
+export function LeaseDisplay({
+  lease,
+  onDelete,
+}: {
+  lease: Lease;
   onDelete?: () => void;
 }) {
   const deleteMutation = useAsyncMutation({
     mutateFn: () => deleteLease(lease.id),
     pollFn: async (imageId) => {
       const response = await fetchImageById(imageId);
-      return !response.data.leases.data.leases.some(l => l.id === lease.id);
+      return !response.data.leases.data.leases.some((l) => l.id === lease.id);
     },
     imageId: lease.mediaId,
     onSuccess: () => onDelete?.(),
@@ -62,7 +62,7 @@ export function LeaseDisplay({
     }
     await deleteMutation.execute();
   };
-  
+
   const startDate = lease.startDate ? new Date(lease.startDate) : null;
   const endDate = lease.endDate ? new Date(lease.endDate) : null;
   const friendlyStart = lease.startDate
@@ -159,31 +159,35 @@ export function LeasesDisplay({ imageDatas }: { imageDatas: ImageData[] }) {
       let added = false;
 
       while (attempts < maxAttempts && !added) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
         try {
           const imageResponse = await fetchImageById(mediaId);
           const leaseExists = imageResponse.data.leases.data.leases.some(
-            l => l.id === leaseId
+            (l) => l.id === leaseId,
           );
-          
+
           if (leaseExists) {
             // Lease has been added, update the store
-            dispatch(updateImageData({
-              imageId: mediaId,
-              data: imageResponse.data,
-            }));
+            dispatch(
+              updateImageData({
+                imageId: mediaId,
+                data: imageResponse.data,
+              }),
+            );
             added = true;
           }
         } catch (pollError) {
           console.error('Polling error:', pollError);
         }
-        
+
         attempts++;
       }
 
       if (!added) {
-        console.warn('Lease creation polling timed out, but changes may still be processing');
+        console.warn(
+          'Lease creation polling timed out, but changes may still be processing',
+        );
       }
     } catch (error) {
       console.error('Failed to create lease:', error);
@@ -218,11 +222,7 @@ export function LeasesDisplay({ imageDatas }: { imageDatas: ImageData[] }) {
         </div>
       ) : (
         imageDatas[0].leases.data.leases.map((lease) => (
-          <LeaseDisplay 
-            key={lease.id} 
-            lease={lease}
-            onDelete={() => {}}
-          />
+          <LeaseDisplay key={lease.id} lease={lease} onDelete={() => {}} />
         ))
       )}
     </div>

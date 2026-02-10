@@ -111,6 +111,7 @@ The app bootstraps in `src/main.tsx`, registers routes from `src/routeTree.gen` 
 4. Redux store should only be updated **after polling confirms** the change
 
 **Pattern**:
+
 ```tsx
 const mutation = useAsyncMutation({
   mutateFn: () => apiCall(), // The mutation (create/update/delete)
@@ -119,18 +120,22 @@ const mutation = useAsyncMutation({
     return /* check if change is applied */;
   },
   imageId: 'image-id',
-  onSuccess: () => {/* optional callback */},
+  onSuccess: () => {
+    /* optional callback */
+  },
 });
 
 // Use mutation.execute(), mutation.isLoading, mutation.error
 ```
 
 **Examples**:
+
 - Delete lease: Poll until lease no longer exists in response
 - Create lease: Poll until new lease appears with correct ID
 - Update metadata: Poll until metadata field matches new value
 
 **Do NOT**:
+
 - Update Redux immediately after API call
 - Assume 200/201 responses mean data is persisted
 - Skip polling verification step
