@@ -57,7 +57,7 @@ case object ImageUpload {
       List(),
       List(),
       //      ImageEmbedding will be written by lambda later
-      embedding=None
+      embedding = None
     )
   }
 }
