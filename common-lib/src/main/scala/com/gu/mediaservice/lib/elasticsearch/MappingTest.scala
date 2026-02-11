@@ -22,6 +22,7 @@ object MappingTest {
   private val imageModified: DateTime = imageImported.plus(Period.hours(2))
   private val imageDenyLeaseExpiry: DateTime = new DateTime(2030, 3, 26, 12, 0)
   private val imageSoftDeleted: DateTime = imageImported.plus(Period.hours(2))
+  private val embedding = None
 
   private val testImageMetadata: ImageMetadata = ImageMetadata(
     dateTaken = Some(imageTaken),
@@ -247,6 +248,7 @@ object MappingTest {
       ),
       isInferred = true
     )),
-    userMetadataLastModified = Some(imageModified)
+    userMetadataLastModified = Some(imageModified),
+    embedding = Some(Embedding(cohereEmbedEnglishV3= CohereV3Embedding(image = (0 to 1023).map(_ * 0.001).toList)))
   )
 }

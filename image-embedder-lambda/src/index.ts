@@ -26,10 +26,8 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
-import {
-  MAX_IMAGE_SIZE_BYTES,
-  MAX_PIXELS_COHERE_V4,
-} from "./constants";
+import { Client } from "@elastic/elasticsearch";
+import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -38,6 +36,11 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
+const ES_URL = process.env.ES_URL || "http://localhost:9200";
+
+if (!ES_URL) {
+  throw new Error("ES_URL environment variable is required");
+}
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
@@ -64,11 +67,30 @@ const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
+const esClient = new Client({
+  node: ES_URL,
+  // Note: Authentication handled via IAM or network security groups in AWS
+  // Local dev will use localstack endpoint via ES_URL
+});
+
 interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
   fileType: string;
+}
+
+export interface CohereV3Embedding {
+  image: number[];
+}
+
+export interface Embedding {
+  cohereEmbedEnglishV3: CohereV3Embedding;
+}
+
+export interface Embeddings {
+  imageId: string;
+  embedding: Embedding;
 }
 
 export async function getImageFromS3(
@@ -98,7 +120,9 @@ export async function getImageFromS3(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`);
+    console.log(
+      `Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`,
+    );
     return bytes;
   } catch (error) {
     console.error(`Error fetching from S3:`, error);
@@ -123,7 +147,9 @@ export async function downscaleImageIfNeeded(
     `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
   );
   if (!needsDownscale) {
-    console.log(`Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`);
+    console.log(
+      `Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`,
+    );
     return imageBytes;
   }
 
@@ -197,7 +223,9 @@ async function getCachedDownscaledImage(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
+    );
     return bytes;
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "NoSuchKey") {
@@ -217,7 +245,9 @@ async function cacheDownscaledImage(
   client: S3Client,
 ): Promise<void> {
   if (!DOWNSCALED_IMAGE_BUCKET) {
-    console.log("No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image");
+    console.log(
+      "No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image",
+    );
     return;
   }
 
@@ -230,7 +260,9 @@ async function cacheDownscaledImage(
       ContentType: mimeType,
     });
     await client.send(command);
-    console.log(`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`,
+    );
   } catch (error) {
     // Log but don't throw - cache failures shouldn't break the pipeline
     console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
@@ -257,7 +289,12 @@ export async function embedImage(
 
     // Cache if we actually downscaled (bytes changed)
     if (processedBytes !== imageBytes) {
-      await cacheDownscaledImage(imageId, processedBytes, imageMimeType, s3Client);
+      await cacheDownscaledImage(
+        imageId,
+        processedBytes,
+        imageMimeType,
+        s3Client,
+      );
     }
   }
 
@@ -294,7 +331,7 @@ export async function embedImage(
   }
 }
 
-async function storeEmbeddings(
+async function storeEmbeddingsInS3VectorStore(
   vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
@@ -326,6 +363,72 @@ async function storeEmbeddings(
   }
 }
 
+function convertToEsStructure(vectors: PutInputVector[]): Embeddings[] {
+  const embeddings = vectors.map((vector) => {
+    // Check for any vectors with undefined data - this should cause the batch to fail and retry/DLQ
+    if (
+      vector.data === undefined ||
+      vector.data.float32 === undefined ||
+      vector.key === undefined
+    ) {
+      throw new Error(
+        `Vector found with undefined data. This batch will be retried or sent to DLQ.`,
+      );
+    }
+
+    const embedding: Embedding = {
+      cohereEmbedEnglishV3: {
+        image: vector.data.float32!,
+      },
+    };
+
+    return {
+      imageId: vector.key,
+      embedding: embedding,
+    };
+  });
+  return embeddings;
+}
+
+async function storeEmbeddingsInElasticsearch(
+  vectors: PutInputVector[],
+  client: Client,
+) {
+  console.log(`Storing ${vectors.length} embeddings to Elasticsearch`);
+
+  const embeddings: Embeddings[] = convertToEsStructure(vectors);
+  console.log(`Converted ${embeddings.length} vectors to Embedding format`);
+
+  const operations = embeddings.flatMap((doc) => [
+    { update: { _index: "images", _id: doc.imageId } },
+    { doc: { embedding: doc.embedding } },
+  ]);
+
+  const bulkResponse = await client.bulk({ operations });
+
+  if (bulkResponse.errors) {
+    console.error("Bulk indexing had errors:");
+    bulkResponse.items?.forEach((item) => {
+      if (item.update?.error) {
+        console.error(
+          `Error for ${item.update._id}:`,
+          JSON.stringify(item.update.error, null, 2),
+        );
+      }
+    });
+  } else {
+    console.log(`Successfully indexed ${embeddings.length} documents`);
+    // Log successful updates
+    bulkResponse.items?.forEach((item) => {
+      if (item.update) {
+        console.log(
+          `Updated document ${item.update._id}: result=${item.update.result}, status=${item.update.status}`,
+        );
+      }
+    });
+  }
+}
+
 export const handler = async (
   event: SQSEvent,
   context: Context,
@@ -339,7 +442,9 @@ export const handler = async (
 
   for (const [i, record] of records.entries()) {
     try {
-      console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
+      console.log(
+        `Parsing record ${i + 1} of ${records.length}: ${record.body}`,
+      );
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
       // If it's a Tiff then we should log an error
@@ -397,7 +502,9 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    await storeEmbeddings(vectors, s3VectorsClient);
+    await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+    await storeEmbeddingsInElasticsearch(vectors, esClient);
+    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
