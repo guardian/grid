@@ -384,16 +384,17 @@ class MediaApi(
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
         val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
-        if(canDelete){
-          softDeletedMetadataTable.updateStatus(id, false)
-          .map { _ =>
-            messageSender.publish(
-              UpdateMessage(
-                subject = UnSoftDeleteImage,
-                id = Some(id)
-              )
-             )
-          }
+        val imageWasReaped = image.softDeletedMetadata.exists(_.deletedBy == "reaper")
+        if (canDelete || imageWasReaped) {
+          softDeletedMetadataTable.updateStatus(id, isDeleted = false)
+            .map { _ =>
+              messageSender.publish(
+                UpdateMessage(
+                  subject = UnSoftDeleteImage,
+                  id = Some(id)
+                )
+               )
+            }
           Accepted
         } else {
           ImageDeleteForbidden
