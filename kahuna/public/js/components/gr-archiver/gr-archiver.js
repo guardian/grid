@@ -45,8 +45,18 @@ module.controller('grArchiverCtrl', [
         ctrl.undelete = undelete;
 
         mediaApi.getSession().then(session => {
-            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
-            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+            const isSoftDeleted = ctrl.image?.data?.softDeletedMetadata !== undefined;
+            const userCanDeleteAnything = session.user.permissions.canDelete;
+            const userUploadedThisImage = session.user.email === ctrl.image?.data?.uploadedBy;
+            const thisImageWasReaped = ctrl.image?.data?.softDeletedMetadata?.deletedBy === 'reaper';
+
+            if (isSoftDeleted) {
+                ctrl.isDeleted = true;
+
+                if (userCanDeleteAnything || userUploadedThisImage || thisImageWasReaped) {
+                    ctrl.canUndelete = true;
+                }
+            }
         });
 
         mediaApi.canUserArchive().then(canArchive => {
