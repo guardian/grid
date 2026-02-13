@@ -439,7 +439,7 @@ object RexParser extends ImageProcessor {
     }
   }
 
-  private def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*)?\\(${Regex.quote(suppliersReference)}\\)\n"
+  private def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*) \\(${Regex.quote(suppliersReference)}\\)\n"
 
   private def format(image: Image): Image = {
     val usageRights: UsageRights =
