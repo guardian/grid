@@ -195,14 +195,17 @@ object Uploader extends GridLogging {
 
       val (s3ObjectForEmbedder, mimeTypeForEmbedder) = s3PngOption match {
         // This will ensure we send PNGs in place of TIFFs
-        case Some(optimisedPngS3Object) => (optimisedPngS3Object, Png)
+        case Some(optimisedPngS3Object) => {
+          logger.info(logMarker, s"Queueing optimised PNG instead of original for embedding")
+          (optimisedPngS3Object, Png)
+        }
         case _ => (s3Source, originalMimeType)
       }
 
       // Return both the image and the S3 path needed for embedding
       (finalImage, s3ObjectForEmbedder, mimeTypeForEmbedder)
     }
-    eventualImage.onComplete{ imageFuture =>
+    eventualImage.onComplete { imageFuture =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
 
