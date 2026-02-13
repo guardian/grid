@@ -177,7 +177,7 @@ object Uploader extends GridLogging {
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
-      
+
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
@@ -193,20 +193,25 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
 
-      val s3Bucket = s3Source.uri.getHost.split('.').head
-      val s3Key = s3Source.uri.getPath.stripPrefix("/")
+      val (s3ObjectForEmbedder, mimeTypeForEmbedder) = s3PngOption match {
+        // This will ensure we send PNGs in place of TIFFs
+        case Some(optimisedPngS3Object) => (optimisedPngS3Object, Png)
+        case _ => (s3Source, originalMimeType)
+      }
 
       // Return both the image and the S3 path needed for embedding
-      (finalImage, s3Bucket, s3Key)
+      (finalImage, s3ObjectForEmbedder, mimeTypeForEmbedder)
     }
     eventualImage.onComplete{ imageFuture =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
 
       imageFuture match {
-        case scala.util.Success((_, s3Bucket, s3Key)) =>
+        case scala.util.Success((_, s3Object, mimeType)) =>
+          val s3Bucket = s3Object.uri.getHost.split('.').head
+          val s3Key = s3Object.uri.getPath.stripPrefix("/")
           queueImageToEmbed(
-            EmbedderMessage(uploadRequest.imageId, originalMimeType.name, s3Bucket, s3Key)
+            EmbedderMessage(uploadRequest.imageId, mimeType.name, s3Bucket, s3Key)
           )
         case scala.util.Failure(exception) =>
           logger.error(
