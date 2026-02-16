@@ -34,6 +34,8 @@ mappings:
   - prefix: localstack.media
     port: 4566
     client_max_body_size: 20m
+  - prefix: new.media
+    port: 3000
 
   # vanity domains for localstack S3 buckets
   # the localstack container needs to expose port 4572 to the host

@@ -4,7 +4,6 @@ import { getMetadataEditorUrl } from '@/config/clientConfig';
 import { fetchImageById } from '@/api/images';
 import { useAppDispatch } from '@/store/hooks';
 import { updateImageData } from '@/store/imagesSlice';
-import { checkMetadataUpdateApplied, saveUpdatedMetadata, useMutation } from '@/hooks/useMutation';
 
 interface MetadataItemProps {
   label: string;
@@ -27,8 +26,6 @@ export default function MetadataItem({
   // const [isSaving, setIsSaving] = useState(false);
   const dispatch = useAppDispatch();
 
-  const {isSaving, error, handleSave} = useMutation({ imageIds });
-
   const firstValue = value[0];
   const allValuesMatch = value.every((v) => v === firstValue);
 
@@ -44,10 +41,8 @@ export default function MetadataItem({
     setEditValue('');
   };
 
-  const proposedUpdate = {
-    [fieldKey]: editValue,
-  };
-  const doSave = handleSave(saveUpdatedMetadata(proposedUpdate), checkMetadataUpdateApplied(proposedUpdate));
+  const isSaving = false;
+  const handleSave = () => {};
 
   // const handleSave = async () => {
   //   if (!fieldKey || imageIds.length === 0) return;
