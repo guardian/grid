@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.fields.{DynamicField, KeywordField, NestedField, ObjectField, DenseVectorField}
-import com.sksamuel.elastic4s.requests.mappings.MappingDefinition
+import com.sksamuel.elastic4s.fields.{Cosine, DenseVectorField, DenseVectorIndexOptions, DynamicField, KeywordField, NestedField, ObjectField}
+import com.sksamuel.elastic4s.requests.mappings.{MappingDefinition, Similarity}
 import com.sksamuel.elastic4s.requests.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
 import play.api.libs.json.{JsObject, Json}
 
@@ -75,15 +75,25 @@ object Mappings {
         leasesMapping("leases"),
         collectionMapping("collections"),
         esInfoMapping("esInfo"),
-        embeddingMapping("embedding")
+        embeddingMapping("embedding"),
       )
     )
   }
 
   def embeddingMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     nonDynamicObjectField("cohereEmbedEnglishV3").copy(properties = Seq(
-      new DenseVectorField(name="image", dims=Some(1024)),
-    )
+      new DenseVectorField(
+        name="image",
+        dims=Some(1024),
+        index = Some(true),
+        similarity = Some(Cosine),
+        indexOptions = Some(DenseVectorIndexOptions(
+          `type`=DenseVectorField.Int8Hnsw,
+          m=Some(16),
+          efConstruction=Some(100)
+        )
+      )
+    ))
   )))
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(

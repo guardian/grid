@@ -134,20 +134,17 @@ object Image {
   implicit val ImageWrites: Writes[Image] = {
     def writes[T](v: T)(implicit writer: Writes[T]): JsValue =
       writer writes v
+    def optionalField[T](key: String, v: Option[T])(implicit writer: Writes[T]): Seq[(String, JsValue)] =
+      v.map(value => Seq(key -> writes(value))).getOrElse(Seq.empty)
     Writes { image =>
       JsObject(Seq(
         "id" -> writes(image.id),
         "uploadTime" -> writes(printDateTime(image.uploadTime)),
         "uploadedBy" -> writes(image.uploadedBy),
-        "softDeletedMetadata" -> writes(image.softDeletedMetadata),
-        "lastModified" -> writes(printOptDateTime(image.lastModified)),
         "identifiers" -> writes(image.identifiers),
         "uploadInfo" -> writes(image.uploadInfo),
         "source" -> writes(image.source),
-        "thumbnail" -> writes(image.thumbnail),
-        "optimisedPng" -> writes(image.optimisedPng),
         "fileMetadata" -> writes(image.fileMetadata),
-        "userMetadata" -> writes(image.userMetadata),
         "metadata" -> writes(image.metadata),
         "originalMetadata" -> writes(image.originalMetadata),
         "usageRights" -> writes(image.usageRights),
@@ -156,10 +153,16 @@ object Image {
         "usages" -> writes(image.usages),
         "leases" -> writes(image.leases),
         "collections" -> writes(image.collections),
-        "syndicationRights" -> writes(image.syndicationRights),
-        "userMetadataLastModified" -> writes(printOptDateTime(image.userMetadataLastModified)),
-        "embedding" -> writes(image.embedding),
-      ))
+      ) ++
+        optionalField("softDeletedMetadata", image.softDeletedMetadata) ++
+        optionalField("lastModified", image.lastModified.map(printDateTime)) ++
+        optionalField("thumbnail", image.thumbnail) ++
+        optionalField("optimisedPng", image.optimisedPng) ++
+        optionalField("userMetadata", image.userMetadata) ++
+        optionalField("syndicationRights", image.syndicationRights) ++
+        optionalField("embedding", image.embedding) ++
+        optionalField("userMetadataLastModified", image.userMetadataLastModified.map(printDateTime))
+      )
     }
   }
 }
