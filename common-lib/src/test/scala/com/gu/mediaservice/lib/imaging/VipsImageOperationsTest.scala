@@ -85,6 +85,18 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
         resized.isFile should be(true)
       }
     }
+
+    it("render PNG with alpha correctly") {
+      implicit val arena: Arena = Arena.ofShared
+      val fullSizedImage = fileAt("with-alpha.png")
+
+      val eventualResized = vipsImageOperations.resizeImage(fullSizedImage, Some(Png), Dimensions(800, 600), 95, FileUtils.getTempDirectory, Png)
+
+      whenReady(eventualResized) { resized =>
+        arena.close()
+        resized.isFile should be(true)
+      }
+    }
   }
 
   describe("alpha") {
