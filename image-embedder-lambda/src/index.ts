@@ -344,7 +344,9 @@ async function storeEmbeddingsInS3VectorStore(
     console.log(
       `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(`Successfully stored ${vectors.length} embeddings`);
+    console.log(
+      `Successfully stored ${vectors.length} embeddings to S3 Vector Store`,
+    );
 
     return response;
   } catch (error) {
@@ -390,7 +392,7 @@ async function storeEmbeddingsInElasticsearch(
   console.log(`Converted ${embeddings.length} vectors to Embedding format`);
 
   const operations = embeddings.flatMap((doc) => [
-    { update: { _index: "images", _id: doc.imageId } },
+    { update: { _index: "Images_Current", _id: doc.imageId } },
     { doc: { embedding: doc.embedding } },
   ]);
 
