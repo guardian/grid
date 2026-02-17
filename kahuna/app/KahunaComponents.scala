@@ -24,7 +24,20 @@ object KahunaSecurityConfig {
   def apply(config: KahunaConfig, playConfig: Configuration): SecurityHeadersConfig = {
     val base = SecurityHeadersConfig.fromConfiguration(playConfig)
 
-    val services = List(
+    def cspClause(directive: String, sources: Set[String]): String = s"$directive ${sources.mkString(" ")}"
+
+    val frameSources = cspClause("frame-src", Set(
+      config.services.authBaseUri,
+      config.services.kahunaBaseUri)
+      ++ config.frameSources
+      ++ config.scriptsToLoad.flatMap(_.cspFrameSources)
+    )
+    val frameAncestors = cspClause("frame-ancestors",
+      config.frameAncestors
+    )
+    val connectSources = cspClause("connect-src", Set(
+      "'self'",
+      config.imageOrigin,
       config.services.apiBaseUri,
       config.services.loaderBaseUri,
       config.services.cropperBaseUri,
@@ -34,28 +47,33 @@ object KahunaSecurityConfig {
       config.services.collectionsBaseUri,
       config.services.leasesBaseUri,
       config.services.authBaseUri,
-      config.services.guardianWitnessBaseUri
+      config.services.guardianWitnessBaseUri)
+      ++ config.connectSources
     )
 
-    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
-    val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
-    val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")}"
-
-    val imageSources = s"img-src ${List(
+    val imageSources = cspClause("img-src", Set(
+      "'self'",
       "data:",
       "blob:",
       URI.ensureSecure(config.services.imgopsBaseUri).toString,
       URI.ensureSecure(config.fullOrigin).toString,
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
-      URI.ensureSecure("app.getsentry.com").toString,
-      "https://*.googleusercontent.com",
-      "'self'"
-    ).mkString(" ")} ${config.imageSources.mkString(" ")}"
+      URI.ensureSecure("app.getsentry.com").toString)
+      ++ config.scriptsToLoad.flatMap(_.cspImageSources)
+      ++ config.imageSources
+    )
 
-    val fontSources = s"font-src data: 'self' ${config.fontSources.mkString(" ")}"
+    val fontSources = cspClause("font-src", Set(
+      "'self'")
+      ++ config.fontSources
+    )
 
-    val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")}"
+    val scriptSources = cspClause("script-src", Set(
+      "'self'",
+      "'unsafe-inline'")
+      ++ config.scriptsToLoad.flatMap(_.cspScriptSources)
+    )
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
