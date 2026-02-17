@@ -1423,6 +1423,10 @@ textarea.ng-invalid {
   padding: 0px;
 }
 
+.results-toolbar__right gr-downloader .cannot-download-icon-label {
+  padding:8px;
+}
+
 .results-toolbar-item {
     vertical-align: middle;
     border-width: 0 1px;
