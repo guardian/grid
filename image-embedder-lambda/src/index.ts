@@ -7,7 +7,6 @@ import {
 } from "aws-lambda";
 import {
   BedrockRuntimeClient,
-  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
@@ -354,12 +353,12 @@ async function storeEmbeddingsInS3VectorStore(
     console.log(
       `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(`Successfully stored ${vectors.length} embeddings`);
+    console.log(`Successfully stored ${vectors.length} embeddings to S3 Vector Store`);
 
     return response;
   } catch (error) {
     console.error(`Error storing embeddings:`, error);
-    throw error;
+  throw error;
   }
 }
 
@@ -406,6 +405,14 @@ async function storeEmbeddingsInElasticsearch(
 
   const bulkResponse = await client.bulk({ operations });
 
+  // Error for 7b6bec2cea1eea250e9c707203f5ebce549c52b2: {
+  //   "type": "document_missing_exception",
+  //     "reason": "[7b6bec2cea1eea250e9c707203f5ebce549c52b2]: document missing",
+  //     "index_uuid": "vOv3q88lTwGbI5A6-gbrSg",
+  //     "shard": "0",
+  //     "index": "images"
+  // }
+  //
   if (bulkResponse.errors) {
     console.error("Bulk indexing had errors:");
     bulkResponse.items?.forEach((item) => {

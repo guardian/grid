@@ -61,7 +61,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
-    def queueImageToEmbed: EmbedderMessage => Unit = (message: EmbedderMessage) => ()
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
@@ -69,7 +68,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       storeOrProjectOriginalFile,
       storeOrProjectThumbFile,
       storeOrProjectOptimisedPNG,
-      queueImageToEmbed = queueImageToEmbed,
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)

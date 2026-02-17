@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
+import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -87,7 +87,7 @@ class Projector(config: ImageUploadOpsCfg,
                 auth: Authentication,
                 maybeEmbedder: Option[Embedder]) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -160,7 +160,6 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
                                s3: AmazonS3,
-                               maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
@@ -175,19 +174,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectThumbnailFileAsS3Model,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
-      tryFetchOptimisedFile = fetchOptimisedFile,
-      queueImageToEmbed = queueImageToEmbed
+      tryFetchOptimisedFile = fetchOptimisedFile
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
-  }
-
-  private def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker): Unit = {
-    maybeEmbedder match {
-      case Some(embedder) =>
-        embedder.queueImageToEmbed(message)
-      case None => ()
-    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

@@ -78,8 +78,7 @@ case class ImageUploadOpsDependencies(
   storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  queueImageToEmbed: (EmbedderMessage) => Unit
+  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None)
 )
 
 
@@ -116,7 +115,6 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedImage,
-        queueImageToEmbed,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
@@ -128,7 +126,6 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         queueImageToEmbed: (EmbedderMessage) => Unit,
                                          optimiseOps: OptimiseOps,
 
                                          uploadRequest: UploadRequest,
@@ -196,34 +193,16 @@ object Uploader extends GridLogging {
 
       logger.info(logMarker, s"Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-      val finalImage = processedImage.copy(
+      processedImage.copy(
         originalMetadata = processedImage.metadata,
         originalUsageRights = processedImage.usageRights
       )
-
-      val s3Bucket = s3Source.uri.getHost.split('.').head
-      val s3Key = s3Source.uri.getPath.stripPrefix("/")
-
-      // Return both the image and the S3 path needed for embedding
-      (finalImage, s3Bucket, s3Key)
     }
-    eventualImage.onComplete{ imageFuture =>
+    eventualImage.onComplete{ _ =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
-
-      imageFuture match {
-        case scala.util.Success((_, s3Bucket, s3Key)) =>
-          queueImageToEmbed(
-            EmbedderMessage(uploadRequest.imageId, originalMimeType.name, s3Bucket, s3Key)
-          )
-        case scala.util.Failure(exception) =>
-          logger.error(
-            logMarker, s"Image upload failed, not queueing for embedding: ${exception.getMessage}"
-          )
-      }
     }
-    // Map to return just the finalImage
-    eventualImage.map(_._1)
+    eventualImage
   }
 
   private def getStorableOptimisedImage(
@@ -361,7 +340,7 @@ class Uploader(val store: ImageLoaderStore,
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage, queueImageToEmbed = queueImageToEmbed)
+      storeSource, storeThumbnail, storeOptimisedImage)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
       finalImage.map(img => ImageUpload(uploadRequest, img))
@@ -375,6 +354,14 @@ class Uploader(val store: ImageLoaderStore,
         embedder.queueImageToEmbed(message)
       case None => ()
     }
+  }
+
+  private def queueImageToEmbedFromImage(image: Image)(implicit logMarker: LogMarker): Unit = {
+    val sourceUri = image.source.file
+    val s3Bucket = sourceUri.getHost.split('.').head
+    val s3Key = sourceUri.getPath.stripPrefix("/")
+    val mimeType = image.source.mimeType.map(_.name).getOrElse("image/jpeg")
+    queueImageToEmbed(EmbedderMessage(image.id, mimeType, s3Bucket, s3Key))
   }
 
   private def storeSource(storableOriginalImage: StorableOriginalImage)
@@ -431,6 +418,8 @@ class Uploader(val store: ImageLoaderStore,
       imageUpload <- fromUploadRequest(uploadRequest)
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
+      // Queue for embedding AFTER the ES document is created by notifications.publish
+      _ <- Future { queueImageToEmbedFromImage(imageUpload.image) }
       // TODO: centralise where all these URLs are constructed
     } yield UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
 
@@ -449,6 +438,8 @@ class Uploader(val store: ImageLoaderStore,
         UpdateMessage(subject = Image, image = Some(imageWithUserEditsApplied))
       )
     }
+    // Queue for embedding AFTER the ES document is created by notifications.publish
+    _ <- Future { queueImageToEmbedFromImage(imageWithUserEditsApplied) }
   } yield ()
 
 }
