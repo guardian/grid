@@ -7,7 +7,6 @@ import {
 } from "aws-lambda";
 import {
   BedrockRuntimeClient,
-  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
@@ -30,7 +29,6 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_PIXELS_COHERE_V4,
 } from "./constants";
-import { Client } from "@elastic/elasticsearch";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -69,12 +67,6 @@ const s3Config = {
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
-
-const esClient = new Client({
-  node: ES_URL,
-});
-
-console.log(`Elasticsearch URL: ${ES_URL}`);
 
 interface SQSMessageBody {
   imageId: string;
@@ -235,6 +227,10 @@ async function getCachedDownscaledImage(
   }
 }
 
+async function addToKinesis() {
+  console.log(`Writing to Kinesis stream!`);
+}
+
 async function cacheDownscaledImage(
   imageId: string,
   imageBytes: Uint8Array,
@@ -353,71 +349,6 @@ async function storeEmbeddingsInS3VectorStore(
   }
 }
 
-function convertToEsStructure(vectors: PutInputVector[]): Embeddings[] {
-  const embeddings = vectors.map((vector) => {
-    // Check for any vectors with undefined data - this should cause the batch to fail and retry/DLQ
-    if (
-      vector.data === undefined ||
-      vector.data.float32 === undefined ||
-      vector.key === undefined
-    ) {
-      throw new Error(
-        `Vector found with undefined data. This batch will be retried or sent to DLQ.`,
-      );
-    }
-
-    const embedding: Embedding = {
-      cohereEmbedEnglishV3: {
-        image: vector.data.float32!,
-      },
-    };
-
-    return {
-      imageId: vector.key,
-      embedding: embedding,
-    };
-  });
-  return embeddings;
-}
-
-async function storeEmbeddingsInElasticsearch(
-  vectors: PutInputVector[],
-  client: Client,
-) {
-  console.log(`Storing ${vectors.length} embeddings to Elasticsearch`);
-
-  const embeddings: Embeddings[] = convertToEsStructure(vectors);
-  console.log(`Converted ${embeddings.length} vectors to Embedding format`);
-
-  const operations = embeddings.flatMap((doc) => [
-    { update: { _index: "Images_Current", _id: doc.imageId } },
-    { doc: { embedding: doc.embedding } },
-  ]);
-
-  const bulkResponse = await client.bulk({ operations });
-
-  if (bulkResponse.errors) {
-    console.error("Bulk indexing had errors:");
-    bulkResponse.items?.forEach((item) => {
-      if (item.update?.error) {
-        console.error(
-          `Error for ${item.update._id}:`,
-          JSON.stringify(item.update.error, null, 2),
-        );
-      }
-    });
-  } else {
-    console.log(`Successfully indexed ${embeddings.length} documents`);
-    bulkResponse.items?.forEach((item) => {
-      if (item.update) {
-        console.log(
-          `Updated document ${item.update._id}: result=${item.update.result}, status=${item.update.status}`,
-        );
-      }
-    });
-  }
-}
-
 export const handler = async (
   event: SQSEvent,
   context: Context,
@@ -493,7 +424,8 @@ export const handler = async (
     if (STAGE === "PROD") {
       console.log(`Not writing the embedding to ES yet whilst we test on TEST`);
     } else {
-      await storeEmbeddingsInElasticsearch(vectors, esClient);
+      // As discussed with Andrew, we're actually going to write to the Kinesis stream instead!
+      await addToKinesis();
     }
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
     console.log(`Stored ${vectors.length} vectors`);

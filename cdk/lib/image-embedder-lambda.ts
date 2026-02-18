@@ -46,7 +46,6 @@ export class ImageEmbedder extends GuStack {
 			vpcId: vpcid.valueAsString,
 			publicSubnetIds: publicSubnetIds.valueAsList,
 			privateSubnetIds: privateSubnetIds.valueAsList,
-			// Use Fn.getAzs to get the AZs for this region, matching the number of subnets
 			availabilityZones: Fn.getAzs(),
 		});
 
@@ -59,11 +58,6 @@ export class ImageEmbedder extends GuStack {
 				allowAllOutbound: true,
 			},
 		);
-
-		const esUrl = new GuParameter(this, 'EsURL', {
-			fromSSM: true,
-			default: `/${props.stage}/media-service/elasticsearch/url`,
-		});
 
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
@@ -78,8 +72,6 @@ export class ImageEmbedder extends GuStack {
 				environment: {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
-					// TODO: Get ES URL from SSM parameter or config
-					ES_URL: esUrl.valueAsString,
 				},
 				vpc,
 				securityGroups: [lambdaSecurityGroup],
@@ -140,11 +132,5 @@ export class ImageEmbedder extends GuStack {
 				],
 			}),
 		);
-
-		// Note: Elasticsearch access is controlled via VPC security groups
-		// The lambda is now in the VPC and has a security group.
-		// You'll need to update the Elasticsearch cluster's security group to allow
-		// inbound traffic from ImageEmbedderLambdaSecurityGroup on port 9200 (or 443 if using HTTPS)
-		// This is typically done manually or via the Elasticsearch stack's CloudFormation
 	}
 }

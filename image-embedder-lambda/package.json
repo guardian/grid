@@ -32,7 +32,6 @@
     "@aws-sdk/client-sqs": "^3.948.0",
     "package-lock.json": "^1.0.0",
     "sharp": "^0.34.5",
-    "@elastic/elasticsearch": "^8.19.1",
     "install": "^0.13.0",
     "npm": "^11.9.0"
   }
