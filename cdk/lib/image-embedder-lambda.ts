@@ -42,6 +42,12 @@ export class ImageEmbedder extends GuStack {
 			type: 'List<String>',
 		});
 
+		const thrallStreamArn = new GuParameter(this, 'ThralMessageStream', {
+			fromSSM: true,
+			default: `/${this.stage}/media-service/thrall/message-stream-arn`,
+			type: 'String'
+		})
+
 		const vpc = Vpc.fromVpcAttributes(this, 'VPC', {
 			vpcId: vpcid.valueAsString,
 			publicSubnetIds: publicSubnetIds.valueAsList,
@@ -111,6 +117,13 @@ export class ImageEmbedder extends GuStack {
 				],
 			}),
 		);
+
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kinesis:PutRecord'],
+				resources: [thrallStreamArn.valueAsString]
+			})
+		)
 
 		// Allow invoking the Bedrock Cohere embeddings model
 		imageEmbedderLambda.role?.addToPrincipalPolicy(

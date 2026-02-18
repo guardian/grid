@@ -20,8 +20,8 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
-    "EsURL": {
-      "Default": "/TEST/media-service/elasticsearch/url",
+    "ThralMessageStream": {
+      "Default": "/TEST/media-service/thrall/message-stream-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
     "VpcIdParam": {
@@ -93,9 +93,6 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "Variables": {
             "APP": "image-embedder-lambda",
             "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
-            "ES_URL": {
-              "Ref": "EsURL",
-            },
             "STACK": "media-service",
             "STAGE": "TEST",
           },
@@ -372,6 +369,13 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     ":bucket/image-embeddings-test/index/*",
                   ],
                 ],
+              },
+            },
+            {
+              "Action": "kinesis:PutRecord",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "ThralMessageStream",
               },
             },
             {
