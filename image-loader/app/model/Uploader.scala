@@ -55,7 +55,9 @@ case object ImageUpload {
       usageRights,
       usageRights,
       List(),
-      List()
+      List(),
+      //      ImageEmbedding will be written by lambda later
+      embedding = None
     )
   }
 }
@@ -177,13 +179,19 @@ object Uploader extends GridLogging {
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
-      
+
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(mergedUploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
-
+      val baseImage = ImageUpload.createImage(
+        mergedUploadRequest,
+        sourceAsset,
+        thumbAsset,
+        pngAsset,
+        fullFileMetadata,
+        metadata
+      )
       val processedImage = processor(baseImage)
 
       logger.info(logMarker, s"Ending image ops")
