@@ -44,17 +44,17 @@ class ElasticSearch(
 
 
   def migrationAwareUpdater[REQUEST, RESPONSE](
-    requestFromIndexName: String => REQUEST,
-    logMessageFromIndexName: String => String,
-    notFoundSuccessful: Boolean = false,
-  )(implicit
-    ex: ExecutionContext,
-    functor: Functor[Future],
-    executor: Executor[Future],
-    handler: Handler[REQUEST, RESPONSE],
-    manifest: Manifest[RESPONSE],
-    logMarkers: LogMarker
-  ): Future[Response[RESPONSE]] = {
+                                                requestFromIndexName: String => REQUEST,
+                                                logMessageFromIndexName: String => String,
+                                                notFoundSuccessful: Boolean = false,
+                                              )(implicit
+                                                ex: ExecutionContext,
+                                                functor: Functor[Future],
+                                                executor: Executor[Future],
+                                                handler: Handler[REQUEST, RESPONSE],
+                                                manifest: Manifest[RESPONSE],
+                                                logMarkers: LogMarker
+                                              ): Future[Response[RESPONSE]] = {
     // if doc does not exist in migration index, ignore (ie. mark as successful).
     // coalesce all other errors.
     val runForCurrentIndex: Future[Option[Response[RESPONSE]]] = executeAndLog(requestFromIndexName(imagesCurrentAlias), logMessageFromIndexName(imagesCurrentAlias), notFoundSuccessful).map(Some(_))
@@ -102,7 +102,7 @@ class ElasticSearch(
       val upsertImageAsJson = Json.toJson(updateImage)
 
       val painlessSource =
-      // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
+        // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
         """
           | if (ctx._source.identifiers != null) {
           |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
@@ -116,10 +116,11 @@ class ElasticSearch(
           | }
       """
 
-      val scriptSource = loadUpdatingModificationPainless(s"""
-                                                             |$painlessSource
-                                                             |$refreshEditsScript
-                                                             | """)
+      val scriptSource = loadUpdatingModificationPainless(
+        s"""
+           |$painlessSource
+           |$refreshEditsScript
+           | """)
 
       val script: Script = prepareScript(scriptSource, lastModified,
         ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfo)))
@@ -138,7 +139,8 @@ class ElasticSearch(
           .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
           .recover { case error => EsInfo(Some(MigrationInfo(failures = Some(Map(
             running.migrationIndexName -> error.getMessage
-          ))))) }
+          )))))
+          }
           .map(esInfo => Json.obj("esInfo" -> Json.toJson(esInfo)))
       case _ => Future.successful(JsObject.empty)
     }
@@ -171,13 +173,14 @@ class ElasticSearch(
 
 
   def updateImageUsages(id: String, usages: Seq[Usage], lastModified: DateTime)
-                       (implicit ex: ExecutionContext,logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    val replaceUsagesScript = loadUpdatingModificationPainless(s"""
-      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.usagesLastModified))) : null;
-      | if (lastUpdatedDate == null || modificationDate.after(lastUpdatedDate)) {
-      |   ctx._source.usages = params.usages;
-      |   ctx._source.usagesLastModified = params.lastModified;
-      | }
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val replaceUsagesScript = loadUpdatingModificationPainless(
+      s"""
+         | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.usagesLastModified))) : null;
+         | if (lastUpdatedDate == null || modificationDate.after(lastUpdatedDate)) {
+         |   ctx._source.usages = params.usages;
+         |   ctx._source.usagesLastModified = params.lastModified;
+         | }
     """)
 
     val usagesParameter = usages.map(i => asNestedMap(Json.toJson(i)))
@@ -185,7 +188,7 @@ class ElasticSearch(
     val eventualUpdateResponse = migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, replaceUsagesScript, lastModified, ("usages", usagesParameter)),
       logMessageFromIndexName = indexName => s"ES6 updating usages on image $id for index $indexName"
-    ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
+    ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -193,7 +196,8 @@ class ElasticSearch(
   def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights], lastModified: DateTime)
                                   (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    val replaceSyndicationRightsScript = """
+    val replaceSyndicationRightsScript =
+      """
         | ctx._source.syndicationRights = params.syndicationRights;
       """.stripMargin
 
@@ -210,10 +214,11 @@ class ElasticSearch(
   def applyImageMetadataOverride(id: String, metadata: Edits, lastModified: DateTime)
                                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    val photoshootSuggestionScript = """
-      | if (ctx._source.userMetadata.photoshoot != null) {
-      |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
-      | }
+    val photoshootSuggestionScript =
+      """
+        | if (ctx._source.userMetadata.photoshoot != null) {
+        |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
+        | }
     """.stripMargin
 
     val metadataParameter = JsDefined(Json.toJson(metadata)).toOption.map(asNestedMap).orNull
@@ -229,9 +234,9 @@ class ElasticSearch(
 
     val scriptSource = loadUpdatingModificationPainless(
       s"""
-          | $replaceUserMetadata
-          | $refreshEditsScript
-          | $photoshootSuggestionScript
+         | $replaceUserMetadata
+         | $refreshEditsScript
+         | $photoshootSuggestionScript
        """
     )
 
@@ -325,7 +330,7 @@ class ElasticSearch(
     for {
       // unfortunately 'updateByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/48624
       ids <- getNextBatchOfImageIdsForDeletion(query, count, "soft")
-      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
+      esResults <- if (ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
           bulk(ids.map(
             updateById(indexName, _)
@@ -361,7 +366,7 @@ class ElasticSearch(
     for {
       // unfortunately 'deleteByQuery' doesn't return the affected IDs so can't do this whole thing in one operation - https://github.com/elastic/elasticsearch/issues/45460
       ids <- getNextBatchOfImageIdsForDeletion(query, count, "hard")
-      esResults <- if(ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
+      esResults <- if (ids.isEmpty) Future.successful(Seq.empty) else migrationAwareUpdater(
         requestFromIndexName = indexName =>
           bulk(ids.map(
             deleteById(indexName, _)
@@ -466,8 +471,8 @@ class ElasticSearch(
   }
 
   def deleteSingleImageUsage(
-    id: String, usageId: String, lastModified: DateTime
-  )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                              id: String, usageId: String, lastModified: DateTime
+                            )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteSingleUsageScript = loadUpdatingModificationPainless("ctx._source.usages.removeIf(usage -> usage.id == params.usageId);")
 
     val eventualUpdateResponse = migrationAwareUpdater(
@@ -482,6 +487,35 @@ class ElasticSearch(
       }
       ElasticSearchUpdateResponse()
     }))
+  }
+
+  def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+//   TODO confirm if this is right, this is just based on the updateImageExports function right now
+    logger.info("Updating embedding for image id: " + id)
+
+    val addEmbeddingScript =
+      """| if (ctx._source.embedding == null) {
+         |   ctx._source.embedding = params.embedding;
+         | } else {
+         |   ctx._source.embedding.addAll(params.embedding);
+         | }
+    """
+
+    val scriptSource = loadUpdatingModificationPainless(addEmbeddingScript)
+
+    val embeddingParameter = JsDefined(Json.toJson(embedding)).toOption.map { cs: JsValue => // TODO deduplicate with set collections
+      cs.as[JsArray].value.map { c =>
+        asNestedMap(c)
+      }.toSeq
+    }.orNull
+
+    val eventualUpdateResponse = migrationAwareUpdater(
+      requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
+      logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
+    ).incrementOnFailure(metrics.map(_.failedEmbeddingInserts)) { case _ => true }
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def deleteAllImageUsages(

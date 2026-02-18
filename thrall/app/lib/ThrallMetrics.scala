@@ -26,6 +26,8 @@ class ThrallMetrics(config: ThrallConfig, actorSystem: ActorSystem, applicationL
 
   val failedExportsUpdates = new CountMetric("FailedExportsUpdates")
 
+  val failedEmbeddingInserts = new CountMetric("FailedEmbeddingInserts")
+
   val failedUsagesUpdates = new CountMetric("FailedUsagesUpdates")
 
   val failedSyndicationRightsUpdates = new CountMetric("FailedSyndicationRightsUpdates")
