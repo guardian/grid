@@ -68,8 +68,6 @@ const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
 const esClient = new Client({
   node: ES_URL,
-  // Note: Authentication handled via IAM or network security groups in AWS
-  // Local dev will use localstack endpoint via ES_URL
 });
 
 interface SQSMessageBody {
@@ -407,14 +405,6 @@ async function storeEmbeddingsInElasticsearch(
 
   const bulkResponse = await client.bulk({ operations });
 
-  // Error for 7b6bec2cea1eea250e9c707203f5ebce549c52b2: {
-  //   "type": "document_missing_exception",
-  //     "reason": "[7b6bec2cea1eea250e9c707203f5ebce549c52b2]: document missing",
-  //     "index_uuid": "vOv3q88lTwGbI5A6-gbrSg",
-  //     "shard": "0",
-  //     "index": "images"
-  // }
-  //
   if (bulkResponse.errors) {
     console.error("Bulk indexing had errors:");
     bulkResponse.items?.forEach((item) => {
@@ -427,7 +417,6 @@ async function storeEmbeddingsInElasticsearch(
     });
   } else {
     console.log(`Successfully indexed ${embeddings.length} documents`);
-    // Log successful updates
     bulkResponse.items?.forEach((item) => {
       if (item.update) {
         console.log(
@@ -511,12 +500,16 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
+    console.log(`STAGE: ${STAGE}`);
+    if (STAGE === "PROD") {
+      console.log(`Not writing the embedding to ES yet whilst we test on TEST`);
+    } else {
+      await storeEmbeddingsInElasticsearch(vectors, esClient);
+    }
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-    await storeEmbeddingsInElasticsearch(vectors, esClient);
     console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
-
   return { batchItemFailures };
 };
