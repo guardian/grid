@@ -72,8 +72,6 @@ const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
 const esClient = new Client({
   node: ES_URL,
-  // Note: Authentication handled via IAM or network security groups in AWS
-  // Local dev will use localstack endpoint via ES_URL
 });
 
 console.log(`Elasticsearch URL: ${ES_URL}`);
@@ -410,6 +408,13 @@ async function storeEmbeddingsInElasticsearch(
     });
   } else {
     console.log(`Successfully indexed ${embeddings.length} documents`);
+    bulkResponse.items?.forEach((item) => {
+      if (item.update) {
+        console.log(
+          `Updated document ${item.update._id}: result=${item.update.result}, status=${item.update.status}`,
+        );
+      }
+    });
   }
 }
 
@@ -484,12 +489,16 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
+    console.log(`STAGE: ${STAGE}`);
+    if (STAGE === "PROD") {
+      console.log(`Not writing the embedding to ES yet whilst we test on TEST`);
+    } else {
+      await storeEmbeddingsInElasticsearch(vectors, esClient);
+    }
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-    await storeEmbeddingsInElasticsearch(vectors, esClient);
     console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
-
   return { batchItemFailures };
 };
