@@ -42,19 +42,26 @@ trait Fixtures {
     "grid.appName"
   )
 
+  def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
+    deleteTime = DateTime.parse("2021-12-21T11:22:33Z"),
+    deletedBy = deletedBy,
+  )
+
   def createImage(
     id: String,
     usageRights: UsageRights,
+    uploadedBy: String = testUser,
     syndicationRights: Option[SyndicationRights] = None,
     leases: Option[LeasesByMedia] = None,
     usages: List[Usage] = Nil,
-    fileMetadata: Option[FileMetadata] = None
+    fileMetadata: Option[FileMetadata] = None,
+    softDeletedMetadata: Option[SoftDeletedMetadata] = None,
   ): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
-      uploadedBy = testUser,
-      softDeletedMetadata = None,
+      uploadedBy = uploadedBy,
+      softDeletedMetadata = softDeletedMetadata,
       lastModified = None,
       identifiers = Map.empty,
       uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
@@ -106,7 +113,13 @@ trait Fixtures {
 
     val leaseByMedia = lease.map(l => LeasesByMedia.build(List(l)))
 
-    createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages, fileMetadata)
+    createImage(
+      id = id,
+      usageRights = usageRights,
+      syndicationRights = Some(syndicationRights),
+      leases = leaseByMedia,
+      usages = usages,
+      fileMetadata = fileMetadata)
   }
 
   def createSyndicationLease(allowed: Boolean, imageId: String, startDate: Option[DateTime] = None, endDate: Option[DateTime] = None): MediaLease = {
