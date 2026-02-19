@@ -6,12 +6,9 @@ import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
 import {
 	Duration,
-	aws_ec2 as ec2,
-	Fn,
 	aws_lambda as lambda,
 	Stack,
 } from 'aws-cdk-lib';
-import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -25,45 +22,12 @@ export class ImageEmbedder extends GuStack {
 
 		const appName = 'image-embedder'
 		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
-		const vpcid = new GuParameter(this, 'VpcIdParam', {
-			fromSSM: true,
-			default: `/account/vpc/primary/id`,
-		});
-
-		const publicSubnetIds = new GuParameter(this, 'VpcPublicParam', {
-			fromSSM: true,
-			default: '/account/vpc/primary/subnets/public',
-			type: 'List<String>',
-		});
-
-		const privateSubnetIds = new GuParameter(this, 'VpcPrivateParam', {
-			fromSSM: true,
-			default: '/account/vpc/primary/subnets/private',
-			type: 'List<String>',
-		});
 
 		const thrallStreamArn = new GuParameter(this, 'ThrallMessageStreamArn', {
 			fromSSM: true,
 			default: `/${this.stage}/media-service/thrall/message-stream-arn`,
 			type: 'String'
 		});
-
-		const vpc = Vpc.fromVpcAttributes(this, 'VPC', {
-			vpcId: vpcid.valueAsString,
-			publicSubnetIds: publicSubnetIds.valueAsList,
-			privateSubnetIds: privateSubnetIds.valueAsList,
-			availabilityZones: Fn.getAzs(),
-		});
-
-		const lambdaSecurityGroup = new ec2.SecurityGroup(
-			this,
-			'ImageEmbedderLambdaSG',
-			{
-				vpc,
-				description: 'Security group for image embedder lambda',
-				allowAllOutbound: true,
-			},
-		);
 
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
@@ -80,8 +44,6 @@ export class ImageEmbedder extends GuStack {
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
 				},
-				vpc,
-				securityGroups: [lambdaSecurityGroup],
 			},
 		);
 

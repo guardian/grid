@@ -3,6 +3,8 @@ package com.gu.mediaservice.model
 import play.api.libs.json.Json
 import play.api.libs.json.OFormat
 
+//NOTE - this is the type for both the mapping in ES and the message sent to Thrall,
+// so we may want to make a separate type for the updateMessage that allows partial updates
 case class Embedding(
     cohereEmbedEnglishV3: CohereV3Embedding
 )

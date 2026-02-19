@@ -67,6 +67,7 @@ async function main() {
   process.env.IS_LOCAL = "true";
   process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
   process.env.DOWNSCALED_IMAGE_BUCKET = downscaledImageBucket;
+  // TODO set kinesis stream env variable here instead for local
 
   // Import handler AFTER setting environment variables
   // Use require() because ts-node hooks into require, not dynamic import()
