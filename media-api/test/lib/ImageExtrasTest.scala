@@ -1,16 +1,22 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
+import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, SimplePermission}
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
-
-import java.net.URI
 import com.gu.mediaservice.model._
+import lib.elasticsearch.Fixtures
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
+import java.net.URI
+import scala.concurrent.ExecutionContext.global
+
+class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar with Fixtures {
 
   private val Quota = mock[UsageQuota]
 
@@ -165,6 +171,80 @@ class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
       )
 
       expectedInvalidReasons should be(invalidReasons)
+    }
+  }
+
+  describe("userMayUndeleteImage") {
+    // simplified authorisationProvider which only allows "admin@example.net" to delete images, all
+    // other users cannot
+    val mockAuthorisationProvider = new AuthorisationProvider {
+      override def hasPermissionTo(permission: SimplePermission, principal: Principal): Boolean = {
+        if (permission == DeleteImage) {
+          principal.accessor.identity == "admin@example.net"
+        } else {
+          true
+        }
+      }
+
+      override def hasBasicAccess(userEmail: String): Boolean = true
+    }
+
+    val authorisation = new Authorisation(
+      provider = mockAuthorisationProvider,
+      executionContext = global
+    )
+
+    it("should deny if user does not have permission") {
+      val user = Authentication.UserPrincipal(
+        "Jane", "Bloggs", "jane.bloggs@example.net"
+      )
+      val image = createImage(
+        id = "xyz",
+        usageRights = staffPhotographer,
+        softDeletedMetadata = Some(deletionData("wile.e.coyote@acme.org"))
+      )
+
+      ImageExtras.userMayUndeleteImage(user, image, authorisation) shouldBe false
+    }
+
+    it("should allow if image was deleted by reaper") {
+      val user = Authentication.UserPrincipal(
+        "Jane", "Bloggs", "jane.bloggs@example.net"
+      )
+      val image = createImage(
+        id = "xyz",
+        usageRights = staffPhotographer,
+        softDeletedMetadata = Some(deletionData("reaper"))
+      )
+
+      ImageExtras.userMayUndeleteImage(user, image, authorisation) shouldBe true
+    }
+
+    it("should allow if user is admin (has permission to delete)") {
+      val user = Authentication.UserPrincipal(
+        "Big", "Boss", "admin@example.net"
+      )
+      val image = createImage(
+        id = "xyz",
+        usageRights = staffPhotographer,
+        softDeletedMetadata = Some(deletionData("wile.e.coyote@acme.org"))
+      )
+
+      ImageExtras.userMayUndeleteImage(user, image, authorisation) shouldBe true
+    }
+
+    it("should allow if user uploaded the image") {
+      val user = Authentication.UserPrincipal(
+        "Jane", "Bloggs", "jane.bloggs@example.net"
+      )
+      val image = createImage(
+        id = "xyz",
+        usageRights = staffPhotographer,
+        uploadedBy = "jane.bloggs@example.net",
+        softDeletedMetadata = Some(deletionData("wile.e.coyote@acme.org"))
+      )
+
+      ImageExtras.userMayUndeleteImage(user, image, authorisation) shouldBe true
     }
   }
 }

@@ -1,5 +1,8 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{AllowUseLease, DenyUseLease, LeasesByMedia, MediaLease}
 import lib.usagerights.CostCalculator
@@ -86,4 +89,11 @@ object ImageExtras {
     }
 
   def isValid(validityMap: ValidMap): Boolean = validityMap.values.forall(_.isValid)
+
+  def userMayUndeleteImage(user: Principal, image: Image, authorisation: Authorisation): Boolean = {
+    val canDelete = authorisation.isUploaderOrHasPermission(user, image.uploadedBy, DeleteImagePermission)
+    val imageWasReaped = image.softDeletedMetadata.exists(_.deletedBy == "reaper")
+
+    canDelete || imageWasReaped
+  }
 }
