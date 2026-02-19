@@ -489,34 +489,23 @@ class ElasticSearch(
     }))
   }
 
-  def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
-                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-//   TODO confirm if this is right, this is just based on the updateImageExports function right now
-    logger.info("Updating embedding for image id: " + id)
+def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
+                   (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+  logger.info(logMarker, s"Updating embedding for image id: $id")
 
-    val addEmbeddingScript =
-      """| if (ctx._source.embedding == null) {
-         |   ctx._source.embedding = params.embedding;
-         | } else {
-         |   ctx._source.embedding.addAll(params.embedding);
-         | }
-    """
+  val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
 
-    val scriptSource = loadUpdatingModificationPainless(addEmbeddingScript)
+  val scriptSource = loadUpdatingModificationPainless(replaceEmbeddingScript)
 
-    val embeddingParameter = JsDefined(Json.toJson(embedding)).toOption.map { cs: JsValue => // TODO deduplicate with set collections
-      cs.as[JsArray].value.map { c =>
-        asNestedMap(c)
-      }.toSeq
-    }.orNull
+  val embeddingParameter = JsDefined(Json.toJson(embedding)).toOption.map(asNestedMap).orNull
 
-    val eventualUpdateResponse = migrationAwareUpdater(
-      requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
-      logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
-    ).incrementOnFailure(metrics.map(_.failedEmbeddingInserts)) { case _ => true }
+  val eventualUpdateResponse = migrationAwareUpdater(
+    requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
+    logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
+  ).incrementOnFailure(metrics.map(_.failedEmbeddingInserts)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
-  }
+  List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+}
 
   def deleteAllImageUsages(
     id: String, lastModified: DateTime
