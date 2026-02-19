@@ -391,6 +391,7 @@ class MediaApi(
       case Some(image)
         if isVisibleToAccessor(request.user, image)
           && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
+        logger.info(logMarker, s"undeleting image $id")
 
         softDeletedMetadataTable.updateStatus(id, isDeleted = false)
           .map { _ =>
@@ -402,6 +403,7 @@ class MediaApi(
             )
           }.map { _ => Accepted }
       case Some(image) if isVisibleToAccessor(request.user, image) =>
+        logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
         Future.successful(ImageDeleteForbidden)
       case _ => Future.successful(ImageNotFound(id))
     }
