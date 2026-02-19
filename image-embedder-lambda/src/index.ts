@@ -248,8 +248,10 @@ async function getCachedDownscaledImage(
   }
 }
 
-// Message format matching Scala's UpdateEmbeddingMessage
+// Message format matching Scala's ExternalThrallMessage serialisation.
+// Play JSON uses a `_type` discriminator field with the fully qualified class name.
 interface UpdateEmbeddingMessage {
+  _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage";
   id: string;
   lastModified: string; // ISO 8601 format
   embedding: {
@@ -270,6 +272,7 @@ async function sendEmbeddingToKinesis(
   }
 
   const message: UpdateEmbeddingMessage = {
+    _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
     id: imageId,
     lastModified: new Date().toISOString(),
     embedding: {
