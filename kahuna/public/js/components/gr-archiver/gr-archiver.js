@@ -7,13 +7,15 @@ import template from './gr-archiver.html';
 import '../../services/archive';
 import '../../services/image-accessor';
 import '../../util/string';
+import {getDeletedState} from "../../util/get-deleted-state";
 
 
 export const module = angular.module('gr.archiver', [
     'kahuna.services.archive',
     'kahuna.services.image-accessor',
     'kahuna.services.image-logic',
-    'util.string'
+    'util.string',
+    getDeletedState.name
 ]);
 
 module.controller('grArchiverCtrl', [
@@ -24,13 +26,15 @@ module.controller('grArchiverCtrl', [
     'imageLogic',
     'humanJoin',
     'mediaApi',
+    'getDeletedState',
     function ($scope,
               $window,
               archiveService,
               imageAccessor,
               imageLogic,
               humanJoin,
-              mediaApi) {
+              mediaApi,
+              getDeletedState) {
 
         const ctrl = this;
 
@@ -44,10 +48,9 @@ module.controller('grArchiverCtrl', [
 
         ctrl.undelete = undelete;
 
-        mediaApi.getSession().then(session => {
-            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
-            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
-        });
+        ctrl.$onInit = () => {
+          getDeletedState(ctrl);
+        };
 
         mediaApi.canUserArchive().then(canArchive => {
             ctrl.canArchive = canArchive;

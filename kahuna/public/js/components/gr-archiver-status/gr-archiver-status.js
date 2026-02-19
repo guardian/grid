@@ -5,18 +5,21 @@ import './gr-archiver-status.css';
 import {archiveService} from '../../services/archive';
 import {imageLogic} from '../../services/image-logic';
 import {string} from '../../util/string';
+import {getDeletedState} from "../../util/get-deleted-state";
 
 export const archiver = angular.module('gr.archiverStatus', [
     archiveService.name,
     imageLogic.name,
-    string.name
+    string.name,
+    getDeletedState.name
 ]);
 
 archiver.controller('ArchiverCtrl',
                     ['$scope', '$window', 'archiveService',
-                     'imageLogic', 'humanJoin', 'mediaApi',
+                     'imageLogic', 'humanJoin', 'mediaApi', 'getDeletedState',
                      function($scope, $window, archiveService,
-                              imageLogic, humanJoin, mediaApi) {
+                              imageLogic, humanJoin, mediaApi,
+                              getDeletedState) {
 
     const ctrl = this;
 
@@ -27,9 +30,9 @@ archiver.controller('ArchiverCtrl',
 
     ctrl.undelete = undelete;
 
-    mediaApi.getSession().then(session => {
-        if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
-    });
+    ctrl.$onInit = () => {
+      getDeletedState(ctrl);
+    };
 
     mediaApi.canUserArchive().then(canArchive => {
         ctrl.canArchive = canArchive;

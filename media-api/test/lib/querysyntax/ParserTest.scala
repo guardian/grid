@@ -1,9 +1,8 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
+import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.BeforeAndAfter
-import org.joda.time.DateTime
-import org.joda.time.DateTimeUtils
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
