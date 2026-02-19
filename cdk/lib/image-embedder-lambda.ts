@@ -42,11 +42,11 @@ export class ImageEmbedder extends GuStack {
 			type: 'List<String>',
 		});
 
-		const thrallStreamArn = new GuParameter(this, 'ThralMessageStream', {
+		const thrallStreamArn = new GuParameter(this, 'ThrallMessageStreamArn', {
 			fromSSM: true,
 			default: `/${this.stage}/media-service/thrall/message-stream-arn`,
 			type: 'String'
-		})
+		});
 
 		const vpc = Vpc.fromVpcAttributes(this, 'VPC', {
 			vpcId: vpcid.valueAsString,
@@ -78,6 +78,7 @@ export class ImageEmbedder extends GuStack {
 				environment: {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
+					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
 				},
 				vpc,
 				securityGroups: [lambdaSecurityGroup],

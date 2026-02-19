@@ -26,6 +26,10 @@ import {
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
 import {
+  KinesisClient,
+  PutRecordCommand,
+} from "@aws-sdk/client-kinesis";
+import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_PIXELS_COHERE_V4,
 } from "./constants";
@@ -37,11 +41,6 @@ const isLocal = process.env.IS_LOCAL === "true";
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
 const STAGE = isLocal ? "dev" : process.env.STAGE;
-const ES_URL = process.env.ES_URL || "http://localhost:9200";
-
-if (!ES_URL) {
-  throw new Error("ES_URL environment variable is required");
-}
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
@@ -67,6 +66,28 @@ const s3Config = {
 const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
+
+const kinesisConfig = {
+  region: "eu-west-1",
+  ...(isLocal && {
+    endpoint: LOCALSTACK_ENDPOINT,
+    credentials: {
+      accessKeyId: "test",
+      secretAccessKey: "test",
+    },
+  }),
+};
+const kinesisClient = new KinesisClient(kinesisConfig);
+
+// Kinesis stream for sending embeddings to Thrall
+// In AWS: use the ARN from env var
+// In LocalStack: use the stream name directly
+const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
+const LOCAL_THRALL_KINESIS_STREAM_NAME = "media-service-DEV-thrall";
+
+if (!THRALL_KINESIS_STREAM_ARN && !isLocal) {
+  console.error("THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall");
+}
 
 interface SQSMessageBody {
   imageId: string;
@@ -227,8 +248,50 @@ async function getCachedDownscaledImage(
   }
 }
 
-async function addToKinesis() {
-  console.log(`Writing to Kinesis stream!`);
+// Message format matching Scala's UpdateEmbeddingMessage
+interface UpdateEmbeddingMessage {
+  id: string;
+  lastModified: string; // ISO 8601 format
+  embedding: {
+    cohereEmbedEnglishV3: {
+      image: number[];
+    };
+  };
+}
+
+async function sendEmbeddingToKinesis(
+  imageId: string,
+  embedding: number[],
+  client: KinesisClient
+): Promise<void> {
+  if (!THRALL_KINESIS_STREAM_ARN && !isLocal) {
+    console.warn(`THRALL_KINESIS_STREAM_ARN not set, skipping Kinesis publish for ${imageId}`);
+    return;
+  }
+
+  const message: UpdateEmbeddingMessage = {
+    id: imageId,
+    lastModified: new Date().toISOString(),
+    embedding: {
+      cohereEmbedEnglishV3: {
+        image: embedding,
+      },
+    },
+  };
+
+  // Use StreamName for LocalStack, StreamARN for AWS
+  const command = new PutRecordCommand({
+    ...(isLocal
+      ? { StreamName: LOCAL_THRALL_KINESIS_STREAM_NAME }
+      : { StreamARN: THRALL_KINESIS_STREAM_ARN }),
+    PartitionKey: imageId,
+    Data: Buffer.from(JSON.stringify(message)),
+  });
+
+  const response = await client.send(command);
+  console.log(
+    `Published embedding for ${imageId} to Kinesis, shard: ${response.ShardId}, sequence: ${response.SequenceNumber}`
+  );
 }
 
 async function cacheDownscaledImage(
@@ -420,13 +483,17 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    console.log(`STAGE: ${STAGE}`);
-    if (STAGE === "PROD") {
-      console.log(`Not writing the embedding to ES yet whilst we test on TEST`);
-    } else {
-      // As discussed with Andrew, we're actually going to write to the Kinesis stream instead!
-      await addToKinesis();
+    // Send each embedding to Kinesis for Thrall to write to Elasticsearch
+    for (const vector of vectors) {
+      if (vector.data?.float32 && vector.key) {
+        if (STAGE === "PROD") {
+          console.log(`Not writing the embedding to Kinesis yet whilst we test on TEST`);
+        } else {
+          await sendEmbeddingToKinesis(vector.key, vector.data.float32, kinesisClient);
+        }
+      }
     }
+    
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
     console.log(`Stored ${vectors.length} vectors`);
   } else {
