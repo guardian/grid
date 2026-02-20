@@ -10,6 +10,7 @@ import {
   DescribeStackResourcesCommand,
   StackResource,
 } from "@aws-sdk/client-cloudformation";
+import { KinesisClient, DescribeStreamCommand } from "@aws-sdk/client-kinesis";
 import { Context, SQSEvent } from "aws-lambda";
 
 const LOCALSTACK_ENDPOINT =
@@ -37,37 +38,65 @@ const cfnClient = new CloudFormationClient({
   },
 });
 
+const kinesisClient = new KinesisClient({
+  region: "eu-west-1",
+  endpoint: LOCALSTACK_ENDPOINT,
+  credentials: {
+    accessKeyId: "test",
+    secretAccessKey: "test",
+  },
+});
+
 async function getStackResource(
   stackName: string,
-  logicalResourceId: string
+  logicalResourceId: string,
 ): Promise<string> {
   const response = await cfnClient.send(
-    new DescribeStackResourcesCommand({ StackName: stackName })
+    new DescribeStackResourcesCommand({ StackName: stackName }),
   );
   const resource = response.StackResources?.find(
-    (r: StackResource) => r.LogicalResourceId === logicalResourceId
+    (r: StackResource) => r.LogicalResourceId === logicalResourceId,
   );
   if (!resource?.PhysicalResourceId) {
     throw new Error(
-      `Resource ${logicalResourceId} not found in stack ${stackName}`
+      `Resource ${logicalResourceId} not found in stack ${stackName}`,
     );
   }
   return resource.PhysicalResourceId;
 }
 
+// Perhaps we could put the ARNs in the localstack parameter store
+// and get them out that way in the future
+// This would be more similar to what we do in the cdk stack
+async function getStreamArn(streamName: string): Promise<string> {
+  const response = await kinesisClient.send(
+    new DescribeStreamCommand({ StreamName: streamName }),
+  );
+  const arn = response.StreamDescription?.StreamARN;
+  if (!arn) {
+    throw new Error(`Could not get ARN for Kinesis stream ${streamName}`);
+  }
+  return arn;
+}
+
 async function main() {
-  // Fetch bucket name from CloudFormation stack
+  // Fetch resource names from CloudFormation stack
   const downscaledImageBucket = await getStackResource(
     "grid-dev-core",
-    "DownscaledImageBucket"
+    "DownscaledImageBucket",
   );
+  const thrallStreamName = await getStackResource(
+    "grid-dev-core",
+    "ThrallMessageStream",
+  );
+  const thrallStreamArn = await getStreamArn(thrallStreamName);
 
   // Set all environment variables before importing handler
   process.env.AWS_PROFILE = "media-service";
   process.env.IS_LOCAL = "true";
   process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
   process.env.DOWNSCALED_IMAGE_BUCKET = downscaledImageBucket;
-  // TODO set kinesis stream env variable here instead for local
+  process.env.THRALL_KINESIS_STREAM_ARN = thrallStreamArn;
 
   // Import handler AFTER setting environment variables
   // Use require() because ts-node hooks into require, not dynamic import()
@@ -78,6 +107,7 @@ async function main() {
   console.log(`Queue URL: ${QUEUE_URL}`);
   console.log(`Localstack Endpoint: ${LOCALSTACK_ENDPOINT}`);
   console.log(`Downscaled Image Bucket: ${downscaledImageBucket}`);
+  console.log(`Thrall Kinesis Stream ARN: ${thrallStreamArn}`);
   console.log(`Poll Interval: ${POLL_INTERVAL_MS}ms`);
   console.log("");
   console.log("Waiting for messages...");
@@ -156,7 +186,7 @@ async function main() {
               new DeleteMessageCommand({
                 QueueUrl: QUEUE_URL,
                 ReceiptHandle: message.ReceiptHandle,
-              })
+              }),
             );
             console.log("✓ Message deleted from queue");
           } catch (error) {
