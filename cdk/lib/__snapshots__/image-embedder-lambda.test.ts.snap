@@ -5,6 +5,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
   "Metadata": {
     "gu:cdk:constructs": [
       "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
       "GuS3Bucket",
@@ -15,6 +16,10 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "DistributionBucketName": {
       "Default": "/account/services/artifact.bucket",
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "ThrallKmsKeyArn": {
+      "Default": "/TEST/media-service/thrall/kms-key-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
     "ThrallMessageStreamArn": {
@@ -335,10 +340,20 @@ exports[`The MediaService stack matches the snapshot 1`] = `
               },
             },
             {
-              "Action": "kinesis:PutRecord",
+              "Action": [
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
               "Effect": "Allow",
               "Resource": {
                 "Ref": "ThrallMessageStreamArn",
+              },
+            },
+            {
+              "Action": "kms:GenerateDataKey",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "ThrallKmsKeyArn",
               },
             },
             {

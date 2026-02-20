@@ -4,11 +4,7 @@ import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
-import {
-	Duration,
-	aws_lambda as lambda,
-	Stack,
-} from 'aws-cdk-lib';
+import { Duration, aws_lambda as lambda, Stack } from 'aws-cdk-lib';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -20,13 +16,18 @@ export class ImageEmbedder extends GuStack {
 
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
 
-		const appName = 'image-embedder'
+		const appName = 'image-embedder';
 		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
 
 		const thrallStreamArn = new GuParameter(this, 'ThrallMessageStreamArn', {
 			fromSSM: true,
-			default: `/${this.stage}/media-service/thrall/message-stream-arn`,
-			type: 'String'
+			default: `/${this.stage}/${this.stack}/thrall/message-stream-arn`,
+			type: 'String',
+		});
+		const thrallKmsKeyArn = new GuParameter(this, 'ThrallKmsKeyArn', {
+			fromSSM: true,
+			default: `/${this.stage}/${this.stack}/thrall/kms-key-arn`,
+			type: 'String',
 		});
 
 		const imageEmbedderLambda = new GuLambdaFunction(
@@ -65,10 +66,14 @@ export class ImageEmbedder extends GuStack {
 				reportBatchItemFailures: true,
 			}),
 		);
-		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
-			app: appName,
-			bucketName: downscaledImageBucketName,
-		});
+		const downscaledImageBucket = new GuS3Bucket(
+			this,
+			'DownscaledImageBucket',
+			{
+				app: appName,
+				bucketName: downscaledImageBucketName,
+			},
+		);
 		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
 		// Allow writing vectors to S3 vector index
@@ -83,10 +88,16 @@ export class ImageEmbedder extends GuStack {
 
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
 			new PolicyStatement({
-				actions: ['kinesis:PutRecord'],
-				resources: [thrallStreamArn.valueAsString]
-			})
-		)
+				actions: ['kinesis:PutRecord', 'kinesis:PutRecords'],
+				resources: [thrallStreamArn.valueAsString],
+			}),
+		);
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kms:GenerateDataKey'],
+				resources: [thrallKmsKeyArn.valueAsString],
+			}),
+		);
 
 		// Allow invoking the Bedrock Cohere embeddings model
 		imageEmbedderLambda.role?.addToPrincipalPolicy(
