@@ -113,24 +113,27 @@ export async function getImageFromS3(
     Key: s3Key,
   };
 
-  console.log(`Fetching image from S3: bucket=${s3Bucket}, key=${s3Key}`);
+  const logSuffix = `(bucket = ${s3Bucket}, key = ${s3Key})`;
+  console.log(`Fetching image from S3 ${logSuffix}`);
   try {
     const command = new GetObjectCommand(input);
     const response: GetObjectCommandOutput = await client.send(command);
 
     if (!response.Body) {
-      console.warn(`No body in S3 response for key=${s3Key}`);
+      console.warn(`No body in S3 response ${logSuffix}`);
       return undefined;
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Fetched image: ${bytes.length.toLocaleString()} bytes from key=${s3Key}`);
+    console.log(
+      `Fetched image: ${bytes.length.toLocaleString()} bytes ${logSuffix}`,
+    );
     return bytes;
   } catch (error) {
     if (error instanceof Error && error.name === "NoSuchKey") {
-      console.log(`No object found at key=${s3Key}`);
+      console.log(`No object found in S3 ${logSuffix}`);
     } else {
-      console.error(`Failed to fetch from S3 key=${s3Key}:`, error);
+      console.error(`Failed to fetch from S3 ${logSuffix}: `, error);
     }
     return undefined;
   }
