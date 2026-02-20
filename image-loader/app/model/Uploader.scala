@@ -201,20 +201,28 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
 
-      val s3Bucket = s3Source.uri.getHost.split('.').head
-      val s3Key = s3Source.uri.getPath.stripPrefix("/")
+      val (s3ObjectForEmbedder, mimeTypeForEmbedder) = s3PngOption match {
+        // This will ensure we send PNGs in place of TIFFs
+        case Some(optimisedPngS3Object) => {
+          logger.info(logMarker, s"Queueing optimised PNG instead of original for embedding")
+          (optimisedPngS3Object, Png)
+        }
+        case _ => (s3Source, originalMimeType)
+      }
 
       // Return both the image and the S3 path needed for embedding
-      (finalImage, s3Bucket, s3Key)
+      (finalImage, s3ObjectForEmbedder, mimeTypeForEmbedder)
     }
-    eventualImage.onComplete{ imageFuture =>
+    eventualImage.onComplete { imageFuture =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
 
       imageFuture match {
-        case scala.util.Success((_, s3Bucket, s3Key)) =>
+        case scala.util.Success((_, s3Object, mimeType)) =>
+          val s3Bucket = s3Object.uri.getHost.split('.').head
+          val s3Key = s3Object.uri.getPath.stripPrefix("/")
           queueImageToEmbed(
-            EmbedderMessage(uploadRequest.imageId, originalMimeType.name, s3Bucket, s3Key)
+            EmbedderMessage(uploadRequest.imageId, mimeType.name, s3Bucket, s3Key)
           )
         case scala.util.Failure(exception) =>
           logger.error(
