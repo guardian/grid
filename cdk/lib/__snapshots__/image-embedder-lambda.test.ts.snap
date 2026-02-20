@@ -82,7 +82,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
-        "MemorySize": 512,
+        "MemorySize": 1024,
         "Role": {
           "Fn::GetAtt": [
             "ImageEmbedderHandlerServiceRoleD4456D21",
@@ -112,7 +112,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "Timeout": 30,
+        "Timeout": 300,
       },
       "Type": "AWS::Lambda::Function",
     },
