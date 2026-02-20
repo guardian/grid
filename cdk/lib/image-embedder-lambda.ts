@@ -32,6 +32,8 @@ export class ImageEmbedder extends GuStack {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 				},
+				memorySize: 1024,
+				timeout: Duration.minutes(5)
 			},
 		);
 
