@@ -25,7 +25,11 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
-import { KinesisClient, PutRecordCommand } from "@aws-sdk/client-kinesis";
+import {
+  KinesisClient,
+  PutRecordsCommand,
+  PutRecordsRequestEntry,
+} from "@aws-sdk/client-kinesis";
 import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
@@ -260,42 +264,51 @@ interface UpdateEmbeddingMessage {
   };
 }
 
-async function sendEmbeddingToKinesis(
-  imageId: string,
-  embedding: number[],
+async function sendEmbeddingsToKinesis(
+  vectors: PutInputVector[],
   client: KinesisClient,
 ): Promise<void> {
-  if (!THRALL_KINESIS_STREAM_ARN) {
-    console.warn(
-      `THRALL_KINESIS_STREAM_ARN not set, skipping Kinesis publish for ${imageId}`,
-    );
+  const records: PutRecordsRequestEntry[] = vectors
+    .filter((v) => v.data?.float32 && v.key)
+    .map((v) => {
+      const message: UpdateEmbeddingMessage = {
+        _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
+        id: v.key!,
+        lastModified: new Date().toISOString(),
+        embedding: {
+          cohereEmbedEnglishV3: {
+            image: v.data!.float32!,
+          },
+        },
+      };
+      return {
+        PartitionKey: v.key!,
+        Data: Buffer.from(JSON.stringify(message)),
+      };
+    });
+
+  if (records.length === 0) {
+    console.log(`No valid records to send to Kinesis`);
     return;
   }
 
-  const message: UpdateEmbeddingMessage = {
-    _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
-    id: imageId,
-    lastModified: new Date().toISOString(),
-    embedding: {
-      cohereEmbedEnglishV3: {
-        image: embedding,
-      },
-    },
-  };
+  console.log(`Writing ${records.length} embeddings to Kinesis stream...`);
 
-  const command = new PutRecordCommand({
+  const command = new PutRecordsCommand({
     StreamARN: THRALL_KINESIS_STREAM_ARN,
-    PartitionKey: imageId,
-    Data: Buffer.from(JSON.stringify(message)),
+    Records: records,
   });
 
-  console.log(
-    `Writing embedding for ${imageId} to Kinesis stream (StreamARN: ${THRALL_KINESIS_STREAM_ARN})`,
-  );
-
   const response = await client.send(command);
+
+  if (response.FailedRecordCount && response.FailedRecordCount > 0) {
+    console.error(
+      `Failed to publish ${response.FailedRecordCount} of ${records.length} records to Kinesis`,
+    );
+  }
+
   console.log(
-    `Published embedding for ${imageId} to Kinesis, shard: ${response.ShardId}, sequence: ${response.SequenceNumber}`,
+    `Published ${records.length - (response.FailedRecordCount ?? 0)} embeddings to Kinesis (${response.FailedRecordCount ?? 0} failed)`,
   );
 }
 
@@ -499,21 +512,13 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    // Send each embedding to Kinesis for Thrall to write to Elasticsearch
-    for (const vector of vectors) {
-      if (vector.data?.float32 && vector.key) {
-        if (STAGE === "PROD") {
-          console.log(
-            `Not writing the embedding to Kinesis yet whilst we test on TEST`,
-          );
-        } else {
-          await sendEmbeddingToKinesis(
-            vector.key,
-            vector.data.float32,
-            kinesisClient,
-          );
-        }
-      }
+    // Send embeddings to Kinesis for Thrall to write to Elasticsearch
+    if (STAGE === "PROD") {
+      console.log(
+        `Not writing embeddings to Kinesis yet whilst we test on TEST`,
+      );
+    } else {
+      await sendEmbeddingsToKinesis(vectors, kinesisClient);
     }
 
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
