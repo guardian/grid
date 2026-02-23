@@ -267,29 +267,28 @@ interface UpdateEmbeddingMessage {
 async function sendEmbeddingsToKinesis(
   vectors: PutInputVector[],
   client: KinesisClient,
-): Promise<void> {
-  const records: PutRecordsRequestEntry[] = vectors
-    .filter((v) => v.data?.float32 && v.key)
-    .map((v) => {
-      const message: UpdateEmbeddingMessage = {
-        _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
-        id: v.key!,
-        lastModified: new Date().toISOString(),
-        embedding: {
-          cohereEmbedEnglishV3: {
-            image: v.data!.float32!,
-          },
+): Promise<string[]> {
+  const validVectors = vectors.filter((v) => v.data?.float32 && v.key);
+  const records: PutRecordsRequestEntry[] = validVectors.map((v) => {
+    const message: UpdateEmbeddingMessage = {
+      _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
+      id: v.key!,
+      lastModified: new Date().toISOString(),
+      embedding: {
+        cohereEmbedEnglishV3: {
+          image: v.data!.float32!,
         },
-      };
-      return {
-        PartitionKey: v.key!,
-        Data: Buffer.from(JSON.stringify(message)),
-      };
-    });
+      },
+    };
+    return {
+      PartitionKey: v.key!,
+      Data: Buffer.from(JSON.stringify(message)),
+    };
+  });
 
   if (records.length === 0) {
     console.log(`No valid records to send to Kinesis`);
-    return;
+    return [];
   }
 
   console.log(`Writing ${records.length} embeddings to Kinesis stream...`);
@@ -301,15 +300,25 @@ async function sendEmbeddingsToKinesis(
 
   const response = await client.send(command);
 
-  if (response.FailedRecordCount && response.FailedRecordCount > 0) {
-    console.error(
-      `Failed to publish ${response.FailedRecordCount} of ${records.length} records to Kinesis`,
-    );
-  }
+  const failedImageIds: string[] = (response.Records ?? []).reduce<string[]>(
+    (acc, record, index) => {
+      if (record.ErrorCode) {
+        const imageId = validVectors[index].key!;
+        console.error(
+          `Failed to publish embedding for ${imageId} to Kinesis: ${record.ErrorCode} - ${record.ErrorMessage}`,
+        );
+        acc.push(imageId);
+      }
+      return acc;
+    },
+    [],
+  );
 
   console.log(
-    `Published ${records.length - (response.FailedRecordCount ?? 0)} embeddings to Kinesis (${response.FailedRecordCount ?? 0} failed)`,
+    `Published ${records.length - failedImageIds.length} embeddings to Kinesis (${failedImageIds.length} failed)`,
   );
+
+  return failedImageIds;
 }
 
 async function cacheDownscaledImage(
@@ -449,6 +458,7 @@ export const handler = async (
 
   const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
+  const imageIdToMessageId = new Map<string, string>();
 
   for (const [i, record] of records.entries()) {
     try {
@@ -501,6 +511,7 @@ export const handler = async (
           float32: embedding,
         },
       });
+      imageIdToMessageId.set(recordBody.imageId, record.messageId);
     } catch (error) {
       console.error(`Error processing record ${record.messageId}:`, error);
       batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -518,7 +529,16 @@ export const handler = async (
         `Not writing embeddings to Kinesis yet whilst we test on TEST`,
       );
     } else {
-      await sendEmbeddingsToKinesis(vectors, kinesisClient);
+      const failedImageIds = await sendEmbeddingsToKinesis(
+        vectors,
+        kinesisClient,
+      );
+      for (const imageId of failedImageIds) {
+        const messageId = imageIdToMessageId.get(imageId);
+        if (messageId) {
+          batchItemFailures.push({ itemIdentifier: messageId });
+        }
+      }
     }
 
     await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
