@@ -177,21 +177,13 @@ object S3Ops {
   val s3Endpoint = "s3.amazonaws.com"
 
   def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
-
-    val clientConfig = new ClientConfiguration()
-    // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
-    // which proxies direct to S3, passing the AWS security signature as query parameters. This does not work with
-    // AWS v4 signatures, presumably because the signature includes the host
-    if (forceV2Sigs) clientConfig.setSignerOverride("S3SignerType")
-
     val builder = config.awsLocalEndpoint match {
-      case Some(_) if config.isDev => {
+      case Some(_) if config.isDev =>
         // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
         //  `withPathStyleAccessEnabled` for localstack
         //  see https://github.com/localstack/localstack/issues/1512
         AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
-      }
-      case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+      case _ => AmazonS3ClientBuilder.standard()
     }
 
     config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
