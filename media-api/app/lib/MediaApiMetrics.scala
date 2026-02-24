@@ -1,10 +1,10 @@
 package lib
 
-import org.apache.pekko.actor.ActorSystem
-import com.amazonaws.services.cloudwatch.model.Dimension
 import com.gu.mediaservice.lib.auth.{ApiAccessor, Syndication}
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
+import org.apache.pekko.actor.ActorSystem
 import play.api.inject.ApplicationLifecycle
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 import scala.concurrent.ExecutionContext
 
@@ -14,7 +14,7 @@ class MediaApiMetrics(config: MediaApiConfig, actorSystem: ActorSystem, applicat
   val searchQueries = new TimeMetric("ElasticSearch")
 
   def searchTypeDimension(value: String): Dimension =
-    new Dimension().withName("SearchType").withValue(value)
+    Dimension.builder().name("SearchType").value(value).build()
 
   sealed trait DownloadType {
     val metricName: String
@@ -36,7 +36,7 @@ class MediaApiMetrics(config: MediaApiConfig, actorSystem: ActorSystem, applicat
       case _ => apiKey.tier.toString
     }
 
-    val dimension = new Dimension().withName(downloadType.metricName).withValue(dimensionValue)
+    val dimension = Dimension.builder().name(downloadType.metricName).value(dimensionValue).build()
 
     metric.increment(List(dimension))
   }
