@@ -65,7 +65,7 @@ describe("fetchImage", () => {
   });
 
   describe("PNGs", () => {
-    it("uses the optimised PNG when available", async () => {
+    it("uses the optimised PNG in preference to the original, when both exist", async () => {
       givenS3Has(["optimised/a/b/c/abc123", "a/b/c/abc123"]);
 
       const result = await fetchImage({
@@ -76,6 +76,25 @@ describe("fetchImage", () => {
       }, client);
 
       expect(result).toEqual(fetched("optimised/a/b/c/abc123", "image/png"));
+      expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
+    });
+
+    it("uses the optimised PNG when original does not exist", async () => {
+      givenS3Has(["optimised/a/b/c/abc123"]);
+
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/png",
+        },
+        client,
+      );
+
+      expect(result).toEqual(
+        fetched("optimised/a/b/c/abc123", "image/png"),
+      );
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
 
@@ -90,6 +109,7 @@ describe("fetchImage", () => {
       }, client);
 
       expect(result).toEqual(fetched("a/b/c/abc123", "image/png"));
+      // It tried the optimised, couldn't find it, so then tried the original
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123", "a/b/c/abc123"]);
     });
 
@@ -120,22 +140,42 @@ describe("fetchImage", () => {
   });
 
   describe("TIFFs", () => {
-    it("uses the optimised PNG when available", async () => {
+    it("uses the optimised PNG in place of the original, when both exist", async () => {
+      givenS3Has(["a/b/c/abc123", "optimised/a/b/c/abc123"]);
+
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/tiff",
+        },
+        client,
+      );
+
+      expect(result).toEqual(fetched("optimised/a/b/c/abc123", "image/png"));
+      expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
+    });
+
+    it("uses the optimised PNG when original does not exist", async () => {
       givenS3Has(["optimised/a/b/c/abc123"]);
 
-      const result = await fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/tiff",
-      }, client);
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/tiff",
+        },
+        client,
+      );
 
       expect(result).toEqual(fetched("optimised/a/b/c/abc123", "image/png"));
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
 
 
-    it("throws when no optimised PNG exists", async () => {
+    it("throws when neither original TIFF nor optimised PNG exists", async () => {
       givenS3Has([]);
 
       await expect(fetchImage({
@@ -144,6 +184,22 @@ describe("fetchImage", () => {
         s3Key: "a/b/c/abc123",
         fileType: "image/tiff",
       }, client)).rejects.toThrow("Unsupported file type: image/tiff");
+    });
+
+    it("throws when no optimised PNG exists, even if the original TIFF exists", async () => {
+      givenS3Has(["a/b/c/abc123"]);
+
+      await expect(
+        fetchImage(
+          {
+            imageId: "abc123",
+            s3Bucket: "test-bucket",
+            s3Key: "a/b/c/abc123",
+            fileType: "image/tiff",
+          },
+          client,
+        ),
+      ).rejects.toThrow("Unsupported file type: image/tiff");
     });
   });
 });
