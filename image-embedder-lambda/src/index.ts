@@ -64,11 +64,44 @@ const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
-interface SQSMessageBody {
+export interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
   fileType: string;
+}
+
+export interface FetchedImage {
+  bytes: Uint8Array;
+  mimeType: string;
+}
+
+// For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
+// Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
+export async function fetchImage(message: SQSMessageBody, client: S3Client): Promise<FetchedImage> {
+  const isAlreadyOptimised = message.s3Key.startsWith("optimised/");
+  const shouldCheckForOptimised = message.fileType === "image/tiff" || message.fileType === "image/png";
+
+  if (shouldCheckForOptimised && !isAlreadyOptimised) {
+    const optimisedKey = `optimised/${message.s3Key}`;
+    const bytes = await getImageFromS3(message.s3Bucket, optimisedKey, client);
+    if (bytes) {
+      console.log(`Using optimised PNG for ${message.imageId}`);
+      return { bytes, mimeType: "image/png" };
+    }
+    console.log(`No optimised PNG for ${message.imageId}, falling back to original`);
+  }
+
+  if (message.fileType === "image/tiff") {
+    throw new Error(`Unsupported file type: image/tiff for image ${message.imageId} (no optimised PNG found)`);
+  }
+
+  const bytes = await getImageFromS3(message.s3Bucket, message.s3Key, client);
+  if (!bytes) {
+    throw new Error(`Failed to retrieve image from S3 for image ${message.imageId}`);
+  }
+
+  return { bytes, mimeType: message.fileType };
 }
 
 export async function getImageFromS3(
@@ -81,28 +114,29 @@ export async function getImageFromS3(
     Key: s3Key,
   };
 
-  console.log(`Fetching image from S3: bucket=${s3Bucket}, key=${s3Key}`);
+  const logSuffix = `(bucket = ${s3Bucket}, key = ${s3Key})`;
+  console.log(`Fetching image from S3 ${logSuffix}`);
   try {
     const command = new GetObjectCommand(input);
     const response: GetObjectCommandOutput = await client.send(command);
 
-    console.log(`S3 response metadata: ${JSON.stringify(response.$metadata)}`);
-
     if (!response.Body) {
-      console.log(`Returning undefined: response.Body is falsy`);
+      console.warn(`No body in S3 response ${logSuffix}`);
       return undefined;
     }
 
-    if (response.ContentLength === 0) {
-      console.log(`Warning: ContentLength is 0, file may be empty`);
-    }
-
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`);
+    console.log(
+      `Fetched image: ${bytes.length.toLocaleString()} bytes ${logSuffix}`,
+    );
     return bytes;
   } catch (error) {
-    console.error(`Error fetching from S3:`, error);
-    throw error;
+    if (error instanceof Error && error.name === "NoSuchKey") {
+      console.log(`No object found in S3 ${logSuffix}`);
+    } else {
+      console.error(`Failed to fetch from S3 ${logSuffix}: `, error);
+    }
+    return undefined;
   }
 }
 
@@ -185,29 +219,13 @@ async function getCachedDownscaledImage(
   }
 
   const key = toPartitionedKey(imageId);
-  try {
-    const command = new GetObjectCommand({
-      Bucket: DOWNSCALED_IMAGE_BUCKET,
-      Key: key,
-    });
-    const response = await client.send(command);
-
-    if (!response.Body) {
-      return undefined;
-    }
-
-    const bytes = await response.Body.transformToByteArray();
+  const bytes = await getImageFromS3(DOWNSCALED_IMAGE_BUCKET, key, client);
+  if (bytes) {
     console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
-    return bytes;
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === "NoSuchKey") {
-      console.log(`Cache miss: no downscaled image for ${imageId}`);
-      return undefined;
-    }
-    // Log but don't throw - cache failures shouldn't break the pipeline
-    console.warn(`Error checking cache for ${imageId}:`, error);
-    return undefined;
+  } else {
+    console.log(`Cache miss: no downscaled image for ${imageId}`);
   }
+  return bytes;
 }
 
 async function cacheDownscaledImage(
@@ -342,31 +360,12 @@ export const handler = async (
       console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
-      // If it's a Tiff then we should log an error
-      // And add it to the BatchItemFailures
-      // So that it ends on the DLQ for processing when we add tiff handling
-      if (recordBody.fileType === "image/tiff") {
-        throw new Error(
-          `Unsupported file type: ${recordBody.fileType} for image ${recordBody.imageId}`,
-        );
-      }
-
-      const gridImageBytes = await getImageFromS3(
-        recordBody.s3Bucket,
-        recordBody.s3Key,
-        s3Client,
-      );
-
-      if (!gridImageBytes) {
-        throw new Error(
-          `Failed to retrieve image from S3 for image ${recordBody.imageId}`,
-        );
-      }
+      const { bytes: gridImageBytes, mimeType: imageMimeType } = await fetchImage(recordBody, s3Client);
 
       const embeddingResponse = await embedImage(
         recordBody.imageId,
         gridImageBytes,
-        recordBody.fileType,
+        imageMimeType,
         bedrockClient,
         s3Client,
       );
