@@ -94,6 +94,24 @@ describe("fetchImage", () => {
         "Failed to retrieve image",
       );
     });
+
+    it("uses the key directly when it's already an optimised path", async () => {
+      const optimisedKey = `optimised/${ORIGINAL_KEY}`;
+      const optimisedBytes = new Uint8Array([1, 2, 3]);
+      const client = mockS3Client({
+        [optimisedKey]: optimisedBytes,
+      });
+
+      const result = await fetchImage(
+        makeMessage("image/png", { s3Key: optimisedKey }),
+        client,
+      );
+
+      expect(result.bytes).toBe(optimisedBytes);
+      expect(result.mimeType).toBe("image/png");
+      // Should NOT have tried optimised/optimised/...
+      expect(client.send).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("TIFFs", () => {
