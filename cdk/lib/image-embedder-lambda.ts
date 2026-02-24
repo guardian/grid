@@ -53,6 +53,12 @@ export class ImageEmbedder extends GuStack {
 		imageEmbedderLambda.addEventSource(
 			new SqsEventSource(imageEmbedderQueue, {
 				reportBatchItemFailures: true,
+				// Prevent spinning up loads of lambdas if the queue is busy
+				// and the lambdas are taking a while to execute.
+				// This can impact other lambdas in the account by consuming
+				// the shared per-account concurrency limit (default 1000),
+				// which throttles other lambdas in the same region.
+				maxConcurrency: 100,
 			}),
 		);
 		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
