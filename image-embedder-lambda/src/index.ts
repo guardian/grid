@@ -79,9 +79,10 @@ export interface FetchedImage {
 // For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
 // Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
 export async function fetchImage(message: SQSMessageBody, client: S3Client): Promise<FetchedImage> {
+  const isAlreadyOptimised = message.s3Key.startsWith("optimised/");
   const hasOptimised = message.fileType === "image/tiff" || message.fileType === "image/png";
 
-  if (hasOptimised) {
+  if (hasOptimised && !isAlreadyOptimised) {
     const optimisedKey = `optimised/${message.s3Key}`;
     const bytes = await getImageFromS3(message.s3Bucket, optimisedKey, client);
     if (bytes) {
