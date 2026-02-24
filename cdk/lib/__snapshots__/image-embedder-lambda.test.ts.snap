@@ -376,6 +376,9 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "FunctionResponseTypes": [
           "ReportBatchItemFailures",
         ],
+        "ScalingConfig": {
+          "MaximumConcurrency": 100,
+        },
         "Tags": [
           {
             "Key": "App",
