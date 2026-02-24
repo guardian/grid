@@ -41,12 +41,15 @@ describe("fetchImage", () => {
     it("fetches the original directly", async () => {
       givenS3Has(["a/b/c/abc123"]);
 
-      const result = await fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/jpeg",
-      }, client);
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/jpeg",
+        },
+        client,
+      );
 
       expect(result).toEqual(fetched("a/b/c/abc123", "image/jpeg"));
       expect(requestedKeys()).toEqual(["a/b/c/abc123"]);
@@ -55,13 +58,35 @@ describe("fetchImage", () => {
     it("throws when the original is missing", async () => {
       givenS3Has([]);
 
-      await expect(fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/jpeg",
-      }, client)).rejects.toThrow("Failed to retrieve image");
+      await expect(
+        fetchImage(
+          {
+            imageId: "abc123",
+            s3Bucket: "test-bucket",
+            s3Key: "a/b/c/abc123",
+            fileType: "image/jpeg",
+          },
+          client,
+        ),
+      ).rejects.toThrow("Failed to retrieve image");
     });
+
+    it("does not try optimised even if present when original is not", async () => {
+      givenS3Has(["optimised/a/b/c/abc123"]);
+
+      await expect(
+        fetchImage(
+          {
+            imageId: "abc123",
+            s3Bucket: "test-bucket",
+            s3Key: "a/b/c/abc123",
+            fileType: "image/jpeg",
+          },
+          client,
+        ),
+      ).rejects.toThrow("Failed to retrieve image");
+    });
+
   });
 
   describe("PNGs", () => {
