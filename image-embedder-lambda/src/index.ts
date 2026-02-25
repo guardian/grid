@@ -5,6 +5,7 @@ import {
   SQSEvent,
   SQSRecord,
 } from "aws-lambda";
+import { LogLevel } from "@aws-sdk/config/logger";
 import {
   BedrockRuntimeClient,
   ImageBlock$,
@@ -61,7 +62,10 @@ const s3Config = {
 };
 
 const s3Client = new S3Client(s3Config);
-const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
+const bedrockClient = new BedrockRuntimeClient({
+  region: "eu-west-1",
+  logger: new LogLevel("debug", console)
+});
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
 interface SQSMessageBody {
