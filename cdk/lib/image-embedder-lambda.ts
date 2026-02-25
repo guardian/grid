@@ -32,8 +32,8 @@ export class ImageEmbedder extends GuStack {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 				},
-				memorySize: 1024,
-				timeout: Duration.minutes(5)
+				memorySize: 2048,
+				timeout: Duration.minutes(1)
 			},
 		);
 
@@ -44,7 +44,7 @@ export class ImageEmbedder extends GuStack {
 
 		const imageEmbedderQueue = new Queue(this, 'imageEmbedder', {
 			queueName: `${appName}-${this.stage}`,
-			visibilityTimeout: Duration.seconds(60),
+			visibilityTimeout: Duration.minutes(2),
 			deadLetterQueue: {
 				queue: imageEmbedderDLQ,
 				maxReceiveCount: 3,
@@ -53,6 +53,7 @@ export class ImageEmbedder extends GuStack {
 		imageEmbedderLambda.addEventSource(
 			new SqsEventSource(imageEmbedderQueue, {
 				reportBatchItemFailures: true,
+				batchSize: 5
 			}),
 		);
 		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
