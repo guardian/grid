@@ -1,9 +1,4 @@
 {
-  // An API key used to ingest images from the s3watcher.
-  s3Watcher: {
-    key: 'dev-'
-  },
-
   es6: {
     cluster: 'media-service',
     url: 'http://localhost:9200',

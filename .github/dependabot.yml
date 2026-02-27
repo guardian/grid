@@ -52,15 +52,3 @@ updates:
 #      interval: 'weekly'
 #    commit-message:
 #      prefix: "chore(deps): "
-#  - package-ecosystem: 'npm'
-#    directory: '/s3watcher/lambda'
-#    schedule:
-#      interval: 'weekly'
-#    commit-message:
-#      prefix: "chore(deps): "
-#  - package-ecosystem: 'npm'
-#    directory: '/s3watcher/scripts'
-#    schedule:
-#      interval: 'weekly'
-#    commit-message:
-#      prefix: "chore(deps): "

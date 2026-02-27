@@ -68,12 +68,6 @@ jobs:
           npm install-clean
           npm test
           npm run compile
-      - name: S3Watcher
-        working-directory: ./s3watcher/lambda
-        run: |
-          npm install-clean
-          npm test
-          npm run build
       - name: Image embedder cdk
         run: ./scripts/embedder-deploy/cdk.sh
       - name: Image embedder bundling
@@ -113,7 +107,7 @@ jobs:
 
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
-            
+
             cdk.out:
               - cdk/cdk.out
             image-embedder-lambda:
