@@ -214,16 +214,6 @@ function getMetadataEditorConfig(config) {
         |`;
 }
 
-function getS3WatcherConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
-        |aws.region="${config.AWS_DEFAULT_REGION}"
-        |loader.uri="https://loader.media.${config.DOMAIN}"
-        |auth.key.s3watcher="${config.s3Watcher.key}"
-        |s3.ingest.bucket="${config.coreStackProps.S3WatcherIngestBucket}"
-        |s3.fail.bucket="${config.coreStackProps.S3WatcherFailBucket}"
-        |`;
-}
-
 function getThrallConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
@@ -277,7 +267,6 @@ module.exports = {
             leases: getLeasesConfig(config),
             'media-api': getMediaApiConfig(config),
             'metadata-editor': getMetadataEditorConfig(config),
-            s3Watcher: getS3WatcherConfig(config),
             thrall: getThrallConfig(config),
             usage: getUsageConfig(config)
         };
