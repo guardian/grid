@@ -101,44 +101,50 @@ The app bootstraps in `src/main.tsx`, registers routes from `src/routeTree.gen` 
 - Use `vitest` syntax (compatible with Jest)
 - Test components in isolation using rendered elements from `render()`
 
-### Asynchronous Mutations Pattern
+### Asynchronous Mutations Pattern — Batch Update Framework
 
-**CRITICAL**: When implementing user actions that mutate data (create, update, delete):
+**CRITICAL**: ALL user actions that mutate data (create, update, delete) MUST go through the batch update framework. There is no single-image mutation hook — every operation, even on a single image, uses the batch pipeline.
 
-1. **Always use `useAsyncMutation` hook** from `@/hooks/useAsyncMutation`
-2. Backend mutations are applied **asynchronously** (202 Accepted responses)
-3. Frontend must **poll** the API to verify changes before updating UI
-4. Redux store should only be updated **after polling confirms** the change
+#### Architecture
 
-**Pattern**:
+1. **Register mutations** in `src/store/mutations/` (see `metadata.ts` and `leases.ts` for examples)
+2. **Dispatch via `useBatchUpdate` hook** from `@/hooks/useBatchUpdate` — this is the ONE entry point for all mutations
+3. **Track per-field status** with `useFieldUpdateStatus` from `@/hooks/useFieldUpdateStatus`
+4. The listener middleware (`src/store/updateListeners.ts`) orchestrates: mutate → poll → store update → cascades
+5. Backend mutations are applied **asynchronously** (202 Accepted responses)
+6. The Redux store is only updated **after polling confirms** the change
+
+**Pattern — UI component**:
 
 ```tsx
-const mutation = useAsyncMutation({
-  mutateFn: () => apiCall(), // The mutation (create/update/delete)
-  pollFn: async (imageId) => {
-    const response = await fetchImageById(imageId);
-    return /* check if change is applied */;
-  },
-  imageId: 'image-id',
-  onSuccess: () => {
-    /* optional callback */
-  },
-});
+const { execute } = useBatchUpdate();
+const { isUpdating, error } = useFieldUpdateStatus(imageIds, fieldKey);
 
-// Use mutation.execute(), mutation.isLoading, mutation.error
+// Single image or batch — same API:
+execute('metadata.title', 'title', imageIds, 'New Title');
+execute('lease.delete', `lease.delete.${leaseId}`, [imageId], { leaseId });
 ```
 
-**Examples**:
+**Pattern — registering a new mutation** (in `src/store/mutations/`):
 
-- Delete lease: Poll until lease no longer exists in response
-- Create lease: Poll until new lease appears with correct ID
-- Update metadata: Poll until metadata field matches new value
+```ts
+registerMutation('my.operation', {
+  mutateFn: async (imageId, value) => { /* call API */ },
+  pollFn: async (imageId, value) => { /* return true when confirmed */ },
+  getLastFetchedData: () => lastFetchedData,
+  pollingConfig: { strategy: 'exponential', ... },
+  cascades: [],
+});
+```
+
+Then import the registration file in `src/store/store.ts` so it runs at boot.
 
 **Do NOT**:
 
-- Update Redux immediately after API call
-- Assume 200/201 responses mean data is persisted
-- Skip polling verification step
+- Create one-off mutation hooks — use `useBatchUpdate` for everything
+- Call API + dispatch `updateImageData` directly from components
+- Assume 200/201 responses mean data is persisted — always poll
+- Skip the mutation registry — all operations must be registered
 
 ## Project-Specific Notes
 

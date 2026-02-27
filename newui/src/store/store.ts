@@ -5,6 +5,7 @@ import { updateListenerMiddleware } from './updateListeners';
 
 // Import mutation registrations so they run at boot
 import './mutations/metadata';
+import './mutations/leases';
 
 export const store = configureStore({
   reducer: {

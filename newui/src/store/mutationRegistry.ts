@@ -3,6 +3,11 @@
  *
  * This allows Redux actions to stay serializable (no function payloads) while
  * the listener middleware looks up the concrete mutateFn / pollFn at runtime.
+ *
+ * Every new kind of data mutation (metadata fields, leases, collections, etc.)
+ * MUST be registered here via `registerMutation()`.  Registration modules
+ * live in `src/store/mutations/` and are imported by `src/store/store.ts`
+ * so they execute at boot before any component can dispatch a batch update.
  */
 
 import type { PollingConfig } from './polling';

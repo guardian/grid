@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import type { ImageData, Lease } from '@/types/api';
-import { createLease, deleteLease } from '@/api/leases';
-import { fetchImageById } from '@/api/images';
-import { useAppDispatch } from '@/store/hooks';
-import { updateImageData } from '@/store/imagesSlice';
-import { useAsyncMutation } from '@/hooks/useAsyncMutation';
+import { useBatchUpdate } from '@/hooks/useBatchUpdate';
+import { useFieldUpdateStatus } from '@/hooks/useFieldUpdateStatus';
 
 /**
  * Format a date as a friendly relative string (e.g., "in 2 days", "2 days ago")
@@ -37,30 +34,32 @@ function formatFriendlyDate(dateString: string): string {
 }
 
 /**
- * Lease display component with hover details
+ * Lease display component with hover details.
+ *
+ * Deletes are dispatched through the batch update framework
+ * (`lease.delete` operation type) so they follow the same
+ * mutate → poll → store-update lifecycle as every other mutation.
  */
 export function LeaseDisplay({
   lease,
-  onDelete,
+  imageId,
 }: {
   lease: Lease;
-  onDelete?: () => void;
+  imageId: string;
 }) {
-  const deleteMutation = useAsyncMutation({
-    mutateFn: () => deleteLease(lease.id),
-    pollFn: async (imageId) => {
-      const response = await fetchImageById(imageId);
-      return !response.data.leases.data.leases.some((l) => l.id === lease.id);
-    },
-    imageId: lease.mediaId,
-    onSuccess: () => onDelete?.(),
-  });
+  const { execute } = useBatchUpdate();
+  const { isUpdating: isDeleting } = useFieldUpdateStatus(
+    [imageId],
+    `lease.delete.${lease.id}`,
+  );
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!confirm('Are you sure you want to delete this lease?')) {
       return;
     }
-    await deleteMutation.execute();
+    execute('lease.delete', `lease.delete.${lease.id}`, [imageId], {
+      leaseId: lease.id,
+    });
   };
 
   const startDate = lease.startDate ? new Date(lease.startDate) : null;
@@ -93,11 +92,15 @@ export function LeaseDisplay({
         </div>
         <button
           onClick={handleDelete}
-          disabled={deleteMutation.isLoading}
+          disabled={isDeleting}
           className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
           title="Delete lease"
         >
-          <Trash2 size={16} />
+          {isDeleting ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Trash2 size={16} />
+          )}
         </button>
       </div>
 
@@ -124,81 +127,55 @@ export function LeaseDisplay({
   );
 }
 
+/**
+ * Displays all leases for the selected image(s) and provides
+ * create / delete actions via the batch update framework.
+ *
+ * All mutations go through `useBatchUpdate` → `startBatchUpdate` action →
+ * listener middleware → mutation registry, ensuring consistent
+ * mutate → poll → store-update behaviour.
+ */
 export function LeasesDisplay({
   imageDatas,
 }: {
   imageDatas: Array<ImageData>;
 }) {
   const [isCreating, setIsCreating] = useState(false);
-  const dispatch = useAppDispatch();
+  const { execute } = useBatchUpdate();
+
+  const imageIds = imageDatas.map((img) => img.id);
+  const { isUpdating: isCreateInProgress } = useFieldUpdateStatus(
+    imageIds,
+    'lease.create',
+  );
 
   const nImagesWithLeases = imageDatas.filter(
     (imageData) => imageData.leases.data.leases.length > 0,
   ).length;
 
-  const handleCreateLease = async () => {
-    // For now, create a basic allow-use lease for the first image
-    // In a real implementation, this would show a form
+  const handleCreateLease = () => {
+    // For now, create a basic allow-use lease for the first image.
+    // In a real implementation, this would show a form.
     if (imageDatas.length === 0) return;
 
     const mediaId = imageDatas[0].id;
     const now = new Date();
-    const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+    const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     setIsCreating(true);
-    try {
-      const { leaseId } = await createLease({
-        startDate: now.toISOString(),
-        endDate: endDate.toISOString(),
-        access: 'allow-use',
-        notes: '',
-        mediaId,
-        active: true,
-      });
 
-      // Poll the API until the lease appears in the response
-      const maxAttempts = 10;
-      const pollInterval = 500; // 500ms between polls
-      let attempts = 0;
-      let added = false;
+    execute('lease.create', 'lease.create', [mediaId], {
+      startDate: now.toISOString(),
+      endDate: endDate.toISOString(),
+      access: 'allow-use' as const,
+      notes: '',
+      mediaId,
+      active: true,
+    });
 
-      while (attempts < maxAttempts && !added) {
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-        try {
-          const imageResponse = await fetchImageById(mediaId);
-          const leaseExists = imageResponse.data.leases.data.leases.some(
-            (l) => l.id === leaseId,
-          );
-
-          if (leaseExists) {
-            // Lease has been added, update the store
-            dispatch(
-              updateImageData({
-                imageId: mediaId,
-                data: imageResponse.data,
-              }),
-            );
-            added = true;
-          }
-        } catch (pollError) {
-          console.error('Polling error:', pollError);
-        }
-
-        attempts++;
-      }
-
-      if (!added) {
-        console.warn(
-          'Lease creation polling timed out, but changes may still be processing',
-        );
-      }
-    } catch (error) {
-      console.error('Failed to create lease:', error);
-      alert('Failed to create lease. Please try again.');
-    } finally {
-      setIsCreating(false);
-    }
+    // Reset local flag on next tick — the batch framework tracks progress
+    // from here via isCreateInProgress.
+    setIsCreating(false);
   };
 
   return (
@@ -210,11 +187,15 @@ export function LeasesDisplay({
         {imageDatas.length === 1 && (
           <button
             onClick={handleCreateLease}
-            disabled={isCreating}
+            disabled={isCreating || isCreateInProgress}
             className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
             title="Create lease"
           >
-            <Plus size={16} />
+            {isCreateInProgress ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Plus size={16} />
+            )}
           </button>
         )}
       </div>
@@ -226,7 +207,11 @@ export function LeasesDisplay({
         </div>
       ) : (
         imageDatas[0].leases.data.leases.map((lease) => (
-          <LeaseDisplay key={lease.id} lease={lease} onDelete={() => {}} />
+          <LeaseDisplay
+            key={lease.id}
+            lease={lease}
+            imageId={imageDatas[0].id}
+          />
         ))
       )}
     </div>

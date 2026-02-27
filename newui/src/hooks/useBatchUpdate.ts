@@ -1,10 +1,18 @@
 /**
  * Hook for dispatching batch updates and tracking their progress.
  *
+ * **This is the ONLY entry point for all data mutations in the app.**
+ * Every create, update, and delete operation — whether targeting a single
+ * image or many — MUST go through this hook.  Do NOT create one-off
+ * mutation hooks or call APIs + dispatch store updates directly from
+ * components.  The batch framework (listener middleware + mutation registry)
+ * handles the full mutate → poll → store-update → cascade lifecycle.
+ *
  * Usage:
  * ```tsx
  * const { execute, latestBatchId, progress } = useBatchUpdate();
  * execute('metadata.title', 'title', imageIds, 'New Title');
+ * execute('lease.delete', `lease.delete.${leaseId}`, [imageId], { leaseId });
  * ```
  */
 

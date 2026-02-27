@@ -1,10 +1,16 @@
 /**
- * Hook to check whether a specific metadata field is currently being
- * updated for any of the given images, and to surface any errors.
+ * Hook to check whether a specific field is currently being updated
+ * for any of the given images, and to surface any errors.
+ *
+ * Use this alongside `useBatchUpdate` to show per-field loading and
+ * error states.  The `field` parameter matches the field string passed
+ * to `useBatchUpdate.execute()` — it can be a metadata key like
+ * `'title'` or a scoped key like `'lease.delete.${leaseId}'`.
  *
  * Usage:
  * ```tsx
  * const { isUpdating, error } = useFieldUpdateStatus(imageIds, 'title');
+ * const { isUpdating: isDeleting } = useFieldUpdateStatus([imageId], `lease.delete.${leaseId}`);
  * ```
  */
 
