@@ -258,6 +258,31 @@ class UsageApi(
     )
   }}
 
+  def setChildUsages() = auth(parse.json) { req => {
+
+    val request = (req.body \ "data").validate[ChildUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "child-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      usageRequest => {
+        implicit val logMarker: LogMarker = MarkerMap(
+          "requestType" -> "set-child-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> usageRequest.mediaId,
+          "child-id" -> usageRequest.childMediaId,
+          "status" -> usageRequest.status
+        ) ++ apiKeyMarkers(req.user.accessor)
+        logger.info(logMarker, "recording child usage")
+        val group = usageGroupOps.build(usageRequest)
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
+        Accepted
+      }
+    )
+  }}
+
   def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(

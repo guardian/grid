@@ -25,7 +25,7 @@ object PersistedQueries extends ImageFields {
   val hasCrops = filters.bool().must(filters.existsOrMissing("exports", exists = true))
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
 
-  def existedPreGrid(persistenceIdentifier: String) = filters.exists(NonEmptyList(identifierField(persistenceIdentifier)))
+  def hasPersistedIdentifier(persistenceIdentifiers: NonEmptyList[String]) = filters.exists(persistenceIdentifiers.map(identifierField))
 
   val addedToLibrary = filters.bool().must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))

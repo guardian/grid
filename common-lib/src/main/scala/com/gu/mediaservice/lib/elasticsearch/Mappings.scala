@@ -316,6 +316,11 @@ object Mappings {
     keywordField("downloadedBy")
   ))
 
+  def childUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
+    keywordField("addedBy"),
+    keywordField("childMediaId")
+  ))
+
   def usagesMapping(name: String): NestedField = nestedField(name).copy(properties = Seq(
     keywordField("id"),
     sStemmerAnalysed("title"),
@@ -330,7 +335,8 @@ object Mappings {
     digitalUsageMetadata("digitalUsageMetadata"),
     syndicationUsageMetadata("syndicationUsageMetadata"),
     frontUsageMetadata("frontUsageMetadata"),
-    downloadUsageMetadata("downloadUsageMetadata")
+    downloadUsageMetadata("downloadUsageMetadata"),
+    childUsageMetadata("childUsageMetadata")
   ))
 
   def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
