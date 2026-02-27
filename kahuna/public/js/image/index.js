@@ -23,7 +23,7 @@ image.config(['$stateProvider',
               function($stateProvider) {
 
     $stateProvider.state('image', {
-        url: '/images/:imageId?crop?cropType&customRatio&defaultCropType&nnnObject',
+        url: '/images/:imageId?crop?cropType&customRatio&defaultCropType&nnnObject&fullscreen',
         template: imageTemplate,
         controller: 'ImageCtrl',
         controllerAs: 'ctrl',
@@ -31,6 +31,7 @@ image.config(['$stateProvider',
             imageId: ['$stateParams', $stateParams => $stateParams.imageId],
             cropKey: ['$stateParams', $stateParams => $stateParams.crop],
             nnnObject: ['$stateParams', $stateParams => JSON.parse($stateParams.nnnObject)],
+            fullscreen: ['$stateParams', $stateParams => $stateParams.fullscreen],
             image: ['$state', '$q', 'mediaApi', 'imageId',
                     ($state, $q, mediaApi, imageId) => {
 

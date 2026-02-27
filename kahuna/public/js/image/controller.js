@@ -75,6 +75,7 @@ image.controller('ImageCtrl', [
   'lowResImageUri',
   'cropKey',
   'nnnObject',
+  'fullscreen',
   'mediaCropper',
   'imageService',
   'imageUsagesService',
@@ -100,6 +101,7 @@ image.controller('ImageCtrl', [
             lowResImageUri,
             cropKey,
             nnnObject,
+            fullscreen,
             mediaCropper,
             imageService,
             imageUsagesService,
@@ -110,6 +112,7 @@ image.controller('ImageCtrl', [
             globalErrors) {
 
     let ctrl = this;
+    ctrl.test = console.log;
 
     // TODO reuse nnnObject for 'Back to search' button
     // TODO add chevron buttons for prev/next and reuse this function
@@ -122,7 +125,6 @@ image.controller('ImageCtrl', [
         //TODO probably navigate back to search results
         return;
       }
-      debugger;
       if (currentImagePositionInIds === 0 && direction === 'previous') {
         //at start of results - can't go previous
         return;
@@ -139,8 +141,59 @@ image.controller('ImageCtrl', [
         }
       ];
       const targetImageId = ids[direction === 'next' ? currentImagePositionInIds + 1 : currentImagePositionInIds - 1];
-      $state.go('image', {imageId: targetImageId, nnnObject: JSON.stringify(newNnnObject)}); //TODO persist whether currently in fullscreen
+      $state.go('image', {
+        imageId: targetImageId,
+        nnnObject: JSON.stringify(newNnnObject),
+        fullscreen: !!(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement
+        )
+      });
     });
+
+    const enterFullscreen = () => {
+
+      const imageEl = $element[0].querySelector('.easel__image');
+
+      console.log($element[0].querySelector('.easel__image'));
+
+      if (!imageEl) {
+        return;
+      }
+
+      // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
+      const fullscreenElement = (
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement
+      );
+
+      const exitFullscreen = (
+        document.exitFullscreen ||
+        document.webkitExitFullscreen ||
+        document.mozCancelFullScreen
+      );
+
+      const requestFullscreen = (
+        imageEl.requestFullscreen ||
+        imageEl.webkitRequestFullscreen ||
+        imageEl.mozRequestFullScreen
+      );
+
+      fullscreenElement
+        ? exitFullscreen.call(document)
+        : requestFullscreen.call(imageEl);
+
+      // `.call` to ensure `this` is bound correctly.
+      return fullscreenElement
+        ? exitFullscreen.call(document)
+        : requestFullscreen.call(imageEl);
+    };
+
+    if (fullscreen && fullscreen === 'true') {
+      enterFullscreen();
+    }
 
     keyboardShortcut.bindTo($scope)
       .add({
@@ -167,33 +220,7 @@ image.controller('ImageCtrl', [
       .add({
         combo: 'f',
         description: 'Enter fullscreen',
-        callback: () => {
-          const imageEl = $element[0].querySelector('.easel__image');
-
-          // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
-          const fullscreenElement = (
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement
-          );
-
-          const exitFullscreen = (
-            document.exitFullscreen ||
-            document.webkitExitFullscreen ||
-            document.mozCancelFullScreen
-          );
-
-          const requestFullscreen = (
-            imageEl.requestFullscreen ||
-            imageEl.webkitRequestFullscreen ||
-            imageEl.mozRequestFullScreen
-          );
-
-          // `.call` to ensure `this` is bound correctly.
-          return fullscreenElement
-            ? exitFullscreen.call(document)
-            : requestFullscreen.call(imageEl);
-        }
+        callback: enterFullscreen
       });
 
     ctrl.tabs = [
