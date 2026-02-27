@@ -481,7 +481,8 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
+        function buildMediaApiSearchArgs({query, until, since, offset, length, orderBy, countAll} = {}){
+
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -516,7 +517,7 @@ results.controller('SearchResultsCtrl', [
             }
 
 
-            return mediaApi.search(query, angular.extend({
+            return [query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined : true,
@@ -538,8 +539,21 @@ results.controller('SearchResultsCtrl', [
                 syndicationStatus: $stateParams.syndicationStatus,
                 persisted: $stateParams.persisted,
                 countAll
-            }));
+            })];
         }
+
+        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
+          return mediaApi.search(...buildMediaApiSearchArgs({query, until, since, offset, length, orderBy, countAll}));
+        }
+
+        ctrl.nnnObject = ($index) => {
+          return JSON.stringify(
+            buildMediaApiSearchArgs({
+              offset: Math.max($index - 1, 0),
+              length: 3
+            })
+          );
+        };
 
         ctrl.clearSelection = () => {
             selection.clear();

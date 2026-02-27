@@ -175,6 +175,7 @@
              ui-drag-data="ctrl.image | asImageDragData">
           <img ng-class="{'easel__image':true,'easel__image--checkered__background': ctrl.image.data.optimisedPng }"
                crossorigin="anonymous"
+1               ng-init="ctrl.test()"
                alt="preview of original image"
                ng-src="{{:: ctrl.optimisedImageUri}}"
                grid:track-image="ctrl.image"
