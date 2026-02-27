@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearch } from '@tanstack/react-router';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchImages } from '@/store/imagesSlice';
 import ImageCard from './ImageCard';
 import MetadataPanel from './MetadataPanel';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchImages } from '@/store/imagesSlice';
 
 export default function ImageGrid() {
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(

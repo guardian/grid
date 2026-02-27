@@ -32,11 +32,11 @@ export interface ImageMetadata {
   source?: string;
   specialInstructions?: string;
   copyright?: string;
-  keywords?: string[];
+  keywords?: Array<string>;
   city?: string;
   country?: string;
-  subjects?: string[];
-  peopleInImage?: string[];
+  subjects?: Array<string>;
+  peopleInImage?: Array<string>;
 }
 
 export interface UsageRights {
@@ -60,17 +60,17 @@ export interface MetadataAction {
 
 export interface UserMetadataData {
   archived: UriDataReference<boolean>;
-  labels: UriDataReference<unknown[]>;
+  labels: UriDataReference<Array<unknown>>;
   metadata: UriReference & {
     data: Record<string, unknown>;
-    actions: MetadataAction[];
+    actions: Array<MetadataAction>;
   };
   usageRights: UriReference;
   photoshoot: UriReference;
 }
 
 export interface LeaseData {
-  leases: Lease[];
+  leases: Array<Lease>;
   lastModified: string | null;
 }
 
@@ -100,10 +100,10 @@ export interface ImageData {
   originalMetadata: ImageMetadata;
   usageRights: UsageRights;
   originalUsageRights: UsageRights;
-  exports: unknown[];
-  usages: UriDataReference<unknown[]>;
+  exports: Array<unknown>;
+  usages: UriDataReference<Array<unknown>>;
   leases: UriDataReference<LeaseData>;
-  collections: unknown[];
+  collections: Array<unknown>;
   isPotentiallyGraphic: boolean;
   userMetadata: UriDataReference<UserMetadataData>;
   valid: boolean;
@@ -111,7 +111,7 @@ export interface ImageData {
   cost: string;
   persisted: {
     value: boolean;
-    reasons: unknown[];
+    reasons: Array<unknown>;
   };
   syndicationStatus: string;
   aliases: Record<string, unknown>;
@@ -132,8 +132,8 @@ export interface Action {
 export interface Image {
   uri: string;
   data: ImageData;
-  links: Link[];
-  actions: Action[];
+  links: Array<Link>;
+  actions: Array<Action>;
 }
 
 export interface TickerCount {
@@ -146,8 +146,8 @@ export interface ImageListResponse {
   offset: number;
   length: number;
   total: number;
-  data: Image[];
-  links: Link[];
+  data: Array<Image>;
+  links: Array<Link>;
   actions: {
     tickerCounts: Record<string, TickerCount>;
   };
@@ -155,6 +155,6 @@ export interface ImageListResponse {
 
 export interface ImageResponse {
   data: ImageData;
-  links: Link[];
-  actions: Action[];
+  links: Array<Link>;
+  actions: Array<Action>;
 }

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useAppDispatch } from '@/store/hooks';
 import { fetchImages } from '@/store/imagesSlice';

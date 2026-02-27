@@ -1,7 +1,7 @@
-import type { Lease, ImageData } from '@/types/api';
 import { useState } from 'react';
-import { Trash2, Plus } from 'lucide-react';
-import { deleteLease, createLease } from '@/api/leases';
+import { Plus, Trash2 } from 'lucide-react';
+import type { ImageData, Lease } from '@/types/api';
+import { createLease, deleteLease } from '@/api/leases';
 import { fetchImageById } from '@/api/images';
 import { useAppDispatch } from '@/store/hooks';
 import { updateImageData } from '@/store/imagesSlice';
@@ -124,7 +124,11 @@ export function LeaseDisplay({
   );
 }
 
-export function LeasesDisplay({ imageDatas }: { imageDatas: ImageData[] }) {
+export function LeasesDisplay({
+  imageDatas,
+}: {
+  imageDatas: Array<ImageData>;
+}) {
   const [isCreating, setIsCreating] = useState(false);
   const dispatch = useAppDispatch();
 

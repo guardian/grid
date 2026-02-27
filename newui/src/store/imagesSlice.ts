@@ -1,9 +1,9 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import type { Image, ImageData } from '@/types/api';
 import { fetchImageById, fetchImagesList } from '@/api/images';
 
 interface ImagesState {
-  images: Image[];
+  images: Array<Image>;
   offset: number;
   total: number;
   query: string;

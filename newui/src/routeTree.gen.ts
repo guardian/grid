@@ -8,70 +8,70 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ImagesImageIdRouteImport } from './routes/images.$imageId'
+import { Route as rootRouteImport } from './routes/__root';
+import { Route as IndexRouteImport } from './routes/index';
+import { Route as ImagesImageIdRouteImport } from './routes/images.$imageId';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ImagesImageIdRoute = ImagesImageIdRouteImport.update({
   id: '/images/$imageId',
   path: '/images/$imageId',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/images/$imageId': typeof ImagesImageIdRoute
+  '/': typeof IndexRoute;
+  '/images/$imageId': typeof ImagesImageIdRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/images/$imageId': typeof ImagesImageIdRoute
+  '/': typeof IndexRoute;
+  '/images/$imageId': typeof ImagesImageIdRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/images/$imageId': typeof ImagesImageIdRoute
+  __root__: typeof rootRouteImport;
+  '/': typeof IndexRoute;
+  '/images/$imageId': typeof ImagesImageIdRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/images/$imageId'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/images/$imageId'
-  id: '__root__' | '/' | '/images/$imageId'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: '/' | '/images/$imageId';
+  fileRoutesByTo: FileRoutesByTo;
+  to: '/' | '/images/$imageId';
+  id: '__root__' | '/' | '/images/$imageId';
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ImagesImageIdRoute: typeof ImagesImageIdRoute
+  IndexRoute: typeof IndexRoute;
+  ImagesImageIdRoute: typeof ImagesImageIdRoute;
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/';
+      path: '/';
+      fullPath: '/';
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/images/$imageId': {
-      id: '/images/$imageId'
-      path: '/images/$imageId'
-      fullPath: '/images/$imageId'
-      preLoaderRoute: typeof ImagesImageIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/images/$imageId';
+      path: '/images/$imageId';
+      fullPath: '/images/$imageId';
+      preLoaderRoute: typeof ImagesImageIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ImagesImageIdRoute: ImagesImageIdRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();

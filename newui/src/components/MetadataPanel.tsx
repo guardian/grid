@@ -1,9 +1,9 @@
-import type { ImageData } from '@/types/api';
 import MetadataItem from './MetadataItem';
 import { LeasesDisplay } from './LeaseDisplay';
+import type { ImageData } from '@/types/api';
 
 interface MetadataPanelProps {
-  imageData: ImageData | ImageData[];
+  imageData: ImageData | Array<ImageData>;
 }
 
 export default function MetadataPanel({ imageData }: MetadataPanelProps) {

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import MetadataPanel from '@/components/MetadataPanel';

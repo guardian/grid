@@ -10,16 +10,16 @@ export interface ClientConfig {
   invalidSessionHelpLink: string;
   supportEmail: string;
   staffPhotographerOrganisation: string;
-  fieldAliases: unknown[];
+  fieldAliases: Array<unknown>;
   homeLinkHtml: string;
   systemName: string;
   canDownloadCrop: boolean;
   showDenySyndicationWarning: boolean;
   showSendToPhotoSales: boolean;
-  domainMetadataSpecs: unknown[];
+  domainMetadataSpecs: Array<unknown>;
   recordDownloadAsUsage: boolean;
-  metadataTemplates: unknown[];
-  additionalNavigationLinks: unknown[];
+  metadataTemplates: Array<unknown>;
+  additionalNavigationLinks: Array<unknown>;
   costFilterLabel: string;
   costFilterChargeable: boolean;
   maybeOrgOwnedValue: string;
@@ -37,14 +37,14 @@ export interface ClientConfig {
   telemetryUri: string;
   usePermissionsFilter: boolean;
   usageRightsSummary: boolean;
-  interimFilterOptions: unknown[];
+  interimFilterOptions: Array<unknown>;
   permissionsDefault: string;
   defaultShouldBlurGraphicImages: boolean;
   shouldUploadStraightToBucket: boolean;
   maybeUploadLimitInBytes: number;
-  announcements: unknown[];
-  imageTypes: unknown[];
-  agencyPicksIngredients: Record<string, string[]>;
+  announcements: Array<unknown>;
+  imageTypes: Array<unknown>;
+  agencyPicksIngredients: Record<string, Array<string>>;
 }
 
 declare global {

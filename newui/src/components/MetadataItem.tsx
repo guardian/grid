@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
-import { getMetadataEditorUrl } from '@/config/clientConfig';
-import { fetchImageById } from '@/api/images';
-import { useAppDispatch } from '@/store/hooks';
-import { updateImageData } from '@/store/imagesSlice';
+import { Check, Loader2, Pencil, X } from 'lucide-react';
+import { useBatchUpdate } from '@/hooks/useBatchUpdate';
+import { useFieldUpdateStatus } from '@/hooks/useFieldUpdateStatus';
 
 interface MetadataItemProps {
   label: string;
-  value: (string | undefined | null)[];
+  value: Array<string | undefined | null>;
   fieldKey?: string;
-  imageIds: string[];
+  imageIds: Array<string>;
   editable?: boolean;
 }
 
@@ -23,8 +21,12 @@ export default function MetadataItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isHovered, setIsHovered] = useState(false);
-  // const [isSaving, setIsSaving] = useState(false);
-  const dispatch = useAppDispatch();
+
+  const { execute } = useBatchUpdate();
+  const { isUpdating: isSaving, error: updateError } = useFieldUpdateStatus(
+    imageIds,
+    fieldKey ?? '',
+  );
 
   const firstValue = value[0];
   const allValuesMatch = value.every((v) => v === firstValue);
@@ -41,94 +43,11 @@ export default function MetadataItem({
     setEditValue('');
   };
 
-  const isSaving = false;
-  const handleSave = () => {};
-
-  // const handleSave = async () => {
-  //   if (!fieldKey || imageIds.length === 0) return;
-
-  //   setIsSaving(true);
-  //   try {
-  //     // Update metadata for each image
-  //     const updatePromises = imageIds.map(async (imgId) => {
-  //       const url = getMetadataEditorUrl(`/metadata/${imgId}/metadata`);
-
-  //       const response = await fetch(url, {
-  //         method: 'PUT',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //         },
-  //         credentials: 'include',
-  //         body: JSON.stringify({
-  //           data: {
-  //             [fieldKey]: editValue,
-  //           },
-  //         }),
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error(`HTTP error! status: ${response.status}`);
-  //       }
-
-  //       return imgId;
-  //     });
-
-  //     await Promise.all(updatePromises);
-
-  //     // Poll the API for each image until the updated value is returned
-  //     const maxAttempts = 10;
-  //     const pollInterval = 500; // 500ms between polls
-
-  //     const pollPromises = imageIds.map(async (imgId) => {
-  //       let attempts = 0;
-  //       let updated = false;
-
-  //       while (attempts < maxAttempts && !updated) {
-  //         await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-  //         try {
-  //           const imageResponse = await fetchImageById(imgId);
-  //           const currentValue =
-  //             imageResponse.data.metadata[
-  //               fieldKey as keyof typeof imageResponse.data.metadata
-  //             ];
-
-  //           if (currentValue === editValue) {
-  //             // Value has been updated, update the store
-  //             dispatch(
-  //               updateImageData({
-  //                 imageId: imgId,
-  //                 data: imageResponse.data,
-  //               }),
-  //             );
-  //             updated = true;
-  //           }
-  //         } catch (pollError) {
-  //           console.error('Polling error:', pollError);
-  //         }
-
-  //         attempts++;
-  //       }
-
-  //       if (!updated) {
-  //         console.warn(
-  //           `Metadata update polling timed out for image ${imgId}, but changes may still be processing`,
-  //         );
-  //       }
-
-  //       return updated;
-  //     });
-
-  //     await Promise.all(pollPromises);
-
-  //     setIsEditing(false);
-  //   } catch (error) {
-  //     console.error('Failed to save metadata:', error);
-  //     alert('Failed to save changes. Please try again.');
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // };
+  const handleSave = () => {
+    if (!fieldKey || imageIds.length === 0) return;
+    execute(`metadata.${fieldKey}`, fieldKey, imageIds, editValue);
+    setIsEditing(false);
+  };
   // Filter out undefined/null values
   const validValues = value.filter(
     (v): v is string => v !== undefined && v !== null,
@@ -142,8 +61,13 @@ export default function MetadataItem({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
-          {label}
+        <div className="flex items-center gap-1 mb-1">
+          <div className="text-xs font-semibold text-gray-500 uppercase">
+            {label}
+          </div>
+          {isSaving && (
+            <Loader2 size={12} className="animate-spin text-blue-500" />
+          )}
         </div>
         {isEditing ? (
           <div className="flex gap-2 items-center">
@@ -174,7 +98,7 @@ export default function MetadataItem({
         ) : (
           <>
             <div className="text-sm text-gray-400 italic">Unknown</div>
-            {editable && isHovered && (
+            {editable && isHovered && !isSaving && (
               <button
                 onClick={handleEdit}
                 className="absolute right-0 top-0 p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -184,6 +108,9 @@ export default function MetadataItem({
               </button>
             )}
           </>
+        )}
+        {updateError && (
+          <div className="text-xs text-red-500 mt-1">{updateError}</div>
         )}
       </div>
     );
@@ -197,8 +124,13 @@ export default function MetadataItem({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
-          {label}
+        <div className="flex items-center gap-1 mb-1">
+          <div className="text-xs font-semibold text-gray-500 uppercase">
+            {label}
+          </div>
+          {isSaving && (
+            <Loader2 size={12} className="animate-spin text-blue-500" />
+          )}
         </div>
         {isEditing ? (
           <div className="flex gap-2 items-center">
@@ -229,7 +161,7 @@ export default function MetadataItem({
         ) : (
           <>
             <div className="text-sm text-gray-900">{firstValue}</div>
-            {editable && isHovered && (
+            {editable && isHovered && !isSaving && (
               <button
                 onClick={handleEdit}
                 className="absolute right-0 top-0 p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -239,6 +171,9 @@ export default function MetadataItem({
               </button>
             )}
           </>
+        )}
+        {updateError && (
+          <div className="text-xs text-red-500 mt-1">{updateError}</div>
         )}
       </div>
     );
@@ -251,8 +186,13 @@ export default function MetadataItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
-        {label}
+      <div className="flex items-center gap-1 mb-1">
+        <div className="text-xs font-semibold text-gray-500 uppercase">
+          {label}
+        </div>
+        {isSaving && (
+          <Loader2 size={12} className="animate-spin text-blue-500" />
+        )}
       </div>
       {isEditing ? (
         <div className="flex gap-2 items-center">
@@ -285,7 +225,7 @@ export default function MetadataItem({
           <div className="text-sm text-gray-600 italic">
             Multiple {label.toLowerCase()}s
           </div>
-          {editable && isHovered && (
+          {editable && isHovered && !isSaving && (
             <button
               onClick={handleEdit}
               className="absolute right-0 top-0 p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -295,6 +235,9 @@ export default function MetadataItem({
             </button>
           )}
         </>
+      )}
+      {updateError && (
+        <div className="text-xs text-red-500 mt-1">{updateError}</div>
       )}
     </div>
   );
