@@ -43,7 +43,12 @@ export const fetchImages = createAsyncThunk(
       query = '',
       length = 10,
       offset = 0,
-    }: { query?: string; length?: number; offset?: number } = {},
+    }: {
+      query?: string;
+      length?: number;
+      offset?: number;
+      initialLoad?: boolean;
+    } = {},
     { rejectWithValue },
   ) => {
     try {
@@ -77,14 +82,14 @@ const imagesSlice = createSlice({
     builder
       .addCase(fetchImages.pending, (state, action) => {
         // Distinguish between initial load and pagination
-        if (action.meta.arg?.offset === 0 || action.meta.arg === undefined) {
+        if (action.meta.arg.initialLoad) {
           state.loading = true;
           state.error = null;
         } else {
           state.loadingMore = true;
         }
         // Store the query from the request
-        if (action.meta.arg?.query !== undefined) {
+        if (action.meta.arg.query !== undefined) {
           state.query = action.meta.arg.query;
         }
       })

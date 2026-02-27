@@ -9,7 +9,7 @@ export default function Header() {
   const routerState = useRouterState();
   const urlQuery =
     routerState.location.pathname === '/'
-      ? (routerState.location.search as { query?: string })?.query
+      ? routerState.location.search.query
       : undefined;
   const [searchQuery, setSearchQuery] = useState(urlQuery || '');
   const dispatch = useAppDispatch();

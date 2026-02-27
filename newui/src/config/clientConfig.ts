@@ -67,9 +67,9 @@ function getClientConfig(): ClientConfig {
 /**
  * Get a specific config value
  */
-export function getConfig<K extends keyof ClientConfig>(
-  key: K,
-): ClientConfig[K] {
+export function getConfig<T extends keyof ClientConfig>(
+  key: T,
+): ClientConfig[T] {
   return getClientConfig()[key];
 }
 
