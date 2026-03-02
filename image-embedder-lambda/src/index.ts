@@ -298,27 +298,32 @@ async function sendEmbeddingsToKinesis(
     Records: records,
   });
 
-  const response = await client.send(command);
+  try {
+    const response = await client.send(command);
 
-  const failedImageIds: string[] = (response.Records ?? []).reduce<string[]>(
-    (acc, record, index) => {
-      if (record.ErrorCode) {
-        const imageId = validVectors[index].key!;
-        console.error(
-          `Failed to publish embedding for ${imageId} to Kinesis: ${record.ErrorCode} - ${record.ErrorMessage}`,
-        );
-        acc.push(imageId);
-      }
-      return acc;
-    },
-    [],
-  );
+    const failedImageIds: string[] = (response.Records ?? []).reduce<string[]>(
+      (acc, record, index) => {
+        if (record.ErrorCode) {
+          const imageId = validVectors[index].key!;
+          console.error(
+            `Failed to publish embedding for ${imageId} to Kinesis: ${record.ErrorCode} - ${record.ErrorMessage}`,
+          );
+          acc.push(imageId);
+        }
+        return acc;
+      },
+      [],
+    );
 
-  console.log(
-    `Published ${records.length - failedImageIds.length} embeddings to Kinesis (${failedImageIds.length} failed)`,
-  );
+    console.log(
+      `Published ${records.length - failedImageIds.length} embeddings to Kinesis (${failedImageIds.length} failed)`,
+    );
 
-  return failedImageIds;
+    return failedImageIds;
+  } catch (error) {
+    console.error(`Error writing to Kinesis:`, error);
+    throw error;
+  }
 }
 
 async function cacheDownscaledImage(
@@ -523,26 +528,36 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    // Send embeddings to Kinesis for Thrall to write to Elasticsearch
-    if (STAGE === "PROD") {
-      console.log(
-        `Not writing embeddings to Kinesis yet whilst we test on TEST`,
-      );
-    } else {
-      const failedImageIds = await sendEmbeddingsToKinesis(
-        vectors,
-        kinesisClient,
-      );
-      for (const imageId of failedImageIds) {
-        const messageId = imageIdToMessageId.get(imageId);
+    try {
+      // Send embeddings to Kinesis for Thrall to write to Elasticsearch
+      if (STAGE === "PROD") {
+        console.log(
+          `Not writing embeddings to Kinesis yet whilst we test on TEST`,
+        );
+      } else {
+        const failedImageIds = await sendEmbeddingsToKinesis(
+          vectors,
+          kinesisClient,
+        );
+        for (const imageId of failedImageIds) {
+          const messageId = imageIdToMessageId.get(imageId);
+          if (messageId) {
+            batchItemFailures.push({ itemIdentifier: messageId });
+          }
+        }
+      }
+
+      await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+      console.log(`Stored ${vectors.length} vectors`);
+    } catch (error) {
+      console.error(`Error writing embeddings:`, error);
+      for (const vector of vectors) {
+        const messageId = imageIdToMessageId.get(vector.key!);
         if (messageId) {
           batchItemFailures.push({ itemIdentifier: messageId });
         }
       }
     }
-
-    await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
