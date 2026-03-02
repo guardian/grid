@@ -80,8 +80,8 @@ const kinesisClient = new KinesisClient(kinesisConfig);
 // Kinesis stream for sending embeddings to Thrall
 const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
 
-if (!THRALL_KINESIS_STREAM_ARN) {
-  console.error(
+if (!THRALL_KINESIS_STREAM_ARN && STAGE !== "PROD") {
+  throw new Error(
     "THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall",
   );
 }
