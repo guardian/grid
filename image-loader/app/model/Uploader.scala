@@ -2,6 +2,7 @@ package model
 
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
+import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 
 import java.io.File
 import java.nio.file.{Files, Path}
@@ -440,7 +441,25 @@ class Uploader(val store: ImageLoaderStore,
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
-    } yield UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
+    } yield {
+      config.maybeLowerEnvironmentQueueBucketToSampleInto.foreach { lowerEnvironmentQueueBucket =>
+        if (math.random() < config.lowerEnvironmentSamplingPercentageAsDecimal) {
+          val mediaId = imageUpload.image.id
+          logger.info(logMarker, s"Copying $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket")
+          try {
+            store.client.copyObject(
+              config.imageBucket, fileKeyFromId(mediaId),
+              lowerEnvironmentQueueBucket, s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}"
+            )
+          } catch {
+            case e: Throwable =>
+              logger.error(logMarker, s"Failed to copy $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket", e)
+          }
+        }
+      }
+
+      UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
+    }
 
   }
 
