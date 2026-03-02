@@ -45,6 +45,8 @@ export class ImageEmbedder extends GuStack {
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
 					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
 				},
+				memorySize: 2048,
+				timeout: Duration.minutes(1)
 			},
 		);
 
@@ -55,7 +57,7 @@ export class ImageEmbedder extends GuStack {
 
 		const imageEmbedderQueue = new Queue(this, 'imageEmbedder', {
 			queueName: `${appName}-${this.stage}`,
-			visibilityTimeout: Duration.seconds(60),
+			visibilityTimeout: Duration.minutes(2),
 			deadLetterQueue: {
 				queue: imageEmbedderDLQ,
 				maxReceiveCount: 3,
@@ -64,6 +66,11 @@ export class ImageEmbedder extends GuStack {
 		imageEmbedderLambda.addEventSource(
 			new SqsEventSource(imageEmbedderQueue, {
 				reportBatchItemFailures: true,
+				batchSize: 5,
+				// We are seeing Bedrock client hanging under heavy load.
+				// While we get to the bottom of this, we'd like to prevent this scenario
+				// by aggressively limiting the concurrent lambda executions.
+				maxConcurrency: 3,
 			}),
 		);
 		const downscaledImageBucket = new GuS3Bucket(

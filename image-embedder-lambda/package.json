@@ -15,6 +15,7 @@
   "license": "ISC",
   "devDependencies": {
     "@aws-sdk/client-cloudformation": "^3.995.0",
+    "@aws-sdk/client-cloudformation": "^3.995.0",
     "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.0",

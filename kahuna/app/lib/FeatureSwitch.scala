@@ -13,7 +13,7 @@ object ExampleSwitch extends FeatureSwitch(
 object UseCqlChips extends FeatureSwitch(
   key = "use-cql-chips",
   title = "Use CQL for the chips interface",
-  default = false
+  default = true
 )
 
 object EnableAISearch extends FeatureSwitch(

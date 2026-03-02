@@ -95,7 +95,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
-        "MemorySize": 512,
+        "MemorySize": 2048,
         "Role": {
           "Fn::GetAtt": [
             "ImageEmbedderHandlerServiceRoleD4456D21",
@@ -125,7 +125,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "Timeout": 30,
+        "Timeout": 60,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -394,6 +394,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
     "ImageEmbedderHandlerSqsEventSourceImageEmbedderLambdaimageEmbedder4169931F5A3D671C": {
       "Properties": {
+        "BatchSize": 5,
         "EventSourceArn": {
           "Fn::GetAtt": [
             "imageEmbedder9F00A33D",
@@ -406,6 +407,9 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "FunctionResponseTypes": [
           "ReportBatchItemFailures",
         ],
+        "ScalingConfig": {
+          "MaximumConcurrency": 3,
+        },
         "Tags": [
           {
             "Key": "App",
@@ -462,7 +466,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "VisibilityTimeout": 60,
+        "VisibilityTimeout": 120,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
