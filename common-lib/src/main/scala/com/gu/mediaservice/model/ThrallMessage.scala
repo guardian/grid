@@ -80,6 +80,7 @@ object ExternalThrallMessage{
   implicit val addImageLeaseMessage: OFormat[AddImageLeaseMessage] = Json.format[AddImageLeaseMessage]
   implicit val removeImageLeaseMessage: OFormat[RemoveImageLeaseMessage] = Json.format[RemoveImageLeaseMessage]
   implicit val updateImageExportsMessage: OFormat[UpdateImageExportsMessage] = Json.format[UpdateImageExportsMessage]
+  implicit val updateEmbeddingMessage: OFormat[UpdateEmbeddingMessage] = Json.format[UpdateEmbeddingMessage]
 
   implicit val createMigrationIndexMessage: OFormat[CreateMigrationIndexMessage] = Json.format[CreateMigrationIndexMessage]
   implicit val completeMigrationMessage: OFormat[CompleteMigrationMessage] = Json.format[CompleteMigrationMessage]
@@ -125,6 +126,8 @@ case class DeleteSingleUsageMessage(id: String, lastModified: DateTime, usageId:
 case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
 case class UpdateUsageStatusMessage(id: String, usageNotice: UsageNotice, lastModified: DateTime) extends ExternalThrallMessage
+
+case class UpdateEmbeddingMessage(id: String, lastModified: DateTime, embedding: Embedding) extends ExternalThrallMessage
 
 object DeleteUsagesMessage {
   implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))

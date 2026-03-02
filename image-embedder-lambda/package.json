@@ -15,6 +15,7 @@
   "license": "ISC",
   "devDependencies": {
     "@aws-sdk/client-cloudformation": "^3.995.0",
+    "@aws-sdk/client-cloudformation": "^3.995.0",
     "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.0",
@@ -27,10 +28,10 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.995.0",
+    "@aws-sdk/client-kinesis": "^3.1000.0",
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/client-s3vectors": "^3.995.0",
     "@aws-sdk/client-sqs": "^3.995.0",
-    "package-lock.json": "^1.0.0",
     "sharp": "^0.34.5"
   }
 }

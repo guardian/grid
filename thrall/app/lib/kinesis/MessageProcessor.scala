@@ -50,6 +50,7 @@ class MessageProcessor(
       case message: MigrateImageMessage => migrateImage(message, logMarker)
       case message: UpsertFromProjectionMessage => upsertImageFromProjection(message, logMarker)
       case message: UpdateUsageStatusMessage => updateUsageStatus(message, logMarker)
+      case message: UpdateEmbeddingMessage => updateEmbedding(message, logMarker)
       case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
@@ -189,6 +190,10 @@ class MessageProcessor(
       Future.traverse(es.updateUsageStatus(message.id, usage, message.lastModified ))(_.recoverWith {
         case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
     })
+  }
+
+  private def updateEmbedding(message: UpdateEmbeddingMessage, logMarker: LogMarker)(implicit ec: ExecutionContext)= {
+    Future.sequence(es.updateEmbedding(message.id, message.embedding, message.lastModified)(ec, logMarker))
   }
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {

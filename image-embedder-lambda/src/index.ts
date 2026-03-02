@@ -7,7 +7,6 @@ import {
 } from "aws-lambda";
 import {
   BedrockRuntimeClient,
-  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
@@ -27,9 +26,11 @@ import {
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
 import {
-  MAX_IMAGE_SIZE_BYTES,
-  MAX_PIXELS_COHERE_V4,
-} from "./constants";
+  KinesisClient,
+  PutRecordsCommand,
+  PutRecordsRequestEntry,
+} from "@aws-sdk/client-kinesis";
+import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -64,11 +65,45 @@ const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
+const kinesisConfig = {
+  region: "eu-west-1",
+  ...(isLocal && {
+    endpoint: LOCALSTACK_ENDPOINT,
+    credentials: {
+      accessKeyId: "test",
+      secretAccessKey: "test",
+    },
+  }),
+};
+const kinesisClient = new KinesisClient(kinesisConfig);
+
+// Kinesis stream for sending embeddings to Thrall
+const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
+
+if (!THRALL_KINESIS_STREAM_ARN) {
+  console.error(
+    "THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall",
+  );
+}
+
 interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
   fileType: string;
+}
+
+export interface CohereV3Embedding {
+  image: number[];
+}
+
+export interface Embedding {
+  cohereEmbedEnglishV3: CohereV3Embedding;
+}
+
+export interface Embeddings {
+  imageId: string;
+  embedding: Embedding;
 }
 
 export async function getImageFromS3(
@@ -98,7 +133,9 @@ export async function getImageFromS3(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`);
+    console.log(
+      `Successfully fetched image of size ${bytes.length.toLocaleString()} bytes from S3`,
+    );
     return bytes;
   } catch (error) {
     console.error(`Error fetching from S3:`, error);
@@ -123,7 +160,9 @@ export async function downscaleImageIfNeeded(
     `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
   );
   if (!needsDownscale) {
-    console.log(`Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`);
+    console.log(
+      `Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`,
+    );
     return imageBytes;
   }
 
@@ -197,7 +236,9 @@ async function getCachedDownscaledImage(
     }
 
     const bytes = await response.Body.transformToByteArray();
-    console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
+    );
     return bytes;
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "NoSuchKey") {
@@ -210,6 +251,76 @@ async function getCachedDownscaledImage(
   }
 }
 
+// Message format matching Scala's ExternalThrallMessage serialisation.
+// Play JSON uses a `_type` discriminator field with the fully qualified class name.
+interface UpdateEmbeddingMessage {
+  _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage";
+  id: string;
+  lastModified: string; // ISO 8601 format
+  embedding: {
+    cohereEmbedEnglishV3: {
+      image: number[];
+    };
+  };
+}
+
+async function sendEmbeddingsToKinesis(
+  vectors: PutInputVector[],
+  client: KinesisClient,
+): Promise<string[]> {
+  const validVectors = vectors.filter((v) => v.data?.float32 && v.key);
+  const records: PutRecordsRequestEntry[] = validVectors.map((v) => {
+    const message: UpdateEmbeddingMessage = {
+      _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
+      id: v.key!,
+      lastModified: new Date().toISOString(),
+      embedding: {
+        cohereEmbedEnglishV3: {
+          image: v.data!.float32!,
+        },
+      },
+    };
+    return {
+      PartitionKey: v.key!,
+      Data: Buffer.from(JSON.stringify(message)),
+    };
+  });
+
+  if (records.length === 0) {
+    console.log(`No valid records to send to Kinesis`);
+    return [];
+  }
+
+  console.log(`Writing ${records.length} embeddings to Kinesis stream...`);
+
+  const command = new PutRecordsCommand({
+    StreamARN: THRALL_KINESIS_STREAM_ARN,
+    Records: records,
+  });
+
+  const response = await client.send(command);
+
+  const failedImageIds: string[] = (response.Records ?? []).reduce<string[]>(
+    (acc, record, index) => {
+      if (record.ErrorCode) {
+        const imageId = validVectors[index].key!;
+        console.error(
+          `Failed to publish embedding for ${imageId} to Kinesis: ${record.ErrorCode} - ${record.ErrorMessage}`,
+        );
+        acc.push(imageId);
+      }
+      return acc;
+    },
+    [],
+  );
+
+  console.log(
+    `Published ${records.length - failedImageIds.length} embeddings to Kinesis (${failedImageIds.length} failed)`,
+  );
+
+  return failedImageIds;
+}
+
 async function cacheDownscaledImage(
   imageId: string,
   imageBytes: Uint8Array,
@@ -217,7 +328,9 @@ async function cacheDownscaledImage(
   client: S3Client,
 ): Promise<void> {
   if (!DOWNSCALED_IMAGE_BUCKET) {
-    console.log("No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image");
+    console.log(
+      "No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image",
+    );
     return;
   }
 
@@ -230,7 +343,9 @@ async function cacheDownscaledImage(
       ContentType: mimeType,
     });
     await client.send(command);
-    console.log(`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`,
+    );
   } catch (error) {
     // Log but don't throw - cache failures shouldn't break the pipeline
     console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
@@ -257,7 +372,12 @@ export async function embedImage(
 
     // Cache if we actually downscaled (bytes changed)
     if (processedBytes !== imageBytes) {
-      await cacheDownscaledImage(imageId, processedBytes, imageMimeType, s3Client);
+      await cacheDownscaledImage(
+        imageId,
+        processedBytes,
+        imageMimeType,
+        s3Client,
+      );
     }
   }
 
@@ -294,7 +414,7 @@ export async function embedImage(
   }
 }
 
-async function storeEmbeddings(
+async function storeEmbeddingsInS3VectorStore(
   vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
@@ -317,7 +437,9 @@ async function storeEmbeddings(
     console.log(
       `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(`Successfully stored ${vectors.length} embeddings`);
+    console.log(
+      `Successfully stored ${vectors.length} embeddings to S3 Vector Store`,
+    );
 
     return response;
   } catch (error) {
@@ -336,10 +458,13 @@ export const handler = async (
 
   const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
+  const imageIdToMessageId = new Map<string, string>();
 
   for (const [i, record] of records.entries()) {
     try {
-      console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
+      console.log(
+        `Parsing record ${i + 1} of ${records.length}: ${record.body}`,
+      );
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
       // If it's a Tiff then we should log an error
@@ -386,6 +511,7 @@ export const handler = async (
           float32: embedding,
         },
       });
+      imageIdToMessageId.set(recordBody.imageId, record.messageId);
     } catch (error) {
       console.error(`Error processing record ${record.messageId}:`, error);
       batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -397,10 +523,28 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    await storeEmbeddings(vectors, s3VectorsClient);
+    // Send embeddings to Kinesis for Thrall to write to Elasticsearch
+    if (STAGE === "PROD") {
+      console.log(
+        `Not writing embeddings to Kinesis yet whilst we test on TEST`,
+      );
+    } else {
+      const failedImageIds = await sendEmbeddingsToKinesis(
+        vectors,
+        kinesisClient,
+      );
+      for (const imageId of failedImageIds) {
+        const messageId = imageIdToMessageId.get(imageId);
+        if (messageId) {
+          batchItemFailures.push({ itemIdentifier: messageId });
+        }
+      }
+    }
+
+    await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+    console.log(`Stored ${vectors.length} vectors`);
   } else {
     console.log(`No vectors to store`);
   }
-
   return { batchItemFailures };
 };
