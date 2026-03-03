@@ -211,7 +211,7 @@ function toPartitionedKey(imageId: string): string {
   return `${prefix}/${imageId}`;
 }
 
-async function getCachedDownscaledImage(
+async function fetchCachedDownscaledImage(
   imageId: string,
   client: S3Client,
 ): Promise<Uint8Array | undefined> {
@@ -265,7 +265,7 @@ export async function fetchImageAndDownscaleIfNeeded(
   // TIFFs are always served as their optimised PNG, all others keep their original format.
   const processedMimeType = message.fileType === "image/tiff" ? "image/png" : message.fileType;
 
-  const cachedBytes = await getCachedDownscaledImage(message.imageId, client);
+  const cachedBytes = await fetchCachedDownscaledImage(message.imageId, client);
   if (cachedBytes) {
     return { bytes: cachedBytes, mimeType: processedMimeType };
   }
