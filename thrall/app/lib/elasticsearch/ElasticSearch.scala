@@ -216,7 +216,7 @@ class ElasticSearch(
 
     val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
 
-    val scriptSource = loadUpdatingModificationPainless(replaceEmbeddingScript)
+    val scriptSource = loadPainless(replaceEmbeddingScript)
 
     val embeddingParameter = asNestedMap(Json.toJson(embedding))
 
