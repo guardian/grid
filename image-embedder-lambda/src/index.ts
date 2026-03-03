@@ -188,6 +188,8 @@ export async function downscaleImageIfNeeded(
   // A. We want the same rounding that sharp uses when it auto-resizes
   // Q. Why not read the new height from the existing `sharpImage` object?
   // A. Surprisingly, metadata doesn't get updated on calling resize. We need to output to buffer first.
+  // To be honest this probably a waste of memory. Do we really care about a rounding error?
+  // All we use it for is logging.
   const { height: newHeight } = await sharp(buffer).metadata();
   const newPixels = newWidth * newHeight;
   if (result.byteLength > maxImageSizeBytes) {
@@ -255,31 +257,35 @@ async function cacheDownscaledImage(
   }
 }
 
+export async function fetchImageAndDownscaleIfNeeded(
+  message: SQSMessageBody,
+  client: S3Client,
+): Promise<FetchedImage> {
+  // The mimeType of fully-processed (downscaled/converted) images is deterministic:
+  // TIFFs are always served as their optimised PNG, all others keep their original format.
+  const processedMimeType = message.fileType === "image/tiff" ? "image/png" : message.fileType;
+
+  const cachedBytes = await getCachedDownscaledImage(message.imageId, client);
+  if (cachedBytes) {
+    return { bytes: cachedBytes, mimeType: processedMimeType };
+  }
+
+  const { bytes, mimeType } = await fetchImage(message, client);
+  const downscaled = await downscaleImageIfNeeded(bytes, mimeType, MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4);
+
+  if (downscaled !== bytes) {
+    await cacheDownscaledImage(message.imageId, downscaled, mimeType, client);
+  }
+
+  return { bytes: downscaled, mimeType };
+}
+
 export async function embedImage(
-  imageId: string,
   imageBytes: Uint8Array,
   imageMimeType: string,
   bedrockClient: BedrockRuntimeClient,
-  s3Client: S3Client,
 ): Promise<InvokeModelCommandOutput> {
-  // Try to get cached downscaled image first
-  let processedBytes = await getCachedDownscaledImage(imageId, s3Client);
-
-  if (!processedBytes) {
-    processedBytes = await downscaleImageIfNeeded(
-      imageBytes,
-      imageMimeType,
-      MAX_IMAGE_SIZE_BYTES,
-      MAX_PIXELS_COHERE_V4,
-    );
-
-    // Cache if we actually downscaled (bytes changed)
-    if (processedBytes !== imageBytes) {
-      await cacheDownscaledImage(imageId, processedBytes, imageMimeType, s3Client);
-    }
-  }
-
-  const base64Image = Buffer.from(processedBytes).toString("base64");
+  const base64Image = Buffer.from(imageBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
@@ -360,14 +366,12 @@ export const handler = async (
       console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
-      const { bytes: gridImageBytes, mimeType: imageMimeType } = await fetchImage(recordBody, s3Client);
+      const { bytes: gridImageBytes, mimeType: imageMimeType } = await fetchImageAndDownscaleIfNeeded(recordBody, s3Client);
 
       const embeddingResponse = await embedImage(
-        recordBody.imageId,
         gridImageBytes,
         imageMimeType,
         bedrockClient,
-        s3Client,
       );
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),
