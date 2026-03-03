@@ -213,7 +213,6 @@ class ElasticSearch(
 
   def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
                      (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    logger.info(logMarker, s"Updating embedding for image id: $id")
 
     val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
 
