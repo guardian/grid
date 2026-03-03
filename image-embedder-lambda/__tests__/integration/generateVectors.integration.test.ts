@@ -1,22 +1,22 @@
-import { mockClient } from "aws-sdk-client-mock";
-import { S3VectorsClient, PutVectorsCommand } from "@aws-sdk/client-s3vectors";
-import { Context, SQSEvent, SQSRecord } from "aws-lambda";
-import { handler, SQSMessageBody } from "../../src/index";
+import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
+import { S3Client } from "@aws-sdk/client-s3";
+import { SQSRecord } from "aws-lambda";
+import { generateVectors, SQSMessageBody } from "../../src/index";
 
 /**
- * Integration tests for the full embedding pipeline via the handler.
- * Currently only intended to be manually trigged locally.
+ * Integration tests for the fetch → downscale → embed pipeline.
+ * Currently only intended to be manually triggered locally.
  *
  * Infrastructure used:
- *   SQS                          — not used (events are constructed in-memory)
+ *   SQS                          — not used (records are constructed in-memory)
  *   S3 source images             — AWS  (bucket: image-embedding-test)
- *   S3 downscaled image cache    — AWS  (bucket: $DOWNSCALED_IMAGE_BUCKET, if set; otherwise caching is skipped)
+ *   S3 downscaled image cache    — not used  (DOWNSCALED_IMAGE_BUCKET not set)
  *   Bedrock (Cohere embedding)   — AWS
- *   S3 Vectors                   — test mock (aws-sdk-client-mock; no vector store needed)
- * 
- * Currently this does *not* test caching behaviour as DOWNSCALED_IMAGE_BUCKET
- * is not set as an env var for the handler.
+ *   S3 Vectors                   — not used
  *
+ * Note this does *not* currently test the caching behaviour of downscaled images,
+ * because we have not set the DOWNSCALED_IMAGE_BUCKET env var for the lambda.
+ * 
  * Requires:
  *   - Valid AWS credentials with S3 and Bedrock permissions
  *   - Test images uploaded to image-embedding-test
@@ -26,8 +26,6 @@ import { handler, SQSMessageBody } from "../../src/index";
  */
 
 const TEST_BUCKET = "image-embedding-test";
-
-const s3VectorsMock = mockClient(S3VectorsClient);
 
 interface TestImage {
   name: string;
@@ -81,14 +79,14 @@ const TEST_IMAGES: TestImage[] = [
   },
 ];
 
-function makeSQSEvent(image: TestImage): SQSEvent {
+function makeSQSRecord(image: TestImage): SQSRecord {
   const body: SQSMessageBody = {
     imageId: image.imageId,
     s3Bucket: TEST_BUCKET,
     s3Key: image.s3Key,
     fileType: image.fileType,
   };
-  const record: SQSRecord = {
+  return {
     messageId: image.imageId,
     receiptHandle: "",
     body: JSON.stringify(body),
@@ -99,22 +97,18 @@ function makeSQSEvent(image: TestImage): SQSEvent {
     eventSourceARN: "",
     awsRegion: "eu-west-1",
   };
-  return { Records: [record] };
 }
 
-describe("Handler embedding pipeline (end-to-end)", () => {
-  beforeEach(() => {
-    s3VectorsMock.reset();
-    s3VectorsMock.on(PutVectorsCommand).resolves({ $metadata: { httpStatusCode: 200 } });
-  });
+describe("Fetch → downscale → embed pipeline", () => {
+  const s3Client = new S3Client({ region: "eu-west-1" });
+  const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 
-  it.each(TEST_IMAGES)("should successfully embed and store $name", async (image) => {
-    const result = await handler(makeSQSEvent(image), {} as Context);
+  it.each(TEST_IMAGES)("should generate a vector for $name", async (image) => {
+    const { vectors, batchItemFailures } = await generateVectors([makeSQSRecord(image)], s3Client, bedrockClient);
 
-    expect(result.batchItemFailures).toEqual([]);
-
-    const putCalls = s3VectorsMock.commandCalls(PutVectorsCommand);
-    const storedKeys = putCalls.flatMap(c => (c.args[0].input.vectors ?? []).map(v => v.key));
-    expect(storedKeys).toContain(image.imageId);
+    expect(batchItemFailures).toEqual([]);
+    expect(vectors).toHaveLength(1);
+    expect(vectors[0].key).toBe(image.imageId);
+    expect(vectors[0].data?.float32?.length).toBe(1024);
   });
 });

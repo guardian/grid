@@ -350,12 +350,16 @@ async function storeEmbeddings(
   }
 }
 
-export const handler = async (
-  event: SQSEvent,
-  context: Context,
-): Promise<SQSBatchResponse> => {
-  console.log(`Starting handler embedding pipeline`);
-  const records: SQSRecord[] = event.Records;
+export interface GenerateVectorsResult {
+  vectors: PutInputVector[];
+  batchItemFailures: SQSBatchItemFailure[];
+}
+
+export async function generateVectors(
+  records: SQSRecord[],
+  s3Client: S3Client,
+  bedrockClient: BedrockRuntimeClient,
+): Promise<GenerateVectorsResult> {
   console.log(`Processing ${records.length} SQS records`);
 
   const vectors: PutInputVector[] = [];
@@ -398,6 +402,17 @@ export const handler = async (
   console.log(
     `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
+
+  return { vectors, batchItemFailures };
+}
+
+export const handler = async (
+  event: SQSEvent,
+  context: Context,
+): Promise<SQSBatchResponse> => {
+  console.log(`Starting handler embedding pipeline`);
+
+  const { vectors, batchItemFailures } = await generateVectors(event.Records, s3Client, bedrockClient);
 
   if (vectors.length > 0) {
     await storeEmbeddings(vectors, s3VectorsClient);
