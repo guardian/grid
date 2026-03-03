@@ -2,8 +2,6 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import { sdkStreamMixin } from "@smithy/util-stream";
 import { Readable } from "stream";
-// This is required because otherwise we throw an error when we import fetchImage
-process.env.THRALL_KINESIS_STREAM_ARN = "mockStreamArn";
 import { fetchImage } from "../src/index";
 
 const s3Mock = mockClient(S3Client);

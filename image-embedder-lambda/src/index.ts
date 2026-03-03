@@ -73,12 +73,6 @@ const kinesisClient = new KinesisClient({
 // Kinesis stream for sending embeddings to Thrall
 const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
 
-if (!THRALL_KINESIS_STREAM_ARN && STAGE !== "PROD") {
-  throw new Error(
-    "THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall",
-  );
-}
-
 interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
@@ -525,6 +519,12 @@ export const handler = async (
   console.log(`Starting handler embedding pipeline`);
   const records: SQSRecord[] = event.Records;
   console.log(`Processing ${records.length} SQS records`);
+
+  if (!THRALL_KINESIS_STREAM_ARN && STAGE !== "PROD") {
+    throw new Error(
+      "THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall",
+    );
+  }
 
   const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
