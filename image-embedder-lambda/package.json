@@ -28,6 +28,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@aws-sdk/config": "^3.997.0",
     "@aws-sdk/client-bedrock-runtime": "^3.995.0",
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/client-s3vectors": "^3.995.0",
