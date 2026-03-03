@@ -362,7 +362,12 @@ async function sendEmbeddingsToKinesis(
       `Published ${responseRecords.length - failures.length} embeddings to Kinesis (${failures.length} failed)`,
     );
 
-    return responseRecords;
+    const failedImageIds = failures.map((failure) => {
+      const index = responseRecords.indexOf(failure);
+      return vectors[index].key;
+    });
+
+    return failedImageIds;
   } catch (error) {
     console.error(`Error writing to Kinesis:`, error);
     throw error;
@@ -579,10 +584,21 @@ export const handler = async (
           `Not writing embeddings to Kinesis yet whilst we test on TEST`,
         );
       } else {
-        await sendEmbeddingsToKinesis(validVectors, kinesisClient);
+        const failedImageIds = await sendEmbeddingsToKinesis(
+          validVectors,
+          kinesisClient,
+        );
+        for (const imageId of failedImageIds) {
+          const messageId = imageIdToMessageId.get(imageId);
+          if (messageId) {
+            console.log(
+              `Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
+            );
+            batchItemFailures.push({ itemIdentifier: messageId });
+          }
+        }
       }
       await storeEmbeddingsInS3VectorStore(validVectors, s3VectorsClient);
-      console.log(`Stored ${validVectors.length} vectors`);
     } catch (error) {
       console.error(`Error writing embeddings:`, error);
       for (const vector of validVectors) {
