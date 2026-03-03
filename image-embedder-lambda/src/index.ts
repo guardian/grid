@@ -29,6 +29,7 @@ import {
   KinesisClient,
   PutRecordsCommand,
   PutRecordsRequestEntry,
+  PutRecordsResultEntry,
 } from "@aws-sdk/client-kinesis";
 import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
@@ -264,12 +265,51 @@ interface UpdateEmbeddingMessage {
   };
 }
 
+// A successful Kinesis result always has SequenceNumber and ShardId.
+// A failed result always has ErrorCode and ErrorMessage.
+// Every record is one or the other.
+interface KinesisSuccessEntry {
+  SequenceNumber: string;
+  ShardId: string;
+  ErrorCode?: undefined;
+  ErrorMessage?: undefined;
+}
+
+interface KinesisFailureEntry {
+  SequenceNumber?: undefined;
+  ShardId?: undefined;
+  ErrorCode: string;
+  ErrorMessage: string;
+}
+
+type KinesisResultEntry = KinesisSuccessEntry | KinesisFailureEntry;
+
+function isKinesisResultEntry(
+  r: PutRecordsResultEntry,
+): r is KinesisResultEntry {
+  const isSuccess =
+    typeof r.SequenceNumber === "string" && typeof r.ShardId === "string";
+  const isFailure =
+    typeof r.ErrorCode === "string" && typeof r.ErrorMessage === "string";
+  return isSuccess || isFailure;
+}
+
+function isValidKinesisResponse(
+  records: PutRecordsResultEntry[] | undefined,
+  expectedLength: number,
+): records is KinesisResultEntry[] {
+  return (
+    Array.isArray(records) &&
+    records.length === expectedLength &&
+    records.every(isKinesisResultEntry)
+  );
+}
+
 async function sendEmbeddingsToKinesis(
   vectors: PutInputVector[],
   client: KinesisClient,
-): Promise<string[]> {
-  const validVectors = vectors.filter((v) => v.data?.float32 && v.key);
-  const records: PutRecordsRequestEntry[] = validVectors.map((v) => {
+) {
+  const records: PutRecordsRequestEntry[] = vectors.map((v) => {
     const message: UpdateEmbeddingMessage = {
       _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
       id: v.key!,
@@ -301,25 +341,23 @@ async function sendEmbeddingsToKinesis(
   try {
     const response = await client.send(command);
 
-    const failedImageIds: string[] = (response.Records ?? []).reduce<string[]>(
-      (acc, record, index) => {
-        if (record.ErrorCode) {
-          const imageId = validVectors[index].key!;
-          console.error(
-            `Failed to publish embedding for ${imageId} to Kinesis: ${record.ErrorCode} - ${record.ErrorMessage}`,
-          );
-          acc.push(imageId);
-        }
-        return acc;
-      },
-      [],
+    if (!isValidKinesisResponse(response.Records, records.length)) {
+      throw new Error(
+        `Unexpected Kinesis response: expected ${records.length} fully-populated records, got ${response.Records?.length ?? 0}`,
+      );
+    }
+
+    const responseRecords: KinesisResultEntry[] = response.Records;
+
+    const failures = responseRecords.filter(
+      (r): r is KinesisFailureEntry => !!r.ErrorCode,
     );
 
     console.log(
-      `Published ${records.length - failedImageIds.length} embeddings to Kinesis (${failedImageIds.length} failed)`,
+      `Published ${responseRecords.length - failures.length} embeddings to Kinesis (${failures.length} failed)`,
     );
 
-    return failedImageIds;
+    return responseRecords;
   } catch (error) {
     console.error(`Error writing to Kinesis:`, error);
     throw error;
@@ -527,7 +565,8 @@ export const handler = async (
     `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
 
-  if (vectors.length > 0) {
+  const validVectors = vectors.filter((v) => v.data?.float32 && v.key);
+  if (validVectors.length > 0) {
     try {
       // Send embeddings to Kinesis for Thrall to write to Elasticsearch
       if (STAGE === "PROD") {
@@ -535,18 +574,8 @@ export const handler = async (
           `Not writing embeddings to Kinesis yet whilst we test on TEST`,
         );
       } else {
-        const failedImageIds = await sendEmbeddingsToKinesis(
-          vectors,
-          kinesisClient,
-        );
-        for (const imageId of failedImageIds) {
-          const messageId = imageIdToMessageId.get(imageId);
-          if (messageId) {
-            batchItemFailures.push({ itemIdentifier: messageId });
-          }
-        }
+        await sendEmbeddingsToKinesis(validVectors, kinesisClient);
       }
-
       await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
       console.log(`Stored ${vectors.length} vectors`);
     } catch (error) {
