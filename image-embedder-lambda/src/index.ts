@@ -294,6 +294,16 @@ function isKinesisResultEntry(
   return isSuccess || isFailure;
 }
 
+// A PutInputVector with guaranteed key and float32 data.
+interface ValidVector extends PutInputVector {
+  key: string;
+  data: { float32: number[] };
+}
+
+function isValidVector(v: PutInputVector): v is ValidVector {
+  return typeof v.key === "string" && Array.isArray(v.data?.float32);
+}
+
 function isValidKinesisResponse(
   records: PutRecordsResultEntry[] | undefined,
   expectedLength: number,
@@ -306,30 +316,25 @@ function isValidKinesisResponse(
 }
 
 async function sendEmbeddingsToKinesis(
-  vectors: PutInputVector[],
+  vectors: ValidVector[],
   client: KinesisClient,
 ) {
   const records: PutRecordsRequestEntry[] = vectors.map((v) => {
     const message: UpdateEmbeddingMessage = {
       _type: "com.gu.mediaservice.model.UpdateEmbeddingMessage",
-      id: v.key!,
+      id: v.key,
       lastModified: new Date().toISOString(),
       embedding: {
         cohereEmbedEnglishV3: {
-          image: v.data!.float32!,
+          image: v.data.float32,
         },
       },
     };
     return {
-      PartitionKey: v.key!,
+      PartitionKey: v.key,
       Data: Buffer.from(JSON.stringify(message)),
     };
   });
-
-  if (records.length === 0) {
-    console.log(`No valid records to send to Kinesis`);
-    return [];
-  }
 
   console.log(`Writing ${records.length} embeddings to Kinesis stream...`);
 
@@ -458,7 +463,7 @@ export async function embedImage(
 }
 
 async function storeEmbeddingsInS3VectorStore(
-  vectors: PutInputVector[],
+  vectors: ValidVector[],
   client: S3VectorsClient,
 ) {
   console.log(`Storing ${vectors.length} embeddings to vector store`);
@@ -565,7 +570,7 @@ export const handler = async (
     `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
 
-  const validVectors = vectors.filter((v) => v.data?.float32 && v.key);
+  const validVectors: ValidVector[] = vectors.filter(isValidVector);
   if (validVectors.length > 0) {
     try {
       // Send embeddings to Kinesis for Thrall to write to Elasticsearch
@@ -576,12 +581,12 @@ export const handler = async (
       } else {
         await sendEmbeddingsToKinesis(validVectors, kinesisClient);
       }
-      await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-      console.log(`Stored ${vectors.length} vectors`);
+      await storeEmbeddingsInS3VectorStore(validVectors, s3VectorsClient);
+      console.log(`Stored ${validVectors.length} vectors`);
     } catch (error) {
       console.error(`Error writing embeddings:`, error);
-      for (const vector of vectors) {
-        const messageId = imageIdToMessageId.get(vector.key!);
+      for (const vector of validVectors) {
+        const messageId = imageIdToMessageId.get(vector.key);
         if (messageId) {
           batchItemFailures.push({ itemIdentifier: messageId });
         }
