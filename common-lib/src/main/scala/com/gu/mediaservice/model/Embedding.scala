@@ -5,6 +5,7 @@ import play.api.libs.json.OFormat
 
 //NOTE - this is the type for both the mapping in ES and the message sent to Thrall,
 // so we may want to make a separate type for the updateMessage that allows partial updates
+// once we add Cohere V4
 case class Embedding(
     cohereEmbedEnglishV3: CohereV3Embedding
 )
