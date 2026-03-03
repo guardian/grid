@@ -34,49 +34,41 @@ import {
 import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
-const LOCALSTACK_ENDPOINT =
-  process.env.LOCALSTACK_ENDPOINT || "http://localhost:4566";
-const isLocal = process.env.IS_LOCAL === "true";
+const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
 
-// Determine stage: dev for local, otherwise from environment (test or prod)
-const STAGE = isLocal ? "dev" : process.env.STAGE;
+const STAGE = process.env.STAGE;
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
 // If not set, caching of downscaled images will be disabled.
 const DOWNSCALED_IMAGE_BUCKET = process.env.DOWNSCALED_IMAGE_BUCKET;
 
-if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
+if (!DOWNSCALED_IMAGE_BUCKET) {
   console.error("DOWNSCALED_IMAGE_BUCKET not set, caching is disabled");
 }
 
-const s3Config = {
-  region: "eu-west-1",
-  ...(isLocal && {
-    endpoint: LOCALSTACK_ENDPOINT,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: "test",
-      secretAccessKey: "test",
-    },
-  }),
-};
+const localStackConfig = LOCALSTACK_ENDPOINT
+  ? {
+      endpoint: LOCALSTACK_ENDPOINT,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: "test",
+        secretAccessKey: "test",
+      },
+    }
+  : {};
 
-const s3Client = new S3Client(s3Config);
+const s3Client = new S3Client({
+  region: "eu-west-1",
+  ...localStackConfig,
+});
 const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
-const kinesisConfig = {
+const kinesisClient = new KinesisClient({
   region: "eu-west-1",
-  ...(isLocal && {
-    endpoint: LOCALSTACK_ENDPOINT,
-    credentials: {
-      accessKeyId: "test",
-      secretAccessKey: "test",
-    },
-  }),
-};
-const kinesisClient = new KinesisClient(kinesisConfig);
+  ...localStackConfig,
+});
 
 // Kinesis stream for sending embeddings to Thrall
 const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;

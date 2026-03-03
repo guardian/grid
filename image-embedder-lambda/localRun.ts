@@ -93,7 +93,7 @@ async function main() {
 
   // Set all environment variables before importing handler
   process.env.AWS_PROFILE = "media-service";
-  process.env.IS_LOCAL = "true";
+  process.env.STAGE = "dev";
   process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
   process.env.DOWNSCALED_IMAGE_BUCKET = downscaledImageBucket;
   process.env.THRALL_KINESIS_STREAM_ARN = thrallStreamArn;
