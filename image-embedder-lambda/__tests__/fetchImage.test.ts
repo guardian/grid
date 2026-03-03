@@ -2,6 +2,8 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import { sdkStreamMixin } from "@smithy/util-stream";
 import { Readable } from "stream";
+// This is just required because otherwise we throw an error in the handler
+process.env.THRALL_KINESIS_STREAM_ARN = "mockStreamArn";
 import { fetchImage } from "../src/index";
 
 const s3Mock = mockClient(S3Client);
@@ -27,7 +29,7 @@ function mockS3BucketContents(keys: string[]): Record<string, Uint8Array> {
 }
 
 function requestedKeys(): string[] {
-  return s3Mock.commandCalls(GetObjectCommand).map(c => c.args[0].input.Key!);
+  return s3Mock.commandCalls(GetObjectCommand).map((c) => c.args[0].input.Key!);
 }
 
 describe("fetchImage", () => {
@@ -45,7 +47,10 @@ describe("fetchImage", () => {
         client,
       );
 
-      expect(result).toEqual({ bytes: s3["a/b/c/abc123"], mimeType: "image/jpeg" });
+      expect(result).toEqual({
+        bytes: s3["a/b/c/abc123"],
+        mimeType: "image/jpeg",
+      });
       expect(requestedKeys()).toEqual(["a/b/c/abc123"]);
     });
 
@@ -80,21 +85,29 @@ describe("fetchImage", () => {
         ),
       ).rejects.toThrow("Failed to retrieve image");
     });
-
   });
 
   describe("PNGs", () => {
     it("uses the optimised PNG in preference to the original, when both exist", async () => {
-      const s3 = mockS3BucketContents(["optimised/a/b/c/abc123", "a/b/c/abc123"]);
+      const s3 = mockS3BucketContents([
+        "optimised/a/b/c/abc123",
+        "a/b/c/abc123",
+      ]);
 
-      const result = await fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/png",
-      }, client);
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/png",
+        },
+        client,
+      );
 
-      expect(result).toEqual({ bytes: s3["optimised/a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["optimised/a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
 
@@ -111,54 +124,80 @@ describe("fetchImage", () => {
         client,
       );
 
-      expect(result).toEqual({ bytes: s3["optimised/a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["optimised/a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
 
     it("falls back to original when optimised is missing", async () => {
       const s3 = mockS3BucketContents(["a/b/c/abc123"]);
 
-      const result = await fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/png",
-      }, client);
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "a/b/c/abc123",
+          fileType: "image/png",
+        },
+        client,
+      );
 
-      expect(result).toEqual({ bytes: s3["a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       // It tried the optimised, couldn't find it, so then tried the original
-      expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123", "a/b/c/abc123"]);
+      expect(requestedKeys()).toEqual([
+        "optimised/a/b/c/abc123",
+        "a/b/c/abc123",
+      ]);
     });
 
     it("throws when both optimised and original are missing", async () => {
       mockS3BucketContents([]);
 
-      await expect(fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/png",
-      }, client)).rejects.toThrow("Failed to retrieve image");
+      await expect(
+        fetchImage(
+          {
+            imageId: "abc123",
+            s3Bucket: "test-bucket",
+            s3Key: "a/b/c/abc123",
+            fileType: "image/png",
+          },
+          client,
+        ),
+      ).rejects.toThrow("Failed to retrieve image");
     });
 
     it("uses the key directly when it's already an optimised path", async () => {
       const s3 = mockS3BucketContents(["optimised/a/b/c/abc123"]);
 
-      const result = await fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "optimised/a/b/c/abc123",
-        fileType: "image/png",
-      }, client);
+      const result = await fetchImage(
+        {
+          imageId: "abc123",
+          s3Bucket: "test-bucket",
+          s3Key: "optimised/a/b/c/abc123",
+          fileType: "image/png",
+        },
+        client,
+      );
 
-      expect(result).toEqual({ bytes: s3["optimised/a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["optimised/a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
   });
 
   describe("TIFFs", () => {
     it("uses the optimised PNG in place of the original, when both exist", async () => {
-      const s3 = mockS3BucketContents(["a/b/c/abc123", "optimised/a/b/c/abc123"]);
+      const s3 = mockS3BucketContents([
+        "a/b/c/abc123",
+        "optimised/a/b/c/abc123",
+      ]);
 
       const result = await fetchImage(
         {
@@ -170,7 +209,10 @@ describe("fetchImage", () => {
         client,
       );
 
-      expect(result).toEqual({ bytes: s3["optimised/a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["optimised/a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
 
@@ -187,20 +229,27 @@ describe("fetchImage", () => {
         client,
       );
 
-      expect(result).toEqual({ bytes: s3["optimised/a/b/c/abc123"], mimeType: "image/png" });
+      expect(result).toEqual({
+        bytes: s3["optimised/a/b/c/abc123"],
+        mimeType: "image/png",
+      });
       expect(requestedKeys()).toEqual(["optimised/a/b/c/abc123"]);
     });
-
 
     it("throws when neither original TIFF nor optimised PNG exists", async () => {
       mockS3BucketContents([]);
 
-      await expect(fetchImage({
-        imageId: "abc123",
-        s3Bucket: "test-bucket",
-        s3Key: "a/b/c/abc123",
-        fileType: "image/tiff",
-      }, client)).rejects.toThrow("Unsupported file type: image/tiff");
+      await expect(
+        fetchImage(
+          {
+            imageId: "abc123",
+            s3Bucket: "test-bucket",
+            s3Key: "a/b/c/abc123",
+            fileType: "image/tiff",
+          },
+          client,
+        ),
+      ).rejects.toThrow("Unsupported file type: image/tiff");
     });
 
     it("throws when no optimised PNG exists, even if the original TIFF exists", async () => {
