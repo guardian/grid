@@ -74,9 +74,14 @@ jobs:
           npm install-clean
           npm test
           npm run build
-      - name: Image embedder cdk
+      - name: Image Embedder CDK
         run: ./scripts/embedder-deploy/cdk.sh
-      - name: Image embedder bundling
+      - name: Image Embedder tests
+        working-directory: ./image-embedder-lambda
+        run: |
+          npm install-clean
+          npm test
+      - name: Image Embedder bundling
         run: ./scripts/embedder-deploy/build.sh
       - uses: guardian/actions-riff-raff@v4.2.4
         if: "! github.event.pull_request.head.repo.fork"

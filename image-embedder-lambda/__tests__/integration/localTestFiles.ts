@@ -37,7 +37,7 @@ export async function getTestImage(
     console.log(`Cache miss, downloading from S3: ${s3Key}`);
     const imageBytes = await getImageFromS3(bucket, s3Key, s3Client);
     if (!imageBytes) {
-      throw new Error(`Couldn"t get image ${s3Key} from bucket ${bucket}`);
+      throw new Error(`Could not get image ${s3Key} from bucket ${bucket}`);
     }
 
     await fs.writeFile(cachePath, imageBytes);
