@@ -20,6 +20,18 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
+lazy val jacksonVersion = "2.21.1"
+lazy val jacksonAnnotationsVersion = "2.21"
+lazy val jacksonOverrides = Seq(
+  "com.fasterxml.jackson.core" % "jackson-core",
+  "com.fasterxml.jackson.core" % "jackson-databind",
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310",
+  "com.fasterxml.jackson.module" % "jackson-module-parameter-names",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala"
+).map(_ % jacksonVersion) :+ "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
+
 val commonSettings = Seq(
   scalaVersion := "2.13.18",
   description := "grid",
@@ -40,7 +52,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.19.0",
+  dependencyOverrides ++= jacksonOverrides,
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
