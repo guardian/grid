@@ -5,6 +5,7 @@ import {
   SQSEvent,
   SQSRecord,
 } from "aws-lambda";
+import { LogLevel } from "@aws-sdk/config/logger";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -62,7 +63,21 @@ const s3Client = new S3Client({
   region: "eu-west-1",
   ...localStackConfig,
 });
-const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
+const bedrockClient = new BedrockRuntimeClient({
+  region: "eu-west-1",
+  logger: new LogLevel("debug", console),
+  requestHandler: {
+    // We set hard timeouts to prevent the client simply hanging if the server
+    // is not behaving correctly. We have seen this behaviour in production
+    // when requests to Bedrock have exceeded 2000 per minute,
+    // causing lambda timeouts and cascading failures.
+    // The specific values here were recommended by our friend at AWS Support, Abhishek M.,
+    // in this support ticket:
+    // https://563563610310-jmoumez6.support.console.aws.amazon.com/support/home?region=eu-west-1#/case/?displayId=177202106800750&language=en
+    connectionTimeout: 3_000,
+    requestTimeout: 30_000,
+  },
+});
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
 const kinesisClient = new KinesisClient({
@@ -221,6 +236,8 @@ export async function downscaleImageIfNeeded(
   // A. We want the same rounding that sharp uses when it auto-resizes
   // Q. Why not read the new height from the existing `sharpImage` object?
   // A. Surprisingly, metadata doesn't get updated on calling resize. We need to output to buffer first.
+  // To be honest this probably a waste of memory. Do we really care about a rounding error?
+  // All we use it for is logging.
   const { height: newHeight } = await sharp(buffer).metadata();
   const newPixels = newWidth * newHeight;
   if (result.byteLength > maxImageSizeBytes) {
@@ -242,7 +259,7 @@ function toPartitionedKey(imageId: string): string {
   return `${prefix}/${imageId}`;
 }
 
-async function getCachedDownscaledImage(
+async function fetchCachedDownscaledImage(
   imageId: string,
   client: S3Client,
 ): Promise<Uint8Array | undefined> {
@@ -279,14 +296,14 @@ interface UpdateEmbeddingMessage {
 // A successful Kinesis result always has SequenceNumber and ShardId.
 // A failed result always has ErrorCode and ErrorMessage.
 // Every record is one or the other.
-interface KinesisSuccessEntry {
+interface KinesisSuccessEntry extends PutRecordsResultEntry {
   SequenceNumber: string;
   ShardId: string;
   ErrorCode?: undefined;
   ErrorMessage?: undefined;
 }
 
-interface KinesisFailureEntry {
+interface KinesisFailureEntry extends PutRecordsResultEntry {
   SequenceNumber?: undefined;
   ShardId?: undefined;
   ErrorCode: string;
@@ -295,35 +312,10 @@ interface KinesisFailureEntry {
 
 type KinesisResultEntry = KinesisSuccessEntry | KinesisFailureEntry;
 
-function isKinesisResultEntry(
-  r: PutRecordsResultEntry,
-): r is KinesisResultEntry {
-  const isSuccess =
-    typeof r.SequenceNumber === "string" && typeof r.ShardId === "string";
-  const isFailure =
-    typeof r.ErrorCode === "string" && typeof r.ErrorMessage === "string";
-  return isSuccess || isFailure;
-}
-
 // A PutInputVector with guaranteed key and float32 data.
 interface ValidVector extends PutInputVector {
   key: string;
   data: { float32: number[] };
-}
-
-function isValidVector(v: PutInputVector): v is ValidVector {
-  return typeof v.key === "string" && Array.isArray(v.data?.float32);
-}
-
-function isValidKinesisResponse(
-  records: PutRecordsResultEntry[] | undefined,
-  expectedLength: number,
-): records is KinesisResultEntry[] {
-  return (
-    Array.isArray(records) &&
-    records.length === expectedLength &&
-    records.every(isKinesisResultEntry)
-  );
 }
 
 async function sendEmbeddingsToKinesis(
@@ -357,13 +349,13 @@ async function sendEmbeddingsToKinesis(
   try {
     const response = await client.send(command);
 
-    if (!isValidKinesisResponse(response.Records, records.length)) {
+    if (response.Records?.length !== records.length) {
       throw new Error(
         `Unexpected Kinesis response: expected ${records.length} fully-populated records, got ${response.Records?.length ?? 0}`,
       );
     }
 
-    const responseRecords: KinesisResultEntry[] = response.Records;
+    const responseRecords: PutRecordsResultEntry[] = response.Records;
 
     const failures = responseRecords.filter(
       (r): r is KinesisFailureEntry => !!r.ErrorCode,
@@ -416,36 +408,41 @@ async function cacheDownscaledImage(
   }
 }
 
+export async function fetchImageAndDownscaleIfNeeded(
+  message: SQSMessageBody,
+  client: S3Client,
+): Promise<FetchedImage> {
+  // The mimeType of fully-processed (downscaled/converted) images is deterministic:
+  // TIFFs are always served as their optimised PNG, all others keep their original format.
+  const processedMimeType =
+    message.fileType === "image/tiff" ? "image/png" : message.fileType;
+
+  const cachedBytes = await fetchCachedDownscaledImage(message.imageId, client);
+  if (cachedBytes) {
+    return { bytes: cachedBytes, mimeType: processedMimeType };
+  }
+
+  const { bytes, mimeType } = await fetchImage(message, client);
+  const downscaled = await downscaleImageIfNeeded(
+    bytes,
+    mimeType,
+    MAX_IMAGE_SIZE_BYTES,
+    MAX_PIXELS_COHERE_V4,
+  );
+
+  if (downscaled !== bytes) {
+    await cacheDownscaledImage(message.imageId, downscaled, mimeType, client);
+  }
+
+  return { bytes: downscaled, mimeType };
+}
+
 export async function embedImage(
-  imageId: string,
   imageBytes: Uint8Array,
   imageMimeType: string,
   bedrockClient: BedrockRuntimeClient,
-  s3Client: S3Client,
 ): Promise<InvokeModelCommandOutput> {
-  // Try to get cached downscaled image first
-  let processedBytes = await getCachedDownscaledImage(imageId, s3Client);
-
-  if (!processedBytes) {
-    processedBytes = await downscaleImageIfNeeded(
-      imageBytes,
-      imageMimeType,
-      MAX_IMAGE_SIZE_BYTES,
-      MAX_PIXELS_COHERE_V4,
-    );
-
-    // Cache if we actually downscaled (bytes changed)
-    if (processedBytes !== imageBytes) {
-      await cacheDownscaledImage(
-        imageId,
-        processedBytes,
-        imageMimeType,
-        s3Client,
-      );
-    }
-  }
-
-  const base64Image = Buffer.from(processedBytes).toString("base64");
+  const base64Image = Buffer.from(imageBytes).toString("base64");
   const model = "cohere.embed-english-v3";
   const body = {
     input_type: "image",
@@ -512,12 +509,16 @@ async function storeEmbeddingsInS3VectorStore(
   }
 }
 
-export const handler = async (
-  event: SQSEvent,
-  context: Context,
-): Promise<SQSBatchResponse> => {
-  console.log(`Starting handler embedding pipeline`);
-  const records: SQSRecord[] = event.Records;
+export interface GenerateVectorsResult {
+  vectors: PutInputVector[];
+  batchItemFailures: SQSBatchItemFailure[];
+}
+
+export async function generateVectors(
+  records: SQSRecord[],
+  s3Client: S3Client,
+  bedrockClient: BedrockRuntimeClient,
+): Promise<GenerateVectorsResult> {
   console.log(`Processing ${records.length} SQS records`);
 
   if (!THRALL_KINESIS_STREAM_ARN && STAGE !== "PROD") {
@@ -526,7 +527,7 @@ export const handler = async (
     );
   }
 
-  const vectors: PutInputVector[] = [];
+  const vectors: ValidVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
   const imageIdToMessageId = new Map<string, string>();
 
@@ -538,14 +539,12 @@ export const handler = async (
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
       const { bytes: gridImageBytes, mimeType: imageMimeType } =
-        await fetchImage(recordBody, s3Client);
+        await fetchImageAndDownscaleIfNeeded(recordBody, s3Client);
 
       const embeddingResponse = await embedImage(
-        recordBody.imageId,
         gridImageBytes,
         imageMimeType,
         bedrockClient,
-        s3Client,
       );
       const responseBody = JSON.parse(
         new TextDecoder().decode(embeddingResponse.body),
@@ -574,8 +573,22 @@ export const handler = async (
     `Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
   );
 
-  const validVectors: ValidVector[] = vectors.filter(isValidVector);
-  if (validVectors.length > 0) {
+  return { vectors, batchItemFailures };
+}
+
+export const handler = async (
+  event: SQSEvent,
+  context: Context,
+): Promise<SQSBatchResponse> => {
+  console.log(`Starting handler embedding pipeline`);
+
+  const { vectors, batchItemFailures } = await generateVectors(
+    event.Records,
+    s3Client,
+    bedrockClient,
+  );
+
+  if (vectors.length > 0) {
     try {
       // Send embeddings to Kinesis for Thrall to write to Elasticsearch
       if (STAGE === "PROD") {
@@ -584,7 +597,7 @@ export const handler = async (
         );
       } else {
         const failedImageIds = await sendEmbeddingsToKinesis(
-          validVectors,
+          vectors,
           kinesisClient,
         );
         for (const imageId of failedImageIds) {
@@ -597,10 +610,10 @@ export const handler = async (
           }
         }
       }
-      await storeEmbeddingsInS3VectorStore(validVectors, s3VectorsClient);
+      await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
     } catch (error) {
       console.error(`Error writing embeddings:`, error);
-      for (const vector of validVectors) {
+      for (const vector of vectors) {
         const messageId = imageIdToMessageId.get(vector.key);
         if (messageId) {
           batchItemFailures.push({ itemIdentifier: messageId });
