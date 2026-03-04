@@ -1,15 +1,9 @@
-<div ng-if="!ctrl.showSendToPhotoSales">
-    <div ng-repeat="(type, usages) in ctrl.usages">
+<div>
+    <image-usage-photo-sales ng-if="ctrl.showSendToPhotoSales" props="{'usages':ctrl.photoSalesUsages}"></image-usage-photo-sales>
+    <div ng-repeat="(type, usages) in ctrl.usages" ng-if="!ctrl.showSendToPhotoSales || ['downloaded', 'replaced', 'derivative'].includes(type)">
         <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
     </div>
 </div>
-<div ng-if="ctrl.showSendToPhotoSales">
-    <image-usage-photo-sales props="{'usages':ctrl.photoSalesUsages}"></image-usage-photo-sales>
-    <div ng-repeat="(type, usages) in ctrl.usages" ng-if="type ==='downloaded'">
-        <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
-    </div>
-</div>
-
 
 <gr-delete-usages
   ng-if="(ctrl.usagesCount > 0 && !(ctrl.showSendToPhotoSales && ctrl.hasSyndicationUsages))"

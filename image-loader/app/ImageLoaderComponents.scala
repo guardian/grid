@@ -21,6 +21,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     logger.info(s" $index -> ${processor.description}")
   }
 
+  private val gridClient = GridClient(config.services)(wsClient)
+
   val store = new ImageLoaderStore(config)
   val maybeIngestQueue = config.maybeIngestSqsQueueUrl.map(queueUrl => new SimpleSqsMessageConsumer(queueUrl, config))
   val uploadStatusTable = new UploadStatusTable(config)
@@ -28,25 +30,21 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
 
-  val maybeEmbedder: Option[Embedder] = for {
-    queueUrl <- config.maybeImageEmbedderQueueUrl
-  if config.shouldEmbed
-  } yield {
-    new Embedder(
-      new S3Vectors(config),
-      new Bedrock(config),
-      new SimpleSqsMessageConsumer(queueUrl, config)
-    )
-  }
+  val maybeEmbedder: Option[Embedder] = config.maybeImageEmbedderQueueUrl
+    .filter(_ => config.shouldEmbed)
+    .map {queueUrl =>
+      new Embedder(
+        new S3Vectors(config),
+        new Bedrock(config),
+        new SimpleSqsMessageConsumer(queueUrl, config)
+      )
+    }
 
-  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor)
+  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth)
   val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
   val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
     new QuarantineUploader(new QuarantineStore(config), config)
   )
-
-  val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  private val gridClient = GridClient(services)(wsClient)
 
   val metrics = new ImageLoaderMetrics(config, actorSystem, applicationLifecycle)
 

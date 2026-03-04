@@ -41,6 +41,8 @@ imageUsagesService.factory('imageUsagesService', [function() {
           return frontsUsageTitle(usage);
         } else if (usage.has('downloadUsageMetadata')) {
           return downloadUsageTitle(usage);
+        } else if (usage.has('childUsageMetadata')) {
+          return "";
         }
         const referenceType =
           usage.get('platform') === 'print' ? 'indesign' : 'frontend';
