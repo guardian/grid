@@ -11,6 +11,30 @@ import {
   writeOutputImage,
 } from "./localTestFiles";
 
+/**
+ * Integration tests for image downscaling.
+ * Currently only intended to be manually trigged locally.
+ * 
+ * The *only* reason that this is an "integration" test rather than a unit test
+ * is because we fetch our test images from AWS (bucket: image-embedding-test).
+ * 
+ * Other than this, everything happens locally.
+ * 
+ * This could be made into a pure unit test by replacing the test images
+ * with ones which have the right characteristics, but could be generated on-the-fly in the test.
+ * 
+ * Requires:
+ *   - Valid AWS credentials with S3 read permissions
+ *   - Test images uploaded to image-embedding-test
+ *
+ * Downloaded images are cached locally in __tests__/integration/test-data/input/,
+ * and output is stored in __tests__/integration/test-data/output/.
+ * This is mainly so you can eyeball the before/after of the downscaling process.
+ * The caching of the input images also speeds up repeated test runs.
+ *
+ * Run with: npm run test:integration
+ */
+
 const TEST_BUCKET = "image-embedding-test";
 
 interface ImageDimensions {

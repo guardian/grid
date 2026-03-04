@@ -17,7 +17,7 @@ import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import org.scanamo.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
@@ -218,7 +218,7 @@ class ImageLoaderController(auth: Authentication,
     val futureUploadStatusUri = uploadDigestedFileToStore(
         digestedFileFuture = Future(digestedFile),
         uploadedBy = s3IngestObject.uploadedBy,
-        identifiers =  None,
+        identifiers =  s3IngestObject.identifiers,
         uploadTime = Some(s3IngestObject.uploadTime.toString) , // upload time as iso string - uploader uses DateTimeUtils.fromValueOrNow
         filename = Some(s3IngestObject.filename)
     )
@@ -282,9 +282,9 @@ class ImageLoaderController(auth: Authentication,
     // synchronous write to file
     val tempFile = createTempFile("requestBody")(initialContext)
     logger.info(initialContext, "body parsed")
-    val parsedBody = DigestBodyParser.create(tempFile)
+    val bodyParser = DigestBodyParser.create(tempFile)
 
-    AuthenticatedAndAuthorised.async(parsedBody) { req =>
+    AuthenticatedAndAuthorised.async(bodyParser) { req =>
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
@@ -300,7 +300,7 @@ class ImageLoaderController(auth: Authentication,
         uploadRequest <- uploader.loadFile(
           req.body,
           uploadedByToRecord,
-          identifiers,
+          identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty),
           uploadTimeToRecord,
           filename.flatMap(_.trim.nonEmptyOpt)
         )
@@ -323,6 +323,45 @@ class ImageLoaderController(auth: Authentication,
             case other => FailureResponse.internalError(other)
           }
           FailureResponse.responseToResult(response)
+      }
+    }
+  }
+
+  def enqueueDerivativeImage(derivativeOfMediaIds: String, filename: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String]): Action[DigestedFile] = {
+    val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
+
+    implicit val initialContext = MarkerMap(
+      "requestType" -> "load-image",
+      "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
+      "identifiers" -> identifiers.getOrElse(FALLBACK),
+      "uploadTime" -> uploadTimeToRecord.toString,
+      "filename" -> filename
+    )
+    logger.info(initialContext, "enqueueDerivativeImage request start")
+
+    val tempFile = createTempFile("requestBody")(initialContext)
+    val bodyParser = DigestBodyParser.create(tempFile)
+
+    AuthenticatedAndAuthorised.async(bodyParser) { req =>
+
+      val allIdentifiers = identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty) ++ Map(
+        ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> derivativeOfMediaIds
+      )
+
+      val s3UserMetaMap = allIdentifiers.map { case (k, v) =>
+        (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
+      }
+
+      store.queueS3Object(
+        uploader = uploadedBy.getOrElse(Authentication.getIdentity(req.user)),
+        filename = filename,
+        s3Meta = s3UserMetaMap,
+        file =  tempFile
+      ).map {_ =>
+        val newMediaId: String = req.body.digest
+
+        // return just the new media ID for now, though perhaps in future we could track these in the upload status table and provide the URI to the relevant entry
+        Accepted(newMediaId)
       }
     }
   }
@@ -386,7 +425,7 @@ class ImageLoaderController(auth: Authentication,
       val uploadResultFuture = uploadDigestedFileToStore(
           digestedFileFuture,
           uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
-          identifiers,
+          identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty),
           uploadTime,
           filename
       )
@@ -413,7 +452,7 @@ class ImageLoaderController(auth: Authentication,
   private def uploadDigestedFileToStore (
     digestedFileFuture: Future[DigestedFile],
     uploadedBy: String,
-    identifiers: Option[String],
+    identifiers: Map[String, String],
     uploadTime: Option[String],
     filename: Option[String]
   )(implicit logMarker:LogMarker): Future[UploadStatusUri] = {
@@ -425,7 +464,9 @@ class ImageLoaderController(auth: Authentication,
         uploadRequest <- uploader.loadFile(
           digestedFile,
           uploadedBy =  maybeStatus.map(_.uploadedBy).getOrElse(uploadedBy),
-          identifiers =  maybeStatus.flatMap(_.identifiers).orElse(identifiers),
+          identifiers =  maybeStatus.flatMap(
+            _.identifiers.map(Json.parse(_).as[Map[String, String]])
+          ).getOrElse(identifiers),
           uploadTime =  DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           filename =  maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
         )

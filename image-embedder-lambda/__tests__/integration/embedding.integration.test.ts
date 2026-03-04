@@ -1,93 +1,114 @@
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import { S3Client } from "@aws-sdk/client-s3";
-import { embedImage } from "../../src/index";
-import { ensureDirectoriesExist, getTestImage } from "./localTestFiles";
+import { SQSRecord } from "aws-lambda";
+import { generateVectors, SQSMessageBody } from "../../src/index";
 
 /**
- * Integration tests for Bedrock embedding.
+ * Integration tests for the fetch → downscale → embed pipeline.
+ * Currently only intended to be manually triggered locally.
  *
- * These tests call real AWS services and require:
- * - Valid AWS credentials with S3 and Bedrock permissions
- * - Test images uploaded to the specified S3 bucket (first run only)
+ * Infrastructure used:
+ *   SQS                          — not used (records are constructed in-memory)
+ *   S3 source images             — AWS  (bucket: image-embedding-test)
+ *   S3 downscaled image cache    — not used  (DOWNSCALED_IMAGE_BUCKET not set)
+ *   Bedrock (Cohere embedding)   — AWS
+ *   S3 Vectors                   — not used
+ *
+ * Note this does *not* currently test the caching behaviour of downscaled images,
+ * because we have not set the DOWNSCALED_IMAGE_BUCKET env var for the lambda.
+ * 
+ * Requires:
+ *   - Valid AWS credentials with S3 and Bedrock permissions
+ *   - Test images uploaded to image-embedding-test
+ *   - For TIFF images: optimised PNGs at optimised/<key> in the same bucket
  *
  * Run with: npm run test:integration
- *
- * Downloaded images are cached locally in __tests__/integration/test-data/input/
  */
 
 const TEST_BUCKET = "image-embedding-test";
 
 interface TestImage {
   name: string;
-  key: string;
-  expectedBytes: number;
-  mimeType: "image/jpeg" | "image/png" | "image/tiff";
+  imageId: string;
+  s3Key: string;
+  fileType: "image/jpeg" | "image/png" | "image/tiff";
 }
 
 const TEST_IMAGES: TestImage[] = [
   {
     name: "JPEG over 5 MB but just under 5 MiB",
-    key: "large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg",
-    expectedBytes: 5_242_808,
-    mimeType: "image/jpeg",
+    imageId: "aaf514e9530271ab5639bb5f496eef97cdce9b7a",
+    s3Key: "large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg",
+    fileType: "image/jpeg",
   },
   {
     name: "JPEG just over 5 MiB",
-    key: "large-images/5f8871b3686d06dadf3e7556cca2601c3b276288.jpeg",
-    expectedBytes: 5_242_970,
-    mimeType: "image/jpeg",
+    imageId: "5f8871b3686d06dadf3e7556cca2601c3b276288",
+    s3Key: "large-images/5f8871b3686d06dadf3e7556cca2601c3b276288.jpeg",
+    fileType: "image/jpeg",
   },
   {
     name: "JPEG over 10 MB",
-    key: "large-images/fed92369dbbc961708ab883da815fc4c7f52597e.jpeg",
-    expectedBytes: 10_360_979,
-    mimeType: "image/jpeg",
+    imageId: "fed92369dbbc961708ab883da815fc4c7f52597e",
+    s3Key: "large-images/fed92369dbbc961708ab883da815fc4c7f52597e.jpeg",
+    fileType: "image/jpeg",
   },
   {
     name: "Small PNG",
-    key: "pngs/339d129c0b0f47507f7d299bf28046d40c12d368.png",
-    expectedBytes: 131_137,
-    mimeType: "image/png",
+    imageId: "339d129c0b0f47507f7d299bf28046d40c12d368",
+    s3Key: "pngs/339d129c0b0f47507f7d299bf28046d40c12d368.png",
+    fileType: "image/png",
   },
   {
     name: "Large PNG",
-    key: "pngs/c2039d7b0ba13910d7f8147128b86199784465ae.png",
-    expectedBytes: 16_368_332,
-    mimeType: "image/png",
+    imageId: "c2039d7b0ba13910d7f8147128b86199784465ae",
+    s3Key: "pngs/c2039d7b0ba13910d7f8147128b86199784465ae.png",
+    fileType: "image/png",
   },
   {
     name: "Small TIFF",
-    key: "tiffs/b927f8924960874eda447208baa3fe7963cba8c4.tiff",
-    expectedBytes: 1_542_708,
-    mimeType: "image/tiff",
+    imageId: "b927f8924960874eda447208baa3fe7963cba8c4",
+    s3Key: "tiffs/b927f8924960874eda447208baa3fe7963cba8c4",
+    fileType: "image/tiff",
   },
   {
     name: "Large TIFF",
-    key: "tiffs/7d0b7c7b8e890d7e5d369093aa437bd833e20f71.tiff",
-    expectedBytes: 6_038_108,
-    mimeType: "image/tiff",
+    imageId: "7d0b7c7b8e890d7e5d369093aa437bd833e20f71",
+    s3Key: "tiffs/7d0b7c7b8e890d7e5d369093aa437bd833e20f71",
+    fileType: "image/tiff",
   },
 ];
 
-describe("Embedding with Cohere v3 via Bedrock", () => {
+function makeSQSRecord(image: TestImage): SQSRecord {
+  const body: SQSMessageBody = {
+    imageId: image.imageId,
+    s3Bucket: TEST_BUCKET,
+    s3Key: image.s3Key,
+    fileType: image.fileType,
+  };
+  return {
+    messageId: image.imageId,
+    receiptHandle: "",
+    body: JSON.stringify(body),
+    attributes: { ApproximateReceiveCount: "1", SentTimestamp: "0", SenderId: "", ApproximateFirstReceiveTimestamp: "0" },
+    messageAttributes: {},
+    md5OfBody: "",
+    eventSource: "aws:sqs",
+    eventSourceARN: "",
+    awsRegion: "eu-west-1",
+  };
+}
+
+describe("Fetch → downscale → embed pipeline", () => {
   const s3Client = new S3Client({ region: "eu-west-1" });
   const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 
-  beforeAll(async () => {
-    await ensureDirectoriesExist();
-  });
+  it.each(TEST_IMAGES)("should generate a vector for $name", async (image) => {
+    const { vectors, batchItemFailures } = await generateVectors([makeSQSRecord(image)], s3Client, bedrockClient);
 
-  it.each(TEST_IMAGES)("should embed $name", async (image) => {
-    const imageBytes = await getTestImage(TEST_BUCKET, image.key, s3Client);
-    expect(imageBytes.length).toBe(image.expectedBytes);
-
-    const response = await embedImage(
-      image.key,
-      imageBytes,
-      image.mimeType,
-      bedrockClient,
-      s3Client,
-    );
-    expect(response.$metadata.httpStatusCode).toBe(200);
+    expect(batchItemFailures).toEqual([]);
+    expect(vectors).toHaveLength(1);
+    expect(vectors[0].key).toBe(image.imageId);
+    expect(vectors[0].data?.float32?.length).toBe(1024);
   });
 });
