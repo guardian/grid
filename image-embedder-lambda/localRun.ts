@@ -39,17 +39,17 @@ const cfnClient = new CloudFormationClient({
 
 async function getStackResource(
   stackName: string,
-  logicalResourceId: string
+  logicalResourceId: string,
 ): Promise<string> {
   const response = await cfnClient.send(
-    new DescribeStackResourcesCommand({ StackName: stackName })
+    new DescribeStackResourcesCommand({ StackName: stackName }),
   );
   const resource = response.StackResources?.find(
-    (r: StackResource) => r.LogicalResourceId === logicalResourceId
+    (r: StackResource) => r.LogicalResourceId === logicalResourceId,
   );
   if (!resource?.PhysicalResourceId) {
     throw new Error(
-      `Resource ${logicalResourceId} not found in stack ${stackName}`
+      `Resource ${logicalResourceId} not found in stack ${stackName}`,
     );
   }
   return resource.PhysicalResourceId;
@@ -59,7 +59,7 @@ async function main() {
   // Fetch bucket name from CloudFormation stack
   const downscaledImageBucket = await getStackResource(
     "grid-dev-core",
-    "DownscaledImageBucket"
+    "DownscaledImageBucket",
   );
 
   // Set all environment variables before importing handler
@@ -155,7 +155,7 @@ async function main() {
               new DeleteMessageCommand({
                 QueueUrl: QUEUE_URL,
                 ReceiptHandle: message.ReceiptHandle,
-              })
+              }),
             );
             console.log("✓ Message deleted from queue");
           } catch (error) {

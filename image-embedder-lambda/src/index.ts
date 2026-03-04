@@ -27,10 +27,7 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
-import {
-  MAX_IMAGE_SIZE_BYTES,
-  MAX_PIXELS_COHERE_V4,
-} from "./constants";
+import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -93,9 +90,13 @@ export interface FetchedImage {
 
 // For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
 // Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
-export async function fetchImage(message: SQSMessageBody, client: S3Client): Promise<FetchedImage> {
+export async function fetchImage(
+  message: SQSMessageBody,
+  client: S3Client,
+): Promise<FetchedImage> {
   const isAlreadyOptimised = message.s3Key.startsWith("optimised/");
-  const shouldCheckForOptimised = message.fileType === "image/tiff" || message.fileType === "image/png";
+  const shouldCheckForOptimised =
+    message.fileType === "image/tiff" || message.fileType === "image/png";
 
   if (shouldCheckForOptimised && !isAlreadyOptimised) {
     const optimisedKey = `optimised/${message.s3Key}`;
@@ -104,16 +105,22 @@ export async function fetchImage(message: SQSMessageBody, client: S3Client): Pro
       console.log(`Using optimised PNG for ${message.imageId}`);
       return { bytes, mimeType: "image/png" };
     }
-    console.log(`No optimised PNG for ${message.imageId}, falling back to original`);
+    console.log(
+      `No optimised PNG for ${message.imageId}, falling back to original`,
+    );
   }
 
   if (message.fileType === "image/tiff") {
-    throw new Error(`Unsupported file type: image/tiff for image ${message.imageId} (no optimised PNG found)`);
+    throw new Error(
+      `Unsupported file type: image/tiff for image ${message.imageId} (no optimised PNG found)`,
+    );
   }
 
   const bytes = await getImageFromS3(message.s3Bucket, message.s3Key, client);
   if (!bytes) {
-    throw new Error(`Failed to retrieve image from S3 for image ${message.imageId}`);
+    throw new Error(
+      `Failed to retrieve image from S3 for image ${message.imageId}`,
+    );
   }
 
   return { bytes, mimeType: message.fileType };
@@ -172,7 +179,9 @@ export async function downscaleImageIfNeeded(
     `Image has ${imageBytes.length.toLocaleString()} bytes (${bytesExceedsLimit ? "over" : "within"} limit of ${maxImageSizeBytes.toLocaleString()} bytes), ${pixels.toLocaleString()} px (${pixelsExceedsLimit ? "over" : "within"} limit of ${maxPixels.toLocaleString()} px) → ${needsDownscale ? "downscaling" : "no resize needed"}`,
   );
   if (!needsDownscale) {
-    console.log(`Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`);
+    console.log(
+      `Downscale check took ${(performance.now() - start).toFixed(0)}ms (no resize)`,
+    );
     return imageBytes;
   }
 
@@ -238,7 +247,9 @@ async function fetchCachedDownscaledImage(
   const key = toPartitionedKey(imageId);
   const bytes = await getImageFromS3(DOWNSCALED_IMAGE_BUCKET, key, client);
   if (bytes) {
-    console.log(`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
+    );
   } else {
     console.log(`Cache miss: no downscaled image for ${imageId}`);
   }
@@ -252,7 +263,9 @@ async function cacheDownscaledImage(
   client: S3Client,
 ): Promise<void> {
   if (!DOWNSCALED_IMAGE_BUCKET) {
-    console.log("No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image");
+    console.log(
+      "No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image",
+    );
     return;
   }
 
@@ -265,7 +278,9 @@ async function cacheDownscaledImage(
       ContentType: mimeType,
     });
     await client.send(command);
-    console.log(`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`);
+    console.log(
+      `Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`,
+    );
   } catch (error) {
     // Log but don't throw - cache failures shouldn't break the pipeline
     console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
@@ -278,7 +293,8 @@ export async function fetchImageAndDownscaleIfNeeded(
 ): Promise<FetchedImage> {
   // The mimeType of fully-processed (downscaled/converted) images is deterministic:
   // TIFFs are always served as their optimised PNG, all others keep their original format.
-  const processedMimeType = message.fileType === "image/tiff" ? "image/png" : message.fileType;
+  const processedMimeType =
+    message.fileType === "image/tiff" ? "image/png" : message.fileType;
 
   const cachedBytes = await fetchCachedDownscaledImage(message.imageId, client);
   if (cachedBytes) {
@@ -286,7 +302,12 @@ export async function fetchImageAndDownscaleIfNeeded(
   }
 
   const { bytes, mimeType } = await fetchImage(message, client);
-  const downscaled = await downscaleImageIfNeeded(bytes, mimeType, MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4);
+  const downscaled = await downscaleImageIfNeeded(
+    bytes,
+    mimeType,
+    MAX_IMAGE_SIZE_BYTES,
+    MAX_PIXELS_COHERE_V4,
+  );
 
   if (downscaled !== bytes) {
     await cacheDownscaledImage(message.imageId, downscaled, mimeType, client);
@@ -382,10 +403,13 @@ export async function generateVectors(
 
   for (const [i, record] of records.entries()) {
     try {
-      console.log(`Parsing record ${i+1} of ${records.length}: ${record.body}`);
+      console.log(
+        `Parsing record ${i + 1} of ${records.length}: ${record.body}`,
+      );
       const recordBody: SQSMessageBody = JSON.parse(record.body);
 
-      const { bytes: gridImageBytes, mimeType: imageMimeType } = await fetchImageAndDownscaleIfNeeded(recordBody, s3Client);
+      const { bytes: gridImageBytes, mimeType: imageMimeType } =
+        await fetchImageAndDownscaleIfNeeded(recordBody, s3Client);
 
       const embeddingResponse = await embedImage(
         gridImageBytes,
@@ -427,7 +451,11 @@ export const handler = async (
 ): Promise<SQSBatchResponse> => {
   console.log(`Starting handler embedding pipeline`);
 
-  const { vectors, batchItemFailures } = await generateVectors(event.Records, s3Client, bedrockClient);
+  const { vectors, batchItemFailures } = await generateVectors(
+    event.Records,
+    s3Client,
+    bedrockClient,
+  );
 
   if (vectors.length > 0) {
     await storeEmbeddings(vectors, s3VectorsClient);
