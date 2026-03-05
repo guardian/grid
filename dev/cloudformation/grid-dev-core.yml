@@ -78,12 +78,6 @@ Resources:
   ConfigBucket:
     Type: AWS::S3::Bucket
 
-  S3WatcherIngestBucket:
-    Type: AWS::S3::Bucket
-
-  S3WatcherFailBucket:
-    Type: AWS::S3::Bucket
-
   CollectionsBucket:
     Type: AWS::S3::Bucket
 
@@ -315,10 +309,6 @@ Outputs:
     Value: !Ref "ConfigBucket"
   CollectionsBucket:
     Value: !Ref "CollectionsBucket"
-  S3WatcherIngestBucket:
-    Value: !Ref "S3WatcherIngestBucket"
-  S3WatcherFailBucket:
-    Value: !Ref "S3WatcherFailBucket"
   UsageMailBucket:
     Value: !Ref "UsageMailBucket"
   SyndicationDynamoTable:
