@@ -198,8 +198,10 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
     }
-    tempDirForRequest.listFiles().map(f => f.delete())
-    tempDirForRequest.delete()
+    eventualImage.onComplete{ _ =>
+      tempDirForRequest.listFiles().map(f => f.delete())
+      tempDirForRequest.delete()
+    }
     eventualImage
   }
 
