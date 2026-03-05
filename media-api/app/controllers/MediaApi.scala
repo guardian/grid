@@ -622,21 +622,26 @@ class MediaApi(
   )(implicit logMarker: LogMarker): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
     val include = getIncludedFromParams(request)
 
-    elasticSearch.getImageWithSourceById(id) map {
+    elasticSearch.getImageWithSourceById(id) flatMap {
       case Some(source) if isVisibleToAccessor(request.user, source.instance) =>
         val writePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, EditMetadata)
         val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
+        val getRelationDetails = elasticSearch.getRelationDetails(imageResponse.getSecureThumbUrl) _
+
+        def getRelationDetailsForIds(relationType: String, ids: List[String]): Future[(String, Map[String, Option[RelationDetail]])] =
+          Future.sequence(ids.map(getRelationDetails)).map(relationDetails => relationType -> relationDetails.toMap)
+
         import JodaWrites._
         implicit val jsonDetailsWrites: OWrites[RelationDetail] = Json.writes[RelationDetail]
-        val getRelationDetails = elasticSearch.getRelationDetails(id, imageResponse.getSecureThumbUrl)_
-        val relationDetails = Map(
-          "Replacement for" -> source.instance.identifiers.get(ImageStorageProps.replacesMediaIdIdentifierKey).map(getRelationDetails),
-          "Replaced by" -> source.instance.usages.filter(_.status == ReplacedUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId)).map(getRelationDetails),
-          "Derivative of" -> source.instance.identifiers.get(ImageStorageProps.derivativeOfMediaIdsIdentifierKey).toList.flatMap(_.split(",").map(_.trim)).map(getRelationDetails),
-          "Derivatives" -> source.instance.usages.filter(_.status == DerivativeUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId)).map(getRelationDetails)
-        ).view.mapValues(_.iterator.toMap).toMap
+
+        val relationDetailsF: Future[Map[String, Map[String, Option[RelationDetail]]]] = Future.sequence(Seq(
+          getRelationDetailsForIds("Replacement for", source.instance.identifiers.get(ImageStorageProps.replacesMediaIdIdentifierKey).toList),
+          getRelationDetailsForIds("Replaced by", source.instance.usages.filter(_.status == ReplacedUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId))),
+          getRelationDetailsForIds("Derivative of", source.instance.identifiers.get(ImageStorageProps.derivativeOfMediaIdsIdentifierKey).toList.flatMap(_.split(",").map(_.trim))),
+          getRelationDetailsForIds("Derivatives", source.instance.usages.filter(_.status == DerivativeUsageStatus).flatMap(_.childUsageMetadata.map(_.childMediaId))),
+        )).map(_.toMap)
 
         val (imageData, imageLinks, imageActions) = imageResponse.create(
           id,
@@ -648,13 +653,15 @@ class MediaApi(
           request.user.accessor.tier
         )
 
-        Some((
-          source.instance,
-          imageData.asInstanceOf[JsObject] + ("parentAndChildDetails" -> Json.toJson(relationDetails)),
-          imageLinks,
-          imageActions
-        ))
-      case _ => None
+        relationDetailsF.map { relationDetails =>
+          Some((
+            source.instance,
+            imageData.asInstanceOf[JsObject] + ("parentAndChildDetails" -> Json.toJson(relationDetails)),
+            imageLinks,
+            imageActions
+          ))
+        }
+      case _ => Future.successful(None)
     }
   }
 

@@ -332,22 +332,18 @@ class ElasticSearch(
     }
   }
 
-  def getRelationDetails(mediaIdThisIsFor: String, getSecureThumbUrl: Image => String)(
+  def getRelationDetails(getSecureThumbUrl: Image => String)(
     id: String
-  )(implicit ex: ExecutionContext, logMarker:MarkerMap = MarkerMap()): (String, Option[RelationDetail]) = {
-    try {
-      id -> Await.result(getImageById(id), 5.seconds).map{image =>
+  )(implicit ex: ExecutionContext, logMarker:MarkerMap = MarkerMap()): Future[(String, Option[RelationDetail])] = {
+    getImageById(id).map { maybeImage =>
+      id -> maybeImage.map { image =>
         RelationDetail(
-          thumbnail =  getSecureThumbUrl(image),
+          thumbnail = getSecureThumbUrl(image),
           addedBy = image.uploadedBy,
           addedAt = image.uploadTime,
           dimensions = image.source.orientedDimensions.orElse(image.source.dimensions)
         )
       }
-    } catch {
-      case e: TimeoutException =>
-        logger.error(logMarker, s"Timeout getting image $id (when finding relation details for $mediaIdThisIsFor)", e)
-        id -> None
     }
   }
 
