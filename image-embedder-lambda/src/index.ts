@@ -28,6 +28,12 @@ import {
 	S3VectorsClient,
 } from '@aws-sdk/client-s3vectors';
 import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from './constants';
+import {
+	KinesisClient,
+	PutRecordsCommand,
+	PutRecordsRequestEntry,
+	PutRecordsResultEntry,
+} from '@aws-sdk/client-kinesis';
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT =
@@ -46,19 +52,30 @@ if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
 	console.error('DOWNSCALED_IMAGE_BUCKET not set, caching is disabled');
 }
 
-const s3Config = {
-	region: 'eu-west-1',
-	...(isLocal && {
-		endpoint: LOCALSTACK_ENDPOINT,
-		forcePathStyle: true,
-		credentials: {
-			accessKeyId: 'test',
-			secretAccessKey: 'test',
-		},
-	}),
-};
+const localStackConfig = LOCALSTACK_ENDPOINT
+	? {
+			endpoint: LOCALSTACK_ENDPOINT,
+			forcePathStyle: true,
+			credentials: {
+				accessKeyId: 'test',
+				secretAccessKey: 'test',
+			},
+		}
+	: {};
 
-const s3Client = new S3Client(s3Config);
+const kinesisClient = new KinesisClient({
+	region: 'eu-west-1',
+	...localStackConfig,
+});
+
+// Kinesis stream for sending embeddings to Thrall
+const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
+
+const s3Client = new S3Client({
+	region: 'eu-west-1',
+	...localStackConfig,
+});
+
 const bedrockClient = new BedrockRuntimeClient({
 	region: 'eu-west-1',
 	logger: new LogLevel('debug', console),
@@ -273,7 +290,6 @@ async function fetchCachedDownscaledImage(
 interface UpdateEmbeddingMessage {
 	_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage';
 	id: string;
-	lastModified: string; // ISO 8601 format
 	embedding: {
 		cohereEmbedEnglishV3: {
 			image: number[];
@@ -314,7 +330,6 @@ async function sendEmbeddingsToKinesis(
 		const message: UpdateEmbeddingMessage = {
 			_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage',
 			id: v.key,
-			lastModified: new Date().toISOString(),
 			embedding: {
 				cohereEmbedEnglishV3: {
 					image: v.data.float32,
@@ -496,8 +511,9 @@ async function storeEmbeddings(
 }
 
 export interface GenerateVectorsResult {
-	vectors: PutInputVector[];
+	vectors: ValidVector[];
 	batchItemFailures: SQSBatchItemFailure[];
+	imageIdToMessageId: Map<string, string>;
 }
 
 export async function generateVectors(
@@ -507,8 +523,9 @@ export async function generateVectors(
 ): Promise<GenerateVectorsResult> {
 	console.log(`Processing ${records.length} SQS records`);
 
-	const vectors: PutInputVector[] = [];
+	const vectors: ValidVector[] = [];
 	const batchItemFailures: SQSBatchItemFailure[] = [];
+	const imageIdToMessageId = new Map<string, string>();
 
 	for (const [i, record] of records.entries()) {
 		try {
@@ -541,6 +558,7 @@ export async function generateVectors(
 					float32: embedding,
 				},
 			});
+			imageIdToMessageId.set(recordBody.imageId, record.messageId);
 		} catch (error) {
 			console.error(`Error processing record ${record.messageId}:`, error);
 			batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -551,7 +569,7 @@ export async function generateVectors(
 		`Processed ${records.length} records, ${vectors.length} images successfully embedded, ${batchItemFailures.length} failed`,
 	);
 
-	return { vectors, batchItemFailures };
+	return { vectors, batchItemFailures, imageIdToMessageId };
 }
 
 export const handler = async (
@@ -560,14 +578,41 @@ export const handler = async (
 ): Promise<SQSBatchResponse> => {
 	console.log(`Starting handler embedding pipeline`);
 
-	const { vectors, batchItemFailures } = await generateVectors(
-		event.Records,
-		s3Client,
-		bedrockClient,
-	);
+	const { vectors, batchItemFailures, imageIdToMessageId } =
+		await generateVectors(event.Records, s3Client, bedrockClient);
 
 	if (vectors.length > 0) {
-		await storeEmbeddings(vectors, s3VectorsClient);
+		try {
+			// Send embeddings to Kinesis for Thrall to write to Elasticsearch
+			if (STAGE === 'PROD') {
+				console.log(
+					`Not writing embeddings to Kinesis yet whilst we test on TEST`,
+				);
+			} else {
+				const failedImageIds = await sendEmbeddingsToKinesis(
+					vectors,
+					kinesisClient,
+				);
+				for (const imageId of failedImageIds) {
+					const messageId = imageIdToMessageId.get(imageId);
+					if (messageId) {
+						console.log(
+							`Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
+						);
+						batchItemFailures.push({ itemIdentifier: messageId });
+					}
+				}
+			}
+			await storeEmbeddings(vectors, s3VectorsClient);
+		} catch (error) {
+			console.error(`Error writing embeddings:`, error);
+			for (const vector of vectors) {
+				const messageId = imageIdToMessageId.get(vector.key);
+				if (messageId) {
+					batchItemFailures.push({ itemIdentifier: messageId });
+				}
+			}
+		}
 	} else {
 		console.log(`No vectors to store`);
 	}
