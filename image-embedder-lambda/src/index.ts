@@ -36,8 +36,7 @@ import {
 } from '@aws-sdk/client-kinesis';
 
 // Initialise clients at module level (cold start only)
-const LOCALSTACK_ENDPOINT =
-	process.env.LOCALSTACK_ENDPOINT || 'http://localhost:4566';
+const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
 const isLocal = process.env.IS_LOCAL === 'true';
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
