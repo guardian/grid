@@ -323,6 +323,30 @@ interface ValidVector extends PutInputVector {
 }
 
 async function sendEmbeddingsToKinesis(
+	stage: string | undefined,
+	vectors: ValidVector[],
+	client: KinesisClient,
+	imageIdToMessageId: Map<string, string>,
+	batchItemFailures: SQSBatchItemFailure[],
+) {
+	// Send embeddings to Kinesis for Thrall to write to Elasticsearch
+	if (stage === 'PROD') {
+		console.log(`Not writing embeddings to Kinesis yet whilst we test on TEST`);
+	} else {
+		const failedImageIds = await putRecordsToKinesis(vectors, client);
+		for (const imageId of failedImageIds) {
+			const messageId = imageIdToMessageId.get(imageId);
+			if (messageId) {
+				console.log(
+					`Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
+				);
+				batchItemFailures.push({ itemIdentifier: messageId });
+			}
+		}
+	}
+}
+
+async function putRecordsToKinesis(
 	vectors: ValidVector[],
 	client: KinesisClient,
 ) {
@@ -478,7 +502,7 @@ export async function embedImage(
 	}
 }
 
-async function storeEmbeddings(
+async function storeEmbeddingsInS3VectorStore(
 	vectors: PutInputVector[],
 	client: S3VectorsClient,
 ) {
@@ -582,37 +606,14 @@ export const handler = async (
 		await generateVectors(event.Records, s3Client, bedrockClient);
 
 	if (vectors.length > 0) {
-		try {
-			// Send embeddings to Kinesis for Thrall to write to Elasticsearch
-			if (STAGE === 'PROD') {
-				console.log(
-					`Not writing embeddings to Kinesis yet whilst we test on TEST`,
-				);
-			} else {
-				const failedImageIds = await sendEmbeddingsToKinesis(
-					vectors,
-					kinesisClient,
-				);
-				for (const imageId of failedImageIds) {
-					const messageId = imageIdToMessageId.get(imageId);
-					if (messageId) {
-						console.log(
-							`Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
-						);
-						batchItemFailures.push({ itemIdentifier: messageId });
-					}
-				}
-			}
-			await storeEmbeddings(vectors, s3VectorsClient);
-		} catch (error) {
-			console.error(`Error writing embeddings:`, error);
-			for (const vector of vectors) {
-				const messageId = imageIdToMessageId.get(vector.key);
-				if (messageId) {
-					batchItemFailures.push({ itemIdentifier: messageId });
-				}
-			}
-		}
+		await sendEmbeddingsToKinesis(
+			STAGE,
+			vectors,
+			kinesisClient,
+			imageIdToMessageId,
+			batchItemFailures,
+		);
+		await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
 	} else {
 		console.log(`No vectors to store`);
 	}
