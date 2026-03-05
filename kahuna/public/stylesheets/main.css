@@ -884,6 +884,10 @@ textarea.ng-invalid {
 .warning--small {
   padding: 5px 10px;
 }
+.warning a{
+  color: black;
+  text-decoration: underline;
+}
 
 .full-error {
     margin-top: 3rem;
@@ -2021,6 +2025,10 @@ FIXME: what to do with touch devices
     height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
     overflow: hidden;
+}
+.warning + .easel__canvas { /* when an easel__canvas follows a warning banner */
+  height: calc(100vh - 134px); /* viewport - (top-bar + warning) */
+  margin: 10px;
 }
 
 .easel__image-container {

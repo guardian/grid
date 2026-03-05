@@ -16,7 +16,7 @@ import { generateVectors, SQSMessageBody } from "../../src/index";
  *
  * Note this does *not* currently test the caching behaviour of downscaled images,
  * because we have not set the DOWNSCALED_IMAGE_BUCKET env var for the lambda.
- * 
+ *
  * Requires:
  *   - Valid AWS credentials with S3 and Bedrock permissions
  *   - Test images uploaded to image-embedding-test
@@ -90,7 +90,12 @@ function makeSQSRecord(image: TestImage): SQSRecord {
     messageId: image.imageId,
     receiptHandle: "",
     body: JSON.stringify(body),
-    attributes: { ApproximateReceiveCount: "1", SentTimestamp: "0", SenderId: "", ApproximateFirstReceiveTimestamp: "0" },
+    attributes: {
+      ApproximateReceiveCount: "1",
+      SentTimestamp: "0",
+      SenderId: "",
+      ApproximateFirstReceiveTimestamp: "0",
+    },
     messageAttributes: {},
     md5OfBody: "",
     eventSource: "aws:sqs",
@@ -104,7 +109,11 @@ describe("Fetch → downscale → embed pipeline", () => {
   const bedrockClient = new BedrockRuntimeClient({ region: "eu-west-1" });
 
   it.each(TEST_IMAGES)("should generate a vector for $name", async (image) => {
-    const { vectors, batchItemFailures } = await generateVectors([makeSQSRecord(image)], s3Client, bedrockClient);
+    const { vectors, batchItemFailures } = await generateVectors(
+      [makeSQSRecord(image)],
+      s3Client,
+      bedrockClient,
+    );
 
     expect(batchItemFailures).toEqual([]);
     expect(vectors).toHaveLength(1);

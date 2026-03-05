@@ -8,6 +8,7 @@ import {
 import { LogLevel } from "@aws-sdk/config/logger";
 import {
   BedrockRuntimeClient,
+  ImageBlock$,
   InvokeModelCommand,
   InvokeModelCommandInput,
   InvokeModelCommandOutput,
@@ -26,43 +27,38 @@ import {
   PutVectorsCommandInput,
   S3VectorsClient,
 } from "@aws-sdk/client-s3vectors";
-import {
-  KinesisClient,
-  PutRecordsCommand,
-  PutRecordsRequestEntry,
-  PutRecordsResultEntry,
-} from "@aws-sdk/client-kinesis";
 import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from "./constants";
 
 // Initialise clients at module level (cold start only)
-const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
+const LOCALSTACK_ENDPOINT =
+  process.env.LOCALSTACK_ENDPOINT || "http://localhost:4566";
+const isLocal = process.env.IS_LOCAL === "true";
 
-const STAGE = process.env.STAGE;
+// Determine stage: dev for local, otherwise from environment (test or prod)
+const STAGE = isLocal ? "dev" : process.env.STAGE;
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
 // If not set, caching of downscaled images will be disabled.
 const DOWNSCALED_IMAGE_BUCKET = process.env.DOWNSCALED_IMAGE_BUCKET;
 
-if (!DOWNSCALED_IMAGE_BUCKET) {
+if (!DOWNSCALED_IMAGE_BUCKET && !isLocal) {
   console.error("DOWNSCALED_IMAGE_BUCKET not set, caching is disabled");
 }
 
-const localStackConfig = LOCALSTACK_ENDPOINT
-  ? {
-      endpoint: LOCALSTACK_ENDPOINT,
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: "test",
-        secretAccessKey: "test",
-      },
-    }
-  : {};
-
-const s3Client = new S3Client({
+const s3Config = {
   region: "eu-west-1",
-  ...localStackConfig,
-});
+  ...(isLocal && {
+    endpoint: LOCALSTACK_ENDPOINT,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: "test",
+      secretAccessKey: "test",
+    },
+  }),
+};
+
+const s3Client = new S3Client(s3Config);
 const bedrockClient = new BedrockRuntimeClient({
   region: "eu-west-1",
   logger: new LogLevel("debug", console),
@@ -80,15 +76,7 @@ const bedrockClient = new BedrockRuntimeClient({
 });
 const s3VectorsClient = new S3VectorsClient({ region: "eu-central-1" });
 
-const kinesisClient = new KinesisClient({
-  region: "eu-west-1",
-  ...localStackConfig,
-});
-
-// Kinesis stream for sending embeddings to Thrall
-const THRALL_KINESIS_STREAM_ARN = process.env.THRALL_KINESIS_STREAM_ARN;
-
-interface SQSMessageBody {
+export interface SQSMessageBody {
   imageId: string;
   s3Bucket: string;
   s3Key: string;
@@ -475,8 +463,8 @@ export async function embedImage(
   }
 }
 
-async function storeEmbeddingsInS3VectorStore(
-  vectors: ValidVector[],
+async function storeEmbeddings(
+  vectors: PutInputVector[],
   client: S3VectorsClient,
 ) {
   console.log(`Storing ${vectors.length} embeddings to vector store`);
@@ -498,9 +486,7 @@ async function storeEmbeddingsInS3VectorStore(
     console.log(
       `S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
     );
-    console.log(
-      `Successfully stored ${vectors.length} embeddings to S3 Vector Store`,
-    );
+    console.log(`Successfully stored ${vectors.length} embeddings`);
 
     return response;
   } catch (error) {
@@ -521,15 +507,8 @@ export async function generateVectors(
 ): Promise<GenerateVectorsResult> {
   console.log(`Processing ${records.length} SQS records`);
 
-  if (!THRALL_KINESIS_STREAM_ARN && STAGE !== "PROD") {
-    throw new Error(
-      "THRALL_KINESIS_STREAM_ARN not set, cannot send embeddings to Thrall",
-    );
-  }
-
-  const vectors: ValidVector[] = [];
+  const vectors: PutInputVector[] = [];
   const batchItemFailures: SQSBatchItemFailure[] = [];
-  const imageIdToMessageId = new Map<string, string>();
 
   for (const [i, record] of records.entries()) {
     try {
@@ -562,7 +541,6 @@ export async function generateVectors(
           float32: embedding,
         },
       });
-      imageIdToMessageId.set(recordBody.imageId, record.messageId);
     } catch (error) {
       console.error(`Error processing record ${record.messageId}:`, error);
       batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -589,39 +567,10 @@ export const handler = async (
   );
 
   if (vectors.length > 0) {
-    try {
-      // Send embeddings to Kinesis for Thrall to write to Elasticsearch
-      if (STAGE === "PROD") {
-        console.log(
-          `Not writing embeddings to Kinesis yet whilst we test on TEST`,
-        );
-      } else {
-        const failedImageIds = await sendEmbeddingsToKinesis(
-          vectors,
-          kinesisClient,
-        );
-        for (const imageId of failedImageIds) {
-          const messageId = imageIdToMessageId.get(imageId);
-          if (messageId) {
-            console.log(
-              `Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
-            );
-            batchItemFailures.push({ itemIdentifier: messageId });
-          }
-        }
-      }
-      await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
-    } catch (error) {
-      console.error(`Error writing embeddings:`, error);
-      for (const vector of vectors) {
-        const messageId = imageIdToMessageId.get(vector.key);
-        if (messageId) {
-          batchItemFailures.push({ itemIdentifier: messageId });
-        }
-      }
-    }
+    await storeEmbeddings(vectors, s3VectorsClient);
   } else {
     console.log(`No vectors to store`);
   }
+
   return { batchItemFailures };
 };

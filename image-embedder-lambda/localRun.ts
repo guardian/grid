@@ -10,7 +10,6 @@ import {
   DescribeStackResourcesCommand,
   StackResource,
 } from "@aws-sdk/client-cloudformation";
-import { KinesisClient, DescribeStreamCommand } from "@aws-sdk/client-kinesis";
 import { Context, SQSEvent } from "aws-lambda";
 
 const LOCALSTACK_ENDPOINT =
@@ -30,15 +29,6 @@ const sqsClient = new SQSClient({
 });
 
 const cfnClient = new CloudFormationClient({
-  region: "eu-west-1",
-  endpoint: LOCALSTACK_ENDPOINT,
-  credentials: {
-    accessKeyId: "test",
-    secretAccessKey: "test",
-  },
-});
-
-const kinesisClient = new KinesisClient({
   region: "eu-west-1",
   endpoint: LOCALSTACK_ENDPOINT,
   credentials: {
@@ -80,23 +70,17 @@ async function getStreamArn(streamName: string): Promise<string> {
 }
 
 async function main() {
-  // Fetch resource names from CloudFormation stack
+  // Fetch bucket name from CloudFormation stack
   const downscaledImageBucket = await getStackResource(
     "grid-dev-core",
     "DownscaledImageBucket",
   );
-  const thrallStreamName = await getStackResource(
-    "grid-dev-core",
-    "ThrallMessageStream",
-  );
-  const thrallStreamArn = await getStreamArn(thrallStreamName);
 
   // Set all environment variables before importing handler
   process.env.AWS_PROFILE = "media-service";
-  process.env.STAGE = "dev";
+  process.env.IS_LOCAL = "true";
   process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
   process.env.DOWNSCALED_IMAGE_BUCKET = downscaledImageBucket;
-  process.env.THRALL_KINESIS_STREAM_ARN = thrallStreamArn;
 
   // Import handler AFTER setting environment variables
   // Use require() because ts-node hooks into require, not dynamic import()
@@ -107,7 +91,6 @@ async function main() {
   console.log(`Queue URL: ${QUEUE_URL}`);
   console.log(`Localstack Endpoint: ${LOCALSTACK_ENDPOINT}`);
   console.log(`Downscaled Image Bucket: ${downscaledImageBucket}`);
-  console.log(`Thrall Kinesis Stream ARN: ${thrallStreamArn}`);
   console.log(`Poll Interval: ${POLL_INTERVAL_MS}ms`);
   console.log("");
   console.log("Waiting for messages...");

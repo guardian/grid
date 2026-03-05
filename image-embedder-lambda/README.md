@@ -74,6 +74,7 @@ LOCALSTACK_IMAGE_BUCKET=$(aws cloudformation describe-stack-resources \
 Then send a message to the queue:
 
 #### TODO
+
 But how do we actually get an image into the bucket? The easiest way is to run the app and upload. But that should trigger the lambda anyway right? So what's the point of this "manually putting stuff on the queue" bit?
 
 ```bash
@@ -93,6 +94,7 @@ The lambda will:
 4. Store the embedding in AWS S3 Vectors (the real thing, not localstack)
 
 ## Exercising the real lambda in AWS TEST
+
 ```bash
 scripts/embedder-deploy/send-message.sh \
   ce05aa50f210261bb2b830daf6c5ce6f11a16f84 \

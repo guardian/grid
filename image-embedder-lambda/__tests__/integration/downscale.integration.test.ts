@@ -14,15 +14,15 @@ import {
 /**
  * Integration tests for image downscaling.
  * Currently only intended to be manually trigged locally.
- * 
+ *
  * The *only* reason that this is an "integration" test rather than a unit test
  * is because we fetch our test images from AWS (bucket: image-embedding-test).
- * 
+ *
  * Other than this, everything happens locally.
- * 
+ *
  * This could be made into a pure unit test by replacing the test images
  * with ones which have the right characteristics, but could be generated on-the-fly in the test.
- * 
+ *
  * Requires:
  *   - Valid AWS credentials with S3 read permissions
  *   - Test images uploaded to image-embedding-test
@@ -143,49 +143,49 @@ function formatTestName(tc: DownscaleTestCase): string {
 }
 
 describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_COHERE_V4.toLocaleString()} pixels`, () => {
-	const s3Client = new S3Client({ region: "eu-west-1" });
+  const s3Client = new S3Client({ region: "eu-west-1" });
 
-	beforeAll(async () => {
-		await ensureDirectoriesExist();
-	});
+  beforeAll(async () => {
+    await ensureDirectoriesExist();
+  });
 
-	for (const tc of TEST_CASES) {
-		it(formatTestName(tc), async () => {
-			const inputImage = await getTestImage(TEST_BUCKET, tc.s3Key, s3Client);
+  for (const tc of TEST_CASES) {
+    it(formatTestName(tc), async () => {
+      const inputImage = await getTestImage(TEST_BUCKET, tc.s3Key, s3Client);
 
-			const inputDimensions = await getImageDimensions(inputImage);
-			expect(inputDimensions.width).toBe(tc.inputWidth);
-			expect(inputDimensions.height).toBe(tc.inputHeight);
-			expect(inputImage.length).toBe(tc.inputBytes);
+      const inputDimensions = await getImageDimensions(inputImage);
+      expect(inputDimensions.width).toBe(tc.inputWidth);
+      expect(inputDimensions.height).toBe(tc.inputHeight);
+      expect(inputImage.length).toBe(tc.inputBytes);
 
-			const outputImage = await downscaleImageIfNeeded(
-				inputImage,
-				tc.mimeType,
-				MAX_IMAGE_SIZE_BYTES,
-				MAX_PIXELS_COHERE_V4,
-			);
+      const outputImage = await downscaleImageIfNeeded(
+        inputImage,
+        tc.mimeType,
+        MAX_IMAGE_SIZE_BYTES,
+        MAX_PIXELS_COHERE_V4,
+      );
 
-			if (tc.shouldDownscale) {
-				await writeOutputImage(outputImage, tc.s3Key, "_downscaled");
-			}
+      if (tc.shouldDownscale) {
+        await writeOutputImage(outputImage, tc.s3Key, "_downscaled");
+      }
 
-			const outputDimensions = await getImageDimensions(outputImage);
+      const outputDimensions = await getImageDimensions(outputImage);
 
-			expect(outputDimensions.width).toBe(tc.expectedOutputWidth);
-			expect(outputDimensions.height).toBe(tc.expectedOutputHeight);
-			expect(outputDimensions.pixels).toBe(tc.expectedOutputPixels);
-			expect(outputImage.length).toBe(tc.expectedOutputBytes);
+      expect(outputDimensions.width).toBe(tc.expectedOutputWidth);
+      expect(outputDimensions.height).toBe(tc.expectedOutputHeight);
+      expect(outputDimensions.pixels).toBe(tc.expectedOutputPixels);
+      expect(outputImage.length).toBe(tc.expectedOutputBytes);
 
-			if (tc.shouldDownscale) {
-				expect(outputImage.length).toBeLessThan(inputImage.length);
-				expect(outputDimensions.pixels).toBeLessThanOrEqual(
-					MAX_PIXELS_COHERE_V4,
-				);
-			} else {
-				expect(outputImage).toBe(inputImage);
-			}
+      if (tc.shouldDownscale) {
+        expect(outputImage.length).toBeLessThan(inputImage.length);
+        expect(outputDimensions.pixels).toBeLessThanOrEqual(
+          MAX_PIXELS_COHERE_V4,
+        );
+      } else {
+        expect(outputImage).toBe(inputImage);
+      }
 
-			expect(outputImage.length).toBeLessThanOrEqual(MAX_IMAGE_SIZE_BYTES);
-		});
-	}
+      expect(outputImage.length).toBeLessThanOrEqual(MAX_IMAGE_SIZE_BYTES);
+    });
+  }
 });
