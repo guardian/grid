@@ -288,6 +288,7 @@ async function fetchCachedDownscaledImage(
 // Play JSON uses a `_type` discriminator field with the fully qualified class name.
 interface UpdateEmbeddingMessage {
 	_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage';
+	lastModified: string;
 	id: string;
 	embedding: {
 		cohereEmbedEnglishV3: {
@@ -352,6 +353,7 @@ async function putRecordsToKinesis(
 	const records: PutRecordsRequestEntry[] = vectors.map((v) => {
 		const message: UpdateEmbeddingMessage = {
 			_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage',
+			lastModified: new Date().toISOString(),
 			id: v.key,
 			embedding: {
 				cohereEmbedEnglishV3: {
