@@ -29,6 +29,7 @@ class MessageProcessor(
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
+    logger.info(logMarker, s"Blah blah: ${updateMessage.toString}")
     updateMessage match {
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
