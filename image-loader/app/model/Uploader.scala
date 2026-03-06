@@ -441,11 +441,24 @@ class Uploader(
       imageUpload <- fromUploadRequest(uploadRequest)
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
+      // Send the optimised PNG to the embedder if there is one (e.g. for TIFFs),
+      // otherwise send the original image.
+      (s3BucketForEmbedder, s3KeyForEmbedder, mimeTypeForEmbedder) = imageUpload.image.optimisedPng match {
+        case Some(optimisedPngAsset) =>
+          logger.info(logMarker, s"Queueing optimised PNG instead of original for embedding")
+          val uri = optimisedPngAsset.file
+          val bucket = uri.getHost.split('.').head
+          val key = uri.getPath.stripPrefix("/")
+          (bucket, key, Png.name)
+        case _ =>
+          val originalKey = uploadRequest.imageId.take(6).mkString("/") + "/" + uploadRequest.imageId
+          (config.imageBucket, originalKey, uploadRequest.mimeType.map(_.name).getOrElse(""))
+      }
       imageToEmbed = queueImageToEmbed(EmbedderMessage(
         uploadRequest.imageId,
-        uploadRequest.mimeType.map(_.name).getOrElse(""),
-        config.imageBucket,
-        uploadRequest.imageId.take(6).mkString("/") + "/" + uploadRequest.imageId,
+        mimeTypeForEmbedder,
+        s3BucketForEmbedder,
+        s3KeyForEmbedder,
       ))
       // TODO: centralise where all these URLs are constructed
     } yield
