@@ -1,5 +1,6 @@
 import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
 import { GuStack } from '@guardian/cdk/lib/constructs/core';
+import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
@@ -15,8 +16,19 @@ export class ImageEmbedder extends GuStack {
 
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
 
-		const appName = 'image-embedder'
+		const appName = 'image-embedder';
 		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
+
+		const thrallStreamArn = new GuParameter(this, 'ThrallMessageStreamArn', {
+			fromSSM: true,
+			default: `/${this.stage}/${this.stack}/thrall/message-stream-arn`,
+			type: 'String',
+		});
+		const thrallKmsKeyArn = new GuParameter(this, 'ThrallKmsKeyArn', {
+			fromSSM: true,
+			default: `/${this.stage}/${this.stack}/thrall/kms-key-arn`,
+			type: 'String',
+		});
 
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
@@ -31,6 +43,7 @@ export class ImageEmbedder extends GuStack {
 				environment: {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
+					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
 				},
 				memorySize: 2048,
 				timeout: Duration.minutes(1)
@@ -60,10 +73,14 @@ export class ImageEmbedder extends GuStack {
 				maxConcurrency: 3,
 			}),
 		);
-		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
-			app: appName,
-			bucketName: downscaledImageBucketName,
-		});
+		const downscaledImageBucket = new GuS3Bucket(
+			this,
+			'DownscaledImageBucket',
+			{
+				app: appName,
+				bucketName: downscaledImageBucketName,
+			},
+		);
 		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
 		// Allow writing vectors to S3 vector index
@@ -73,6 +90,19 @@ export class ImageEmbedder extends GuStack {
 				resources: [
 					`arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
 				],
+			}),
+		);
+
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kinesis:PutRecord', 'kinesis:PutRecords'],
+				resources: [thrallStreamArn.valueAsString],
+			}),
+		);
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kms:GenerateDataKey'],
+				resources: [thrallKmsKeyArn.valueAsString],
 			}),
 		);
 
