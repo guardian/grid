@@ -246,8 +246,11 @@ query.controller('SearchQueryCtrl', [
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
-      if (sender && sender == "filterChange" && !newFilter.nonFree) {
-        showPaid = ctrl.user.permissions.showPaid;
+      if (ctrl.usePermissionsFilter) {
+        // Fixes Free to use only check-box is cleared on Back to search
+        if (sender && sender === "filterChange" && !newFilter.nonFree) {
+          showPaid = ctrl.user.permissions.showPaid;
+        }
       }
       storage.setJs("isNonFree", showPaid, true);
 
@@ -318,7 +321,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     ctrl.sortProps = {
-      onSortSelect: updateSortChips,
+      onSelect: updateSortChips,
       query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
