@@ -11,7 +11,7 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   private val collectionsStore = new CollectionsStore(config.collectionsTable, config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build())
-  val imageCollectionsStore = new ImageCollectionsStore(config)
+  val imageCollectionsStore = new ImageCollectionsStore(config.imageCollectionsTable, config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build())
   val metrics = new CollectionsMetrics(config, actorSystem, applicationLifecycle)
   val notifications = new Notifications(config)
 
