@@ -4,7 +4,7 @@ import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
-import { Duration, aws_lambda as lambda, Stack } from 'aws-cdk-lib';
+import { Duration, aws_lambda as lambda, aws_s3 as s3, Stack } from 'aws-cdk-lib';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -117,14 +117,11 @@ export class ImageEmbedder extends GuStack {
 		);
 
 		// Allow fetching the image from S3
-		imageEmbedderLambda.role?.addToPrincipalPolicy(
-			new PolicyStatement({
-				actions: ['s3:GetObject'],
-				resources: [
-					`arn:aws:s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*`,
-					`arn:aws:s3:::media-service-prod-imagebucket-1luk2yux3owkh/*`,
-				],
-			}),
+		const imageBucket = s3.Bucket.fromBucketName(this, 'ImageBucket',
+			props.stage === 'PROD'
+				? 'media-service-prod-imagebucket-1luk2yux3owkh'
+				: 'media-service-test-imagebucket-1qt2lbcwnpgl0',
 		);
+		imageBucket.grantRead(imageEmbedderLambda);
 	}
 }
