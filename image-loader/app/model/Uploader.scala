@@ -456,7 +456,7 @@ class Uploader(
       mimeTypeForEmbedder = assetForEmbedder.mimeType.getOrElse(
         throw new Exception("Image for embedding has no mime type")
       ).name
-      imageToEmbed = queueImageToEmbed(EmbedderMessage(
+      _ = queueImageToEmbed(EmbedderMessage(
         uploadRequest.imageId,
         mimeTypeForEmbedder,
         s3BucketForEmbedder,
@@ -465,7 +465,6 @@ class Uploader(
       // TODO: centralise where all these URLs are constructed
     } yield
       UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
-
   }
 
   def restoreFile(uploadRequest: UploadRequest,
