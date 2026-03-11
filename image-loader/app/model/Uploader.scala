@@ -443,17 +443,19 @@ class Uploader(
       _ <- Future { notifications.publish(updateMessage) }
       // Send the optimised PNG to the embedder if there is one (e.g. for TIFFs),
       // otherwise send the original image.
-      (s3BucketForEmbedder, s3KeyForEmbedder, mimeTypeForEmbedder) = imageUpload.image.optimisedPng match {
+      assetForEmbedder = imageUpload.image.optimisedPng match {
         case Some(optimisedPngAsset) =>
           logger.info(logMarker, s"Queueing optimised PNG instead of original for embedding")
-          val uri = optimisedPngAsset.file
-          val bucket = uri.getHost.split('.').head
-          val key = uri.getPath.stripPrefix("/")
-          (bucket, key, Png.name)
+          optimisedPngAsset
         case _ =>
-          val originalKey = uploadRequest.imageId.take(6).mkString("/") + "/" + uploadRequest.imageId
-          (config.imageBucket, originalKey, uploadRequest.mimeType.map(_.name).getOrElse(""))
+          imageUpload.image.source
       }
+      uriForEmbedder = assetForEmbedder.file
+      s3BucketForEmbedder = uriForEmbedder.getHost.split('.').head
+      s3KeyForEmbedder = uriForEmbedder.getPath.stripPrefix("/")
+      mimeTypeForEmbedder = assetForEmbedder.mimeType.getOrElse(
+        throw new Exception("Image for embedding has no mime type")
+      ).name
       imageToEmbed = queueImageToEmbed(EmbedderMessage(
         uploadRequest.imageId,
         mimeTypeForEmbedder,
