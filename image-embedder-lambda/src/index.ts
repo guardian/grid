@@ -90,10 +90,6 @@ interface Embedding {
 	cohereEmbedEnglishV3: CohereV3Embedding;
 }
 
-interface Embeddings {
-	imageId: string;
-	embedding: Embedding;
-}
 export interface FetchedImage {
 	bytes: Uint8Array;
 	mimeType: string;
@@ -273,11 +269,7 @@ interface UpdateEmbeddingMessage {
 	_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage';
 	lastModified: string;
 	id: string;
-	embedding: {
-		cohereEmbedEnglishV3: {
-			image: number[];
-		};
-	};
+	embedding: Embedding;
 }
 
 // A successful Kinesis result always has SequenceNumber and ShardId.
@@ -296,8 +288,6 @@ interface KinesisFailureEntry extends PutRecordsResultEntry {
 	ErrorCode: string;
 	ErrorMessage: string;
 }
-
-type KinesisResultEntry = KinesisSuccessEntry | KinesisFailureEntry;
 
 // A PutInputVector with guaranteed key and float32 data.
 interface ValidVector extends PutInputVector {
