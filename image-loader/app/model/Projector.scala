@@ -175,19 +175,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectThumbnailFileAsS3Model,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
-      tryFetchOptimisedFile = fetchOptimisedFile,
-      queueImageToEmbed = queueImageToEmbed
+      tryFetchOptimisedFile = fetchOptimisedFile
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
-  }
-
-  private def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker): Unit = {
-    maybeEmbedder match {
-      case Some(embedder) =>
-        embedder.queueImageToEmbed(message)
-      case None => ()
-    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

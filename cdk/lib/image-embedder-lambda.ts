@@ -1,9 +1,15 @@
 import type { GuStackProps } from '@guardian/cdk/lib/constructs/core';
 import { GuStack } from '@guardian/cdk/lib/constructs/core';
+import { GuParameter } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import { GuS3Bucket } from '@guardian/cdk/lib/constructs/s3';
 import type { App } from 'aws-cdk-lib';
-import { Duration, aws_lambda as lambda, aws_s3 as s3, Stack } from 'aws-cdk-lib';
+import {
+	Duration,
+	aws_lambda as lambda,
+	aws_s3 as s3,
+	Stack,
+} from 'aws-cdk-lib';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -15,8 +21,21 @@ export class ImageEmbedder extends GuStack {
 
 		const LAMBDA_NODE_VERSION = lambda.Runtime.NODEJS_24_X;
 
-		const appName = 'image-embedder'
+		const appName = 'image-embedder';
 		const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
+
+		// These are exposed as parameters by the cloudformation in editorial-tools-platform
+		// https://github.com/guardian/editorial-tools-platform/blob/ea68387e82d28642b23966635f813b0a8f3a2c0a/cloudformation/media-service-account/grid/media-service.yaml#L3270-L3283
+		const thrallStreamArn = new GuParameter(this, 'ThrallMessageStreamArn', {
+			fromSSM: true,
+			default: `/${this.stage}/${this.stack}/thrall/message-stream-arn`,
+			type: 'String',
+		});
+		const thrallKmsKeyArn = new GuParameter(this, 'ThrallKmsKeyArn', {
+			fromSSM: true,
+			default: `/${this.stage}/${this.stack}/thrall/kms-key-arn`,
+			type: 'String',
+		});
 
 		const imageEmbedderLambda = new GuLambdaFunction(
 			this,
@@ -31,9 +50,10 @@ export class ImageEmbedder extends GuStack {
 				environment: {
 					STAGE: props.stage,
 					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
+					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
 				},
 				memorySize: 2048,
-				timeout: Duration.minutes(1)
+				timeout: Duration.minutes(1),
 			},
 		);
 
@@ -60,10 +80,14 @@ export class ImageEmbedder extends GuStack {
 				maxConcurrency: 3,
 			}),
 		);
-		const downscaledImageBucket = new GuS3Bucket(this, 'DownscaledImageBucket', {
-			app: appName,
-			bucketName: downscaledImageBucketName,
-		});
+		const downscaledImageBucket = new GuS3Bucket(
+			this,
+			'DownscaledImageBucket',
+			{
+				app: appName,
+				bucketName: downscaledImageBucketName,
+			},
+		);
 		downscaledImageBucket.grantReadWrite(imageEmbedderLambda);
 
 		// Allow writing vectors to S3 vector index
@@ -73,6 +97,19 @@ export class ImageEmbedder extends GuStack {
 				resources: [
 					`arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
 				],
+			}),
+		);
+
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kinesis:PutRecord', 'kinesis:PutRecords'],
+				resources: [thrallStreamArn.valueAsString],
+			}),
+		);
+		imageEmbedderLambda.role?.addToPrincipalPolicy(
+			new PolicyStatement({
+				actions: ['kms:GenerateDataKey'],
+				resources: [thrallKmsKeyArn.valueAsString],
 			}),
 		);
 
@@ -87,7 +124,9 @@ export class ImageEmbedder extends GuStack {
 		);
 
 		// Allow fetching the image from S3
-		const imageBucket = s3.Bucket.fromBucketName(this, 'ImageBucket',
+		const imageBucket = s3.Bucket.fromBucketName(
+			this,
+			'ImageBucket',
 			props.stage === 'PROD'
 				? 'media-service-prod-imagebucket-1luk2yux3owkh'
 				: 'media-service-test-imagebucket-1qt2lbcwnpgl0',
