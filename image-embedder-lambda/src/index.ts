@@ -435,8 +435,10 @@ export const handler = async (
 ): Promise<SQSBatchResponse> => {
 	console.log(`Starting handler embedding pipeline`);
 
-	// It has been recommended to us to re-initialise the client each handler invocation
+	// At AWS office hour they recommended to re-initialise the client each handler invocation
 	// as a temporary fix whilst AWS investigates the Bedrock server issues
+	// This is to avoid the TCP connection from the client to timeout whilst we're waiting for Bedrock to respond
+	// See https://aws.amazon.com/blogs/networking-and-content-delivery/implementing-long-running-tcp-connections-within-vpc-networking/
 	const bedrockClient = new BedrockRuntimeClient({
 		region: 'eu-west-1',
 		logger: new LogLevel('debug', console),
