@@ -439,6 +439,7 @@ export const handler = async (
 	// as a temporary fix whilst AWS investigates the Bedrock server issues
 	// This is to avoid the TCP connection from the client to timeout whilst we're waiting for Bedrock to respond
 	// See https://aws.amazon.com/blogs/networking-and-content-delivery/implementing-long-running-tcp-connections-within-vpc-networking/
+	const bedrockClientStart = performance.now();
 	const bedrockClient = new BedrockRuntimeClient({
 		region: 'eu-west-1',
 		logger: new LogLevel('debug', console),
@@ -454,6 +455,10 @@ export const handler = async (
 			requestTimeout: 30_000,
 		},
 	});
+	const bedrockClientDuration = performance.now() - bedrockClientStart;
+	console.log(
+		`BedrockRuntimeClient created in ${bedrockClientDuration.toFixed(2)}ms`,
+	);
 
 	const { vectors, batchItemFailures } = await generateVectors(
 		event.Records,
