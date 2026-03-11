@@ -8,7 +8,6 @@ import {
 import { LogLevel } from '@aws-sdk/config/logger';
 import {
 	BedrockRuntimeClient,
-	ImageBlock$,
 	InvokeModelCommand,
 	InvokeModelCommandInput,
 	InvokeModelCommandOutput,
@@ -59,21 +58,6 @@ const s3Config = {
 };
 
 const s3Client = new S3Client(s3Config);
-const bedrockClient = new BedrockRuntimeClient({
-	region: 'eu-west-1',
-	logger: new LogLevel('debug', console),
-	requestHandler: {
-		// We set hard timeouts to prevent the client simply hanging if the server
-		// is not behaving correctly. We have seen this behaviour in production
-		// when requests to Bedrock have exceeded 2000 per minute,
-		// causing lambda timeouts and cascading failures.
-		// The specific values here were recommended by our friend at AWS Support, Abhishek M.,
-		// in this support ticket:
-		// https://563563610310-jmoumez6.support.console.aws.amazon.com/support/home?region=eu-west-1#/case/?displayId=177202106800750&language=en
-		connectionTimeout: 3_000,
-		requestTimeout: 30_000,
-	},
-});
 const s3VectorsClient = new S3VectorsClient({ region: 'eu-central-1' });
 
 export interface SQSMessageBody {
@@ -450,6 +434,24 @@ export const handler = async (
 	context: Context,
 ): Promise<SQSBatchResponse> => {
 	console.log(`Starting handler embedding pipeline`);
+
+	// It has been recommended to us to re-initialise the client each handler invocation
+	// as a temporary fix whilst AWS investigates the Bedrock server issues
+	const bedrockClient = new BedrockRuntimeClient({
+		region: 'eu-west-1',
+		logger: new LogLevel('debug', console),
+		requestHandler: {
+			// We set hard timeouts to prevent the client simply hanging if the server
+			// is not behaving correctly. We have seen this behaviour in production
+			// when requests to Bedrock have exceeded 2000 per minute,
+			// causing lambda timeouts and cascading failures.
+			// The specific values here were recommended by our friend at AWS Support, Abhishek M.,
+			// in this support ticket:
+			// https://563563610310-jmoumez6.support.console.aws.amazon.com/support/home?region=eu-west-1#/case/?displayId=177202106800750&language=en
+			connectionTimeout: 3_000,
+			requestTimeout: 30_000,
+		},
+	});
 
 	const { vectors, batchItemFailures } = await generateVectors(
 		event.Records,
