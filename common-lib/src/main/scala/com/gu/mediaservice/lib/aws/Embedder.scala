@@ -51,8 +51,9 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
     }
   }
 
-  def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker) = {
-    val message: SendMessageResult = sqs.sendMessage(messageBody)
-    logger.info(logMarker, s"Queued image for embedding with message ID: ${message.getMessageId}")
+  def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker) = {
+    val messageBody = Json.stringify(Json.toJson(message))
+    val result: SendMessageResult = sqs.sendMessage(messageBody)
+    logger.info(logMarker, s"Queued image for embedding with message ID: ${result.getMessageId}")
   }
 }
