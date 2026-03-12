@@ -121,6 +121,7 @@ object SearchParams {
 
   private def readOrderBy(orderByRaw: String): String = {
     if (orderByRaw == "oldest") "uploadTime"
+    else if (orderByRaw == "newest") "-uploadTime"
     else orderByRaw
   }
 

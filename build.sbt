@@ -81,7 +81,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-cloudwatch" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
@@ -108,11 +107,12 @@ lazy val commonLib = project("common-lib").settings(
     // declare explicit dependency on desired version of aws sdk v2 dynamo
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb-enhanced" % awsSdkV2Version,
+    "software.amazon.awssdk" % "cloudwatch" % awsSdkV2Version,
     // declare explicit dependency on desired version of aws sdk v2 bedrock runtime
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
-    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
+    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )

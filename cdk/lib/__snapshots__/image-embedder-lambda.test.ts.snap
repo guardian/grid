@@ -4,8 +4,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
 {
   "Metadata": {
     "gu:cdk:constructs": [
+      "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
+      "GuS3Bucket",
     ],
     "gu:cdk:version": "TEST",
   },
@@ -15,8 +18,52 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
+    "ThrallKmsKeyArn": {
+      "Default": "/TEST/media-service/thrall/kms-key-arn",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "ThrallMessageStreamArn": {
+      "Default": "/TEST/media-service/thrall/message-stream-arn",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
   },
   "Resources": {
+    "DownscaledImageBucketImageembedderE1B3D588": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketName": "media-service-test-image-embedder-downscaled-images",
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
+    },
     "ImageEmbedderHandler2C9410B9": {
       "DependsOn": [
         "ImageEmbedderHandlerServiceRoleDefaultPolicy613DB8F0",
@@ -35,8 +82,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-lambda",
+            "DOWNSCALED_IMAGE_BUCKET": "media-service-test-image-embedder-downscaled-images",
             "STACK": "media-service",
             "STAGE": "TEST",
+            "THRALL_KINESIS_STREAM_ARN": {
+              "Ref": "ThrallMessageStreamArn",
+            },
           },
         },
         "FunctionName": "image-embedder-TEST",
@@ -44,7 +95,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
-        "MemorySize": 512,
+        "MemorySize": 2048,
         "Role": {
           "Fn::GetAtt": [
             "ImageEmbedderHandlerServiceRoleD4456D21",
@@ -74,7 +125,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "Timeout": 30,
+        "Timeout": 60,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -236,6 +287,43 @@ exports[`The MediaService stack matches the snapshot 1`] = `
               },
             },
             {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "DownscaledImageBucketImageembedderE1B3D588",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "DownscaledImageBucketImageembedderE1B3D588",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
               "Action": "s3vectors:PutVectors",
               "Effect": "Allow",
               "Resource": {
@@ -249,6 +337,23 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     ":bucket/image-embeddings-test/index/*",
                   ],
                 ],
+              },
+            },
+            {
+              "Action": [
+                "kinesis:PutRecord",
+                "kinesis:PutRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "ThrallMessageStreamArn",
+              },
+            },
+            {
+              "Action": "kms:GenerateDataKey",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "ThrallKmsKeyArn",
               },
             },
             {
@@ -268,11 +373,37 @@ exports[`The MediaService stack matches the snapshot 1`] = `
               },
             },
             {
-              "Action": "s3:GetObject",
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
               "Effect": "Allow",
               "Resource": [
-                "arn:aws:s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*",
-                "arn:aws:s3:::media-service-prod-imagebucket-1luk2yux3owkh/*",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::media-service-test-imagebucket-1qt2lbcwnpgl0",
+                    ],
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::media-service-test-imagebucket-1qt2lbcwnpgl0/*",
+                    ],
+                  ],
+                },
               ],
             },
           ],
@@ -289,6 +420,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
     "ImageEmbedderHandlerSqsEventSourceImageEmbedderLambdaimageEmbedder4169931F5A3D671C": {
       "Properties": {
+        "BatchSize": 5,
         "EventSourceArn": {
           "Fn::GetAtt": [
             "imageEmbedder9F00A33D",
@@ -297,6 +429,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         },
         "FunctionName": {
           "Ref": "ImageEmbedderHandler2C9410B9",
+        },
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures",
+        ],
+        "ScalingConfig": {
+          "MaximumConcurrency": 3,
         },
         "Tags": [
           {
@@ -354,7 +492,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "VisibilityTimeout": 60,
+        "VisibilityTimeout": 120,
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",

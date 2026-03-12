@@ -1,8 +1,10 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
+
+import scala.util.matching.Regex
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
@@ -426,19 +428,74 @@ object RexParser extends ImageProcessor {
   val SlashRex = ".+/ Rex Features".r
 
   def apply(image: Image): Image = {
+    (image.metadata.source, image.metadata.credit) match {
+      // TODO: cleanup byline/credit
+      case (Some("Rex Features"), _)
+        | (_, Some(SlashRex()))
+        | (Some("REX/Shutterstock"), _)
+        | (Some("Shutterstock"), _)
+        | (Some("Shutterstock Editorial"), _) => format(image)
+      case _ => image
+    }
+  }
+
+  private def matchMandatoryCreditBylines(suppliersReference: String) = s"Mandatory Credit: Photo by (.*) \\(${Regex.quote(suppliersReference)}\\)\n"
+
+  private def format(image: Image): Image = {
     val usageRights: UsageRights =
       if (image.metadata.specialInstructions exists(_.toLowerCase.startsWith("exclusive"))) NoRights
       else rexAgency
 
-    (image.metadata.source, image.metadata.credit) match {
-    // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _)            => image.copy(usageRights = usageRights)
-    case (_, Some(SlashRex()))                => image.copy(usageRights = usageRights)
-    case (Some("REX/Shutterstock"), _)        => image.copy(usageRights = usageRights)
-    case (Some("Shutterstock"), _)            => image.copy(usageRights = usageRights)
-    case (Some("Shutterstock Editorial"), _)  => image.copy(usageRights = usageRights)
-    case _ => image
-  }
+    def removeSpecialInstructions(description: String) =
+      image.metadata.specialInstructions
+        .map(specialInstructions => description.replaceAll(s"${Regex.quote(specialInstructions)}\n", ""))
+        .getOrElse(description)
+
+    /**
+     * Does the image metadata include every byline in the image description's credit line?
+     *
+     * An example credit line might look like:
+     *
+     * `Mandatory Credit: Photo by Action Press/Shutterstock (16512200n)`
+     *
+     * If the image metadata contained
+     *
+     *  "credit" -> "ITV/Shutterstock"
+     *  "byline" -> "Action Press"
+     *
+     * then this function would return `true`.
+     */
+    def imageMetadataAccountsForCreditLine(description: String, suppliersReference: String) = {
+      val bylinesInMetadata = image.metadata.byline.toList ++ image.metadata.credit.toList.flatMap(_.split("/").toList)
+
+      val maybeBylinesInCreditLine = matchMandatoryCreditBylines(suppliersReference)
+        .r
+        .findFirstMatchIn(description)
+        .flatMap(_.subgroups.headOption)
+
+      maybeBylinesInCreditLine.forall { bylinesInCreditLine =>
+          val bylinesWithMetadataRemoved = bylinesInMetadata
+            // Remove all the bylines from the credit string
+            .foldLeft(bylinesInCreditLine.toLowerCase)((desc, toRemove) => desc.replaceAll(toRemove.toLowerCase, ""))
+            // Get rid of whitespace and delimiters
+            .replaceAll("[\\s/]", "")
+
+        bylinesWithMetadataRemoved.isEmpty
+      }
+    }
+
+    def removeCredit(description: String): String =
+      image.metadata.suppliersReference match {
+        case Some(suppliersReference) if imageMetadataAccountsForCreditLine(description, suppliersReference) =>
+          description.replaceAll(matchMandatoryCreditBylines(suppliersReference), "")
+        case _ => description
+      }
+
+    val description = image.metadata.description
+      .map(removeSpecialInstructions)
+      .map(removeCredit)
+
+    image.copy(usageRights = usageRights, metadata = image.metadata.copy(description = description))
   }
 }
 

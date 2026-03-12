@@ -36,7 +36,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v6.0.2
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
@@ -74,11 +74,16 @@ jobs:
           npm install-clean
           npm test
           npm run build
-      - name: Image embedder cdk
+      - name: Image Embedder CDK
         run: ./scripts/embedder-deploy/cdk.sh
-      - name: Image embedder bundling
+      - name: Image Embedder tests
+        working-directory: ./image-embedder-lambda
+        run: |
+          npm install-clean
+          npm test
+      - name: Image Embedder bundling
         run: ./scripts/embedder-deploy/build.sh
-      - uses: guardian/actions-riff-raff@v4.2.3
+      - uses: guardian/actions-riff-raff@v4.2.4
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}

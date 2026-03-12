@@ -137,7 +137,13 @@ class MediaApi(
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
-  private def hasPermission(principal: Principal, image: Image): Boolean = principal.accessor.tier match {
+  // Syndication tier accessors should only be able to see/fetch details of images which
+  // are available for syndication (according to their syndication rights status).
+  // Any attempt to view/interact with other images should return a 404.
+  // Other accessors should be able to view all images, though they may not be permitted
+  // to make modifications, so other permission checks must be done and potentially result
+  // in 403 Forbidden errors or equivalent.
+  private def isVisibleToAccessor(principal: Principal, image: Image): Boolean = principal.accessor.tier match {
     case Syndication => isAvailableForSyndication(image)
     case _ => true
   }
@@ -219,7 +225,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
@@ -236,7 +242,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
@@ -254,7 +260,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
-      case Some(source) if hasPermission(request.user, source) =>
+      case Some(source) if isVisibleToAccessor(request.user, source) =>
         val exportOption = source.exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
       case _ => ImageNotFound(imageId)
@@ -287,7 +293,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
-      case Some(source) if hasPermission(request.user, source) =>
+      case Some(source) if isVisibleToAccessor(request.user, source) =>
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
@@ -314,7 +320,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
 
         if (imageCanBeDeleted) {
@@ -343,7 +349,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
@@ -380,24 +386,25 @@ class MediaApi(
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
-        val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
-        if(canDelete){
-          softDeletedMetadataTable.updateStatus(id, false)
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image)
+        if isVisibleToAccessor(request.user, image)
+          && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
+        logger.info(logMarker, s"undeleting image $id")
+
+        softDeletedMetadataTable.updateStatus(id, isDeleted = false)
           .map { _ =>
             messageSender.publish(
               UpdateMessage(
                 subject = UnSoftDeleteImage,
                 id = Some(id)
               )
-             )
-          }
-          Accepted
-        } else {
-          ImageDeleteForbidden
-        }
-      case _ => ImageNotFound(id)
+            )
+          }.map { _ => Accepted }
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
+        Future.successful(ImageDeleteForbidden)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
@@ -409,7 +416,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
@@ -439,7 +446,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         logger.info(logMarker, s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}")
 
         postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id,
@@ -460,7 +467,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
@@ -613,7 +620,7 @@ class MediaApi(
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageWithSourceById(id) map {
-      case Some(source) if hasPermission(request.user, source.instance) =>
+      case Some(source) if isVisibleToAccessor(request.user, source.instance) =>
         val writePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, EditMetadata)
         val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)

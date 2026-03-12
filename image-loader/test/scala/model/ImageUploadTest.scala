@@ -5,7 +5,7 @@ import java.net.URI
 import java.util.UUID
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
+import com.gu.mediaservice.lib.aws.{EmbedderMessage, S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -61,40 +61,37 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
     def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
-    def queueImageToEmbed: String => Unit = (messageBody: String) => ()
 
     val mockDependencies = ImageUploadOpsDependencies(
-      mockConfig,
-      imageOps,
-      storeOrProjectOriginalFile,
-      storeOrProjectThumbFile,
-      storeOrProjectOptimisedPNG,
-      queueImageToEmbed = queueImageToEmbed,
+      config = mockConfig,
+      imageOps = imageOps,
+      storeOrProjectOriginalFile = storeOrProjectOriginalFile,
+      storeOrProjectThumbFile = storeOrProjectThumbFile,
+      storeOrProjectOptimisedImage = storeOrProjectOptimisedPNG,
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)
     val ul = UploadInfo(None)
 
     val uploadRequest = UploadRequest(
-      randomId,
-      tempFile,
-      MimeTypeDetection.guessMimeType(tempFile).toOption,
-      DateTime.now(),
-      "uploadedBy",
-      Map(),
-      ul
+      imageId = randomId,
+      tempFile = tempFile,
+      mimeType = MimeTypeDetection.guessMimeType(tempFile).toOption,
+      uploadTime = DateTime.now(),
+      uploadedBy = "uploadedBy",
+      identifiers = Map(),
+      uploadInfo = ul
     )
 
     val futureImage = Uploader.uploadAndStoreImage(
-      mockDependencies.storeOrProjectOriginalFile,
-      mockDependencies.storeOrProjectThumbFile,
-      mockDependencies.storeOrProjectOptimisedImage,
-      queueImageToEmbed,
-      OptimiseWithPngQuant,
-      uploadRequest,
-      mockDependencies,
-      FileMetadata(),
-      ImageProcessor.identity,
+      storeOrProjectOriginalFile = mockDependencies.storeOrProjectOriginalFile,
+      storeOrProjectThumbFile = mockDependencies.storeOrProjectThumbFile,
+      storeOrProjectOptimisedFile = mockDependencies.storeOrProjectOptimisedImage,
+      optimiseOps = OptimiseWithPngQuant,
+      uploadRequest = uploadRequest,
+      deps = mockDependencies,
+      fileMetadata = FileMetadata(),
+      processor = ImageProcessor.identity,
     )
 
     // Assertions; Failure will auto-fail

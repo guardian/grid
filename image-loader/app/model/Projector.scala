@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -175,19 +175,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectThumbnailFileAsS3Model,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
-      tryFetchOptimisedFile = fetchOptimisedFile,
-      queueImageToEmbed = queueImageToEmbed
+      tryFetchOptimisedFile = fetchOptimisedFile
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
-  }
-
-  private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
-    maybeEmbedder match {
-      case Some(embedder) =>
-        embedder.queueImageToEmbed(messageBody)
-      case None => ()
-    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

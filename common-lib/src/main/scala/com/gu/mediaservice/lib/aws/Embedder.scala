@@ -2,6 +2,8 @@ package com.gu.mediaservice.lib.aws
 import com.amazonaws.services.sqs.model.SendMessageResult
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
+import play.api.libs.json.{Json, OFormat}
+import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse, VectorData}
 
 import java.nio.file.{Files, Path}
@@ -11,6 +13,12 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
 case object CoherePng extends CohereCompatibleMimeType
+
+case class EmbedderMessage(imageId: String, fileType: String, s3Bucket: String, s3Key: String)
+
+object EmbedderMessage {
+  implicit val format: OFormat[EmbedderMessage] = Json.format[EmbedderMessage]
+}
 
 class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
   def mapCohereResponseToImageIds(response: QueryVectorsResponse): List[String] = {
@@ -42,6 +50,7 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
       }
     }
   }
+
   def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker) = {
     val message: SendMessageResult = sqs.sendMessage(messageBody)
     logger.info(logMarker, s"Queued image for embedding with message ID: ${message.getMessageId}")

@@ -6,8 +6,9 @@ import com.gu.mediaservice.lib.Files.createTempFile
 import java.io.File
 import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, S3Vectors, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -55,7 +56,9 @@ case object ImageUpload {
       usageRights,
       usageRights,
       List(),
-      List()
+      List(),
+      //      ImageEmbedding will be written by lambda later
+      embedding = None
     )
   }
 }
@@ -77,7 +80,6 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
   tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
   tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
-  queueImageToEmbed: (String) => Unit
 )
 
 
@@ -114,7 +116,6 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedImage,
-        queueImageToEmbed,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
@@ -126,9 +127,7 @@ object Uploader extends GridLogging {
   private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         queueImageToEmbed: (String) => Unit,
                                          optimiseOps: OptimiseOps,
-
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
                                          fileMetadata: FileMetadata,
@@ -177,46 +176,33 @@ object Uploader extends GridLogging {
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
-      
+
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(mergedUploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
-
+      val baseImage = ImageUpload.createImage(
+        mergedUploadRequest,
+        sourceAsset,
+        thumbAsset,
+        pngAsset,
+        fullFileMetadata,
+        metadata
+      )
       val processedImage = processor(baseImage)
 
       logger.info(logMarker, s"Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-      val finalImage = processedImage.copy(
+      processedImage.copy(
         originalMetadata = processedImage.metadata,
         originalUsageRights = processedImage.usageRights
       )
-
-      val s3Bucket = s3Source.uri.getHost.split('.').head
-      val s3Key = s3Source.uri.getPath.stripPrefix("/")
-
-      // Return both the image and the S3 path needed for embedding
-      (finalImage, s3Bucket, s3Key)
     }
-    eventualImage.onComplete{ imageFuture =>
+    eventualImage.onComplete{ _ =>
       tempDirForRequest.listFiles().map(f => f.delete())
       tempDirForRequest.delete()
-
-      imageFuture match {
-        case scala.util.Success((_, s3Bucket, s3Key)) =>
-          logger.info(logMarker, s"Queueing image ${uploadRequest.imageId} for embedding")
-          queueImageToEmbed(
-            s"""{"imageId": "${uploadRequest.imageId}", "fileType": "${originalMimeType}", "s3Bucket": "${s3Bucket}", "s3Key": "${s3Key}"}"""
-          )
-        case scala.util.Failure(exception) =>
-          logger.error(
-            logMarker, s"Image upload failed, not queueing for embedding: ${exception.getMessage}"
-          )
-      }
     }
-    // Map to return just the finalImage
-    eventualImage.map(_._1)
+    eventualImage
   }
 
   private def getStorableOptimisedImage(
@@ -343,28 +329,63 @@ object Uploader extends GridLogging {
   }
 }
 
-class Uploader(val store: ImageLoaderStore,
-               val config: ImageLoaderConfig,
-               val imageOps: ImageOperations,
-               val notifications: Notifications,
-               val maybeEmbedder: Option[Embedder],
-               imageProcessor: ImageProcessor)
-              (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
+class Uploader(
+  val store: ImageLoaderStore,
+  val config: ImageLoaderConfig,
+  val imageOps: ImageOperations,
+  val notifications: Notifications,
+  val maybeEmbedder: Option[Embedder],
+               imageProcessor: ImageProcessor,
+  gridClient: GridClient,
+  auth: Authentication
+)(
+  implicit val ec: ExecutionContext
+) extends MessageSubjects with ArgoHelpers {
 
-  def fromUploadRequest(uploadRequest: UploadRequest)
-                       (implicit logMarker: LogMarker): Future[ImageUpload] = {
+  private def addChildUsageToParentImage(
+    uploadRequest: UploadRequest,
+    isReplacement: Boolean
+  )(
+    mediaIdToAddUsageTo: String
+  ) = {
+    gridClient.postUsage(
+      usageType = "child",
+      data = Json.obj(
+        "dateAdded" -> uploadRequest.uploadTime.toString,
+        "addedBy" -> uploadRequest.uploadedBy,
+        "mediaId" -> mediaIdToAddUsageTo,
+        "childMediaId" -> uploadRequest.imageId,
+        "isReplacement" -> isReplacement,
+      ),
+      // we're using the innerServiceCall here rather than 'on behalf of' since this code is typically run when the
+      // queue is processed, so we don't have reference to the original requester's auth
+      authFn = auth.innerServiceCall
+    )
+  }
+
+  private def fromUploadRequest(uploadRequest: UploadRequest)
+                               (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage, queueImageToEmbed = queueImageToEmbed)
+      storeSource, storeThumbnail, storeOptimisedImage)
     Stopwatch.async("finalImage") {
       val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, imageProcessor)
+      uploadRequest.identifiers.foreach{
+        case (ImageStorageProps.derivativeOfMediaIdsIdentifierKey, commaSeparatedMediaIdsToAddUsagesTo) =>
+          commaSeparatedMediaIdsToAddUsagesTo.split(",").map(_.trim).foreach(
+            addChildUsageToParentImage(uploadRequest, isReplacement = false)
+          )
+        case (ImageStorageProps.replacesMediaIdIdentifierKey, mediaIdToAddUsageTo) =>
+          addChildUsageToParentImage(uploadRequest, isReplacement = true)(mediaIdToAddUsageTo)
+      }
       finalImage.map(img => ImageUpload(uploadRequest, img))
     }
   }
 
-  private def queueImageToEmbed(messageBody: String)(implicit logMarker: LogMarker): Unit = {
+  private def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker): Unit = {
     maybeEmbedder match {
       case Some(embedder) =>
-        embedder.queueImageToEmbed(messageBody)
+        logger.info(logMarker, s"Queueing image ${message.imageId} for embedding")
+        embedder.queueImageToEmbed(message)
       case None => ()
     }
   }
@@ -380,17 +401,14 @@ class Uploader(val store: ImageLoaderStore,
 
   def loadFile(digestedFile: DigestedFile,
                uploadedBy: String,
-               identifiers: Option[String],
+               identifiers: Map[String, String],
                uploadTime: DateTime,
                filename: Option[String])
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
 
-    // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers
-      .map(Json.parse(_).as[Map[String, String]])
-      .getOrElse(Map.empty)
       .view
       .mapValues(_.toLowerCase)
       .toMap
@@ -423,9 +441,30 @@ class Uploader(val store: ImageLoaderStore,
       imageUpload <- fromUploadRequest(uploadRequest)
       updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
+      // Send the optimised PNG to the embedder if there is one (e.g. for TIFFs),
+      // otherwise send the original image.
+      assetForEmbedder = imageUpload.image.optimisedPng match {
+        case Some(optimisedPngAsset) =>
+          logger.info(logMarker, s"Queueing optimised PNG instead of original for embedding")
+          optimisedPngAsset
+        case _ =>
+          imageUpload.image.source
+      }
+      uriForEmbedder = assetForEmbedder.file
+      s3BucketForEmbedder = uriForEmbedder.getHost.split('.').head
+      s3KeyForEmbedder = uriForEmbedder.getPath.stripPrefix("/")
+      mimeTypeForEmbedder = assetForEmbedder.mimeType.getOrElse(
+        throw new Exception("Image for embedding has no mime type")
+      ).name
+      _ = queueImageToEmbed(EmbedderMessage(
+        uploadRequest.imageId,
+        mimeTypeForEmbedder,
+        s3BucketForEmbedder,
+        s3KeyForEmbedder,
+      ))
       // TODO: centralise where all these URLs are constructed
-    } yield UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
-
+    } yield
+      UploadStatusUri(s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}")
   }
 
   def restoreFile(uploadRequest: UploadRequest,
