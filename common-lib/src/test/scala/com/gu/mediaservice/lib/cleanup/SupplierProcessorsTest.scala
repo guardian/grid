@@ -375,6 +375,66 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.source should be(None)
     }
 
+    it("should strip '(Photo by Byline/Credit)' from description when byline and credit match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "description" -> "PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot."))
+    }
+
+    it("should strip '(Photo by Byline / Credit)' when credit uses 'via' separator") {
+      val image = createImageFromMetadata(
+        "credit" -> "AFP/Getty Images",
+        "byline" -> "Dimitar Dilkoff",
+        "description" -> "A dress displayed during the exhibition. (Photo by Dimitar DILKOFF / AFP via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A dress displayed during the exhibition."))
+    }
+
+    it("should strip '(Photo by Byline/Credit)' with punctuation differences in byline") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Jared C Tilton",
+        "description" -> "Pierceson Coody plays a shot. (Photo by Jared C. Tilton/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Pierceson Coody plays a shot."))
+    }
+
+    it("should not strip '(Photo by ...)' when byline does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Someone Else",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
+    it("should not strip '(Photo by ...)' when credit does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Reuters",
+        "byline" -> "David Cannon",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
   }
 
   describe("PA") {

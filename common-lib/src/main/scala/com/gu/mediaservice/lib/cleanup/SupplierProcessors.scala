@@ -325,14 +325,47 @@ object GettyXmpParser extends ImageProcessor {
     Agencies
       .getWithCollection("getty", suppliersCollection)
 
+  private val PhotoByPattern = """(?i)\s*\(Photo by\s+(.+?)\s*/\s*(.+?)\)\s*$""".r
+
+  private def normalise(s: String): String = s.toLowerCase.replaceAll("[.\\s]+", " ").trim
+
+  /**
+    * Remove the trailing "(Photo by [Byline] / [Credit(s)])" from the description
+    * when both the byline and every credit component already exist in their respective metadata fields.
+    *
+    * Credit in the description may use "via" as a separator (e.g. "AFP via Getty Images")
+    * while the metadata credit uses "/" (e.g. "AFP/Getty Images"), so we normalise both before comparing.
+    */
+  def cleanDescription(description: String, byline: Option[String], credit: Option[String]): String = {
+    PhotoByPattern.findFirstMatchIn(description) match {
+      case Some(m) =>
+        val descByline = m.group(1)
+        val descCredits = m.group(2)
+
+        val bylineMatches = byline.exists(b => normalise(b) == normalise(descByline))
+
+        // Normalise "via" → "/" so "AFP via Getty Images" matches credit "AFP/Getty Images"
+        val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
+        val creditMatches = credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
+
+        if (bylineMatches && creditMatches) description.substring(0, m.start).trim
+        else description
+      case None => description
+    }
+  }
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
+      val cleanedDescription = image.metadata.description.map(d =>
+        cleanDescription(d, image.metadata.byline, image.metadata.credit)
+      )
       image.copy(
         usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one
         metadata = image.metadata.copy(
+          description = cleanedDescription,
           credit = Some(image.metadata.credit.getOrElse("Getty Images")),
           suppliersReference = getSuppliersReference(image)
         )
