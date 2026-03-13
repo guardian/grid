@@ -24,7 +24,7 @@ import {
   DefaultSortOption,
   CollectionSortOption,
   HAS_DATE_TAKEN,
-  TAKEN_SORT,
+  TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
 import { getFeatureSwitchActive } from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
@@ -39,7 +39,7 @@ export var query = angular.module("kahuna.search.query", [
   "gr.sortControl",
   "gr.extendedSortControl",
   "gr.permissionsFilter",
-  "gr.myUploads",
+  "gr.myUploads"
 ]);
 
 query.controller("SearchQueryCtrl", [
@@ -73,11 +73,11 @@ query.controller("SearchQueryCtrl", [
     });
 
     ctrl.ordering = {
-      orderBy: $stateParams.orderBy,
+      orderBy: $stateParams.orderBy
     };
 
     ctrl.filter = {
-      uploadedByMe: false,
+      uploadedByMe: false
     };
 
     ctrl.dateFilter = {
@@ -108,7 +108,7 @@ query.controller("SearchQueryCtrl", [
         showPaid === true || showPaid === "true" ? true : false;
       const customEvent = new CustomEvent("setPayableImages", {
         detail: { showPaid: boolShowPaid },
-        bubbles: true,
+        bubbles: true
       });
       window.dispatchEvent(customEvent);
     }
@@ -118,9 +118,9 @@ query.controller("SearchQueryCtrl", [
         detail: {
           query: query,
           hasCollection: prevHasCollec,
-          orderBy: orderBy,
+          orderBy: orderBy
         },
-        bubbles: true,
+        bubbles: true
       });
       window.dispatchEvent(customEvent);
     }
@@ -128,7 +128,7 @@ query.controller("SearchQueryCtrl", [
     function raiseFilterChangeEvent(filter) {
       const customEvent = new CustomEvent("filterChangeEvent", {
         detail: { filter: filter },
-        bubbles: true,
+        bubbles: true
       });
       window.dispatchEvent(customEvent);
     }
@@ -138,9 +138,9 @@ query.controller("SearchQueryCtrl", [
         const customEvent = new CustomEvent("uploadedByEvent", {
           detail: {
             userEmail: ctrl.user.email,
-            uploadedBy: $stateParams.uploadedBy,
+            uploadedBy: $stateParams.uploadedBy
           },
-          bubbles: true,
+          bubbles: true
         });
         window.dispatchEvent(customEvent);
       }
@@ -202,7 +202,7 @@ query.controller("SearchQueryCtrl", [
         Object.assign(ctrl.filter, {
           nonFree: newNonFree,
           uploadedByMe: false,
-          uploadedBy: undefined,
+          uploadedBy: undefined
         });
         raiseFilterChangeEvent(ctrl.filter);
       }
@@ -220,7 +220,7 @@ query.controller("SearchQueryCtrl", [
           type: "filter",
           filterType: "inclusion",
           key: "is",
-          value: ctrl.maybeOrgOwnedValue,
+          value: ctrl.maybeOrgOwnedValue
         };
         ctrl.filter.query = renderQuery([...structuredQuery, orgOwnedChip]);
       } else if (
@@ -363,21 +363,21 @@ query.controller("SearchQueryCtrl", [
         raiseQueryChangeEvent(
           ctrl.filter.query,
           curCollectionSearch,
-          CollectionSortOption.value,
+          CollectionSortOption.value
         );
         $state.go("search.results", {
           ...ctrl.filter,
-          ...{ orderBy: CollectionSortOption.value },
+          ...{ orderBy: CollectionSortOption.value }
         });
       } else {
         raiseQueryChangeEvent(
           ctrl.filter.query,
           curCollectionSearch,
-          ctrl.ordering["orderBy"],
+          ctrl.ordering["orderBy"]
         );
         $state.go("search.results", {
           ...ctrl.filter,
-          ...{ orderBy: ctrl.ordering["orderBy"] },
+          ...{ orderBy: ctrl.ordering["orderBy"] }
         });
       }
     }
@@ -390,7 +390,7 @@ query.controller("SearchQueryCtrl", [
 
     ctrl.myUploadsProps = {
       myUploads: ctrl.filterMyUploads,
-      onChange: selectMyUploads,
+      onChange: selectMyUploads
     };
     //-end my uploads
 
@@ -400,14 +400,14 @@ query.controller("SearchQueryCtrl", [
       storage.setJs("orderBy", ctrl.ordering["orderBy"]);
       $state.go("search.results", {
         ...ctrl.filter,
-        ...{ orderBy: ctrl.ordering["orderBy"] },
+        ...{ orderBy: ctrl.ordering["orderBy"] }
       });
     }
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
       query: $stateParams.query,
-      orderBy: ctrl.ordering ? ctrl.ordering.orderBy : "",
+      orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
 
@@ -435,7 +435,7 @@ query.controller("SearchQueryCtrl", [
       chargeable: ctrl.filter.nonFree
         ? ctrl.filter.nonFree
         : $stateParams.nonFree == "true",
-      query: ctrl.filter.query,
+      query: ctrl.filter.query
     };
     //-end permissions filter-
 
@@ -452,7 +452,7 @@ query.controller("SearchQueryCtrl", [
     ctrl.payTypeOptions = [
       { label: "Free", value: "free" },
       { label: "Free and No Rights", value: "maybe-free" },
-      { label: "All (inc. paid)", value: "all" },
+      { label: "All (inc. paid)", value: "all" }
     ];
 
     ctrl.sinceOptions = [
@@ -461,13 +461,13 @@ query.controller("SearchQueryCtrl", [
       { label: "Past 24 hours", value: past24Hours },
       { label: "Past week", value: pastWeek },
       { label: "Past 6 months", value: past6Months },
-      { label: "Past year", value: pastYear },
+      { label: "Past year", value: pastYear }
     ];
 
     ctrl.filterDateFieldsOptions = [
       { label: "Upload time", name: "uploaded" }, // value: undefined
       { label: "Date taken", name: "taken", value: "taken" },
-      { label: "Last modified", name: "modified", value: "modified" },
+      { label: "Last modified", name: "modified", value: "modified" }
     ];
 
     const dateFilterParams = [
@@ -477,7 +477,7 @@ query.controller("SearchQueryCtrl", [
       "takenSince",
       "takenUntil",
       "modifiedSince",
-      "modifiedUntil",
+      "modifiedUntil"
     ];
     Object.keys($stateParams)
       // Exclude date-related filters, managed separately in dateFilter
@@ -571,7 +571,7 @@ query.controller("SearchQueryCtrl", [
         if (ctrl.useAISearch) {
           $state.go("search.results", {
             ...ctrl.filter,
-            useAISearch: true,
+            useAISearch: true
           });
         } else {
           $state.go("search.results", { ...ctrl.filter, useAISearch: null });
@@ -592,8 +592,8 @@ query.controller("SearchQueryCtrl", [
             takenUntil: field === "taken" ? until : null,
             modifiedSince: field === "modified" ? since : null,
             modifiedUntil: field === "modified" ? until : null,
-            dateField: field,
-          },
+            dateField: field
+          }
         });
       }),
     );
@@ -662,7 +662,7 @@ query.controller("SearchQueryCtrl", [
 
     const { nonFree, uploadedByMe } = ctrl.filter;
     sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
-  },
+  }
 ]);
 
 query.directive("searchQuery", [
@@ -670,7 +670,7 @@ query.directive("searchQuery", [
     return {
       restrict: "E",
       controller: "SearchQueryCtrl as searchQuery",
-      template: template,
+      template: template
     };
-  },
+  }
 ]);
