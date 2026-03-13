@@ -5,7 +5,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
 import software.amazon.awssdk.services.s3vectors.model.{
   DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest,
-  PutVectorsResponse, VectorData, QueryVectorsRequest, QueryVectorsResponse, GetVectorsResponse
+  PutVectorsResponse, VectorData, QueryVectorsRequest, QueryVectorsResponse
 }
 
 import java.net.URI
@@ -112,7 +112,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.queryVectors(request)
   }
 
-  def searchVectorStoreWithQueryString(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
+  def searchByText(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
     try {
       val response = queryVectors(queryEmbedding)
       logger.info(
@@ -128,25 +128,20 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     }
   }
 
-  def findVectorForImageId(imageId: String)(implicit logMarker: LogMarker): GetVectorsResponse = {
-    val request: GetVectorsRequest = GetVectorsRequest
-      .builder()
-      .indexName("cohere-embed-english-v3")
-      .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
-      .keys(imageId)
-      .returnData(true)
-      .build()
-
+  def getEmbeddingForImage(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
     try {
-      val response = client.getVectors(request)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to retrieve embedding for imageId ${imageId} completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-      logger.info(logMarker, s"${response}")
-      //      See https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3vectors/model/GetVectorsResponse.html#vectors()
-      //      We may want to add more error handling here
-      response
+      val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
+
+      if (vectors.isEmpty) {
+        throw new NoSuchElementException(s"No vector found for imageId ${imageId}")
+      }
+      if (vectors.size != 1) {
+        throw new IllegalStateException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
+      }
+
+      val vector = vectors.head
+      logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
+      vector
     }
     catch {
       case e: Exception =>
@@ -155,7 +150,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     }
   }
 
-  def searchVectorStoreForSimilarImages(queryVector: VectorData)(implicit logMarker: LogMarker
+  def searchByImage(queryVector: VectorData)(implicit logMarker: LogMarker
   ): Future[QueryVectorsResponse] = Future {
     logger.info(logMarker, s"Searching for image embedding")
     try {

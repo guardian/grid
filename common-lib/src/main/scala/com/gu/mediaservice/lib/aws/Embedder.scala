@@ -30,7 +30,7 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
     embeddingFuture.flatMap { embedding =>
-      val futureResult = s3vectors.searchVectorStoreWithQueryString(embedding, query)
+      val futureResult = s3vectors.searchByText(embedding, query)
       futureResult.map { result =>
         mapCohereResponseToImageIds(result)
       }
@@ -38,16 +38,11 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
   }
 
   def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[String]] = {
-    val maybeVector = s3vectors.findVectorForImageId(imageId)
-    if (maybeVector.vectors().isEmpty) {
-      logger.error(logMarker, s"No embedding found for ${imageId}")
-      Future(Nil)
-    } else {
-      val vector: VectorData = maybeVector.vectors().asScala.head.data()
-      val futureResult = s3vectors.searchVectorStoreForSimilarImages(vector)
-      futureResult.map { result =>
-        mapCohereResponseToImageIds(result)
-      }
+    val outputVector = s3vectors.getEmbeddingForImage(imageId)
+    val vector: VectorData = outputVector.data()
+    val futureResult = s3vectors.searchByImage(vector)
+    futureResult.map { result =>
+      mapCohereResponseToImageIds(result)
     }
   }
 
