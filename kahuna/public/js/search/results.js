@@ -15,6 +15,7 @@ import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-undelete-image/gr-un-delete-image';
 import '../components/gr-downloader/gr-downloader';
+import '../components/gr-more-like-this/gr-more-like-this';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
@@ -50,6 +51,7 @@ export var results = angular.module('kahuna.search.results', [
     'gu.lazyTableShortcuts',
     'gr.archiver',
     'gr.downloader',
+    'gr.moreLikeThis',
     'gr.batchExportOriginalImages',
     'gr.deleteImage',
     'gr.undeleteImage',
@@ -382,6 +384,9 @@ results.controller('SearchResultsCtrl', [
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
             $timeout(() => {
+                if ($stateParams.orderBy === 'relevance') {
+                  return;
+                }
                 // Use explicit `until`, or blank it to find new images
                 const until = $stateParams.until || null;
                 const latestTime = lastSearchFirstResultTime;

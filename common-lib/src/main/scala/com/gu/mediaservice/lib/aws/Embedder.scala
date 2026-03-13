@@ -4,9 +4,11 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import play.api.libs.json.{Json, OFormat}
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse, VectorData}
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
@@ -19,12 +21,28 @@ object EmbedderMessage {
 }
 
 class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
+  def mapCohereResponseToImageIds(response: QueryVectorsResponse): List[String] = {
+    val results: java.util.List[QueryOutputVector] = response.vectors()
+    results.asScala.map(_.key()).toList
+  }
 
-  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = {
+  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[List[String]] = {
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
     embeddingFuture.flatMap { embedding =>
-      s3vectors.searchVectorStore(embedding, query)
+      val futureResult = s3vectors.searchByText(embedding, query)
+      futureResult.map { result =>
+        mapCohereResponseToImageIds(result)
+      }
+    }
+  }
+
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[String]] = {
+    val outputVector = s3vectors.getEmbeddingForImage(imageId)
+    val vector: VectorData = outputVector.data()
+    val futureResult = s3vectors.searchByImage(vector)
+    futureResult.map { result =>
+      mapCohereResponseToImageIds(result)
     }
   }
 
