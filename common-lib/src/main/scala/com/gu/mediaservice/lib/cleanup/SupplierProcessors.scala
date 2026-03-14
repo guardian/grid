@@ -326,13 +326,14 @@ object GettyXmpParser extends ImageProcessor {
     Agencies
       .getWithCollection("getty", suppliersCollection)
 
-  private val PhotoByPattern = """(?i)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*$""".r
+  private val PhotoByPattern = """(?i)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*(.*)$""".r
 
   private def normalise(s: String): String = s.toLowerCase.replaceAll("[.\\s]+", " ").trim
 
   /**
-    * Remove the trailing "(Photo by [Byline] / [Credit(s)])" from the description
+    * Remove the "(Photo by [Byline] / [Credit(s)])" from the description
     * when both the byline and every credit component already exist in their respective metadata fields.
+    * Preserves any text before or after the Photo by section.
     *
     * Credit in the description may use "via" as a separator (e.g. "AFP via Getty Images")
     * while the metadata credit uses "/" (e.g. "AFP/Getty Images"), so we normalise both before comparing.
@@ -342,6 +343,7 @@ object GettyXmpParser extends ImageProcessor {
       case Some(m) =>
         val descByline = m.group(1)
         val descCredits = m.group(2)
+        val trailing = m.group(3).trim
 
         val bylineMatches = byline.exists(b => normalise(b) == normalise(descByline))
 
@@ -349,7 +351,10 @@ object GettyXmpParser extends ImageProcessor {
         val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
         val creditMatches = credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
 
-        if (bylineMatches && creditMatches) description.substring(0, m.start).trim
+        if (bylineMatches && creditMatches) {
+          val before = description.substring(0, m.start).trim
+          if (trailing.nonEmpty) s"$before $trailing".trim else before
+        }
         else description
       case None => description
     }
@@ -390,8 +395,16 @@ object GettyXmpParser extends ImageProcessor {
         val yearOpt = Option(m.group(5)).map(_.toInt)
 
         val locationFields = List(subLocation, city, state, country).flatten
-        val locationMatches = locationFields.exists(_.equalsIgnoreCase(loc1)) ||
-          locationFields.exists(_.equalsIgnoreCase(loc2))
+
+        // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
+        // Check direct match first, then fall back to suffix match preserving the prefix.
+        val loc1Direct = locationFields.exists(_.equalsIgnoreCase(loc1))
+        val loc1SuffixField = if (!loc1Direct)
+          locationFields.find(f => loc1.toLowerCase.endsWith(f.toLowerCase))
+        else None
+        val loc1Matches = loc1Direct || loc1SuffixField.isDefined
+        val loc2Matches = locationFields.exists(_.equalsIgnoreCase(loc2))
+        val locationMatches = loc1Matches || loc2Matches
 
         val dateMatches = for {
           dt <- dateTaken
@@ -404,8 +417,14 @@ object GettyXmpParser extends ImageProcessor {
           monthMatch && dayMatch && yearMatch
         }
 
-        if (locationMatches && dateMatches.getOrElse(false))
-          description.substring(m.end)
+        if (locationMatches && dateMatches.getOrElse(false)) {
+          val rest = description.substring(m.end)
+          // Preserve any content before the location (e.g. "***BESTPIX***")
+          val leading = loc1SuffixField.map { f =>
+            loc1.substring(0, loc1.length - f.length).trim
+          }.filter(_.nonEmpty)
+          leading.map(l => s"$l $rest").getOrElse(rest)
+        }
         else description
       case None => description
     }

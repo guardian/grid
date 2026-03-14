@@ -435,6 +435,18 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
     }
 
+    it("should strip '(Photo by ...)' but preserve trailing content like ***BESTPIX***") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Johnnie Izquierdo",
+        "description" -> "Alex Condon fouled by Collin Chandler during the second half. (Photo by Johnnie Izquierdo/Getty Images) ***BESTPIX***"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Alex Condon fouled by Collin Chandler during the second half. ***BESTPIX***"))
+    }
+
     it("should strip location-date prefix when city and country match and date matches") {
       val image = createImageFromMetadata(
         "credit" -> "Getty Images",
@@ -447,6 +459,20 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       val processedImage = applyProcessors(gettyImage)
 
       processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
+    }
+
+    it("should strip location-date prefix but preserve leading content like ***BESTPIX***") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "***BESTPIX*** LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("***BESTPIX*** Catherine, Princess of Wales leaves after a visit."))
     }
 
     it("should strip location-date prefix when only one location matches (Turkiye vs Turkey)") {
