@@ -435,6 +435,107 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
     }
 
+    it("should strip location-date prefix when city and country match and date matches") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Belgrade",
+        "country" -> "Serbia",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
+    }
+
+    it("should strip location-date prefix when only one location matches (Turkiye vs Turkey)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Istanbul",
+        "country" -> "Turkey",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "ISTANBUL, TURKIYE - MARCH 13: Fenerbahce players react after losing the match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Fenerbahce players react after losing the match."))
+    }
+
+    it("should strip location-date prefix with case-insensitive location matching") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Alkmaar",
+        "country" -> "Netherlands",
+        "dateTaken" -> "2026-03-12T20:26:43.000Z",
+        "description" -> "Alkmaar, Netherlands - March 12: Troy Parrott of AZ Alkmaar celebrates the late second goal."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Troy Parrott of AZ Alkmaar celebrates the late second goal."))
+    }
+
+    it("should strip location-date prefix when only city matches (TX vs Texas) with ±1 day timezone tolerance") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Austin",
+        "state" -> "Texas",
+        "country" -> "United States",
+        "dateTaken" -> "2026-03-12T20:26:43.000Z",
+        "description" -> "AUSTIN, TX - MARCH 13: (L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("(L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."))
+    }
+
+    it("should not strip location-date prefix when no location fields match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."))
+    }
+
+    it("should not strip location-date prefix when dateTaken does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Belgrade",
+        "country" -> "Serbia",
+        "dateTaken" -> "2026-01-01T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."))
+    }
+
+    it("should apply both Photo by and location-date prefix cleanup together") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "city" -> "Ponte Vedra Beach",
+        "state" -> "Florida",
+        "country" -> "United States",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot on the 15th hole. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Chris Gotterup plays his tee shot on the 15th hole."))
+    }
+
   }
 
   describe("PA") {

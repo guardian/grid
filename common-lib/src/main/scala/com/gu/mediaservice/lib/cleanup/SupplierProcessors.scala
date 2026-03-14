@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.cleanup
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
+import org.joda.time.DateTime
 
 import scala.util.matching.Regex
 
@@ -354,13 +355,62 @@ object GettyXmpParser extends ImageProcessor {
     }
   }
 
+  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2}):\s*""".r
+
+  private val monthNumbers: Map[String, Int] = Map(
+    "january" -> 1, "february" -> 2, "march" -> 3, "april" -> 4,
+    "may" -> 5, "june" -> 6, "july" -> 7, "august" -> 8,
+    "september" -> 9, "october" -> 10, "november" -> 11, "december" -> 12
+  )
+
+  /**
+    * Remove the leading "LOCATION1, LOCATION2 - MONTH DAY: " prefix from the description
+    * when at least one of the two location parts matches any location metadata field (case-insensitive)
+    * and the month/day match the dateTaken (with ±1 day tolerance for timezone differences).
+    */
+  def cleanLocationDatePrefix(
+    description: String,
+    dateTaken: Option[DateTime],
+    subLocation: Option[String],
+    city: Option[String],
+    state: Option[String],
+    country: Option[String]
+  ): String = {
+    LocationDatePrefix.findFirstMatchIn(description) match {
+      case Some(m) =>
+        val loc1 = m.group(1).trim
+        val loc2 = m.group(2).trim
+        val monthStr = m.group(3).toLowerCase
+        val day = m.group(4).toInt
+
+        val locationFields = List(subLocation, city, state, country).flatten
+        val locationMatches = locationFields.exists(_.equalsIgnoreCase(loc1)) ||
+          locationFields.exists(_.equalsIgnoreCase(loc2))
+
+        val dateMatches = for {
+          dt <- dateTaken
+          month <- monthNumbers.get(monthStr)
+        } yield {
+          // Allow ±1 day for timezone differences
+          List(dt.minusDays(1), dt, dt.plusDays(1))
+            .exists(d => d.getMonthOfYear == month && d.getDayOfMonth == day)
+        }
+
+        if (locationMatches && dateMatches.getOrElse(false))
+          description.substring(m.end)
+        else description
+      case None => description
+    }
+  }
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
-      val cleanedDescription = image.metadata.description.map(d =>
-        cleanDescription(d, image.metadata.byline, image.metadata.credit)
-      )
+      val cleanedDescription = image.metadata.description
+        .map(d => cleanDescription(d, image.metadata.byline, image.metadata.credit))
+        .map(d => cleanLocationDatePrefix(d, image.metadata.dateTaken,
+          image.metadata.subLocation, image.metadata.city, image.metadata.state, image.metadata.country))
       image.copy(
         usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one
