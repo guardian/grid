@@ -355,18 +355,23 @@ object GettyXmpParser extends ImageProcessor {
     }
   }
 
-  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2}):\s*""".r
+  // Matches: "LOC1, LOC2 - MONTH DAY:" or "LOC1, LOC2 - MONTH DAY, YEAR:" or "LOC1, LOC2 - MON DAY, YEAR - "
+  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?::\s*|-\s+)""".r
 
   private val monthNumbers: Map[String, Int] = Map(
-    "january" -> 1, "february" -> 2, "march" -> 3, "april" -> 4,
-    "may" -> 5, "june" -> 6, "july" -> 7, "august" -> 8,
-    "september" -> 9, "october" -> 10, "november" -> 11, "december" -> 12
+    "january" -> 1, "jan" -> 1, "february" -> 2, "feb" -> 2,
+    "march" -> 3, "mar" -> 3, "april" -> 4, "apr" -> 4,
+    "may" -> 5, "june" -> 6, "jun" -> 6, "july" -> 7, "jul" -> 7,
+    "august" -> 8, "aug" -> 8, "september" -> 9, "sep" -> 9, "sept" -> 9,
+    "october" -> 10, "oct" -> 10, "november" -> 11, "nov" -> 11,
+    "december" -> 12, "dec" -> 12
   )
 
   /**
-    * Remove the leading "LOCATION1, LOCATION2 - MONTH DAY: " prefix from the description
+    * Remove the leading "LOCATION1, LOCATION2 - MONTH DAY[, YEAR](:|−) " prefix from the description
     * when at least one of the two location parts matches any location metadata field (case-insensitive)
-    * and the month/day match the dateTaken (with ±1 day tolerance for timezone differences).
+    * and the date matches dateTaken (±1 day for timezone, but only within the same month).
+    * Prefers not cleaning over risking incorrect cleaning.
     */
   def cleanLocationDatePrefix(
     description: String,
@@ -382,6 +387,7 @@ object GettyXmpParser extends ImageProcessor {
         val loc2 = m.group(2).trim
         val monthStr = m.group(3).toLowerCase
         val day = m.group(4).toInt
+        val yearOpt = Option(m.group(5)).map(_.toInt)
 
         val locationFields = List(subLocation, city, state, country).flatten
         val locationMatches = locationFields.exists(_.equalsIgnoreCase(loc1)) ||
@@ -391,9 +397,11 @@ object GettyXmpParser extends ImageProcessor {
           dt <- dateTaken
           month <- monthNumbers.get(monthStr)
         } yield {
-          // Allow ±1 day for timezone differences
-          List(dt.minusDays(1), dt, dt.plusDays(1))
-            .exists(d => d.getMonthOfYear == month && d.getDayOfMonth == day)
+          // Allow ±1 day for timezone differences, but only within the same month
+          val monthMatch = dt.getMonthOfYear == month
+          val dayMatch = Math.abs(dt.getDayOfMonth - day) <= 1
+          val yearMatch = yearOpt.forall(_ == dt.getYear)
+          monthMatch && dayMatch && yearMatch
         }
 
         if (locationMatches && dateMatches.getOrElse(false))

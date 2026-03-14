@@ -477,7 +477,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("Troy Parrott of AZ Alkmaar celebrates the late second goal."))
     }
 
-    it("should strip location-date prefix when only city matches (TX vs Texas) with ±1 day timezone tolerance") {
+    it("should strip location-date prefix with ±1 day timezone tolerance within same month") {
       val image = createImageFromMetadata(
         "credit" -> "Getty Images",
         "city" -> "Austin",
@@ -490,6 +490,50 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       val processedImage = applyProcessors(gettyImage)
 
       processedImage.metadata.description should be(Some("(L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."))
+    }
+
+    // Rare variations: some descriptions include year and/or use abbreviated months or dash terminators
+
+    it("should strip location-date prefix with 'MONTH DAY, YEAR:' format") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Catherine, Princess of Wales leaves after a visit."))
+    }
+
+    it("should strip location-date prefix with abbreviated month and 'MON DAY, YEAR - ' dash terminator") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2024-12-19T12:38:22.000Z",
+        "description" -> "LONDON, UNITED KINGDOM - DEC 19, 2024 - Fears that Soho Parish Primary School may close."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Fears that Soho Parish Primary School may close."))
+    }
+
+    it("should not strip location-date prefix when year in description does not match dateTaken") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."))
     }
 
     it("should not strip location-date prefix when no location fields match") {
