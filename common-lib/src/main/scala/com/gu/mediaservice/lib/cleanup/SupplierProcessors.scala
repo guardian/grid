@@ -441,20 +441,42 @@ object GettyXmpParser extends ImageProcessor {
     }
   }
 
+  /**
+    * Apply the standard byline cleaners to a byline extracted from a description string.
+    * These cleaners normally run in MetadataCleaners before SupplierProcessors, so extracted
+    * bylines need to go through them explicitly.
+    */
+  private def cleanExtractedByline(byline: String): String = {
+    val metadata = ImageMetadata(byline = Some(byline))
+    val cleaned = List[MetadataCleaner](
+      GuardianStyleByline,
+      CapitaliseByline,
+      InitialJoinerByline,
+      PhotographerRenamer
+    ).foldLeft(metadata) { (m, cleaner) => cleaner.clean(m) }
+    cleaned.byline.getOrElse(byline)
+  }
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
 
       // Fix misplaced byline/credit before cleaning description
-      val (fixedByline, fixedCredit) = image.metadata.description.map(d =>
+      val (rawFixedByline, fixedCredit) = image.metadata.description.map(d =>
         fixMisplacedBylineCredit(d, image.metadata.byline, image.metadata.credit)
       ).getOrElse((image.metadata.byline, image.metadata.credit))
 
+      // Clean description using raw (uncleaned) byline so matching still works against description text
       val cleanedDescription = image.metadata.description
-        .map(d => cleanDescription(d, fixedByline, fixedCredit))
+        .map(d => cleanDescription(d, rawFixedByline, fixedCredit))
         .map(d => cleanLocationDatePrefix(d, image.metadata.dateTaken,
           image.metadata.subLocation, image.metadata.city, image.metadata.state, image.metadata.country))
+
+      // If byline was extracted from description, run standard byline cleaners on it
+      val bylineWasExtracted = rawFixedByline != image.metadata.byline
+      val fixedByline = if (bylineWasExtracted) rawFixedByline.map(cleanExtractedByline) else rawFixedByline
+
       image.copy(
         usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one

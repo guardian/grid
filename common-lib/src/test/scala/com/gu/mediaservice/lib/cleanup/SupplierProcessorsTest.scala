@@ -592,6 +592,48 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
     }
 
+    it("should clean extracted byline with InitialJoiner (C.P. Scott → CP Scott)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "SomeAgency",
+        "description" -> "A photo. (Photo by C.P. Scott/SomeAgency via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("CP Scott"))
+      processedImage.metadata.credit should be(Some("SomeAgency/Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
+    it("should clean extracted byline with CapitaliseByline (MIKE VAN DIEM → Mike van Diem)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "SomeAgency",
+        "description" -> "A photo. (Photo by MIKE VAN DIEM/SomeAgency via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Mike van Diem"))
+      processedImage.metadata.credit should be(Some("SomeAgency/Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
+    it("should clean extracted byline with PhotographerRenamer (Behcet Alkan → Behçet Alkan)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Anadolu",
+        "description" -> "A photo. (Photo by Behcet Alkan/Anadolu via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Behçet Alkan"))
+      processedImage.metadata.credit should be(Some("Anadolu/Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
   }
 
   describe("PA") {
