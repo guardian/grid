@@ -634,6 +634,20 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("A photo."))
     }
 
+    it("should handle '(Photo credit should read ...)' variant and apply all cleanup logic") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Future Publishing",
+        "description" -> "An event. (Photo credit should read Matthew Chattle/Future Publishing via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Matthew Chattle"))
+      processedImage.metadata.credit should be(Some("Future Publishing/Getty Images"))
+      processedImage.metadata.description should be(Some("An event."))
+    }
+
   }
 
   describe("PA") {

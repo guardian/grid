@@ -326,7 +326,7 @@ object GettyXmpParser extends ImageProcessor {
     Agencies
       .getWithCollection("getty", suppliersCollection)
 
-  private val PhotoByPattern = """(?i)\s*\(Photo by\s+(.+?)\s*/\s*(.+?)\)\s*$""".r
+  private val PhotoByPattern = """(?i)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*$""".r
 
   private def normalise(s: String): String = s.toLowerCase.replaceAll("[.\\s]+", " ").trim
 
