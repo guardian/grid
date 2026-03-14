@@ -403,12 +403,56 @@ object GettyXmpParser extends ImageProcessor {
     }
   }
 
+  /**
+    * Fix cases where the byline field contains a credit component (e.g. "Anadolu") and the
+    * real photographer name (e.g. "Filip Stevanovic") only appears in the "Photo by" description.
+    *
+    * Example: Description "(Photo by Filip Stevanovic/Anadolu via Getty Images)"
+    *   with Byline = "Anadolu", Credit = "Getty Images"
+    *   becomes Byline = "Filip Stevanovic", Credit = "Anadolu/Getty Images"
+    *
+    * Only applies when prepending the current byline to the current credit exactly matches the
+    * credit string in the description, ensuring correctness.
+    */
+  def fixMisplacedBylineCredit(
+    description: String,
+    byline: Option[String],
+    credit: Option[String]
+  ): (Option[String], Option[String]) = {
+    (byline, credit, PhotoByPattern.findFirstMatchIn(description)) match {
+      case (Some(currentByline), Some(currentCredit), Some(m)) =>
+        val descByline = m.group(1).trim
+        val descCredits = m.group(2).trim
+        val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
+
+        // If current byline already matches the description byline, no fix needed
+        if (normalise(currentByline) == normalise(descByline)) {
+          (byline, credit)
+        } else {
+          // Try: prepend current byline to current credit and see if it matches the description credits
+          val candidateCredit = s"$currentByline/$currentCredit"
+          if (normalise(candidateCredit) == normalise(normalisedDescCredits)) {
+            (Some(descByline), Some(candidateCredit))
+          } else {
+            (byline, credit)
+          }
+        }
+      case _ => (byline, credit)
+    }
+  }
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
+
+      // Fix misplaced byline/credit before cleaning description
+      val (fixedByline, fixedCredit) = image.metadata.description.map(d =>
+        fixMisplacedBylineCredit(d, image.metadata.byline, image.metadata.credit)
+      ).getOrElse((image.metadata.byline, image.metadata.credit))
+
       val cleanedDescription = image.metadata.description
-        .map(d => cleanDescription(d, image.metadata.byline, image.metadata.credit))
+        .map(d => cleanDescription(d, fixedByline, fixedCredit))
         .map(d => cleanLocationDatePrefix(d, image.metadata.dateTaken,
           image.metadata.subLocation, image.metadata.city, image.metadata.state, image.metadata.country))
       image.copy(
@@ -416,7 +460,8 @@ object GettyXmpParser extends ImageProcessor {
         // Set a default "credit" for when Getty is too lazy to provide one
         metadata = image.metadata.copy(
           description = cleanedDescription,
-          credit = Some(image.metadata.credit.getOrElse("Getty Images")),
+          byline = fixedByline,
+          credit = Some(fixedCredit.getOrElse("Getty Images")),
           suppliersReference = getSuppliersReference(image)
         )
       )

@@ -536,6 +536,62 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("Chris Gotterup plays his tee shot on the 15th hole."))
     }
 
+    it("should fix misplaced byline and clean description when byline is actually a credit component (Anadolu)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Anadolu",
+        "description" -> "Some event. (Photo by Filip Stevanovic/Anadolu via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Filip Stevanovic"))
+      processedImage.metadata.credit should be(Some("Anadolu/Getty Images"))
+      processedImage.metadata.description should be(Some("Some event."))
+    }
+
+    it("should fix misplaced byline and clean description when byline is actually a credit component (VCG)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "VCG",
+        "description" -> "A scene. (Photo by Ye Huan/VCG via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Ye Huan"))
+      processedImage.metadata.credit should be(Some("VCG/Getty Images"))
+      processedImage.metadata.description should be(Some("A scene."))
+    }
+
+    it("should not fix byline when it already matches the description byline") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "description" -> "A shot. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("David Cannon"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
+      processedImage.metadata.description should be(Some("A shot."))
+    }
+
+    it("should not fix byline when prepending it to credit does not match description credits") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Someone Else",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Someone Else"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
   }
 
   describe("PA") {
