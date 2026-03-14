@@ -690,17 +690,17 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("A photo."))
     }
 
-    it("should clean extracted byline with PhotographerRenamer (Behcet Alkan → Behçet Alkan)") {
+    it("should clean extracted byline with PhotographerRenamer and match despite diacritics (Behcet → Behçet)") {
       val image = createImageFromMetadata(
         "credit" -> "Getty Images",
-        "byline" -> "Anadolu",
-        "description" -> "A photo. (Photo by Behcet Alkan/Anadolu via Getty Images)"
+        "byline" -> "Behçet Alkan",
+        "description" -> "A photo. (Photo by Behcet Alkan/Getty Images)"
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
 
       processedImage.metadata.byline should be(Some("Behçet Alkan"))
-      processedImage.metadata.credit should be(Some("Anadolu/Getty Images"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
       processedImage.metadata.description should be(Some("A photo."))
     }
 

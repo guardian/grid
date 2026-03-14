@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
 
+import java.text.Normalizer
 import scala.util.matching.Regex
 
 /**
@@ -328,7 +329,10 @@ object GettyXmpParser extends ImageProcessor {
 
   private val PhotoByPattern = """(?i)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*(.*)$""".r
 
-  private def normalise(s: String): String = s.toLowerCase.replaceAll("[.\\s]+", " ").trim
+  private def normalise(s: String): String = {
+    val folded = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+    folded.toLowerCase.replaceAll("[.\\s]+", " ").trim
+  }
 
   /**
     * Remove the "(Photo by [Byline] / [Credit(s)])" from the description
