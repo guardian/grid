@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
+import java.text.Normalizer
+
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
@@ -264,8 +266,19 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
 
 object ApParser extends ImageProcessor {
-  val InvisionFor = "^invision for (.+)".r
-  val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
+  val TrailingSlashAp = "(?i)^(.+)/ap$".r
+  val TrailingViaAp = "(?i)^(.+)\\s+via ap$".r
+  val ApImagesCredit = "(?i)^ap images.*".r
+  val BareInvision = "(?i)^invision(\\s+for\\s+.+)?$".r
+
+  /** Normalise a string for fuzzy matching: strip diacritics, lowercase, collapse whitespace/dots */
+  def normalise(s: String): String =
+    Normalizer.normalize(s, Normalizer.Form.NFD)
+      .replaceAll("\\p{M}", "")
+      .toLowerCase
+      .replaceAll("[.]+", " ")
+      .replaceAll("\\s+", " ")
+      .trim
 
   def getSuppliersReference(image: Image) = {
     image.fileMetadata.readXmpHeadStringProp("plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
@@ -274,18 +287,202 @@ object ApParser extends ImageProcessor {
     // But that field is json so let's not.
   }
 
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("ap") | Some("associated press") => image.copy(
-      usageRights = Agency("AP"),
-      metadata    = image.metadata.copy(credit = Some("AP"), suppliersReference = getSuppliersReference(image))
-    )
-    case Some("invision") | Some("invision/ap") |
-         Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
-      usageRights = Agency("AP", Some("Invision")),
-      metadata = image.metadata.copy(suppliersReference = getSuppliersReference(image))
-    )
-    case _ => image
+  // Source values that should never become intermediary in Credit
+  val sourceIgnoreList: Set[String] = Set(
+    "ap", "associated press", "ap files", "aptn", "wire",
+    "mlbpv ap", "file", "files", "str",
+    "print", "digital camera", "ho", "agoev"
+  ).map(normalise)
+
+  // FR-pattern sources (e.g. "FR159526 AP", "FR172078") → treat as plain AP (no intermediary)
+  val FrSource = "(?i)^FR\\d{1,7}(\\s+AP)?$".r
+
+  // Source rename map: maps raw Source values to the desired display name for Credit.
+  // Keys are normalised at creation time for case-insensitive lookup.
+  val sourceRenameMap: Map[String, String] = Map(
+    "CP" -> "The Canadian Press",
+    "DPA" -> "dpa",
+    "KEYSTONE" -> "Keystone",
+    "Pool Sputnik Kremlin" -> "Sputnik/Kremlin",
+    "Pool Sputnik Government" -> "Sputnik/Kremlin",
+    "Pool Presidential Press Service" -> "Presidential Press Service",
+    "KCNA via KNS" -> "KCNA/KNS",
+    "CHINATOPIX" -> "Chinatopix",
+    "AAPIMAGE" -> "AAP",
+    "AAP Image" -> "AAP",
+    "AAPImage" -> "AAP",
+    "YONHAP" -> "Yonhap",
+    "A24 Films" -> "A24",
+    "Twentieth Century Fox" -> "20th Century Fox",
+    "XINHUA" -> "Xinhua",
+    "KYODO NEWS" -> "Kyodo News",
+    "PRESSENS BILD" -> "Pressens Bild",
+    "TT NEWS AGENCY" -> "TT News Agency",
+    "COLOR CHINA PHOTO" -> "Color China Photo",
+    "U.S. Central Command" -> "US Central Command",
+    "U.S. Navy" -> "US Navy",
+    "U.S. Army" -> "US Army",
+    "U.S. Air Force" -> "US Air Force",
+    "U.S. Geological Survey" -> "US Geological Survey",
+    "U.S. Coast Guard" -> "US Coast Guard",
+    "U.S. Fish and Wildlife Service" -> "US Fish and Wildlife Service",
+    "U.S. Marine Corps" -> "US Marine Corps",
+    "NASA" -> "Nasa",
+    "NASA TV" -> "Nasa TV",
+    "THE DALLAS MORNING NEWS" -> "The Dallas Morning News",
+    "BERLINALE" -> "Berlinale",
+    "COLUMBIA PICTURES" -> "Columbia Pictures",
+    "Disney Plus" -> "Disney+",
+    "FOTOPRESS" -> "Fotopress",
+    "Getty" -> "Getty Images",
+    "Olympic Information Services OIS" -> "OIS/IOC",
+    "SHIYO" -> "Yomiuri Shimbun"
+  ).map { case (k, v) => normalise(k) -> v }
+
+  /** Strip "Pool" from any position in a source string, cleaning up leftover delimiters */
+  private def stripPool(source: String): String =
+    source.replaceAll("(?i)\\bpool\\b", "").replaceAll("^[\\s/]+|[\\s/]+$", "").trim
+
+  /** Determine intermediary name from Source field */
+  def getIntermediary(source: Option[String]): Option[String] = source.flatMap { src =>
+    val srcTrimmed = src.trim
+    val srcNorm = normalise(srcTrimmed)
+
+    if (sourceIgnoreList.contains(srcNorm)) None
+    else if (FrSource.findFirstMatchIn(srcTrimmed).isDefined) None
+    else sourceRenameMap.get(srcNorm) match {
+      // Full source found in rename map (handles Sputnik, Presidential Press Service, etc.)
+      case Some(renamed) => Some(renamed)
+      case None if srcNorm.contains("pool") =>
+        // Strip "Pool" from source, use remaining agency as intermediary
+        // e.g. "Pool EPA" → "EPA", "AFP Pool" → "AFP", "POOL AP" → "AP" → ignored
+        val rest = stripPool(srcTrimmed)
+        val restNorm = normalise(rest)
+        if (restNorm.isEmpty || sourceIgnoreList.contains(restNorm)) None
+        else sourceRenameMap.get(restNorm).orElse(Some(rest))
+      case None =>
+        // Pass through original casing
+        Some(srcTrimmed)
+    }
   }
+
+  // Description patterns for AP credit trailers
+  val ApPhotoPattern = """(?s)(.*?)\s*\(AP Photo/([^)]+)\)(.*)""".r
+  val PhotoByViaApPattern = """(?s)(.*?)\s*\(Photo by ([^)]+?)\s+via AP([^)]*)\)(.*)""".r
+  val ViaApPattern = """(?s)(.*?)\s*\(([^)]+?)\s+via AP([^)]*)\)(.*)""".r
+  val PhotoByPattern = """(?s)(.*?)\s*\(Photo by ([^)]+)\)(.*)""".r
+
+  /** Extract (before, tokens, after) from a description if it contains a recognised AP credit trailer */
+  private def extractTrailer(description: String): Option[(String, String, String)] =
+    description match {
+      case ApPhotoPattern(before, tokens, after)         => Some((before, tokens, after))
+      case PhotoByViaApPattern(before, tokens, _, after) => Some((before, tokens, after))
+      case ViaApPattern(before, tokens, _, after)        => Some((before, tokens, after))
+      case PhotoByPattern(before, tokens, after)         => Some((before, tokens, after))
+      case _ => None
+    }
+
+  /** Clean AP description credit trailer after verifying tokens appear in byline/credit */
+  def cleanDescription(image: Image, description: String): String =
+    extractTrailer(description) match {
+      case Some((before, tokens, after)) if descriptionTokensAccountedFor(image, tokens) =>
+        (before.trim + " " + after.trim).trim
+      case _ => description
+    }
+
+  /** Check if all meaningful tokens from a description credit trailer are accounted for in byline/credit fields */
+  def descriptionTokensAccountedFor(image: Image, descTokens: String): Boolean = {
+    val bylineNorm = image.metadata.byline.map(normalise).getOrElse("")
+    val creditNorm = image.metadata.credit.map(normalise).getOrElse("")
+    val sourceNorm = image.metadata.source.map(normalise).getOrElse("")
+    val intermediaryNorm = getIntermediary(image.metadata.source).map(normalise).getOrElse("")
+
+    // Split by / and , then strip noise words from within each token
+    val noiseWords = Set("file", "pool", "ap", "photo")
+    val meaningfulTokens = descTokens.split("[/,]").map(_.trim).filter(_.nonEmpty).map { t =>
+      normalise(t).split("\\s+").filterNot(noiseWords.contains).mkString(" ").trim
+    }.filter(_.nonEmpty)
+
+    if (meaningfulTokens.isEmpty) true
+    else {
+      meaningfulTokens.forall { tokenNorm =>
+        bylineNorm.contains(tokenNorm) ||
+          creditNorm.contains(tokenNorm) ||
+          sourceNorm.contains(tokenNorm) ||
+          intermediaryNorm.contains(tokenNorm) ||
+          // Check if the token is a known alias (via sourceRenameMap) for the intermediary
+          // e.g. description says "AAP Image" but intermediary (from Source "AAP") is "AAP"
+          sourceRenameMap.get(tokenNorm).exists(renamed => normalise(renamed) == intermediaryNorm)
+      }
+    }
+  }
+
+  def isApCredit(credit: String): Boolean = {
+    val lc = credit.toLowerCase.trim
+    lc == "ap" || lc == "associated press"
+  }
+
+  def isBareInvisionCredit(credit: String): Boolean =
+    BareInvision.findFirstMatchIn(credit.trim).isDefined
+
+  def isTrailingApCredit(credit: String): Boolean =
+    TrailingSlashAp.findFirstMatchIn(credit.trim).isDefined
+
+  def isViaApCredit(credit: String): Boolean =
+    TrailingViaAp.findFirstMatchIn(credit.trim).isDefined
+
+  def isApImagesCredit(credit: String): Boolean =
+    ApImagesCredit.findFirstMatchIn(credit.trim).isDefined
+
+  def apply(image: Image): Image = {
+    val credit = image.metadata.credit.getOrElse("")
+
+    if (isApCredit(credit) || isTrailingApCredit(credit) || isViaApCredit(credit) || isBareInvisionCredit(credit)) {
+      // Core AP image, intermediary/AP, intermediary via AP, or bare Invision
+      // Primary: derive intermediary from Source field
+      // Fallback: extract from credit pattern (e.g. "NurPhoto/AP" → "NurPhoto", "Invision" → "Invision")
+      val sourceIntermediary = getIntermediary(image.metadata.source).filterNot { i =>
+        // Don't use Source as intermediary if it's just the photographer's byline
+        image.metadata.byline.exists(b => normalise(b) == normalise(i))
+      }
+      val creditIntermediary = credit.trim match {
+        case TrailingSlashAp(before) => Some(before.trim)
+        case TrailingViaAp(before)   => Some(before.trim)
+        case c if isBareInvisionCredit(c) => Some(c)
+        case _ => None
+      }
+      val intermediary = sourceIntermediary.orElse(creditIntermediary)
+      val newCredit = intermediary match {
+        case Some(i) => s"$i/AP"
+        case None    => "AP"
+      }
+
+      // Clean description
+      val newDescription = image.metadata.description.map(desc => cleanDescription(image, desc))
+
+      image.copy(
+        usageRights = Agency("AP", intermediary),
+        metadata = image.metadata.copy(
+          credit = Some(newCredit),
+          description = newDescription.orElse(image.metadata.description),
+          suppliersReference = getSuppliersReference(image)
+        )
+      )
+    } else if (isApImagesCredit(credit)) {
+      // AP Images — keep original credit (it's descriptive, e.g. "AP Images for Delta Air Lines")
+      val newDescription = image.metadata.description.map(desc => cleanDescription(image, desc))
+      image.copy(
+        usageRights = Agency("AP", Some("AP Images")),
+        metadata = image.metadata.copy(
+          description = newDescription,
+          suppliersReference = getSuppliersReference(image)
+        )
+      )
+    } else {
+      image
+    }
+  }
+
 }
 
 object CorbisParser extends ImageProcessor {
