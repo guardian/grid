@@ -259,6 +259,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
   }
 
   describe("AP") {
+    // === Detection: existing credit matches ===
     it("should match AP credit") {
       val image = createImageFromMetadata("credit" -> "AP")
       val processedImage = applyProcessors(image)
@@ -273,33 +274,219 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("AP"))
     }
 
-    it("should match ASSOCIATED PRESS credit") {
-      val image = createImageFromMetadata("credit" -> "ASSOCIATED PRESS")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("AP"))
-      processedImage.metadata.credit should be(Some("AP"))
-    }
 
     it("should match Invision credit") {
       val image = createImageFromMetadata("credit" -> "Invision")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("AP", Some("Invision")))
-      processedImage.metadata.credit should be(Some("Invision"))
+      processedImage.metadata.credit should be(Some("Invision/AP"))
     }
 
     it("should match Invision for ___ credit") {
       val image = createImageFromMetadata("credit" -> "Invision for Quaker")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("AP", Some("Invision")))
-      processedImage.metadata.credit should be(Some("Invision for Quaker"))
+      processedImage.usageRights should be(Agency("AP", Some("Invision for Quaker")))
+      processedImage.metadata.credit should be(Some("Invision for Quaker/AP"))
     }
 
     it("should match __/Invision/AP credit") {
       val image = createImageFromMetadata("credit" -> "Andy Kropa /Invision/AP")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("AP", Some("Invision")))
+      processedImage.usageRights should be(Agency("AP", Some("Andy Kropa /Invision")))
       processedImage.metadata.credit should be(Some("Andy Kropa /Invision/AP"))
     }
+
+    // === Detection: NEW broadened credit matches ===
+    it("should match credit ending with /AP (e.g. NurPhoto/AP)") {
+      val image = createImageFromMetadata("credit" -> "NurPhoto/AP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("NurPhoto")))
+      processedImage.metadata.credit should be(Some("NurPhoto/AP"))
+    }
+
+
+    it("should match credit 'via AP' (e.g. Sputnik via AP)") {
+      val image = createImageFromMetadata("credit" -> "Sputnik via AP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Sputnik")))
+      processedImage.metadata.credit should be(Some("Sputnik/AP"))
+    }
+
+    it("should match AP Images credit and keep original credit") {
+      val image = createImageFromMetadata("credit" -> "AP Images for Delta Air Lines")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("AP Images")))
+      processedImage.metadata.credit should be(Some("AP Images for Delta Air Lines"))
+    }
+
+    // === Source-based intermediary in Credit ===
+    it("should set intermediary from Source field and clean description") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "DPA",
+        "byline" -> "Kay Nietfeld",
+        "description" -> "Some event. (Kay Nietfeld/dpa via AP)")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("dpa")))
+      processedImage.metadata.credit should be(Some("dpa/AP"))
+      processedImage.metadata.description should be(Some("Some event."))
+    }
+
+    it("should rename Source 'CP' to 'The Canadian Press'") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "CP")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("The Canadian Press/AP"))
+    }
+
+    // === Source ignore list ===
+    it("should NOT set intermediary for ignored Source 'Wire'") {
+      val image = createImageFromMetadata("credit" -> "Associated Press", "source" -> "Wire")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AP"))
+    }
+
+    // === FR-pattern sources ===
+    it("should NOT set intermediary for FR-pattern Source (e.g. FR159526 AP)") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "FR159526 AP")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AP"))
+    }
+
+    // === Pool handling ===
+    it("should NOT set intermediary for Pool AP and should clean description") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool AP",
+        "byline" -> "Hiro Komae",
+        "description" -> "PM speaks. (AP Photo/Hiro Komae, Pool)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AP"))
+      processedImage.metadata.description should be(Some("PM speaks."))
+    }
+
+    it("should set intermediary for Pool AFP source (strip Pool, keep AFP)") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool AFP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("AFP")))
+      processedImage.metadata.credit should be(Some("AFP/AP"))
+    }
+
+    it("should NOT set intermediary for POOL alone") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "POOL")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AP"))
+    }
+
+    it("should handle Pool/WPA source without leading slash in credit") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool/WPA")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("WPA/AP"))
+    }
+
+    it("should rename Pool Getty to Getty Images/AP") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool Getty")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Getty Images")))
+      processedImage.metadata.credit should be(Some("Getty Images/AP"))
+    }
+
+    // === Sputnik special case ===
+    it("should handle Pool Sputnik Kremlin → Sputnik/Kremlin via rename map") {
+      val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool Sputnik Kremlin",
+        "byline" -> "Alexei Druzhinin",
+        "description" -> "Putin in Siberia. (Alexei Druzhinin, Sputnik, Kremlin Pool Photo via AP)")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Sputnik/Kremlin")))
+      processedImage.metadata.credit should be(Some("Sputnik/Kremlin/AP"))
+      processedImage.metadata.description should be(Some("Putin in Siberia."))
+    }
+
+    // === Description cleanup ===
+    it("should clean (AP Photo/Byline) from description when byline matches") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP",
+        "byline" -> "Matt Dunham",
+        "description" -> "British PM speaks at 10 Downing Street. (AP Photo/Matt Dunham)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.description should be(Some("British PM speaks at 10 Downing Street."))
+    }
+
+    it("should clean (Photo by Byline/Invision/AP, File) from description") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP",
+        "byline" -> "Chris Pizzello",
+        "source" -> "Invision",
+        "description" -> "FILE - Filmmaker poses. (Photo by Chris Pizzello/Invision/AP, File)")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Invision")))
+      processedImage.metadata.description should be(Some("FILE - Filmmaker poses."))
+    }
+
+
+    it("should clean (Photo by Byline/Agency via AP) from description") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP", "source" -> "LaPresse",
+        "byline" -> "Antonio Saia",
+        "description" -> "A match in Rome. (Photo by Antonio Saia/LaPresse via AP)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("LaPresse/AP"))
+      processedImage.metadata.description should be(Some("A match in Rome."))
+    }
+
+
+    it("should clean (Byline/Agency via AP) with trailing text preserved") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP", "source" -> "LaPresse",
+        "byline" -> "Alessandro Garofalo",
+        "description" -> "A soccer match. (Alessandro Garofalo/LaPresse via AP) More text here.")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.description should be(Some("A soccer match. More text here."))
+    }
+
+    it("should NOT clean description with unaccounted tokens for any pattern") {
+      val descriptions = Seq(
+        "An event. (AP Photo/Unknown Person)",
+        "An event. (Unknown Person via AP)",
+        "An event. (Photo by Unknown Person)",
+        "An event. (Photo by Unknown Person/SomeAgency via AP)"
+      )
+      descriptions.foreach { description =>
+        val image = createImageFromMetadata(
+          "credit" -> "AP",
+          "byline" -> "Someone Else",
+          "description" -> description)
+        val processedImage = applyProcessors(image)
+        processedImage.metadata.description should be(Some(description))
+      }
+    }
+
+    it("should NOT use Source as intermediary when it matches the Byline") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP", "source" -> "Athena Walsh",
+        "byline" -> "Athena Walsh",
+        "description" -> "A scene in Dublin. (Athena Walsh via AP)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AP"))
+      processedImage.metadata.description should be(Some("A scene in Dublin."))
+    }
+
+
+    // === Diacritic/ASCII-folding in byline matching ===
+    it("should match bylines with diacritics when description uses ASCII (e.g. José vs Jose)") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP",
+        "byline" -> "José Luis Magaña",
+        "description" -> "Protesters march. (AP Photo/Jose Luis Magana)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.description should be(Some("Protesters march."))
+    }
+
+    it("should clean description when token is a rename-map alias for the intermediary (AAP Image → AAP)") {
+      val image = createImageFromMetadata(
+        "credit" -> "AP", "source" -> "AAP",
+        "byline" -> "Mick Tsikas",
+        "description" -> "PM speaks at Parliament House. (Mick Tsikas/AAP Image via AP)")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be(Some("AAP/AP"))
+      processedImage.metadata.description should be(Some("PM speaks at Parliament House."))
+    }
+
   }
 
 
