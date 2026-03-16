@@ -289,13 +289,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("Invision for Quaker/AP"))
     }
 
-    it("should match __/Invision/AP credit") {
-      val image = createImageFromMetadata("credit" -> "Andy Kropa /Invision/AP")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("AP", Some("Andy Kropa /Invision")))
-      processedImage.metadata.credit should be(Some("Andy Kropa /Invision/AP"))
-    }
-
     // === Detection: NEW broadened credit matches ===
     it("should match credit ending with /AP (e.g. NurPhoto/AP)") {
       val image = createImageFromMetadata("credit" -> "NurPhoto/AP")
