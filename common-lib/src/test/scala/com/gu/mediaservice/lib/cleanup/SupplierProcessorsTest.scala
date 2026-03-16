@@ -274,7 +274,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("AP"))
     }
 
-
     it("should match Invision credit") {
       val image = createImageFromMetadata("credit" -> "Invision")
       val processedImage = applyProcessors(image)
@@ -296,7 +295,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.usageRights should be(Agency("AP", Some("NurPhoto")))
       processedImage.metadata.credit should be(Some("NurPhoto/AP"))
     }
-
 
     it("should match credit 'via AP' (e.g. Sputnik via AP)") {
       val image = createImageFromMetadata("credit" -> "Sputnik via AP")
@@ -411,7 +409,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("FILE - Filmmaker poses."))
     }
 
-
     it("should clean (Photo by Byline/Agency via AP) from description") {
       val image = createImageFromMetadata(
         "credit" -> "AP", "source" -> "LaPresse",
@@ -421,7 +418,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("LaPresse/AP"))
       processedImage.metadata.description should be(Some("A match in Rome."))
     }
-
 
     it("should clean (Byline/Agency via AP) with trailing text preserved") {
       val image = createImageFromMetadata(
@@ -458,7 +454,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("AP"))
       processedImage.metadata.description should be(Some("A scene in Dublin."))
     }
-
 
     // === Diacritic/ASCII-folding in byline matching ===
     it("should match bylines with diacritics when description uses ASCII (e.g. José vs Jose)") {

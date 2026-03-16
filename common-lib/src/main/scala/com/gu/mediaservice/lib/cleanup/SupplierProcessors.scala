@@ -294,6 +294,9 @@ object ApParser extends ImageProcessor {
     "print", "digital camera", "ho", "agoev"
   ).map(normalise)
 
+  // Words stripped from description tokens before matching (e.g. "Kremlin Pool Photo" → "Kremlin")
+  val noiseWords: Set[String] = Set("file", "pool", "ap", "photo")
+
   // FR-pattern sources (e.g. "FR159526 AP", "FR172078") → treat as plain AP (no intermediary)
   val FrSource = "(?i)^FR\\d{1,7}(\\s+AP)?$".r
 
@@ -310,7 +313,6 @@ object ApParser extends ImageProcessor {
     "CHINATOPIX" -> "Chinatopix",
     "AAPIMAGE" -> "AAP",
     "AAP Image" -> "AAP",
-    "AAPImage" -> "AAP",
     "YONHAP" -> "Yonhap",
     "A24 Films" -> "A24",
     "Twentieth Century Fox" -> "20th Century Fox",
@@ -398,7 +400,6 @@ object ApParser extends ImageProcessor {
     val intermediaryNorm = getIntermediary(image.metadata.source).map(normalise).getOrElse("")
 
     // Split by / and , then strip noise words from within each token
-    val noiseWords = Set("file", "pool", "ap", "photo")
     val meaningfulTokens = descTokens.split("[/,]").map(_.trim).filter(_.nonEmpty).map { t =>
       normalise(t).split("\\s+").filterNot(noiseWords.contains).mkString(" ").trim
     }.filter(_.nonEmpty)
