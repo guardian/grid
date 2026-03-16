@@ -33,6 +33,13 @@ import {
 	PutRecordsRequestEntry,
 	PutRecordsResultEntry,
 } from '@aws-sdk/client-kinesis';
+import {
+  FetchedImage,
+  KinesisFailureEntry,
+  SQSMessageBody,
+  UpdateEmbeddingMessage,
+  ValidVector
+} from "./models";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
@@ -75,25 +82,7 @@ const s3Client = new S3Client({
 });
 const s3VectorsClient = new S3VectorsClient({ region: 'eu-central-1' });
 
-export interface SQSMessageBody {
-	imageId: string;
-	s3Bucket: string;
-	s3Key: string;
-	fileType: string;
-}
 
-interface CohereV3Embedding {
-	image: number[];
-}
-
-interface Embedding {
-	cohereEmbedEnglishV3: CohereV3Embedding;
-}
-
-export interface FetchedImage {
-	bytes: Uint8Array;
-	mimeType: string;
-}
 
 // For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
 // Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
@@ -261,38 +250,6 @@ async function fetchCachedDownscaledImage(
 		console.log(`Cache miss: no downscaled image for ${imageId}`);
 	}
 	return bytes;
-}
-
-// Message format matching Scala's ExternalThrallMessage serialisation.
-// Play JSON uses a `_type` discriminator field with the fully qualified class name.
-interface UpdateEmbeddingMessage {
-	_type: 'com.gu.mediaservice.model.UpdateEmbeddingMessage';
-	lastModified: string;
-	id: string;
-	embedding: Embedding;
-}
-
-// A successful Kinesis result always has SequenceNumber and ShardId.
-// A failed result always has ErrorCode and ErrorMessage.
-// Every record is one or the other.
-interface KinesisSuccessEntry extends PutRecordsResultEntry {
-	SequenceNumber: string;
-	ShardId: string;
-	ErrorCode?: undefined;
-	ErrorMessage?: undefined;
-}
-
-interface KinesisFailureEntry extends PutRecordsResultEntry {
-	SequenceNumber?: undefined;
-	ShardId?: undefined;
-	ErrorCode: string;
-	ErrorMessage: string;
-}
-
-// A PutInputVector with guaranteed key and float32 data.
-interface ValidVector extends PutInputVector {
-	key: string;
-	data: { float32: number[] };
 }
 
 async function sendEmbeddingsToKinesis(
