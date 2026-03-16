@@ -22,11 +22,6 @@ export interface Embedding {
   cohereEmbedEnglishV3: CohereV3Embedding;
 }
 
-export interface FetchedImage {
-  bytes: Uint8Array;
-  mimeType: string;
-}
-
 // Message format matching Scala's ExternalThrallMessage serialisation.
 // Play JSON uses a `_type` discriminator field with the fully qualified class name.
 export interface UpdateEmbeddingMessage {

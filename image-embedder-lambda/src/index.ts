@@ -14,10 +14,6 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import sharp from 'sharp';
 import {
-	GetObjectCommand,
-	GetObjectCommandOutput,
-	GetObjectRequest,
-	PutObjectCommand,
 	S3Client,
 } from '@aws-sdk/client-s3';
 import {
@@ -26,7 +22,6 @@ import {
 	PutVectorsCommandInput,
 	S3VectorsClient,
 } from '@aws-sdk/client-s3vectors';
-import { MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4 } from './constants';
 import {
 	KinesisClient,
 	PutRecordsCommand,
@@ -40,6 +35,8 @@ import {
   UpdateEmbeddingMessage,
   ValidVector
 } from "./models";
+import {CachedImageResolver, ImageResolver, S3ImageResolver} from "./imageResolver";
+import {S3Fetcher} from "./s3Fetcher";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
@@ -82,81 +79,6 @@ const s3Client = new S3Client({
 });
 const s3VectorsClient = new S3VectorsClient({ region: 'eu-central-1' });
 
-
-
-// For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
-// Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
-export async function fetchImage(
-	message: SQSMessageBody,
-	client: S3Client,
-): Promise<FetchedImage> {
-	const isAlreadyOptimised = message.s3Key.startsWith('optimised/');
-	const shouldCheckForOptimised =
-		message.fileType === 'image/tiff' || message.fileType === 'image/png';
-
-	if (shouldCheckForOptimised && !isAlreadyOptimised) {
-		const optimisedKey = `optimised/${message.s3Key}`;
-		const bytes = await getImageFromS3(message.s3Bucket, optimisedKey, client);
-		if (bytes) {
-			console.log(`Using optimised PNG for ${message.imageId}`);
-			return { bytes, mimeType: 'image/png' };
-		}
-		console.log(
-			`No optimised PNG for ${message.imageId}, falling back to original`,
-		);
-	}
-
-	if (message.fileType === 'image/tiff') {
-		throw new Error(
-			`Unsupported file type: image/tiff for image ${message.imageId} (no optimised PNG found)`,
-		);
-	}
-
-	const bytes = await getImageFromS3(message.s3Bucket, message.s3Key, client);
-	if (!bytes) {
-		throw new Error(
-			`Failed to retrieve image from S3 for image ${message.imageId}`,
-		);
-	}
-
-	return { bytes, mimeType: message.fileType };
-}
-
-export async function getImageFromS3(
-	s3Bucket: string,
-	s3Key: string,
-	client: S3Client,
-): Promise<Uint8Array | undefined> {
-	const input: GetObjectRequest = {
-		Bucket: s3Bucket,
-		Key: s3Key,
-	};
-
-	const logSuffix = `(bucket = ${s3Bucket}, key = ${s3Key})`;
-	console.log(`Fetching image from S3 ${logSuffix}`);
-	try {
-		const command = new GetObjectCommand(input);
-		const response: GetObjectCommandOutput = await client.send(command);
-
-		if (!response.Body) {
-			console.warn(`No body in S3 response ${logSuffix}`);
-			return undefined;
-		}
-
-		const bytes = await response.Body.transformToByteArray();
-		console.log(
-			`Fetched image: ${bytes.length.toLocaleString()} bytes ${logSuffix}`,
-		);
-		return bytes;
-	} catch (error) {
-		if (error instanceof Error && error.name === 'NoSuchKey') {
-			console.log(`No object found in S3 ${logSuffix}`);
-		} else {
-			console.error(`Failed to fetch from S3 ${logSuffix}: `, error);
-		}
-		return undefined;
-	}
-}
 
 export async function downscaleImageIfNeeded(
 	imageBytes: Uint8Array,
@@ -222,34 +144,6 @@ export async function downscaleImageIfNeeded(
 	);
 
 	return result;
-}
-
-// Matches the partitioned key structure used by Grid's image bucket for S3 performance at scale
-// e.g. imageId "51bfb4107d1640aa74c45aaa51985e4e03852440" → "5/1/b/f/b/4/51bfb4107d1640aa74c45aaa51985e4e03852440"
-function toPartitionedKey(imageId: string): string {
-	const prefix = imageId.slice(0, 6).split('').join('/');
-	return `${prefix}/${imageId}`;
-}
-
-async function fetchCachedDownscaledImage(
-	imageId: string,
-	client: S3Client,
-): Promise<Uint8Array | undefined> {
-	if (!DOWNSCALED_IMAGE_BUCKET) {
-		console.log(`No downscaled image bucket configured, skipping cache lookup`);
-		return undefined;
-	}
-
-	const key = toPartitionedKey(imageId);
-	const bytes = await getImageFromS3(DOWNSCALED_IMAGE_BUCKET, key, client);
-	if (bytes) {
-		console.log(
-			`Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
-		);
-	} else {
-		console.log(`Cache miss: no downscaled image for ${imageId}`);
-	}
-	return bytes;
 }
 
 async function sendEmbeddingsToKinesis(
@@ -335,65 +229,7 @@ async function putRecordsToKinesis(
 	}
 }
 
-async function cacheDownscaledImage(
-	imageId: string,
-	imageBytes: Uint8Array,
-	mimeType: string,
-	client: S3Client,
-): Promise<void> {
-	if (!DOWNSCALED_IMAGE_BUCKET) {
-		console.log(
-			'No DOWNSCALED_IMAGE_BUCKET set, will not cache downscaled image',
-		);
-		return;
-	}
 
-	const key = toPartitionedKey(imageId);
-	try {
-		const command = new PutObjectCommand({
-			Bucket: DOWNSCALED_IMAGE_BUCKET,
-			Key: key,
-			Body: imageBytes,
-			ContentType: mimeType,
-		});
-		await client.send(command);
-		console.log(
-			`Cached downscaled image for ${imageId} (${imageBytes.length.toLocaleString()} bytes)`,
-		);
-	} catch (error) {
-		// Log but don't throw - cache failures shouldn't break the pipeline
-		console.warn(`Failed to cache downscaled image for ${imageId}:`, error);
-	}
-}
-
-export async function fetchImageAndDownscaleIfNeeded(
-	message: SQSMessageBody,
-	client: S3Client,
-): Promise<FetchedImage> {
-	// The mimeType of fully-processed (downscaled/converted) images is deterministic:
-	// TIFFs are always served as their optimised PNG, all others keep their original format.
-	const processedMimeType =
-		message.fileType === 'image/tiff' ? 'image/png' : message.fileType;
-
-	const cachedBytes = await fetchCachedDownscaledImage(message.imageId, client);
-	if (cachedBytes) {
-		return { bytes: cachedBytes, mimeType: processedMimeType };
-	}
-
-	const { bytes, mimeType } = await fetchImage(message, client);
-	const downscaled = await downscaleImageIfNeeded(
-		bytes,
-		mimeType,
-		MAX_IMAGE_SIZE_BYTES,
-		MAX_PIXELS_COHERE_V4,
-	);
-
-	if (downscaled !== bytes) {
-		await cacheDownscaledImage(message.imageId, downscaled, mimeType, client);
-	}
-
-	return { bytes: downscaled, mimeType };
-}
 
 export async function embedImage(
 	imageBytes: Uint8Array,
@@ -473,7 +309,7 @@ export interface GenerateVectorsResult {
 
 export async function generateVectors(
 	records: SQSRecord[],
-	s3Client: S3Client,
+	imageResolver: ImageResolver,
 	bedrockClient: BedrockRuntimeClient,
 ): Promise<GenerateVectorsResult> {
 	console.log(`Processing ${records.length} SQS records`);
@@ -490,7 +326,7 @@ export async function generateVectors(
 			const recordBody: SQSMessageBody = JSON.parse(record.body);
 
 			const { bytes: gridImageBytes, mimeType: imageMimeType } =
-				await fetchImageAndDownscaleIfNeeded(recordBody, s3Client);
+				await imageResolver.fetchImage(recordBody);
 
 			const embeddingResponse = await embedImage(
 				gridImageBytes,
@@ -558,8 +394,16 @@ export const handler = async (
 		`BedrockRuntimeClient created in ${bedrockClientDuration.toFixed(2)}ms`,
 	);
 
+  const s3Fetcher = new S3Fetcher(s3Client);
+  const imageResolver = new CachedImageResolver(
+    new S3ImageResolver(s3Fetcher),
+    s3Fetcher,
+    s3Client,
+    DOWNSCALED_IMAGE_BUCKET,
+  )
+
 	const { vectors, batchItemFailures, imageIdToMessageId } =
-		await generateVectors(event.Records, s3Client, bedrockClient);
+		await generateVectors(event.Records, imageResolver, bedrockClient);
 
 	if (vectors.length > 0) {
 		await sendEmbeddingsToKinesis(
