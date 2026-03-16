@@ -464,7 +464,7 @@ object ApParser extends ImageProcessor {
         usageRights = Agency("AP", intermediary),
         metadata = image.metadata.copy(
           credit = Some(newCredit),
-          description = newDescription.orElse(image.metadata.description),
+          description = newDescription,
           suppliersReference = getSuppliersReference(image)
         )
       )
