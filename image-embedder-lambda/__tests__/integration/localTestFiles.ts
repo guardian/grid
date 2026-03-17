@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { S3Client } from '@aws-sdk/client-s3';
-import { getImageFromS3 } from '../../src/index';
+import {S3Fetcher} from "../../src/s3Fetcher";
 
 const CACHE_DIR = path.join(__dirname, 'test-data', 'input');
 const OUTPUT_DIR = path.join(__dirname, 'test-data', 'output');
@@ -28,6 +28,7 @@ export async function getTestImage(
 	s3Client: S3Client,
 ): Promise<Uint8Array> {
 	const cachePath = getCachePath(s3Key);
+  const s3Fetcher = new S3Fetcher(s3Client);
 
 	try {
 		const cached = await fs.readFile(cachePath);
@@ -35,7 +36,7 @@ export async function getTestImage(
 		return new Uint8Array(cached);
 	} catch {
 		console.log(`Cache miss, downloading from S3: ${s3Key}`);
-		const imageBytes = await getImageFromS3(bucket, s3Key, s3Client);
+		const imageBytes = await s3Fetcher.fetch(bucket, s3Key);
 		if (!imageBytes) {
 			throw new Error(`Could not get image ${s3Key} from bucket ${bucket}`);
 		}
