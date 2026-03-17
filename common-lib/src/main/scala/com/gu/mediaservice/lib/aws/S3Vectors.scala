@@ -158,7 +158,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
         .builder()
         .indexName("cohere-embed-english-v3")
         .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
-        .topK(30)
+        .topK(100)
         .queryVector(queryVector)
         .build()
 
