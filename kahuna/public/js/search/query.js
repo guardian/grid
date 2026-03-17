@@ -458,7 +458,7 @@ query.controller('SearchQueryCtrl', [
           useAISearch: true
         });
       } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
+          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
       }
     });
 
