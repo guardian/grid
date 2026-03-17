@@ -2,7 +2,7 @@ import {SQSMessageBody} from "./models";
 import {S3Fetcher} from "./s3Fetcher";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import {MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4} from "./constants";
-import {downscaleImageIfNeeded} from "./index";
+import {downscaleImageIfNeeded} from "./resizeImage";
 
 export interface FetchedImage {
   bytes: Uint8Array;
