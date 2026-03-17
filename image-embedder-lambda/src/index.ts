@@ -11,12 +11,7 @@ import {
 import {
 	S3Client,
 } from '@aws-sdk/client-s3';
-import {
-	PutInputVector,
-	PutVectorsCommand,
-	PutVectorsCommandInput,
-	S3VectorsClient,
-} from '@aws-sdk/client-s3vectors';
+import {S3VectorsClient} from '@aws-sdk/client-s3vectors';
 import {KinesisClient} from '@aws-sdk/client-kinesis';
 import {
   SQSMessageBody,
@@ -26,6 +21,7 @@ import {CachedImageResolver, ImageResolver, S3ImageResolver} from "./imageResolv
 import {S3Fetcher} from "./s3Fetcher";
 import {createProductionBedrockClient, embedImage} from "./imageEmbedder";
 import {ThrallEventPublisher} from "./thrallEventPublisher";
+import {S3VectorStore} from "./s3VectorStore";
 
 // Initialise clients at module level (cold start only)
 const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
@@ -76,38 +72,7 @@ const imageResolver = new CachedImageResolver(
 const thrallEventPublisher = new ThrallEventPublisher(kinesisClient, THRALL_KINESIS_STREAM_ARN, STAGE)
 
 const s3VectorsClient = new S3VectorsClient({ region: 'eu-central-1' });
-
-async function storeEmbeddingsInS3VectorStore(
-	vectors: PutInputVector[],
-	client: S3VectorsClient,
-) {
-	console.log(`Storing ${vectors.length} embeddings to vector store`);
-
-	const input: PutVectorsCommandInput = {
-		vectorBucketName: `image-embeddings-${STAGE}`.toLowerCase(),
-		indexName: 'cohere-embed-english-v3',
-		vectors: vectors,
-	};
-
-	console.log(
-		`PutVectorsCommand input: vectorBucketName=${input.vectorBucketName}, indexName=${input.indexName}, vectorCount=${vectors.length}`,
-	);
-
-	try {
-		const command = new PutVectorsCommand(input);
-		const response = await client.send(command);
-
-		console.log(
-			`S3 Vectors response metadata: ${JSON.stringify(response.$metadata)}`,
-		);
-		console.log(`Successfully stored ${vectors.length} embeddings`);
-
-		return response;
-	} catch (error) {
-		console.error(`Error storing embeddings:`, error);
-		throw error;
-	}
-}
+const s3VectorStore = new S3VectorStore(s3VectorsClient, `image-embeddings-${STAGE}`.toLowerCase());
 
 export interface GenerateVectorsResult {
 	vectors: ValidVector[];
@@ -188,7 +153,7 @@ export const handler = async (
 			imageIdToMessageId,
 			batchItemFailures,
 		);
-		await storeEmbeddingsInS3VectorStore(vectors, s3VectorsClient);
+		await s3VectorStore.storeEmbeddings(vectors);
 	} else {
 		console.log(`No vectors to store`);
 	}
