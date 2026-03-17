@@ -28,7 +28,7 @@ const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
 const isLocal = process.env.IS_LOCAL === 'true';
 
 // Determine stage: dev for local, otherwise from environment (test or prod)
-const STAGE: string = (isLocal ? 'dev' : process.env.STAGE) ?? 'test';
+const STAGE = process.env.STAGE && !isLocal ? process.env.STAGE : 'dev';
 
 // Set in TEST/PROD by CDK to the appropriate AWS bucket,
 // or locally by `localRun.ts` to the localstack bucket.
@@ -50,14 +50,16 @@ const localStackConfig = LOCALSTACK_ENDPOINT
 		}
 	: {};
 
+
+// Kinesis stream for sending embeddings to Thrall
+const THRALL_KINESIS_STREAM_ARN: string = process.env.THRALL_KINESIS_STREAM_ARN ?? '';
 const kinesisClient = new KinesisClient({
 	region: 'eu-west-1',
 	...localStackConfig,
 });
+const thrallEventPublisher = new ThrallEventPublisher(kinesisClient, THRALL_KINESIS_STREAM_ARN, STAGE)
 
-// Kinesis stream for sending embeddings to Thrall
-const THRALL_KINESIS_STREAM_ARN: string = process.env.THRALL_KINESIS_STREAM_ARN ?? '';
-
+// Wiring of the image resolution logic
 const s3Client = new S3Client({
 	region: 'eu-west-1',
 	...localStackConfig,
@@ -69,8 +71,8 @@ const imageResolver = new CachedImageResolver(
   s3Client,
   DOWNSCALED_IMAGE_BUCKET,
 )
-const thrallEventPublisher = new ThrallEventPublisher(kinesisClient, THRALL_KINESIS_STREAM_ARN, STAGE)
 
+// Wiring of the vector store
 const s3VectorsClient = new S3VectorsClient({ region: 'eu-central-1' });
 const s3VectorStore = new S3VectorStore(s3VectorsClient, `image-embeddings-${STAGE}`.toLowerCase());
 
