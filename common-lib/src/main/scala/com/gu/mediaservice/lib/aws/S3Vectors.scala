@@ -128,7 +128,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     }
   }
 
-  def getEmbeddingForImage(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
+  def getVectorByImageId(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
     try {
       val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
 

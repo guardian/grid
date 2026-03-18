@@ -38,7 +38,7 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
   }
 
   def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[String]] = {
-    val outputVector = s3vectors.getEmbeddingForImage(imageId)
+    val outputVector = s3vectors.getVectorByImageId(imageId)
     val vector: VectorData = outputVector.data()
     val futureResult = s3vectors.searchByImage(vector)
     futureResult.map { result =>
