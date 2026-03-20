@@ -32,17 +32,14 @@ class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageCons
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     for {
       embedding <- bedrock.createEmbedding(InputType.SearchDocument, query)
-      result <- s3vectors.searchByText(embedding, query)
+      result <- Future.fromTry(s3vectors.searchByText(embedding, query))
     } yield mapCohereResponseToImageIds(result)
   }
 
   def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageIds] = {
     val outputVector = s3vectors.getVectorByImageId(imageId)
     val vector: VectorData = outputVector.data()
-    val futureResult = s3vectors.searchByImage(vector)
-    futureResult.map { result =>
-      mapCohereResponseToImageIds(result)
-    }
+    Future.fromTry(s3vectors.searchByImage(vector)).map(mapCohereResponseToImageIds)
   }
 
   def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker) = {
