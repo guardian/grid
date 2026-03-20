@@ -16,7 +16,7 @@ export interface SortWrapperProps {
   props: SortProps;
 }
 
-const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+const checkForCollection = (query: string): boolean => /~"[a-zA-Z0-9 #\-_.:/]+"/.test(query);
 
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
