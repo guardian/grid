@@ -129,24 +129,17 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   }
 
   def getVectorByImageId(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
-    try {
-      val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
-
-      if (vectors.isEmpty) {
+    val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
+    vectors.headOption match {
+      case Some(vector) if vectors.size == 1  => 
+        logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
+        vector
+      case None if vectors.size > 1 => 
+        logger.info(logMarker, s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
+        throw new NoSuchElementException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
+      case _ => 
+        logger.info(logMarker, s"No vector found for imageId ${imageId}")
         throw new NoSuchElementException(s"No vector found for imageId ${imageId}")
-      }
-      if (vectors.size != 1) {
-        throw new IllegalStateException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
-      }
-
-      val vector = vectors.head
-      logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
-      vector
-    }
-    catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during vector retrieval for imageId ${imageId}:", e)
-        throw e
     }
   }
 
