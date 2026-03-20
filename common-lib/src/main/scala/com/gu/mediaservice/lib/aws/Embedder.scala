@@ -14,6 +14,8 @@ sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
 case object CoherePng extends CohereCompatibleMimeType
 
+case class ImageIds(ids: List[String])
+
 case class EmbedderMessage(imageId: String, fileType: String, s3Bucket: String, s3Key: String)
 
 object EmbedderMessage {
@@ -21,23 +23,20 @@ object EmbedderMessage {
 }
 
 class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
-  def mapCohereResponseToImageIds(response: QueryVectorsResponse): List[String] = {
+  def mapCohereResponseToImageIds(response: QueryVectorsResponse): ImageIds = {
     val results: java.util.List[QueryOutputVector] = response.vectors()
-    results.asScala.map(_.key()).toList
+    ImageIds(results.asScala.map(_.key()).toList)
   }
 
-  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[List[String]] = {
+  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[ImageIds] = {
     logger.info(logMarker, s"Searching for image embedding for query: $query")
-    val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
-    embeddingFuture.flatMap { embedding =>
-      val futureResult = s3vectors.searchByText(embedding, query)
-      futureResult.map { result =>
-        mapCohereResponseToImageIds(result)
-      }
-    }
+    for {
+      embedding <- bedrock.createEmbedding(InputType.SearchDocument, query)
+      result <- s3vectors.searchByText(embedding, query)
+    } yield mapCohereResponseToImageIds(result)
   }
 
-  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[String]] = {
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageIds] = {
     val outputVector = s3vectors.getVectorByImageId(imageId)
     val vector: VectorData = outputVector.data()
     val futureResult = s3vectors.searchByImage(vector)

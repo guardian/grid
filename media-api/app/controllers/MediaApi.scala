@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ImageIds, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -565,7 +565,7 @@ class MediaApi(
 
     if (_searchParams.useAISearch.contains(true)) {
 
-      val imageIds: Future[List[String]] = _searchParams.query match {
+      val imageIdsFuture: Future[ImageIds] = _searchParams.query match {
         case Some(q) if !q.isBlank =>
           // Check if it's an image-to-image similarity search
           q.split(" ").find(_.startsWith("similar:")) match {
@@ -577,10 +577,10 @@ class MediaApi(
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
-        case _ => Future(Nil)
+        case _ => Future(ImageIds(Nil))
       }
 
-      imageIds.flatMap { ids =>
+      imageIdsFuture.flatMap { case ImageIds(ids) =>
         SearchParams(
           query = _searchParams.query,
           ids = Some(ids),
