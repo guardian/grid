@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.s3vectors.model.{
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 
 object S3Vectors {
@@ -112,8 +113,10 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
     client.queryVectors(request)
   }
 
-  def searchByText(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
-    try {
+  def searchByText(
+    queryEmbedding: List[Float], 
+    query: String
+  )(implicit logMarker: LogMarker): Try[QueryVectorsResponse] = Try {
       val response = queryVectors(queryEmbedding)
       logger.info(
         logMarker,
@@ -121,32 +124,26 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       )
       logger.info(logMarker, s"${response}")
       response
-    } catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
-        throw e
-    }
   }
 
   def getVectorByImageId(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
     val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
     vectors.headOption match {
-      case Some(vector) if vectors.size == 1  => 
+      case Some(vector) if vectors.size == 1  =>
         logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
         vector
-      case None if vectors.size > 1 => 
+      case None if vectors.size > 1 =>
         logger.info(logMarker, s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
         throw new NoSuchElementException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
-      case _ => 
+      case _ =>
         logger.info(logMarker, s"No vector found for imageId ${imageId}")
         throw new NoSuchElementException(s"No vector found for imageId ${imageId}")
     }
   }
 
   def searchByImage(queryVector: VectorData)(implicit logMarker: LogMarker
-  ): Future[QueryVectorsResponse] = Future {
+  ): Try[QueryVectorsResponse] = Try {
     logger.info(logMarker, s"Searching for image embedding")
-    try {
       val request: QueryVectorsRequest = QueryVectorsRequest
         .builder()
         .indexName("cohere-embed-english-v3")
@@ -162,12 +159,6 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       )
       logger.info(logMarker, s"${response}")
       response
-    }
-    catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during S3 Vector Store API call for query [...]", e)
-        throw e
-    }
   }
 
   private def getExistingVectorKeys(keys: Set[String]): Set[String] =
