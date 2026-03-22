@@ -31,6 +31,20 @@ MAPPING_FILE="${KUPUA_DIR}/exploration/mock/mapping.json"
 DATA_FILE="${KUPUA_DIR}/exploration/mock/sample-data.ndjson"
 INDEX_NAME="images"
 
+# --- Safety guard: never write to non-local ES ---
+# Port 9220 = kupua's own docker ES (safe to write)
+# Port 9200 = Grid's ES or SSH tunnel to TEST/PROD (NEVER write)
+if echo "$ES_URL" | grep -qv ':9220'; then
+  echo -e "${red}SAFETY: Refusing to load data into ${ES_URL}${plain}"
+  echo "  This script only writes to kupua's local ES on port 9220."
+  echo "  It looks like you're pointing at a different ES instance"
+  echo "  (possibly a TEST/PROD tunnel on port 9200)."
+  echo ""
+  echo "  If you really need to override this, edit the script."
+  echo "  See kupua/exploration/docs/safeguards.md for details."
+  exit 1
+fi
+
 # --- Preflight checks ---
 if [ ! -f "$MAPPING_FILE" ]; then
   echo -e "${red}ERROR: Mapping file not found at ${MAPPING_FILE}${plain}"

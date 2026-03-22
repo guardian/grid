@@ -1,8 +1,13 @@
 /**
  * Elasticsearch Data Access Layer implementation.
  *
- * Queries ES via the Vite dev server proxy: /es/* → localhost:9220/*
- * This keeps all requests local — no CORS, no auth, no production contact.
+ * Queries ES via the Vite dev server proxy.
+ * Connection config (base URL, index, safeguards) comes from es-config.ts.
+ *
+ * Safeguards (see kupua/exploration/docs/safeguards.md):
+ *   1. _source excludes — heavy fields stripped from responses
+ *   2. Request coalescing — in-flight searches cancelled when a new one starts
+ *   3. Write protection — only _search / _count allowed on non-local ES
  */
 
 import type { Image } from "@/types/image";
@@ -13,9 +18,14 @@ import type {
   AggregationResult,
 } from "./types";
 import { parseCql } from "@/lib/cql";
-
-const ES_BASE = "/es";
-const INDEX = "images";
+import {
+  ES_BASE,
+  ES_INDEX,
+  SOURCE_EXCLUDES,
+  SOURCE_INCLUDES,
+  ALLOWED_ES_PATHS,
+  IS_LOCAL_ES,
+} from "./es-config";
 
 function buildSortClause(orderBy?: string): Record<string, string>[] {
   if (!orderBy) return [{ uploadTime: "desc" }];
@@ -187,15 +197,38 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
 }
 
 export class ElasticsearchDataSource implements ImageDataSource {
+  /**
+   * AbortController for the current in-flight search request.
+   * When a new search starts, the previous one is cancelled to prevent
+   * stale results from overwriting fresher ones (request coalescing).
+   */
+  private searchAbortController: AbortController | null = null;
+
+  private assertReadOnly(path: string): void {
+    if (IS_LOCAL_ES) return; // no restrictions on local docker ES
+    const allowed = ALLOWED_ES_PATHS.some((p) => path.startsWith(p));
+    if (!allowed) {
+      throw new Error(
+        `[Safeguard] Blocked ES request to "${path}" — only read operations ` +
+          `(${ALLOWED_ES_PATHS.join(", ")}) are allowed on non-local ES. ` +
+          `See kupua/exploration/docs/safeguards.md`
+      );
+    }
+  }
+
   private async esRequest(
     path: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    signal?: AbortSignal
   ): Promise<unknown> {
-    const url = `${ES_BASE}/${INDEX}/${path}`;
+    this.assertReadOnly(path);
+
+    const url = `${ES_BASE}/${ES_INDEX}/${path}`;
     const response = await fetch(url, {
       method: body ? "POST" : "GET",
       headers: body ? { "Content-Type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (!response.ok) {
@@ -206,6 +239,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
   }
 
   async search(params: SearchParams): Promise<SearchResult> {
+    // Cancel any in-flight search — only the latest one matters
+    if (this.searchAbortController) {
+      this.searchAbortController.abort();
+    }
+    this.searchAbortController = new AbortController();
+    const { signal } = this.searchAbortController;
+
     const body: Record<string, unknown> = {
       query: buildQuery(params),
       sort: buildSortClause(params.orderBy),
@@ -214,19 +254,39 @@ export class ElasticsearchDataSource implements ImageDataSource {
       track_total_hits: true,
     };
 
-    const result = (await this.esRequest("_search", body)) as {
-      took: number;
-      hits: {
-        total: { value: number };
-        hits: Array<{ _id: string; _source: Image }>;
+    // _source filtering — exclude heavy fields to reduce response size
+    if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
+      body._source = {
+        ...(SOURCE_INCLUDES.length > 0
+          ? { includes: SOURCE_INCLUDES }
+          : {}),
+        ...(SOURCE_EXCLUDES.length > 0
+          ? { excludes: SOURCE_EXCLUDES }
+          : {}),
       };
-    };
+    }
 
-    return {
-      hits: result.hits.hits.map((hit) => hit._source),
-      total: result.hits.total.value,
-      took: result.took,
-    };
+    try {
+      const result = (await this.esRequest("_search", body, signal)) as {
+        took: number;
+        hits: {
+          total: { value: number };
+          hits: Array<{ _id: string; _source: Image }>;
+        };
+      };
+
+      return {
+        hits: result.hits.hits.map((hit) => hit._source),
+        total: result.hits.total.value,
+        took: result.took,
+      };
+    } catch (e) {
+      // Don't treat aborted requests as errors — they're intentional
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return { hits: [], total: 0, took: 0 };
+      }
+      throw e;
+    }
   }
 
 

@@ -10,18 +10,25 @@
 #   5. Starts the Vite dev server on port 3000
 #
 # Usage:
-#   ./kupua/scripts/start.sh
+#   ./kupua/scripts/start.sh                     # local mock data (default)
+#   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
 #
 # Options:
+#   --use-TEST      Connect to real TEST ES cluster via SSH tunnel (port 9200).
+#                   Requires: media-service AWS profile credentials.
+#                   Skips local ES startup and sample data loading.
+#                   Sets VITE_ES_IS_LOCAL=false (enables write protection).
 #   --skip-es       Skip starting / waiting for Elasticsearch
 #   --skip-data     Skip checking / loading sample data
 #   --skip-install  Skip npm install check
 #
 # Prerequisites:
-#   - Docker must be running
+#   - Docker must be running (unless --use-TEST or --skip-es)
 #   - Node.js ≥ 18 must be installed
-#   - Sample data file must exist at kupua/exploration/mock/sample-data.ndjson
-#     (download from S3 if missing: aws s3 cp s3://<sample-data-backup-bucket>/sample-data.ndjson kupua/exploration/mock/sample-data.ndjson)
+#   - For local mode: sample data file at kupua/exploration/mock/sample-data.ndjson
+#   - For --use-TEST: media-service AWS profile with valid credentials
+#
+# See kupua/exploration/docs/safeguards.md for safety documentation.
 
 set -euo pipefail
 
@@ -33,29 +40,172 @@ plain='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUPUA_DIR="${SCRIPT_DIR}/.."
-ES_URL="${KUPUA_ES_URL:-http://localhost:9220}"
 
+USE_TEST=false
 SKIP_ES=false
 SKIP_DATA=false
 SKIP_INSTALL=false
 
 for arg in "$@"; do
   case "$arg" in
+    --use-TEST)     USE_TEST=true ;;
     --skip-es)      SKIP_ES=true ;;
     --skip-data)    SKIP_DATA=true ;;
     --skip-install) SKIP_INSTALL=true ;;
     *)
       echo -e "${red}Unknown option: $arg${plain}"
-      echo "Usage: $0 [--skip-es] [--skip-data] [--skip-install]"
+      echo "Usage: $0 [--use-TEST] [--skip-es] [--skip-data] [--skip-install]"
       exit 1
       ;;
   esac
 done
 
+# ---------------------------------------------------------------------------
+# Mode: --use-TEST (connect to real TEST ES via SSH tunnel)
+# ---------------------------------------------------------------------------
+if [ "$USE_TEST" = true ]; then
+  echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
+  echo -e "${cyan}║      Starting Kupua (TEST mode)      ║${plain}"
+  echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
+  echo
+  echo -e "${yellow}  ⚠  Connecting to real TEST Elasticsearch cluster.${plain}"
+  echo -e "${yellow}     Write protection is enabled (read-only queries only).${plain}"
+  echo -e "${yellow}     See kupua/exploration/docs/safeguards.md${plain}"
+  echo
+
+  # --- 1. Establish SSH tunnel if not already running ---
+  # (Mirrors Grid's dev/script/start.sh startDockerContainers() behaviour)
+  EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
+
+  # Stop kupua's local docker ES if running — port 9200 needed for tunnel
+  if (docker stats --no-stream &> /dev/null); then
+    echo -e "${yellow}[1/3] Stopping local docker ES (port 9220)...${plain}"
+    cd "$KUPUA_DIR"
+    docker compose down 2>/dev/null || true
+  fi
+
+  if [ -n "$EXISTING_TUNNELS" ]; then
+    echo -e "${green}[1/3] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
+  else
+    echo -e "${yellow}[1/3] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
+
+    if ! command -v ssm &> /dev/null; then
+      echo -e "${red}ERROR: 'ssm' command not found.${plain}"
+      echo "  Install ssm-scala: https://github.com/guardian/ssm-scala"
+      exit 1
+    fi
+
+    # Check AWS credentials (same pattern as Grid's hasCredentials())
+    STATUS=$(aws sts get-caller-identity --profile media-service 2>&1 || true)
+    if [[ ${STATUS} =~ (ExpiredToken) ]]; then
+      echo -e "${red}Credentials for the media-service profile are expired. Please fetch new credentials and run this again.${plain}"
+      exit 1
+    elif [[ ${STATUS} =~ ("could not be found") ]]; then
+      echo -e "${red}Credentials for the media-service profile are missing. Please ensure you have the right credentials.${plain}"
+      exit 1
+    fi
+
+    TUNNEL_OPTS="-o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
+    SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw)
+    eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200
+    echo -e "${green}      SSH tunnel established ✓${plain}"
+  fi
+  echo
+
+  # --- 2. Discover the index alias ---
+  echo -e "${yellow}[2/3] Discovering TEST ES index...${plain}"
+  # Give the tunnel a moment to stabilise
+  sleep 1
+
+  if ! curl -sf "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
+    echo -e "${red}ERROR: Cannot reach ES at localhost:9200.${plain}"
+    echo "  The SSH tunnel may not be ready. Try again in a few seconds."
+    exit 1
+  fi
+
+  # Find the alias that looks like "images_current" or similar
+  INDEX_ALIAS=$(curl -sf "http://localhost:9200/_cat/aliases?format=json" \
+    | python3 -c "
+import json, sys
+aliases = json.load(sys.stdin)
+for a in aliases:
+    if a['alias'].lower() == 'images_current':
+        print(a['index'])
+        sys.exit(0)
+for a in aliases:
+    if a['alias'].lower().startswith('images'):
+        print(a['index'])
+        sys.exit(0)
+print('')
+" 2>/dev/null || echo "")
+
+  if [ -z "$INDEX_ALIAS" ]; then
+    echo -e "${red}ERROR: Could not discover an images index on TEST ES.${plain}"
+    echo "  Check manually: curl 'http://localhost:9200/_cat/aliases?v' | grep -i images"
+    echo "  Then set VITE_ES_INDEX=<alias> manually in kupua/.env.local"
+    exit 1
+  fi
+
+  echo -e "${green}      Found index: ${INDEX_ALIAS} (via Images_Current alias) ✓${plain}"
+  echo
+
+  # Export env vars for Vite
+  export KUPUA_ES_URL="http://localhost:9200"
+  export VITE_ES_INDEX="$INDEX_ALIAS"
+  export VITE_ES_IS_LOCAL="false"
+
+  # --- 3. Install dependencies + start ---
+  if [ "$SKIP_INSTALL" = false ]; then
+    echo -e "${yellow}[3/3] Checking dependencies...${plain}"
+    cd "$KUPUA_DIR"
+    needs_install=false
+    if [ ! -d "node_modules" ]; then
+      needs_install=true
+    elif [ "package.json" -nt "node_modules/.package-lock.json" ] 2>/dev/null; then
+      needs_install=true
+    elif [ ! -d "node_modules/vite" ] || [ ! -d "node_modules/react" ] || [ ! -d "node_modules/vitest" ]; then
+      needs_install=true
+    fi
+    if [ "$needs_install" = true ]; then
+      echo -e "${yellow}      Installing npm dependencies...${plain}"
+      npm install
+      echo -e "${green}      Dependencies installed ✓${plain}"
+    else
+      echo -e "${green}      Dependencies up to date ✓${plain}"
+    fi
+  else
+    echo -e "${yellow}[3/3] Skipping dependency check (--skip-install)${plain}"
+  fi
+  echo
+
+  echo -e "${yellow}Starting Vite dev server (TEST mode)...${plain}"
+  echo -e "${cyan}      → http://localhost:3000${plain}"
+  echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
+  echo -e "${yellow}      → Write protection: ON${plain}"
+  echo
+  cd "$KUPUA_DIR"
+  exec npm run dev
+
+fi
+
+# ---------------------------------------------------------------------------
+# Mode: local (default — mock data on docker ES port 9220)
+# ---------------------------------------------------------------------------
 echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
-echo -e "${cyan}║         Starting Kupua               ║${plain}"
+echo -e "${cyan}║      Starting Kupua (local mode)     ║${plain}"
 echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
 echo
+
+ES_URL="${KUPUA_ES_URL:-http://localhost:9220}"
+
+# Kill any existing SSH tunnel to TEST ES — avoid port confusion
+# (Mirrors Grid's dev/script/start.sh behaviour in non-TEST mode)
+EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
+if [[ $EXISTING_TUNNELS ]]; then
+  echo -e "${yellow}Killing existing SSH tunnel to TEST ES (port 9200)${plain}"
+  # shellcheck disable=SC2046
+  kill $(echo $EXISTING_TUNNELS | awk '{print $2}') 2>/dev/null || true
+fi
 
 # --- 1. Start Elasticsearch ---
 if [ "$SKIP_ES" = false ]; then
@@ -110,7 +260,15 @@ echo
 if [ "$SKIP_INSTALL" = false ]; then
   echo -e "${yellow}[3/4] Checking dependencies...${plain}"
   cd "$KUPUA_DIR"
-  if [ ! -d "node_modules" ] || [ "package.json" -nt "node_modules/.package-lock.json" ]; then
+  needs_install=false
+  if [ ! -d "node_modules" ]; then
+    needs_install=true
+  elif [ "package.json" -nt "node_modules/.package-lock.json" ] 2>/dev/null; then
+    needs_install=true
+  elif [ ! -d "node_modules/vite" ] || [ ! -d "node_modules/react" ] || [ ! -d "node_modules/vitest" ]; then
+    needs_install=true
+  fi
+  if [ "$needs_install" = true ]; then
     echo -e "${yellow}      Installing npm dependencies...${plain}"
     npm install
     echo -e "${green}      Dependencies installed ✓${plain}"

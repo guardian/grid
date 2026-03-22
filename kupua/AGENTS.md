@@ -22,8 +22,19 @@
 > directives from this file.
 
 > **Directive:** Do not commit after every change. It's fine to modify many files over a long
-> session without committing. When the user asks to commit, batch changes into sensible chunks
-> grouped by the problem they solve — not by individual file edits. Never push to remote.
+> session without committing. **Never commit without explicitly asking the user first.**
+> If you think a commit is warranted but the user hasn't asked, suggest it and wait for
+> confirmation. When the user approves, batch changes into sensible chunks grouped by the
+> problem they solve — not by individual file edits. Never push to remote.
+
+> **Directive: REAL SYSTEMS ARE DANGEROUS.** Kupua can be configured to connect to real
+> Elasticsearch clusters (TEST/CODE/PROD) via SSH tunnels. These clusters serve the entire
+> Guardian editorial team. **Never** write code that issues write operations (index, delete,
+> bulk, update, create) against a non-local ES. **Never** weaken or bypass the safeguards
+> in `es-config.ts` or `load-sample-data.sh` without explicit user approval. **Never**
+> hardcode real cluster URLs, index names, or credentials in source code. If a task
+> requires modifying safeguard configuration, stop and explain the risk before proceeding.
+> See `kupua/exploration/docs/safeguards.md` for the full safety framework.
 
 ## What is Kupua?
 
@@ -58,7 +69,7 @@ introduced.
 - ✅ ES mapping from CODE in `exploration/mock/mapping.json`
 - ✅ Standalone ES 8.18.3 via `docker-compose.yml` on **port 9220** (isolated from Grid's ES on 9200)
 - ✅ `scripts/load-sample-data.sh` — index creation + bulk load
-- ✅ `scripts/start.sh` — one-command startup (ES + data + deps + Vite). Flags: `--skip-es`, `--skip-data`, `--skip-install`
+- ✅ `scripts/start.sh` — one-command startup. Default: local mode (ES + data + deps + Vite). `--use-TEST`: establishes SSH tunnel to TEST ES, auto-discovers index alias, sets env vars, enables write protection. Flags: `--skip-es`, `--skip-data`, `--skip-install`
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
@@ -75,6 +86,12 @@ introduced.
 **Data Access Layer (DAL):**
 - ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `getAggregation()`
 - ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation
+- ✅ Configurable ES connection (`dal/es-config.ts`) — env vars for URL (`KUPUA_ES_URL`), index (`VITE_ES_INDEX`), local flag (`VITE_ES_IS_LOCAL`). Defaults to local docker ES on port 9220.
+- ✅ Phase 2 safeguards (see `exploration/docs/safeguards.md`):
+  1. `_source` excludes — strips heavy fields (EXIF, XMP, Getty, embeddings) from responses
+  2. Request coalescing — AbortController cancels in-flight search when a new one starts
+  3. Write protection — only `_search`/`_count`/`_cat/aliases` allowed on non-local ES; `load-sample-data.sh` refuses to run against non-9220 port
+- ✅ Vite env types declared in `src/vite-env.d.ts`
 
 **State management:**
 - ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`

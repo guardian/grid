@@ -17,10 +17,11 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // Proxy ES requests to kupua's local Elasticsearch on port 9220.
-      // In the browser, fetch("/es/images/_search") → http://localhost:9220/images/_search
+      // Proxy ES requests to Elasticsearch.
+      // Default: kupua's local docker ES on port 9220
+      // Override: set KUPUA_ES_URL=http://localhost:9200 for TEST tunnel
       "/es": {
-        target: "http://localhost:9220",
+        target: process.env.KUPUA_ES_URL ?? "http://localhost:9220",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/es/, ""),
       },
