@@ -151,7 +151,7 @@ function buildButtonLabel(
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function DateFilter() {
-  const params = useSearch({ from: "/" });
+  const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

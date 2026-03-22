@@ -5,8 +5,11 @@
 import { createRouter } from "@tanstack/react-router";
 import { rootRoute } from "./routes/__root";
 import { indexRoute } from "./routes/index";
+import { searchRoute } from "./routes/search";
+import { imageRoute } from "./routes/image";
+import { URL_PARAM_PRIORITY } from "./lib/search-params-schema";
 
-const routeTree = rootRoute.addChildren([indexRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, searchRoute, imageRoute]);
 
 /**
  * Custom search-param serialisation for plain key=value URLs.
@@ -42,8 +45,17 @@ function plainParseSearch(searchStr: string): Record<string, string> {
 
 function plainStringifySearch(search: Record<string, unknown>): string {
   const params = new URLSearchParams();
+  // Insert priority keys first (e.g. image, nonFree) to match Grid URL style
+  for (const key of URL_PARAM_PRIORITY) {
+    const value = search[key];
+    if (value !== undefined && value !== null) {
+      params.set(key, String(value));
+    }
+  }
+  // Then the rest in natural order
   for (const [key, value] of Object.entries(search)) {
     if (value === undefined || value === null) continue;
+    if (params.has(key)) continue; // already added as priority
     params.set(key, String(value));
   }
   const str = params

@@ -42,6 +42,9 @@ export const searchParamsSchema = z.object({
   syndicationStatus: z.string().optional().catch(undefined),
   /** Is persisted */
   persisted: z.string().optional().catch(undefined),
+  /** Currently viewed image ID — when present, image detail overlay is shown.
+   *  Named `image` (not `imageId`) to match Grid URL style: `?image=abc123`. */
+  image: z.string().optional().catch(undefined),
 });
 
 export type UrlSearchParams = z.infer<typeof searchParamsSchema>;
@@ -53,4 +56,19 @@ export type UrlSearchParams = z.infer<typeof searchParamsSchema>;
 export const URL_PARAM_KEYS = Object.keys(
   searchParamsSchema.shape
 ) as (keyof UrlSearchParams)[];
+
+/**
+ * Display-only URL params — present in the URL but NOT synced to the search
+ * store and NOT triggering a new ES search. Changing only these keys should
+ * be treated as a no-op by useUrlSearchSync.
+ */
+export const URL_DISPLAY_KEYS: ReadonlySet<keyof UrlSearchParams> = new Set([
+  "image",
+]);
+
+/**
+ * URL params that should appear first in the query string, in this order.
+ * Grid convention: `?image=xxx&query=...&nonFree=true`
+ */
+export const URL_PARAM_PRIORITY: readonly string[] = ["image"];
 

@@ -1,7 +1,7 @@
 /**
  * Data Access Layer — abstract interface.
  *
- * Phase 1: implemented by ElasticsearchDataSource (direct ES queries via Vite proxy)
+ * Phase 1-2: implemented by ElasticsearchDataSource (direct ES queries via Vite proxy)
  * Phase 3: implemented by GridApiDataSource (Grid media-api with auth)
  *
  * UI code depends only on this interface, never on the concrete implementation.

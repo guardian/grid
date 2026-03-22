@@ -4,37 +4,8 @@
 > It provides essential context about the kupua project so the agent can pick up where it left off.
 > **Update this file whenever significant decisions are made.**
 
-> **Directive:** After completing any task that adds, removes, or changes features, architecture,
-> files, or key decisions, update the relevant sections of this file (What's Done, What's Next,
-> Project Structure, Key Architecture Decisions) before finishing your turn. Keep it concise.
-
-> **Directive:** Performance is crucial. If any requested change is likely to seriously impact
-> performance, do not proceed without checking with the user first — explain the potential
-> impact, suggest mitigations, and consider alternative approaches.
-
-> **Directive:** When introducing code that intentionally departs from Grid/kahuna behaviour
-> or from library defaults/conventions, add an entry to `kupua/exploration/docs/deviations.md`
-> explaining what, why, and the trade-off.
-
-> **Directive:** Never write or modify any file outside the `kupua/` directory without
-> explicitly asking the user for permission first. This agent's scope is kupua only.
-> Exception: `.github/copilot-instructions.md` may be updated freely since it mirrors
-> directives from this file.
-
-> **Directive:** Do not commit after every change. It's fine to modify many files over a long
-> session without committing. **Never commit without explicitly asking the user first.**
-> If you think a commit is warranted but the user hasn't asked, suggest it and wait for
-> confirmation. When the user approves, batch changes into sensible chunks grouped by the
-> problem they solve — not by individual file edits. Never push to remote.
-
-> **Directive: REAL SYSTEMS ARE DANGEROUS.** Kupua can be configured to connect to real
-> Elasticsearch clusters (TEST/CODE/PROD) via SSH tunnels. These clusters serve the entire
-> Guardian editorial team. **Never** write code that issues write operations (index, delete,
-> bulk, update, create) against a non-local ES. **Never** weaken or bypass the safeguards
-> in `es-config.ts` or `load-sample-data.sh` without explicit user approval. **Never**
-> hardcode real cluster URLs, index names, or credentials in source code. If a task
-> requires modifying safeguard configuration, stop and explain the risk before proceeding.
-> See `kupua/exploration/docs/safeguards.md` for the full safety framework.
+> **Directives** live in `.github/copilot-instructions.md` (auto-loaded by Copilot
+> regardless of which file is open). Do not duplicate them here.
 
 ## What is Kupua?
 
@@ -58,9 +29,9 @@ Documents intentional differences from Grid/kahuna behaviour and places
 where library conventions were bent.  Update it when a new deviation is
 introduced.
 
-## Current Phase: Phase 1 — Read-Only with Sample Data
+## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
-**Goal:** Prove the tech stack works. Load real data into local ES, display it in a fast table view with search and filtering. No writes, no auth, no production systems.
+**Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against ~9M images. Still read-only, no auth, no Grid API. Phase 1 (local sample data) is complete.
 
 ### What's Done
 
@@ -75,7 +46,7 @@ introduced.
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
-**App scaffold (~4700 lines of source):**
+**App scaffold (~6700 lines of source):**
 - ✅ Vite + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
 - ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
@@ -112,7 +83,7 @@ introduced.
 - ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
 - ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
 
-**Table view (`ImageTable.tsx`, ~1190 lines):**
+**Table view (`ImageTable.tsx`, ~1650 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
 - ✅ 22 hardcoded columns + config-driven alias columns from `gridConfig.fieldAliases` (currently 7: Edit Status, Colour Profile, Colour Model, Cutout, Bits Per Sample, Digital Source Type, Scene Code). Hardcoded: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Subjects, People, Width, Height, File type, Suppliers reference, Byline title. Plus a Thumbnail column (first position, 48px, non-resizable) shown only in `--use-TEST` mode when S3 proxy is active.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
@@ -134,7 +105,9 @@ introduced.
 - ✅ Memoised table body during resize — `TableBody` is a `React.memo` component. During column resize drags, rows and virtualItems are cached in refs (frozen while `columnSizingInfo.isResizingColumn` is truthy) so the memo's props stay stable and the body skips re-rendering entirely. Column widths update via CSS variables without React involvement. Avoids the bug in TanStack's official performant example (#6121).
 - ✅ Column resize with auto-scroll — dragging a resize handle near/past the scroll container edges auto-scrolls the table horizontally (speed proportional to distance past edge, up to 20px/frame). Synthetic `mousemove` events with scroll-adjusted `clientX` keep TanStack Table resizing the column as the container scrolls. On release, a synthetic `mouseup` with the adjusted position finalises the width correctly (the real `mouseup` with unadjusted `clientX` is blocked via capture-phase listener).
 - ✅ Horizontal scroll — inner wrapper is `inline-block min-w-full`, header is `inline-flex` with `shrink-0` cells (the browser determines the scrollable width from rendered content — no JS-computed width, correct at any browser zoom level). A 32px trailing spacer after the last header cell ensures the last column's resize handle is always accessible. Root layout uses `w-screen overflow-hidden` to prevent the page from expanding beyond the viewport.
-- ✅ Scroll reset on new search — both scrollTop and scrollLeft reset to 0 when URL search params change (new query, sort, filters, logo click). loadMore doesn't change URL params, so infinite scroll is unaffected.
+- ✅ Scroll reset on new search — both scrollTop and scrollLeft reset to 0 when URL search params change (new query, sort, filters, logo click). loadMore doesn't change URL params, so infinite scroll is unaffected. Display-only params (`image`) are excluded from scroll-reset comparison.
+- ✅ Double-click row to open image — adds `image` to URL search params (push, not replace). The search page stays mounted and fully laid out (invisible via `opacity-0`), preserving scroll position, virtualizer state, and search context. Browser back removes `image` and the table reappears at the exact scroll position with the viewed image focused. Navigation in the image view follows the current search results in their current sort order (line-in-the-sand: navigation always within current search context and order).
+- ✅ Row focus (not selection) — single-click sets a sticky highlight on a row (inset box-shadow accent border + brighter background). Focus persists when mouse moves away. Distinct from hover (subtle) and future selection (multi-select for batch ops). Focus is stored in search store (`focusedImageId`), cleared on new search. Returning from image detail auto-focuses the last viewed image; if different from the one originally clicked, centers it in viewport.
 
 **Toolbar (`SearchBar.tsx`) + Status bar (`StatusBar.tsx`) + Filters (`SearchFilters.tsx`):**
 - ✅ Search toolbar (44px / `h-11`): `[Logo] [Search] | [Free to use] [Dates] | [Sort ↓]`
@@ -143,7 +116,7 @@ introduced.
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
 - ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
 - ✅ Response time (`took` ms) — right-aligned in results bar
-- ✅ Logo click navigates to `/?nonFree=true` (resets all state), resets scroll position, and focuses the search box
+- ✅ Logo click navigates to `/search?nonFree=true` (resets all state), resets scroll position, and focuses the search box
 - ✅ Sort dropdown — custom button + popup menu (not native `<select>`) matching column context menu styling. SVG chevron flips when open. Current selection shown with ✓. Closes on outside click or Escape.
 - ✅ Sort direction toggle (↑/↓ button) — adjacent to sort dropdown
 - ✅ "Free to use only" checkbox (`nonFree` URL param)
@@ -154,26 +127,34 @@ introduced.
 **Routing (`TanStack Router`):**
 - ✅ Zod-validated URL search params (`search-params-schema.ts`)
 - ✅ Root route (`__root.tsx`) — minimal shell (bg + flex column)
-- ✅ Index route (`index.tsx`) — validates params + renders SearchBar + ImageTable
-- ✅ Currently at `/` not `/search` — will move when image detail route is added (see deviations.md §2)
+- ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageTable. When `image` is in URL params, makes the search UI invisible (`opacity-0 pointer-events-none` — stays fully laid out in DOM to preserve scroll position) and renders `ImageDetail` overlay. No route transition, no unmount, scroll position preserved.
+- ✅ Image detail as overlay (not a separate route) — `ImageDetail.tsx` renders within the search route when `image` URL param is present. Double-click row adds `image` (push). Prev/next replaces `image` (replace). Back button/browser back removes `image` → table reappears at exact scroll position. All search context preserved in URL. `image` is a display-only URL param (not synced to search store, doesn't trigger ES search). URL style: `?image=abc123&nonFree=true&query=...` (priority keys first via `URL_PARAM_PRIORITY`).
+- ✅ Image detail shows `[x] of [total]` (total from ES, not loaded count). Auto-loads more results when within 5 images of the loaded edge — navigation never ends until the actual end of search results.
+- ✅ Asymmetric image prefetch — when viewing image N, prefetches imgproxy URLs for N-2…N-1 (prev) and N+1…N+3 (next) via `new Image().src`. Browser caches them, so flicking to the next image is instant from cache. 2 backward + 3 forward (users flick forward more).
+- ✅ Image redirect route (`image.tsx`) at `/images/$imageId` — redirects to `/search?image=:imageId&nonFree=true` for backward compat with bookmarks/shared URLs
+- ✅ Index route (`index.tsx`) — redirects `/` → `/search?nonFree=true` (matches kahuna URL schema, Decision 6)
+- ✅ Fullscreen survives between images — the fullscreened container is a stable DOM element; React reconciles the same component when only `image` prop changes, so the `<div ref>` stays in the DOM and fullscreen persists
 
-**Keyboard navigation (matches kahuna `gu-lazy-table-shortcuts`):**
+**Keyboard navigation (focus-based):**
 - ✅ App starts with caret in search box (`autofocus` on `<cql-input>`)
-- ✅ Arrow Up/Down: scroll one row (works even when caret is in search box — keys propagate from CQL input)
-- ✅ PageUp/PageDown: scroll one viewport-full of rows (dynamic — based on how many rows are currently visible, accounting for sticky header height). Partially visible rows always become fully visible on either press.
-- ✅ Home: jump to top of results (works even in search box — capture-phase listener intercepts before ProseMirror editor)
-- ✅ End: jump to bottom of loaded results (works even in search box). In Phase 1 (10k docs, infinite scroll) this scrolls to the bottom and triggers loadMore. In Phase 2+ (9M docs, windowed scroll) End will issue a direct ES query for the last page (`search_after` reversed or `from: total - pageSize`), replacing the data window — a seek, not a scroll.
-- ✅ Two-phase keyboard handling: arrows/page keys use bubble phase (propagated from CQL input's `keysToPropagate`); Home/End use capture phase on `document` to intercept before the CQL editor's shadow DOM can consume them.
+- ✅ Arrow Up/Down: move focus one row, viewport scrolls to keep focused row visible (works even when caret is in search box — keys propagate from CQL input). If no row is focused, first arrow press focuses the first (↓) or last (↑) row. Disabled when table is hidden (image detail overlay showing).
+- ✅ PageUp/PageDown: scroll viewport by one page, then focus the edge row — PageDown focuses the last fully visible row, PageUp focuses the first (matches Finder/Explorer). Scroll is the primary action, focus follows.
+- ✅ Home: scroll to top, reset horizontal scroll, focus first row (works even in search box — capture-phase listener intercepts before ProseMirror editor)
+- ✅ End: scroll to bottom, focus last loaded row (works even in search box). Triggers loadMore when at the end.
+- ✅ Enter: open focused row in image detail (same as double-click)
+- ✅ Two-phase keyboard handling: arrows/page/enter use bubble phase (propagated from CQL input's `keysToPropagate`); Home/End use capture phase on `document` to intercept before the CQL editor's shadow DOM can consume them.
+- ✅ `f` toggles fullscreen in image detail view (skipped when editable field is focused). `Escape` only exits fullscreen (never navigates or closes image detail).
+- ✅ Arrow Down at edge of loaded results triggers loadMore — seamless infinite navigation via keyboard.
 
-### What's Next (Phase 1 remaining)
+### What's Next (Phase 2 remaining)
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
-- [ ] Image detail panel / single-image view — when added, move search route from `/` to `/search` and add `/images/:imageId` route (see deviations.md §2, AGENTS.md Decision 6)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
+- [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs)
+- [ ] Custom scrubber (thumb = `windowStart / total`) — see migration-plan.md "Scrollbar & Infinite Scroll" notes
 
 ### Deferred to Later Phases
 - [ ] `is:GNM-owned` filter with real org config from Grid (currently recognized in CQL but not filtering)
-- [ ] Windowed scroll + custom scrubber (Phase 2 — see migration-plan.md "Scrollbar & Infinite Scroll" notes)
-- [ ] `GridApiDataSource` (Phase 3 — replaces ES adapter, adds auth)
+- [ ] `GridApiDataSource` (Phase 3 — replaces ES adapter, adds auth, uses Grid media-api HATEOAS links)
 - [ ] Row grouping (e.g. group by credit, source, date) — TanStack Table has built-in `getGroupedRowModel()` + `getExpandedRowModel()` with aggregation functions. Works client-side on loaded rows; for 9M-scale grouping would need server-side via ES composite/terms aggs with `manualGrouping: true`. Consider alongside facet filters.
 
 ## Tech Stack
@@ -187,7 +168,7 @@ introduced.
 | Routing | TanStack Router (search params validated via Zod, pairs with TanStack ecosystem) |
 | Styling | Tailwind CSS 4 (utility-first, no runtime overhead, dark mode, `@layer components` for shared classes) |
 | Build | Vite |
-| Data Layer | Abstracted `ImageDataSource` interface — Phase 1 uses `ElasticsearchDataSource`, Phase 3+ swaps to `GridApiDataSource` |
+| Data Layer | Abstracted `ImageDataSource` interface — currently `ElasticsearchDataSource` (local or remote via tunnel). `GridApiDataSource` deferred until auth/writes needed |
 | Validation | Zod |
 | Testing | Vitest (co-located `*.test.ts` files next to source) |
 | Dates | date-fns |
@@ -196,7 +177,7 @@ introduced.
 
 1. **Separate ES instance on port 9220** — kupua's `docker-compose.yml` is independent of Grid's. Container `kupua-elasticsearch`, cluster `kupua`, volume `kupua-es-data`. Grid's `dev/script/start.sh` won't affect it.
 
-2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `getAggregation()`. Phase 1 implements against ES directly; Phase 3 swaps to Grid API. UI code never knows the difference.
+2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `count()`, `getAggregation()`. Currently implemented by `ElasticsearchDataSource` (direct ES access). `GridApiDataSource` deferred until auth/writes needed. UI code never knows the difference.
 
 3. **Scripts in `kupua/scripts/`** (not `kupua/dev/scripts/`) — kupua is a self-contained app; no need for Grid's layered `dev/` hierarchy.
 
@@ -270,6 +251,10 @@ introduced.
 
 21. **Auto-reveal hidden columns on sort** — when the user sorts by a column that's currently hidden, the column is automatically shown via `toggleVisibility()` (same store action as the context menu), so it persists as a normal user choice. The user can hide it again anytime. Generic — works for any sortable column, not just specific ones.
 
+22. **Fullscreen survives between images** — the Fullscreen API exits fullscreen when the fullscreened element is removed from the DOM. Image detail is rendered as an overlay within the search route (not a separate route), and React reconciles the same `ImageDetail` component when only the `image` prop changes, so the fullscreened `<div ref>` stays in the DOM and fullscreen persists. This is the architectural reason why image detail uses a prop — not a route param. `Escape` only exits fullscreen (never navigates or closes image detail).
+
+23. **Image detail is an overlay, not a separate route** — the image detail view renders within the search route when `image` is present in URL search params (`?image=abc123&nonFree=true&query=...`). The search page stays mounted and fully laid out (`opacity-0 pointer-events-none`, NOT `display:none` — because `display:none` resets `scrollTop` to 0). Scroll position, virtualizer state, and search context are all preserved. Browser back removes `image` from params — the table reappears at the exact scroll position with no re-search. `image` is a display-only URL param: it's excluded from store sync and ES queries via `URL_DISPLAY_KEYS`. Prev/next replaces `image` (so back always returns to the table, not through every viewed image). If the user navigated to a different image via prev/next, the focused row is centered in the viewport on return. `/images/:imageId` redirects to `/search?image=...&nonFree=true` for backward compat. URL param ordering controlled by `URL_PARAM_PRIORITY` — `image` appears first, matching Grid URL style.
+
 ## Project Structure
 
 ```
@@ -302,13 +287,15 @@ kupua/
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
-  src/                         # ~4700 lines total
+  src/                         # ~6700 lines total
     main.tsx                   # React entry point — mounts RouterProvider
     router.ts                  # TanStack Router setup — custom plain-string URL serialisation
     index.css                  # Tailwind CSS import + Open Sans font + Grid colour theme + shared component classes (popup-menu, popup-item)
     routes/
       __root.tsx               # Root route — minimal shell (bg + flex column), no header
-      index.tsx                # Index route — validates URL search params via Zod, renders search page
+      index.tsx                # Index route — redirects `/` → `/search?nonFree=true`
+      search.tsx               # Search route — validates URL search params via Zod, renders search page + ImageDetail overlay when image param present
+      image.tsx                # Image redirect — `/images/$imageId` → `/search?image=...&nonFree=true`
     lib/
       cql.ts                   # CQL parser + CQL→ES query translator (451 lines)
       grid-config.ts           # Mock Grid config parser (field aliases, org-owned categories)
@@ -323,10 +310,11 @@ kupua/
     components/
       CqlSearchInput.tsx       # React wrapper around @guardian/cql <cql-input> Web Component (227 lines)
       DateFilter.tsx           # Date range filter dropdown (486 lines)
+      ImageDetail.tsx          # Single-image view: overlay within search route, fullscreen (black, no UI), prev/next navigation
       StatusBar.tsx            # Status bar: count + new images ticker + response time
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
-      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1190 lines — largest component)
+      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1650 lines — largest component)
     stores/
       search-store.ts          # Zustand store (search params, results, loadMore)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)
@@ -334,6 +322,7 @@ kupua/
       image.ts                 # Image document types from ES mapping
     hooks/
       useUrlSearchSync.ts      # URL↔store sync: useUrlSearchSync (URL→store→search) + useUpdateSearchParams (component→URL)
+      useFullscreen.ts         # Fullscreen API wrapper — toggle/enter/exit fullscreen on a stable DOM element
 ```
 
 ## Kahuna Reference

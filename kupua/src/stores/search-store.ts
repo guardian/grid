@@ -25,6 +25,10 @@ interface SearchState {
   loading: boolean;
   error: string | null;
 
+  // Focus — the "current" row, distinct from selection (which comes later).
+  // Set by clicking a row or returning from image detail. Cleared on new search.
+  focusedImageId: string | null;
+
   // New images ticker
   newCount: number;
   newCountSince: string | null; // ISO timestamp of when results were frozen
@@ -33,6 +37,7 @@ interface SearchState {
   setParams: (params: Partial<SearchParams>) => void;
   search: () => Promise<void>;
   loadMore: () => Promise<void>;
+  setFocusedImageId: (id: string | null) => void;
 }
 
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -79,6 +84,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   loading: false,
   error: null,
 
+  focusedImageId: null,
+
   newCount: 0,
   newCountSince: null,
 
@@ -87,6 +94,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       params: { ...state.params, ...newParams, offset: 0 },
     }));
   },
+
+  setFocusedImageId: (id) => set({ focusedImageId: id }),
 
   search: async () => {
     const { dataSource, params } = get();
@@ -101,6 +110,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         took: result.took,
         loading: false,
         params: { ...params, offset: 0 },
+        focusedImageId: null, // clear focus on new search
         newCount: 0,
         newCountSince: now,
       });

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
-import { URL_PARAM_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import { URL_PARAM_KEYS, URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 
 /** Default search params applied when the URL has none at all. */
 const DEFAULT_SEARCH: Partial<UrlSearchParams> = { nonFree: "true" };
@@ -40,14 +40,27 @@ function cleanParams(
  * (e.g. in SearchBar or at the route component level).
  */
 export function useUrlSearchSync() {
-  const searchParams = useSearch({ from: "/" });
+  const searchParams = useSearch({ from: "/search" });
   const { setParams, search } = useSearchStore();
   const navigate = useNavigate();
   const prevParamsRef = useRef<string>("");
   const hasAppliedDefaults = useRef(false);
+  const unmountedRef = useRef(false);
+
+  // Guard: mark as unmounted so the effect body (which React may still call
+  // during the commit phase of a route transition) doesn't trigger navigations
+  // or searches after the search page has been left.
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   // When URL search params change → push to store and search
   useEffect(() => {
+    if (unmountedRef.current) return;
+
     // On first mount, if the URL has no search params at all, apply defaults
     // (e.g. nonFree=true).  This is a one-time redirect — once any interaction
     // has happened, we never re-inject defaults.
@@ -58,7 +71,7 @@ export function useUrlSearchSync() {
       );
       if (!hasAnyParam) {
         navigate({
-          to: "/",
+          to: "/search",
           search: cleanParams(DEFAULT_SEARCH as Record<string, string | undefined>),
           replace: true,
         });
@@ -66,8 +79,15 @@ export function useUrlSearchSync() {
       }
     }
 
-    // Serialize to compare — avoids infinite loops from object identity changes
-    const serialized = JSON.stringify(searchParams);
+    // Serialize to compare — avoids infinite loops from object identity changes.
+    // Strip display-only keys (e.g. image) — they live in the URL but don't
+    // affect ES queries. Changing only a display key should NOT trigger a search.
+    const searchOnly = Object.fromEntries(
+      Object.entries(searchParams).filter(
+        ([k]) => !URL_DISPLAY_KEYS.has(k as keyof UrlSearchParams)
+      )
+    );
+    const serialized = JSON.stringify(searchOnly);
     if (serialized === prevParamsRef.current) return;
     prevParamsRef.current = serialized;
 
@@ -75,10 +95,14 @@ export function useUrlSearchSync() {
     // then overlay what's actually in the URL. This ensures that params removed
     // from the URL (e.g. clearing the query) are also cleared in the store,
     // rather than surviving via the spread in setParams.
-    const reset = Object.fromEntries(
-      URL_PARAM_KEYS.map((k) => [k, undefined])
+    // Exclude display-only keys — they are not part of the search store.
+    const searchKeys = URL_PARAM_KEYS.filter(
+      (k) => !URL_DISPLAY_KEYS.has(k)
     );
-    setParams({ ...reset, ...searchParams });
+    const reset = Object.fromEntries(
+      searchKeys.map((k) => [k, undefined])
+    );
+    setParams({ ...reset, ...searchOnly });
     search();
   }, [searchParams, setParams, search, navigate]);
 }
@@ -94,7 +118,7 @@ export function useUrlSearchSync() {
  */
 export function useUpdateSearchParams() {
   const navigate = useNavigate();
-  const currentParams = useSearch({ from: "/" });
+  const currentParams = useSearch({ from: "/search" });
   const paramsRef = useRef(currentParams);
   paramsRef.current = currentParams;
 
@@ -102,7 +126,7 @@ export function useUpdateSearchParams() {
     (updates: Partial<UrlSearchParams>) => {
       const merged = { ...paramsRef.current, ...updates };
       navigate({
-        to: "/",
+        to: "/search",
         search: cleanParams(merged as Record<string, string | undefined>),
         replace: true,
       });

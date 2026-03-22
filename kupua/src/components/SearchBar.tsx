@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
@@ -48,7 +48,7 @@ export function getCqlInputGeneration() {
 }
 
 export function SearchBar() {
-  const searchParams = useSearch({ from: "/" });
+  const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   // Track whether the CQL editor has content (for showing the clear button)
   const [hasEditorContent, setHasEditorContent] = useState(
@@ -57,6 +57,19 @@ export function SearchBar() {
 
   // Sync URL → store → search (single place for the whole app)
   useUrlSearchSync();
+
+  // Cancel any pending debounce timer when SearchBar unmounts.
+  // Without this, navigating away (e.g. double-click → image detail) leaves
+  // a pending setTimeout that calls updateSearch() → navigate({ to: "/search" }),
+  // bouncing the user back to the search page.
+  useEffect(() => {
+    return () => {
+      if (_debounceTimerId) {
+        clearTimeout(_debounceTimerId);
+        _debounceTimerId = null;
+      }
+    };
+  }, []);
 
   const handleQueryChange = useCallback(
     (queryStr: string) => {
@@ -99,7 +112,7 @@ export function SearchBar() {
     >
       {/* Logo — always visible, resets state and focuses search box */}
       <Link
-        to="/"
+        to="/search"
         search={{ nonFree: "true" }}
         title="Grid — clear all filters"
         className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors"

@@ -1,36 +1,44 @@
 /**
- * Image detail view — single-image page at `/images/:imageId`.
+ * Image detail view — overlay within the search route.
  *
- * Design:
- * - **Normal view:** Full image centred on empty page with `bg-grid-bg`
- *   background. Minimal header (logo/back + position counter + fullscreen
- *   button). No metadata sidebar — just the image, big.
- * - **Fullscreen:** Black background, NO UI at all. The image fills the
- *   screen. Navigation via keyboard (←/→) and hover-revealed nav buttons.
+ * This is NOT a separate page. It renders on top of the search results when
+ * `image` is present in the URL search params. The search page stays
+ * mounted underneath (hidden via CSS), so:
+ * - Scroll position is preserved exactly
+ * - Search context (query, filters, sort) is preserved in the URL
+ * - Browser back removes `image` from params → table reappears at the
+ *   exact scroll position
+ * - No re-search is triggered (image is a display-only URL param)
+ *
+ * Architecture (Decision 5): "all views are one page — table, grid,
+ * side-by-side, detail are density levels of the same ordered list."
  *
  * Key architectural property:
  * - **Fullscreen survives between images.** The fullscreened container is a
- *   stable DOM element. When the imageId param changes (prev/next), TanStack
- *   Router reconciles the same component — the DOM node persists, so the
- *   Fullscreen API does not exit.
+ *   stable DOM element. When the imageId prop changes (prev/next), React
+ *   reconciles the same component — the DOM node persists, so the Fullscreen
+ *   API does not exit.
  * - Keyboard shortcuts: `f` toggle fullscreen, `←/→` prev/next image,
- *   `Escape` exit fullscreen or go back to search.
+ *   `Escape` exit fullscreen only (never navigates — close via back
+ *   button or browser back).
  * - Prev/next navigates through the search results stored in the Zustand
- *   search store. The search results persist because the store is global —
- *   navigating to an image detail page doesn't clear them.
- *   Navigation always happens within the current search context and in its
- *   order — this is a line-in-the-sand architectural principle.
+ *   search store, replacing `imageId` in the URL with `replace: true`
+ *   (so back always returns to the table, not through every viewed image).
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
+import { format } from "date-fns";
 
-export function ImageDetail() {
-  const { imageId } = useParams({ strict: false }) as { imageId: string };
-  const { results } = useSearchStore();
+interface ImageDetailProps {
+  imageId: string;
+}
+
+export function ImageDetail({ imageId }: ImageDetailProps) {
+  const { results, total, loading, loadMore } = useSearchStore();
   const navigate = useNavigate();
 
   // The fullscreen container ref — must be stable across imageId changes
@@ -50,28 +58,42 @@ export function ImageDetail() {
       ? results[currentIndex + 1]
       : undefined;
 
-  // Navigate to prev/next image
-  const goToPrev = useCallback(() => {
-    if (prevImage) {
-      navigate({
-        to: "/images/$imageId",
-        params: { imageId: prevImage.id },
-      });
+  // Load more results when approaching the end of loaded data.
+  // Triggers when within 5 images of the edge — same principle as the
+  // table's infinite scroll (500px threshold ≈ ~15 rows), but adapted
+  // for single-image flicking.
+  useEffect(() => {
+    if (currentIndex >= 0 && results.length - currentIndex <= 5 && results.length < total && !loading) {
+      loadMore();
     }
-  }, [prevImage, navigate]);
+  }, [currentIndex, results.length, total, loading, loadMore]);
+
+  // Navigate to prev/next image — replaces current history entry so browser
+  // back always returns to the table, not through every viewed image.
+  const goToImage = useCallback(
+    (id: string) => {
+      navigate({
+        to: "/search",
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: id }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
+
+  const goToPrev = useCallback(() => {
+    if (prevImage) goToImage(prevImage.id);
+  }, [prevImage, goToImage]);
 
   const goToNext = useCallback(() => {
-    if (nextImage) {
-      navigate({
-        to: "/images/$imageId",
-        params: { imageId: nextImage.id },
-      });
-    }
-  }, [nextImage, navigate]);
+    if (nextImage) goToImage(nextImage.id);
+  }, [nextImage, goToImage]);
 
-  const goToSearch = useCallback(() => {
-    navigate({ to: "/search" });
-  }, [navigate]);
+  // Close image detail — go back in history (removes imageId from URL,
+  // restoring the exact search page state including scroll position).
+  const closeDetail = useCallback(() => {
+    window.history.back();
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -98,24 +120,52 @@ export function ImageDetail() {
           e.preventDefault();
           goToNext();
           break;
-        case "Escape":
-          e.preventDefault();
-          if (!isFullscreen) {
-            goToSearch();
-          }
-          // Fullscreen exit is handled natively by the browser on Escape
-          break;
+        // Escape exits fullscreen — handled natively by the browser.
+        // When not in fullscreen, Escape does nothing. Close image detail
+        // via the back button or browser back.
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [toggleFullscreen, goToPrev, goToNext, goToSearch, isFullscreen]);
+  }, [toggleFullscreen, goToPrev, goToNext]);
 
-  // Image URL — prefer full-size via imgproxy, fall back to thumbnail
+  // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
+  // Request viewport-sized image so it looks sharp at the current screen
+  // resolution (CSS pixels — DPR scaling deferred to later).
+  const imgproxyOpts = useMemo(
+    () => ({ width: window.innerWidth, height: window.innerHeight }),
+    [],
+  );
   const imageUrl = image
-    ? getFullImageUrl(image) ?? getThumbnailUrl(image)
+    ? getFullImageUrl(image, imgproxyOpts) ?? getThumbnailUrl(image)
     : undefined;
+
+  // Prefetch nearby images — 2 prev, 3 next (asymmetric: users flick
+  // forward more than backward). Uses `new Image().src` which triggers
+  // a browser fetch + cache. When the user flicks, the next image loads
+  // instantly from the browser's memory/disk cache.
+  useEffect(() => {
+    if (currentIndex < 0) return;
+    const prefetchIndices: number[] = [];
+    // 2 backward
+    for (let i = 1; i <= 2; i++) {
+      if (currentIndex - i >= 0) prefetchIndices.push(currentIndex - i);
+    }
+    // 3 forward
+    for (let i = 1; i <= 3; i++) {
+      if (currentIndex + i < results.length) prefetchIndices.push(currentIndex + i);
+    }
+    for (const idx of prefetchIndices) {
+      const url =
+        getFullImageUrl(results[idx], imgproxyOpts) ??
+        getThumbnailUrl(results[idx]);
+      if (url) {
+        const img = new Image();
+        img.src = url;
+      }
+    }
+  }, [currentIndex, results, imgproxyOpts]);
 
   // Not found state
   if (!image) {
@@ -128,12 +178,12 @@ export function ImageDetail() {
               ? "This image is not in the current search results."
               : "No search results loaded."}
           </p>
-          <Link
-            to="/search"
-            className="text-grid-accent hover:underline text-xs"
+          <button
+            onClick={closeDetail}
+            className="text-grid-accent hover:underline text-xs cursor-pointer"
           >
             ← Back to search
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -145,9 +195,9 @@ export function ImageDetail() {
       {!isFullscreen && (
         <header className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11 shrink-0">
           {/* Logo / Back to search */}
-          <Link
-            to="/search"
-            className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors flex items-center justify-center"
+          <button
+            onClick={closeDetail}
+            className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors flex items-center justify-center cursor-pointer"
             title="Back to search"
           >
             <img
@@ -155,114 +205,204 @@ export function ImageDetail() {
               alt="Grid"
               className="w-7 h-7"
             />
-          </Link>
+          </button>
 
-          <Link
-            to="/search"
-            className="text-xs text-grid-text-muted hover:text-grid-text transition-colors"
+          <button
+            onClick={closeDetail}
+            className="text-xs text-grid-text-muted hover:text-grid-text transition-colors cursor-pointer"
           >
             ← Back
-          </Link>
+          </button>
 
           <span className="flex-1" />
 
           {/* Image position in results */}
           {currentIndex >= 0 && (
             <span className="text-xs text-grid-text-muted">
-              {currentIndex + 1} of {results.length}
+              {currentIndex + 1} of {total.toLocaleString()}
             </span>
           )}
-
-          {/* Fullscreen button */}
-          <button
-            onClick={toggleFullscreen}
-            className="text-xs text-grid-text-muted hover:text-grid-text px-2 py-1 rounded hover:bg-grid-hover transition-colors cursor-pointer"
-            title="Toggle fullscreen (F)"
-          >
-            Fullscreen
-          </button>
         </header>
       )}
 
-      {/* Main content — this div is fullscreened.
-          Normal: bg-grid-bg (matches app background).
-          Fullscreen: black, no UI. */}
-      <div
-        ref={containerRef}
-        className={`flex-1 flex items-center justify-center relative min-h-0 ${
-          isFullscreen ? "bg-black" : "bg-grid-bg"
-        }`}
-      >
-        {/* The image — fills available space */}
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={image.metadata?.title ?? image.metadata?.description ?? ""}
-            className="max-w-full max-h-full object-contain"
-            draggable={false}
-          />
-        ) : (
-          <div className="text-grid-text-muted text-xs text-center p-4">
-            <p>Image preview not available</p>
-            <p className="mt-1 text-grid-text-dim">
-              Run with <code>--use-TEST</code> to enable image viewing
-            </p>
-          </div>
-        )}
+      {/* Main content area — flex row in normal mode (image + sidebar),
+          single fullscreen container when fullscreened. */}
+      <div className={`flex-1 flex min-h-0 ${isFullscreen ? "" : "flex-row"}`}>
+        {/* Image container — this div is fullscreened */}
+        <div
+          ref={containerRef}
+          className={`flex items-center justify-center relative ${
+            isFullscreen
+              ? "w-full h-full"
+              : "bg-grid-bg flex-1 min-w-0"
+          }`}
+        >
+          {/* The image — object-contain preserves aspect ratio.
+              Normal: constrained to container.
+              Fullscreen: fills the entire viewport. */}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={image.metadata?.title ?? image.metadata?.description ?? ""}
+              className={
+                isFullscreen
+                  ? "w-full h-full object-contain"
+                  : "max-w-full max-h-full object-contain"
+              }
+              draggable={false}
+            />
+          ) : (
+            <div className="text-grid-text-muted text-xs text-center p-4">
+              <p>Image preview not available</p>
+              <p className="mt-1 text-grid-text-dim">
+                Run with <code>--use-TEST</code> to enable image viewing
+              </p>
+            </div>
+          )}
 
-        {/* Prev button — semi-transparent, appears on hover */}
-        {prevImage && (
-          <button
-            onClick={goToPrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
-            style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
-            title="Previous image (←)"
-            aria-label="Previous image"
-          >
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {/* Prev button — semi-transparent, appears on hover */}
+          {prevImage && (
+            <button
+              onClick={goToPrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
+              style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
+              title="Previous image (←)"
+              aria-label="Previous image"
             >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-        )}
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          )}
 
-        {/* Next button — semi-transparent, appears on hover */}
-        {nextImage && (
-          <button
-            onClick={goToNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
-            style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
-            title="Next image (→)"
-            aria-label="Next image"
-          >
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {/* Next button — semi-transparent, appears on hover */}
+          {nextImage && (
+            <button
+              onClick={goToNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
+              style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
+              title="Next image (→)"
+              aria-label="Next image"
             >
-              <polyline points="9 6 15 12 9 18" />
-            </svg>
-          </button>
-        )}
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {/* Fullscreen hint — bottom of screen, subtle */}
-        {isFullscreen && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-xs pointer-events-none select-none">
-            F to exit · ← → to navigate · Esc to exit fullscreen
-          </div>
-        )}
+        {/* Metadata sidebar — hidden in fullscreen */}
+        {!isFullscreen && <MetadataPanel image={image} />}
       </div>
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Metadata sidebar
+// ---------------------------------------------------------------------------
+
+function formatDetailDate(dateStr?: string): string {
+  if (!dateStr) return "";
+  try {
+    return format(new Date(dateStr), "dd MMM yyyy HH:mm");
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDimensions(image: import("@/types/image").Image): string {
+  const dims = image.source.orientedDimensions ?? image.source.dimensions;
+  if (!dims) return "";
+  return `${dims.width} × ${dims.height}`;
+}
+
+function formatLocation(m: import("@/types/image").ImageMetadata): string {
+  const parts = [m.subLocation, m.city, m.state, m.country].filter(Boolean);
+  return parts.join(", ");
+}
+
+interface MetadataFieldProps {
+  label: string;
+  value?: string | null;
+}
+
+function MetadataField({ label, value }: MetadataFieldProps) {
+  if (!value) return null;
+  return (
+    <div className="mb-2.5">
+      <dt className="text-[11px] text-grid-text-dim mb-0.5">
+        {label}
+      </dt>
+      <dd className="text-xs text-grid-text break-words">{value}</dd>
+    </div>
+  );
+}
+
+function MetadataPanel({ image }: { image: import("@/types/image").Image }) {
+  const m = image.metadata;
+  const dims = formatDimensions(image);
+  const location = formatLocation(m);
+  const fileSize = formatFileSize(image.source.size);
+
+  return (
+    <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto p-3">
+      <dl>
+        <MetadataField label="Title" value={m.title} />
+        <MetadataField label="Description" value={m.description} />
+        <MetadataField label="By" value={m.byline} />
+        <MetadataField label="Credit" value={m.credit} />
+        <MetadataField label="Source" value={m.source} />
+        <MetadataField label="Copyright" value={m.copyright} />
+        <MetadataField label="Category" value={image.usageRights?.category} />
+        <MetadataField label="Special instructions" value={m.specialInstructions} />
+        <MetadataField label="Suppliers reference" value={m.suppliersReference} />
+        <MetadataField label="Location" value={location || undefined} />
+        <MetadataField label="Taken on" value={formatDetailDate(m.dateTaken)} />
+        <MetadataField label="Uploaded" value={formatDetailDate(image.uploadTime)} />
+        <MetadataField label="Uploader" value={image.uploadedBy} />
+        <MetadataField label="Dimensions" value={dims || undefined} />
+        <MetadataField label="File size" value={fileSize || undefined} />
+        <MetadataField
+          label="File type"
+          value={image.source.mimeType?.replace("image/", "") || undefined}
+        />
+        <MetadataField label="Image type" value={m.imageType} />
+        {m.subjects && m.subjects.length > 0 && (
+          <MetadataField label="Subjects" value={m.subjects.join(", ")} />
+        )}
+        {m.peopleInImage && m.peopleInImage.length > 0 && (
+          <MetadataField label="People" value={m.peopleInImage.join(", ")} />
+        )}
+        {m.keywords && m.keywords.length > 0 && (
+          <MetadataField label="Keywords" value={m.keywords.join(", ")} />
+        )}
+        <MetadataField label="Image ID" value={image.id} />
+      </dl>
+    </aside>
+  );
+}
+

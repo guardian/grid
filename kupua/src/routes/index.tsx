@@ -1,32 +1,18 @@
 /**
- * Index route — the main search page.
+ * Index route — redirects `/` to `/search`.
  *
- * URL search params are validated with Zod and synced to the Zustand search store.
- * The URL is the source of truth: changing the URL triggers a search,
- * and user interactions (typing, selecting filters) update the URL.
+ * Kahuna serves its search page at `/search?query=…`, and kupua matches
+ * this URL schema (AGENTS.md Decision 6). The root path redirects so
+ * existing bookmarks and the bare URL both work.
  */
 
-import { createRoute } from "@tanstack/react-router";
-import { zodSearchValidator } from "@tanstack/router-zod-adapter";
+import { createRoute, redirect } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
-import { searchParamsSchema } from "@/lib/search-params-schema";
-import { SearchBar } from "@/components/SearchBar";
-import { StatusBar } from "@/components/StatusBar";
-import { ImageTable } from "@/components/ImageTable";
 
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  validateSearch: zodSearchValidator(searchParamsSchema),
-  component: IndexPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/search", search: { nonFree: "true" } });
+  },
 });
-
-function IndexPage() {
-  return (
-    <>
-      <SearchBar />
-      <StatusBar />
-      <ImageTable />
-    </>
-  );
-}

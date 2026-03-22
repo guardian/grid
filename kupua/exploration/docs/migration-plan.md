@@ -52,16 +52,16 @@ All views:
 
 | Concern | Choice | Rationale |
 |---|---|---|
-| **UI Framework** | React 18+ with TypeScript | Modern, massive ecosystem, concurrent features for smooth UI |
+| **UI Framework** | React 19 with TypeScript | Modern, massive ecosystem, concurrent features for smooth UI |
 | **Table / Grid** | TanStack Table v8 | Headless, virtualised, column reordering/resizing/pinning, extremely performant |
 | **Virtual Scroll** | TanStack Virtual | Powers both table and thumbnail grid views; gives `scrollOffset` + `totalSize` for scrollbar arithmetic |
 | **State Management** | Zustand | Lightweight, no boilerplate, middleware for URL sync and persistence |
 | **Routing** | TanStack Router | Modern, built-in search params validation via Zod, pairs with TanStack ecosystem, URL = `?q=london&sort=-uploadTime&view=table&index=4231` |
-| **Styling** | Tailwind CSS | Utility-first for rapid density tweaks (padding, font-size, gap) via CSS vars; no CSS-in-JS runtime overhead at 60fps; easy dark mode for image viewing |
+| **Styling** | Tailwind CSS 4 | Utility-first for rapid density tweaks (padding, font-size, gap) via CSS vars; no CSS-in-JS runtime overhead at 60fps; easy dark mode for image viewing. No `tailwind.config` — uses `@theme` in CSS. |
 | **Build** | Vite | Fast dev server with HMR, fast production builds |
-| **Data Layer** | Abstracted ES client → Grid API adapter | Phase 1 talks to local ES directly; later swap to Grid API without touching UI code |
+| **Data Layer** | Abstracted `ImageDataSource` interface | ES adapter for direct read-only access; Grid API adapter deferred until auth/writes needed |
 | **Schema Validation** | Zod | Validate ES responses, route params, form inputs |
-| **Date Handling** | date-fns or dayjs | Lightweight replacement for moment.js |
+| **Date Handling** | date-fns | Lightweight replacement for moment.js |
 
 ### Custom Scrollbar (Google Photos-style)
 - ~100-line component, no library needed
@@ -88,7 +88,7 @@ All views:
 │  │           Data Access Layer (DAL)              │ │
 │  │  ┌─────────────────┐  ┌──────────────────────┐│ │
 │  │  │  ES Adapter      │  │  Grid API Adapter    ││ │
-│  │  │  (Phase 1-2)     │  │  (Phase 3+)          ││ │
+│  │  │  (active)        │  │  (deferred)          ││ │
 │  │  └────────┬─────────┘  └──────────┬───────────┘│ │
 │  └───────────┼───────────────────────┼────────────┘ │
 └──────────────┼───────────────────────┼──────────────┘
@@ -105,15 +105,14 @@ The **Data Access Layer (DAL)** is a TypeScript interface:
 ```typescript
 interface ImageDataSource {
   search(params: SearchParams): Promise<SearchResult>;
-  getImage(id: string): Promise<Image>;
-  getAggregation(field: string, query?: string): Promise<AggResult>;
-  getSuggestions(field: string, prefix: string): Promise<string[]>;
+  count(params: SearchParams): Promise<number>;
+  getAggregation(field: string, query?: string, size?: number): Promise<AggregationResult>;
 }
 ```
 
-Phase 1-2 implements `ElasticsearchDataSource`.
-Phase 3+ implements `GridApiDataSource`.
-The UI never knows which one is active.
+Currently implemented by `ElasticsearchDataSource` (direct ES access via Vite proxy or SSH tunnel).
+`GridApiDataSource` is deferred — direct ES is simpler and faster for read-only work.
+The UI never knows which implementation is active.
 
 ---
 
@@ -128,10 +127,10 @@ clashing with the main Grid ES. Both can run simultaneously. The container is na
 `kupua-elasticsearch` (vs Grid's `grid-elasticsearch-1`) and uses a separate named volume
 (`kupua-es-data`) so data is fully isolated.
 
-- [x] `kupua/docker-compose.yml` — standalone ES on port 9220, cluster name `kupua`
-- [x] `kupua/scripts/load-sample-data.sh` — creates index with mapping + bulk loads sample data
-- [x] Verify with `curl localhost:9220/_cat/indices` and a test query
-- [x] Document the setup steps in `kupua/README.md`
+- ✅ `kupua/docker-compose.yml` — standalone ES on port 9220, cluster name `kupua`
+- ✅ `kupua/scripts/load-sample-data.sh` — creates index with mapping + bulk loads sample data
+- ✅ Verify with `curl localhost:9220/_cat/indices` and a test query
+- ✅ Document the setup steps in `kupua/README.md`
 
 **Usage:**
 ```bash
@@ -149,44 +148,55 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
 **Files:**
 - `kupua/docker-compose.yml` — ✅ created
 - `kupua/scripts/load-sample-data.sh` — ✅ created
-- `kupua/exploration/mapping.json` — already exists
-- `kupua/exploration/sample-data.ndjson` — already exists (115MB, from CODE)
+- `kupua/exploration/mock/mapping.json` — already exists
+- `kupua/exploration/mock/sample-data.ndjson` — already exists (115MB, from CODE)
 
 ### 1.2 — Project Scaffold
 
-- [x] Initialised kupua as standalone Vite + React 19 + TypeScript app
-- [x] Installed dependencies: TanStack Table v8 / Virtual / Router, Zustand, Zod, Tailwind CSS 4, date-fns
-- [x] Configured Vite with proxy to local ES (`/es/*` → `localhost:9220`)
-- [x] Added `kupua/.gitignore` (sample-data.ndjson, node_modules, dist)
-- [x] Dev server runs on port 3000
+- ✅ Initialised kupua as standalone Vite + React 19 + TypeScript app
+- ✅ Installed dependencies: TanStack Table v8 / Virtual / Router, Zustand, Zod, Tailwind CSS 4, date-fns
+- ✅ Configured Vite with proxy to local ES (`/es/*` → `localhost:9220`)
+- ✅ Added `kupua/.gitignore` (sample-data.ndjson, node_modules, dist)
+- ✅ Dev server runs on port 3000
   ```
   kupua/
     exploration/          # already exists
-      mapping.json
-      sample-data.ndjson
+      mock/
+        mapping.json
+        sample-data.ndjson
+        grid-config.conf
       docs/
         migration-plan.md  # this file
+        deviations.md
+        safeguards.md
     scripts/
+      start.sh
       load-sample-data.sh
+      s3-proxy.mjs
     src/
       main.tsx
-      App.tsx
+      router.ts
+      index.css
       routes/
       components/
       dal/                 # Data Access Layer
+      lib/
       stores/
       types/
       hooks/
     public/
+      fonts/
+      images/
     index.html
     package.json
     tsconfig.json
     vite.config.ts
-    tailwind.config.ts
+    docker-compose.yml
     .gitignore
     README.md
+    AGENTS.md
   ```
-- [x] Install dependencies:
+- ✅ Install dependencies:
   - `react`, `react-dom`
   - `@tanstack/react-table`, `@tanstack/react-virtual`, `@tanstack/react-router`
   - `zustand`
@@ -194,104 +204,107 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
   - `tailwindcss`, `@tailwindcss/vite`
   - `date-fns`
   - `@guardian/cql`
-- [x] Configure Vite with proxy to local ES (`/es/*` → `localhost:9220`)
-- [x] Add to `.gitignore`: `node_modules`, `dist`, ignore `sample-data.ndjson` (too large for git — it stays local or in S3)
+- ✅ Configure Vite with proxy to local ES (`/es/*` → `localhost:9220`)
+- ✅ Add to `.gitignore`: `node_modules`, `dist`, ignore `sample-data.ndjson` (too large for git — it stays local or in S3)
 
 ### 1.3 — Data Access Layer (ES Adapter)
 
-- [x] Defined TypeScript types from the ES mapping (`kupua/src/types/image.ts`)
-- [x] Defined abstract `ImageDataSource` interface (`kupua/src/dal/types.ts`)
-- [x] Implemented `ElasticsearchDataSource` (`kupua/src/dal/es-adapter.ts`):
+- ✅ Defined TypeScript types from the ES mapping (`kupua/src/types/image.ts`)
+- ✅ Defined abstract `ImageDataSource` interface (`kupua/src/dal/types.ts`)
+- ✅ Implemented `ElasticsearchDataSource` (`kupua/src/dal/es-adapter.ts`):
   - `search(params)` → ES `_search` with query DSL (multi_match, filters, sort, pagination)
-  - `getImage(id)` → ES `_doc` get
-  - `getAggregation(field, query)` → ES terms aggregation
-  - `getSuggestions(field, prefix)` → ES completion suggester
-- [x] Proxy ES requests through Vite dev server (no CORS issues)
-- [x] Sort conventions match Grid's (`-uploadTime`, `taken`, etc.)
+  - `count(params)` → ES `_count` for lightweight polling (new images ticker)
+  - `getAggregation(field, query)` → ES terms aggregation (for typeahead + filter dropdowns)
+- ✅ Proxy ES requests through Vite dev server (no CORS issues)
+- ✅ Sort conventions match Grid's (`-uploadTime`, `taken`, etc.)
 
 ### 1.4 — Core Table View
 
-- [x] **Search bar** — debounced text input, updates URL (planned), shows result count + timing
-- [x] **Results table** using TanStack Table:
+- ✅ **Search bar** — debounced text input, updates URL (planned), shows result count + timing
+- ✅ **Results table** using TanStack Table:
   - Default columns: ID, title, description, byline, credit, source, dateTaken, uploadTime, uploadedBy, dimensions, mimeType, usageRights.category
   - Column resizing via drag handles
-- [x] **Virtual scrolling** via TanStack Virtual:
+- ✅ **Virtual scrolling** via TanStack Virtual:
   - Renders only visible rows + 20-row overscan buffer
   - Infinite scroll: fetches next page when approaching bottom
-- [x] **Sort control** — click column header to toggle asc/desc, reflected visually (↑/↓ arrow)
-- [x] **Total count** display with query timing
-- [x] **Loading states** — "Loading more…" indicator at bottom during pagination
+- ✅ **Sort control** — click column header to toggle asc/desc, reflected visually (↑/↓ arrow)
+- ✅ **Total count** display with query timing
+- ✅ **Loading states** — "Loading more…" indicator at bottom during pagination
 
 ### 1.5 — Search & Filtering
 
-- [x] **Free-text search** — debounced CQL input → ES query via `cql.ts` translator
-- [x] **CQL chips** — `@guardian/cql` `<cql-input>` Web Component with typeahead, field suggestions, chip editing
-- [x] **Date range filters** — upload date, date taken, last modified (DateFilter component with radio type, presets, custom range pickers)
-- [ ] **Facet filters** (from ES aggregations):
+- ✅ **Free-text search** — debounced CQL input → ES query via `cql.ts` translator
+- ✅ **CQL chips** — `@guardian/cql` `<cql-input>` Web Component with typeahead, field suggestions, chip editing
+- ✅ **Date range filters** — upload date, date taken, last modified (DateFilter component with radio type, presets, custom range pickers)
+- ⬜ **Facet filters** (from ES aggregations):
   - `uploadedBy` — dropdown/autocomplete
   - `usageRights.category` — multi-select
   - `metadata.source` — multi-select
   - `metadata.credit` — autocomplete
-- [x] **Click-to-search** — shift-click cell to filter, alt-click to exclude
-- [x] **Free-to-use filter** — checkbox toggling `nonFree` URL param
-- [x] All filters reflected in URL search params
+- ✅ **Click-to-search** — shift-click cell to filter, alt-click to exclude
+- ✅ **Free-to-use filter** — checkbox toggling `nonFree` URL param
+- ✅ All filters reflected in URL search params
 
 ### 1.6 — URL State & Navigation
 
-- [x] TanStack Router setup with validated search params (Zod schema in `search-params-schema.ts`)
-- [x] Custom plain-string URL serialisation (no qss/JSON.stringify artefacts)
-- [x] Browser back/forward correctly restores search + scroll position
-- [x] Zustand store synced with URL via `useUrlSearchSync` hook
-- [x] URL params match Grid/kahuna conventions: `query`, `orderBy`, `nonFree`, `since`/`until`, `takenSince`/`takenUntil`, `modifiedSince`/`modifiedUntil`
+- ✅ TanStack Router setup with validated search params (Zod schema in `search-params-schema.ts`)
+- ✅ Custom plain-string URL serialisation (no qss/JSON.stringify artefacts)
+- ✅ Browser back/forward correctly restores search + scroll position
+- ✅ Zustand store synced with URL via `useUrlSearchSync` hook
+- ✅ URL params match Grid/kahuna conventions: `query`, `orderBy`, `nonFree`, `since`/`until`, `takenSince`/`takenUntil`, `modifiedSince`/`modifiedUntil`
 
 ### 1.7 — Custom Scrollbar (Stretch Goal for Phase 1)
 
-- [ ] Vertical track component overlaid on scroll container
-- [ ] Thumb position calculated from `scrollOffset / totalSize`
-- [ ] Date/time labels sampled from the data at intervals along the track
-- [ ] Click-to-jump: click a position → scroll to that offset
-- [ ] Drag thumb to scrub through results
+- ⬜ Vertical track component overlaid on scroll container
+- ⬜ Thumb position calculated from `scrollOffset / totalSize`
+- ⬜ Date/time labels sampled from the data at intervals along the track
+- ⬜ Click-to-jump: click a position → scroll to that offset
+- ⬜ Drag thumb to scrub through results
 
 ### Phase 1 Definition of Done
 
-- [x] `docker compose up` + `./kupua/scripts/load-sample-data.sh` gives you a working local ES with real data
-- [x] `cd kupua && npm run dev` opens a fast table of images from local ES
-- [x] Can search, filter, sort, scroll through all sample data smoothly
-- [x] URL reflects all state; back/forward works
-- [ ] Column config is reorderable and persisted (visibility done, drag reorder remaining)
-- [x] No calls to any production or CODE system
+- ✅ `docker compose up` + `./kupua/scripts/load-sample-data.sh` gives you a working local ES with real data
+- ✅ `cd kupua && npm run dev` opens a fast table of images from local ES
+- ✅ Can search, filter, sort, scroll through all sample data smoothly
+- ✅ URL reflects all state; back/forward works
+- ⬜ Column config is reorderable and persisted (visibility done, drag reorder remaining)
+- ✅ No calls to any production or CODE system
 
 ---
 
 ## Phase 2 — Connect to Live Elasticsearch
 
-> **Goal:** Point kupua at a real (CODE) Elasticsearch cluster to test against the full ~9M image dataset. Still read-only, no auth.
+> **Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against the full ~9M image dataset. Still read-only, no auth, no Grid API.
 
-- [ ] Make ES endpoint configurable via environment variable (`KUPUA_ES_URL`)
-- [ ] Test against CODE ES (requires VPN/tunnel)
-- [ ] Performance tuning:
-  - Pagination strategy: keyed search_after vs offset (for deep pagination of 9M docs)
-  - ES query optimisation (filter context vs query context)
-  - Consider `_source` filtering — only fetch fields needed for current columns
-- [ ] Implement `search_after` cursor-based pagination for scroll-through of full dataset
-- [ ] Stress-test: scroll to image #5,000,000 — does the scrollbar work? Does perf hold?
+- ✅ Make ES endpoint configurable via environment variable (`KUPUA_ES_URL`, `VITE_ES_INDEX`, `VITE_ES_IS_LOCAL`)
+- ✅ Connect to TEST/CODE ES via SSH tunnel (`start.sh --use-TEST` auto-discovers index alias, configures env vars, enables write protection)
+- ✅ `_source` filtering — exclude heavy fields (EXIF, XMP, Getty, embeddings) from responses
+- ✅ Write protection safeguards — only `_search`/`_count`/`_cat/aliases` allowed on non-local ES
+- ✅ S3 thumbnail proxy (`scripts/s3-proxy.mjs`) — local-only Node.js server proxying S3 thumbnails using developer AWS credentials
+- ✅ imgproxy for full-size images — Docker container resizing S3 originals to WebP on the fly
+- ✅ Image detail overlay with prev/next navigation, fullscreen, keyboard shortcuts, asymmetric prefetch
+- ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search
+- ⬜ Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs)
+- ⬜ Custom scrubber (thumb = `windowStart / total`)
+- ⬜ Facet filters (dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source`)
+- ⬜ Column reordering via drag-and-drop
 
 ---
 
 ## Phase 3 — Connect to Grid API (media-api)
 
-> **Goal:** Switch from direct ES access to the Grid media-api. Add authentication. This makes kupua deployable alongside the existing Grid stack.
+> **Goal:** Add authentication and, optionally, a Grid API data source. Direct ES access is kupua's architectural advantage for read-only work — the Grid API becomes necessary for auth, signed URLs, and write operations. This phase makes kupua deployable alongside the existing Grid stack.
 
-- [ ] Implement `GridApiDataSource` (`kupua/src/dal/grid-api-adapter.ts`):
+- ⬜ Implement `GridApiDataSource` (`kupua/src/dal/grid-api-adapter.ts`):
   - Uses the existing HATEOAS API (follow links from root)
   - Maps search params to Grid API query params
   - Handles pagination via Grid's offset/length model
-- [ ] Add authentication:
+- ⬜ Add authentication:
   - Integrate with Grid's auth service (OIDC / pan-domain auth)
   - Session management (cookie-based, same as kahuna)
-- [ ] DAL config: switch between `es` and `grid-api` via env var or feature flag
-- [ ] Deploy kupua as a new Play route or standalone service alongside kahuna
-- [ ] Read-only at this stage — no edits, no uploads
+- ⬜ DAL config: switch between `es` and `grid-api` via env var or feature flag
+- ⬜ Deploy kupua as a new Play route or standalone service alongside kahuna
+- ⬜ Read-only at this stage — no edits, no uploads
 
 ---
 
@@ -300,32 +313,32 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
 > **Goal:** Add mutation capabilities. Users can edit metadata, manage rights, archive/delete.
 
 ### 4.1 — Single Image Editing
-- [ ] Metadata editing (byline, description, credit, keywords, labels, title, special instructions)
-- [ ] Usage rights category selection and property editing
-- [ ] Photoshoot assignment
-- [ ] Archive / un-archive
-- [ ] Soft-delete / un-delete
+- ⬜ Metadata editing (byline, description, credit, keywords, labels, title, special instructions)
+- ⬜ Usage rights category selection and property editing
+- ⬜ Photoshoot assignment
+- ⬜ Archive / un-archive
+- ⬜ Soft-delete / un-delete
 
 ### 4.2 — Batch Operations
-- [ ] Multi-select (checkbox column + shift-click range select + cmd/ctrl-click)
-- [ ] Batch metadata editing with diff tracking (as kahuna's `metadataDiff.js`)
-- [ ] Batch archiving
-- [ ] Batch deletion
-- [ ] **Deferred mass-edits with concurrency braces:**
+- ⬜ Multi-select (checkbox column + shift-click range select + cmd/ctrl-click)
+- ⬜ Batch metadata editing with diff tracking (as kahuna's `metadataDiff.js`)
+- ⬜ Batch archiving
+- ⬜ Batch deletion
+- ⬜ **Deferred mass-edits with concurrency braces:**
   - Queue edits as jobs
   - Display ongoing jobs panel (job ID, progress, status)
   - Handle conflicts (optimistic concurrency via ES version or Grid API ETags)
 
 ### 4.3 — Leases
-- [ ] View leases on images
-- [ ] Add/remove access leases (allow/deny) with date ranges
-- [ ] Auto-leases from usage rights categories
+- ⬜ View leases on images
+- ⬜ Add/remove access leases (allow/deny) with date ranges
+- ⬜ Auto-leases from usage rights categories
 
 ### 4.4 — Collections
-- [ ] View collections tree
-- [ ] Add/remove images from collections
-- [ ] Create/delete collections
-- [ ] Drag-and-drop into collections
+- ⬜ View collections tree
+- ⬜ Add/remove images from collections
+- ⬜ Create/delete collections
+- ⬜ Drag-and-drop into collections
 
 ---
 
@@ -334,40 +347,39 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
 > **Goal:** Every feature kahuna has, kupua has too (but better). This is the prerequisite for decommissioning kahuna.
 
 ### 5.1 — Crops
-- [ ] View existing crops on images
-- [ ] Create new crops (aspect ratio presets, freeform, circular mask)
-- [ ] Delete crops
-- [ ] Crop selection events for embedding (postMessage to parent iframe)
+- ⬜ View existing crops on images
+- ⬜ Create new crops (aspect ratio presets, freeform, circular mask)
+- ⬜ Delete crops
+- ⬜ Crop selection events for embedding (postMessage to parent iframe)
 
 ### 5.2 — Upload
-- [ ] Drag-and-drop upload
-- [ ] File picker upload
-- [ ] Upload job tracking with progress
-- [ ] Duplicate detection
-- [ ] Pre-upload metadata/rights assignment
+- ⬜ Drag-and-drop upload
+- ⬜ File picker upload
+- ⬜ Upload job tracking with progress
+- ⬜ Duplicate detection
+- ⬜ Pre-upload metadata/rights assignment
 
 ### 5.3 — Usages
-- [ ] View digital, print, front, syndication, download usages
-- [ ] Usage status indicators (published, pending, removed, replaced)
+- ⬜ View digital, print, front, syndication, download usages
+- ⬜ Usage status indicators (published, pending, removed, replaced)
 
 ### 5.4 — Syndication
-- [ ] Syndication status filtering
-- [ ] Syndication rights display
-- [ ] Syndicate image action
+- ⬜ Syndication status filtering
+- ⬜ Syndication rights display
+- ⬜ Syndicate image action
 
 ### 5.5 — Embedding / Integration
-- [ ] iframe embed mode (for Composer and other tools)
-- [ ] `postMessage` events: crop-selected, crop-created, crops-created
-- [ ] Drag data: grid image data, crop data, asset handles with MIME types
-- [ ] `application/vnd.mediaservice.*` MIME type support
+- ⬜ iframe embed mode (for Composer and other tools)
+- ⬜ `postMessage` events: crop-selected, crop-created, crops-created
+- ⬜ Drag data: grid image data, crop data, asset handles with MIME types
+- ⬜ `application/vnd.mediaservice.*` MIME type support
 
 ### 5.6 — Miscellaneous
-- [ ] Permissions-based UI (canUpload, canArchive, canDelete, showPaid)
-- [ ] Notifications / announcements banner
-- [ ] Sentry error tracking
-- [ ] Telemetry
-- [ ] Keyboard shortcuts (customisable)
-- [ ] CQL structured query input (from `@guardian/cql` package)
+- ⬜ Permissions-based UI (canUpload, canArchive, canDelete, showPaid)
+- ⬜ Notifications / announcements banner
+- ⬜ Sentry error tracking
+- ⬜ Telemetry
+- ⬜ Keyboard shortcuts (customisable)
 
 ---
 
@@ -375,16 +387,16 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
 
 > **Goal:** Features that kahuna never had. The reason for building kupua.
 
-- [ ] **Adjustable density slider** — seamless transition between table/grid/detail views
-- [ ] **Google Photos scrollbar** — full position-aware scrubber with date labels
-- [ ] **AI/semantic search** — leverage existing `embedding.cohereEmbedEnglishV3` vectors for similarity search
-- [ ] **Saved searches / filters** — persist named filter combinations
-- [ ] **Comparison mode** — side-by-side image comparison with metadata diff
-- [ ] **Dark mode** — essential for image viewing/editing
-- [ ] **Offline / PWA capabilities** — cache recently viewed images
-- [ ] **Real-time updates** — WebSocket/SSE for live index changes
-- [ ] **Advanced analytics** — usage patterns, most-used images, upload trends
-- [ ] **Custom metadata schemas** — dynamic domain metadata without code changes
+- ⬜ **Adjustable density slider** — seamless transition between table/grid/detail views
+- ⬜ **Google Photos scrollbar** — full position-aware scrubber with date labels
+- ⬜ **AI/semantic search** — leverage existing `embedding.cohereEmbedEnglishV3` vectors for similarity search
+- ⬜ **Saved searches / filters** — persist named filter combinations
+- ⬜ **Comparison mode** — side-by-side image comparison with metadata diff
+- ⬜ **Dark mode** — essential for image viewing/editing
+- ⬜ **Offline / PWA capabilities** — cache recently viewed images
+- ⬜ **Real-time updates** — WebSocket/SSE for live index changes
+- ⬜ **Advanced analytics** — usage patterns, most-used images, upload trends
+- ⬜ **Custom metadata schemas** — dynamic domain metadata without code changes
 
 ---
 
@@ -641,10 +653,10 @@ Complete list of kahuna functionality that needs to be migrated (or consciously 
 | Feature | kahuna Implementation | Kupua Status |
 |---|---|---|
 | Search results grid | `gu-lazy-table` (virtual grid of thumbnails) | ✅ Phase 1 (table view) |
-| Image detail page | `/images/:imageId` route | Phase 1 (inline detail) |
+| Image detail page | `/images/:imageId` route | ✅ Phase 2 (overlay in search route at `/search?image=:imageId`, with prev/next nav, fullscreen, keyboard shortcuts) |
 | Crop page | `/images/:imageId` → crop state | Phase 5 |
 | Upload page | `/upload` route | Phase 5 |
-| Deep state redirect | `ui-router-extras` DSR | Phase 1 (TanStack Router) |
+| Deep state redirect | `ui-router-extras` DSR | ✅ Phase 1 (TanStack Router — URL is source of truth, back/forward works) |
 
 ### Search & Discovery
 | Feature | kahuna Implementation | Kupua Status |
@@ -653,10 +665,10 @@ Complete list of kahuna functionality that needs to be migrated (or consciously 
 | Structured query (CQL) | `@guardian/cql` | ✅ Phase 1 (chips + typeahead via `<cql-input>`) |
 | Date range filters | `gu-date-range` component | ✅ Phase 1 |
 | Sort by upload/taken/collection date | `gr-sort-control` + `gr-extended-sort-control` | ✅ Phase 1 |
-| "With/without taken date" tab | Tab swap with query modification | Phase 1 |
+| "With/without taken date" tab | Tab swap with query modification | Phase 2 |
 | Cost filter (free/paid) | `gr-permissions-filter` | ✅ Phase 1 |
-| "My uploads" filter | `gr-my-uploads` | Phase 1 |
-| Metadata suggestions/autocomplete | `suggest/metadata/{field}` API | Phase 1 |
+| "My uploads" filter | `gr-my-uploads` | Phase 3 (needs auth) |
+| Metadata suggestions/autocomplete | `suggest/metadata/{field}` API | ✅ Phase 1 (LazyTypeahead + ES terms aggs on keyword fields) |
 | Label suggestions | `suggested-labels` API | Phase 3 |
 | Collection filter | `~"path"` query syntax | Phase 4 |
 
@@ -803,8 +815,9 @@ Key fields from the ES mapping (see `kupua/exploration/mapping.json` for full sc
 
 ## Notes
 
-- **Sample data location:** `kupua/exploration/sample-data.ndjson` (115MB, from CODE ES). Also backed up to `s3://<sample-data-backup-bucket>/sample-data.ndjson`.
-- **Mapping location:** `kupua/exploration/mapping.json` (from CODE ES index `<es-index-name>`).
+- **Sample data location:** `kupua/exploration/mock/sample-data.ndjson` (115MB, from CODE ES). Also backed up to `s3://<sample-data-backup-bucket>/sample-data.ndjson`.
+- **Mapping location:** `kupua/exploration/mock/mapping.json` (from CODE ES index `<es-index-name>`).
+- **Mock Grid config:** `kupua/exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories).
 - **The `.ndjson` file should NOT be committed to git** — it's too large. Add to `.gitignore` and keep it local or in S3.
 - **ES version:** Grid uses Elasticsearch 8.18.3 (docker-compose) — kupua should target the same.
 - **kahuna source:** `/kahuna/public/js/` — AngularJS 1.8, RxJS 2, Immutable.js, webpack. Key files: `main.js`, `search/results.js`, `search/index.js`, `image/controller.js`, `services/api/media-api.js`.

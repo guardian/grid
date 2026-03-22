@@ -2,15 +2,14 @@
  * Fullscreen hook — thin wrapper around the Fullscreen API.
  *
  * CRITICAL DESIGN PROPERTY: The fullscreen element must be a **stable DOM
- * node** that persists across route param changes. The Fullscreen API exits
- * fullscreen when the fullscreened element is removed from the DOM. TanStack
- * Router does NOT unmount the route component when only path params change
- * (e.g. /images/abc → /images/def), so the same <div> stays in the DOM and
- * fullscreen survives. This is how prev/next image navigation works in
- * fullscreen — the container stays, only the image src updates.
+ * node** that persists across image navigation. The Fullscreen API exits
+ * fullscreen when the fullscreened element is removed from the DOM.
  *
- * For cross-route transitions (e.g. /search → /images/:id), fullscreen WILL
- * exit because the component tree changes. This matches kahuna behaviour.
+ * Image detail is an overlay within the search route — React reconciles
+ * the same `ImageDetail` component when only the `image` prop changes,
+ * so the fullscreened `<div ref>` stays in the DOM and fullscreen persists
+ * across prev/next navigation. This is how flicking through images in
+ * fullscreen works — the container stays, only the image src updates.
  */
 
 import { useCallback, useEffect, useState, type RefObject } from "react";

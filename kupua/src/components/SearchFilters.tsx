@@ -43,7 +43,7 @@ function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {
 // ---------------------------------------------------------------------------
 
 function FilterControls() {
-  const params = useSearch({ from: "/" });
+  const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
 
   const handleFreeOnlyToggle = useCallback(() => {
@@ -75,7 +75,7 @@ function FilterControls() {
 // ---------------------------------------------------------------------------
 
 function SortControls() {
-  const params = useSearch({ from: "/" });
+  const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

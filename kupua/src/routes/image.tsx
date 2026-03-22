@@ -1,19 +1,22 @@
 /**
- * Image route — single-image detail view at `/images/:imageId`.
+ * Image route — redirects `/images/:imageId` to `/search?image=:imageId`.
  *
- * The route component does NOT unmount when imageId changes — TanStack Router
- * reconciles the same component with new params. This is critical: the
- * fullscreened DOM element persists across image navigations, so fullscreen
- * mode survives prev/next flicking.
+ * The image detail view is now an overlay within the search route (not a
+ * separate page). This redirect preserves backward compatibility with
+ * existing bookmarks and kahuna's URL schema.
  */
 
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, redirect } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
-import { ImageDetail } from "@/components/ImageDetail";
 
 export const imageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/images/$imageId",
-  component: ImageDetail,
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/search",
+      search: { nonFree: "true", image: params.imageId },
+    });
+  },
 });
 
