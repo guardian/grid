@@ -559,6 +559,78 @@ For Phase 1, scroll position is NOT in the URL (matching kahuna).
 | **Phase 2** (9M docs, ES direct) | Switch to windowed scroll + `search_after`. Evict distant pages. | Basic scrubber: thumb = `windowStart / total`. No labels yet. Test seeking with `from/size` for big jumps. |
 | **Phase 6** (polish) | Refined windowed scroll with prefetch. | Full scrubber: sort-aware labels, smooth drag, mobile touch, letter markers for keyword sorts. |
 
+### Practical constraints discovered
+
+#### Browser height limit
+
+Browsers cap `scrollHeight` at ~33,554,432px (2^25, varies by browser/OS).
+At 32px/row, that's ~1M rows — well short of 9M. A naive `estimateSize ×
+count` approach will silently break. This confirms a custom scrubber is
+mandatory at scale; the native scrollbar cannot represent the full dataset.
+
+#### The distribution problem
+
+A linear scrubber (thumb % = row %) is unusable when data is unevenly
+distributed. Upload rates are bursty — 1M images in a busy news week,
+then nothing for a month. A linear mapping means:
+- 80% of the scrubber track covers recent data (dense zone)
+- Moving the thumb 1px in the dense zone skips thousands of images
+- The remaining 20% covers months of sparse data with plenty of room
+
+Solving this properly requires knowing the sort-field distribution (e.g.
+a date histogram aggregation from ES) to build a non-linear mapping.
+This is the hard part of the scrubber — not the UI, but the data mapping.
+
+#### Existing implementations (landscape survey, March 2026)
+
+There is **no off-the-shelf React library** for a scroll scrubber at this
+scale. The closest prior art:
+
+| Implementation | Notes |
+|---|---|
+| **iOS Photos year/month/day scrubber** | Gold standard. Native, not portable. Handles bursty distribution with variable-density track sections. |
+| **Google Photos (web)** | Custom-built, not open-source. Uses a semantic scrubber with date labels. The Antin Harasymiv 2019 talk documents the approach. |
+| **`react-virtuoso`** | Supports `totalCount` + lazy `itemContent`, but tops out at ~100k–500k items before hitting browser height limits. No scrubber. |
+| **AG Grid Enterprise** | Server-side row model with lazy loading. Full grid product. Expensive licence. Overkill for our needs. |
+| **TanStack Virtual** | What we use. No built-in scrubber. Would need a custom overlay. |
+
+Conclusion: the scrubber must be built from scratch.
+
+#### Recommended phased approach
+
+1. **Phase 2 — start with paginated windows + explicit navigation.** This is
+   simpler (~1 week) and immediately useful:
+   - "Jump to date" picker — type a date, seek to that position
+   - "Jump to page" input
+   - Next/Previous window buttons
+   - Keyboard: Home/End seek to first/last page (with `search_after`)
+   - Avoids Grid/kahuna's hard cutoff ("Too many results to display") by
+     allowing explicit pagination to the next window
+
+2. **Phase 2+ — layer on the custom scrubber** as a progressive enhancement
+   (~2–4 weeks). The paginated controls remain as an alternative input method
+   (precise jumping), while the scrubber adds visual browsing. They're not
+   mutually exclusive.
+
+3. **Phase 6 — polish.** Sort-aware labels, smooth drag feel, non-linear
+   distribution mapping, mobile touch, letter markers for keyword sorts.
+
+#### Don't prototype the scrubber against 10k rows
+
+The scroll UX problems (thumb resolution, distribution mapping, seek
+latency, skeleton loading during big jumps) cannot be meaningfully tested
+with 10k rows. The native scrollbar works perfectly at that scale. Build
+the `search_after` pagination in the ES adapter now (it works fine against
+10k), but leave the scroll UI for when real-scale data is available.
+
+#### Kahuna's approach (for reference)
+
+Grid/kahuna has a hard cutoff: beyond ~10,000 results, it shows "Too many
+results to display — please refine your search." No pagination beyond that
+point. kupua should avoid this by supporting explicit window pagination
+(even before the scrubber exists), so users can always reach any position
+in the dataset through deliberate navigation.
+
 ---
 
 ## Kahuna Feature Inventory
