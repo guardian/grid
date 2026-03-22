@@ -19,26 +19,32 @@
  *   reconciles the same component — the DOM node persists, so the Fullscreen
  *   API does not exit.
  * - Keyboard shortcuts: `f` toggle fullscreen, `←/→` prev/next image,
- *   `Escape` exit fullscreen only (never navigates — close via back
- *   button or browser back).
+ *   `Escape` exit fullscreen only (never navigates — close via the
+ *   "← Back" button in the UI).
+ * - "← Back" button navigates to the search list (strips `image` from
+ *   URL params, replace: true). This is NOT history.back() — it always
+ *   goes to the list regardless of history depth. Browser back is a
+ *   separate operation (undoes the last navigation — may go to a
+ *   previous image if the user manually edited the URL).
  * - Prev/next navigates through the search results stored in the Zustand
  *   search store, replacing `imageId` in the URL with `replace: true`
  *   (so back always returns to the table, not through every viewed image).
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { format } from "date-fns";
+import type { Image } from "@/types/image";
 
 interface ImageDetailProps {
   imageId: string;
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, loading, loadMore } = useSearchStore();
+  const { results, total, loading, loadMore, dataSource } = useSearchStore();
   const navigate = useNavigate();
 
   // The fullscreen container ref — must be stable across imageId changes
@@ -50,7 +56,44 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     () => results.findIndex((img) => img.id === imageId),
     [results, imageId],
   );
-  const image = currentIndex >= 0 ? results[currentIndex] : undefined;
+  const imageFromResults = currentIndex >= 0 ? results[currentIndex] : undefined;
+
+  // Standalone fetch — when the imageId isn't in the search results
+  // (e.g. direct URL navigation, bookmark, /images/:id redirect),
+  // fetch it by ID from ES directly.  This eliminates the "Image not
+  // found" dead end — if the image exists in the index, we show it.
+  const [standaloneImage, setStandaloneImage] = useState<Image | null>(null);
+  const [standaloneFetchFailed, setStandaloneFetchFailed] = useState(false);
+
+  useEffect(() => {
+    // If the image is already in search results, no need to fetch
+    if (imageFromResults) {
+      setStandaloneImage(null);
+      setStandaloneFetchFailed(false);
+      return;
+    }
+    // Fetch by ID
+    let cancelled = false;
+    setStandaloneFetchFailed(false);
+    dataSource.getById(imageId).then(
+      (img) => {
+        if (cancelled) return;
+        if (img) {
+          setStandaloneImage(img);
+        } else {
+          setStandaloneFetchFailed(true);
+        }
+      },
+      () => {
+        if (!cancelled) setStandaloneFetchFailed(true);
+      },
+    );
+    return () => { cancelled = true; };
+  }, [imageId, imageFromResults, dataSource]);
+
+  // Use the image from results if available (preserves prev/next nav),
+  // otherwise fall back to the standalone fetch
+  const image = imageFromResults ?? standaloneImage;
 
   const prevImage = currentIndex > 0 ? results[currentIndex - 1] : undefined;
   const nextImage =
@@ -89,11 +132,25 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     if (nextImage) goToImage(nextImage.id);
   }, [nextImage, goToImage]);
 
-  // Close image detail — go back in history (removes imageId from URL,
-  // restoring the exact search page state including scroll position).
+  // Close image detail — navigate to the search list by stripping the
+  // `image` param from the URL.  This is NOT history.back() — it's a
+  // deliberate "go to search view" action.  Browser back remains a
+  // separate operation (undoes the last navigation, which might be
+  // another image if the user manually edited the URL).
+  //
+  // Uses replace: true so the current image entry is replaced with the
+  // list — pressing browser back from the list won't bounce back to the
+  // image the user just closed.
   const closeDetail = useCallback(() => {
-    window.history.back();
-  }, []);
+    navigate({
+      to: "/search",
+      search: (prev: Record<string, unknown>) => {
+        const { image: _, ...rest } = prev;
+        return rest;
+      },
+      replace: true,
+    });
+  }, [navigate]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -145,6 +202,13 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // forward more than backward). Uses `new Image().src` which triggers
   // a browser fetch + cache. When the user flicks, the next image loads
   // instantly from the browser's memory/disk cache.
+  //
+  // These are fire-and-forget: orphaned prefetch Image objects for images
+  // the user has already flicked past complete harmlessly in the background
+  // and warm the browser cache (useful if the user flicks back). We
+  // intentionally do NOT cancel them on cleanup — aborting a partially
+  // downloaded image can leave the cache entry incomplete, causing the
+  // main <img> to re-fetch from scratch when it arrives at that image.
   useEffect(() => {
     if (currentIndex < 0) return;
     const prefetchIndices: number[] = [];
@@ -167,27 +231,41 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     }
   }, [currentIndex, results, imgproxyOpts]);
 
-  // Not found state
+  // Loading / not-found states.
+  // When image is null: either still fetching (standalone) or truly absent.
   if (!image) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-grid-text-muted">
-        <div className="text-center">
-          <p className="text-lg mb-2">Image not found</p>
-          <p className="text-xs mb-4">
-            {currentIndex < 0 && results.length > 0
-              ? "This image is not in the current search results."
-              : "No search results loaded."}
-          </p>
-          <button
-            onClick={closeDetail}
-            className="text-grid-accent hover:underline text-xs cursor-pointer"
-          >
-            ← Back to search
-          </button>
+    // Standalone fetch in progress — show loading, not an error
+    if (!imageFromResults && !standaloneFetchFailed) {
+      return (
+        <div className="flex-1 flex items-center justify-center text-grid-text-muted">
+          <p className="text-xs animate-pulse">Loading image…</p>
         </div>
-      </div>
-    );
+      );
+    }
+    // Standalone fetch failed — image doesn't exist in the index
+    if (standaloneFetchFailed) {
+      return (
+        <div className="flex-1 flex items-center justify-center text-grid-text-muted">
+          <div className="text-center">
+            <p className="text-lg mb-2">Image not found</p>
+            <p className="text-xs mb-4">
+              This image does not exist in the index.
+            </p>
+            <button
+              onClick={closeDetail}
+              className="text-grid-accent hover:underline text-xs cursor-pointer"
+            >
+              ← Back to search
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
+
+  // At this point `image` is guaranteed non-null (either from results
+  // or standalone fetch).  The `!` assertions below are safe.
+  const displayImage = image!;
 
   return (
     <>
@@ -243,7 +321,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           {imageUrl ? (
             <img
               src={imageUrl}
-              alt={image.metadata?.title ?? image.metadata?.description ?? ""}
+              alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
               className={
                 isFullscreen
                   ? "w-full h-full object-contain"
@@ -308,7 +386,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         </div>
 
         {/* Metadata sidebar — hidden in fullscreen */}
-        {!isFullscreen && <MetadataPanel image={image} />}
+        {!isFullscreen && <MetadataPanel image={displayImage} />}
       </div>
     </>
   );

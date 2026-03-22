@@ -297,6 +297,23 @@ export class ElasticsearchDataSource implements ImageDataSource {
     return result.count;
   }
 
+  async getById(id: string): Promise<Image | undefined> {
+    const body: Record<string, unknown> = {
+      query: { terms: { id: [id] } },
+      size: 1,
+    };
+    if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
+      body._source = {
+        ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
+        ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
+      };
+    }
+    const result = (await this.esRequest("_search", body)) as {
+      hits: { hits: Array<{ _source: Image }> };
+    };
+    return result.hits.hits[0]?._source;
+  }
+
   async getAggregation(
     field: string,
     query?: string,

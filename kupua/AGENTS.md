@@ -129,6 +129,7 @@ introduced.
 - ✅ Root route (`__root.tsx`) — minimal shell (bg + flex column)
 - ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageTable. When `image` is in URL params, makes the search UI invisible (`opacity-0 pointer-events-none` — stays fully laid out in DOM to preserve scroll position) and renders `ImageDetail` overlay. No route transition, no unmount, scroll position preserved.
 - ✅ Image detail as overlay (not a separate route) — `ImageDetail.tsx` renders within the search route when `image` URL param is present. Double-click row adds `image` (push). Prev/next replaces `image` (replace). Back button/browser back removes `image` → table reappears at exact scroll position. All search context preserved in URL. `image` is a display-only URL param (not synced to search store, doesn't trigger ES search). URL style: `?image=abc123&nonFree=true&query=...` (priority keys first via `URL_PARAM_PRIORITY`).
+- ✅ Image detail standalone fetch — when the `image` URL param points to an ID not in the current search results (direct URL, bookmark, `/images/:id` redirect), fetches the image by ID from ES via `dataSource.getById()`. Shows loading state while fetching. Only shows "not found" if the image genuinely doesn't exist in the index. Prev/next navigation is unavailable in standalone mode (no search context).
 - ✅ Image detail shows `[x] of [total]` (total from ES, not loaded count). Auto-loads more results when within 5 images of the loaded edge — navigation never ends until the actual end of search results.
 - ✅ Asymmetric image prefetch — when viewing image N, prefetches imgproxy URLs for N-2…N-1 (prev) and N+1…N+3 (next) via `new Image().src`. Browser caches them, so flicking to the next image is instant from cache. 2 backward + 3 forward (users flick forward more).
 - ✅ Image redirect route (`image.tsx`) at `/images/$imageId` — redirects to `/search?image=:imageId&nonFree=true` for backward compat with bookmarks/shared URLs
@@ -177,7 +178,7 @@ introduced.
 
 1. **Separate ES instance on port 9220** — kupua's `docker-compose.yml` is independent of Grid's. Container `kupua-elasticsearch`, cluster `kupua`, volume `kupua-es-data`. Grid's `dev/script/start.sh` won't affect it.
 
-2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `count()`, `getAggregation()`. Currently implemented by `ElasticsearchDataSource` (direct ES access). `GridApiDataSource` deferred until auth/writes needed. UI code never knows the difference.
+2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `count()`, `getById()`, `getAggregation()`. Currently implemented by `ElasticsearchDataSource` (direct ES access). `GridApiDataSource` deferred until auth/writes needed. UI code never knows the difference.
 
 3. **Scripts in `kupua/scripts/`** (not `kupua/dev/scripts/`) — kupua is a self-contained app; no need for Grid's layered `dev/` hierarchy.
 
