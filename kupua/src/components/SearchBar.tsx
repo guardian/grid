@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
@@ -6,11 +6,52 @@ import { useSearch } from "@tanstack/react-router";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
 
+// ---------------------------------------------------------------------------
+// Module-level debounce cancellation
+//
+// handleCellClick in ImageTable updates the query directly (bypassing the
+// CQL editor's debounced flow).  Any pending debounce from a prior editor
+// queryChange must be invalidated so it doesn't revert the query.
+//
+// We track the last query that was set externally (via cancelSearchDebounce).
+// The debounce callback checks this and skips if the URL has already moved on.
+// ---------------------------------------------------------------------------
+
+let _debounceTimerId: ReturnType<typeof setTimeout> | null = null;
+let _externalQuery: string | null = null;
+let _cqlInputGeneration = 0;
+
+/**
+ * Cancel any pending debounced query update from the CQL search input.
+ * Call this before programmatically updating the query from outside the
+ * CQL editor (e.g. shift/alt-click on a table cell).
+ *
+ * @param newQuery — the query that the external caller is about to set.
+ *   Stored so the debounce callback can detect and skip stale updates.
+ */
+export function cancelSearchDebounce(newQuery?: string) {
+  if (_debounceTimerId) {
+    clearTimeout(_debounceTimerId);
+    _debounceTimerId = null;
+  }
+  _externalQuery = newQuery ?? null;
+  // Bump generation to force CqlSearchInput to remount with the new value.
+  // The @guardian/cql <cql-input> web component doesn't reliably re-render
+  // chips when only polarity changes (its ProseMirror document model may not
+  // distinguish +field:value from -field:value). A fresh mount picks up
+  // the new value correctly.
+  _cqlInputGeneration++;
+}
+
+/** Current generation counter — used as a React key on CqlSearchInput. */
+export function getCqlInputGeneration() {
+  return _cqlInputGeneration;
+}
+
 export function SearchBar() {
   const { total, took, loading } = useSearchStore();
   const searchParams = useSearch({ from: "/" });
   const updateSearch = useUpdateSearchParams();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   // Track whether the CQL editor has content (for showing the clear button)
   const [hasEditorContent, setHasEditorContent] = useState(
     !!(searchParams.query)
@@ -21,8 +62,17 @@ export function SearchBar() {
 
   const handleQueryChange = useCallback(
     (queryStr: string) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
+      if (_debounceTimerId) clearTimeout(_debounceTimerId);
+      _debounceTimerId = setTimeout(() => {
+        _debounceTimerId = null;
+
+        // If an external update (e.g. cell click) set a different query
+        // after this timer was scheduled, this debounce is stale — skip.
+        if (_externalQuery !== null && queryStr !== _externalQuery) {
+          return;
+        }
+        _externalQuery = null;
+
         // Ignore CQL structural noise — e.g. bare ":" or "-:" from empty
         // chips when the user presses + or - to open the field selector.
         // Only update the URL when there's real query content.
@@ -34,7 +84,7 @@ export function SearchBar() {
   );
 
   const handleClear = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    cancelSearchDebounce();
     setHasEditorContent(false);
     updateSearch({ query: undefined });
   }, [updateSearch]);
@@ -95,6 +145,7 @@ export function SearchBar() {
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         <CqlSearchInput
+          key={getCqlInputGeneration()}
           value={searchParams.query ?? ""}
           onChange={handleQueryChange}
           onHasContentChange={setHasEditorContent}

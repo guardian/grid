@@ -18,6 +18,12 @@
 
 > **Directive:** Never write or modify any file outside the `kupua/` directory without
 > explicitly asking the user for permission first. This agent's scope is kupua only.
+> Exception: `.github/copilot-instructions.md` may be updated freely since it mirrors
+> directives from this file.
+
+> **Directive:** Do not commit after every change. It's fine to modify many files over a long
+> session without committing. When the user asks to commit, batch changes into sensible chunks
+> grouped by the problem they solve — not by individual file edits. Never push to remote.
 
 ## What is Kupua?
 
@@ -88,12 +94,13 @@ introduced.
 
 **Table view (`ImageTable.tsx`, ~1190 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ 17 columns: Category, Image type, Title, Description, Special instructions, By, Credit, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Width, Height, File type (Sentence case headers matching CQL keys)
+- ✅ 18 columns: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Width, Height, File type (Sentence case headers matching CQL keys)
+- ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
 - ✅ Sort on any keyword/date/numeric column by clicking header. Text-only fields (Title, Description, etc.) not sortable (no `.keyword` sub-field). Single click is delayed 250ms to distinguish from double-click.
 - ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
 - ✅ Sort alias system — `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`)
 - ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified, Width), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
-- ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. Supported on all text/keyword columns: imageType, title, description, specialInstructions, byline, credit, copyright, source, uploader, filename, fileType, category. Date columns intentionally excluded — exact ISO timestamp searches aren't useful.
+- ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13.
 - ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
 - ✅ Cell tooltips via `title` attribute
 - ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, Width, Height, File type. Persisted to localStorage.

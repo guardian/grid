@@ -22,6 +22,8 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import type { Image } from "@/types/image";
 import { format } from "date-fns";
+import { upsertFieldTerm } from "@/lib/cql-query-edit";
+import { cancelSearchDebounce } from "./SearchBar";
 
 const columnHelper = createColumnHelper<Image>();
 
@@ -42,6 +44,17 @@ function getWidth(image: Image): number | undefined {
 /** Read height from orientedDimensions (post-EXIF rotation), falling back to dimensions. */
 function getHeight(image: Image): number | undefined {
   return (image.source.orientedDimensions ?? image.source.dimensions)?.height;
+}
+
+/** Join location sub-fields fine→coarse: subLocation, city, state, country. */
+function getLocation(image: Image): string | undefined {
+  const parts = [
+    image.metadata?.subLocation,
+    image.metadata?.city,
+    image.metadata?.state,
+    image.metadata?.country,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
 /**
@@ -90,6 +103,8 @@ function getRawCellValue(columnId: string, image: Image): string | undefined {
       return image.metadata?.copyright;
     case "metadata_source":
       return image.metadata?.source;
+    case "location":
+      return getLocation(image);
     case "metadata_dateTaken":
       return image.metadata?.dateTaken;
     case "uploadTime":
@@ -162,6 +177,36 @@ const allColumns: ColumnDef<Image, any>[] = [
     header: "Credit",
     size: 120,
     cell: (info) => info.getValue() || "—",
+  }),
+  columnHelper.accessor((row) => getLocation(row), {
+    id: "location",
+    header: "Location",
+    size: 200,
+    cell: (info) => {
+      const m = info.row.original.metadata;
+      const parts: { cqlKey: string; value: string }[] = [];
+      if (m?.subLocation) parts.push({ cqlKey: "location", value: m.subLocation });
+      if (m?.city) parts.push({ cqlKey: "city", value: m.city });
+      if (m?.state) parts.push({ cqlKey: "state", value: m.state });
+      if (m?.country) parts.push({ cqlKey: "country", value: m.country });
+      if (parts.length === 0) return "—";
+      return (
+        <>
+          {parts.map((p, i) => (
+            <span key={p.cqlKey}>
+              {i > 0 && <span className="text-grid-text-dim">, </span>}
+              <span
+                data-cql-key={p.cqlKey}
+                data-cql-value={p.value}
+                className="hover:underline hover:text-grid-accent cursor-pointer"
+              >
+                {p.value}
+              </span>
+            </span>
+          ))}
+        </>
+      );
+    },
   }),
   columnHelper.accessor((row) => row.metadata?.copyright, {
     id: "metadata_copyright",
@@ -334,7 +379,9 @@ const TableBody = memo(function TableBody({
                 cell.column.id,
                 cell.row.original
               );
-              const hasCqlKey = cell.column.id in COLUMN_CQL_KEYS;
+              const isClickable =
+                cell.column.id in COLUMN_CQL_KEYS ||
+                cell.column.id === "location";
 
               return (
                 <div
@@ -344,14 +391,14 @@ const TableBody = memo(function TableBody({
                   style={{ width: `var(--col-${cell.column.id})` }}
                   title={rawValue ?? undefined}
                   onMouseDown={
-                    hasCqlKey
+                    isClickable
                       ? (e) => {
                           if (e.shiftKey || e.altKey) e.preventDefault();
                         }
                       : undefined
                   }
                   onClick={
-                    hasCqlKey
+                    isClickable
                       ? (e) =>
                           handleCellClick(
                             cell.column.id,
@@ -907,27 +954,44 @@ export function ImageTable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to sort field changes
   }, [primaryBare]);
 
-  // Cell click: shift-click adds key:value, alt-click adds -key:value to query
+  // Cell click: shift-click adds key:value, alt-click adds -key:value to query.
+  // If the same key:value already exists with opposite polarity, flips it in-place.
+  // If it already exists with the same polarity, does nothing (no-op).
   const handleCellClick = useCallback(
     (columnId: string, image: Image, e: React.MouseEvent) => {
       if (!e.shiftKey && !e.altKey) return;
 
-      const cqlKey = COLUMN_CQL_KEYS[columnId];
-      if (!cqlKey) return;
+      // Check for per-sub-field CQL key on the click target (e.g. Location column)
+      const target = e.target as HTMLElement;
+      const subFieldKey = target.closest<HTMLElement>("[data-cql-key]");
 
-      const rawValue = getRawCellValue(columnId, image);
-      if (!rawValue || rawValue === "—") return;
+      let cqlKey: string | undefined;
+      let rawValue: string | undefined;
 
-      // Quote the value if it contains spaces
-      const quotedValue =
-        rawValue.includes(" ") ? `"${rawValue}"` : rawValue;
+      if (subFieldKey) {
+        cqlKey = subFieldKey.dataset.cqlKey;
+        rawValue = subFieldKey.dataset.cqlValue;
+      } else {
+        cqlKey = COLUMN_CQL_KEYS[columnId];
+        rawValue = getRawCellValue(columnId, image);
+      }
 
-      const prefix = e.altKey ? "-" : "";
-      const term = `${prefix}${cqlKey}:${quotedValue}`;
+      if (!cqlKey || !rawValue || rawValue === "—") return;
 
       const currentQuery = searchParamsRef.current.query ?? "";
-      const newQuery = currentQuery ? `${currentQuery} ${term}` : term;
-      updateSearch({ query: newQuery });
+      const newQuery = upsertFieldTerm(currentQuery, cqlKey, rawValue, e.altKey);
+
+      if (newQuery !== currentQuery) {
+        // Cancel any pending debounce from the CQL editor's queryChange flow
+        // so it doesn't revert the query back to its previous value.
+        // This also bumps the CqlSearchInput generation counter, forcing
+        // the CQL editor to remount with the new value — working around a
+        // @guardian/cql limitation where setAttribute("value", ...) doesn't
+        // reliably re-render chips when only polarity changes.
+        cancelSearchDebounce(newQuery);
+
+        updateSearch({ query: newQuery });
+      }
     },
     [updateSearch]
   );

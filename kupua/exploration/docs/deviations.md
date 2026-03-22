@@ -433,3 +433,59 @@ suggestions immediately and resolve values independently.  An issue / PR
 should be opened on `@guardian/cql` with this fix.  Once merged,
 `LazyTypeahead` can be deleted and replaced with the stock `Typeahead`.
 
+### 13. Click-to-search flips polarity instead of adding duplicates; CQL editor remount on external query change
+
+**What:** When the user shift-clicks a table cell to add `+key:value` and
+then alt-clicks the same value, kupua flips the existing chip's polarity
+to `-key:value` instead of appending a second chip.  Conversely, alt-click
+then shift-click on the same value flips it back.  If the chip already has
+the desired polarity, the click is a no-op.
+
+Kahuna's click-to-search (in its AngularJS `gr-chips` directive) simply
+appends a new chip each time, which can produce nonsensical queries like
+`+credit:Getty -credit:Getty`.
+
+**How:** `src/lib/cql-query-edit.ts` exports `findFieldTerm()` and
+`upsertFieldTerm()`.  `findFieldTerm` uses `@guardian/cql`'s parser to
+walk the CQL AST and structurally match a field term by key + value
+(case-insensitive), returning token positions (`start`/`end`) and polarity.
+`upsertFieldTerm` uses this to either append (not present), no-op (same
+polarity), or splice-replace (opposite polarity) — using exact character
+offsets from the AST tokens, not string `.includes()`.
+
+**CQL editor remount workaround:** When `handleCellClick` updates the
+query externally (bypassing the CQL editor), the `<cql-input>` web
+component's `attributeChangedCallback` does not reliably re-render chips
+when only polarity changes.  Its ProseMirror document model appears to
+normalise `+field:value` and `-field:value` to the same document
+structure, so `updateEditorView` either isn't called or produces no
+visible change.  To work around this, `cancelSearchDebounce()` bumps a
+generation counter (`_cqlInputGeneration`) that is used as a React `key`
+on `CqlSearchInput`.  When the key changes, React unmounts and remounts
+the component, creating a fresh `<cql-input>` that initialises with the
+correct query.
+
+Additionally, `cancelSearchDebounce()` clears any pending debounce timer
+from the CQL editor's `queryChange` → `handleQueryChange` flow, and
+records the externally-set query in `_externalQuery`.  The debounce
+callback checks this at fire time and skips if its captured `queryStr`
+differs from `_externalQuery` — a belt-and-suspenders guard against stale
+timers reverting the URL.
+
+**Trade-off:** Remounting destroys the ProseMirror editor and recreates it,
+which costs ~10ms and may briefly flash.  This only happens on cell clicks
+that change polarity — not on normal typing.  The alternative (patching
+the CQL input's internal state) would require reaching into the web
+component's shadow DOM and ProseMirror instance, which is fragile.
+
+**Upstream fix:** `@guardian/cql`'s `<cql-input>` web component should
+reliably re-render when the `value` attribute changes, even if only
+polarity differs.  The issue is in `attributeChangedCallback`: it
+normalises the current and new values via `cqlQueryStrFromQueryAst` and
+skips `updateEditorView` if they match — but the comparison should detect
+polarity changes.  Alternatively, the ProseMirror document model could
+track polarity as a node attribute so that `updateEditorView` produces a
+visible change.  If fixed upstream, the remount workaround
+(`_cqlInputGeneration` key) can be removed, and `setAttribute("value", ...)`
+will work directly.
+
