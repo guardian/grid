@@ -1,5 +1,6 @@
-# Sample data - too large for git (115MB+), keep local or in S3
-exploration/sample-data.ndjson
+# Sample data & ES mapping — too large / not source, keep local or in S3
+exploration/mock/sample-data.ndjson
+exploration/mock/mapping.json
 
 # Node
 node_modules/
@@ -7,6 +8,7 @@ dist/
 
 # Vite
 *.local
+.vite/
 
 # IDE
 .idea/
