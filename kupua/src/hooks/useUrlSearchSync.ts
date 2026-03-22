@@ -1,0 +1,114 @@
+/**
+ * Hook that bidirectionally syncs URL search params ↔ Zustand search store.
+ *
+ * URL is the source of truth:
+ * - On mount / URL change → store is updated from URL, search is fired
+ * - On user interaction → URL is updated, which triggers the above cycle
+ *
+ * Components call `navigate` (returned by this hook) instead of directly
+ * calling `setParams` + `search`.
+ */
+
+import { useCallback, useEffect, useRef } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useSearchStore } from "@/stores/search-store";
+import { URL_PARAM_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+
+/** Default search params applied when the URL has none at all. */
+const DEFAULT_SEARCH: Partial<UrlSearchParams> = { nonFree: "true" };
+
+/**
+ * Strips undefined values from search params so they don't appear in the URL
+ * as `?query=&since=` etc.
+ */
+function cleanParams(
+  params: Record<string, string | undefined>
+): Record<string, string> {
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
+/**
+ * Syncs URL search params → Zustand store and triggers search.
+ *
+ * Place this hook once, in the component that contains the search page
+ * (e.g. in SearchBar or at the route component level).
+ */
+export function useUrlSearchSync() {
+  const searchParams = useSearch({ from: "/" });
+  const { setParams, search } = useSearchStore();
+  const navigate = useNavigate();
+  const prevParamsRef = useRef<string>("");
+  const hasAppliedDefaults = useRef(false);
+
+  // When URL search params change → push to store and search
+  useEffect(() => {
+    // On first mount, if the URL has no search params at all, apply defaults
+    // (e.g. nonFree=true).  This is a one-time redirect — once any interaction
+    // has happened, we never re-inject defaults.
+    if (!hasAppliedDefaults.current) {
+      hasAppliedDefaults.current = true;
+      const hasAnyParam = Object.values(searchParams).some(
+        (v) => v !== undefined && v !== ""
+      );
+      if (!hasAnyParam) {
+        navigate({
+          to: "/",
+          search: cleanParams(DEFAULT_SEARCH as Record<string, string | undefined>),
+          replace: true,
+        });
+        return; // navigate will re-trigger this effect with the new URL
+      }
+    }
+
+    // Serialize to compare — avoids infinite loops from object identity changes
+    const serialized = JSON.stringify(searchParams);
+    if (serialized === prevParamsRef.current) return;
+    prevParamsRef.current = serialized;
+
+    // Build a full replacement for URL-managed keys: start with all undefined,
+    // then overlay what's actually in the URL. This ensures that params removed
+    // from the URL (e.g. clearing the query) are also cleared in the store,
+    // rather than surviving via the spread in setParams.
+    const reset = Object.fromEntries(
+      URL_PARAM_KEYS.map((k) => [k, undefined])
+    );
+    setParams({ ...reset, ...searchParams });
+    search();
+  }, [searchParams, setParams, search, navigate]);
+}
+
+/**
+ * Returns a helper to update URL search params.
+ *
+ * Usage:
+ *   const updateSearch = useUpdateSearchParams();
+ *   updateSearch({ query: "cats", orderBy: "-uploadTime" });
+ *
+ * This replaces direct calls to `setParams` + `search` in components.
+ */
+export function useUpdateSearchParams() {
+  const navigate = useNavigate();
+  const currentParams = useSearch({ from: "/" });
+  const paramsRef = useRef(currentParams);
+  paramsRef.current = currentParams;
+
+  return useCallback(
+    (updates: Partial<UrlSearchParams>) => {
+      const merged = { ...paramsRef.current, ...updates };
+      navigate({
+        to: "/",
+        search: cleanParams(merged as Record<string, string | undefined>),
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+}
+
+

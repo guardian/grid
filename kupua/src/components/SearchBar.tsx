@@ -1,0 +1,145 @@
+import { useCallback, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useSearchStore } from "@/stores/search-store";
+import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { useSearch } from "@tanstack/react-router";
+import { SearchFilters } from "./SearchFilters";
+import { CqlSearchInput } from "./CqlSearchInput";
+
+export function SearchBar() {
+  const { total, took, loading } = useSearchStore();
+  const searchParams = useSearch({ from: "/" });
+  const updateSearch = useUpdateSearchParams();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  // Track whether the CQL editor has content (for showing the clear button)
+  const [hasEditorContent, setHasEditorContent] = useState(
+    !!(searchParams.query)
+  );
+
+  // Sync URL → store → search (single place for the whole app)
+  useUrlSearchSync();
+
+  const handleQueryChange = useCallback(
+    (queryStr: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        // Ignore CQL structural noise — e.g. bare ":" or "-:" from empty
+        // chips when the user presses + or - to open the field selector.
+        // Only update the URL when there's real query content.
+        const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
+        updateSearch({ query: meaningful ? queryStr : undefined });
+      }, 300);
+    },
+    [updateSearch]
+  );
+
+  const handleClear = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setHasEditorContent(false);
+    updateSearch({ query: undefined });
+  }, [updateSearch]);
+
+  // Show clear button if the URL has a query OR the editor has content
+  // (editor content tracks un-debounced state, so it reacts instantly)
+  const showClear = hasEditorContent || !!searchParams.query;
+
+  return (
+    <header
+      role="toolbar"
+      aria-label="Search and filter controls"
+      className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator min-h-[40px]"
+    >
+      {/* Logo — always visible, resets state and focuses search box */}
+      <Link
+        to="/"
+        search={{ nonFree: "true" }}
+        title="Grid — clear all filters"
+        className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors"
+        onClick={() => {
+          // Always reset scroll position — even when params don't change
+          // (e.g. already at default state). The scroll-reset effect in
+          // ImageTable only fires on param changes, so we handle this case
+          // directly via DOM.
+          const scrollContainer = document.querySelector<HTMLElement>(
+            '[role="region"][aria-label="Image results table"]'
+          );
+          if (scrollContainer) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+          }
+
+          // Focus the CQL search input after the navigation completes
+          requestAnimationFrame(() => {
+            const cqlInput = document.querySelector("cql-input");
+            if (cqlInput instanceof HTMLElement) cqlInput.focus();
+          });
+        }}
+      >
+        <img src="/images/grid-logo.svg" alt="Grid" className="w-7 h-7" />
+      </Link>
+
+      {/* CQL search input with chips — grows to fill available space */}
+      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-panel">
+        {/* Search icon — non-selectable, matches Grid's magnifier */}
+        <svg
+          className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <CqlSearchInput
+          value={searchParams.query ?? ""}
+          onChange={handleQueryChange}
+          onHasContentChange={setHasEditorContent}
+        />
+        {showClear && (
+          <button
+            onClick={handleClear}
+            aria-label="Clear search"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-grid-text-muted hover:text-grid-text text-xs px-1 py-0.5 rounded hover:bg-grid-hover transition-colors z-10"
+            title="Clear search"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        )}
+      </div>
+
+      {/* Result count — compact, hidden on very small screens */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="hidden sm:block text-xs text-grid-text-muted whitespace-nowrap shrink-0"
+      >
+        {loading ? (
+          <span className="text-grid-accent">…</span>
+        ) : (
+          <>
+            {total.toLocaleString()}
+            <span className="text-grid-text-dim ml-0.5">({took}ms)</span>
+          </>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="hidden md:block w-px h-5 bg-grid-separator shrink-0" />
+
+      {/* Filters (free-to-use, dates) — hidden on small screens */}
+      <SearchFilters />
+
+      {/* Separator */}
+      <div className="hidden md:block w-px h-5 bg-grid-separator shrink-0" />
+
+      {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
+      <SearchFilters.Sort />
+    </header>
+  );
+}
+
