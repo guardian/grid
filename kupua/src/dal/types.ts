@@ -79,6 +79,8 @@ export interface ImageDataSource {
   /** Full-text search with filters, pagination, and sorting. */
   search(params: SearchParams): Promise<SearchResult>;
 
+  /** Count documents matching params (lightweight — no hits returned). */
+  count(params: SearchParams): Promise<number>;
 
   /** Get terms aggregation for a field (for filter dropdowns). */
   getAggregation(

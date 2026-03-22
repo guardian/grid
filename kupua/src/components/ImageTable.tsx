@@ -1162,7 +1162,7 @@ export function ImageTable() {
         <div
           data-table-header
           role="row"
-          className="sticky top-0 z-10 inline-flex bg-grid-panel border-b border-grid-border"
+          className="sticky top-0 z-10 inline-flex bg-grid-panel border-b border-grid-separator h-11"
           onContextMenu={(e) => handleHeaderContextMenu(e)}
         >
           {table.getHeaderGroups().map((headerGroup) =>

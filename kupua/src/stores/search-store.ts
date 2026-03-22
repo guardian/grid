@@ -10,6 +10,9 @@ import type { Image } from "@/types/image";
 import type { ImageDataSource, SearchParams } from "@/dal";
 import { ElasticsearchDataSource } from "@/dal";
 
+/** How often to poll for new images (ms). */
+const NEW_IMAGES_POLL_INTERVAL = 10_000;
+
 interface SearchState {
   // Data source (swappable between ES and Grid API)
   dataSource: ImageDataSource;
@@ -22,10 +25,42 @@ interface SearchState {
   loading: boolean;
   error: string | null;
 
+  // New images ticker
+  newCount: number;
+  newCountSince: string | null; // ISO timestamp of when results were frozen
+
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
   search: () => Promise<void>;
   loadMore: () => Promise<void>;
+}
+
+let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
+  stopNewImagesPoll();
+  _newImagesPollTimer = setInterval(async () => {
+    const { dataSource, params, newCountSince } = get();
+    if (!newCountSince) return;
+    try {
+      const count = await dataSource.count({
+        ...params,
+        since: newCountSince,
+        offset: 0,
+        length: 0,
+      });
+      set({ newCount: count });
+    } catch {
+      // Silently ignore — ticker is non-critical
+    }
+  }, NEW_IMAGES_POLL_INTERVAL);
+}
+
+function stopNewImagesPoll() {
+  if (_newImagesPollTimer) {
+    clearInterval(_newImagesPollTimer);
+    _newImagesPollTimer = null;
+  }
 }
 
 export const useSearchStore = create<SearchState>((set, get) => ({
@@ -44,6 +79,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   loading: false,
   error: null,
 
+  newCount: 0,
+  newCountSince: null,
+
   setParams: (newParams) => {
     set((state) => ({
       params: { ...state.params, ...newParams, offset: 0 },
@@ -56,13 +94,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       const result = await dataSource.search({ ...params, offset: 0 });
+      const now = new Date().toISOString();
       set({
         results: result.hits,
         total: result.total,
         took: result.took,
         loading: false,
         params: { ...params, offset: 0 },
+        newCount: 0,
+        newCountSince: now,
       });
+      // Restart the poll with fresh params + timestamp
+      startNewImagesPoll(get, set);
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Search failed",

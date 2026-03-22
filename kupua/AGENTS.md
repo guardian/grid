@@ -84,8 +84,8 @@ introduced.
 - ✅ TypeScript compiles clean (one pre-existing `@guardian/cql` type issue in `customElements.define` — upstream bug)
 
 **Data Access Layer (DAL):**
-- ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `getAggregation()`
-- ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation
+- ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`
+- ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation. `count()` uses `_count` endpoint for lightweight polling (new images ticker).
 - ✅ Configurable ES connection (`dal/es-config.ts`) — env vars for URL (`KUPUA_ES_URL`), index (`VITE_ES_INDEX`), local flag (`VITE_ES_IS_LOCAL`). Defaults to local docker ES on port 9220.
 - ✅ Phase 2 safeguards (see `exploration/docs/safeguards.md`):
   1. `_source` excludes — strips heavy fields (EXIF, XMP, Getty, embeddings) from responses
@@ -133,8 +133,13 @@ introduced.
 - ✅ Horizontal scroll — inner wrapper is `inline-block min-w-full`, header is `inline-flex` with `shrink-0` cells (the browser determines the scrollable width from rendered content — no JS-computed width, correct at any browser zoom level). A 32px trailing spacer after the last header cell ensures the last column's resize handle is always accessible. Root layout uses `w-screen overflow-hidden` to prevent the page from expanding beyond the viewport.
 - ✅ Scroll reset on new search — both scrollTop and scrollLeft reset to 0 when URL search params change (new query, sort, filters, logo click). loadMore doesn't change URL params, so infinite scroll is unaffected.
 
-**Toolbar (`SearchBar.tsx` + `SearchFilters.tsx`):**
-- ✅ Single-row layout: `[Logo] [Search] [count] | [Free to use] [Dates] | [Sort ↓]`
+**Toolbar (`SearchBar.tsx`) + Status bar (`StatusBar.tsx`) + Filters (`SearchFilters.tsx`):**
+- ✅ Search toolbar (44px / `h-11`): `[Logo] [Search] | [Free to use] [Dates] | [Sort ↓]`
+- ✅ Status bar (28px, `bg-grid-panel`): `[count matches] [N new] ... [took ms]` — thin strip between search toolbar and table header. Will expand to hold more contextual info in future phases.
+- ✅ Column header row height matches search toolbar (44px / `h-11`)
+- ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
+- ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
+- ✅ Response time (`took` ms) — right-aligned in results bar
 - ✅ Logo click navigates to `/?nonFree=true` (resets all state), resets scroll position, and focuses the search box
 - ✅ Sort dropdown — custom button + popup menu (not native `<select>`) matching column context menu styling. SVG chevron flips when open. Current selection shown with ✓. Closes on outside click or Escape.
 - ✅ Sort direction toggle (↑/↓ button) — adjacent to sort dropdown
@@ -310,7 +315,8 @@ kupua/
     components/
       CqlSearchInput.tsx       # React wrapper around @guardian/cql <cql-input> Web Component (227 lines)
       DateFilter.tsx           # Date range filter dropdown (486 lines)
-      SearchBar.tsx            # Single-row toolbar: logo + CQL search input + result count + clear button (123 lines)
+      StatusBar.tsx            # Status bar: count + new images ticker + response time
+      SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
       ImageTable.tsx           # TanStack Table + Virtual, all table features (~1190 lines — largest component)
     stores/

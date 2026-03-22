@@ -289,6 +289,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
     }
   }
 
+  async count(params: SearchParams): Promise<number> {
+    const body = { query: buildQuery(params) };
+    const result = (await this.esRequest("_count", body)) as {
+      count: number;
+    };
+    return result.count;
+  }
 
   async getAggregation(
     field: string,

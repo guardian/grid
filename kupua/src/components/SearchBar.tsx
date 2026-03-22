@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useSearchStore } from "@/stores/search-store";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { SearchFilters } from "./SearchFilters";
@@ -49,7 +48,6 @@ export function getCqlInputGeneration() {
 }
 
 export function SearchBar() {
-  const { total, took, loading } = useSearchStore();
   const searchParams = useSearch({ from: "/" });
   const updateSearch = useUpdateSearchParams();
   // Track whether the CQL editor has content (for showing the clear button)
@@ -97,7 +95,7 @@ export function SearchBar() {
     <header
       role="toolbar"
       aria-label="Search and filter controls"
-      className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator min-h-[40px]"
+      className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11"
     >
       {/* Logo — always visible, resets state and focuses search box */}
       <Link
@@ -162,22 +160,6 @@ export function SearchBar() {
         )}
       </div>
 
-      {/* Result count — compact, hidden on very small screens */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="hidden sm:block text-xs text-grid-text-muted whitespace-nowrap shrink-0"
-      >
-        {loading ? (
-          <span className="text-grid-accent">…</span>
-        ) : (
-          <>
-            {total.toLocaleString()}
-            <span className="text-grid-text-dim ml-0.5">({took}ms)</span>
-          </>
-        )}
-      </div>
 
       {/* Separator */}
       <div className="hidden md:block w-px h-5 bg-grid-separator shrink-0" />
