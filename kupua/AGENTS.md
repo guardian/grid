@@ -155,6 +155,7 @@ introduced.
 | Build | Vite |
 | Data Layer | Abstracted `ImageDataSource` interface — Phase 1 uses `ElasticsearchDataSource`, Phase 3+ swaps to `GridApiDataSource` |
 | Validation | Zod |
+| Testing | Vitest (co-located `*.test.ts` files next to source) |
 | Dates | date-fns |
 
 ## Key Architecture Decisions
