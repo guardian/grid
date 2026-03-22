@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_ES_IS_LOCAL?: string;
   /** Whether the S3 thumbnail proxy is available (set in --use-TEST mode) */
   readonly VITE_S3_PROXY_ENABLED?: string;
+  /** Whether imgproxy is available for full-size images (set in --use-TEST mode) */
+  readonly VITE_IMGPROXY_ENABLED?: string;
+  /** S3 bucket name for full-size images (needed for imgproxy URL generation) */
+  readonly VITE_IMAGE_BUCKET?: string;
 }
 
 interface ImportMeta {

@@ -22,7 +22,7 @@
  *   1. Delete this file
  *   2. Remove the /s3 proxy from vite.config.ts
  *   3. Remove the s3-proxy startup from start.sh
- *   4. Update src/lib/thumbnail.ts to use Grid API URLs
+ *   4. Update src/lib/image-urls.ts to use Grid API URLs
  *   See kupua/exploration/docs/s3-proxy.md for full documentation.
  *
  * SAFETY:

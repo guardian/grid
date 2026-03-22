@@ -25,7 +25,7 @@ import { format } from "date-fns";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { gridConfig, type FieldAlias } from "@/lib/grid-config";
-import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/thumbnail";
+import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 
 const columnHelper = createColumnHelper<Image>();
 

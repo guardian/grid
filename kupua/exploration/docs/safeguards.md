@@ -124,6 +124,26 @@ See `kupua/exploration/docs/s3-proxy.md` for full migration instructions.
 
 ---
 
+## 5. imgproxy — read-only full-size image resizing
+
+**Problem:** Full-size originals in S3 can be 50MB+ TIFFs or large JPEGs.
+Serving them raw to the browser is impractical. Server-side resize and
+format conversion is needed.
+
+**Safeguard:** imgproxy (`darthsim/imgproxy`) runs as a Docker container that:
+
+- Only performs `GetObject` from S3 — read-only, no write operations
+- Uses the developer's existing `~/.aws/credentials` via a read-only
+  volume mount (`~/.aws:/root/.aws:ro`) — nothing committed to the repo
+- Runs only in `--use-TEST` mode (docker compose profile `imgproxy`)
+- Is proxied through Vite (`/imgproxy/*` → `localhost:3002`) so
+  credentials never reach the browser
+- Uses `insecure` mode (no HMAC signing) — local dev only
+
+See `kupua/exploration/docs/imgproxy-research.md` for full background.
+
+---
+
 ## Configuration
 
 ### Environment variables
@@ -135,6 +155,8 @@ See `kupua/exploration/docs/s3-proxy.md` for full migration instructions.
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
+| `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |
+| `VITE_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full-size images (for imgproxy URL generation) |
 | `KUPUA_THUMB_BUCKET` | (none) | `start.sh` | S3 bucket for thumbnails (auto-discovered) |
 | `KUPUA_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full images (auto-discovered) |
 | `S3_PROXY_PORT` | `3001` | `start.sh` | Port for the S3 proxy server |

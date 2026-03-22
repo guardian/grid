@@ -71,6 +71,7 @@ introduced.
 - ✅ `scripts/load-sample-data.sh` — index creation + bulk load
 - ✅ `scripts/start.sh` — one-command startup. Default: local mode (ES + data + deps + Vite). `--use-TEST`: establishes SSH tunnel to TEST ES, auto-discovers index alias, discovers S3 bucket names, starts S3 thumbnail proxy, sets env vars, enables write protection. Flags: `--skip-es`, `--skip-data`, `--skip-install`
 - ✅ S3 thumbnail proxy (`scripts/s3-proxy.mjs`) — local-only Node.js server that proxies S3 thumbnail requests using the developer's AWS credentials. Read-only, localhost-bound, nothing committed. Auto-started by `start.sh --use-TEST`. See `exploration/docs/s3-proxy.md`. Temporary — will be replaced by Grid API signed URLs in Phase 3.
+- ✅ imgproxy for full-size images — `darthsim/imgproxy` Docker container (port 3002) with S3 access via host AWS credentials volume mount. Container runs as uid 999 (`imgproxy` user, not root), so credentials mount to `/home/imgproxy/.aws/`. Janus only writes `[media-service]` to `~/.aws/credentials` — the Go AWS SDK also needs a `[profile media-service]` entry in the config file, so `start.sh` generates a minimal config at `/tmp/kupua-aws-config` (no secrets — just profile name + region). Resizes originals on the fly to WebP (1200px fit, quality 80). Auto-started by `start.sh --use-TEST` via docker compose profile. URL builder in `src/lib/image-urls.ts` (`getFullImageUrl()`). See `exploration/docs/imgproxy-research.md`.
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
@@ -295,9 +296,10 @@ kupua/
       migration-plan.md        # Full phased migration plan
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
       safeguards.md            # Elasticsearch + S3 safety documentation
-      s3-proxy.md              # S3 thumbnail proxy documentation (Option B — temporary)
-  scripts/
-    start.sh                   # One-command startup (ES + data + deps + S3 proxy + dev server)
+      s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
+      imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy
+  scripts:
+    start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
   src/                         # ~4700 lines total
@@ -312,7 +314,7 @@ kupua/
       grid-config.ts           # Mock Grid config parser (field aliases, org-owned categories)
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
-      thumbnail.ts             # Thumbnail URL builder — returns /s3/thumb/<id> when S3 proxy is active
+      image-urls.ts            # Image URL builders — thumbnails via S3 proxy, full images via imgproxy
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)
     dal/
       types.ts                 # ImageDataSource interface + SearchParams type

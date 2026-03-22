@@ -155,7 +155,7 @@ print('')
   export VITE_ES_IS_LOCAL="false"
 
   # --- 3. Discover S3 bucket names + start thumbnail proxy ---
-  echo -e "${yellow}[3/5] Discovering S3 bucket names...${plain}"
+  echo -e "${yellow}[3/6] Discovering S3 bucket names...${plain}"
 
   # Query ES for one document to extract bucket names from URLs
   SAMPLE_DOC=$(curl -sf "http://localhost:9200/${INDEX_ALIAS}/_search?size=1&_source=thumbnail.file,source.file" 2>/dev/null || echo "")
@@ -215,7 +215,7 @@ print('')
     export VITE_S3_PROXY_ENABLED="true"
 
     echo
-    echo -e "${yellow}[4/5] Starting S3 thumbnail proxy (port ${S3_PROXY_PORT})...${plain}"
+    echo -e "${yellow}[4/6] Starting S3 thumbnail proxy (port ${S3_PROXY_PORT})...${plain}"
 
     # Kill any existing S3 proxy on this port
     lsof -ti:${S3_PROXY_PORT} | xargs kill 2>/dev/null || true
@@ -241,9 +241,42 @@ print('')
   fi
   echo
 
-  # --- 5. Install dependencies + start ---
+  # --- 5. Start imgproxy container for full-size images ---
+  if [ -n "$IMAGE_BUCKET" ]; then
+    echo -e "${yellow}[5/6] Starting imgproxy container (port 3002)...${plain}"
+    export VITE_IMGPROXY_ENABLED="true"
+    export VITE_IMAGE_BUCKET="$IMAGE_BUCKET"
+
+    # Generate a minimal AWS config file declaring the media-service profile.
+    # Janus writes credentials to ~/.aws/credentials under [media-service],
+    # but the Go AWS SDK (used by imgproxy) also needs a matching
+    # [profile media-service] entry in the config file to resolve the
+    # profile.  This file contains NO secrets — just the profile name
+    # and region.  The actual credentials are volume-mounted separately.
+    cat > /tmp/kupua-aws-config <<EOF
+[profile media-service]
+region = eu-west-1
+EOF
+
+    cd "$KUPUA_DIR"
+    docker compose --profile imgproxy up -d imgproxy 2>/dev/null
+
+    # Wait briefly and check it's running
+    sleep 2
+    if curl -sf "http://127.0.0.1:3002/health" > /dev/null 2>&1; then
+      echo -e "${green}      imgproxy started ✓${plain}"
+    else
+      echo -e "${red}      imgproxy may not be ready yet (will retry on first request)${plain}"
+    fi
+  else
+    echo -e "${yellow}[5/6] Skipping imgproxy (image bucket not discovered)${plain}"
+    export VITE_IMGPROXY_ENABLED="false"
+  fi
+  echo
+
+  # --- 6. Install dependencies + start ---
   if [ "$SKIP_INSTALL" = false ]; then
-    echo -e "${yellow}[5/5] Checking dependencies...${plain}"
+    echo -e "${yellow}[6/6] Checking dependencies...${plain}"
     cd "$KUPUA_DIR"
     needs_install=false
     if [ ! -d "node_modules" ]; then
@@ -261,7 +294,7 @@ print('')
       echo -e "${green}      Dependencies up to date ✓${plain}"
     fi
   else
-    echo -e "${yellow}[5/5] Skipping dependency check (--skip-install)${plain}"
+    echo -e "${yellow}[6/6] Skipping dependency check (--skip-install)${plain}"
   fi
   echo
 
@@ -273,6 +306,11 @@ print('')
     echo -e "${yellow}      → Thumbnails: ON (S3 proxy on port ${S3_PROXY_PORT})${plain}"
   else
     echo -e "${yellow}      → Thumbnails: OFF${plain}"
+  fi
+  if [ "$VITE_IMGPROXY_ENABLED" = "true" ]; then
+    echo -e "${yellow}      → Full images: ON (imgproxy on port 3002)${plain}"
+  else
+    echo -e "${yellow}      → Full images: OFF${plain}"
   fi
   echo
   cd "$KUPUA_DIR"

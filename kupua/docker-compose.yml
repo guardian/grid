@@ -1,10 +1,11 @@
-# Kupua's own Elasticsearch instance for local development.
+# Kupua local development services.
 #
-# Uses port 9220 on the host to avoid clashing with the main Grid ES on port 9200.
-# Both can run simultaneously without interference.
+# Elasticsearch: port 9220 (avoids clashing with Grid ES on 9200).
+# imgproxy: port 3002 (full-size image proxy, TEST mode only).
 #
 # Usage:
-#   cd kupua && docker compose up -d
+#   cd kupua && docker compose up -d                       # ES only (local mode)
+#   cd kupua && docker compose --profile imgproxy up -d    # ES + imgproxy
 #   # or from repo root:
 #   docker compose -f kupua/docker-compose.yml up -d
 
@@ -27,6 +28,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # imgproxy — server-side image resizing/format-conversion for full-size images.
+  # Only started in --use-TEST mode (start.sh activates the docker compose profile).
+  # Thumbnails are served directly by s3-proxy.mjs — no transformation needed.
+  # See kupua/exploration/docs/imgproxy-research.md for background.
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    container_name: kupua-imgproxy
+    profiles: ["imgproxy"]
+    ports:
+      - "3002:8080"
+    environment:
+      IMGPROXY_USE_S3: "true"
+      IMGPROXY_S3_REGION: eu-west-1
+      IMGPROXY_ALLOW_ORIGIN: "*"
+      # Disable URL signing for local dev (matches eelpie fork's "no-signature" approach)
+      IMGPROXY_ALLOW_INSECURE: "true"
+      # Use the media-service profile.  Janus writes credentials to
+      # ~/.aws/credentials under [media-service], but the Go AWS SDK also
+      # needs a [profile media-service] entry in the config file.  start.sh
+      # generates a minimal config at /tmp/kupua-aws-config that declares
+      # the profile — mounted below alongside the real credentials.
+      #
+      # Mounts go to /home/imgproxy/.aws/ (not /root) because the imgproxy
+      # container runs as uid 999 (imgproxy user), not root.
+      AWS_PROFILE: media-service
+    volumes:
+      # Mount host credentials (read-only) — contains the session tokens
+      - ~/.aws/credentials:/home/imgproxy/.aws/credentials:ro
+      # Mount the generated config that declares [profile media-service]
+      # start.sh creates this at /tmp/kupua-aws-config before starting imgproxy
+      - /tmp/kupua-aws-config:/home/imgproxy/.aws/config:ro
 
 volumes:
   kupua-es-data:

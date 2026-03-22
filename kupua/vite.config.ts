@@ -32,6 +32,14 @@ export default defineConfig({
         target: `http://127.0.0.1:${process.env.S3_PROXY_PORT ?? "3001"}`,
         changeOrigin: true,
       },
+      // Proxy imgproxy requests for full-size image resizing/format-conversion.
+      // Only active when imgproxy container is running (--use-TEST mode).
+      // See kupua/exploration/docs/imgproxy-research.md for background.
+      "/imgproxy": {
+        target: "http://127.0.0.1:3002",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/imgproxy/, ""),
+      },
     },
   },
 });

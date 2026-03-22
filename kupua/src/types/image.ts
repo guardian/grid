@@ -16,6 +16,9 @@ export interface ImageAsset {
   dimensions: ImageDimensions;
   orientation?: string;
   orientedDimensions?: ImageDimensions;
+  orientationMetadata?: {
+    exifOrientation?: number;
+  };
 }
 
 export interface ImageMetadata {

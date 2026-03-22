@@ -58,7 +58,7 @@ Browser                  Vite (port 3000)           S3 Proxy (port 3001)        
 |---|---|---|
 | S3 proxy server | `scripts/s3-proxy.mjs` | Node.js HTTP server using AWS SDK |
 | Vite proxy config | `vite.config.ts` | Forwards `/s3/*` to port 3001 |
-| Thumbnail URL builder | `src/lib/thumbnail.ts` | Returns `/s3/thumb/<id>` when enabled |
+| Thumbnail URL builder | `src/lib/image-urls.ts` | Returns `/s3/thumb/<id>` when enabled |
 | Thumbnail column | `src/components/ImageTable.tsx` | Renders `<img>` in first column |
 | Feature flag | `VITE_S3_PROXY_ENABLED` env var | Controls whether thumbnails are shown |
 | Startup | `scripts/start.sh` | Discovers buckets, starts proxy |
@@ -110,7 +110,7 @@ will include signed S3 URLs for each image. At that point:
 
 1. **Delete `scripts/s3-proxy.mjs`** — no longer needed
 2. **Remove the `/s3` proxy from `vite.config.ts`** — no longer needed
-3. **Update `src/lib/thumbnail.ts`** — change `getThumbnailUrl()` to
+3. **Update `src/lib/image-urls.ts`** — change `getThumbnailUrl()` to
    read the signed URL from the API response instead of building a
    `/s3/thumb/<id>` path. The function signature stays the same, so
    `ImageTable.tsx` doesn't need to change.
