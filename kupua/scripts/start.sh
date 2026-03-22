@@ -154,9 +154,96 @@ print('')
   export VITE_ES_INDEX="$INDEX_ALIAS"
   export VITE_ES_IS_LOCAL="false"
 
-  # --- 3. Install dependencies + start ---
+  # --- 3. Discover S3 bucket names + start thumbnail proxy ---
+  echo -e "${yellow}[3/5] Discovering S3 bucket names...${plain}"
+
+  # Query ES for one document to extract bucket names from URLs
+  SAMPLE_DOC=$(curl -sf "http://localhost:9200/${INDEX_ALIAS}/_search?size=1&_source=thumbnail.file,source.file" 2>/dev/null || echo "")
+
+  THUMB_BUCKET=""
+  IMAGE_BUCKET=""
+
+  if [ -n "$SAMPLE_DOC" ]; then
+    # Extract bucket name from thumbnail URL:
+    # http://BUCKET.s3.amazonaws.com/... → BUCKET
+    THUMB_BUCKET=$(echo "$SAMPLE_DOC" | python3 -c "
+import json, sys, re
+try:
+    data = json.load(sys.stdin)
+    hits = data.get('hits', {}).get('hits', [])
+    for hit in hits:
+        src = hit.get('_source', {})
+        thumb_url = src.get('thumbnail', {}).get('file', '')
+        if thumb_url:
+            m = re.match(r'https?://([^.]+)\.s3', thumb_url)
+            if m:
+                print(m.group(1))
+                sys.exit(0)
+except: pass
+print('')
+" 2>/dev/null || echo "")
+
+    IMAGE_BUCKET=$(echo "$SAMPLE_DOC" | python3 -c "
+import json, sys, re
+try:
+    data = json.load(sys.stdin)
+    hits = data.get('hits', {}).get('hits', [])
+    for hit in hits:
+        src = hit.get('_source', {})
+        img_url = src.get('source', {}).get('file', '')
+        if img_url:
+            m = re.match(r'https?://([^.]+)\.s3', img_url)
+            if m:
+                print(m.group(1))
+                sys.exit(0)
+except: pass
+print('')
+" 2>/dev/null || echo "")
+  fi
+
+  S3_PROXY_PORT="${S3_PROXY_PORT:-3001}"
+
+  if [ -n "$THUMB_BUCKET" ]; then
+    echo -e "${green}      Thumb bucket: ${THUMB_BUCKET} ✓${plain}"
+    if [ -n "$IMAGE_BUCKET" ]; then
+      echo -e "${green}      Image bucket: ${IMAGE_BUCKET} ✓${plain}"
+    fi
+
+    export KUPUA_THUMB_BUCKET="$THUMB_BUCKET"
+    export KUPUA_IMAGE_BUCKET="$IMAGE_BUCKET"
+    export S3_PROXY_PORT
+    export VITE_S3_PROXY_ENABLED="true"
+
+    echo
+    echo -e "${yellow}[4/5] Starting S3 thumbnail proxy (port ${S3_PROXY_PORT})...${plain}"
+
+    # Kill any existing S3 proxy on this port
+    lsof -ti:${S3_PROXY_PORT} | xargs kill 2>/dev/null || true
+
+    cd "$KUPUA_DIR"
+    node scripts/s3-proxy.mjs &
+    S3_PROXY_PID=$!
+    sleep 1
+
+    # Check it started successfully
+    if kill -0 $S3_PROXY_PID 2>/dev/null; then
+      echo -e "${green}      S3 proxy started (PID ${S3_PROXY_PID}) ✓${plain}"
+    else
+      echo -e "${red}      S3 proxy failed to start. Thumbnails will not be available.${plain}"
+      export VITE_S3_PROXY_ENABLED="false"
+    fi
+
+    # Ensure the proxy is killed when this script exits
+    trap "kill $S3_PROXY_PID 2>/dev/null" EXIT
+  else
+    echo -e "${yellow}      Could not discover bucket names. Thumbnails disabled.${plain}"
+    export VITE_S3_PROXY_ENABLED="false"
+  fi
+  echo
+
+  # --- 5. Install dependencies + start ---
   if [ "$SKIP_INSTALL" = false ]; then
-    echo -e "${yellow}[3/3] Checking dependencies...${plain}"
+    echo -e "${yellow}[5/5] Checking dependencies...${plain}"
     cd "$KUPUA_DIR"
     needs_install=false
     if [ ! -d "node_modules" ]; then
@@ -174,7 +261,7 @@ print('')
       echo -e "${green}      Dependencies up to date ✓${plain}"
     fi
   else
-    echo -e "${yellow}[3/3] Skipping dependency check (--skip-install)${plain}"
+    echo -e "${yellow}[5/5] Skipping dependency check (--skip-install)${plain}"
   fi
   echo
 
@@ -182,6 +269,11 @@ print('')
   echo -e "${cyan}      → http://localhost:3000${plain}"
   echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
   echo -e "${yellow}      → Write protection: ON${plain}"
+  if [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then
+    echo -e "${yellow}      → Thumbnails: ON (S3 proxy on port ${S3_PROXY_PORT})${plain}"
+  else
+    echo -e "${yellow}      → Thumbnails: OFF${plain}"
+  fi
   echo
   cd "$KUPUA_DIR"
   exec npm run dev

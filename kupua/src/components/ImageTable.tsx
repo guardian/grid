@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { gridConfig, type FieldAlias } from "@/lib/grid-config";
+import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/thumbnail";
 
 const columnHelper = createColumnHelper<Image>();
 
@@ -204,6 +205,33 @@ function getRawCellValue(columnId: string, image: Image): string | undefined {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const allColumns: ColumnDef<Image, any>[] = [
+  // Thumbnail column — only included when S3 proxy is running (TEST mode)
+  ...(thumbnailsEnabled
+    ? [
+        columnHelper.display({
+          id: "thumbnail",
+          header: "Pic",
+          size: 48,
+          enableResizing: false,
+          cell: (info) => {
+            const url = getThumbnailUrl(info.row.original);
+            if (!url) return null;
+            return (
+              <img
+                src={url}
+                alt=""
+                loading="lazy"
+                className="h-7 w-auto object-contain"
+                onError={(e) => {
+                  // Hide broken images silently
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            );
+          },
+        }),
+      ]
+    : []),
   columnHelper.accessor((row) => row.usageRights?.category, {
     id: "usageRights_category",
     header: "Category",

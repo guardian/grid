@@ -69,7 +69,8 @@ introduced.
 - ✅ ES mapping from CODE in `exploration/mock/mapping.json`
 - ✅ Standalone ES 8.18.3 via `docker-compose.yml` on **port 9220** (isolated from Grid's ES on 9200)
 - ✅ `scripts/load-sample-data.sh` — index creation + bulk load
-- ✅ `scripts/start.sh` — one-command startup. Default: local mode (ES + data + deps + Vite). `--use-TEST`: establishes SSH tunnel to TEST ES, auto-discovers index alias, sets env vars, enables write protection. Flags: `--skip-es`, `--skip-data`, `--skip-install`
+- ✅ `scripts/start.sh` — one-command startup. Default: local mode (ES + data + deps + Vite). `--use-TEST`: establishes SSH tunnel to TEST ES, auto-discovers index alias, discovers S3 bucket names, starts S3 thumbnail proxy, sets env vars, enables write protection. Flags: `--skip-es`, `--skip-data`, `--skip-install`
+- ✅ S3 thumbnail proxy (`scripts/s3-proxy.mjs`) — local-only Node.js server that proxies S3 thumbnail requests using the developer's AWS credentials. Read-only, localhost-bound, nothing committed. Auto-started by `start.sh --use-TEST`. See `exploration/docs/s3-proxy.md`. Temporary — will be replaced by Grid API signed URLs in Phase 3.
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
@@ -91,6 +92,7 @@ introduced.
   1. `_source` excludes — strips heavy fields (EXIF, XMP, Getty, embeddings) from responses
   2. Request coalescing — AbortController cancels in-flight search when a new one starts
   3. Write protection — only `_search`/`_count`/`_cat/aliases` allowed on non-local ES; `load-sample-data.sh` refuses to run against non-9220 port
+  4. S3 proxy — read-only `GetObject` only, localhost-bound, uses developer's existing AWS creds (never committed)
 - ✅ Vite env types declared in `src/vite-env.d.ts`
 
 **State management:**
@@ -111,7 +113,7 @@ introduced.
 
 **Table view (`ImageTable.tsx`, ~1190 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ 22 hardcoded columns + config-driven alias columns from `gridConfig.fieldAliases` (currently 7: Edit Status, Colour Profile, Colour Model, Cutout, Bits Per Sample, Digital Source Type, Scene Code). Hardcoded: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Subjects, People, Width, Height, File type, Suppliers reference, Byline title
+- ✅ 22 hardcoded columns + config-driven alias columns from `gridConfig.fieldAliases` (currently 7: Edit Status, Colour Profile, Colour Model, Cutout, Bits Per Sample, Digital Source Type, Scene Code). Hardcoded: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Subjects, People, Width, Height, File type, Suppliers reference, Byline title. Plus a Thumbnail column (first position, 48px, non-resizable) shown only in `--use-TEST` mode when S3 proxy is active.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
 - ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
 - ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
@@ -292,9 +294,12 @@ kupua/
     docs/
       migration-plan.md        # Full phased migration plan
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
+      safeguards.md            # Elasticsearch + S3 safety documentation
+      s3-proxy.md              # S3 thumbnail proxy documentation (Option B — temporary)
   scripts/
-    start.sh                   # One-command startup (ES + data + deps + dev server)
+    start.sh                   # One-command startup (ES + data + deps + S3 proxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
+    s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
   src/                         # ~4700 lines total
     main.tsx                   # React entry point — mounts RouterProvider
     router.ts                  # TanStack Router setup — custom plain-string URL serialisation
@@ -307,6 +312,7 @@ kupua/
       grid-config.ts           # Mock Grid config parser (field aliases, org-owned categories)
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
+      thumbnail.ts             # Thumbnail URL builder — returns /s3/thumb/<id> when S3 proxy is active
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)
     dal/
       types.ts                 # ImageDataSource interface + SearchParams type

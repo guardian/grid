@@ -12,6 +12,7 @@
 | 1 | `_source` excludes | `es-config.ts` → `es-adapter.ts` | ✅ Active |
 | 2 | Request coalescing (AbortController) | `es-adapter.ts` | ✅ Active |
 | 3 | Write protection | `es-adapter.ts` + `load-sample-data.sh` | ✅ Active |
+| 4 | S3 proxy — read-only | `scripts/s3-proxy.mjs` | ✅ Active |
 
 ---
 
@@ -96,6 +97,33 @@ are needed (e.g. `_analyze`, `_explain`). Do NOT add write paths
 
 ---
 
+## 4. S3 proxy — read-only thumbnails
+
+**Problem:** To display real image thumbnails from the Grid S3 buckets,
+kupua needs to authenticate with AWS. Putting credentials in client-side
+code or committing them to the repo would be a security risk.
+
+**Safeguard:** The S3 proxy (`scripts/s3-proxy.mjs`) is a local-only
+Node.js server that:
+
+- Uses the developer's existing `media-service` AWS credentials
+  (from `~/.aws/credentials`) — nothing committed to the repo
+- Only performs `GetObject` — no write operations
+- Binds to `127.0.0.1` only — not accessible from the network
+- Runs only in `--use-TEST` mode, not in local mock mode
+- Is proxied through Vite (`/s3/*` → `localhost:3001`) so credentials
+  never reach the browser
+
+**Config:** Environment variables set by `start.sh`:
+- `KUPUA_THUMB_BUCKET` — thumbnail bucket name (auto-discovered from ES)
+- `KUPUA_IMAGE_BUCKET` — image bucket name (auto-discovered from ES)
+- `VITE_S3_PROXY_ENABLED` — feature flag for the UI
+
+**To replace:** In Phase 3, delete the proxy and use Grid API signed URLs.
+See `kupua/exploration/docs/s3-proxy.md` for full migration instructions.
+
+---
+
 ## Configuration
 
 ### Environment variables
@@ -106,6 +134,10 @@ are needed (e.g. `_analyze`, `_explain`). Do NOT add write paths
 | `VITE_ES_BASE` | `/es` | `.env` | Vite proxy path prefix (client-side) |
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
+| `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
+| `KUPUA_THUMB_BUCKET` | (none) | `start.sh` | S3 bucket for thumbnails (auto-discovered) |
+| `KUPUA_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full images (auto-discovered) |
+| `S3_PROXY_PORT` | `3001` | `start.sh` | Port for the S3 proxy server |
 
 ### Connecting to TEST ES
 

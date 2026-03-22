@@ -25,6 +25,8 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1014.0",
+    "@aws-sdk/credential-providers": "^3.1014.0",
     "@eslint/js": "^9.29.0",
     "@tailwindcss/vite": "^4.1.8",
     "@types/react": "^19.1.6",

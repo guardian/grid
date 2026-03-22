@@ -25,6 +25,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/es/, ""),
       },
+      // Proxy S3 thumbnail/image requests to the local S3 proxy.
+      // Only active when s3-proxy.mjs is running (--use-TEST mode).
+      // See kupua/exploration/docs/s3-proxy.md for documentation.
+      "/s3": {
+        target: `http://127.0.0.1:${process.env.S3_PROXY_PORT ?? "3001"}`,
+        changeOrigin: true,
+      },
     },
   },
 });
