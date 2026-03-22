@@ -1,0 +1,34 @@
+# Kupua's own Elasticsearch instance for local development.
+#
+# Uses port 9220 on the host to avoid clashing with the main Grid ES on port 9200.
+# Both can run simultaneously without interference.
+#
+# Usage:
+#   cd kupua && docker compose up -d
+#   # or from repo root:
+#   docker compose -f kupua/docker-compose.yml up -d
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
+    container_name: kupua-elasticsearch
+    environment:
+      ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
+      cluster.name: kupua
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      network.host: 0.0.0.0
+    ports:
+      - "9220:9200"
+    volumes:
+      - kupua-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kupua-es-data:
+    driver: local
+

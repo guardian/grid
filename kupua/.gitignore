@@ -1,0 +1,24 @@
+# Sample data - too large for git (115MB+), keep local or in S3
+exploration/sample-data.ndjson
+
+# Node
+node_modules/
+dist/
+
+# Vite
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
