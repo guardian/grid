@@ -94,8 +94,10 @@ introduced.
 
 **Table view (`ImageTable.tsx`, ~1190 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ 18 columns: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Width, Height, File type (Sentence case headers matching CQL keys)
+- ✅ 22 hardcoded columns + config-driven alias columns from `gridConfig.fieldAliases` (currently 7: Edit Status, Colour Profile, Colour Model, Cutout, Bits Per Sample, Digital Source Type, Scene Code). Hardcoded: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Subjects, People, Width, Height, File type, Suppliers reference, Byline title
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
+- ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
+- ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
 - ✅ Sort on any keyword/date/numeric column by clicking header. Text-only fields (Title, Description, etc.) not sortable (no `.keyword` sub-field). Single click is delayed 250ms to distinguish from double-click.
 - ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
 - ✅ Sort alias system — `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`)
@@ -103,7 +105,7 @@ introduced.
 - ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13.
 - ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
 - ✅ Cell tooltips via `title` attribute
-- ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, Width, Height, File type. Persisted to localStorage.
+- ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, Width, Height, File type, Suppliers reference, Byline title, all config-driven alias columns. Persisted to localStorage.
 - ✅ Column widths persisted to localStorage via `column-store.ts` — manual drag resizes and auto-fit widths both persist. Restored on reload.
 - ✅ Double-click header to auto-fit — first double-click measures the widest cell value and fits the column. Second double-click restores the previous width. Pre-fit widths are stored in the column store (session-only, not persisted to localStorage). Manual drag-resize clears the saved pre-fit width.
 - ✅ Column context menu — right-click any header cell: "Resize column to fit data", "Resize all columns to fit data", separator, then column visibility toggles. Menu uses shared `popup-menu`/`popup-item` classes. Auto-clamps to viewport bounds (never renders off-screen). Right-clicking a specific column shows the single-column resize option; right-clicking the trailing spacer shows only "Resize all" + visibility.

@@ -6,7 +6,7 @@
  * resolvers can work identically to kahuna.
  */
 
-interface FieldAlias {
+export interface FieldAlias {
   elasticsearchPath: string;
   alias: string;
   label: string;

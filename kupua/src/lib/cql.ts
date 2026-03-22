@@ -108,6 +108,14 @@ function translateMimeType(expr: string): string | undefined {
  * Mirrors Scala's QuerySyntax.resolveNamedField.
  */
 function resolveNamedField(name: string): string | string[] {
+  // Check config field aliases first (mirrors Scala's QueryBuilder.resolveFieldPath)
+  const configAlias = gridConfig.fieldAliases.find(
+    (a) => a.alias === name
+  );
+  if (configAlias) {
+    return configAlias.elasticsearchPath;
+  }
+
   // Aliases from QuerySyntax
   const aliasMap: Record<string, string> = {
     illustrator: "credit",
