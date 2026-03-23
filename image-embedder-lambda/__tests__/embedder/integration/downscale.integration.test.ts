@@ -3,13 +3,13 @@ import sharp from 'sharp';
 import {
 	MAX_IMAGE_SIZE_BYTES,
 	MAX_PIXELS_COHERE_V4,
-} from '../../src/constants';
+} from '../../../src/embedder/constants';
 import {
 	ensureDirectoriesExist,
 	getTestImage,
 	writeOutputImage,
 } from './localTestFiles';
-import {downscaleImageIfNeeded} from "../../src/resizeImage";
+import {downscaleImageIfNeeded} from "../../../src/embedder/resizeImage";
 
 /**
  * Integration tests for image downscaling.

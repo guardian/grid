@@ -101,7 +101,7 @@ async function main() {
 
 	// Import handler AFTER setting environment variables
 	// Use require() because ts-node hooks into require, not dynamic import()
-	const { handler } = require('./src/index');
+	const { handler } = require('./src/embedder/index');
 
 	console.log('Image Embedder Local Runner');
 	console.log('============================');

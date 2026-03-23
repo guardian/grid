@@ -1,10 +1,10 @@
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { S3Client } from '@aws-sdk/client-s3';
 import { SQSRecord } from 'aws-lambda';
-import { generateVectors } from '../../src/index';
-import {S3Fetcher} from "../../src/s3Fetcher";
-import {CachedImageResolver, S3ImageResolver} from "../../src/imageResolver";
-import {SQSMessageBody} from "../../src/models";
+import { generateVectors } from '../../../src/embedder/index';
+import {S3Fetcher} from "../../../src/embedder/s3Fetcher";
+import {CachedImageResolver, S3ImageResolver} from "../../../src/embedder/imageResolver";
+import {SQSMessageBody} from "../../../src/embedder/models";
 
 /**
  * Integration tests for the fetch → downscale → embed pipeline.
