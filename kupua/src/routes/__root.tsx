@@ -7,6 +7,7 @@
  */
 
 import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const rootRoute = createRootRoute({
   component: RootLayout,
@@ -15,8 +16,9 @@ export const rootRoute = createRootRoute({
 function RootLayout() {
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-grid-bg text-grid-text">
-
-      <Outlet />
+      <ErrorBoundary>
+        <Outlet />
+      </ErrorBoundary>
     </div>
   );
 }

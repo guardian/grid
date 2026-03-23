@@ -146,6 +146,7 @@ introduced.
 - ✅ Shared CSS component classes (`popup-menu`, `popup-item`) in `index.css` `@layer components` for consistent dropdown/context menu styling
 - ✅ Three standardised font sizes: `text-xs` (12px, all UI chrome), `text-sm` (14px, table body cells), 13px (CQL input Web Component)
 - ✅ TypeScript compiles clean (`tsc --noEmit` — zero errors)
+- ✅ Error boundary (`ErrorBoundary.tsx`) — class component wrapping `<Outlet />` in `__root.tsx`. Catches render crashes, shows error message + stack + "Try again" / "Reset app" buttons. 2 tests.
 
 **Data Access Layer (DAL):**
 - ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`
@@ -413,6 +414,8 @@ kupua/
     components/
       CqlSearchInput.tsx       # React wrapper around @guardian/cql <cql-input> Web Component (227 lines)
       DateFilter.tsx           # Date range filter dropdown (486 lines)
+      ErrorBoundary.tsx        # React error boundary — catches render crashes, shows recovery UI
+      ErrorBoundary.test.tsx   # 2 tests: renders children, catches errors
       ImageDetail.tsx          # Single-image view: overlay within search route, fullscreen (black, no UI), prev/next navigation
       StatusBar.tsx            # Status bar: count + new images ticker + response time
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)

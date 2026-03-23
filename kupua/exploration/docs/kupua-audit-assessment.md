@@ -81,11 +81,7 @@ Haven't fully read it but it's heavy for what should mostly be Tailwind utility 
 
 ## 🔴 Architecture Concerns
 
-### 1. No error boundary
-
-There's no React error boundary anywhere. If `ImageDetail` or `ImageTable` throws during render, the entire app white-screens. Add at minimum a root-level `ErrorBoundary` in `__root.tsx`.
-
-### 2. `search-store.ts` — no deduplication on `loadMore`
+### 1. `search-store.ts` — no deduplication on `loadMore`
 
 ```typescript
 set({
@@ -94,19 +90,7 @@ set({
 
 If `loadMore()` is called twice rapidly (e.g. fast scroll), the second batch starts at the same offset (the `results.length` snapshot is stale) and you get duplicate rows. The `loading` guard helps, but Zustand's `set` is synchronous while `search` is async — there's a window. TanStack Table uses `row.id` for keying, but duplicate data in the array still wastes memory and looks wrong.
 
-### 3. `es-adapter.ts` — `getById` does a `_search` not a `_doc`
-
-```typescript
-async getById(id: string): Promise<Image | undefined> {
-  const body = { query: { terms: { id: [id] } }, size: 1 };
-  // ...
-  return result.hits.hits[0]?._source;
-}
-```
-
-This runs a full `_search` query to find one document by ID. ES has a dedicated `GET /<index>/_doc/<id>` endpoint that's faster (no query parsing/scoring). Should use that. Minor perf issue, but reviewers will flag it.
-
-### 4. `newCount` polling — the count query doesn't include all filters
+### 2. `newCount` polling — the count query doesn't include all filters
 
 ```typescript
 const count = await dataSource.count({
@@ -129,7 +113,7 @@ Checked AGENTS.md against actual code:
 | "~7100 lines of source" → "~6700 lines" | **Inconsistent** within AGENTS.md (says both). Actual: **6,862 lines**. |
 | "22 hardcoded fields" | ✅ Correct (counted in field-registry.ts). |
 | "TypeScript compiles clean" | ✅ Fixed — zero errors now (upstream `@guardian/cql` type annotated with `@ts-expect-error`, description param fixed to `""`). |
-| "45 tests" | ✅ Correct (25 + 20). |
+| "45 tests" | ✅ Now 47 (25 cql-query-edit + 20 field-registry + 2 ErrorBoundary). |
 | Phase 2 status | ✅ All "done" items verified in code. |
 | Project structure tree | ✅ Matches actual file layout. |
 | Key decisions 1–26 | ✅ All accurately describe the code. |
@@ -159,7 +143,7 @@ Checked AGENTS.md against actual code:
 | Architecture | **A** | DAL, registry, URL sync, overlay pattern — all well-designed |
 | Code quality | **B+** | Solid but ImageTable needs splitting, some module-level globals |
 | Documentation | **A+** | Unusually thorough for any project, let alone AI-assisted |
-| Testing | **C+** | 45 tests for 6,800 lines. CQL parser (460 lines) is untested. |
+| Testing | **C+** | 47 tests for ~7,000 lines. CQL parser (460 lines) is untested. |
 | Dependencies | **A-** | All upgraded to latest (Vite 8, Zod 4). ESLint 10 blocked upstream. |
 | Prod readiness | **N/A** | This is Phase 2 exploration — not intended for production yet |
 
