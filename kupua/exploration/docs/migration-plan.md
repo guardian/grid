@@ -637,11 +637,27 @@ the `search_after` pagination in the ES adapter now (it works fine against
 
 #### Kahuna's approach (for reference)
 
-Grid/kahuna has a hard cutoff: beyond ~10,000 results, it shows "Too many
-results to display — please refine your search." No pagination beyond that
-point. kupua should avoid this by supporting explicit window pagination
-(even before the scrubber exists), so users can always reach any position
-in the dataset through deliberate navigation.
+**Update (March 2026):** A deep read of the actual code reveals kahuna is more
+capable than previously assumed. See `kahuna-scroll-analysis.md` for the full
+analysis. Summary:
+
+- **Cap is 100,000** (not 10k) — `ctrl.maxResults = 100000`, ES `max_result_window`
+  bumped to 101,000.
+- **Sparse array** — `imagesAll` is pre-sized to `min(total, 100k)` with all slots
+  `undefined`. The container height is `totalRows × 303px`, so the **native browser
+  scrollbar** immediately reflects the full dataset. No custom scrubber.
+- **On-demand `from/size`** — when the viewport hits undefined slots, `loadRange(start,
+  end)` fetches up to 200 items via plain `from/size`. No `search_after`.
+- **Result set freezing** — `until: lastSearchFirstResultTime` on all pagination
+  requests prevents new uploads from shifting offsets.
+- **Visibility toggling, not virtualisation** — cells get `display: none` outside the
+  viewport band, but Angular scopes stay alive. This is why kahuna gets sluggish
+  after heavy scrolling.
+
+Kupua's target: surpass the 100k cap (native scrollbar works to ~1M rows at
+32px/row), add `search_after` for the 9M unfiltered case, add jump-to-image,
+add bidirectional page eviction, all with true DOM virtualisation via TanStack
+Virtual.
 
 ---
 

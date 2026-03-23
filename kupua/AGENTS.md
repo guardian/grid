@@ -240,9 +240,10 @@ introduced.
 - ✅ Arrow Down at edge of loaded results triggers loadMore — seamless infinite navigation via keyboard.
 
 ### What's Next (Phase 2 remaining)
+- [ ] **ImageTable refactor — split by density boundary, not interaction type.** Extract `useDataWindow.ts` (shared data windowing hook: sparse/windowed data structure, gap detection, `loadRange()`, `seekTo()`, `seekToImage(id)`, result set freezing, dedup, page eviction — see `kahuna-scroll-analysis.md` for prior art) and `useListNavigation.ts` (abstract keyboard nav parameterised by geometry: table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`). Extract `ColumnContextMenu.tsx` as standalone component. Leave ~800 lines of table-specific code in `ImageTable.tsx`. This split enables windowed scroll, grid view, and jump-to-image — whereas splitting by interaction type (`useColumnResize`, `useTableSort`, etc.) would spread coupling and make all three harder. See `kupua-audit-assessment.md` §1 for full rationale.
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
-- [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs)
+- [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above
 - [ ] Custom scrubber (thumb = `windowStart / total`) — see migration-plan.md "Scrollbar & Infinite Scroll" notes
 
 ### Deferred to Later Phases
@@ -317,7 +318,7 @@ introduced.
 
 7. **Column config in localStorage** (not URL) — visibility and widths are persisted per-client via `useColumnStore` with zustand/persist. Key: `kupua-column-config`. Column IDs use TanStack Table's format (dots→underscores). The store also holds session-only `preDoubleClickWidths` (excluded from localStorage persistence via `partialize`) for the double-click fit/restore toggle. Order and sorting will be added when needed.
 
-8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 (9M docs) will switch to windowed scroll + `search_after` pagination with a custom scrubber (thumb = `windowStart / total`). Phase 6 adds sort-aware date/letter labels, smooth drag, and mobile touch. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes".
+8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 (9M docs) uses a two-tier approach: (a) up to ~1M rows, pre-size the virtualizer to `total`, use sparse array + native scrollbar + `from/size` (kahuna's proven pattern, but 10× its 100k cap thanks to table's 32px row height vs kahuna's 303px cells); (b) beyond ~1M rows, custom scrubber + `search_after` with PIT. Kahuna analysis in `kahuna-scroll-analysis.md`. Phase 6 adds sort-aware date/letter labels, smooth drag, and mobile touch. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes". **Sparse scroll approach:** Use Option B from `sparse-scroll-plan.md` — virtualizer count = `min(total, CAP)`, TanStack Table only processes loaded rows (not 100k placeholders). Spike confirmed Option A (100k placeholder Row objects) costs 42ms per `getCoreRowModel` rebuild + 85MB heap — unacceptable since every `loadRange` triggers a rebuild. Option B uses a `Map<globalIndex, Image>` as the sparse data store; the render loop does a Map lookup per visible row and renders placeholder divs for gaps. TanStack Table handles columns/headers/cells for loaded data only. This matches canonical TanStack Virtual usage patterns.
 
 9. **Local dev domain** — currently `localhost:3000`. Future: add `kupua.media.local.dev-gutools.co.uk` to `dev/nginx-mappings.yml` pointing to port 3000. Trivial change when needed.
 
@@ -380,6 +381,8 @@ kupua/
     docs/
       migration-plan.md        # Full phased migration plan
       frontend-philosophy.md   # UX/UI philosophy: density continuum, interaction patterns, comparisons
+      kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
+      sparse-scroll-plan.md    # Implementation plan: sparse array + pre-sized virtualizer for free scrollbar up to 100k rows
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
       safeguards.md            # Elasticsearch + S3 safety documentation
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)

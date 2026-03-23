@@ -39,7 +39,7 @@
 
 ## 🟡 Things to Clean Up Before Others See It
 
-### 1. `ImageTable.tsx` is 1,350 lines — it NEEDS splitting
+### 1. `ImageTable.tsx` is 1,350 lines — it needs splitting, but not by interaction type
 
 This is the file that will make engineers wince. It's doing too many things:
 - Column definition generation from registry
@@ -53,13 +53,48 @@ This is the file that will make engineers wince. It's doing too many things:
 - Scroll reset logic
 - Return-from-detail focus restoration
 
-**Suggested split:**
-- `ImageTable.tsx` — core table rendering, virtualiser, scroll container (~300 lines)
-- `useColumnResize.ts` — auto-scroll resize hook with synthetic events (~200 lines)
-- `useTableKeyboard.ts` — keyboard navigation hook (~150 lines)
-- `useTableSort.ts` — sort click handling + delayed click (~100 lines)
-- `ColumnContextMenu.tsx` — context menu component (~150 lines)
-- Column def generation stays in `field-registry.ts` or a dedicated `column-defs.ts`
+The naïve refactor is to split by behaviour type (`useColumnResize.ts`, `useTableKeyboard.ts`, `useTableSort.ts`, `ColumnContextMenu.tsx`). **Don't do this.** It makes the file smaller but doesn't align with the architecture kupua is heading towards — and will actively make that work harder.
+
+#### Why interaction-type splitting is wrong here
+
+Two major features are coming (both documented in `migration-plan.md` and `frontend-philosophy.md`):
+
+1. **Windowed scroll** (Phase 2) — the current infinite-scroll model (append-only `results[]` array, `loadMore` going forward only) must become a sliding window over the full 9M-row dataset. This changes the virtualizer, scroll handling, loadMore, scroll reset, return-from-detail focus, AND keyboard navigation (Home/End must seek to first/last page, arrow-at-edge must trigger window sliding). Every one of the proposed "hooks" would need the same 8-10 refs (virtualizer, scroll container, window offset, rows, focusedId, total, etc.), creating an API surface more complex than the current monolith.
+
+2. **Density continuum** (`frontend-philosophy.md` → "One Ordered List, Many Densities") — table, grid, and single-image are densities of the same list. Focus, selection, keyboard navigation, and the data window are **shared across all densities**. Columns, resize handles, sort indicators are **table-density-only**. A `useTableKeyboard.ts` hook bakes keyboard navigation into the table — but keyboard nav must also work in the grid view (same concept, different geometry: arrows move between grid cells instead of table rows).
+
+#### The right split: density boundary, not interaction type
+
+Split by **what's shared across densities vs. what's table-specific:**
+
+| Shared (used by table, grid, future views) | Table-only |
+|---|---|
+| Data window (results, total, loadMore, seekTo) | Column definitions + column defs from registry |
+| Focus / selection state | Column resize + auto-scroll + synthetic events |
+| Abstract keyboard nav (move, page, home, end) | Column context menu |
+| Scroll position / window seeking | Column header rendering (sort arrows, resize handles) |
+| Click-to-search | CSS-variable column widths |
+| Return-from-detail restoration | Memoised `TableBody` |
+
+**Recommended files:**
+
+- **`useDataWindow.ts`** (~300 lines) — shared hook managing the data window between the search store and view components. Exposes `rows`, `total`, `windowOffset`, `loadRange(start, end)`, `seekTo(offset)`, `seekToImage(id)`. Today it wraps the current append-only store. Phase 2 evolves it into a sparse/windowed data structure with gap detection (which visible slots need fetching?), result set freezing (`until` timestamp to stabilise offsets during scrolling), duplicate detection (same image at different offsets after deletions), and page eviction (bound memory by dropping distant pages). Table, grid, and image detail all consume it. See `kahuna-scroll-analysis.md` for the prior art — kahuna does sparse array + `from/size` + native scrollbar, capped at 100k. Kupua targets 10× that via smaller row height, plus `search_after` beyond the native scrollbar limit.
+
+- **`useListNavigation.ts`** (~150 lines) — abstract keyboard navigation. Takes `count`, `focusedIndex`, and geometry callbacks (`rowsPerPage()`, `columnsPerRow()`). Returns `moveFocus(delta)`, `pageFocus(direction)`, `home()`, `end()`. Table passes `columnsPerRow: 1`; grid passes `columnsPerRow: N`. Same Home/End/PgUp/PgDown logic, different geometry. Same hook, two densities.
+
+- **`ColumnContextMenu.tsx`** (~150 lines) — self-contained component with its own state, DOM positioning, keyboard handling. The one piece the naïve split got right — it's a genuine independent component.
+
+- **`ImageTable.tsx`** (~800 lines) — everything table-density-specific stays here: TanStack Table setup, column visibility, resize with auto-scroll, sort with delayed click, header rendering, memoised body, CSS-variable widths. Still substantial, but it's all *one concern* — the table density. An engineer building the grid view never touches it.
+
+#### Why this matters
+
+The `useDataWindow` extraction is the single most important refactor in the codebase. It:
+- **Enables jump-to-image** — `seekToImage(id)` can issue a count query ("how many before this image in the current sort?"), fetch the target window, and scroll to it. Currently impossible because the virtualizer, scroll handling, and data loading are all entangled in ImageTable.
+- **Enables the grid view** — the grid component imports `useDataWindow` and `useListNavigation` and gets windowed scrolling + keyboard nav for free.
+- **Isolates the Phase 2 migration** — switching from append-only to windowed scroll changes one file, not five.
+- **Aligns with "Never Lost"** — focus restoration, selection survival, and scroll position preservation across density changes all live in the shared layer, not duplicated per view.
+
+The table staying at ~800 lines is fine. It's a complex component doing one complex thing. Engineers won't wince at 800 lines of table rendering — they wince at 1,350 lines doing ten unrelated things.
 
 ### 2. `SearchBar.tsx` — module-level mutable state is a code smell
 
@@ -127,7 +162,7 @@ Checked AGENTS.md against actual code:
 | Dependencies | **A-** | All upgraded to latest (Vite 8, Zod 4). ESLint 10 blocked upstream. |
 | Prod readiness | **N/A** | This is Phase 2 exploration — not intended for production yet |
 
-**Bottom line:** This is in good shape for a first human review. The architecture will hold up. The main risk is that ImageTable.tsx is a monolith and the test coverage is thin on the most complex file (cql.ts). Fix those two things and engineers will be impressed, not concerned.
+**Bottom line:** This is in good shape for a first human review. The architecture will hold up. The main work is splitting ImageTable along the right seam (density boundary, not interaction type — see §1 above) and adding test coverage for `cql.ts`. Do those two things and engineers will be impressed, not concerned.
 
 
 
