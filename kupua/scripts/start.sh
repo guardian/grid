@@ -24,7 +24,7 @@
 #
 # Prerequisites:
 #   - Docker must be running (unless --use-TEST or --skip-es)
-#   - Node.js ≥ 18 must be installed
+#   - Node.js ^20.19.0 || >=22.12.0 (required by Vite 8)
 #   - For local mode: sample data file at kupua/exploration/mock/sample-data.ndjson
 #   - For --use-TEST: media-service AWS profile with valid credentials
 #
@@ -61,6 +61,39 @@ for arg in "$@"; do
 done
 
 # ---------------------------------------------------------------------------
+# Check Node.js version — Vite 8 requires ^20.19.0 || >=22.12.0
+# ---------------------------------------------------------------------------
+if ! command -v node &> /dev/null; then
+  echo -e "${red}ERROR: Node.js is not installed.${plain}"
+  echo "  Install Node.js ≥ 20.19 (recommended: latest LTS via nvm or fnm)."
+  exit 1
+fi
+
+NODE_VERSION=$(node -v | sed 's/^v//')
+NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+NODE_MINOR=$(echo "$NODE_VERSION" | cut -d. -f2)
+
+NODE_OK=false
+if [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -ge 19 ]; then
+  NODE_OK=true
+elif [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -ge 12 ]; then
+  NODE_OK=true
+elif [ "$NODE_MAJOR" -ge 23 ]; then
+  NODE_OK=true
+fi
+
+if [ "$NODE_OK" = false ]; then
+  echo -e "${red}ERROR: Node.js v${NODE_VERSION} is not supported by Vite 8.${plain}"
+  echo "  Required: ^20.19.0 || >=22.12.0"
+  echo "  Current:  v${NODE_VERSION}"
+  echo
+  echo "  Update via nvm:  nvm install --lts"
+  echo "  Update via fnm:  fnm install --lts"
+  echo "  Update via brew: brew upgrade node"
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Check Docker is running — only when we actually need it
 # ---------------------------------------------------------------------------
 # Local mode needs Docker for ES (unless --skip-es).
@@ -87,6 +120,50 @@ if [ "$NEEDS_DOCKER" = true ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Check port availability — fail early with a clear message
+# ---------------------------------------------------------------------------
+check_port() {
+  local port="$1"
+  local service="$2"
+  local suggestion="$3"
+  # -sTCP:LISTEN: only detect processes listening on the port, not clients connected to it
+  if lsof -i:"$port" -sTCP:LISTEN -t > /dev/null 2>&1; then
+    local pid=$(lsof -i:"$port" -sTCP:LISTEN -t | head -1)
+    local proc=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+    echo -e "${red}ERROR: Port ${port} is already in use (PID ${pid}: ${proc}).${plain}"
+    echo "  ${service} needs this port."
+    echo "  ${suggestion}"
+    return 1
+  fi
+  return 0
+}
+
+# Vite dev server port
+PORT_OK=true
+if ! check_port 3000 "Vite dev server" "Kill the process or change kupua's port in vite.config.ts"; then
+  PORT_OK=false
+fi
+
+# ES port (only in local mode)
+if [ "$USE_TEST" = false ] && [ "$SKIP_ES" = false ]; then
+  # Port 9220 might be in use by our own kupua-elasticsearch container — that's OK
+  ES_HOLDER=$(lsof -i:9220 -sTCP:LISTEN -t 2>/dev/null | head -1 || true)
+  if [ -n "$ES_HOLDER" ]; then
+    ES_PROC=$(ps -p "$ES_HOLDER" -o comm= 2>/dev/null || echo "unknown")
+    if [[ "$ES_PROC" != *"com.docke"* ]] && [[ "$ES_PROC" != *"docker"* ]] && [[ "$ES_PROC" != *"vpnkit"* ]]; then
+      echo -e "${red}ERROR: Port 9220 is already in use by a non-Docker process (PID ${ES_HOLDER}: ${ES_PROC}).${plain}"
+      echo "  Kupua's Elasticsearch needs this port."
+      echo "  Kill the process or use --skip-es if you have ES running elsewhere."
+      PORT_OK=false
+    fi
+  fi
+fi
+
+if [ "$PORT_OK" = false ]; then
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Mode: --use-TEST (connect to real TEST ES via SSH tunnel)
 # ---------------------------------------------------------------------------
 if [ "$USE_TEST" = true ]; then
@@ -110,9 +187,28 @@ if [ "$USE_TEST" = true ]; then
     docker compose down 2>/dev/null || true
   fi
 
+  NEED_NEW_TUNNEL=true
+
   if [ -n "$EXISTING_TUNNELS" ]; then
-    echo -e "${green}[1/3] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
-  else
+    # Tunnel process exists — but it may be stale (e.g. remote end died,
+    # credentials expired). Probe ES to check it actually works.
+    if curl -sf --connect-timeout 3 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
+      echo -e "${green}[1/3] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
+      NEED_NEW_TUNNEL=false
+    else
+      echo -e "${yellow}[1/3] Existing SSH tunnel is stale — killing and re-establishing...${plain}"
+      # shellcheck disable=SC2046
+      kill $(echo "$EXISTING_TUNNELS" | awk '{print $2}') 2>/dev/null || true
+      # Wait for port 9200 to be fully released (TIME_WAIT can linger)
+      port_wait=0
+      while lsof -i:9200 -sTCP:LISTEN -t > /dev/null 2>&1 && [ $port_wait -lt 10 ]; do
+        sleep 1
+        port_wait=$((port_wait + 1))
+      done
+    fi
+  fi
+
+  if [ "$NEED_NEW_TUNNEL" = true ]; then
     echo -e "${yellow}[1/3] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
 
     if ! command -v ssm &> /dev/null; then
@@ -140,14 +236,23 @@ if [ "$USE_TEST" = true ]; then
 
   # --- 2. Discover the index alias ---
   echo -e "${yellow}[2/3] Discovering TEST ES index...${plain}"
-  # Give the tunnel a moment to stabilise
-  sleep 1
-
-  if ! curl -sf "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
-    echo -e "${red}ERROR: Cannot reach ES at localhost:9200.${plain}"
-    echo "  The SSH tunnel may not be ready. Try again in a few seconds."
-    exit 1
-  fi
+  # SSM tunnels route through AWS Session Manager — the SSH process
+  # backgrounds immediately (-f) but the SSM proxy can take 3-10s to
+  # fully negotiate. Retry with back-off instead of a single check.
+  max_tunnel_wait=15
+  tunnel_wait=0
+  until curl -sf --connect-timeout 2 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; do
+    tunnel_wait=$((tunnel_wait + 1))
+    if [ $tunnel_wait -ge $max_tunnel_wait ]; then
+      echo -e "${red}ERROR: Cannot reach ES at localhost:9200 after ${max_tunnel_wait}s.${plain}"
+      echo "  The SSH tunnel may have failed. Check your credentials and try again."
+      echo "  Debug: curl -v http://localhost:9200/_cluster/health"
+      exit 1
+    fi
+    printf "      Waiting for tunnel... (%d/%d)\r" "$tunnel_wait" "$max_tunnel_wait"
+    sleep 1
+  done
+  echo -e "${green}      ES reachable via tunnel ✓${plain}"
 
   # Find the alias that looks like "images_current" or similar
   INDEX_ALIAS=$(curl -sf "http://localhost:9200/_cat/aliases?format=json" \

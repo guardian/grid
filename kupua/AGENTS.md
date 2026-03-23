@@ -138,7 +138,7 @@ introduced.
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
 **App scaffold (~7100 lines of source):**
-- ✅ Vite + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
+- ✅ Vite 8 (Rolldown) + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
 - ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
 - ✅ Grid colour palette in `index.css` as Tailwind `@theme` tokens (e.g. `bg-grid-bg`, `text-grid-accent`)
@@ -260,9 +260,9 @@ introduced.
 | State | Zustand (lightweight, URL sync middleware) |
 | Routing | TanStack Router (search params validated via Zod, pairs with TanStack ecosystem) |
 | Styling | Tailwind CSS 4 (utility-first, no runtime overhead, dark mode, `@layer components` for shared classes) |
-| Build | Vite |
+| Build | Vite 8 (Rolldown engine) |
 | Data Layer | Abstracted `ImageDataSource` interface — currently `ElasticsearchDataSource` (local or remote via tunnel). `GridApiDataSource` deferred until auth/writes needed |
-| Validation | Zod |
+| Validation | Zod 4 |
 | Testing | Vitest (co-located `*.test.ts` files next to source) |
 | Dates | date-fns |
 
@@ -332,7 +332,7 @@ introduced.
 
 15. **Mock config for Phase 1** — `kupua/exploration/mock/grid-config.conf` is a sanitised copy of PROD Grid config. `src/lib/grid-config.ts` parses it for field aliases and category lists. This avoids hardcoding and will be replaced by live config fetching in Phase 3.
 
-16. **Start script** — `kupua/scripts/start.sh` is the single entry point for local development. It orchestrates ES startup, data loading, npm install, and Vite dev server. Flags allow skipping steps for faster restarts.
+16. **Start script** — `kupua/scripts/start.sh` is the single entry point for local development. It orchestrates ES startup, data loading, npm install, and Vite dev server. Flags allow skipping steps for faster restarts. Validates prerequisites before starting: Node version (Vite 8 requires `^20.19.0 || >=22.12.0`), Docker running, port availability (3000 for Vite, 9220 for ES — uses `lsof -sTCP:LISTEN` to avoid false positives from client connections).
 
 17. **`@/*` path alias** — `@/components/Foo` resolves to `src/components/Foo`. Configured in both `tsconfig.json` (`paths`) and `vite.config.ts` (`resolve.alias`). All imports use this alias.
 
@@ -383,6 +383,7 @@ kupua/
       safeguards.md            # Elasticsearch + S3 safety documentation
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
       imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy
+      mapping-enhancements.md  # Proposed ES mapping improvements
   scripts:
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load

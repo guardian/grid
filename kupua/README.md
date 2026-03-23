@@ -51,7 +51,7 @@ All image access is read-only and uses your existing developer AWS credentials. 
 ## Prerequisites
 
 - **Docker** – for local Elasticsearch (and imgproxy in TEST mode)
-- **Node.js ≥ 18** – for the Vite dev server and S3 proxy
+- **Node.js** – `^20.19.0` or `≥22.12.0` (required by Vite 8; `start.sh` checks this)
 - **Sample data** (local mode only) – `kupua/exploration/mock/sample-data.ndjson` (not in git, grab some):
 - **Janus credentials** (TEST mode only)
 
