@@ -5,6 +5,7 @@
 >
 > **Updated 23 March 2026:** Dependencies upgraded (Vite 8, Zod 4, etc.), `start.sh`
 > hardened with Node version + port checks. Dependency section removed — all done.
+> TS errors fixed (zero errors now). `.DS_Store` cleaned up.
 
 ---
 
@@ -68,28 +69,11 @@ let _cqlInputGeneration = 0;
 
 Three module-level mutable variables with exported mutation functions (`cancelSearchDebounce`, `getCqlInputGeneration`). This works but is effectively global mutable state — anyone importing from `SearchBar.tsx` can mutate these. Should be a ref-based approach or a small context/store. Not a bug, but will make reviewers uncomfortable.
 
-### 3. Two TypeScript compilation errors
-
-```
-CqlSearchInput.tsx(92): customElements.define argument type mismatch
-CqlSearchInput.tsx(142): undefined not assignable to string
-```
-
-The first is the known `@guardian/cql` upstream issue (noted in AGENTS.md). The second at line 142 (`el.setAttribute("placeholder", placeholder)`) — `placeholder` could be `undefined` when destructured with a default, but the error is on a different line. Both are suppressed at runtime but would fail `tsc --noEmit` in CI. **You need `// @ts-expect-error` annotations or a fix.**
-
-### 4. `.DS_Store` in `src/`
-
-```
-src/.DS_Store
-```
-
-This should be in `.gitignore`. Minor, but it signals "hasn't been through proper review."
-
-### 5. `cql-query-edit.ts` + `cql-query-edit.test.ts` — naming is fine but could colocate
+### 3. `cql-query-edit.ts` + `cql-query-edit.test.ts` — naming is fine but could colocate
 
 The test file is well-structured with 25 tests. Good. But `cql.ts` (the main parser, 460 lines) has **zero tests**. That's the file with the most complex logic — `parseCql`, `fieldToClause`, `buildIsQuery`, `mergeClauses`. Engineers will notice.
 
-### 6. `index.css` — 399 lines
+### 4. `index.css` — 399 lines
 
 Haven't fully read it but it's heavy for what should mostly be Tailwind utility classes. The `@theme` declarations are great, but check if there's dead CSS in there.
 
@@ -144,7 +128,7 @@ Checked AGENTS.md against actual code:
 |---|---|
 | "~7100 lines of source" → "~6700 lines" | **Inconsistent** within AGENTS.md (says both). Actual: **6,862 lines**. |
 | "22 hardcoded fields" | ✅ Correct (counted in field-registry.ts). |
-| "TypeScript compiles clean" | ❌ Two errors exist (noted as pre-existing `@guardian/cql` issue, but there are actually TWO errors, not one). |
+| "TypeScript compiles clean" | ✅ Fixed — zero errors now (upstream `@guardian/cql` type annotated with `@ts-expect-error`, description param fixed to `""`). |
 | "45 tests" | ✅ Correct (25 + 20). |
 | Phase 2 status | ✅ All "done" items verified in code. |
 | Project structure tree | ✅ Matches actual file layout. |
@@ -180,4 +164,8 @@ Checked AGENTS.md against actual code:
 | Prod readiness | **N/A** | This is Phase 2 exploration — not intended for production yet |
 
 **Bottom line:** This is in good shape for a first human review. The architecture will hold up. The main risk is that ImageTable.tsx is a monolith and the test coverage is thin on the most complex file (cql.ts). Fix those two things and engineers will be impressed, not concerned.
+
+
+
+
 

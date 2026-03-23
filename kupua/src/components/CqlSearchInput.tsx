@@ -89,6 +89,9 @@ function ensureRegistered(typeahead: LazyTypeahead) {
     theme,
     lang: cqlParserSettings,
   });
+  // @ts-expect-error — upstream: @guardian/cql's createCqlInput return type
+  // is missing HTMLElement properties that TS DOM types require for
+  // CustomElementConstructor. The class works fine at runtime.
   customElements.define("cql-input", CqlInput);
   registered = true;
 }
@@ -139,7 +142,7 @@ export function CqlSearchInput({
       return new TypeaheadField(
         fieldName,
         fieldName,
-        undefined,
+        "",
         cqlResolver,
         "TEXT"
       );

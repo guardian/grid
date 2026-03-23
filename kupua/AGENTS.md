@@ -145,7 +145,7 @@ introduced.
 - ✅ Open Sans self-hosted from `public/fonts/` (same woff2 files as kahuna, not CDN); `--font-sans` overridden in `@theme` so all elements inherit it automatically
 - ✅ Shared CSS component classes (`popup-menu`, `popup-item`) in `index.css` `@layer components` for consistent dropdown/context menu styling
 - ✅ Three standardised font sizes: `text-xs` (12px, all UI chrome), `text-sm` (14px, table body cells), 13px (CQL input Web Component)
-- ✅ TypeScript compiles clean (one pre-existing `@guardian/cql` type issue in `customElements.define` — upstream bug)
+- ✅ TypeScript compiles clean (`tsc --noEmit` — zero errors)
 
 **Data Access Layer (DAL):**
 - ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`
