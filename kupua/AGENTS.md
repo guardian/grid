@@ -104,6 +104,16 @@ It contains:
 - Data model reference (ES mapping fields)
 - Architecture diagram
 
+📄 **Frontend Philosophy:** `kupua/exploration/docs/frontend-philosophy.md`
+
+Frames the UX/UI thinking: density continuum, "Never Lost" context preservation
+(focus/selection/edit state survive view and search changes), click-to-search vs
+edit mode, selection vs focus, adjacency algorithm for displaced focus, metadata
+panel design, discovery beyond search (faceted filters, histograms, visual
+similarity), comparisons with Lightroom/Google Photos/Finder/Darktable/Ansel.
+Includes analysis of kahuna's three failed filmstrip/traversal attempts (PRs #2949,
+#4573, #4574) and architectural lessons learned. Living document — updated as we discuss.
+
 📄 **Deviations log:** `kupua/exploration/docs/deviations.md`
 
 Documents intentional differences from Grid/kahuna behaviour and places
@@ -127,7 +137,7 @@ introduced.
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
-**App scaffold (~6700 lines of source):**
+**App scaffold (~7100 lines of source):**
 - ✅ Vite + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
 - ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
@@ -164,9 +174,9 @@ introduced.
 - ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
 - ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
 
-**Table view (`ImageTable.tsx`, ~1650 lines):**
+**Table view (`ImageTable.tsx`, ~1350 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ 22 hardcoded columns + config-driven alias columns from `gridConfig.fieldAliases` (currently 7: Edit Status, Colour Profile, Colour Model, Cutout, Bits Per Sample, Digital Source Type, Scene Code). Hardcoded: Category, Image type, Title, Description, Special instructions, By, Credit, Location, Copyright, Source, Taken on, Uploaded, Last modified, Uploader, Filename, Subjects, People, Width, Height, File type, Suppliers reference, Byline title. Plus a Thumbnail column (first position, 48px, non-resizable) shown only in `--use-TEST` mode when S3 proxy is active.
+- ✅ Column definitions generated from field registry (`field-registry.ts`) — 22 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
 - ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
 - ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
@@ -238,6 +248,7 @@ introduced.
 - [ ] `is:GNM-owned` filter with real org config from Grid (currently recognized in CQL but not filtering)
 - [ ] `GridApiDataSource` (Phase 3 — replaces ES adapter, adds auth, uses Grid media-api HATEOAS links)
 - [ ] Row grouping (e.g. group by credit, source, date) — TanStack Table has built-in `getGroupedRowModel()` + `getExpandedRowModel()` with aggregation functions. Works client-side on loaded rows; for 9M-scale grouping would need server-side via ES composite/terms aggs with `manualGrouping: true`. Consider alongside facet filters.
+- [ ] Discovery features beyond faceted filters — date histograms, geographic clustering, credit/source network visualisation, usage pattern analysis, visual similarity (knn on existing embedding vectors), trending/significant_terms. All read-only ES-native. Some depend on mapping enhancements (`mapping-enhancements.md`). See `frontend-philosophy.md` → "Discovery: Beyond Search".
 
 ## Tech Stack
 
@@ -337,6 +348,12 @@ introduced.
 
 23. **Image detail is an overlay, not a separate route** — the image detail view renders within the search route when `image` is present in URL search params (`?image=abc123&nonFree=true&query=...`). The search page stays mounted and fully laid out (`opacity-0 pointer-events-none`, NOT `display:none` — because `display:none` resets `scrollTop` to 0). Scroll position, virtualizer state, and search context are all preserved. Browser back removes `image` from params — the table reappears at the exact scroll position with no re-search. `image` is a display-only URL param: it's excluded from store sync and ES queries via `URL_DISPLAY_KEYS`. Prev/next replaces `image` (so back always returns to the table, not through every viewed image). If the user navigated to a different image via prev/next, the focused row is centered in the viewport on return. `/images/:imageId` redirects to `/search?image=...&nonFree=true` for backward compat. URL param ordering controlled by `URL_PARAM_PRIORITY` — `image` appears first, matching Grid URL style.
 
+24. **"Never Lost" context preservation** — Focus, selection, edit state, and scroll position survive every density/view change (table → grid → single image and back). Views are density levels of the same list, not separate pages. When search context changes and the focused item leaves the result set, kupua snaps focus to the **most adjacent surviving item** from the previous result set (nearest neighbour scan, alternating forward/backward), rather than resetting to the top. Selections that survive the new results are kept; missing ones are silently dropped. Edit state on a displaced image is preserved with a subtle "not in current results" indicator. Full algorithm and rationale in `frontend-philosophy.md` → "Context is Sacred".
+
+25. **Actions written once, context-adaptive** — Action buttons (Crop, Delete, Download, Archive, Share, Add to Collection, Set Rights, etc.) are each implemented as a single component that accepts an `images` array. An `ActionBar` component derives `targetImages` from current state (focused image, selection, or current detail image) and renders all actions. Labels, enabled state, and confirmation dialogs adapt to the image count — but core logic is identical regardless of which view density the user is in. Kahuna already uses `images` arrays for its action components; kupua formalises this into one `ActionBar` mounted in a stable toolbar position, never duplicated per view. See `frontend-philosophy.md` → "Actions are Written Once".
+
+26. **Field Definition Registry** — `src/lib/field-registry.ts` is the single source of truth for every image field kupua can display, search, sort, or aggregate. Each `FieldDefinition` captures: identity (id, label, group), data access (accessor, rawValue), search (cqlKey, esSearchPath), sort (sortKey, descByDefault), display (defaultWidth, defaultHidden, formatter, cellRenderer), and type metadata (fieldType, isList, isComposite, editable, aggregatable). Config-driven alias fields from `grid-config.ts` are merged in automatically. Consumers (`ImageTable`, `SearchFilters.Sort`, `column-store`, future MetadataPanel/grid view) import derived maps (`COLUMN_CQL_KEYS`, `SORTABLE_FIELDS`, `DESC_BY_DEFAULT`, `DEFAULT_HIDDEN_COLUMNS`, `SORT_DROPDOWN_OPTIONS`) and helper functions (`getFieldRawValue`, `getFieldDisplayValue`) — they never hardcode field knowledge. ImageTable generates TanStack column defs from the registry via `fieldToColumnDef()`. **Coupling note:** `fieldType` and `aggregatable` restate the ES mapping — if the mapping changes (e.g. mapping-enhancements.md §2a), these must be updated. When facet filters are built, consider dynamic introspection via `_mapping` at startup instead.
+
 ## Project Structure
 
 ```
@@ -361,6 +378,7 @@ kupua/
       grid-config.conf         # Sanitised copy of PROD Grid config (aliases, categories)
     docs/
       migration-plan.md        # Full phased migration plan
+      frontend-philosophy.md   # UX/UI philosophy: density continuum, interaction patterns, comparisons
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
       safeguards.md            # Elasticsearch + S3 safety documentation
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
@@ -380,6 +398,8 @@ kupua/
       image.tsx                # Image redirect — `/images/$imageId` → `/search?image=...&nonFree=true`
     lib/
       cql.ts                   # CQL parser + CQL→ES query translator (451 lines)
+      field-registry.ts        # Field Definition Registry — single source of truth for all image fields (615 lines)
+      field-registry.test.ts   # Registry tests: derived maps match old hardcoded values, accessors, formatters (34 tests)
       grid-config.ts           # Mock Grid config parser (field aliases, org-owned categories)
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
@@ -396,7 +416,7 @@ kupua/
       StatusBar.tsx            # Status bar: count + new images ticker + response time
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
-      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1650 lines — largest component)
+      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1350 lines — column defs generated from field-registry.ts)
     stores/
       search-store.ts          # Zustand store (search params, results, loadMore)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)

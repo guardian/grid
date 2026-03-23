@@ -21,188 +21,116 @@ import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import type { Image } from "@/types/image";
-import { format } from "date-fns";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
-import { gridConfig, type FieldAlias } from "@/lib/grid-config";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import {
+  FIELD_REGISTRY,
+  COLUMN_CQL_KEYS,
+  SORTABLE_FIELDS as REGISTRY_SORTABLE_FIELDS,
+  DESC_BY_DEFAULT,
+  getFieldRawValue,
+  type FieldDefinition,
+} from "@/lib/field-registry";
 
 const columnHelper = createColumnHelper<Image>();
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "—";
-  try {
-    return format(new Date(dateStr), "dd MMM yyyy HH:mm");
-  } catch {
-    return dateStr;
-  }
-}
-
-/** Read width from orientedDimensions (post-EXIF rotation), falling back to dimensions. */
-function getWidth(image: Image): number | undefined {
-  return (image.source.orientedDimensions ?? image.source.dimensions)?.width;
-}
-
-/** Read height from orientedDimensions (post-EXIF rotation), falling back to dimensions. */
-function getHeight(image: Image): number | undefined {
-  return (image.source.orientedDimensions ?? image.source.dimensions)?.height;
-}
-
-/** Join location sub-fields fine→coarse: subLocation, city, state, country. */
-function getLocation(image: Image): string | undefined {
-  const parts = [
-    image.metadata?.subLocation,
-    image.metadata?.city,
-    image.metadata?.state,
-    image.metadata?.country,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
 // ---------------------------------------------------------------------------
-// Config-driven field alias columns
+// Build TanStack column defs from the field registry
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve a dot-separated ES path against an image document.
- * e.g. "fileMetadata.iptc.Edit Status" → image.fileMetadata?.iptc?.["Edit Status"]
- *
- * Mirrors Grid's Scala `nestedLookup` in ImageResponse.
+ * Build a cell renderer for a list field (subjects, people).
+ * Each item is individually clickable for search via data-cql-key/data-cql-value.
  */
-function resolveEsPath(image: Image, esPath: string): string | undefined {
-  const parts = esPath.split(".");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let current: any = image;
-  for (const part of parts) {
-    if (current == null || typeof current !== "object") return undefined;
-    current = current[part];
-  }
-  return current != null ? String(current) : undefined;
+function listCellRenderer(field: FieldDefinition) {
+  return (image: Image) => {
+    const values = field.accessor(image);
+    if (!Array.isArray(values) || values.length === 0) return "—";
+    return (
+      <>
+        {values.map((v, i) => (
+          <span key={i}>
+            {i > 0 && <span className="text-grid-text-dim">, </span>}
+            <span
+              data-cql-key={field.cqlKey}
+              data-cql-value={v}
+              className="hover:underline hover:text-grid-accent cursor-pointer"
+            >
+              {v}
+            </span>
+          </span>
+        ))}
+      </>
+    );
+  };
 }
 
-/** Field aliases that should appear as table columns. */
-const aliasColumns: FieldAlias[] = gridConfig.fieldAliases.filter(
-  (a) => a.displayInAdditionalMetadata
-);
-
-/** Column ID for a field alias — prefixed to avoid clashes with hardcoded columns. */
-function aliasColumnId(alias: FieldAlias): string {
-  return `alias_${alias.alias}`;
+/**
+ * Build a cell renderer for a composite field (location).
+ * Each sub-field gets its own data-cql-key for click-to-search.
+ */
+function compositeCellRenderer(field: FieldDefinition) {
+  return (image: Image) => {
+    const parts = (field.subFields ?? [])
+      .map((sf) => ({ cqlKey: sf.cqlKey, value: sf.accessor(image) }))
+      .filter((p): p is { cqlKey: string; value: string } => p.value != null);
+    if (parts.length === 0) return "—";
+    return (
+      <>
+        {parts.map((p, i) => (
+          <span key={p.cqlKey}>
+            {i > 0 && <span className="text-grid-text-dim">, </span>}
+            <span
+              data-cql-key={p.cqlKey}
+              data-cql-value={p.value}
+              className="hover:underline hover:text-grid-accent cursor-pointer"
+            >
+              {p.value}
+            </span>
+          </span>
+        ))}
+      </>
+    );
+  };
 }
 
-/** CQL keys for config-driven alias columns. */
-const ALIAS_CQL_KEYS: Record<string, string> = Object.fromEntries(
-  aliasColumns.map((a) => [aliasColumnId(a), a.alias])
-);
-
-/** Sortable fields for config-driven alias columns (all are keyword type). */
-const ALIAS_SORTABLE_FIELDS: Record<string, string> = Object.fromEntries(
-  aliasColumns.map((a) => [aliasColumnId(a), a.elasticsearchPath])
-);
-
-/** Generate TanStack column definitions from config field aliases. */
+/**
+ * Generate a TanStack column def from a FieldDefinition.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const aliasColumnDefs: ColumnDef<Image, any>[] = aliasColumns.map((a) =>
-  columnHelper.accessor((row) => resolveEsPath(row, a.elasticsearchPath), {
-    id: aliasColumnId(a),
-    header: a.label,
-    size: 120,
-    cell: (info) => info.getValue() || "—",
-  })
-);
+function fieldToColumnDef(field: FieldDefinition): ColumnDef<Image, any> {
+  // Pick the cell renderer
+  const renderer = field.cellRenderer
+    ?? (field.isList ? listCellRenderer(field) : undefined)
+    ?? (field.isComposite ? compositeCellRenderer(field) : undefined);
 
-/**
- * CQL key for each column, used for click-to-search.
- * Matches the CQL query syntax. Columns without a CQL key
- * don't support click-to-search.
- *
- * Date columns (taken, uploaded, lastModified) are intentionally excluded —
- * searching for an exact ISO timestamp isn't useful and the CQL parser
- * doesn't support date-valued field queries anyway.
- */
-const COLUMN_CQL_KEYS: Record<string, string> = {
-  metadata_imageType: "imageType",
-  metadata_title: "title",
-  metadata_description: "description",
-  metadata_specialInstructions: "specialInstructions",
-  metadata_byline: "by",
-  metadata_credit: "credit",
-  metadata_copyright: "copyright",
-  metadata_source: "source",
-  uploadedBy: "uploader",
-  uploadInfo_filename: "filename",
-  source_mimeType: "fileType",
-  usageRights_category: "category",
-  metadata_suppliersReference: "suppliersReference",
-  metadata_bylineTitle: "bylineTitle",
-  ...ALIAS_CQL_KEYS,
-};
-
-/**
- * Get the raw string value from a cell for tooltip and click-to-search.
- * Returns the display-friendly value (not the raw ES value) for special columns.
- */
-function getRawCellValue(columnId: string, image: Image): string | undefined {
-  switch (columnId) {
-    case "metadata_imageType":
-      return image.metadata?.imageType;
-    case "metadata_title":
-      return image.metadata?.title;
-    case "metadata_description":
-      return image.metadata?.description;
-    case "metadata_specialInstructions":
-      return image.metadata?.specialInstructions;
-    case "metadata_byline":
-      return image.metadata?.byline;
-    case "metadata_credit":
-      return image.metadata?.credit;
-    case "metadata_copyright":
-      return image.metadata?.copyright;
-    case "metadata_source":
-      return image.metadata?.source;
-    case "location":
-      return getLocation(image);
-    case "subjects":
-      return image.metadata?.subjects?.join(", ");
-    case "people":
-      return image.metadata?.peopleInImage?.join(", ");
-    case "metadata_dateTaken":
-      return image.metadata?.dateTaken;
-    case "uploadTime":
-      return image.uploadTime;
-    case "lastModified":
-      return image.lastModified;
-    case "uploadedBy":
-      return image.uploadedBy;
-    case "uploadInfo_filename":
-      return image.uploadInfo?.filename;
-    case "width": {
-      const w = getWidth(image);
-      return w !== undefined ? String(w) : undefined;
+  return columnHelper.accessor(
+    (row) => {
+      const val = field.accessor(row);
+      if (Array.isArray(val)) return val.join(", ");
+      return val;
+    },
+    {
+      id: field.id,
+      header: field.label,
+      size: field.defaultWidth,
+      cell: renderer
+        ? (info) => renderer(info.row.original)
+        : field.formatter
+          ? (info) => {
+              const raw = info.getValue();
+              return raw ? field.formatter!(raw) : "—";
+            }
+          : (info) => info.getValue() || "—",
     }
-    case "height": {
-      const h = getHeight(image);
-      return h !== undefined ? String(h) : undefined;
-    }
-    case "source_mimeType": {
-      const mime = image.source.mimeType;
-      return mime ? mime.replace("image/", "") : undefined;
-    }
-    case "usageRights_category":
-      return image.usageRights?.category;
-    case "metadata_suppliersReference":
-      return image.metadata?.suppliersReference;
-    case "metadata_bylineTitle":
-      return image.metadata?.bylineTitle;
-    default: {
-      // Config-driven alias columns
-      const alias = aliasColumns.find((a) => aliasColumnId(a) === columnId);
-      if (alias) return resolveEsPath(image, alias.elasticsearchPath);
-      return undefined;
-    }
-  }
+  );
 }
+
+/** All data columns generated from the field registry. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const registryColumnDefs: ColumnDef<Image, any>[] = FIELD_REGISTRY.map(fieldToColumnDef);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const allColumns: ColumnDef<Image, any>[] = [
@@ -233,207 +161,7 @@ const allColumns: ColumnDef<Image, any>[] = [
         }),
       ]
     : []),
-  columnHelper.accessor((row) => row.usageRights?.category, {
-    id: "usageRights_category",
-    header: "Category",
-    size: 140,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.imageType, {
-    id: "metadata_imageType",
-    header: "Image type",
-    size: 100,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.title, {
-    id: "metadata_title",
-    header: "Title",
-    size: 250,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.description, {
-    id: "metadata_description",
-    header: "Description",
-    size: 300,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.specialInstructions, {
-    id: "metadata_specialInstructions",
-    header: "Special instructions",
-    size: 200,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.byline, {
-    id: "metadata_byline",
-    header: "By",
-    size: 150,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.credit, {
-    id: "metadata_credit",
-    header: "Credit",
-    size: 120,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => getLocation(row), {
-    id: "location",
-    header: "Location",
-    size: 200,
-    cell: (info) => {
-      const m = info.row.original.metadata;
-      const parts: { cqlKey: string; value: string }[] = [];
-      if (m?.subLocation) parts.push({ cqlKey: "location", value: m.subLocation });
-      if (m?.city) parts.push({ cqlKey: "city", value: m.city });
-      if (m?.state) parts.push({ cqlKey: "state", value: m.state });
-      if (m?.country) parts.push({ cqlKey: "country", value: m.country });
-      if (parts.length === 0) return "—";
-      return (
-        <>
-          {parts.map((p, i) => (
-            <span key={p.cqlKey}>
-              {i > 0 && <span className="text-grid-text-dim">, </span>}
-              <span
-                data-cql-key={p.cqlKey}
-                data-cql-value={p.value}
-                className="hover:underline hover:text-grid-accent cursor-pointer"
-              >
-                {p.value}
-              </span>
-            </span>
-          ))}
-        </>
-      );
-    },
-  }),
-  columnHelper.accessor((row) => row.metadata?.copyright, {
-    id: "metadata_copyright",
-    header: "Copyright",
-    size: 180,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.source, {
-    id: "metadata_source",
-    header: "Source",
-    size: 120,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.dateTaken, {
-    id: "metadata_dateTaken",
-    header: "Taken on",
-    size: 150,
-    cell: (info) => formatDate(info.getValue()),
-  }),
-  columnHelper.accessor("uploadTime", {
-    header: "Uploaded",
-    size: 150,
-    cell: (info) => formatDate(info.getValue()),
-  }),
-  columnHelper.accessor("lastModified", {
-    header: "Last modified",
-    size: 150,
-    cell: (info) => formatDate(info.getValue()),
-  }),
-  columnHelper.accessor("uploadedBy", {
-    header: "Uploader",
-    size: 150,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.uploadInfo?.filename, {
-    id: "uploadInfo_filename",
-    header: "Filename",
-    size: 180,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.subjects?.join(", "), {
-    id: "subjects",
-    header: "Subjects",
-    size: 200,
-    cell: (info) => {
-      const subjects = info.row.original.metadata?.subjects;
-      if (!subjects || subjects.length === 0) return "—";
-      return (
-        <>
-          {subjects.map((s, i) => (
-            <span key={i}>
-              {i > 0 && <span className="text-grid-text-dim">, </span>}
-              <span
-                data-cql-key="subject"
-                data-cql-value={s}
-                className="hover:underline hover:text-grid-accent cursor-pointer"
-              >
-                {s}
-              </span>
-            </span>
-          ))}
-        </>
-      );
-    },
-  }),
-  columnHelper.accessor((row) => row.metadata?.peopleInImage?.join(", "), {
-    id: "people",
-    header: "People",
-    size: 200,
-    cell: (info) => {
-      const people = info.row.original.metadata?.peopleInImage;
-      if (!people || people.length === 0) return "—";
-      return (
-        <>
-          {people.map((p, i) => (
-            <span key={i}>
-              {i > 0 && <span className="text-grid-text-dim">, </span>}
-              <span
-                data-cql-key="person"
-                data-cql-value={p}
-                className="hover:underline hover:text-grid-accent cursor-pointer"
-              >
-                {p}
-              </span>
-            </span>
-          ))}
-        </>
-      );
-    },
-  }),
-  columnHelper.accessor((row) => getWidth(row), {
-    id: "width",
-    header: "Width",
-    size: 70,
-    cell: (info) => {
-      const val = info.getValue();
-      return val !== undefined ? val.toLocaleString() : "—";
-    },
-  }),
-  columnHelper.accessor((row) => getHeight(row), {
-    id: "height",
-    header: "Height",
-    size: 70,
-    cell: (info) => {
-      const val = info.getValue();
-      return val !== undefined ? val.toLocaleString() : "—";
-    },
-  }),
-  columnHelper.accessor((row) => row.source?.mimeType, {
-    id: "source_mimeType",
-    header: "File type",
-    size: 90,
-    cell: (info) => {
-      const val = info.getValue();
-      return val ? val.replace("image/", "") : "—";
-    },
-  }),
-  columnHelper.accessor((row) => row.metadata?.suppliersReference, {
-    id: "metadata_suppliersReference",
-    header: "Suppliers reference",
-    size: 150,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.metadata?.bylineTitle, {
-    id: "metadata_bylineTitle",
-    header: "Byline title",
-    size: 150,
-    cell: (info) => info.getValue() || "—",
-  }),
-  ...aliasColumnDefs,
+  ...registryColumnDefs,
 ];
 
 const ROW_HEIGHT = 32;
@@ -445,12 +173,8 @@ const HEADER_HEIGHT = 45;
 /**
  * Fields whose natural first-sort direction is descending (newest first).
  * All other sortable fields default to ascending (A→Z for text, 0→∞ for numbers).
+ * Derived from the field registry.
  */
-const DESC_BY_DEFAULT = new Set([
-  "taken",
-  "uploadTime",
-  "lastModified",
-]);
 
 /** Return the default orderBy token for a field's first sort click. */
 function defaultSortFor(field: string): string {
@@ -558,7 +282,7 @@ const TableBody = memo(function TableBody({
             onDoubleClick={() => handleRowDoubleClick(row.original.id)}
           >
             {row.getVisibleCells().map((cell) => {
-              const rawValue = getRawCellValue(
+              const rawValue = getFieldRawValue(
                 cell.column.id,
                 cell.row.original
               );
@@ -1117,7 +841,7 @@ export function ImageTable() {
 
       // Cell values — scan all loaded results
       for (const image of results) {
-        const raw = getRawCellValue(colId, image);
+        const raw = getFieldRawValue(colId, image);
         if (raw && raw !== "—") {
           const w = measureText(raw, CELL_FONT);
           if (w > maxW) maxW = w;
@@ -1254,29 +978,8 @@ export function ImageTable() {
   );
 
   // Map column IDs to their orderBy key for the URL.
-  // Values here are what goes into ?orderBy=... — the ES adapter resolves
-  // aliases (e.g. "taken" → "metadata.dateTaken") when building the sort clause.
-  //
-  // NOTE: TanStack Table replaces dots with underscores in auto-generated column IDs
-  // (e.g. accessor "metadata.credit" → column ID "metadata_credit"), so keys here
-  // must use underscores to match.
-  //
-  // text fields without .keyword sub-field (title, description, byline) are NOT sortable.
-  const sortableFields: Record<string, string> = {
-    metadata_imageType: "metadata.imageType",
-    metadata_credit: "metadata.credit",
-    metadata_source: "metadata.source",
-    metadata_dateTaken: "taken",
-    uploadTime: "uploadTime",
-    lastModified: "lastModified",
-    uploadedBy: "uploadedBy",
-    uploadInfo_filename: "uploadInfo.filename",
-    width: "source.dimensions.width",
-    height: "source.dimensions.height",
-    source_mimeType: "source.mimeType",
-    usageRights_category: "usageRights.category",
-    ...ALIAS_SORTABLE_FIELDS,
-  };
+  // Derived from the field registry — see field-registry.ts.
+  const sortableFields = REGISTRY_SORTABLE_FIELDS;
 
   // Parse primary + secondary sort from the orderBy param
   const orderBy = searchParams.orderBy ?? "-uploadTime";
@@ -1328,7 +1031,7 @@ export function ImageTable() {
         rawValue = subFieldKey.dataset.cqlValue;
       } else {
         cqlKey = COLUMN_CQL_KEYS[columnId];
-        rawValue = getRawCellValue(columnId, image);
+        rawValue = getFieldRawValue(columnId, image);
       }
 
       if (!cqlKey || !rawValue || rawValue === "—") return;

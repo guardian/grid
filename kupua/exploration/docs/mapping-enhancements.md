@@ -5,6 +5,10 @@
 >
 > ⚠️ These changes require modifying `Mappings.scala` in Grid's common-lib —
 > a Grid-wide change, not kupua-only. Needs team buy-in and a re-index.
+>
+> **Kupua coupling:** `src/lib/field-registry.ts` statically declares `fieldType` and
+> `aggregatable` per field based on the current mapping. When these enhancements ship,
+> the registry must be updated to match (or replaced with dynamic `_mapping` introspection).
 
 ---
 

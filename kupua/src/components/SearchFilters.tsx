@@ -14,21 +14,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
+import { SORT_DROPDOWN_OPTIONS, DESC_BY_DEFAULT } from "@/lib/field-registry";
 
-/** Fields that default to descending (newest first) on first sort. */
-const DESC_BY_DEFAULT = new Set(["uploadTime", "taken", "lastModified"]);
-
-/** Sortable fields: display label → orderBy key (as used in the URL / ES adapter) */
-const SORTABLE_FIELDS = [
-  { label: "Uploaded", value: "uploadTime" },
-  { label: "Taken", value: "taken" },
-  { label: "Modified", value: "lastModified" },
-  { label: "Credit", value: "metadata.credit" },
-  { label: "Source", value: "metadata.source" },
-  { label: "Uploader", value: "uploadedBy" },
-  { label: "File type", value: "source.mimeType" },
-  { label: "Category", value: "usageRights.category" },
-] as const;
+/** Sortable fields for the dropdown — derived from the field registry. */
+const SORTABLE_FIELDS = SORT_DROPDOWN_OPTIONS;
 
 /** Parse the primary sort field and direction from the orderBy param */
 function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {

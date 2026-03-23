@@ -126,6 +126,7 @@ Kupua is fully isolated from the main Grid application:
 
 - **[AGENTS.md](AGENTS.md)** – agent context with current state, decisions, and "What's Done" / "What's Next"
 - **[Migration Plan](exploration/docs/migration-plan.md)** – phased roadmap, kahuna feature inventory, architecture
+- **[Frontend Philosophy](exploration/docs/frontend-philosophy.md)** – UX/UI philosophy: density continuum, interaction patterns, comparison with Lightroom/Photos/Finder
 - **[Deviations](exploration/docs/deviations.md)** – intentional differences from Grid/kahuna
 - **[Safeguards](exploration/docs/safeguards.md)** – Elasticsearch + S3 safety documentation
 

@@ -11,7 +11,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { gridConfig } from "@/lib/grid-config";
+import { DEFAULT_HIDDEN_COLUMNS } from "@/lib/field-registry";
 
 export interface ColumnConfig {
   /** Set of hidden column IDs (TanStack format, e.g. "source_mimeType") */
@@ -37,17 +37,8 @@ interface ColumnStore {
   clearPreDoubleClickWidth: (id: string) => void;
 }
 
-/** Alias column IDs — hidden by default. */
-const aliasHiddenColumns = gridConfig.fieldAliases
-  .filter((a) => a.displayInAdditionalMetadata)
-  .map((a) => `alias_${a.alias}`);
-
 const DEFAULT_CONFIG: ColumnConfig = {
-  hidden: [
-    "lastModified", "width", "height", "source_mimeType",
-    "metadata_suppliersReference", "metadata_bylineTitle",
-    ...aliasHiddenColumns,
-  ],
+  hidden: [...DEFAULT_HIDDEN_COLUMNS],
   widths: {},
   preDoubleClickWidths: {},
 };
