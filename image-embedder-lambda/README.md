@@ -118,3 +118,8 @@ Run manually (not in CI) with `npm run test:integration`. Requires AWS credentia
 - Input images are downloaded from S3 once and cached locally in `test-data/input/`
 - Output images (e.g. downscaled) are written to `test-data/output/`
 - Both directories are gitignored; having files locally allows quick visual inspection to check images haven't been mangled
+
+## Backfilling lambda
+
+In order to process all the documents that existed before the introduction of the embedding lambda, we need a system pick documents and send them to being processed.
+This lambda shares the same cdk stack as the main embedding lambda.
