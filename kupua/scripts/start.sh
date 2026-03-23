@@ -61,6 +61,32 @@ for arg in "$@"; do
 done
 
 # ---------------------------------------------------------------------------
+# Check Docker is running — only when we actually need it
+# ---------------------------------------------------------------------------
+# Local mode needs Docker for ES (unless --skip-es).
+# TEST mode needs Docker for imgproxy and to stop local ES.
+NEEDS_DOCKER=false
+if [ "$USE_TEST" = true ]; then
+  NEEDS_DOCKER=true
+elif [ "$SKIP_ES" = false ]; then
+  NEEDS_DOCKER=true
+fi
+
+if [ "$NEEDS_DOCKER" = true ]; then
+  if ! docker info > /dev/null 2>&1; then
+    echo -e "${red}ERROR: Docker is not running.${plain}"
+    if [ "$USE_TEST" = true ]; then
+      echo "  Docker is needed for imgproxy (full-size image proxy)."
+      echo "  Start Docker Desktop and try again."
+    else
+      echo "  Docker is needed to run Elasticsearch (port 9220)."
+      echo "  Start Docker Desktop and try again, or use --skip-es if ES is already running."
+    fi
+    exit 1
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Mode: --use-TEST (connect to real TEST ES via SSH tunnel)
 # ---------------------------------------------------------------------------
 if [ "$USE_TEST" = true ]; then
@@ -259,7 +285,11 @@ region = eu-west-1
 EOF
 
     cd "$KUPUA_DIR"
-    docker compose --profile imgproxy up -d imgproxy 2>/dev/null
+    if ! docker compose --profile imgproxy up -d imgproxy 2>&1; then
+      echo -e "${red}      docker compose failed — trying fresh recreate...${plain}"
+      docker compose --profile imgproxy down 2>/dev/null || true
+      docker compose --profile imgproxy up -d imgproxy 2>&1
+    fi
 
     # Wait briefly and check it's running
     sleep 2
