@@ -144,13 +144,31 @@ function resolveNamedField(name: string): string | string[] {
 // ES match fields — the fields used for free-text "any field" search
 // ---------------------------------------------------------------------------
 
+/**
+ * Fields used for free-text "any field" search (bare words without a field: prefix).
+ * Mirrors Scala's MatchFields.matchFields — order matters for scoring.
+ * Grid includes `id` first so pasting an image ID into the search box finds it.
+ */
 const MATCH_FIELDS = [
-  "metadata.englishAnalysedCatchAll",
-  "metadata.title",
+  "id",
+  "source.mimeType",
   "metadata.description",
+  "metadata.title",
   "metadata.byline",
+  "metadata.source",
   "metadata.credit",
   "metadata.keywords",
+  "metadata.subLocation",
+  "metadata.city",
+  "metadata.state",
+  "metadata.country",
+  "metadata.suppliersReference",
+  "metadata.peopleInImage",
+  "metadata.specialInstructions",
+  "metadata.englishAnalysedCatchAll",
+  "metadata.imageType",
+  "userMetadata.labels",
+  "usageRights.restrictions",
 ];
 
 // ---------------------------------------------------------------------------
