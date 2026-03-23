@@ -1,6 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
-import { downscaleImageIfNeeded } from '../../src/index';
 import {
 	MAX_IMAGE_SIZE_BYTES,
 	MAX_PIXELS_COHERE_V4,
@@ -10,6 +9,7 @@ import {
 	getTestImage,
 	writeOutputImage,
 } from './localTestFiles';
+import {downscaleImageIfNeeded} from "../../src/resizeImage";
 
 /**
  * Integration tests for image downscaling.

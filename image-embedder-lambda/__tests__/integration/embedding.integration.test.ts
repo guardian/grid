@@ -1,7 +1,10 @@
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { S3Client } from '@aws-sdk/client-s3';
 import { SQSRecord } from 'aws-lambda';
-import { generateVectors, SQSMessageBody } from '../../src/index';
+import { generateVectors } from '../../src/index';
+import {S3Fetcher} from "../../src/s3Fetcher";
+import {CachedImageResolver, S3ImageResolver} from "../../src/imageResolver";
+import {SQSMessageBody} from "../../src/models";
 
 /**
  * Integration tests for the fetch → downscale → embed pipeline.
@@ -107,11 +110,17 @@ function makeSQSRecord(image: TestImage): SQSRecord {
 describe('Fetch → downscale → embed pipeline', () => {
 	const s3Client = new S3Client({ region: 'eu-west-1' });
 	const bedrockClient = new BedrockRuntimeClient({ region: 'eu-west-1' });
+  const s3Fetcher = new S3Fetcher(s3Client);
+  const imageResolver = new CachedImageResolver(
+    new S3ImageResolver(s3Fetcher),
+    s3Fetcher,
+    s3Client,
+  )
 
 	it.each(TEST_IMAGES)('should generate a vector for $name', async (image) => {
 		const { vectors, batchItemFailures } = await generateVectors(
 			[makeSQSRecord(image)],
-			s3Client,
+      imageResolver,
 			bedrockClient,
 		);
 
