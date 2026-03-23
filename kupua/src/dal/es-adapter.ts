@@ -246,6 +246,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
     this.searchAbortController = new AbortController();
     const { signal } = this.searchAbortController;
 
+    return this._doSearch(params, signal);
+  }
+
+  /**
+   * Search without using the shared abort controller.
+   * Used by loadRange — range loads are additive and shouldn't cancel
+   * each other or cancel loadMore/search.
+   */
+  async searchRange(params: SearchParams): Promise<SearchResult> {
+    return this._doSearch(params);
+  }
+
+  private async _doSearch(params: SearchParams, signal?: AbortSignal): Promise<SearchResult> {
+
     const body: Record<string, unknown> = {
       query: buildQuery(params),
       sort: buildSortClause(params.orderBy),

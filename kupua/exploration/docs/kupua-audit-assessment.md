@@ -1,13 +1,15 @@
 # Kupua Code Audit — Assessment for Human Engineers
 
-> Full codebase read: all ~6,900 lines of source, all docs, all tests, all config.
+> Full codebase read: all ~8,000 lines of source, all docs, all tests, all config.
 > Checked: TypeScript compilation, test suite, dependency versions, CVEs.
 >
-> **Updated 23 March 2026:** Dependencies upgraded (Vite 8, Zod 4, etc.), `start.sh`
-> hardened with Node version + port checks. Dependency section removed — all done.
-> TS errors fixed (zero errors now). `.DS_Store` cleaned up. ErrorBoundary added.
-> `loadMore` dedup race condition fixed (functional updater + offset guard).
-> `newCount` polling now respects user's date filter.
+> **Updated 23 March 2026:** Sparse scroll implemented — `useDataWindow.ts` extracted (216 lines),
+> `ColumnContextMenu.tsx` extracted (178 lines), sparse array + `loadRange` + result set freezing,
+> visible-window table data, placeholder skeletons, O(1) image position lookup, bounded placeholder
+> skipping in keyboard nav. `sparse-scroll-plan.md` removed (fully completed). ImageTable: 1,489 → 1,403 lines.
+> Total source: ~8,000 lines. Dependencies upgraded (Vite 8, Zod 4, etc.), `start.sh`
+> hardened with Node version + port checks. TS errors fixed (zero errors now).
+> `loadMore` dedup race condition fixed. `newCount` polling respects user's date filter.
 
 ---
 
@@ -39,7 +41,21 @@
 
 ## 🟡 Things to Clean Up Before Others See It
 
-### 1. `ImageTable.tsx` is 1,350 lines — it needs splitting, but not by interaction type
+### 1. `ImageTable.tsx` is ~~1,350~~ 1,403 lines — partially split, more to do
+
+**Progress since audit:**
+- ✅ `useDataWindow.ts` extracted (216 lines) — the most important refactor identified. Manages sparse scroll: gap detection, visible range → `loadRange`, result set freezing (`frozenUntil`), O(1) image position lookup via `imagePositions: Map<imageId, index>`. Table, grid, and image detail all consume it. The density boundary split is architecturally established.
+- ✅ `ColumnContextMenu.tsx` extracted (178 lines) — self-contained component with imperative ref handle, own state, viewport clamping, dismiss behaviour.
+- ✅ Sparse scroll implemented — virtualizer pre-sized to `min(total, 100k)`, TanStack Table only processes visible window (~60 rows), placeholder skeletons for unloaded slots. `loadRange` fetches on-demand as user scrolls.
+- ✅ Visible-window table data — TanStack Table receives only images in the current virtualizer window instead of all loaded images. Fixes `getCoreRowModel` growing unboundedly.
+
+**Net effect:** ImageTable was 1,489 lines before extraction work. Now 1,403 lines (−86 from ColumnContextMenu). More importantly, the *architectural seam* is in place: `useDataWindow` owns data, ImageTable owns table rendering.
+
+**Remaining:** extract `useListNavigation.ts` (~150 lines of abstract keyboard nav). After that, ImageTable should be ~1,250 lines — still substantial, but all one concern (table density rendering).
+
+The original audit text below remains accurate for context:
+
+---
 
 This is the file that will make engineers wince. It's doing too many things:
 - Column definition generation from registry
@@ -76,25 +92,26 @@ Split by **what's shared across densities vs. what's table-specific:**
 | Click-to-search | CSS-variable column widths |
 | Return-from-detail restoration | Memoised `TableBody` |
 
-**Recommended files:**
+**Recommended files → status:**
 
-- **`useDataWindow.ts`** (~300 lines) — shared hook managing the data window between the search store and view components. Exposes `rows`, `total`, `windowOffset`, `loadRange(start, end)`, `seekTo(offset)`, `seekToImage(id)`. Today it wraps the current append-only store. Phase 2 evolves it into a sparse/windowed data structure with gap detection (which visible slots need fetching?), result set freezing (`until` timestamp to stabilise offsets during scrolling), duplicate detection (same image at different offsets after deletions), and page eviction (bound memory by dropping distant pages). Table, grid, and image detail all consume it. See `kahuna-scroll-analysis.md` for the prior art — kahuna does sparse array + `from/size` + native scrollbar, capped at 100k. Kupua targets 10× that via smaller row height, plus `search_after` beyond the native scrollbar limit.
+- ✅ **`useDataWindow.ts`** (216 lines) — **DONE.** Shared hook managing sparse data window. Exposes `rows`, `total`, `loadMore`, `loadRange`, `findImageIndex`, `frozenUntil`. Handles gap detection (which visible slots need fetching?), result set freezing, O(1) image position lookup via `imagePositions` Map. Table and image detail both consume it.
 
-- **`useListNavigation.ts`** (~150 lines) — abstract keyboard navigation. Takes `count`, `focusedIndex`, and geometry callbacks (`rowsPerPage()`, `columnsPerRow()`). Returns `moveFocus(delta)`, `pageFocus(direction)`, `home()`, `end()`. Table passes `columnsPerRow: 1`; grid passes `columnsPerRow: N`. Same Home/End/PgUp/PgDown logic, different geometry. Same hook, two densities.
+- ⬜ **`useListNavigation.ts`** (~150 lines) — **TODO.** Abstract keyboard navigation. Takes `count`, `focusedIndex`, and geometry callbacks (`rowsPerPage()`, `columnsPerRow()`). Returns `moveFocus(delta)`, `pageFocus(direction)`, `home()`, `end()`. Table passes `columnsPerRow: 1`; grid passes `columnsPerRow: N`. Same Home/End/PgUp/PgDown logic, different geometry. Same hook, two densities.
 
-- **`ColumnContextMenu.tsx`** (~150 lines) — self-contained component with its own state, DOM positioning, keyboard handling. The one piece the naïve split got right — it's a genuine independent component.
+- ✅ **`ColumnContextMenu.tsx`** (178 lines) — **DONE.** Self-contained component with imperative ref handle, own state, viewport clamping, dismiss behaviour (outside click, scroll, Escape).
 
-- **`ImageTable.tsx`** (~800 lines) — everything table-density-specific stays here: TanStack Table setup, column visibility, resize with auto-scroll, sort with delayed click, header rendering, memoised body, CSS-variable widths. Still substantial, but it's all *one concern* — the table density. An engineer building the grid view never touches it.
+- **`ImageTable.tsx`** (~1,250 lines projected after `useListNavigation` extraction) — everything table-density-specific stays here: TanStack Table setup, column visibility, resize with auto-scroll, sort with delayed click, header rendering, memoised body, CSS-variable widths. Still substantial, but it's all *one concern* — the table density. An engineer building the grid view never touches it.
 
-#### Why this matters
+#### Why this matters (and what it unlocked)
 
-The `useDataWindow` extraction is the single most important refactor in the codebase. It:
-- **Enables jump-to-image** — `seekToImage(id)` can issue a count query ("how many before this image in the current sort?"), fetch the target window, and scroll to it. Currently impossible because the virtualizer, scroll handling, and data loading are all entangled in ImageTable.
-- **Enables the grid view** — the grid component imports `useDataWindow` and `useListNavigation` and gets windowed scrolling + keyboard nav for free.
-- **Isolates the Phase 2 migration** — switching from append-only to windowed scroll changes one file, not five.
+The `useDataWindow` extraction was the single most important refactor in the codebase. Now that it's done:
+- **Sparse scroll works** — user can drag the native scrollbar through up to 100k rows with on-demand loading. This was impossible when data loading was entangled in ImageTable.
+- **Jump-to-image is unblocked** — `seekToImage(id)` can issue a count query and scroll to it via the hook's API.
+- **Grid view is unblocked** — the grid component can import `useDataWindow` and (once extracted) `useListNavigation` and get windowed scrolling + keyboard nav for free.
+- **Phase 2 migration is isolated** — switching from sparse array to `search_after` changes `useDataWindow` internals, not ImageTable.
 - **Aligns with "Never Lost"** — focus restoration, selection survival, and scroll position preservation across density changes all live in the shared layer, not duplicated per view.
 
-The table staying at ~800 lines is fine. It's a complex component doing one complex thing. Engineers won't wince at 800 lines of table rendering — they wince at 1,350 lines doing ten unrelated things.
+The table at ~1,250 lines (after `useListNavigation` extraction) is fine. It's a complex component doing one complex thing. Engineers won't wince at 1,250 lines of table rendering — they wince at 1,489 lines doing ten unrelated things.
 
 ### 2. `SearchBar.tsx` — module-level mutable state is a code smell
 
@@ -125,13 +142,13 @@ Checked AGENTS.md against actual code:
 
 | Claim | Accurate? |
 |---|---|
-| "~7100 lines of source" → "~6700 lines" | **Inconsistent** within AGENTS.md (says both). Actual: **6,862 lines**. |
+| "~8000 lines of source" | ✅ Correct (8,034 lines counted). |
 | "22 hardcoded fields" | ✅ Correct (counted in field-registry.ts). |
 | "TypeScript compiles clean" | ✅ Fixed — zero errors now (upstream `@guardian/cql` type annotated with `@ts-expect-error`, description param fixed to `""`). |
 | "45 tests" | ✅ Now 47 (25 cql-query-edit + 20 field-registry + 2 ErrorBoundary). |
 | Phase 2 status | ✅ All "done" items verified in code. |
-| Project structure tree | ✅ Matches actual file layout. |
-| Key decisions 1–26 | ✅ All accurately describe the code. |
+| Project structure tree | ✅ Matches actual file layout (sparse-scroll-plan.md removed, ColumnContextMenu.tsx added). |
+| Key decisions 1–26 | ✅ All accurately describe the code. Decision 8 (scrollbar strategy) updated to reflect implemented sparse scroll. |
 
 ---
 
@@ -155,14 +172,14 @@ Checked AGENTS.md against actual code:
 
 | Area | Grade | Notes |
 |---|---|---|
-| Architecture | **A+** | All 🔴 concerns resolved. DAL, registry, URL sync, overlay — well-designed |
-| Code quality | **B+** | Solid but ImageTable needs splitting, some module-level globals |
+| Architecture | **A+** | All 🔴 concerns resolved. DAL, registry, URL sync, overlay — well-designed. Density boundary split in progress (`useDataWindow` + `ColumnContextMenu` extracted). |
+| Code quality | **B+** | Improved — density-boundary refactor underway. `useListNavigation` extraction is the remaining split. Module-level globals in SearchBar still present. |
 | Documentation | **A+** | Unusually thorough for any project, let alone AI-assisted |
-| Testing | **C+** | 47 tests for ~7,000 lines. CQL parser (460 lines) is untested. |
+| Testing | **C+** | 47 tests for ~8,000 lines. CQL parser (460 lines) is untested. |
 | Dependencies | **A-** | All upgraded to latest (Vite 8, Zod 4). ESLint 10 blocked upstream. |
 | Prod readiness | **N/A** | This is Phase 2 exploration — not intended for production yet |
 
-**Bottom line:** This is in good shape for a first human review. The architecture will hold up. The main work is splitting ImageTable along the right seam (density boundary, not interaction type — see §1 above) and adding test coverage for `cql.ts`. Do those two things and engineers will be impressed, not concerned.
+**Bottom line:** This is in good shape for a first human review. The architecture will hold up. The density-boundary split is underway — `useDataWindow` and `ColumnContextMenu` are extracted, `useListNavigation` remains. The main remaining work is that extraction and adding test coverage for `cql.ts`. Do those two things and engineers will be impressed, not concerned.
 
 
 

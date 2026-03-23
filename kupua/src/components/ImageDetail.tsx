@@ -45,7 +45,7 @@ interface ImageDetailProps {
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, loading, loadMore } = useDataWindow();
+  const { results, total, loadMore, findImageIndex } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
   const navigate = useNavigate();
 
@@ -53,10 +53,10 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
 
-  // Find the current image in search results
+  // Find the current image in search results (handles sparse array)
   const currentIndex = useMemo(
-    () => results.findIndex((img) => img.id === imageId),
-    [results, imageId],
+    () => findImageIndex(imageId),
+    [findImageIndex, imageId],
   );
   const imageFromResults = currentIndex >= 0 ? results[currentIndex] : undefined;
 
@@ -97,21 +97,19 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // otherwise fall back to the standalone fetch
   const image = imageFromResults ?? standaloneImage;
 
-  const prevImage = currentIndex > 0 ? results[currentIndex - 1] : undefined;
+  const prevImage = currentIndex > 0 ? results[currentIndex - 1] ?? undefined : undefined;
   const nextImage =
     currentIndex >= 0 && currentIndex < results.length - 1
-      ? results[currentIndex + 1]
+      ? results[currentIndex + 1] ?? undefined
       : undefined;
 
   // Load more results when approaching the end of loaded data.
-  // Triggers when within 5 images of the edge — same principle as the
-  // table's infinite scroll (500px threshold ≈ ~15 rows), but adapted
-  // for single-image flicking.
+  // Triggers when within 5 images of the edge.
   useEffect(() => {
-    if (currentIndex >= 0 && results.length - currentIndex <= 5 && results.length < total && !loading) {
+    if (currentIndex >= 0 && results.length - currentIndex <= 5 && results.length < total) {
       loadMore();
     }
-  }, [currentIndex, results.length, total, loading, loadMore]);
+  }, [currentIndex, results.length, total, loadMore]);
 
   // Navigate to prev/next image — replaces current history entry so browser
   // back always returns to the table, not through every viewed image.
@@ -230,9 +228,11 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
       if (currentIndex + i < results.length) prefetchIndices.push(currentIndex + i);
     }
     for (const idx of prefetchIndices) {
+      const prefetchImage = results[idx];
+      if (!prefetchImage) continue; // skip placeholder slots
       const url =
-        getFullImageUrl(results[idx], imgproxyOpts) ??
-        getThumbnailUrl(results[idx]);
+        getFullImageUrl(prefetchImage, imgproxyOpts) ??
+        getThumbnailUrl(prefetchImage);
       if (url) {
         const img = new Image();
         img.src = url;

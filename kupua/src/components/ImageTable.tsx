@@ -4,7 +4,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
@@ -17,9 +16,10 @@ import {
   type Row,
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useSearchStore } from "@/stores/search-store";
+import { useDataWindow } from "@/hooks/useDataWindow";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
@@ -245,6 +245,8 @@ interface TableBodyProps {
   focusedImageId: string | null;
   /** Number of visible columns — used to bust memo when column visibility changes. */
   visibleColumnCount: number;
+  /** Look up the image at a global index (may be undefined if not loaded). */
+  getImage: (index: number) => Image | undefined;
 }
 
 const TableBody = memo(function TableBody({
@@ -256,12 +258,67 @@ const TableBody = memo(function TableBody({
   focusedImageId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
   visibleColumnCount: _,
+  getImage,
 }: TableBodyProps) {
+  // Build a lookup map: imageId → TanStack Row for O(1) access.
+  // TanStack Table only has loaded rows; we match by image ID rather
+  // than by index (which would require offset translation).
+  const rowsById = useMemo(() => {
+    const map = new Map<string, Row<Image>>();
+    for (const row of rows) {
+      if (row.original?.id) {
+        map.set(row.original.id, row);
+      }
+    }
+    return map;
+  }, [rows]);
+
   return (
     <>
       {virtualItems.map((virtualRow) => {
-        const row = rows[virtualRow.index];
-        const isFocused = row.original.id === focusedImageId;
+        const image = getImage(virtualRow.index);
+
+        // Placeholder skeleton for unloaded rows
+        if (!image) {
+          return (
+            <div
+              key={`placeholder-${virtualRow.index}`}
+              role="row"
+              aria-rowindex={virtualRow.index + 2}
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div className="animate-pulse bg-grid-separator/20 h-3 mx-4 rounded flex-1 max-w-xs" />
+            </div>
+          );
+        }
+
+        // Real row — find the matching TanStack Row for cell rendering
+        const row = rowsById.get(image.id);
+        if (!row) {
+          // Image loaded but not yet in TanStack Table's row model
+          // (can happen briefly during the render between store update
+          // and Table re-render). Show placeholder.
+          return (
+            <div
+              key={`pending-${virtualRow.index}`}
+              role="row"
+              aria-rowindex={virtualRow.index + 2}
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div className="animate-pulse bg-grid-separator/20 h-3 mx-4 rounded flex-1 max-w-xs" />
+            </div>
+          );
+        }
+
+        const isFocused = image.id === focusedImageId;
         return (
           <div
             key={row.id}
@@ -278,8 +335,8 @@ const TableBody = memo(function TableBody({
               transform: `translateY(${virtualRow.start}px)`,
               ...(isFocused ? { boxShadow: "inset 2px 0 0 var(--color-grid-accent)" } : undefined),
             }}
-            onClick={() => handleRowClick(row.original.id)}
-            onDoubleClick={() => handleRowDoubleClick(row.original.id)}
+            onClick={() => handleRowClick(image.id)}
+            onDoubleClick={() => handleRowDoubleClick(image.id)}
           >
             {row.getVisibleCells().map((cell) => {
               const rawValue = getFieldRawValue(
@@ -332,7 +389,11 @@ const TableBody = memo(function TableBody({
 });
 
 export function ImageTable() {
-  const { results, total, loading, loadMore, focusedImageId, setFocusedImageId } = useSearchStore();
+  const {
+    results, total, virtualizerCount, loading, loadMore,
+    focusedImageId, setFocusedImageId,
+    reportVisibleRange, getImage, findImageIndex,
+  } = useDataWindow();
   const {
     config,
     toggleVisibility,
@@ -370,46 +431,9 @@ export function ImageTable() {
     [navigate, setFocusedImageId],
   );
 
-  // Context menu state
-  const [menuPos, setMenuPos] = useState<{
-    x: number;
-    y: number;
-    columnId?: string; // which column header was right-clicked
-  } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menu on outside click, scroll, or Escape
-  useEffect(() => {
-    if (!menuPos) return;
-    const close = () => setMenuPos(null);
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("scroll", close, true);
-    document.addEventListener("keydown", handleKeyDown);
-
-    // Clamp menu position so it stays fully on-screen
-    requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      if (!menu) return;
-      const rect = menu.getBoundingClientRect();
-      let { x, y } = menuPos;
-      if (rect.right > window.innerWidth) x = window.innerWidth - rect.width - 4;
-      if (rect.bottom > window.innerHeight) y = window.innerHeight - rect.height - 4;
-      if (x < 0) x = 4;
-      if (y < 0) y = 4;
-      if (x !== menuPos.x || y !== menuPos.y) {
-        setMenuPos({ ...menuPos, x, y });
-      }
-    });
-
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("scroll", close, true);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [menuPos]);
+  // Column context menu — imperative handle; the component manages its own
+  // open/close state, viewport clamping, and dismiss behaviour.
+  const columnMenuRef = useRef<ColumnContextMenuHandle>(null);
 
   // Filter columns by visibility from store
   const visibleColumns = useMemo(
@@ -433,8 +457,47 @@ export function ImageTable() {
     return sizing;
   }, []); // Only on mount — runtime changes go through table.setColumnSizing
 
+  // ---------------------------------------------------------------------------
+  // Virtualizer — created BEFORE the table so we can use the visible range
+  // to determine which images to feed TanStack Table.
+  // ---------------------------------------------------------------------------
+
+  const virtualizer = useVirtualizer({
+    count: virtualizerCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 20,
+    // Account for sticky header — without this, scrollToIndex considers
+    // rows behind the header as "visible" and won't scroll to them.
+    // Subtract one ROW_HEIGHT because the padding is additive with the
+    // virtualizer's own item-boundary snapping.
+    scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT,
+    // Buffer at the bottom so the focused row is never clipped by the
+    // viewport edge at any zoom level.
+    scrollPaddingEnd: ROW_HEIGHT * 2,
+  });
+
+  // TanStack Table only receives images visible in the current virtualizer
+  // window. This keeps getCoreRowModel at O(~60 visible rows) instead of
+  // O(all loaded images), preventing the 246ms → 2920ms → OOM stalls that
+  // occurred when feeding all loaded data.
+  //
+  // The virtualizer's getVirtualItems() returns the indices currently rendered
+  // (visible + overscan). We extract loaded images at those indices and feed
+  // only those to TanStack Table. The render loop then looks up TanStack Rows
+  // by image ID via a Map.
+  const virtualItems = virtualizer.getVirtualItems();
+  const visibleImages = useMemo(() => {
+    const images: Image[] = [];
+    for (const vItem of virtualItems) {
+      const img = vItem.index < results.length ? results[vItem.index] : undefined;
+      if (img) images.push(img);
+    }
+    return images;
+  }, [virtualItems, results]);
+
   const table = useReactTable({
-    data: results,
+    data: visibleImages,
     columns: visibleColumns,
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: "onChange",
@@ -492,43 +555,40 @@ export function ImageTable() {
 
   const { rows } = table.getRowModel();
 
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 20,
-    // Account for sticky header — without this, scrollToIndex considers
-    // rows behind the header as "visible" and won't scroll to them.
-    // Subtract one ROW_HEIGHT because the padding is additive with the
-    // virtualizer's own item-boundary snapping.
-    scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT,
-    // Buffer at the bottom so the focused row is never clipped by the
-    // viewport edge at any zoom level.
-    scrollPaddingEnd: ROW_HEIGHT * 2,
-  });
-
   // (D) Cache rows + virtualItems during resize to keep TableBody stable.
   // While a resize drag is in progress, the only thing that changes is
   // column widths — which come from CSS variables, not React props.
   // We freeze the body's input to prevent re-renders.
   const isResizing = !!table.getState().columnSizingInfo.isResizingColumn;
   const cachedRowsRef = useRef(rows);
-  const cachedVirtualItemsRef = useRef(virtualizer.getVirtualItems());
+  const cachedVirtualItemsRef = useRef(virtualItems);
   if (!isResizing) {
     cachedRowsRef.current = rows;
-    cachedVirtualItemsRef.current = virtualizer.getVirtualItems();
+    cachedVirtualItemsRef.current = virtualItems;
   }
 
-  // Infinite scroll: load more when approaching the bottom
+  // Scroll handler: report the visible index range to useDataWindow for
+  // gap detection + range loading. Also keeps the old loadMore fallback
+  // for sequential scroll near the bottom of loaded data.
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
-    if (!el || loading) return;
+    if (!el) return;
 
+    // Report visible range for sparse gap detection
+    const virtualItems = virtualizer.getVirtualItems();
+    if (virtualItems.length > 0) {
+      const firstIdx = virtualItems[0].index;
+      const lastIdx = virtualItems[virtualItems.length - 1].index;
+      reportVisibleRange(firstIdx, lastIdx);
+    }
+
+    // Fallback: append-only loadMore when near the bottom (for small
+    // datasets where sparse scroll isn't needed)
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (scrollBottom < 500 && results.length < total) {
       loadMore();
     }
-  }, [loading, results.length, total, loadMore]);
+  }, [virtualizer, reportVisibleRange, results.length, total, loadMore]);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -602,14 +662,14 @@ export function ImageTable() {
     // "auto" because the user has never seen this row's table position,
     // so placing it in the middle gives equal context above and below.
     if (wasViewing !== previousFocus) {
-      const idx = rows.findIndex((r) => r.original.id === wasViewing);
+      const idx = findImageIndex(wasViewing);
       if (idx >= 0) {
         requestAnimationFrame(() => {
           virtualizer.scrollToIndex(idx, { align: "center" });
         });
       }
     }
-  }, [searchParams.image, rows, virtualizer, setFocusedImageId]);
+  }, [searchParams.image, findImageIndex, virtualizer, setFocusedImageId]);
 
   // ---------------------------------------------------------------------------
   // Keyboard navigation — focus-based (replaces pure viewport scrolling)
@@ -634,33 +694,59 @@ export function ImageTable() {
   focusedImageIdRef.current = focusedImageId;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const virtualizerCountRef = useRef(virtualizerCount);
+  virtualizerCountRef.current = virtualizerCount;
+  const getImageRef = useRef(getImage);
+  getImageRef.current = getImage;
+  const findImageIndexRef = useRef(findImageIndex);
+  findImageIndexRef.current = findImageIndex;
 
   const moveFocus = useCallback(
     (delta: number) => {
-      const currentRows = rowsRef.current;
-      if (currentRows.length === 0) return;
+      const count = virtualizerCountRef.current;
+      if (count === 0) return;
 
       const currentId = focusedImageIdRef.current;
       let currentIdx = currentId
-        ? currentRows.findIndex((r) => r.original.id === currentId)
+        ? findImageIndexRef.current(currentId)
         : -1;
 
       // If no focus yet, start from top (down) or bottom (up)
       if (currentIdx < 0) {
-        currentIdx = delta > 0 ? -1 : currentRows.length;
+        currentIdx = delta > 0 ? -1 : count;
       }
 
-      const nextIdx = Math.max(0, Math.min(currentRows.length - 1, currentIdx + delta));
-      const nextId = currentRows[nextIdx].original.id;
-      setFocusedImageId(nextId);
+      // Move by delta, clamped to valid range.
+      // If the target is a placeholder, try up to 10 neighbours in the
+      // same direction to find a loaded row. If none within 10, just
+      // focus the target — gap detection will load it.
+      const rawTarget = currentIdx + delta;
+      let nextIdx = Math.max(0, Math.min(count - 1, rawTarget));
+      const step = delta > 0 ? 1 : -1;
+      const MAX_SKIP = 10;
+      if (!getImageRef.current(nextIdx)) {
+        for (let skip = 1; skip <= MAX_SKIP; skip++) {
+          const candidate = nextIdx + step * skip;
+          if (candidate < 0 || candidate >= count) break;
+          if (getImageRef.current(candidate)) {
+            nextIdx = candidate;
+            break;
+          }
+        }
+      }
+
+      const nextImage = getImageRef.current(nextIdx);
+      if (nextImage) {
+        setFocusedImageId(nextImage.id);
+      }
       virtualizer.scrollToIndex(nextIdx, { align: "auto" });
 
       // Load more when approaching the end
-      if (currentRows.length - nextIdx <= 5 && results.length < total && !loading) {
+      if (count - nextIdx <= 5 && results.length < total) {
         loadMore();
       }
     },
-    [setFocusedImageId, virtualizer, results.length, total, loading, loadMore],
+    [setFocusedImageId, virtualizer, results.length, total, loadMore],
   );
 
   // PageUp/PageDown: scroll the viewport by one page, then place focus at
@@ -672,8 +758,8 @@ export function ImageTable() {
   const pageFocus = useCallback(
     (direction: "up" | "down") => {
       const el = parentRef.current;
-      const currentRows = rowsRef.current;
-      if (!el || currentRows.length === 0) return;
+      const count = virtualizerCountRef.current;
+      if (!el || count === 0) return;
 
       const headerEl = el.querySelector<HTMLElement>("[data-table-header]");
       const headerHeight = headerEl?.offsetHeight ?? 0;
@@ -688,14 +774,15 @@ export function ImageTable() {
         );
         // Focus the last fully visible row in the new viewport
         const lastVisibleIdx = Math.min(
-          currentRows.length - 1,
+          count - 1,
           Math.floor((el.scrollTop + el.clientHeight - headerHeight) / ROW_HEIGHT) - 1,
         );
-        if (lastVisibleIdx >= 0) {
-          setFocusedImageId(currentRows[lastVisibleIdx].original.id);
+        const img = lastVisibleIdx >= 0 ? getImageRef.current(lastVisibleIdx) : undefined;
+        if (img) {
+          setFocusedImageId(img.id);
         }
         // Load more when approaching the end
-        if (currentRows.length - lastVisibleIdx <= 5 && results.length < total && !loading) {
+        if (count - lastVisibleIdx <= 5 && results.length < total) {
           loadMore();
         }
       } else {
@@ -706,12 +793,13 @@ export function ImageTable() {
           0,
           Math.ceil((el.scrollTop + headerHeight) / ROW_HEIGHT),
         );
-        if (firstVisibleIdx < currentRows.length) {
-          setFocusedImageId(currentRows[firstVisibleIdx].original.id);
+        const img = getImageRef.current(firstVisibleIdx);
+        if (img) {
+          setFocusedImageId(img.id);
         }
       }
     },
-    [setFocusedImageId, results.length, total, loading, loadMore],
+    [setFocusedImageId, results.length, total, loadMore],
   );
 
   useEffect(() => {
@@ -765,18 +853,28 @@ export function ImageTable() {
           e.preventDefault();
           el.scrollTop = 0;
           el.scrollLeft = 0;
-          if (rowsRef.current.length > 0) {
-            setFocusedImageId(rowsRef.current[0].original.id);
+          {
+            const firstImage = getImageRef.current(0);
+            if (firstImage) setFocusedImageId(firstImage.id);
           }
           break;
         case "End":
           e.preventDefault();
           el.scrollTop = el.scrollHeight - el.clientHeight;
-          if (rowsRef.current.length > 0) {
-            const lastIdx = rowsRef.current.length - 1;
-            setFocusedImageId(rowsRef.current[lastIdx].original.id);
+          {
+            // Focus the last loaded row near the end — cap scan to 50
+            // indices to avoid O(100k) backwards walk on sparse array
+            const count = virtualizerCountRef.current;
+            const scanFrom = Math.max(0, count - 50);
+            for (let i = count - 1; i >= scanFrom; i--) {
+              const img = getImageRef.current(i);
+              if (img) {
+                setFocusedImageId(img.id);
+                break;
+              }
+            }
             // Load more when at the end
-            if (results.length < total && !loading) {
+            if (results.length < total) {
               loadMore();
             }
           }
@@ -792,7 +890,7 @@ export function ImageTable() {
       document.removeEventListener("keydown", handleBubble);
       document.removeEventListener("keydown", handleCapture, true);
     };
-  }, [moveFocus, pageFocus, handleRowDoubleClick, setFocusedImageId, results.length, total, loading, loadMore]);
+  }, [moveFocus, pageFocus, handleRowDoubleClick, setFocusedImageId, results.length, total, loadMore]);
 
   // Clean up sort delay timer on unmount
   useEffect(() => {
@@ -805,7 +903,7 @@ export function ImageTable() {
   const handleHeaderContextMenu = useCallback(
     (e: React.MouseEvent, columnId?: string) => {
       e.preventDefault();
-      setMenuPos({ x: e.clientX, y: e.clientY, columnId });
+      columnMenuRef.current?.open(e.clientX, e.clientY, columnId);
     },
     []
   );
@@ -839,8 +937,10 @@ export function ImageTable() {
       const headerLabel = typeof col.header === "string" ? col.header : colId;
       let maxW = measureText(headerLabel, HEADER_FONT);
 
-      // Cell values — scan all loaded results
-      for (const image of results) {
+      // Cell values — scan loaded results only (for...in skips sparse holes)
+      for (const key in results) {
+        const image = results[Number(key)];
+        if (!image) continue;
         const raw = getFieldRawValue(colId, image);
         if (raw && raw !== "—") {
           const w = measureText(raw, CELL_FONT);
@@ -858,7 +958,6 @@ export function ImageTable() {
     (colId: string) => {
       const width = computeFitWidth(colId);
       table.setColumnSizing((prev) => ({ ...prev, [colId]: width }));
-      setMenuPos(null);
     },
     [computeFitWidth, table]
   );
@@ -871,7 +970,6 @@ export function ImageTable() {
       sizing[id] = computeFitWidth(id);
     }
     table.setColumnSizing((prev) => ({ ...prev, ...sizing }));
-    setMenuPos(null);
   }, [computeFitWidth, visibleColumns, table]);
 
   // ---------------------------------------------------------------------------
@@ -1274,6 +1372,7 @@ export function ImageTable() {
           handleRowClick={handleRowClick}
           focusedImageId={focusedImageId}
           visibleColumnCount={visibleColIds.length}
+          getImage={getImage}
         />
       </div>
 
@@ -1289,61 +1388,15 @@ export function ImageTable() {
       )}
 
       {/* Column context menu */}
-      {menuPos && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Column options"
-          className="fixed popup-menu"
-          style={{ left: menuPos.x, top: menuPos.y }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* Resize actions */}
-          {menuPos.columnId && (
-            <div
-              role="menuitem"
-              onClick={() => resizeColumnToFit(menuPos.columnId!)}
-              className="popup-item"
-            >
-              <span className="w-3" />
-              Resize column to fit data
-            </div>
-          )}
-          <div
-            role="menuitem"
-            onClick={resizeAllColumnsToFit}
-            className="popup-item"
-          >
-            <span className="w-3" />
-            Resize all columns to fit data
-          </div>
-
-          {/* Separator */}
-          <div role="separator" className="my-1 border-t border-grid-separator" />
-
-          {/* Column visibility toggles */}
-          {allColumns.map((col) => {
-            const id = getColumnId(col);
-            const label =
-              typeof col.header === "string" ? col.header : id;
-            const isVisible = !config.hidden.includes(id);
-            return (
-              <div
-                key={id}
-                role="menuitemcheckbox"
-                aria-checked={isVisible}
-                onClick={() => toggleVisibility(id)}
-                className="popup-item"
-              >
-                <span className="w-3 text-center text-grid-accent">
-                  {isVisible ? "✓" : ""}
-                </span>
-                {label}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <ColumnContextMenu
+        ref={columnMenuRef}
+        columns={allColumns}
+        getColumnId={getColumnId}
+        hiddenColumnIds={config.hidden}
+        onToggleVisibility={toggleVisibility}
+        onResizeColumnToFit={resizeColumnToFit}
+        onResizeAllColumnsToFit={resizeAllColumnsToFit}
+      />
     </div>
   );
 }

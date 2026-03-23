@@ -79,6 +79,13 @@ export interface ImageDataSource {
   /** Full-text search with filters, pagination, and sorting. */
   search(params: SearchParams): Promise<SearchResult>;
 
+  /**
+   * Search without cancelling in-flight requests.
+   * Used by loadRange — range loads are additive and shouldn't abort
+   * each other or other searches. Falls back to search() if not implemented.
+   */
+  searchRange(params: SearchParams): Promise<SearchResult>;
+
   /** Count documents matching params (lightweight — no hits returned). */
   count(params: SearchParams): Promise<number>;
 

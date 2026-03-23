@@ -3,6 +3,12 @@
  *
  * Manages search params, results, loading state, and the data source.
  * URL sync is handled by the useUrlSearchSync hook (URL → store → search).
+ *
+ * Results are stored as a dense array starting at offset 0. The `loadMore`
+ * action appends pages sequentially. The `loadRange` action fetches an
+ * arbitrary offset range and fills specific indices (extending the array
+ * with undefined gaps if needed — the `useDataWindow` hook handles gap
+ * detection and placeholder rendering).
  */
 
 import { create } from "zustand";
@@ -12,6 +18,14 @@ import { ElasticsearchDataSource } from "@/dal";
 
 /** How often to poll for new images (ms). */
 const NEW_IMAGES_POLL_INTERVAL = 10_000;
+
+/**
+ * Maximum number of rows addressable via `from/size` pagination.
+ * Matches the ES `max_result_window` on TEST/PROD (101,000).
+ * Local docker ES uses the default 10,000 — `loadRange` will fail
+ * gracefully if offset exceeds the window.
+ */
+const MAX_RESULT_WINDOW = 100_000;
 
 interface SearchState {
   // Data source (swappable between ES and Grid API)
@@ -33,14 +47,27 @@ interface SearchState {
   newCount: number;
   newCountSince: string | null; // ISO timestamp of when results were frozen
 
+  // Result set freezing — stabilise offsets while the user scrolls.
+  // Set by search(), passed as `until` on all loadMore/loadRange calls.
+  // Prevents new uploads from shifting row positions mid-scroll.
+  frozenUntil: string | null;
+
+  // Track which ranges are currently being fetched to avoid duplicate requests
+  _inflight: Set<string>; // "start-end" keys
+  // Track ranges that failed (e.g. beyond max_result_window) to avoid infinite retry
+  _failedRanges: Set<string>;
+
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
   search: () => Promise<void>;
   loadMore: () => Promise<void>;
+  loadRange: (start: number, end: number) => Promise<void>;
   setFocusedImageId: (id: string | null) => void;
 }
 
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
+/** Module-level flag to prevent concurrent loadMore without triggering re-renders */
+let _loadMoreInFlight = false;
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
@@ -99,6 +126,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   newCount: 0,
   newCountSince: null,
+  frozenUntil: null,
+  _inflight: new Set(),
+  _failedRanges: new Set(),
 
   setParams: (newParams) => {
     set((state) => ({
@@ -124,6 +154,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         focusedImageId: null, // clear focus on new search
         newCount: 0,
         newCountSince: now,
+        frozenUntil: now,
+        _inflight: new Set(),
+        _failedRanges: new Set(),
       });
       // Restart the poll with fresh params + timestamp
       startNewImagesPoll(get, set);
@@ -136,38 +169,112 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { dataSource, params, results, total, loading } = get();
-    if (loading || results.length >= total) return;
+    const { dataSource, params, results, total, frozenUntil } = get();
+    if (_loadMoreInFlight || results.length >= total) return;
 
     const nextOffset = results.length;
-    set({ loading: true });
+    // Don't set loading: true — it triggers a full re-render of the view
+    // components (ImageTable, ImageDetail) for every page load, causing a
+    // visible hiccup during image traversal. The offset guard in the
+    // functional updater below already prevents duplicate data.
+    _loadMoreInFlight = true;
 
     try {
       const result = await dataSource.search({
         ...params,
         offset: nextOffset,
+        // Freeze result set so new uploads don't shift offsets
+        ...(frozenUntil ? { until: frozenUntil } : {}),
       });
 
       // Use a functional updater so we read the *current* results array,
       // not the stale snapshot from before the await.  If another loadMore
       // already appended at this offset, skip to avoid duplicates.
       set((state) => {
+        _loadMoreInFlight = false;
         if (state.results.length !== nextOffset) {
           // Another loadMore already landed — discard this batch.
-          return { loading: false };
+          return {};
+        }
+        // Guard: don't overwrite total with 0 from an aborted response
+        if (result.hits.length === 0 && result.total === 0) {
+          return {};
         }
         return {
           results: [...state.results, ...result.hits],
           total: result.total,
           took: result.took,
-          loading: false,
           params: { ...state.params, offset: nextOffset },
         };
       });
     } catch (e) {
+      _loadMoreInFlight = false;
       set({
         error: e instanceof Error ? e.message : "Load more failed",
-        loading: false,
+      });
+    }
+  },
+
+  loadRange: async (start: number, end: number) => {
+    const { dataSource, params, total, frozenUntil, _inflight } = get();
+
+    // Clamp to valid range
+    const clampedEnd = Math.min(end, Math.min(total, MAX_RESULT_WINDOW) - 1);
+    if (start > clampedEnd || start < 0) return;
+
+    // Deduplicate in-flight requests and skip previously failed ranges
+    const key = `${start}-${clampedEnd}`;
+    if (_inflight.has(key)) return;
+    const { _failedRanges } = get();
+    if (_failedRanges.has(key)) return;
+    set({ _inflight: new Set([..._inflight, key]) });
+
+    try {
+      const length = clampedEnd - start + 1;
+      const result = await dataSource.searchRange({
+        ...params,
+        offset: start,
+        length,
+        ...(frozenUntil ? { until: frozenUntil } : {}),
+      });
+
+      set((state) => {
+        // Extend the results array if needed — fill gaps with undefined
+        // (useDataWindow will treat undefined slots as unloaded)
+        const newResults = [...state.results];
+        const neededLength = start + result.hits.length;
+        if (newResults.length < neededLength) {
+          newResults.length = neededLength;
+        }
+
+        // Fill in the loaded images at their correct indices
+        for (let i = 0; i < result.hits.length; i++) {
+          newResults[start + i] = result.hits[i];
+        }
+
+        // Remove from inflight
+        const newInflight = new Set(state._inflight);
+        newInflight.delete(key);
+
+        return {
+          results: newResults,
+          total: result.total,
+          _inflight: newInflight,
+        };
+      });
+    } catch (e) {
+      // Remove from inflight and record as failed to prevent infinite retry
+      // (e.g. offset beyond max_result_window returns ES 400)
+      set((state) => {
+        const newInflight = new Set(state._inflight);
+        newInflight.delete(key);
+        const newFailed = new Set(state._failedRanges);
+        newFailed.add(key);
+        return {
+          _inflight: newInflight,
+          _failedRanges: newFailed,
+          error: e instanceof Error ? e.message : "Load range failed",
+        };
       });
     }
   },

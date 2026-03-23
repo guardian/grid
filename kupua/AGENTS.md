@@ -137,7 +137,7 @@ introduced.
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
-**App scaffold (~7100 lines of source):**
+**App scaffold (~8000 lines of source):**
 - ✅ Vite 8 (Rolldown) + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
 - ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
@@ -175,7 +175,7 @@ introduced.
 - ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
 - ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
 
-**Table view (`ImageTable.tsx`, ~1350 lines):**
+**Table view (`ImageTable.tsx`, ~1400 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
 - ✅ Column definitions generated from field registry (`field-registry.ts`) — 22 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
@@ -238,9 +238,13 @@ introduced.
 - ✅ Two-phase keyboard handling: arrows/page/enter use bubble phase (propagated from CQL input's `keysToPropagate`); Home/End use capture phase on `document` to intercept before the CQL editor's shadow DOM can consume them.
 - ✅ `f` toggles fullscreen in image detail view (skipped when editable field is focused). `Escape` only exits fullscreen (never navigates or closes image detail).
 - ✅ Arrow Down at edge of loaded results triggers loadMore — seamless infinite navigation via keyboard.
+- ✅ O(1) image lookup — `useDataWindow` maintains a `Map<imageId, index>` (`imagePositions`) built via `for...in` (skips sparse array holes, O(loaded) not O(array.length)). Replaced `Array.findIndex()` linear scan that caused 7-second stalls at the bottom of 100k-entry sparse arrays.
+- ✅ Bounded placeholder skipping — `moveFocus()` skips at most 10 empty slots in the movement direction (was unbounded, scanning up to 100k holes). If no loaded row within 10, focuses the target index anyway — gap detection will load it. `End` key scan also capped to 50 indices from the end.
+- ✅ Prefetch near edge — ImageDetail and ImageTable's `moveFocus` trigger loadMore when within 5 images of the loaded edge.
+- ✅ Visible-window table data — TanStack Table only receives images in the current virtualizer window (~60 rows) instead of all loaded images. Virtualizer is created before the table; `getVirtualItems()` determines which images to feed. Fixes `getCoreRowModel` growing unboundedly as more ranges loaded.
 
 ### What's Next (Phase 2 remaining)
-- [ ] **ImageTable refactor — split by density boundary, not interaction type.** Extract `useDataWindow.ts` (shared data windowing hook: sparse/windowed data structure, gap detection, `loadRange()`, `seekTo()`, `seekToImage(id)`, result set freezing, dedup, page eviction — see `kahuna-scroll-analysis.md` for prior art) and `useListNavigation.ts` (abstract keyboard nav parameterised by geometry: table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`). Extract `ColumnContextMenu.tsx` as standalone component. Leave ~800 lines of table-specific code in `ImageTable.tsx`. This split enables windowed scroll, grid view, and jump-to-image — whereas splitting by interaction type (`useColumnResize`, `useTableSort`, etc.) would spread coupling and make all three harder. See `kupua-audit-assessment.md` §1 for full rationale.
+- [ ] **ImageTable refactor — extract `useListNavigation`.** Sparse scroll refactor complete: `useDataWindow.ts` hook extracted, sparse scroll with gap detection and `loadRange`, visible-window table data, placeholder skeletons, keyboard nav skipping placeholders, O(1) image lookup, `computeFitWidth` skips sparse holes, `ColumnContextMenu.tsx` extracted. Next: extract `useListNavigation.ts` (abstract keyboard nav parameterised by geometry: table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`).
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
 - [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above
@@ -318,7 +322,7 @@ introduced.
 
 7. **Column config in localStorage** (not URL) — visibility and widths are persisted per-client via `useColumnStore` with zustand/persist. Key: `kupua-column-config`. Column IDs use TanStack Table's format (dots→underscores). The store also holds session-only `preDoubleClickWidths` (excluded from localStorage persistence via `partialize`) for the double-click fit/restore toggle. Order and sorting will be added when needed.
 
-8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 (9M docs) uses a two-tier approach: (a) up to ~1M rows, pre-size the virtualizer to `total`, use sparse array + native scrollbar + `from/size` (kahuna's proven pattern, but 10× its 100k cap thanks to table's 32px row height vs kahuna's 303px cells); (b) beyond ~1M rows, custom scrubber + `search_after` with PIT. Kahuna analysis in `kahuna-scroll-analysis.md`. Phase 6 adds sort-aware date/letter labels, smooth drag, and mobile touch. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes". **Sparse scroll approach:** Use Option B from `sparse-scroll-plan.md` — virtualizer count = `min(total, CAP)`, TanStack Table only processes loaded rows (not 100k placeholders). Spike confirmed Option A (100k placeholder Row objects) costs 42ms per `getCoreRowModel` rebuild + 85MB heap — unacceptable since every `loadRange` triggers a rebuild. Option B uses a `Map<globalIndex, Image>` as the sparse data store; the render loop does a Map lookup per visible row and renders placeholder divs for gaps. TanStack Table handles columns/headers/cells for loaded data only. This matches canonical TanStack Virtual usage patterns.
+8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 implements sparse scroll: virtualizer count = `min(total, 100k)`, TanStack Table only processes loaded rows in the visible window (~60 rows), placeholder skeletons for unloaded slots, gap detection + `loadRange` for on-demand fetching. Spike confirmed that feeding TanStack Table 100k placeholder rows was unacceptable (42ms `getCoreRowModel` rebuild + 85MB heap). The implemented approach uses a sparse `results` array with `for...in` iteration (skips holes), `imagePositions: Map<imageId, index>` for O(1) lookup, and result set freezing (`frozenUntil` timestamp) to stabilise offsets during scrolling. Beyond ~1M rows, custom scrubber + `search_after` with PIT will be needed. Kahuna analysis in `kahuna-scroll-analysis.md`. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes".
 
 9. **Local dev domain** — currently `localhost:3000`. Future: add `kupua.media.local.dev-gutools.co.uk` to `dev/nginx-mappings.yml` pointing to port 3000. Trivial change when needed.
 
@@ -382,7 +386,6 @@ kupua/
       migration-plan.md        # Full phased migration plan
       frontend-philosophy.md   # UX/UI philosophy: density continuum, interaction patterns, comparisons
       kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
-      sparse-scroll-plan.md    # Implementation plan: sparse array + pre-sized virtualizer for free scrollbar up to 100k rows
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
       safeguards.md            # Elasticsearch + S3 safety documentation
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
@@ -392,7 +395,7 @@ kupua/
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
-  src/                         # ~6700 lines total
+  src/                         # ~8000 lines total
     main.tsx                   # React entry point — mounts RouterProvider
     router.ts                  # TanStack Router setup — custom plain-string URL serialisation
     index.css                  # Tailwind CSS import + Open Sans font + Grid colour theme + shared component classes (popup-menu, popup-item)
@@ -423,13 +426,15 @@ kupua/
       StatusBar.tsx            # Status bar: count + new images ticker + response time
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
-      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1350 lines — column defs generated from field-registry.ts)
+      ColumnContextMenu.tsx    # Column header context menu — visibility toggles, fit-to-data (178 lines). Imperative ref handle, self-contained positioning.
+      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1400 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
     stores/
-      search-store.ts          # Zustand store (search params, results, loadMore)
+      search-store.ts          # Zustand store (search params, results, loadMore, loadRange, frozenUntil, imagePositions). View components access data via useDataWindow hook, not directly. (~282 lines)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)
     types/
       image.ts                 # Image document types from ES mapping
     hooks/
+      useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Manages sparse scroll: gap detection, visible range → loadRange, result set freezing, O(1) image position lookup (216 lines).
       useUrlSearchSync.ts      # URL↔store sync: useUrlSearchSync (URL→store→search) + useUpdateSearchParams (component→URL)
       useFullscreen.ts         # Fullscreen API wrapper — toggle/enter/exit fullscreen on a stable DOM element
 ```
