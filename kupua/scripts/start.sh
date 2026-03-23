@@ -390,6 +390,15 @@ region = eu-west-1
 EOF
 
     cd "$KUPUA_DIR"
+    # Always restart the imgproxy container so it picks up fresh AWS
+    # credentials.  The credentials file is bind-mounted (live view of
+    # the host), but the Go AWS SDK caches tokens in memory after first
+    # load — so a long-running container uses stale/expired session
+    # tokens even though Janus has rotated them on disk.
+    # Restart is cheap (~2s) and guarantees fresh tokens every session.
+    if docker ps -q --filter "name=kupua-imgproxy" | grep -q .; then
+      docker restart kupua-imgproxy > /dev/null 2>&1
+    fi
     if ! docker compose --profile imgproxy up -d imgproxy 2>&1; then
       echo -e "${red}      docker compose failed — trying fresh recreate...${plain}"
       docker compose --profile imgproxy down 2>/dev/null || true

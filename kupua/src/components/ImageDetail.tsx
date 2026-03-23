@@ -34,6 +34,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
+import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { format } from "date-fns";
@@ -44,7 +45,8 @@ interface ImageDetailProps {
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, loading, loadMore, dataSource } = useSearchStore();
+  const { results, total, loading, loadMore } = useDataWindow();
+  const dataSource = useSearchStore((s) => s.dataSource);
   const navigate = useNavigate();
 
   // The fullscreen container ref — must be stable across imageId changes
@@ -194,9 +196,16 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     () => ({ width: window.innerWidth, height: window.innerHeight }),
     [],
   );
-  const imageUrl = image
-    ? getFullImageUrl(image, imgproxyOpts) ?? getThumbnailUrl(image)
-    : undefined;
+  const fullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
+  const thumbUrl = image ? getThumbnailUrl(image) : undefined;
+
+  // Track whether the image failed to load (imgproxy down, S3 404, etc.)
+  // so we can show a graceful fallback instead of browser's broken-image
+  // alt text. Reset when imageId changes.
+  const [imgLoadFailed, setImgLoadFailed] = useState(false);
+  useEffect(() => setImgLoadFailed(false), [imageId]);
+
+  const imageUrl = imgLoadFailed ? undefined : (fullUrl ?? thumbUrl);
 
   // Prefetch nearby images — 2 prev, 3 next (asymmetric: users flick
   // forward more than backward). Uses `new Image().src` which triggers
@@ -328,6 +337,16 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                   : "max-w-full max-h-full object-contain"
               }
               draggable={false}
+              onError={(e) => {
+                // imgproxy failed — try thumbnail as fallback
+                const target = e.target as HTMLImageElement;
+                if (thumbUrl && target.src !== thumbUrl) {
+                  target.src = thumbUrl;
+                } else {
+                  // Both imgproxy and thumbnail failed — show text fallback
+                  setImgLoadFailed(true);
+                }
+              }}
             />
           ) : (
             <div className="text-grid-text-muted text-xs text-center p-4">
