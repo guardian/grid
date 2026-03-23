@@ -165,5 +165,3 @@ set the buckets manually:
 export KUPUA_THUMB_BUCKET="media-service-test-thumbbucket-..."
 export KUPUA_IMAGE_BUCKET="media-service-test-imagebucket-..."
 ```
-
-

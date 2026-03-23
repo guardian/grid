@@ -5,7 +5,7 @@
 # Prerequisites:
 #   - Kupua ES must be running: cd kupua && docker compose up -d
 #   - Sample data file must exist: kupua/exploration/mock/sample-data.ndjson
-#   - Mapping file must exist: kupua/exploration/mock/mapping.json
+#   - Mapping file from real ES cluster must exist: kupua/exploration/mock/mapping.json
 #
 # Usage:
 #   ./kupua/scripts/load-sample-data.sh
@@ -38,7 +38,7 @@ if echo "$ES_URL" | grep -qv ':9220'; then
   echo -e "${red}SAFETY: Refusing to load data into ${ES_URL}${plain}"
   echo "  This script only writes to kupua's local ES on port 9220."
   echo "  It looks like you're pointing at a different ES instance"
-  echo "  (possibly a TEST/PROD tunnel on port 9200)."
+  echo "  (possibly a TEST tunnel on port 9200)."
   echo ""
   echo "  If you really need to override this, edit the script."
   echo "  See kupua/exploration/docs/safeguards.md for details."
@@ -55,8 +55,6 @@ fi
 if [ ! -f "$DATA_FILE" ]; then
   echo -e "${red}ERROR: Sample data file not found at ${DATA_FILE}${plain}"
   echo "  Make sure kupua/exploration/mock/sample-data.ndjson exists."
-  echo "  You can download it from S3:"
-  echo "    aws s3 cp s3://<sample-data-backup-bucket>/sample-data.ndjson ${DATA_FILE}"
   exit 1
 fi
 

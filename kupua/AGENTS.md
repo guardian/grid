@@ -5,13 +5,94 @@
 > **Update this file whenever significant decisions are made.**
 
 > **Directives** live in `.github/copilot-instructions.md` (auto-loaded by Copilot
-> regardless of which file is open). Do not duplicate them here.
+> regardless of which file is open). They are duplicated here for humans, because
+> `.github/copilot-instructions.md` is **never committed** (it lives outside `kupua/`).
+>
+> **Two-file sync rule:** The directives in `.github/copilot-instructions.md` and in
+> the `<details>` block below must stay identical. If you add, remove, or change a
+> directive in one place, copy the change to the other. The `.github/` file is what
+> Copilot actually auto-loads; the copy here is for humans reading `AGENTS.md` and
+> for sessions where the `.github/` file might be missing (fresh clone).
+
+<details><summary>Copy of Directives</summary>
+# Copilot Instructions — Kupua Directives
+
+> These directives apply when working on the `kupua/` project within this repo.
+> Full context lives in `kupua/AGENTS.md`; this file extracts the rules that
+> Copilot must always follow so they are loaded automatically regardless of
+> which file is open.
+
+**Directive:** After completing any task that adds, removes, or changes features, architecture,
+files, or key decisions, update the relevant sections of `kupua/AGENTS.md` (What's Done, What's Next,
+Project Structure, Key Architecture Decisions) before finishing your turn. Keep it concise.
+
+**Directive:** Performance is crucial. If any requested change is likely to seriously impact
+performance, do not proceed without checking with the user first — explain the potential
+impact, suggest mitigations, and consider alternative approaches.
+
+**Directive:** When introducing code that intentionally departs from Grid/kahuna behaviour
+or from library defaults/conventions, add an entry to `kupua/exploration/docs/deviations.md`
+explaining what, why, and the trade-off.
+
+**Directive:** Never write or modify any file outside the `kupua/` directory without
+explicitly asking the user for permission first. This agent's scope is kupua only.
+Exception: this file (`.github/copilot-instructions.md`) may be updated freely since
+it mirrors directives from `kupua/AGENTS.md`.
+
+**Directive:** Do not commit after every change. It's fine to modify many files over a long
+session without committing. **Never commit without explicitly asking the user first.**
+If you think a commit is warranted but the user hasn't asked, suggest it and wait for
+confirmation. When the user approves, batch changes into sensible chunks grouped by the
+problem they solve — not by individual file edits. Never push to remote.
+
+**Directive: REAL SYSTEMS ARE DANGEROUS.** Kupua can be configured to connect to real
+Elasticsearch clusters (TEST/CODE/PROD) via SSH tunnels. These clusters serve the entire
+Guardian editorial team. **Never** write code that issues write operations (index, delete,
+bulk, update, create) against a non-local ES. **Never** weaken or bypass the safeguards
+in `es-config.ts` or `load-sample-data.sh` without explicit user approval. **Never**
+hardcode real cluster URLs, index names, or credentials in source code. If a task
+requires modifying safeguard configuration, stop and explain the risk before proceeding.
+See `kupua/exploration/docs/safeguards.md` for the full safety framework.
+
+**Directive:** Think about UX/UI as well as tech. When the user proposes a feature or
+interaction pattern, constructively argue about it — raise concerns about usability,
+consistency, accessibility, and user expectations, not just technical feasibility.
+Don't just implement what's asked; reason about whether it's the right thing to build.
+</details>
 
 ## What is Kupua?
 
 Kupua is a **new React-based frontend** for [Grid](https://github.com/guardian/grid), the Guardian's image DAM (Digital Asset Management) system. It replaces the existing **kahuna** frontend (AngularJS 1.8).
 
 Grid manages ~9 million images stored in S3, with metadata indexed in **Elasticsearch 8.x**. Kupua lives inside the Grid monorepo at `kupua/`.
+
+## Running Kupua
+
+Single entry point: `kupua/scripts/start.sh`. Two modes:
+
+| Mode | Command | ES source | Needs AWS creds? | Needs sample data? |
+|---|---|---|---|---|
+| **Local** (default) | `./kupua/scripts/start.sh` | Docker ES on port 9220 | No | Yes — `exploration/mock/sample-data.ndjson` (115MB, not in git) |
+| **TEST** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 | Yes (`media-service` profile) | No — index + S3 buckets discovered at runtime |
+
+**Local mode** starts Docker ES, loads sample data via `scripts/load-sample-data.sh`,
+and runs Vite. If `sample-data.ndjson` is missing, startup fails. To get the file you
+need access to a Grid ES cluster (CODE/TEST) to extract it — so anyone running local
+mode already has credentials and knows the project. There is no credential-free path
+to meaningful local development (Grid image metadata is complex; synthetic data would
+be misleading).
+
+**`--use-TEST` mode** establishes an SSH tunnel, then auto-discovers the index alias
+(via `_cat/aliases`), S3 bucket names (by fetching one document and parsing URLs),
+and starts the S3 thumbnail proxy + imgproxy container. Nothing is hardcoded — all
+infrastructure names are resolved at runtime.
+
+**Relationship to Grid's scripts:** Grid has its own `dev/script/start.sh` which also
+has a `--use-TEST` flag and SSH tunnel logic. Kupua's `start.sh` mirrors the same
+patterns (credential check, tunnel establishment, kill-on-mode-switch) but is fully
+independent — it manages kupua's own Docker containers (port 9220, imgproxy on 3002)
+and never touches Grid's processes. The two scripts can coexist, but both compete for
+port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simultaneously.
 
 ## Full Migration Plan
 

@@ -821,4 +821,3 @@ Key fields from the ES mapping (see `kupua/exploration/mapping.json` for full sc
 - **The `.ndjson` file should NOT be committed to git** — it's too large. Add to `.gitignore` and keep it local or in S3.
 - **ES version:** Grid uses Elasticsearch 8.18.3 (docker-compose) — kupua should target the same.
 - **kahuna source:** `/kahuna/public/js/` — AngularJS 1.8, RxJS 2, Immutable.js, webpack. Key files: `main.js`, `search/results.js`, `search/index.js`, `image/controller.js`, `services/api/media-api.js`.
-
