@@ -14,7 +14,7 @@
 	"author": "",
 	"license": "ISC",
 	"devDependencies": {
-		"@aws-sdk/client-cloudformation": "^3.995.0",
+		"@aws-sdk/client-cloudformation": "^3.1012.0",
 		"@guardian/prettier": "^10.0.0",
 		"@smithy/util-stream": "^4.5.14",
 		"@types/aws-lambda": "^8.10.159",
@@ -29,12 +29,12 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@aws-sdk/client-bedrock-runtime": "^3.995.0",
-		"@aws-sdk/client-kinesis": "^3.1002.0",
-		"@aws-sdk/client-s3": "^3.995.0",
-		"@aws-sdk/client-s3vectors": "^3.995.0",
-		"@aws-sdk/client-sqs": "^3.995.0",
-		"@aws-sdk/config": "^3.997.0",
+		"@aws-sdk/client-bedrock-runtime": "^3.1012.0",
+		"@aws-sdk/client-kinesis": "^3.1012.0",
+		"@aws-sdk/client-s3": "^3.1012.0",
+		"@aws-sdk/client-s3vectors": "^3.1012.0",
+		"@aws-sdk/client-sqs": "^3.1012.0",
+		"@aws-sdk/config": "^3.1012.0",
 		"sharp": "^0.34.5"
 	},
 	"prettier": "@guardian/prettier"
