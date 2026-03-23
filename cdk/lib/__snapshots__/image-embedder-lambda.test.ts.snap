@@ -8,6 +8,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
+      "GuScheduledLambda",
       "GuS3Bucket",
     ],
     "gu:cdk:version": "TEST",
@@ -64,6 +65,280 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
     },
+    "ImageEmbedderBackfillerC6D20164": {
+      "DependsOn": [
+        "ImageEmbedderBackfillerServiceRoleDefaultPolicy3FC0C247",
+        "ImageEmbedderBackfillerServiceRole2C5388A7",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": {
+            "Ref": "DistributionBucketName",
+          },
+          "S3Key": "media-service/TEST/image-embedder-lambda/image-embedder.zip",
+        },
+        "Environment": {
+          "Variables": {
+            "APP": "image-embedder-lambda",
+            "STACK": "media-service",
+            "STAGE": "TEST",
+          },
+        },
+        "FunctionName": "image-embedder-TEST",
+        "Handler": "backfiller.handler",
+        "LoggingConfig": {
+          "LogFormat": "JSON",
+        },
+        "MemorySize": 512,
+        "Role": {
+          "Fn::GetAtt": [
+            "ImageEmbedderBackfillerServiceRole2C5388A7",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "Timeout": 60,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7": {
+      "Properties": {
+        "Description": "Frequency of execution of the backfiller",
+        "ScheduleExpression": "rate(1 day)",
+        "State": "ENABLED",
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "ImageEmbedderBackfillerC6D20164",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day0AllowEventRuleImageEmbedderLambdaImageEmbedderBackfiller35B59D3AB0582810": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "ImageEmbedderBackfillerC6D20164",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "ImageEmbedderBackfillerServiceRole2C5388A7": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ImageEmbedderBackfillerServiceRoleDefaultPolicy3FC0C247": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "DistributionBucketName",
+                      },
+                    ],
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "DistributionBucketName",
+                      },
+                      "/media-service/TEST/image-embedder-lambda/image-embedder.zip",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": "ssm:GetParametersByPath",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:ssm:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/TEST/media-service/image-embedder-lambda",
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:ssm:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/TEST/media-service/image-embedder-lambda/*",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ImageEmbedderBackfillerServiceRoleDefaultPolicy3FC0C247",
+        "Roles": [
+          {
+            "Ref": "ImageEmbedderBackfillerServiceRole2C5388A7",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
     "ImageEmbedderHandler2C9410B9": {
       "DependsOn": [
         "ImageEmbedderHandlerServiceRoleDefaultPolicy613DB8F0",
@@ -91,7 +366,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         },
         "FunctionName": "image-embedder-TEST",
-        "Handler": "index.handler",
+        "Handler": "embedder.handler",
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
@@ -288,6 +563,22 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             },
             {
               "Action": [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "imageEmbedderBackfill5DD09905",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": [
                 "s3:GetObject*",
                 "s3:GetBucket*",
                 "s3:List*",
@@ -461,6 +752,49 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::Lambda::EventSourceMapping",
     },
+    "ImageEmbedderHandlerSqsEventSourceImageEmbedderLambdaimageEmbedderBackfillC21D96704F7E8636": {
+      "Properties": {
+        "BatchSize": 1,
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "imageEmbedderBackfill5DD09905",
+            "Arn",
+          ],
+        },
+        "FunctionName": {
+          "Ref": "ImageEmbedderHandler2C9410B9",
+        },
+        "FunctionResponseTypes": [
+          "ReportBatchItemFailures",
+        ],
+        "ScalingConfig": {
+          "MaximumConcurrency": 2,
+        },
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+      },
+      "Type": "AWS::Lambda::EventSourceMapping",
+    },
     "imageEmbedder9F00A33D": {
       "DeletionPolicy": "Delete",
       "Properties": {
@@ -493,6 +827,69 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         ],
         "VisibilityTimeout": 120,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "imageEmbedderBackfill5DD09905": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "QueueName": "image-embedder-backfill-TEST",
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": [
+              "imageEmbedderBackfillDLQ58FF6906",
+              "Arn",
+            ],
+          },
+          "maxReceiveCount": 5,
+        },
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VisibilityTimeout": 600,
+      },
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "imageEmbedderBackfillDLQ58FF6906": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "QueueName": "image-embedder-backfill-DLQ-TEST",
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
       },
       "Type": "AWS::SQS::Queue",
       "UpdateReplacePolicy": "Delete",
