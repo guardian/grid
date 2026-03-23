@@ -160,7 +160,7 @@ introduced.
 - ✅ Vite env types declared in `src/vite-env.d.ts`
 
 **State management:**
-- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`
+- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`. `loadMore` uses a functional updater with offset guard to prevent duplicate rows on rapid scroll. New-images ticker respects user's date filter (uses whichever `since` is later).
 - ✅ `column-store.ts` — Zustand + localStorage persist for column visibility, widths, and session-only pre-double-click widths
 - ✅ URL is single source of truth — `useUrlSearchSync` hook syncs URL → Zustand → search; `useUpdateSearchParams` hook lets components update URL. Browser back/forward works.
 - ✅ Custom URL serialisation in `router.ts` — uses `URLSearchParams` directly (not TanStack Router's `parseSearchWith`/`qss`), keeping all values as plain strings. Colons kept human-readable. See deviations.md §1 for rationale.

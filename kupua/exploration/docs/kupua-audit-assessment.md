@@ -5,7 +5,9 @@
 >
 > **Updated 23 March 2026:** Dependencies upgraded (Vite 8, Zod 4, etc.), `start.sh`
 > hardened with Node version + port checks. Dependency section removed — all done.
-> TS errors fixed (zero errors now). `.DS_Store` cleaned up.
+> TS errors fixed (zero errors now). `.DS_Store` cleaned up. ErrorBoundary added.
+> `loadMore` dedup race condition fixed (functional updater + offset guard).
+> `newCount` polling now respects user's date filter.
 
 ---
 
@@ -79,28 +81,6 @@ Haven't fully read it but it's heavy for what should mostly be Tailwind utility 
 
 ---
 
-## 🔴 Architecture Concerns
-
-### 1. `search-store.ts` — no deduplication on `loadMore`
-
-```typescript
-set({
-  results: [...results, ...result.hits],
-```
-
-If `loadMore()` is called twice rapidly (e.g. fast scroll), the second batch starts at the same offset (the `results.length` snapshot is stale) and you get duplicate rows. The `loading` guard helps, but Zustand's `set` is synchronous while `search` is async — there's a window. TanStack Table uses `row.id` for keying, but duplicate data in the array still wastes memory and looks wrong.
-
-### 2. `newCount` polling — the count query doesn't include all filters
-
-```typescript
-const count = await dataSource.count({
-  ...params,
-  since: newCountSince,  // ← overwrites the user's since filter
-  offset: 0, length: 0,
-});
-```
-
-If the user has a date filter (`since=2026-01-01`), the ticker overwrites `since` with `newCountSince` (the time of the last search). So the ticker counts new images uploaded since last search, but **ignoring the user's date filter**. This could show "50 new" when there are actually 0 new images matching the current filters. Probably needs a separate param for the ticker.
 
 ---
 
@@ -132,7 +112,7 @@ Checked AGENTS.md against actual code:
 
 5. **No linting errors?** — I didn't run `eslint` explicitly. The `eslint-disable` comments in the code suggest some rules are being silenced. Worth running `npm run lint` to see if anything surfaces.
 
-6. **`search-store.ts` has no AbortController for `loadMore`** — `search()` cancels in-flight requests, but `loadMore()` doesn't. If two `loadMore()` calls fire in quick succession, both responses are appended, potentially causing duplicate or out-of-order data.
+6. **`search-store.ts` — `loadMore` has no AbortController** — `search()` cancels in-flight requests, but `loadMore()` doesn't. The deduplication race condition is fixed (functional updater + offset guard), but a very fast scroll could still fire a redundant network request that gets discarded. Minor — not worth the complexity of an abort controller for pagination.
 
 ---
 
@@ -140,7 +120,7 @@ Checked AGENTS.md against actual code:
 
 | Area | Grade | Notes |
 |---|---|---|
-| Architecture | **A** | DAL, registry, URL sync, overlay pattern — all well-designed |
+| Architecture | **A+** | All 🔴 concerns resolved. DAL, registry, URL sync, overlay — well-designed |
 | Code quality | **B+** | Solid but ImageTable needs splitting, some module-level globals |
 | Documentation | **A+** | Unusually thorough for any project, let alone AI-assisted |
 | Testing | **C+** | 47 tests for ~7,000 lines. CQL parser (460 lines) is untested. |

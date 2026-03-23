@@ -48,9 +48,20 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
     try {
+      // Use whichever is later: the user's date filter or our poll timestamp.
+      // If the user filtered to "since 2026-06-01" and the last search was at
+      // 2026-06-15T10:00:00Z, we want images since 2026-06-15T10:00:00Z that
+      // also match the user's filter.  If the user's since is *after* our
+      // poll timestamp we keep the user's — everything before it is already
+      // excluded by their filter anyway.
+      const since =
+        params.since && params.since > newCountSince
+          ? params.since
+          : newCountSince;
+
       const count = await dataSource.count({
         ...params,
-        since: newCountSince,
+        since,
         offset: 0,
         length: 0,
       });
@@ -136,12 +147,22 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ...params,
         offset: nextOffset,
       });
-      set({
-        results: [...results, ...result.hits],
-        total: result.total,
-        took: result.took,
-        loading: false,
-        params: { ...params, offset: nextOffset },
+
+      // Use a functional updater so we read the *current* results array,
+      // not the stale snapshot from before the await.  If another loadMore
+      // already appended at this offset, skip to avoid duplicates.
+      set((state) => {
+        if (state.results.length !== nextOffset) {
+          // Another loadMore already landed — discard this batch.
+          return { loading: false };
+        }
+        return {
+          results: [...state.results, ...result.hits],
+          total: result.total,
+          took: result.took,
+          loading: false,
+          params: { ...state.params, offset: nextOffset },
+        };
       });
     } catch (e) {
       set({
