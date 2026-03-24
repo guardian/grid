@@ -121,7 +121,7 @@
     const telemetryUri = window._clientConfig.telemetryUri;
 
     if(telemetryUri) {
-        let loadedPageUri = window.location.href;
+        let loadedPageUri = window.location.pathname;
 
         function loadTrackingPixel() {
             const image = new Image();
@@ -130,8 +130,8 @@
         }
 
         const observer = new MutationObserver(() => {
-            if (loadedPageUri !== window.location.href) {
-                loadedPageUri = window.location.href;
+            if (loadedPageUri !== window.location.pathname) {
+                loadedPageUri = window.location.pathname;
                 loadTrackingPixel();
             }
         });
