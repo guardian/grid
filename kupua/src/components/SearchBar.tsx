@@ -110,12 +110,14 @@ export function SearchBar() {
       aria-label="Search and filter controls"
       className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11"
     >
-      {/* Logo — always visible, resets state and focuses search box */}
+      {/* Logo — always visible, resets state and focuses search box.
+           Hit area is a square matching the full bar height (h-11 = 44px).
+           -ml-3 eats the bar's px-3 so the click target sits flush left. */}
       <Link
         to="/search"
         search={{ nonFree: "true" }}
         title="Grid — clear all filters"
-        className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors"
+        className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={() => {
           // Always reset scroll position — even when params don't change
           // (e.g. already at default state). The scroll-reset effect in
@@ -136,7 +138,7 @@ export function SearchBar() {
           });
         }}
       >
-        <img src="/images/grid-logo.svg" alt="Grid" className="w-7 h-7" />
+        <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />
       </Link>
 
       {/* CQL search input with chips — grows to fill available space */}

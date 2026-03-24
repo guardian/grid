@@ -282,7 +282,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     try {
       const result = (await this.esRequest("_search", body, signal)) as {
-        took: number;
         hits: {
           total: { value: number };
           hits: Array<{ _id: string; _source: Image }>;
@@ -292,12 +291,11 @@ export class ElasticsearchDataSource implements ImageDataSource {
       return {
         hits: result.hits.hits.map((hit) => hit._source),
         total: result.hits.total.value,
-        took: result.took,
       };
     } catch (e) {
       // Don't treat aborted requests as errors — they're intentional
       if (e instanceof DOMException && e.name === "AbortError") {
-        return { hits: [], total: 0, took: 0 };
+        return { hits: [], total: 0 };
       }
       throw e;
     }

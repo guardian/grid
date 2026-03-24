@@ -32,7 +32,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -280,26 +280,56 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     <>
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <header className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11 shrink-0">
-          {/* Logo / Back to search */}
-          <button
-            onClick={closeDetail}
-            className="shrink-0 w-7 h-7 hover:bg-grid-hover rounded transition-colors flex items-center justify-center cursor-pointer"
-            title="Back to search"
-          >
-            <img
-              src="/images/grid-logo.svg"
-              alt="Grid"
-              className="w-7 h-7"
-            />
-          </button>
+        <header className="flex items-center px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11 shrink-0">
+          {/* Logo + separator + back button — flush together, no gaps */}
+          <div className="flex items-center shrink-0 -ml-3">
+            {/* Logo — resets everything (query, filters, sort, scroll), same as SearchBar.
+                 Hit area is a square matching the full bar height (h-11 = 44px). */}
+            <Link
+              to="/search"
+              search={{ nonFree: "true" }}
+              title="Grid — clear all filters"
+              className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+              onClick={() => {
+                // Reset scroll position on the table underneath
+                const scrollContainer = document.querySelector<HTMLElement>(
+                  '[role="region"][aria-label="Image results table"]',
+                );
+                if (scrollContainer) {
+                  scrollContainer.scrollTop = 0;
+                  scrollContainer.scrollLeft = 0;
+                }
+              }}
+            >
+              <img
+                src="/images/grid-logo.svg"
+                alt="Grid"
+                className="w-8 h-8"
+              />
+            </Link>
 
-          <button
-            onClick={closeDetail}
-            className="text-xs text-grid-text-muted hover:text-grid-text transition-colors cursor-pointer"
-          >
-            ← Back
-          </button>
+            <div className="w-px h-5 bg-grid-separator shrink-0" />
+
+            <button
+              onClick={closeDetail}
+              className="shrink-0 h-11 flex items-center gap-1.5 px-3 text-xs text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Back to search
+            </button>
+          </div>
 
           <span className="flex-1" />
 

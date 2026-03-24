@@ -48,6 +48,19 @@
    * case where Open Sans hasn't loaded yet or a glyph is missing.
    */
   --font-sans: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Bump text-xs from Tailwind's default 0.75rem (12px) to 0.85rem (~13.6px).
+     Used for all UI chrome — filters, labels, metadata, context menus. */
+  --text-xs: 0.85rem;
+}
+
+/*
+ * Dark scrollbars — Firefox respects color-scheme natively; Chrome (121+)
+ * additionally needs scrollbar-color for explicit thumb/track colours.
+ */
+html {
+  color-scheme: dark;
+  scrollbar-color: #666 #333;
 }
 
 /*

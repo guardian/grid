@@ -4,7 +4,6 @@
  * Shows:
  *   - Total result count
  *   - New images ticker (polls ES every 10s; click to refresh)
- *   - Response time (right-aligned)
  *
  * Styled to match Grid's `results-toolbar`:
  *   - 28px height, dark background, border bottom
@@ -15,7 +14,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { formatDistanceToNow } from "date-fns";
 
 export function StatusBar() {
-  const { total, took, newCount, newCountSince, search: reSearch } =
+  const { total, newCount, newCountSince, search: reSearch } =
     useSearchStore();
 
   return (
@@ -42,13 +41,6 @@ export function StatusBar() {
         </button>
       )}
 
-      {/* Spacer */}
-      <span className="flex-1" />
-
-      {/* Response time */}
-      {took > 0 && (
-        <span className="text-grid-text">{took}ms</span>
-      )}
     </div>
   );
 }

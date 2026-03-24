@@ -76,14 +76,27 @@ export const ColumnContextMenu = forwardRef<
   useEffect(() => {
     if (!menuPos) return;
     const close = () => setMenuPos(null);
+    const handleMouseDown = (e: MouseEvent) => {
+      // Don't close if the click is inside the menu (includes scrollbar area)
+      if (menuRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+    const handleScroll = (e: Event) => {
+      // Don't close when the menu itself scrolls (mousewheel or scrollbar drag).
+      // Scroll events don't bubble — the target is always the element that scrolled.
+      if (e.target === menuRef.current) return;
+      close();
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("scroll", close, true);
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("scroll", handleScroll, true);
     document.addEventListener("keydown", handleKeyDown);
 
-    // Clamp menu position so it stays fully on-screen
+    // Clamp menu position so it stays fully on-screen.
+    // Also cap its height to the available viewport space so it scrolls
+    // rather than being cut off at extreme zoom levels.
     requestAnimationFrame(() => {
       const menu = menuRef.current;
       if (!menu) return;
@@ -93,14 +106,18 @@ export const ColumnContextMenu = forwardRef<
       if (rect.bottom > window.innerHeight) y = window.innerHeight - rect.height - 4;
       if (x < 0) x = 4;
       if (y < 0) y = 4;
+
+      // Max height = viewport minus the final y position minus a small margin
+      menu.style.maxHeight = `${window.innerHeight - y - 4}px`;
+
       if (x !== menuPos.x || y !== menuPos.y) {
         setMenuPos({ ...menuPos, x, y });
       }
     });
 
     return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("scroll", handleScroll, true);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuPos]);
@@ -125,7 +142,7 @@ export const ColumnContextMenu = forwardRef<
       ref={menuRef}
       role="menu"
       aria-label="Column options"
-      className="fixed popup-menu"
+      className="fixed popup-menu overflow-y-auto"
       style={{ left: menuPos.x, top: menuPos.y }}
       onMouseDown={(e) => e.stopPropagation()}
     >

@@ -61,8 +61,6 @@ export interface SearchParams {
 export interface SearchResult {
   hits: Image[];
   total: number;
-  /** Time the query took in milliseconds */
-  took: number;
 }
 
 export interface AggregationBucket {

@@ -35,7 +35,6 @@ interface SearchState {
   params: SearchParams;
   results: Image[];
   total: number;
-  took: number;
   loading: boolean;
   error: string | null;
 
@@ -118,7 +117,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
   results: [],
   total: 0,
-  took: 0,
   loading: false,
   error: null,
 
@@ -148,7 +146,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         results: result.hits,
         total: result.total,
-        took: result.took,
         loading: false,
         params: { ...params, offset: 0 },
         focusedImageId: null, // clear focus on new search
@@ -203,7 +200,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return {
           results: [...state.results, ...result.hits],
           total: result.total,
-          took: result.took,
           params: { ...state.params, offset: nextOffset },
         };
       });
