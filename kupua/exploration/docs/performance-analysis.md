@@ -220,6 +220,79 @@ viewport scrolls, but no row is focused.
 **Mitigation:** After computing the target index, scan a small neighbourhood (like
 `moveFocus` does with MAX_SKIP=10) to find the nearest loaded row.
 
+### 11. 🔴 Sorting while scrolled causes infinite pulsing loop
+
+**Location:** `ImageTable.tsx` scroll-reset effect + `search-store.ts` search()
+
+**Symptom:** Sorting when at the top of the table is fast. But if the user scrolls
+down (even modestly), clicking a column header to sort causes the table to "pulse"
+indefinitely — rows flash between placeholder skeletons and briefly-loaded data,
+never settling.
+
+**Root cause: state contradiction.** The scroll-reset effect had a `sortOnly`
+exception that preserved scroll position when only `orderBy` changed. But `search()`
+replaces `results` with a fresh first page (~50 images at offset 0). This creates
+an impossible state: the viewport is at row 3000 but only rows 0–49 have data.
+
+The resulting feedback loop:
+1. `search()` wipes results to 50 entries. `virtualizerCount` stays large (total
+   unchanged). Virtualizer renders rows 2960–3040 — all undefined.
+2. `visibleImages` is empty → TanStack Table gets `data: []` → all rows render as
+   `animate-pulse` placeholder skeletons.
+3. Gap detection fires for rows 2910–3090 → `loadRange` fetches them.
+4. `loadRange` response fills those rows → re-render → real data appears briefly.
+5. But each `loadRange` response creates a new `results` reference → `handleScroll`
+   callback is recreated (finding #3) → scroll listener churn → `reportVisibleRange`
+   fires again → more gap detection → more `loadRange` calls for adjacent gaps.
+6. Meanwhile, if the user sorts again or a concurrent state update lands, another
+   `search()` wipes results back to 50 entries → cycle restarts.
+
+The oscillation between "search wipes to 50" and "loadRange fills the viewport"
+is what the user sees as pulsing.
+
+**Why it's fast at the top:** When scrolled to row 0, the virtualizer renders rows
+0–~40. After `search()` returns 50 entries, rows 0–40 are all present. No gaps,
+no gap detection, no pulsing. The sort completes in a single render cycle.
+
+**This is a logical bug, not a performance problem.** The `animate-pulse` animation
+makes it *look* like a performance issue, but the root cause is a design
+contradiction: preserving scroll position is incompatible with search() returning
+only the first page.
+
+**Status: ✅ Fixed.** Removed the `sortOnly` exception. Sort now always
+scrolls to top, matching every major data table (Gmail, Sheets, Finder, Explorer).
+The data at row 3000 in the new sort order is completely different data — preserving
+the scroll position number doesn't preserve context. Horizontal scroll (`scrollLeft`)
+is preserved on sort-only changes so the user doesn't lose the column they clicked.
+
+**Sort-around-focus: attempted and deliberately reverted.** We tried to follow the
+"Never Lost" principle by finding the focused image's new position via ES `_count`
+(count docs with sort value before the anchor value) and scrolling there. ~340 lines
+across 6 files. The approach hit three fundamental walls:
+
+1. **`max_result_window` (100k)**: `_count` can return position 1,306,564 but
+   `loadRange` can't fetch data beyond `from: 100000`. Most unfiltered sorts land
+   well beyond this limit. The feature silently degrades to scroll-to-top for the
+   majority of real-world use.
+
+2. **Equal sort values**: When sorting by a field where most results share the same
+   value (e.g. `credit:"Getty Images"` sorted by credit), `_count` returns 0 for
+   all of them — it counts values before the anchor *value*, not the anchor *image*.
+   Position is meaningless when thousands of images share the same sort key.
+
+3. **Growing complexity for diminishing returns**: Every edge case (beyond window,
+   equal values, no focus, verification failure) needed its own fallback path.
+   The code grew to ~340 lines that mostly didn't work, with each fix revealing
+   another case where the approach fundamentally couldn't succeed.
+
+**Conclusion:** "Never Lost" on sort requires **`search_after` + windowed scroll**
+(scrubber architecture). With `search_after`, ES returns a cursor — you can
+paginate to any depth without the 100k cap. Combined with windowed scroll (scrubber
+thumb = `windowStart / total`), the focused image's position can be resolved at
+any depth. This is the correct infrastructure to build sort-around-focus on.
+Until then, scroll-to-top is the right trade-off: simple, correct, matches user
+expectations from every other data table.
+
 ---
 
 ## Things Done Right (no changes needed)
@@ -299,6 +372,7 @@ browser reload.
 | # | Severity | Finding | Effort | Status |
 |---|---|---|---|---|
 | 1 | 🔴 | `imagePositions` Map full rebuild on every range load | Medium | ✅ Fixed |
+| 11 | 🔴 | Sorting while scrolled causes infinite pulsing loop | Low | ✅ Fixed (scroll-to-top); sort-around-focus needs `search_after` |
 | 2 | 🟡 | `visibleImages` useMemo triggers unnecessary table re-renders | Low | Open |
 | 3 | 🟡 | `handleScroll` listener churn on `results.length` change | Low | Open |
 | 4 | 🟡 | `computeFitWidth` scans all loaded data | Low | Open |

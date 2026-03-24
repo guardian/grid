@@ -600,10 +600,15 @@ export function ImageTable() {
   // Reset scroll position when search params change.  loadMore doesn't
   // change URL params, so this only fires on genuinely new searches.
   //
-  // When only the sort order changes (clicking a column header), scroll
-  // position is preserved — the same data is just reordered, so jumping
-  // to the top or losing horizontal position would be disorienting.
-  // All other param changes (query, filters, logo click) reset to top-left.
+  // All param changes (query, filters, sort, logo click) reset scrollTop.
+  // Sort currently resets to top because search() returns only the first
+  // page — keeping scroll at row N when only rows 0–49 have data causes
+  // an infinite gap-detect → loadRange → placeholder pulsing loop.
+  // See performance-analysis.md finding #11.
+  //
+  // Horizontal scroll (scrollLeft) is preserved on sort-only changes.
+  // The user may have scrolled right to reach the column header they
+  // clicked to sort; resetting scrollLeft would lose that context.
   const prevSearchParamsRef = useRef(searchParams);
   useEffect(() => {
     const el = parentRef.current;
@@ -612,10 +617,16 @@ export function ImageTable() {
     const prev = prevSearchParamsRef.current;
     prevSearchParamsRef.current = searchParams;
 
-    // Check if orderBy is the only thing that changed — and it's a sort
-    // action (adding or toggling), not a reset (orderBy cleared by logo click).
-    // Exclude display-only keys (e.g. imageId) — they don't affect search
-    // results and should never trigger a scroll reset.
+    // If only display-only keys changed, don't reset scroll at all
+    const onlyDisplayKeysChanged = Object.keys({ ...prev, ...searchParams }).every(
+      (key) =>
+        URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) ||
+        prev[key as keyof typeof prev] === searchParams[key as keyof typeof searchParams]
+    );
+    if (onlyDisplayKeysChanged) return;
+
+    // Detect sort-only change: orderBy changed, nothing else did.
+    // "Sort action" = orderBy was set (not cleared by logo click).
     const orderByChanged = prev.orderBy !== searchParams.orderBy;
     const isSortAction = orderByChanged && searchParams.orderBy != null;
     const nonSortChanged = Object.keys({ ...prev, ...searchParams }).some(
@@ -626,23 +637,15 @@ export function ImageTable() {
     );
     const sortOnly = isSortAction && !nonSortChanged;
 
-    // If only display-only keys changed, don't reset scroll at all
-    const onlyDisplayKeysChanged = Object.keys({ ...prev, ...searchParams }).every(
-      (key) =>
-        URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) ||
-        prev[key as keyof typeof prev] === searchParams[key as keyof typeof searchParams]
-    );
-    if (onlyDisplayKeysChanged) return;
-
+    el.scrollTop = 0;
     if (!sortOnly) {
-      el.scrollTop = 0;
       el.scrollLeft = 0;
-      // Also tell the virtualizer — programmatic scrollTop changes on
-      // hidden (opacity-0) containers may not fire a scroll event, leaving
-      // the virtualizer rendering stale rows. scrollToOffset(0) directly
-      // updates the virtualizer's internal scroll state.
-      virtualizer.scrollToOffset(0);
     }
+    // Also tell the virtualizer — programmatic scrollTop changes on
+    // hidden (opacity-0) containers may not fire a scroll event, leaving
+    // the virtualizer rendering stale rows. scrollToOffset(0) directly
+    // updates the virtualizer's internal scroll state.
+    virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer]);
 
   // Set focus when returning from image detail.
@@ -716,9 +719,20 @@ export function ImageTable() {
         ? findImageIndexRef.current(currentId)
         : -1;
 
-      // If no focus yet, start from top (down) or bottom (up)
+      // If no focus yet, start from the current viewport position.
+      // Arrow down: start just above the first visible row (so +1 → first row).
+      // Arrow up: start just below the last visible row (so -1 → last visible).
+      // This prevents "arrow up with no focus" from teleporting to the absolute
+      // bottom of a 25k-row table — it stays in the viewport instead.
       if (currentIdx < 0) {
-        currentIdx = delta > 0 ? -1 : count;
+        const vItems = virtualizer.getVirtualItems();
+        if (vItems.length > 0) {
+          currentIdx = delta > 0
+            ? vItems[0].index - 1
+            : vItems[vItems.length - 1].index + 1;
+        } else {
+          currentIdx = delta > 0 ? -1 : count;
+        }
       }
 
       // Move by delta, clamped to valid range.

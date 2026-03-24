@@ -163,6 +163,30 @@ Text-analysed fields (`by`, `city`, `copyright`, `country`, `description`,
 A better approach (e.g. keyword sub-fields or completion suggesters added
 to the ES mapping) will be explored later.
 
+### 14. Sort scrolls to top (violates "Never Lost" principle)
+
+Sorting resets scroll position to the top of the table, matching every
+major data table (Gmail, Sheets, Finder, Explorer) but deviating from
+kupua's own "Never Lost" principle (`frontend-philosophy.md`).
+
+Horizontal scroll (`scrollLeft`) is preserved on sort-only changes —
+the user may have scrolled right to reach the column header they clicked.
+
+**Why:** `search()` returns only the first page (~50 rows at offset 0).
+Preserving scroll position at row N while only rows 0–49 have data causes
+an infinite gap-detection → loadRange → placeholder pulsing loop
+(performance-analysis.md finding #11).
+
+**Sort-around-focus: attempted and reverted.** We built ~340 lines across
+6 files to find the focused image's new position via ES `_count` and scroll
+there. Hit three walls: (1) `max_result_window` caps `from/size` at 100k —
+most unfiltered sorts land well beyond; (2) equal sort values — `_count`
+returns position of the *value* not the *image*; (3) growing complexity for
+diminishing returns. See performance-analysis.md finding #11 for full analysis.
+
+**Real fix:** `search_after` + windowed scroll (scrubber). With cursor-based
+pagination there's no depth cap. Until then, scroll-to-top is correct.
+
 ---
 
 ## From library defaults / conventions
