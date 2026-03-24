@@ -78,16 +78,16 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "S3Bucket": {
             "Ref": "DistributionBucketName",
           },
-          "S3Key": "media-service/TEST/image-embedder-lambda/image-embedder.zip",
+          "S3Key": "media-service/TEST/image-embedder-backfill-lambda/image-embedder.zip",
         },
         "Environment": {
           "Variables": {
-            "APP": "image-embedder-lambda",
+            "APP": "image-embedder-backfill-lambda",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
         },
-        "FunctionName": "image-embedder-TEST",
+        "FunctionName": "image-embedder-backfill-TEST",
         "Handler": "backfiller.handler",
         "LoggingConfig": {
           "LogFormat": "JSON",
@@ -103,7 +103,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Tags": [
           {
             "Key": "App",
-            "Value": "image-embedder-lambda",
+            "Value": "image-embedder-backfill-lambda",
           },
           {
             "Key": "gu:cdk:version",
@@ -134,7 +134,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Tags": [
           {
             "Key": "App",
-            "Value": "image-embedder-lambda",
+            "Value": "image-embedder-backfill-lambda",
           },
           {
             "Key": "gu:cdk:version",
@@ -217,7 +217,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Tags": [
           {
             "Key": "App",
-            "Value": "image-embedder-lambda",
+            "Value": "image-embedder-backfill-lambda",
           },
           {
             "Key": "gu:cdk:version",
@@ -278,7 +278,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                       {
                         "Ref": "DistributionBucketName",
                       },
-                      "/media-service/TEST/image-embedder-lambda/image-embedder.zip",
+                      "/media-service/TEST/image-embedder-backfill-lambda/image-embedder.zip",
                     ],
                   ],
                 },
@@ -299,7 +299,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/TEST/media-service/image-embedder-lambda",
+                    ":parameter/TEST/media-service/image-embedder-backfill-lambda",
                   ],
                 ],
               },
@@ -322,7 +322,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/TEST/media-service/image-embedder-lambda/*",
+                    ":parameter/TEST/media-service/image-embedder-backfill-lambda/*",
                   ],
                 ],
               },

@@ -92,11 +92,11 @@ export class ImageEmbedder extends GuStack {
       'ImageEmbedderBackfiller',
       {
         fileName: `${appName}.zip`,
-        functionName: `${appName}-${props.stage}`,
+        functionName: `${appName}-backfill-${props.stage}`,
         runtime: LAMBDA_NODE_VERSION,
         architecture: Architecture.ARM_64,
         handler: 'backfiller.handler',
-        app: `${appName}-lambda`,
+        app: `${appName}-backfill-lambda`,
         environment: {
           STAGE: props.stage,
         },
