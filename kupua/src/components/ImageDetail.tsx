@@ -378,10 +378,11 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
               alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
               className={
                 isFullscreen
-                  ? "w-full h-full object-contain"
-                  : "max-w-full max-h-full object-contain"
+                  ? "w-full h-full object-contain select-none"
+                  : "max-w-full max-h-full object-contain select-none"
               }
               draggable={false}
+              onDoubleClick={isFullscreen ? toggleFullscreen : closeDetail}
               onError={(e) => {
                 // imgproxy failed — try thumbnail as fallback
                 const target = e.target as HTMLImageElement;
