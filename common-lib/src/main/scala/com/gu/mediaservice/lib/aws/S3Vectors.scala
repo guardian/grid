@@ -132,7 +132,7 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       case Some(vector) if vectors.size == 1  =>
         logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
         vector
-      case None if vectors.size > 1 =>
+      case _ if vectors.size > 1 =>
         logger.info(logMarker, s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
         throw new NoSuchElementException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
       case _ =>
