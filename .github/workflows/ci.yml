@@ -118,8 +118,10 @@ jobs:
 
             image-counter-lambda:
               - image-counter-lambda/dist/image-counter-lambda.zip
-            
+
             cdk.out:
               - cdk/cdk.out
             image-embedder-lambda:
+              - image-embedder.zip
+            image-embedder-backfill-lambda:
               - image-embedder.zip
