@@ -319,7 +319,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: $stateParams.query,
+      query: ctrl.filter.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
@@ -387,6 +387,8 @@ query.controller('SearchQueryCtrl', [
     Object.keys($stateParams).
         // Exclude date-related filters, managed separately in dateFilter
         filter(key => dateFilterParams.indexOf(key) === -1).
+        // Exclude useAISearch, managed separately by its own dedicated watcher
+        filter(key => key !== 'useAISearch').
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -456,7 +458,7 @@ query.controller('SearchQueryCtrl', [
           useAISearch: true
         });
       } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
+          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
       }
     });
 
