@@ -378,39 +378,46 @@ print('')
     export VITE_IMGPROXY_ENABLED="true"
     export VITE_IMAGE_BUCKET="$IMAGE_BUCKET"
 
-    # Generate a minimal AWS config file declaring the media-service profile.
-    # Janus writes credentials to ~/.aws/credentials under [media-service],
-    # but the Go AWS SDK (used by imgproxy) also needs a matching
-    # [profile media-service] entry in the config file to resolve the
-    # profile.  This file contains NO secrets — just the profile name
-    # and region.  The actual credentials are volume-mounted separately.
-    cat > /tmp/kupua-aws-config <<EOF
-[profile media-service]
-region = eu-west-1
-EOF
+    AWS_CREDS_FILE="${HOME}/.aws/credentials"
+    IMGPROXY_ENV_FILE="${HOME}/.kupua-imgproxy.env"
 
-    cd "$KUPUA_DIR"
-    # Always restart the imgproxy container so it picks up fresh AWS
-    # credentials.  The credentials file is bind-mounted (live view of
-    # the host), but the Go AWS SDK caches tokens in memory after first
-    # load — so a long-running container uses stale/expired session
-    # tokens even though Janus has rotated them on disk.
-    # Restart is cheap (~2s) and guarantees fresh tokens every session.
-    if docker ps -q --filter "name=kupua-imgproxy" | grep -q .; then
-      docker restart kupua-imgproxy > /dev/null 2>&1
-    fi
-    if ! docker compose --profile imgproxy up -d imgproxy 2>&1; then
-      echo -e "${red}      docker compose failed — trying fresh recreate...${plain}"
-      docker compose --profile imgproxy down 2>/dev/null || true
-      docker compose --profile imgproxy up -d imgproxy 2>&1
-    fi
+    # Write env file — mode 600 so only this user can read it
+    umask 177
+    awk -v region="${AWS_REGION:-eu-west-1}" '
+      /\[media-service\]/ { f=1; next }
+      f && /^\[/          { f=0 }
+      f && /aws_access_key_id/     { print "AWS_ACCESS_KEY_ID=" $3 }
+      f && /aws_secret_access_key/ { print "AWS_SECRET_ACCESS_KEY=" $3 }
+      f && /aws_session_token/     { print "AWS_SESSION_TOKEN=" $3 }
+      END                          { print "AWS_DEFAULT_REGION=" region }
+    ' "$AWS_CREDS_FILE" > "$IMGPROXY_ENV_FILE"
+    umask 022
 
-    # Wait briefly and check it's running
-    sleep 2
-    if curl -sf "http://127.0.0.1:3002/health" > /dev/null 2>&1; then
-      echo -e "${green}      imgproxy started ✓${plain}"
+    # Verify we actually got a key (file will be empty / missing key if
+    # the profile doesn't exist or credentials are absent)
+    if ! grep -q "^AWS_ACCESS_KEY_ID=." "$IMGPROXY_ENV_FILE" 2>/dev/null; then
+      echo -e "${red}      Could not read media-service credentials from ${AWS_CREDS_FILE}.${plain}"
+      echo -e "${red}      imgproxy will not start.${plain}"
+      rm -f "$IMGPROXY_ENV_FILE"
+      export VITE_IMGPROXY_ENABLED="false"
     else
-      echo -e "${red}      imgproxy may not be ready yet (will retry on first request)${plain}"
+      cd "$KUPUA_DIR"
+      # Always remove and recreate the imgproxy container so it picks up
+      # fresh credentials and any updated config from docker-compose.yml.
+      # docker rm -f handles both running and exited containers, avoiding
+      # the "container name already in use" conflict on repeated runs.
+      docker rm -f kupua-imgproxy > /dev/null 2>&1 || true
+      docker compose --profile imgproxy up -d imgproxy 2>&1
+      # Delete the env file immediately — credentials no longer needed on disk
+      rm -f "$IMGPROXY_ENV_FILE"
+
+      # Wait briefly and check it's running
+      sleep 2
+      if curl -sf "http://127.0.0.1:3002/health" > /dev/null 2>&1; then
+        echo -e "${green}      imgproxy started ✓${plain}"
+      else
+        echo -e "${red}      imgproxy may not be ready yet (will retry on first request)${plain}"
+      fi
     fi
   else
     echo -e "${yellow}[5/6] Skipping imgproxy (image bucket not discovered)${plain}"
