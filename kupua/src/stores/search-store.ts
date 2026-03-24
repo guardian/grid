@@ -38,6 +38,12 @@ interface SearchState {
   loading: boolean;
   error: string | null;
 
+  // O(1) image ID → index lookup, maintained incrementally.
+  // Updated in search() (full rebuild from first page), loadMore() (append new),
+  // and loadRange() (insert new). Consumers never rebuild this — they subscribe
+  // to it via useSearchStore(s => s.imagePositions).
+  imagePositions: Map<string, number>;
+
   // Focus — the "current" row, distinct from selection (which comes later).
   // Set by clicking a row or returning from image detail. Cleared on new search.
   focusedImageId: string | null;
@@ -105,6 +111,25 @@ function stopNewImagesPoll() {
   }
 }
 
+/**
+ * Build an imagePositions Map from a hits array starting at `offset`.
+ * Used for full rebuilds (search) and incremental updates (loadMore, loadRange).
+ */
+function buildPositions(
+  hits: Image[],
+  offset: number,
+  existing?: Map<string, number>,
+): Map<string, number> {
+  const map = existing ? new Map(existing) : new Map<string, number>();
+  for (let i = 0; i < hits.length; i++) {
+    const img = hits[i];
+    if (img?.id) {
+      map.set(img.id, offset + i);
+    }
+  }
+  return map;
+}
+
 export const useSearchStore = create<SearchState>((set, get) => ({
   dataSource: new ElasticsearchDataSource(),
 
@@ -119,6 +144,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   total: 0,
   loading: false,
   error: null,
+
+  imagePositions: new Map(),
 
   focusedImageId: null,
 
@@ -148,6 +175,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         total: result.total,
         loading: false,
         params: { ...params, offset: 0 },
+        imagePositions: buildPositions(result.hits, 0),
         focusedImageId: null, // clear focus on new search
         newCount: 0,
         newCountSince: now,
@@ -201,6 +229,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           results: [...state.results, ...result.hits],
           total: result.total,
           params: { ...state.params, offset: nextOffset },
+          imagePositions: buildPositions(result.hits, nextOffset, state.imagePositions),
         };
       });
     } catch (e) {
@@ -252,10 +281,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const newInflight = new Set(state._inflight);
         newInflight.delete(key);
 
+        // Incrementally extend imagePositions — O(page size) not O(total loaded)
+        const newPositions = buildPositions(result.hits, start, state.imagePositions);
+
         return {
           results: newResults,
           total: result.total,
           _inflight: newInflight,
+          imagePositions: newPositions,
         };
       });
     } catch (e) {

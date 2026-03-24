@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { useUrlSearchSync, useUpdateSearchParams, resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
@@ -119,16 +119,24 @@ export function SearchBar() {
         title="Grid — clear all filters"
         className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={() => {
+          // Force useUrlSearchSync to re-search even if params haven't
+          // changed (e.g. already at ?nonFree=true). Without this, clicking
+          // the logo when already at the default state would be a no-op.
+          resetSearchSync();
+
           // Always reset scroll position — even when params don't change
           // (e.g. already at default state). The scroll-reset effect in
           // ImageTable only fires on param changes, so we handle this case
-          // directly via DOM.
+          // directly via DOM. Dispatch a scroll event so the virtualizer
+          // picks up the new position (programmatic scrollTop changes on
+          // hidden containers may not fire a native scroll event).
           const scrollContainer = document.querySelector<HTMLElement>(
             '[role="region"][aria-label="Image results table"]'
           );
           if (scrollContainer) {
             scrollContainer.scrollTop = 0;
             scrollContainer.scrollLeft = 0;
+            scrollContainer.dispatchEvent(new Event("scroll"));
           }
 
           // Focus the CQL search input after the navigation completes

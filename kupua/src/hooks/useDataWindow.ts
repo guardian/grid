@@ -28,7 +28,7 @@
  *   loadRange(), dataSource, newCount/ticker, frozenUntil.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 
@@ -98,6 +98,10 @@ export function useDataWindow(): DataWindow {
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
   const setFocusedImageId = useSearchStore((s) => s.setFocusedImageId);
 
+  // imagePositions is now maintained incrementally in the store.
+  // O(page size) per loadRange/loadMore, not O(total loaded).
+  const imagePositions = useSearchStore((s) => s.imagePositions);
+
   // The number of rows the virtualizer should create.
   // When results haven't arrived yet (empty array), use 0 — don't pre-size
   // to 100k placeholders before we have any data (causes a flash of empty table).
@@ -166,22 +170,10 @@ export function useDataWindow(): DataWindow {
   );
 
   // --- O(1) image ID → index lookup ---
-  // Build a Map<imageId, index> from the results array. This avoids the
-  // O(n) linear scan that caused 7-second stalls when the sparse array
-  // had 100k entries. Only iterates defined entries (using for...in which
-  // skips sparse array holes), so it's O(loaded) not O(array.length).
-  const imagePositions = useMemo(() => {
-    const map = new Map<string, number>();
-    // for...in on an array iterates only defined indices (skips holes)
-    for (const key in results) {
-      const idx = Number(key);
-      const img = results[idx];
-      if (img?.id) {
-        map.set(img.id, idx);
-      }
-    }
-    return map;
-  }, [results]);
+  // imagePositions is maintained incrementally in the store (see search-store.ts).
+  // Each loadRange/loadMore only inserts O(page size) entries into the Map,
+  // instead of the old approach which rebuilt the entire Map from scratch
+  // (O(total loaded)) on every results change.
 
   const getImage = useCallback(
     (index: number): Image | undefined => {

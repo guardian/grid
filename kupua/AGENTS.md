@@ -120,6 +120,13 @@ Documents intentional differences from Grid/kahuna behaviour and places
 where library conventions were bent.  Update it when a new deviation is
 introduced.
 
+📄 **Performance analysis:** `kupua/exploration/docs/performance-analysis.md`
+
+Thorough review of scrolling and image traversal performance. 10 findings
+ranked by severity, with status tracking. Covers: `imagePositions` Map
+rebuild (fixed), `visibleImages` recompute, scroll listener churn,
+`computeFitWidth` scaling, prefetch redundancy, memory growth concerns.
+
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
 **Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against ~9M images. Still read-only, no auth, no Grid API. Phase 1 (local sample data) is complete.
@@ -160,9 +167,9 @@ introduced.
 - ✅ Vite env types declared in `src/vite-env.d.ts`
 
 **State management:**
-- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`. `loadMore` uses a functional updater with offset guard to prevent duplicate rows on rapid scroll. New-images ticker respects user's date filter (uses whichever `since` is later).
+- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`, `loadRange()`, incremental `imagePositions` Map. `loadMore` uses a functional updater with offset guard to prevent duplicate rows on rapid scroll. `imagePositions` is maintained incrementally — O(page size) per load, not O(total loaded). New-images ticker respects user's date filter (uses whichever `since` is later).
 - ✅ `column-store.ts` — Zustand + localStorage persist for column visibility, widths, and session-only pre-double-click widths
-- ✅ URL is single source of truth — `useUrlSearchSync` hook syncs URL → Zustand → search; `useUpdateSearchParams` hook lets components update URL. Browser back/forward works.
+- ✅ URL is single source of truth — `useUrlSearchSync` hook syncs URL → Zustand → search; `useUpdateSearchParams` hook lets components update URL. Browser back/forward works. `resetSearchSync()` busts the dedup for logo clicks that need to force a fresh search even when params appear unchanged.
 - ✅ Custom URL serialisation in `router.ts` — uses `URLSearchParams` directly (not TanStack Router's `parseSearchWith`/`qss`), keeping all values as plain strings. Colons kept human-readable. See deviations.md §1 for rationale.
 
 **CQL search:**
@@ -208,7 +215,7 @@ introduced.
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
 - ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
 - ✅ Response time (`took` ms) — right-aligned in results bar
-- ✅ Logo click navigates to `/search?nonFree=true` (resets all state), resets scroll position, and focuses the search box
+- ✅ Logo click navigates to `/search?nonFree=true` (resets all state), resets scroll position, focuses the search box, and forces a fresh search via `resetSearchSync()`. Works identically from both SearchBar and ImageDetail.
 - ✅ Sort dropdown — custom button + popup menu (not native `<select>`) matching column context menu styling. SVG chevron flips when open. Current selection shown with ✓. Closes on outside click or Escape.
 - ✅ Sort direction toggle (↑/↓ button) — adjacent to sort dropdown
 - ✅ "Free to use only" checkbox (`nonFree` URL param)
@@ -238,10 +245,14 @@ introduced.
 - ✅ Two-phase keyboard handling: arrows/page/enter use bubble phase (propagated from CQL input's `keysToPropagate`); Home/End use capture phase on `document` to intercept before the CQL editor's shadow DOM can consume them.
 - ✅ `f` toggles fullscreen in image detail view (skipped when editable field is focused). `Escape` only exits fullscreen (never navigates or closes image detail).
 - ✅ Arrow Down at edge of loaded results triggers loadMore — seamless infinite navigation via keyboard.
-- ✅ O(1) image lookup — `useDataWindow` maintains a `Map<imageId, index>` (`imagePositions`) built via `for...in` (skips sparse array holes, O(loaded) not O(array.length)). Replaced `Array.findIndex()` linear scan that caused 7-second stalls at the bottom of 100k-entry sparse arrays.
+- ✅ O(1) image lookup — `imagePositions: Map<imageId, index>` maintained incrementally in the search store. `search()` rebuilds from the first page; `loadMore()` and `loadRange()` extend the existing Map with only the new hits — O(page size) per update, not O(total loaded). Previously was a `useMemo` full-rebuild in `useDataWindow` that rescanned all loaded entries on every `results` change. At 50k loaded images, the old approach cost measurable ms per range load during scroll; the incremental approach is bounded to ~200 entries regardless of depth.
 - ✅ Bounded placeholder skipping — `moveFocus()` skips at most 10 empty slots in the movement direction (was unbounded, scanning up to 100k holes). If no loaded row within 10, focuses the target index anyway — gap detection will load it. `End` key scan also capped to 50 indices from the end.
 - ✅ Prefetch near edge — ImageDetail and ImageTable's `moveFocus` trigger loadMore when within 5 images of the loaded edge.
 - ✅ Visible-window table data — TanStack Table only receives images in the current virtualizer window (~60 rows) instead of all loaded images. Virtualizer is created before the table; `getVirtualItems()` determines which images to feed. Fixes `getCoreRowModel` growing unboundedly as more ranges loaded.
+
+**Performance analysis:**
+- ✅ Thorough performance review of scrolling & image traversal — 10 findings documented in `exploration/docs/performance-analysis.md`. Key fix: incremental `imagePositions` Map (finding #1). Logo-from-image-detail bug found and fixed (dedup bypass + virtualizer scroll reset).
+- ✅ Imgproxy latency benchmark (`exploration/bench-imgproxy.mjs`) — 70 real images, sequential + batch + 60fps simulation. Result: imgproxy is **the** bottleneck for traversal (~456ms median per image, 0/70 on-time at 60fps). Prefetching is the correct mitigation; throughput improvements need server-side caching or thumbnail-first progressive loading.
 
 ### What's Next (Phase 2 remaining)
 - [ ] **ImageTable refactor — extract `useListNavigation`.** Sparse scroll refactor complete: `useDataWindow.ts` hook extracted, sparse scroll with gap detection and `loadRange`, visible-window table data, placeholder skeletons, keyboard nav skipping placeholders, O(1) image lookup, `computeFitWidth` skips sparse holes, `ColumnContextMenu.tsx` extracted. Next: extract `useListNavigation.ts` (abstract keyboard nav parameterised by geometry: table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`).
@@ -322,11 +333,11 @@ introduced.
 
 7. **Column config in localStorage** (not URL) — visibility and widths are persisted per-client via `useColumnStore` with zustand/persist. Key: `kupua-column-config`. Column IDs use TanStack Table's format (dots→underscores). The store also holds session-only `preDoubleClickWidths` (excluded from localStorage persistence via `partialize`) for the double-click fit/restore toggle. Order and sorting will be added when needed.
 
-8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 implements sparse scroll: virtualizer count = `min(total, 100k)`, TanStack Table only processes loaded rows in the visible window (~60 rows), placeholder skeletons for unloaded slots, gap detection + `loadRange` for on-demand fetching. Spike confirmed that feeding TanStack Table 100k placeholder rows was unacceptable (42ms `getCoreRowModel` rebuild + 85MB heap). The implemented approach uses a sparse `results` array with `for...in` iteration (skips holes), `imagePositions: Map<imageId, index>` for O(1) lookup, and result set freezing (`frozenUntil` timestamp) to stabilise offsets during scrolling. Beyond ~1M rows, custom scrubber + `search_after` with PIT will be needed. Kahuna analysis in `kahuna-scroll-analysis.md`. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes".
+8. **Scrollbar strategy** — Phase 1 uses simple infinite scroll (append pages) with the native scrollbar — sufficient for 10k docs. Phase 2 implements sparse scroll: virtualizer count = `min(total, 100k)`, TanStack Table only processes loaded rows in the visible window (~60 rows), placeholder skeletons for unloaded slots, gap detection + `loadRange` for on-demand fetching. Spike confirmed that feeding TanStack Table 100k placeholder rows was unacceptable (42ms `getCoreRowModel` rebuild + 85MB heap). The implemented approach uses a sparse `results` array with `for...in` iteration (skips holes), `imagePositions: Map<imageId, index>` maintained incrementally in the search store (O(page size) per load, not O(total loaded)), and result set freezing (`frozenUntil` timestamp) to stabilise offsets during scrolling. Beyond ~1M rows, custom scrubber + `search_after` with PIT will be needed. Kahuna analysis in `kahuna-scroll-analysis.md`. Full design notes in `kupua/exploration/docs/migration-plan.md` → "Scrollbar & Infinite Scroll — Design Notes".
 
 9. **Local dev domain** — currently `localhost:3000`. Future: add `kupua.media.local.dev-gutools.co.uk` to `dev/nginx-mappings.yml` pointing to port 3000. Trivial change when needed.
 
-10. **URL is single source of truth for search state** — user interactions update the URL via `useUpdateSearchParams`, which triggers `useUrlSearchSync` to push params to the Zustand store and fire a search. When clearing params (e.g. clearing the search box), all URL-managed keys are explicitly reset to `undefined` before applying URL values, so removed params don't survive in the store via spread.
+10. **URL is single source of truth for search state** — user interactions update the URL via `useUpdateSearchParams`, which triggers `useUrlSearchSync` to push params to the Zustand store and fire a search. When clearing params (e.g. clearing the search box), all URL-managed keys are explicitly reset to `undefined` before applying URL values, so removed params don't survive in the store via spread. `resetSearchSync()` clears the dedup state so a "reset everything" action (logo click) always triggers a fresh search, even when the URL params haven't actually changed (e.g. logo clicked while already at `?nonFree=true`).
 
 11. **Sort system** — `orderBy` URL param supports comma-separated values for multi-sort (e.g. `-uploadTime,-metadata.credit`). The ES adapter's `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`). Column headers, sort dropdown, and URL all use the same sort keys. Secondary sort is managed via shift-click.
 
@@ -387,6 +398,7 @@ kupua/
       frontend-philosophy.md   # UX/UI philosophy: density continuum, interaction patterns, comparisons
       kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
+      performance-analysis.md  # Scrolling & traversal performance: 10 findings, status tracking, memory concerns
       safeguards.md            # Elasticsearch + S3 safety documentation
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
       imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy

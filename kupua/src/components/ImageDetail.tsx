@@ -37,6 +37,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
+import { resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { format } from "date-fns";
 import type { Image } from "@/types/image";
 
@@ -291,14 +292,28 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
               title="Grid — clear all filters"
               className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
               onClick={() => {
-                // Reset scroll position on the table underneath
+                // Force useUrlSearchSync to re-search even if params haven't
+                // changed (e.g. was already at ?nonFree=true before opening image).
+                resetSearchSync();
+
+                // Reset scroll position on the table underneath and notify
+                // the virtualizer. Programmatic scrollTop changes on hidden
+                // (opacity-0) containers may not fire a scroll event in all
+                // browsers, so we dispatch one explicitly.
                 const scrollContainer = document.querySelector<HTMLElement>(
                   '[role="region"][aria-label="Image results table"]',
                 );
                 if (scrollContainer) {
                   scrollContainer.scrollTop = 0;
                   scrollContainer.scrollLeft = 0;
+                  scrollContainer.dispatchEvent(new Event("scroll"));
                 }
+
+                // Focus the CQL search input after the navigation completes
+                requestAnimationFrame(() => {
+                  const cqlInput = document.querySelector("cql-input");
+                  if (cqlInput instanceof HTMLElement) cqlInput.focus();
+                });
               }}
             >
               <img

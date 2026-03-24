@@ -637,8 +637,13 @@ export function ImageTable() {
     if (!sortOnly) {
       el.scrollTop = 0;
       el.scrollLeft = 0;
+      // Also tell the virtualizer — programmatic scrollTop changes on
+      // hidden (opacity-0) containers may not fire a scroll event, leaving
+      // the virtualizer rendering stale rows. scrollToOffset(0) directly
+      // updates the virtualizer's internal scroll state.
+      virtualizer.scrollToOffset(0);
     }
-  }, [searchParams]);
+  }, [searchParams, virtualizer]);
 
   // Set focus when returning from image detail.
   // When the `image` URL param disappears (user pressed Back), update

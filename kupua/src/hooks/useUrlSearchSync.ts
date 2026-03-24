@@ -39,11 +39,27 @@ function cleanParams(
  * Place this hook once, in the component that contains the search page
  * (e.g. in SearchBar or at the route component level).
  */
+
+/** Module-level ref for the dedup comparison string. Shared between
+ *  useUrlSearchSync (writes on every sync) and resetSearchSync (clears
+ *  to force a re-search on the next URL change or re-render). */
+let _prevParamsSerialized = "";
+
+/**
+ * Reset the search sync dedup state so the next render cycle of
+ * useUrlSearchSync will treat the current params as "new" and trigger
+ * a fresh search. Call this from logo onClick handlers (both SearchBar
+ * and ImageDetail) to ensure "reset everything" always works, even
+ * when the URL search params haven't actually changed.
+ */
+export function resetSearchSync() {
+  _prevParamsSerialized = "";
+}
+
 export function useUrlSearchSync() {
   const searchParams = useSearch({ from: "/search" });
   const { setParams, search } = useSearchStore();
   const navigate = useNavigate();
-  const prevParamsRef = useRef<string>("");
   const hasAppliedDefaults = useRef(false);
   const unmountedRef = useRef(false);
 
@@ -88,8 +104,8 @@ export function useUrlSearchSync() {
       )
     );
     const serialized = JSON.stringify(searchOnly);
-    if (serialized === prevParamsRef.current) return;
-    prevParamsRef.current = serialized;
+    if (serialized === _prevParamsSerialized) return;
+    _prevParamsSerialized = serialized;
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed
