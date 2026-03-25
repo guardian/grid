@@ -190,7 +190,7 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Vite env types declared in `src/vite-env.d.ts`
 
 **State management:**
-- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`, `loadRange()`, incremental `imagePositions` Map. `loadMore` uses a functional updater with offset guard to prevent duplicate rows on rapid scroll. `imagePositions` is maintained incrementally — O(page size) per load, not O(total loaded). New-images ticker respects user's date filter (uses whichever `since` is later).
+- ✅ `search-store.ts` — Zustand store for search params, results, `loadMore()`, `loadRange()`, incremental `imagePositions` Map. `loadMore` uses a functional updater with offset guard to prevent duplicate rows on rapid scroll. `imagePositions` is maintained incrementally — O(page size) per load, not O(total loaded). New-images ticker respects user's date filter (uses whichever `since` is later). Tracks ES `took` time from primary search and rolling `scrollAvg` from loadRange calls.
 - ✅ `column-store.ts` — Zustand + localStorage persist for column visibility, widths, and session-only pre-double-click widths
 - ✅ URL is single source of truth — `useUrlSearchSync` hook syncs URL → Zustand → search; `useUpdateSearchParams` hook lets components update URL. Browser back/forward works. `resetSearchSync()` busts the dedup for logo clicks that need to force a fresh search even when params appear unchanged.
 - ✅ Custom URL serialisation in `router.ts` — uses `URLSearchParams` directly (not TanStack Router's `parseSearchWith`/`qss`), keeping all values as plain strings. Colons kept human-readable. See deviations.md §1 for rationale.
@@ -234,7 +234,7 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 **Grid view (`ImageGrid.tsx`, ~470 lines):**
 - ✅ Thumbnail grid density — alternative rendering of the same result set. Consumes `useDataWindow()` for data, focus, and gap detection — zero data layer duplication. Grid is the default view (matching Kahuna); table opt-in via URL param `density=table`.
 - ✅ Responsive columns via `ResizeObserver` — `columns = floor(containerWidth / 280)`. Row-based TanStack Virtual (each virtual row renders N cells). Equal-size cells (editorial neutrality — differently-sized images shouldn't influence picture editors).
-- ✅ S3 thumbnails — uses `getThumbnailUrl()` from `image-urls.ts`. Local mode shows "No thumbnail" placeholder (acceptable).
+- ✅ S3 thumbnails — uses `getThumbnailUrl()` from `image-urls.ts`. Local mode shows "No thumbnail" placeholder (acceptable). Unloaded grid cells and table rows use subtle static backgrounds (no `animate-pulse` — avoids visual noise during fast scroll).
 - ✅ Cell layout matches Kahuna — 303px total height, 190px thumbnail area (block layout, top-aligned, horizontally centred via `margin: auto`), metadata below. `max-height: 186px` on image (= Kahuna's `max-height: 98%` of 190px).
 - ✅ Rich tooltips — description tooltip (description + By + Credit with `[none]` fallbacks, colon-aligned) on both thumbnail and description text. Date tooltip (Uploaded + Taken + Modified, colon-aligned) extends Kahuna's two dates to three.
 - ✅ Focus ring + keyboard navigation with grid geometry — ArrowLeft/Right = ±1, ArrowUp/Down = ±columns, Home/End. Enter opens focused image. Same `moveFocus` viewport-aware start as table (no focus → start from visible viewport).
@@ -248,8 +248,8 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Column header row height matches search toolbar (44px / `h-11`)
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
 - ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
-- ✅ Response time (`took` ms) — right-aligned in results bar
-- ✅ Logo click navigates to `/search?nonFree=true` (resets all state), resets scroll position, focuses the search box, and forces a fresh search via `resetSearchSync()`. Works identically from both SearchBar and ImageDetail.
+- ✅ ES timing display — `took` ms from primary search + rolling `scrollAvg` ms from loadRange calls, shown in search toolbar (far right). `SearchResult.took` plumbed from ES response through DAL → search store → SearchBar.
+- ✅ Logo click navigates to `/search?nonFree=true` (resets all state), resets scroll position (both table and grid scroll containers), focuses the search box, and forces a fresh search via `resetSearchSync()`. Works identically from both SearchBar and ImageDetail.
 - ✅ Sort dropdown — custom button + popup menu (not native `<select>`) matching column context menu styling. SVG chevron flips when open. Current selection shown with ✓. Closes on outside click or Escape.
 - ✅ Sort direction toggle (↑/↓ button) — adjacent to sort dropdown
 - ✅ "Free to use only" checkbox (`nonFree` URL param)
@@ -288,6 +288,7 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 **Performance analysis:**
 - ✅ Thorough performance review of scrolling & image traversal — 11 findings documented in `exploration/docs/performance-analysis.md`. Key fixes: incremental `imagePositions` Map (finding #1), sort-while-scrolled pulsing loop (finding #11). Logo-from-image-detail bug found and fixed (dedup bypass + virtualizer scroll reset).
 - ✅ Imgproxy latency benchmark (`exploration/bench-imgproxy.mjs`) — 70 real images, sequential + batch + 60fps simulation. Result: imgproxy is **the** bottleneck for traversal (~456ms median per image, 0/70 on-time at 60fps). Prefetching is the correct mitigation; throughput improvements need server-side caching or thumbnail-first progressive loading.
+- ⏪ **List scroll smoothness — tried and reverted (2025-03-25).** Goal: make table view feel as smooth as grid during moderate scroll (grid already feels like it never loads). Tried three changes together: (1) page size 50→100, (2) debounce→leading+trailing throttle for gap detection, (3) `LOAD_OVERSCAN` 50→100 rows. **Result: no perceptible improvement in table view.** Also introduced a regression — hover background colour "swimming above" rows during fast scroll (likely from throttle firing more frequently and causing intermediate renders). All three reverted. The bottleneck may be elsewhere (React reconciliation of TanStack Table row model, or the `!row` placeholder flash). Needs more investigation — possibly profiling the render pipeline rather than tuning fetch timing.
 
 ### What's Next (Phase 2 remaining)
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
@@ -486,7 +487,7 @@ kupua/
     types/
       image.ts                 # Image document types from ES mapping
     hooks/
-      useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Manages sparse scroll: gap detection, visible range → loadRange, result set freezing, O(1) image position lookup (216 lines).
+      useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Manages sparse scroll: debounced gap detection, visible range → loadRange, result set freezing, O(1) image position lookup (206 lines).
       useListNavigation.ts   # Shared keyboard navigation hook — moveFocus, pageFocus, home, end. Parameterised by geometry (columnsPerRow, flatIndexToRow). Used by ImageTable and ImageGrid (327 lines).
       useUrlSearchSync.ts      # URL↔store sync: useUrlSearchSync (URL→store→search) + useUpdateSearchParams (component→URL)
       useFullscreen.ts         # Fullscreen API wrapper — toggle/enter/exit fullscreen on a stable DOM element

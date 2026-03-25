@@ -99,7 +99,7 @@ const GridCell = memo(function GridCell({
     // Placeholder skeleton
     return (
       <div
-        className="shrink-0 bg-grid-panel/50 rounded animate-pulse"
+        className="shrink-0 bg-grid-panel/30 rounded"
         style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
       />
     );

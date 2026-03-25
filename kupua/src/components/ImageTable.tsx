@@ -295,7 +295,7 @@ const TableBody = memo(function TableBody({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="animate-pulse bg-grid-separator/20 h-3 mx-4 rounded flex-1 max-w-xs" />
+              <div className="bg-grid-separator/10 h-3 mx-4 rounded flex-1 max-w-xs" />
             </div>
           );
         }
@@ -305,19 +305,25 @@ const TableBody = memo(function TableBody({
         if (!row) {
           // Image loaded but not yet in TanStack Table's row model
           // (can happen briefly during the render between store update
-          // and Table re-render). Show placeholder.
+          // and Table re-render). Show a lightweight preview using the
+          // image's description so the row doesn't flash as a skeleton.
+          const preview =
+            image.metadata.description ??
+            image.metadata.title ??
+            image.metadata.byline ??
+            image.id;
           return (
             <div
               key={`pending-${virtualRow.index}`}
               role="row"
               aria-rowindex={virtualRow.index + 2}
-              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 px-2 text-sm text-grid-text-dim truncate"
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="animate-pulse bg-grid-separator/20 h-3 mx-4 rounded flex-1 max-w-xs" />
+              {preview}
             </div>
           );
         }

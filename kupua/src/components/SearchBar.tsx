@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams, resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
+import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
 
@@ -50,6 +51,8 @@ export function getCqlInputGeneration() {
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
+  const took = useSearchStore((s) => s.took);
+  const scrollAvg = useSearchStore((s) => s.scrollAvg);
   // Track whether the CQL editor has content (for showing the clear button)
   const [hasEditorContent, setHasEditorContent] = useState(
     !!(searchParams.query)
@@ -131,7 +134,7 @@ export function SearchBar() {
           // picks up the new position (programmatic scrollTop changes on
           // hidden containers may not fire a native scroll event).
           const scrollContainer = document.querySelector<HTMLElement>(
-            '[role="region"][aria-label="Image results table"]'
+            '[role="region"][aria-label="Image results table"], [role="region"][aria-label="Image results grid"]'
           );
           if (scrollContainer) {
             scrollContainer.scrollTop = 0;
@@ -195,6 +198,16 @@ export function SearchBar() {
 
       {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
       <SearchFilters.Sort />
+
+      {/* ES timing — far right. Always rendered to avoid layout shift. */}
+      <span className="text-xs text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
+        {took != null ? (
+          <>
+            {took}ms
+            {scrollAvg != null && ` / ${scrollAvg}ms`}
+          </>
+        ) : null}
+      </span>
     </header>
   );
 }

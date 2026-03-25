@@ -38,6 +38,12 @@ interface SearchState {
   loading: boolean;
   error: string | null;
 
+  /** ES query time in ms from the most recent primary search (not loadMore/loadRange). */
+  took: number | null;
+
+  /** Rolling average of recent loadRange ES times (ms). Updated every few loads. */
+  scrollAvg: number | null;
+
   // O(1) image ID → index lookup, maintained incrementally.
   // Updated in search() (full rebuild from first page), loadMore() (append new),
   // and loadRange() (insert new). Consumers never rebuild this — they subscribe
@@ -73,6 +79,10 @@ interface SearchState {
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
 /** Module-level flag to prevent concurrent loadMore without triggering re-renders */
 let _loadMoreInFlight = false;
+
+/** Rolling window of recent loadRange ES took values for computing scrollAvg. */
+const _scrollTookWindow: number[] = [];
+const SCROLL_TOOK_WINDOW_SIZE = 10;
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
@@ -144,6 +154,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   total: 0,
   loading: false,
   error: null,
+  took: null,
+  scrollAvg: null,
 
   imagePositions: new Map(),
 
@@ -170,10 +182,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     try {
       const result = await dataSource.search({ ...params, offset: 0 });
       const now = new Date().toISOString();
+      _scrollTookWindow.length = 0;
       set({
         results: result.hits,
         total: result.total,
         loading: false,
+        took: result.took ?? null,
+        scrollAvg: null,
         params: { ...params, offset: 0 },
         imagePositions: buildPositions(result.hits, 0),
         focusedImageId: null, // clear focus on new search
@@ -263,6 +278,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ...(frozenUntil ? { until: frozenUntil } : {}),
       });
 
+      if (result.took != null) {
+        _scrollTookWindow.push(result.took);
+        if (_scrollTookWindow.length > SCROLL_TOOK_WINDOW_SIZE) _scrollTookWindow.shift();
+      }
+
       set((state) => {
         // Extend the results array if needed — fill gaps with undefined
         // (useDataWindow will treat undefined slots as unloaded)
@@ -284,11 +304,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // Incrementally extend imagePositions — O(page size) not O(total loaded)
         const newPositions = buildPositions(result.hits, start, state.imagePositions);
 
+        // Update scrollAvg only when the rounded value changes
+        const avg = _scrollTookWindow.length > 0
+          ? Math.round(_scrollTookWindow.reduce((a, b) => a + b, 0) / _scrollTookWindow.length)
+          : null;
+        const avgChanged = avg !== state.scrollAvg;
+
         return {
           results: newResults,
           total: result.total,
           _inflight: newInflight,
           imagePositions: newPositions,
+          ...(avgChanged ? { scrollAvg: avg } : {}),
         };
       });
     } catch (e) {
