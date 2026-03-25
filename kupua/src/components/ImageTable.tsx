@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
@@ -17,6 +18,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
@@ -25,6 +27,7 @@ import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
 import {
   FIELD_REGISTRY,
   COLUMN_CQL_KEYS,
@@ -678,6 +681,47 @@ export function ImageTable() {
       }
     }
   }, [searchParams.image, findImageIndex, virtualizer, setFocusedImageId]);
+
+  // ---------------------------------------------------------------------------
+  // Preserve focused item's viewport position across density switches.
+  //
+  // Mount: scroll so the focused row appears at the same relative viewport
+  // position it occupied in the previous density. Falls back to center.
+  //
+  // Unmount: save the focused row's viewport ratio for the next density.
+  // ---------------------------------------------------------------------------
+
+  useLayoutEffect(() => {
+    const id = focusedImageId;
+    if (!id) return;
+
+    const idx = findImageIndex(id);
+    if (idx < 0) return;
+
+    const ratio = consumeFocusRatio();
+    if (ratio != null) {
+      const el = parentRef.current;
+      if (el) {
+        const rowTop = idx * ROW_HEIGHT;
+        const targetScroll = rowTop - ratio * el.clientHeight;
+        const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
+        virtualizer.scrollToOffset(clamped);
+      }
+    } else {
+      virtualizer.scrollToIndex(idx, { align: "center" });
+    }
+
+    return () => {
+      const el = parentRef.current;
+      if (!el) return;
+      const { focusedImageId: fid, imagePositions } = useSearchStore.getState();
+      if (!fid) return;
+      const fIdx = imagePositions.get(fid) ?? -1;
+      if (fIdx < 0) return;
+      saveFocusRatio((fIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: scroll to persisted focus on density switch
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Keyboard navigation — focus-based (replaces pure viewport scrolling)

@@ -6,9 +6,13 @@
  * and user interactions (typing, selecting filters) update the URL.
  *
  * When `image` is present in the URL, the image detail overlay is shown
- * on top of the search results. The table stays mounted (hidden) so scroll
- * position, virtualizer state, and search context are all preserved.
- * Browser back removes `image` and the table is exactly where you left it.
+ * on top of the search results. The list view (table or grid) stays mounted
+ * (hidden) so scroll position, virtualizer state, and search context are
+ * all preserved. Browser back removes `image` and the view is exactly
+ * where you left it.
+ *
+ * The `density` param switches between grid (default) and table views. Both share
+ * the same data layer (`useDataWindow`), focus, and search context.
  */
 
 import { createRoute } from "@tanstack/react-router";
@@ -18,6 +22,7 @@ import { searchParamsSchema } from "@/lib/search-params-schema";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusBar } from "@/components/StatusBar";
 import { ImageTable } from "@/components/ImageTable";
+import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
 import { useSearch } from "@tanstack/react-router";
 
@@ -29,8 +34,9 @@ export const searchRoute = createRoute({
 });
 
 function SearchPage() {
-  const { image } = useSearch({ from: "/search" });
+  const { image, density } = useSearch({ from: "/search" });
   const showImageDetail = !!image;
+  const isGrid = density !== "table";
 
   return (
     <>
@@ -49,7 +55,7 @@ function SearchPage() {
       >
         <SearchBar />
         <StatusBar />
-        <ImageTable />
+        {isGrid ? <ImageGrid /> : <ImageTable />}
       </div>
 
       {/* Image detail overlay — rendered when image is in URL */}

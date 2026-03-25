@@ -129,10 +129,26 @@ introduced.
 
 📄 **Performance analysis:** `kupua/exploration/docs/performance-analysis.md`
 
-Thorough review of scrolling and image traversal performance. 10 findings
+Thorough review of scrolling and image traversal performance. 11 findings
 ranked by severity, with status tracking. Covers: `imagePositions` Map
-rebuild (fixed), `visibleImages` recompute, scroll listener churn,
-`computeFitWidth` scaling, prefetch redundancy, memory growth concerns.
+rebuild (fixed), sort pulsing loop (fixed), `visibleImages` recompute,
+scroll listener churn, `computeFitWidth` scaling, prefetch redundancy,
+memory growth concerns. Includes sort-around-focus attempt learnings.
+
+📄 **Grid view plan:** `kupua/exploration/docs/grid-view-plan.md`
+
+Plan for the thumbnail grid view (the first additional density). Contains:
+thorough analysis of kahuna's grid (cell composition, interactions,
+keyboard nav, selection, scroll position), what to take/skip, architecture
+stress tests, and preliminary design decisions. Read this before starting
+grid view work.
+
+📄 **Kahuna scroll analysis:** `kupua/exploration/docs/kahuna-scroll-analysis.md`
+
+Deep read of kahuna's scroll/pagination architecture (`gu-lazy-table`,
+sparse arrays, `from/size`, RxJS reactive pipeline). Covers the 100k cap,
+result set freezing, duplicate detection. Lessons for kupua's `useDataWindow`.
+Grid-view-specific analysis is in `grid-view-plan.md` instead.
 
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
@@ -151,7 +167,7 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
-**App scaffold (~8000 lines of source):**
+**App scaffold (~8900 lines of source):**
 - ✅ Vite 8 (Rolldown) + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
 - ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
@@ -189,7 +205,7 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
 - ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
 - ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
 
-**Table view (`ImageTable.tsx`, ~1400 lines):**
+**Table view (`ImageTable.tsx`, ~1470 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
 - ✅ Column definitions generated from field registry (`field-registry.ts`) — 22 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
@@ -215,9 +231,20 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
 - ✅ Double-click row to open image — adds `image` to URL search params (push, not replace). The search page stays mounted and fully laid out (invisible via `opacity-0`), preserving scroll position, virtualizer state, and search context. Browser back removes `image` and the table reappears at the exact scroll position with the viewed image focused. Navigation in the image view follows the current search results in their current sort order (line-in-the-sand: navigation always within current search context and order).
 - ✅ Row focus (not selection) — single-click sets a sticky highlight on a row (inset box-shadow accent border + brighter background). Focus persists when mouse moves away. Distinct from hover (subtle) and future selection (multi-select for batch ops). Focus is stored in search store (`focusedImageId`), cleared on new search. Returning from image detail auto-focuses the last viewed image; if different from the one originally clicked, centers it in viewport.
 
+**Grid view (`ImageGrid.tsx`, ~590 lines):**
+- ✅ Thumbnail grid density — alternative rendering of the same result set. Consumes `useDataWindow()` for data, focus, and gap detection — zero data layer duplication. Grid is the default view (matching Kahuna); table opt-in via URL param `density=table`.
+- ✅ Responsive columns via `ResizeObserver` — `columns = floor(containerWidth / 280)`. Row-based TanStack Virtual (each virtual row renders N cells). Equal-size cells (editorial neutrality — differently-sized images shouldn't influence picture editors).
+- ✅ S3 thumbnails — uses `getThumbnailUrl()` from `image-urls.ts`. Local mode shows "No thumbnail" placeholder (acceptable).
+- ✅ Cell layout matches Kahuna — 303px total height, 190px thumbnail area (block layout, top-aligned, horizontally centred via `margin: auto`), metadata below. `max-height: 186px` on image (= Kahuna's `max-height: 98%` of 190px).
+- ✅ Rich tooltips — description tooltip (description + By + Credit with `[none]` fallbacks, colon-aligned) on both thumbnail and description text. Date tooltip (Uploaded + Taken + Modified, colon-aligned) extends Kahuna's two dates to three.
+- ✅ Focus ring + keyboard navigation with grid geometry — ArrowLeft/Right = ±1, ArrowUp/Down = ±columns, Home/End. Enter opens focused image. Same `moveFocus` viewport-aware start as table (no focus → start from visible viewport).
+- ✅ Double-click cell opens image detail (same overlay architecture as table).
+- ✅ Scroll reset on new search, return-from-detail scroll preservation (only scrolls if user navigated to different image via prev/next).
+- ✅ Density switch preserves viewport position — `density-focus.ts` saves the focused item's viewport ratio (0=top, 1=bottom) on unmount, restores on mount via `useLayoutEffect` (before paint, no visible jump). Falls back to `align: "center"` on initial load. Module-level state — no React, no Zustand, 5 lines.
+
 **Toolbar (`SearchBar.tsx`) + Status bar (`StatusBar.tsx`) + Filters (`SearchFilters.tsx`):**
 - ✅ Search toolbar (44px / `h-11`): `[Logo] [Search] | [Free to use] [Dates] | [Sort ↓]`
-- ✅ Status bar (28px, `bg-grid-panel`): `[count matches] [N new] ... [took ms]` — thin strip between search toolbar and table header. Will expand to hold more contextual info in future phases.
+- ✅ Status bar (28px, `bg-grid-panel`): `[count matches] [N new] ... [density toggle]` — thin strip between search toolbar and results. Density toggle (table/grid SVG icons) right-aligned, accent highlight on active view.
 - ✅ Column header row height matches search toolbar (44px / `h-11`)
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
 - ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
@@ -233,7 +260,7 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
 **Routing (`TanStack Router`):**
 - ✅ Zod-validated URL search params (`search-params-schema.ts`)
 - ✅ Root route (`__root.tsx`) — minimal shell (bg + flex column)
-- ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageTable. When `image` is in URL params, makes the search UI invisible (`opacity-0 pointer-events-none` — stays fully laid out in DOM to preserve scroll position) and renders `ImageDetail` overlay. No route transition, no unmount, scroll position preserved.
+- ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageGrid (default) or ImageTable (`density=table`). When `image` is in URL params, makes the search UI invisible (`opacity-0 pointer-events-none` — stays fully laid out in DOM to preserve scroll position) and renders `ImageDetail` overlay. No route transition, no unmount, scroll position preserved.
 - ✅ Image detail as overlay (not a separate route) — `ImageDetail.tsx` renders within the search route when `image` URL param is present. Double-click row adds `image` (push). Prev/next replaces `image` (replace). Back button/browser back removes `image` → table reappears at exact scroll position. All search context preserved in URL. `image` is a display-only URL param (not synced to search store, doesn't trigger ES search). URL style: `?image=abc123&nonFree=true&query=...` (priority keys first via `URL_PARAM_PRIORITY`).
 - ✅ Image detail standalone fetch — when the `image` URL param points to an ID not in the current search results (direct URL, bookmark, `/images/:id` redirect), fetches the image by ID from ES via `dataSource.getById()`. Shows loading state while fetching. Only shows "not found" if the image genuinely doesn't exist in the index. Prev/next navigation is unavailable in standalone mode (no search context).
 - ✅ Image detail shows `[x] of [total]` (total from ES, not loaded count). Auto-loads more results when within 5 images of the loaded edge — navigation never ends until the actual end of search results.
@@ -262,7 +289,7 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
 - ✅ Imgproxy latency benchmark (`exploration/bench-imgproxy.mjs`) — 70 real images, sequential + batch + 60fps simulation. Result: imgproxy is **the** bottleneck for traversal (~456ms median per image, 0/70 on-time at 60fps). Prefetching is the correct mitigation; throughput improvements need server-side caching or thumbnail-first progressive loading.
 
 ### What's Next (Phase 2 remaining)
-- [ ] **ImageTable refactor — extract `useListNavigation`.** Sparse scroll refactor complete: `useDataWindow.ts` hook extracted, sparse scroll with gap detection and `loadRange`, visible-window table data, placeholder skeletons, keyboard nav skipping placeholders, O(1) image lookup, `computeFitWidth` skips sparse holes, `ColumnContextMenu.tsx` extracted. Next: extract `useListNavigation.ts` (abstract keyboard nav parameterised by geometry: table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`).
+- [ ] **Extract `useListNavigation`** — abstract keyboard nav parameterised by geometry. Table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`. Same `moveFocus`/`pageFocus`/`home`/`end` logic, different geometry. Both components currently have their own copies.
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
 - [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md finding #11.
@@ -333,6 +360,8 @@ rebuild (fixed), `visibleImages` recompute, scroll listener churn,
    | `expandPinboard` | string | | Pinboard integration (passthrough) |
    | `pinboardId` | string | | Pinboard integration (passthrough) |
    | `pinboardItemId` | string | | Pinboard integration (passthrough) |
+   | `image` | string | `abc123` | Image detail overlay (display-only, not synced to search store) |
+   | `density` | `table` | | View density — absent=grid (default), `table`=data table (display-only) |
 
    **Key mapping**: `nonFree=true` → API `free=undefined`; `hasCrops` → API `hasExports`
 
@@ -403,10 +432,12 @@ kupua/
     docs/
       migration-plan.md        # Full phased migration plan
       frontend-philosophy.md   # UX/UI philosophy: density continuum, interaction patterns, comparisons
+      grid-view-plan.md        # Grid view plan: kahuna analysis, architecture stress tests, design decisions
       kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
-      performance-analysis.md  # Scrolling & traversal performance: 10 findings, status tracking, memory concerns
+      performance-analysis.md  # Scrolling & traversal performance: 11 findings, status tracking, memory concerns
       safeguards.md            # Elasticsearch + S3 safety documentation
+      kupua-audit-assessment.md # Codebase audit: architecture grades, cleanup opportunities, documentation accuracy
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
       imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy
       mapping-enhancements.md  # Proposed ES mapping improvements
@@ -414,7 +445,7 @@ kupua/
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
-  src/                         # ~8000 lines total
+  src/                         # ~8900 lines total
     main.tsx                   # React entry point — mounts RouterProvider
     router.ts                  # TanStack Router setup — custom plain-string URL serialisation
     index.css                  # Tailwind CSS import + Open Sans font + Grid colour theme + shared component classes (popup-menu, popup-item)
@@ -430,6 +461,7 @@ kupua/
       grid-config.ts           # Mock Grid config parser (field aliases, org-owned categories)
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
+      density-focus.ts         # Transient bridge for viewport-position preservation across density switches (5 lines)
       image-urls.ts            # Image URL builders — thumbnails via S3 proxy, full images via imgproxy
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)
     dal/
@@ -442,11 +474,12 @@ kupua/
       ErrorBoundary.tsx        # React error boundary — catches render crashes, shows recovery UI
       ErrorBoundary.test.tsx   # 2 tests: renders children, catches errors
       ImageDetail.tsx          # Single-image view: overlay within search route, fullscreen (black, no UI), prev/next navigation
-      StatusBar.tsx            # Status bar: count + new images ticker + response time
+      StatusBar.tsx            # Status bar: count + new images ticker + response time + density toggle (table/grid)
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
       ColumnContextMenu.tsx    # Column header context menu — visibility toggles, fit-to-data (178 lines). Imperative ref handle, self-contained positioning.
-      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1400 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
+      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1470 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
+      ImageGrid.tsx            # Thumbnail grid density (~550 lines). Responsive columns via ResizeObserver, row-based TanStack Virtual, S3 thumbnails, rich tooltips, grid-geometry keyboard nav. Same useDataWindow as table.
     stores/
       search-store.ts          # Zustand store (search params, results, loadMore, loadRange, frozenUntil, imagePositions). View components access data via useDataWindow hook, not directly. (~282 lines)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)

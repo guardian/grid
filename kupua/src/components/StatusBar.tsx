@@ -1,9 +1,10 @@
 /**
- * Results bar — thin strip between the search toolbar and the table.
+ * Results bar — thin strip between the search toolbar and the table/grid.
  *
  * Shows:
  *   - Total result count
  *   - New images ticker (polls ES every 10s; click to refresh)
+ *   - Density toggle (table / grid) — right-aligned
  *
  * Styled to match Grid's `results-toolbar`:
  *   - 28px height, dark background, border bottom
@@ -11,11 +12,21 @@
  */
 
 import { useSearchStore } from "@/stores/search-store";
+import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { useSearch } from "@tanstack/react-router";
+import { useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 
 export function StatusBar() {
   const { total, newCount, newCountSince, search: reSearch } =
     useSearchStore();
+  const searchParams = useSearch({ from: "/search" });
+  const updateSearch = useUpdateSearchParams();
+  const isGrid = searchParams.density !== "table";
+
+  const toggleDensity = useCallback(() => {
+    updateSearch({ density: isGrid ? "table" : undefined });
+  }, [isGrid, updateSearch]);
 
   return (
     <div className="flex items-center gap-2 px-3 h-7 bg-grid-panel border-b border-grid-separator text-xs text-grid-text-muted shrink-0 select-none">
@@ -41,6 +52,40 @@ export function StatusBar() {
         </button>
       )}
 
+      {/* Spacer */}
+      <span className="flex-1" />
+
+      {/* Density toggle */}
+      <button
+        onClick={toggleDensity}
+        className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors cursor-pointer"
+        title={isGrid ? "Switch to table view" : "Switch to grid view"}
+        aria-label={isGrid ? "Switch to table view" : "Switch to grid view"}
+      >
+        {/* Table icon */}
+        <svg
+          className={`w-3.5 h-3.5 ${!isGrid ? "text-grid-accent" : "text-grid-text-muted"}`}
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <rect x="1" y="1" width="14" height="3" rx="0.5" />
+          <rect x="1" y="6" width="14" height="3" rx="0.5" />
+          <rect x="1" y="11" width="14" height="3" rx="0.5" />
+        </svg>
+        {/* Grid icon */}
+        <svg
+          className={`w-3.5 h-3.5 ${isGrid ? "text-grid-accent" : "text-grid-text-muted"}`}
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <rect x="1" y="1" width="6" height="6" rx="0.5" />
+          <rect x="9" y="1" width="6" height="6" rx="0.5" />
+          <rect x="1" y="9" width="6" height="6" rx="0.5" />
+          <rect x="9" y="9" width="6" height="6" rx="0.5" />
+        </svg>
+      </button>
     </div>
   );
 }
