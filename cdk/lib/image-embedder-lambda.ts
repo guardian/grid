@@ -38,6 +38,11 @@ export class ImageEmbedder extends GuStack {
       default: `/${this.stage}/${this.stack}/thrall/kms-key-arn`,
       type: 'String',
     });
+    const elasticSearchUrl = new GuParameter(this, 'ElasticSearchUrl', {
+      fromSSM: true,
+      default: `/${this.stage}/${this.stack}/elasticsearch/url`,
+      type: 'String',
+    });
 
     const imageEmbedderDLQ = new Queue(this, 'imageEmbedderDLQ', {
       queueName: `${appName}-DLQ-${this.stage}`,
@@ -99,6 +104,8 @@ export class ImageEmbedder extends GuStack {
         app: `${appName}-backfill-lambda`,
         environment: {
           STAGE: props.stage,
+          ELASTIC_SEARCH_URL: elasticSearchUrl.valueAsString,
+          BACKFILL_SQS_QUEUE: backfillQueue.queueName,
         },
         memorySize: 512,
         timeout: Duration.minutes(1),

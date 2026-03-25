@@ -6,6 +6,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "gu:cdk:constructs": [
       "GuParameter",
       "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
       "GuScheduledLambda",
@@ -17,6 +18,10 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "DistributionBucketName": {
       "Default": "/account/services/artifact.bucket",
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "ElasticSearchUrl": {
+      "Default": "/TEST/media-service/elasticsearch/url",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
     "ThrallKmsKeyArn": {
@@ -83,6 +88,9 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-backfill-lambda",
+            "ELASTIC_SEARCH_URL": {
+              "Ref": "ElasticSearchUrl",
+            },
             "STACK": "media-service",
             "STAGE": "TEST",
           },
