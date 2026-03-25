@@ -350,7 +350,7 @@ module-level state, not a leak in the abstraction.
 ## Preliminary Analysis: What We Learned from Sort-Around-Focus
 
 These observations from the sort-around-focus attempt (performance-analysis.md
-finding #11) are relevant to grid view planning:
+findings #2, #4, #5) are relevant to grid view planning:
 
 1. **`max_result_window` (100k) is a hard wall.** Any feature that needs
    to address positions beyond 100k via `from/size` will fail. The grid

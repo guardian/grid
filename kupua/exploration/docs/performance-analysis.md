@@ -1,406 +1,563 @@
-# Kupua Performance Analysis — Scrolling & Image Traversal
+# Kupua Performance Analysis
 
-> March 2026. Thorough review of every code path involved in scrolling (table
-> infinite scroll, sparse gap loading, keyboard navigation) and image-to-image
-> traversal (prev/next in ImageDetail, prefetch, focus management).
+> **March 2026.** Combined analysis covering every performance-relevant code path:
+> render pipeline, scroll, state management, network/data, layout/paint, keyboard
+> navigation, memory, CSS, accessibility. Includes future-facing analysis for scrubber,
+> infinite scroll at 9M scale, density slider, filmstrip, and "Never Lost".
 
 ---
 
 ## Overall Assessment
 
-The architecture is genuinely excellent. The overlay-not-route pattern, CSS-variable
-column widths, memo'd table body during resize, O(1) image lookup, sparse array with
-gap detection, result set freezing, and asymmetric prefetch are all strong choices.
-Most apps of this complexity would have 5-10 performance problems by now; significantly
-fewer were found.
+The architecture is genuinely excellent. CSS-variable column widths, memo'd table body
+during resize, overlay-not-route, O(1) image lookup, sparse array with gap detection,
+result set freezing, asymmetric prefetch, configRef-pattern keyboard listeners,
+density-focus bridge — all strong choices. Most apps of this complexity would have
+5–10 performance problems by now; significantly fewer exist here.
+
+The two main structural risks are both already on the roadmap: **unbounded memory
+growth** (no page eviction) and **`from/size` pagination ceiling** (blocks scrubber
+and "Never Lost" on sort). Everything else is polish-level.
 
 ---
 
-## Findings
+## Master Issue Table
 
-### 1. 🔴 `imagePositions` Map full rebuild on every `loadRange` result
+### Key
 
-**Location:** `useDataWindow.ts` (was line 173)
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Fixed |
+| 🔧 | **Fix now** — easy win, improves current UX |
+| 📋 | **Fix later** — blocked by future work, or low severity now |
+| 🧊 | **Watch** — no action needed today, revisit when context changes |
 
-Every `loadRange` call does `set({ results: newResults, ... })` which creates a new
-`results` array reference. Since `useDataWindow` subscribed to `results`, the
-`imagePositions` `useMemo` recomputed — iterating all loaded entries via `for...in`.
+### Issues sorted by severity
 
-At 50k loaded images (realistic after heavy scrolling), this is a `for...in` over a
-sparse array with 50k defined keys on every single range load. During fast scrolling,
-multiple `loadRange` calls can land in quick succession (gap detection fires chunked
-requests of up to 200 rows), each one triggering a full Map rebuild.
+| # | Sev | Issue | Subsystem | Effort | When | Status |
+|---|-----|-------|-----------|--------|------|--------|
+| 1 | 🔴 | `imagePositions` Map full rebuild per range load | State | Med | — | ✅ Fixed |
+| 2 | 🔴 | Sort-while-scrolled infinite pulsing loop | Logic | Low | — | ✅ Fixed |
+| 3 | 🔴 | Unbounded `results` growth — no page eviction | Memory | High | 📋 | Open — needs scrubber |
+| 4 | 🔴 | `from/size` unusable beyond 100k — blocks scrubber | Arch | High | 📋 | Open — needs `search_after` |
+| 5 | 🔴 | "Never Lost" sort-around-focus blocked by `from/size` cap | Arch | High | 📋 | Open — blocked by #4 |
+| 6 | 🟡 | `visibleImages` useMemo triggers unnecessary re-renders | Render | Low | 🔧 | Open |
+| 7 | 🟡 | `handleScroll` recreated on `results.length` change | Scroll | Low | 🔧 | Open |
+| 8 | 🟡 | `goToPrev`/`goToNext` listener churn in ImageDetail | Render | Low | 🔧 | Open |
+| 9 | 🟡 | Orphaned `loadRange` requests survive new search | Network | Med | 🔧 | Open |
+| 10 | 🟡 | `computeFitWidth` iterates all loaded results | Render | Low | 🔧 | Open |
+| 11 | 🟡 | `results` array spreading copies entire array per `loadRange` | State | — | 📋 | Mitigated by #3 |
+| 12 | 🟡 | Density switch mounts/unmounts entire view tree | Render | — | 📋 | Acceptable now; risk for density slider |
+| 13 | 🟡 | Gap detection 80ms debounce delays scrubber seeks | Scroll | Low | 📋 | Future — scrubber prereq |
+| 14 | 🟡 | `search_after` needs `_id` tiebreaker for determinism | Arch | Trivial | 📋 | Future — when implementing `search_after` |
+| 15 | 🟡 | Distribution-aware scrubber needs histogram agg data | Arch | Med | 📋 | Future — scrubber polish |
+| 16 | 🟡 | `frozenUntil` timestamp becomes stale in long sessions | State | — | 🧊 | Matches kahuna; revisit for UX |
+| 17 | 🟡 | `transition-shadow` on every grid cell — compositor layers | Paint | Trivial | 🧊 | Very low; revisit if jank observed |
+| 18 | 🟡 | Scroll listeners active while view hidden by overlay | Scroll | Trivial | 🧊 | Wasted work, very rare |
+| 19 | 🟡 | GridCell memo shallow-compares `image` object reference | Render | — | 🧊 | Very low; watch as cell complexity grows |
+| 20 | 🟡 | Image objects not compact (~5-10KB each) | Memory | — | 📋 | Future — projection approach |
+| 21 | 🟢 | Prefetch effect fires on distant data loads | Render | Trivial | 🧊 | Browser deduplicates; negligible |
+| 22 | 🟢 | `imgproxyOpts` not reactive to resize/fullscreen | Correctness | Low | 🧊 | Not perf — resolution mismatch |
+| 23 | 🟢 | `loadRange` state updates may not batch across chunks | State | Low | 🧊 | React 19 should batch; verify |
+| 24 | 🟢 | `pageFocus` may land in sparse gap | Navigation | Trivial | 🧊 | Rare; scan neighbourhood like `moveFocus` |
+| 25 | 🟢 | `aria-live` on result count may spam screen readers | A11y | Trivial | 🧊 | Debounce announcement |
+| 26 | 🟢 | `pageFocus` grid view may miscalculate during resize | Navigation | — | 🧊 | Extremely unlikely |
 
-**Severity:** Medium-high during deep scroll sessions. O(loaded) per range load, and
-multiple range loads can overlap.
+---
 
-**Status: ✅ Fixed.** Moved `imagePositions` into the search store as a first-class
-field maintained incrementally:
-- `search()`: full rebuild from the first page (fresh Map, O(page size))
-- `loadMore()`: extends existing Map with new appended hits (O(page size))
-- `loadRange()`: extends existing Map with new range hits (O(page size))
+## Detailed Analysis
 
-Helper function `buildPositions()` in `search-store.ts` handles both full-rebuild and
-incremental cases. `useDataWindow` now subscribes to `s.imagePositions` directly
-instead of deriving it.
+Each item references its `#` from the table above.
 
-**Memory note:** The Map grows proportionally to loaded data (one string→number entry
-per loaded image, ~2-4MB at 50k). This is tiny compared to the Image objects in
-`results` (~5-10KB each, so 250-500MB at 50k). When page eviction is implemented
-(sliding window of ~500-1000 rows), evicted images should be `.delete()`'d from the
-Map in the same store update — no special handling needed.
+---
 
-**Measured impact (March 2026):** At ~500-3000 loaded entries (typical scrolling
-session against TEST), the old full-rebuild cost was 0-7ms per range load with
-occasional spikes to 14-25ms. The incremental approach registers as 0ms. The
-improvement is architecturally correct (prevents O(n) degradation at scale) but
-not perceptible at current usage depths. The fix will matter when users load
-10k+ entries in a single session — the old approach would grow to 50-100ms per
-range load while the incremental approach stays flat at ~0ms regardless of depth.
+### #1 ✅ `imagePositions` Map full rebuild per range load
 
-**Instrumentation removed** after verification — console logs no longer emitted.
+**Location:** `useDataWindow.ts` (old), now `search-store.ts`
 
-### 2. 🟡 `visibleImages` recomputes on every `results` reference change
+Every `loadRange` response created a new `results` reference → the `imagePositions`
+`useMemo` in `useDataWindow` iterated all loaded entries via `for...in`. At 50k
+loaded images, this was O(50k) per range load. During fast scroll, multiple range
+loads compound.
 
-**Location:** `ImageTable.tsx:374-381`
+**Fixed.** Moved `imagePositions` into the search store as a first-class field
+maintained incrementally: `search()` rebuilds from page 1 (fresh Map, O(page size));
+`loadMore()` and `loadRange()` extend the existing Map (O(page size)). The helper
+`buildPositions()` handles both cases.
 
-```ts
-const visibleImages = useMemo(() => {
-  const images: Image[] = [];
-  for (const vItem of virtualItems) {
-    const img = vItem.index < results.length ? results[vItem.index] : undefined;
-    if (img) images.push(img);
-  }
-  return images;
-}, [virtualItems, results]);
-```
+**Measured:** At 500-3000 loaded entries, the old rebuild cost 0–7ms with spikes to
+14–25ms. The incremental approach registers as 0ms. The fix prevents O(n) degradation
+at depth — at 50k entries the old approach would cost 50–100ms per load while the new
+stays flat.
 
-Depends on `results` (from `useDataWindow`). Every `loadRange` creates a new array
-reference → this useMemo re-runs → new `visibleImages` array → `useReactTable` gets
-new `data` → `getCoreRowModel()` rebuilds. Since `visibleImages` is capped to ~60
-visible rows, the rebuild is cheap, but it still triggers a full table re-render
-including the header group loop and memo check on `TableBody`.
+---
 
-**Severity:** Low-medium. The work per rebuild is small (~60 rows), but it happens on
-every scroll-triggered range load.
-
-**Mitigation:** Compare the actual image IDs in the visible window before/after. If the
-same images are visible (just at different offsets in a larger array), return the
-previous reference. A shallow comparison of IDs would short-circuit most range loads
-that fill data outside the current viewport.
-
-### 3. 🟡 `handleScroll` callback recreated on `results.length` change
-
-**Location:** `ImageTable.tsx:423-440`
-
-```ts
-const handleScroll = useCallback(() => { ... },
-  [virtualizer, reportVisibleRange, results.length, total, loadMore]
-);
-```
-
-Every `loadMore`/`loadRange` changes `results.length`, which recreates `handleScroll`,
-which triggers the `useEffect` that removes/re-adds the scroll listener. This is a
-micro-cost but violates the principle of stable scroll handlers.
-
-**Mitigation:** Use refs for `results.length` and `total` inside the callback (the
-pattern already exists elsewhere — `resultsRef` etc.), making the dependency array
-`[virtualizer, reportVisibleRange, loadMore]` only — which are all stable.
-
-### 4. 🟡 `computeFitWidth` iterates all loaded results via `for...in`
-
-**Location:** `ImageTable.tsx:772-784`
-
-```ts
-for (const key in results) {
-  const image = results[Number(key)];
-  // ...measure text...
-}
-```
-
-When the user right-clicks → "Resize all columns to fit data", this runs
-`computeFitWidth` for every visible column. Each call iterates all loaded images with
-`for...in`. At 10k loaded images × 15 visible columns = 150k iterations with
-`measureText` calls.
-
-**Severity:** Low (user-triggered, not on scroll path). But `measureText` is
-synchronous and canvas context switches can be expensive. Could cause a visible freeze
-with large datasets.
-
-**Mitigation:** Cap the scan to the visible window (virtualItems) instead of all
-loaded results. The fit width for 60 visible rows is a perfectly reasonable
-approximation, and the UI could mention "based on visible rows".
-
-### 5. 🟡 `goToPrev`/`goToNext` recreated on every image change
-
-**Location:** `ImageDetail.tsx:110-116`
-
-```ts
-const goToPrev = useCallback(() => {
-  if (prevImage) goToImage(prevImage.id);
-}, [prevImage, goToImage]);
-```
-
-`prevImage` and `nextImage` are derived from `results[currentIndex ± 1]`. Since
-`results` changes on every `loadRange`, and `currentIndex` is recalculated via
-`findImageIndex` on every `imageId` change, these callbacks are recreated frequently.
-They're used in the `useEffect` that registers keyboard listeners, causing unnecessary
-listener churn.
-
-**Mitigation:** Use refs for `prevImage`/`nextImage` in the keyboard handler instead
-of depending on the callbacks directly.
-
-### 6. 🟢 Prefetch effect fires on every `results` reference change
-
-**Location:** `ImageDetail.tsx:199-218`
-
-The prefetch `useEffect` depends on `[currentIndex, results, imgproxyOpts]`. When a
-`loadRange` fills distant data (not near the current image), `results` gets a new
-reference, but the nearby images haven't changed — yet the prefetch fires again,
-creating 5 new `Image()` objects with the same URLs.
-
-**Severity:** Very low (browser deduplicates identical fetches from cache). But it's
-unnecessary work.
-
-**Mitigation:** Compare the actual IDs of the 5 prefetch candidates. Use a ref to
-track the last set of prefetched IDs and skip if unchanged.
-
-### 7. 🟢 `imgproxyOpts` uses `window.innerWidth/Height` — not reactive
-
-**Location:** `ImageDetail.tsx:172-175`
-
-```ts
-const imgproxyOpts = useMemo(
-  () => ({ width: window.innerWidth, height: window.innerHeight }),
-  [],
-);
-```
-
-Empty deps means this is captured once at mount. If the user resizes the window (or
-enters/exits fullscreen via `f` key), the imgproxy request still uses the original
-viewport dimensions. Not a performance problem — but a correctness note: fullscreen
-images might be requested at non-fullscreen resolution.
-
-### 8. 🟢 No transition batching on `loadRange` state updates
-
-**Location:** `search-store.ts:237-260`
-
-Each `loadRange` call does its own `set()` which triggers its own Zustand
-notification → React re-render. If 3 chunked range requests land within the same
-frame (which is possible when gap detection fires multiple 200-row chunks), that's 3
-separate re-renders with 3 `imagePositions` Map rebuilds.
-
-**Mitigation:** React 18/19's automatic batching handles this for synchronous `set()`
-calls, but these are in async `.then()` callbacks. They should be batched by React
-19's async batching, but it's worth verifying empirically. If not,
-`queueMicrotask` batching or collecting results into a single `set()` would help.
-
-### 9. 🟢 `searchRange` doesn't use AbortController
-
-**Location:** `es-adapter.ts:260-262`
-
-By design, `searchRange` doesn't cancel in-flight requests. But when the user starts a
-new search (typing in the search box), any in-flight range loads from the *previous*
-search keep running and their results will be discarded by the offset guard — but the
-network requests still complete. During a slow scroll → new search → scroll cycle, you
-could have 5-10 orphaned range requests consuming bandwidth.
-
-**Mitigation:** Give `loadRange` its own AbortController pool keyed by range. On new
-`search()`, abort all pending range loads (clear `_inflight` + cancel signals).
-
-### 10. 🟢 `pageFocus` may land in sparse gap
-
-**Location:** `ImageTable.tsx:610-655`
-
-`pageFocus` uses `Math.floor((el.scrollTop + ...) / ROW_HEIGHT)` to find the visible
-row indices, then calls `getImage(idx)`. If the calculated index falls in a sparse
-gap, the image will be undefined and no focus is set. The user presses PageDown, the
-viewport scrolls, but no row is focused.
-
-**Mitigation:** After computing the target index, scan a small neighbourhood (like
-`moveFocus` does with MAX_SKIP=10) to find the nearest loaded row.
-
-### 11. 🔴 Sorting while scrolled causes infinite pulsing loop
+### #2 ✅ Sort-while-scrolled infinite pulsing loop
 
 **Location:** `ImageTable.tsx` scroll-reset effect + `search-store.ts` search()
 
-**Symptom:** Sorting when at the top of the table is fast. But if the user scrolls
-down (even modestly), clicking a column header to sort causes the table to "pulse"
-indefinitely — rows flash between placeholder skeletons and briefly-loaded data,
-never settling.
+Sorting while scrolled away from the top caused infinite placeholder pulsing. Root
+cause: a `sortOnly` exception preserved scroll position but `search()` replaced
+`results` with a fresh first page (~50 entries at offset 0) — creating a state
+contradiction (viewport at row 3000, data at rows 0–49). Gap detection → loadRange →
+re-render → gap detection, ad infinitum.
 
-**Root cause: state contradiction.** The scroll-reset effect had a `sortOnly`
-exception that preserved scroll position when only `orderBy` changed. But `search()`
-replaces `results` with a fresh first page (~50 images at offset 0). This creates
-an impossible state: the viewport is at row 3000 but only rows 0–49 have data.
+**Fixed.** Sort always scrolls to top. Horizontal scroll preserved on sort-only
+changes so the user doesn't lose the column they clicked. Matches Gmail, Sheets,
+Finder, Explorer.
 
-The resulting feedback loop:
-1. `search()` wipes results to 50 entries. `virtualizerCount` stays large (total
-   unchanged). Virtualizer renders rows 2960–3040 — all undefined.
-2. `visibleImages` is empty → TanStack Table gets `data: []` → all rows render as
-   `animate-pulse` placeholder skeletons.
-3. Gap detection fires for rows 2910–3090 → `loadRange` fetches them.
-4. `loadRange` response fills those rows → re-render → real data appears briefly.
-5. But each `loadRange` response creates a new `results` reference → `handleScroll`
-   callback is recreated (finding #3) → scroll listener churn → `reportVisibleRange`
-   fires again → more gap detection → more `loadRange` calls for adjacent gaps.
-6. Meanwhile, if the user sorts again or a concurrent state update lands, another
-   `search()` wipes results back to 50 entries → cycle restarts.
+**Sort-around-focus: attempted and reverted (~340 lines).** Used ES `_count` to find
+the focused image's new position. Hit three walls:
+1. `max_result_window` (100k) — most unfiltered sorts land beyond this.
+2. Equal sort values — `_count` returns 0 for all images sharing the same value.
+3. Complexity/diminishing-returns spiral.
 
-The oscillation between "search wipes to 50" and "loadRange fills the viewport"
-is what the user sees as pulsing.
-
-**Why it's fast at the top:** When scrolled to row 0, the virtualizer renders rows
-0–~40. After `search()` returns 50 entries, rows 0–40 are all present. No gaps,
-no gap detection, no pulsing. The sort completes in a single render cycle.
-
-**This is a logical bug, not a performance problem.** The `animate-pulse` animation
-makes it *look* like a performance issue, but the root cause is a design
-contradiction: preserving scroll position is incompatible with search() returning
-only the first page.
-
-**Status: ✅ Fixed.** Removed the `sortOnly` exception. Sort now always
-scrolls to top, matching every major data table (Gmail, Sheets, Finder, Explorer).
-The data at row 3000 in the new sort order is completely different data — preserving
-the scroll position number doesn't preserve context. Horizontal scroll (`scrollLeft`)
-is preserved on sort-only changes so the user doesn't lose the column they clicked.
-
-**Sort-around-focus: attempted and deliberately reverted.** We tried to follow the
-"Never Lost" principle by finding the focused image's new position via ES `_count`
-(count docs with sort value before the anchor value) and scrolling there. ~340 lines
-across 6 files. The approach hit three fundamental walls:
-
-1. **`max_result_window` (100k)**: `_count` can return position 1,306,564 but
-   `loadRange` can't fetch data beyond `from: 100000`. Most unfiltered sorts land
-   well beyond this limit. The feature silently degrades to scroll-to-top for the
-   majority of real-world use.
-
-2. **Equal sort values**: When sorting by a field where most results share the same
-   value (e.g. `credit:"Getty Images"` sorted by credit), `_count` returns 0 for
-   all of them — it counts values before the anchor *value*, not the anchor *image*.
-   Position is meaningless when thousands of images share the same sort key.
-
-3. **Growing complexity for diminishing returns**: Every edge case (beyond window,
-   equal values, no focus, verification failure) needed its own fallback path.
-   The code grew to ~340 lines that mostly didn't work, with each fix revealing
-   another case where the approach fundamentally couldn't succeed.
-
-**Conclusion:** "Never Lost" on sort requires **`search_after` + windowed scroll**
-(scrubber architecture). With `search_after`, ES returns a cursor — you can
-paginate to any depth without the 100k cap. Combined with windowed scroll (scrubber
-thumb = `windowStart / total`), the focused image's position can be resolved at
-any depth. This is the correct infrastructure to build sort-around-focus on.
-Until then, scroll-to-top is the right trade-off: simple, correct, matches user
-expectations from every other data table.
+**Conclusion:** Requires `search_after` + windowed scroll (see #4, #5).
 
 ---
 
-## Things Done Right (no changes needed)
+### #3 🔴📋 Unbounded `results` growth — no page eviction
 
-These are patterns specifically checked and found to be well-designed:
+**Location:** `search-store.ts` — results array only grows
 
-- **CSS-variable column widths** — single `<style>` tag, no per-cell JS during resize.
-- **Memo'd TableBody during resize drag** — cached refs for rows/virtualItems. Avoids
-  TanStack's own bug #6121.
-- **Overlay architecture** — `opacity-0` not `display:none`, preserving scrollTop.
-- **Fullscreen surviving between images** — stable DOM node + React reconciliation.
-- **O(1) image lookup via Map** — fixed the 7-second `findIndex` stalls.
-- **Bounded placeholder skipping** — MAX_SKIP=10 prevents O(100k) scans.
+The `results` sparse array and `imagePositions` Map grow without bound:
+
+| Loaded images | Image objects | `imagePositions` Map | Total |
+|---|---|---|---|
+| 1k | 5–10 MB | ~0.1 MB | ~10 MB |
+| 10k | 50–100 MB | ~0.5 MB | ~100 MB |
+| 50k | 250–500 MB | ~2–4 MB | ~500 MB |
+
+At 500MB, V8 GC pauses reach 20–50ms — a full frame budget. Each `loadRange` also
+copies the entire array via spread (see #11), compounding the per-operation cost.
+Editorial users may keep the app open for hours during triage.
+
+**Fix:** Page eviction — sliding window of ~500–1000 entries. Evict results beyond
+±500 rows from the viewport. Delete corresponding `imagePositions` entries. Clear
+evicted ranges from `_failedRanges`. This bounds memory regardless of scroll depth.
+
+**When:** Implement alongside scrubber (#4). The scrubber's windowed buffer model
+inherently solves this — the sparse array is replaced by a fixed-capacity buffer.
+
+---
+
+### #4 🔴📋 `from/size` unusable beyond 100k — blocks scrubber
+
+**Location:** `search-store.ts`, `es-adapter.ts`
+
+ES `from/size` performance degrades linearly with offset and is capped at
+`max_result_window` (100k on TEST/PROD). For a scrubber at 50% of 9M images
+(position 4.5M), `from/size` is completely unusable.
+
+Current defensive measures:
+- `loadRange()` clamps to `MAX_RESULT_WINDOW` and records failed ranges
+- Virtualizer count capped at `min(total, 100k)`
+- Grid at 303px/row: 100k rows = 30.3M px — approaching the ~33M browser cap
+
+**Architectural change for scrubber:**
+1. Replace sparse `results` array with windowed buffer (fixed ~1000 entries)
+2. Introduce `windowOffset` mapping buffer[0] to a logical global position
+3. Scrubber thumb = `windowOffset / total` (not `scrollTop / scrollHeight`)
+4. Seeking = clear buffer, set `windowOffset`, fetch via `search_after` (sequential)
+   or `from/size` (within 100k window)
+5. Virtualizer count = buffer capacity (not total)
+
+The `useDataWindow` API (`getImage`, `findImageIndex`, `reportVisibleRange`) can stay
+stable while the underlying storage changes.
+
+---
+
+### #5 🔴📋 "Never Lost" sort-around-focus blocked by `from/size` cap
+
+**Location:** Architectural — see #2 for the failed attempt
+
+The frontend-philosophy's "Never Lost" principle requires finding the focused image's
+new position after a sort change. Blocked by the 100k `from/size` cap.
+
+With `search_after` + tiebreaker sort (#14):
+1. After sort change, `_count` query: "how many docs have sort value < X OR
+   (sort value == X AND _id < Y)?" → deterministic unique position
+2. If position > window capacity, seek via `search_after` pagination
+3. Focus the image in the new window
+
+**Performance concern:** The `_count` positioning query runs alongside the search.
+Consider making it async — show results immediately at the top, animate focus to
+the found position once count returns.
+
+---
+
+### #6 🟡🔧 `visibleImages` useMemo triggers unnecessary re-renders
+
+**Location:** `ImageTable.tsx:498-506`
+
+```ts
+const visibleImages = useMemo(() => { ... }, [virtualItems, results]);
+```
+
+Depends on `results`. Every `loadRange` creates a new array reference — even for
+off-screen ranges — triggering recomputation → new `visibleImages` → `useReactTable`
+gets new `data` → `getCoreRowModel()` rebuilds → full reconciliation check on
+`TableBody`. The work per rebuild is small (~60 rows) but multiplied by every
+off-screen range response (3–5 per debounce window).
+
+**Fix (easy):** Compare the resolved image IDs in the visible window before/after.
+If the same IDs in the same order → return the cached reference. Short-circuits all
+reconciliation from off-screen loads.
+
+---
+
+### #7 🟡🔧 `handleScroll` recreated on `results.length` change
+
+**Location:** `ImageTable.tsx:582-598`, `ImageGrid.tsx:272-287`
+
+Both `handleScroll` callbacks include `results.length` in their dependency arrays.
+Every data load changes `results.length` → callback recreated → `useEffect` removes
+and re-adds the scroll listener. Creates a tiny window where scroll events might be
+missed, and runs listener setup synchronously during React's commit phase.
+
+**Fix (easy):** Use refs for `results.length` and `total` inside the callback. The
+dependency array becomes `[virtualizer, reportVisibleRange, loadMore]` — all stable.
+
+---
+
+### #8 🟡🔧 `goToPrev`/`goToNext` listener churn in ImageDetail
+
+**Location:** `ImageDetail.tsx:110-116`
+
+`goToPrev`/`goToNext` are recreated whenever `prevImage`/`nextImage` change (which
+happens on every `results` reference change). They're dependencies of the `useEffect`
+that registers keyboard listeners — causing unnecessary listener removal and
+re-registration.
+
+**Fix (easy):** Use refs for `prevImage`/`nextImage` in the keyboard handler.
+
+---
+
+### #9 🟡🔧 Orphaned `loadRange` requests survive new search
+
+**Location:** `es-adapter.ts` — `searchRange` has no AbortController
+
+When the user types a new query, `search()` aborts its own request but in-flight
+`loadRange` requests from the previous search continue. Their responses are discarded
+by the store updater, but the network requests waste bandwidth. During fast typing:
+3–5 concurrent ranges × 3–4 searches/second = 9–20 orphaned requests.
+
+**Fix:** Store `AbortController` instances per range key in `_inflight`. On
+`search()`, abort all pending range controllers and clear the set.
+
+---
+
+### #10 🟡🔧 `computeFitWidth` iterates all loaded results
+
+**Location:** `ImageTable.tsx:772-784`
+
+"Resize all columns to fit data" runs `computeFitWidth` for every visible column.
+Each call iterates all loaded images via `for...in` with `measureText`. At 10k loaded
+images × 15 columns = 150k `measureText` calls. `measureText` is synchronous and
+canvas context switches are expensive — could freeze the UI.
+
+**Fix (easy):** Cap the scan to the virtualizer's visible window (~60 rows). The fit
+width for visible rows is a perfectly good approximation.
+
+---
+
+### #11 🟡📋 `results` array spreading copies entire array per `loadRange`
+
+**Location:** `search-store.ts:289`
+
+```ts
+const newResults = [...state.results];
+```
+
+Every `loadRange` creates a full copy via spread. At 50k entries: ~1–3ms per copy.
+With 3 concurrent responses per frame: 3–9ms of pure array copying. The spread is
+necessary (Zustand requires immutable updates; React uses reference equality).
+
+**Mitigated by #3** — page eviction bounds the array to ~1000 entries, making the
+spread trivial regardless of scroll depth.
+
+---
+
+### #12 🟡📋 Density switch mounts/unmounts entire view tree
+
+**Location:** `search.tsx:56`
+
+```tsx
+{isGrid ? <ImageGrid /> : <ImageTable />}
+```
+
+Switching density destroys and rebuilds all virtualizer state, TanStack Table state,
+effects, and DOM. Currently ~5–10ms of JS + first paint — acceptable for a discrete
+toggle.
+
+**Risk:** The frontend-philosophy describes 8+ density stops with a slider. Rapid
+slider drags or keyboard shortcut holds would stutter with mount/unmount on every
+step.
+
+**Future mitigation:** Render both views (one hidden via `opacity: 0`), or design a
+single unified virtualizer that adapts its cell rendering to density without
+unmounting. The `density-focus.ts` bridge already solves the state-transfer problem;
+the open question is whether the mount cost matters at slider speeds.
+
+---
+
+### #13 🟡📋 Gap detection 80ms debounce delays scrubber seeks
+
+**Location:** `useDataWindow.ts:47` — `GAP_DETECT_DELAY = 80`
+
+For continuous scroll, 80ms debounce is correct (fires every ~5th frame, overscan
+hides the delay). For scrubber seeks (jumping thousands of rows), 80ms of latency
+before any data request fires means 80ms + ES round-trip + render of blank
+placeholders.
+
+**Future fix:** Two-tier detection. Immediate `loadRange` for jumps > N rows
+(scrubber seek, keyboard End). Debounced for continuous scroll.
+
+---
+
+### #14 🟡📋 `search_after` needs `_id` tiebreaker for determinism
+
+**Location:** `es-adapter.ts:buildSortClause()`
+
+`search_after` with duplicate sort values (e.g. thousands of `credit: "Getty Images"`)
+produces ambiguous page boundaries. The fix: always append `{ "_id": "asc" }` as the
+final sort clause. This gives every document a unique sort position.
+
+**Impact on current code:** `buildSortClause()` doesn't add a tiebreaker. For
+`from/size` this causes slight page overlap at boundaries (harmless). For
+`search_after` it's essential correctness.
+
+**When:** Implement when adding `search_after` support. Document as a deviation from
+kahuna (which uses `from/size` only).
+
+---
+
+### #15 🟡📋 Distribution-aware scrubber needs histogram aggregation data
+
+A linear scrubber (position = row / total) is unusable for bursty upload data (60k
+images on a busy news day, 100 on a quiet weekend). The scrubber must use a non-linear
+mapping built from ES `date_histogram` aggregation data.
+
+**Performance concern:** Monthly buckets over 9M images: ~10–50ms. Finer granularity
+(daily for recent, monthly for old) may require composite aggregation — slower. Cache
+the result and refresh only on search change.
+
+**When:** Scrubber polish phase. See migration-plan.md → "Scrollbar & Infinite Scroll
+— Design Notes" for the full design.
+
+---
+
+### #16 🟡🧊 `frozenUntil` timestamp staleness in long sessions
+
+**Location:** `search-store.ts:64`
+
+`frozenUntil` is set once by `search()`. If a user scrolls for 30 minutes, all
+pagination requests include `until: <30-minutes-ago>`. ES returns correct data but the
+user never sees recently uploaded images without re-searching. The "N new" ticker shows
+the count, but clicking it resets scroll position.
+
+Matches kahuna's behaviour. Acceptable trade-off for result set consistency.
+
+---
+
+### #17 🟡🧊 `transition-shadow` on every grid cell — compositor layers
+
+**Location:** `ImageGrid.tsx:117`
+
+`transition-shadow` triggers compositor-layer promotion for every visible grid cell
+(~40). During scroll, the compositor must composite all layers. Typically fast on
+modern GPUs; may cause frame drops on integrated graphics.
+
+**If jank observed:** Restrict the transition to only the focused cell, or remove it.
+
+---
+
+### #18 🟡🧊 Scroll listeners active while view hidden by overlay
+
+**Location:** `ImageTable.tsx:599-604`, `ImageGrid.tsx:290-295`
+
+When the image detail overlay is showing, the view is hidden via `opacity: 0;
+pointer-events: none` but stays mounted with active scroll listeners. Programmatic
+`scrollTop = 0` (logo click) triggers `handleScroll` → `reportVisibleRange` →
+potentially gap detection on the hidden view.
+
+**Fix (if desired):** Guard `handleScroll` with `if (searchParams.image) return`.
+
+---
+
+### #19 🟡🧊 GridCell memo shallow-compares `image` object reference
+
+**Location:** `ImageGrid.tsx:96-128`
+
+`GridCell` is `React.memo`, but `image` is an object. If `loadRange()` replaces a slot
+with a fresh object for the same image (same data, new reference), the memo fails and
+the cell re-renders. Currently trivial; watch as cell complexity grows (status icons,
+hover overlays, selection checkboxes).
+
+---
+
+### #20 🟡📋 Image objects not compact (~5-10KB each)
+
+Each Image object from ES includes nested metadata, rights, file metadata, exports,
+usages. Even with `_source` excludes, each is ~5-10KB. At 50k loaded: 250–500MB of
+structured objects V8 must trace during GC.
+
+**Future mitigation:** Store only display-needed fields in `results` (ID +
+description + credit + dates + dimensions + thumbnail URL → ~500 bytes each). Fetch
+full documents on demand for metadata panel and editing. This "projection" approach
+reduces memory ~10-20×.
+
+---
+
+### #21 🟢🧊 Prefetch effect fires on distant data loads
+
+Prefetch `useEffect` depends on `results`. Off-screen `loadRange` results create new
+references → effect re-fires with same nearby images → 5 redundant `Image()` objects.
+Browser deduplicates from cache. Negligible.
+
+**If desired:** Ref-track the last set of prefetched IDs; skip if unchanged.
+
+---
+
+### #22 🟢🧊 `imgproxyOpts` not reactive to resize/fullscreen
+
+`useMemo(() => ({ width: window.innerWidth, height: window.innerHeight }), [])`
+
+Captured once at mount. Fullscreen images may be requested at non-fullscreen
+resolution. Not a performance issue — a resolution-correctness note.
+
+---
+
+### #23 🟢🧊 `loadRange` state updates may not batch across chunks
+
+Multiple concurrent `loadRange` responses each call `set()` independently. React 19's
+automatic batching should handle async callbacks, but worth verifying empirically. If
+not batching: `queueMicrotask` coalescing or collecting results before a single
+`set()`.
+
+---
+
+### #24 🟢🧊 `pageFocus` may land in sparse gap
+
+**Location:** `useListNavigation.ts:195-228`
+
+If the computed target index falls in a sparse gap, no focus is set. The user presses
+PageDown, the viewport scrolls, but nothing is highlighted.
+
+**Fix (if desired):** Scan a small neighbourhood (like `moveFocus` with MAX_SKIP=10)
+to find the nearest loaded row.
+
+---
+
+### #25 🟢🧊 `aria-live` on result count may spam screen readers
+
+**Location:** `StatusBar.tsx:39`
+
+`aria-live="polite"` on the count announces every `total` change. During fast scroll,
+`total` may update frequently from `loadRange` responses. May annoy screen reader
+users.
+
+**Fix (if desired):** Only announce on primary search, not on `loadRange` updates.
+
+---
+
+### #26 🟢🧊 `pageFocus` grid view may miscalculate during resize
+
+**Location:** `useListNavigation.ts:195-228`
+
+If `columns` changes between the scroll and the focus call (ResizeObserver fires during
+the same frame), the index calculation uses the old column count. Only possible during
+simultaneous window resize + PageDown — extremely unlikely.
+
+---
+
+## Action Plan
+
+### Fix Now (🔧) — easy wins, directly improve current UX
+
+All five are low-effort ref/memo fixes. Could be done in a single session.
+
+| # | Issue | Fix | Effort |
+|---|-------|-----|--------|
+| 6 | `visibleImages` useMemo | Compare resolved IDs before returning new array | ~15 min |
+| 7 | `handleScroll` listener churn | Use refs for `results.length` and `total` | ~10 min |
+| 8 | `goToPrev`/`goToNext` churn | Use refs for prev/next image in keyboard handler | ~10 min |
+| 10 | `computeFitWidth` full scan | Cap scan to virtualizer visible window | ~10 min |
+| 9 | Orphaned `loadRange` on search | AbortController pool keyed by range; abort all on `search()` | ~30 min |
+
+**Total:** ~75 minutes. All are safe, isolated changes. No architectural risk.
+
+### Fix Later (📋) — blocked by future work or only matters at scale
+
+| # | Issue | Blocked by | When |
+|---|-------|------------|------|
+| 3 | Unbounded `results` growth | Scrubber / windowed buffer | Phase 2: scrubber |
+| 4 | `from/size` 100k cap | `search_after` + PIT implementation | Phase 2: scrubber |
+| 5 | Sort-around-focus | #4 + tiebreaker (#14) | Phase 2: after scrubber |
+| 11 | Array spreading at depth | Solved by #3 (page eviction) | Phase 2: scrubber |
+| 12 | Density switch mount cost | Density slider design | Phase 6: density slider |
+| 13 | Debounce vs scrubber seeks | Scrubber implementation | Phase 2: scrubber |
+| 14 | `search_after` tiebreaker | `search_after` implementation | Phase 2: scrubber |
+| 15 | Histogram agg for scrubber | Scrubber polish | Phase 6: scrubber polish |
+| 20 | Image objects not compact | DAL projection redesign | Phase 3+: when memory is measured as problem |
+
+### Watch (🧊) — no action now, revisit if context changes
+
+Issues #16–19, #21–26. All very low severity. Document and move on.
+
+---
+
+## Things Done Right
+
+Patterns specifically checked and found to be well-designed — no changes needed:
+
+- **CSS-variable column widths** — single `<style>` tag, no per-cell JS during resize
+- **Memo'd TableBody during resize drag** — cached refs, CSS-only width updates.
+  Avoids TanStack's own bug #6121
+- **`opacity: 0` overlay** — preserves scrollTop, layout, virtualizer state
+- **Fullscreen surviving between images** — stable DOM node + React reconciliation
+- **O(1) image lookup** — incremental `imagePositions` Map in the store
+- **Bounded placeholder skipping** — MAX_SKIP=10 prevents O(100k) scans
 - **Result set freezing** — `frozenUntil` prevents offset shifts during scroll.
-- **Asymmetric prefetch** — 2 back, 3 forward. Empirically sound.
-- **Request coalescing** — AbortController on search, dedup on loadRange.
-- **Source excludes** — stripping EXIF/XMP/embeddings. Critical for response size.
-- **Visible-window table data** — TanStack Table only sees ~60 rows, not all loaded.
-- **Passive scroll listener** — `{ passive: true }`.
+  Trade-off: stale after long sessions (see #16)
+- **Asymmetric prefetch** — 2 back, 3 forward. Empirically sound
+- **Request coalescing** — AbortController on search, dedup + `_failedRanges`
+  on loadRange
+- **Source excludes** — stripping EXIF/XMP/embeddings from ES responses
+- **Visible-window table data** — TanStack Table sees ~60 rows, not all loaded
+- **Passive scroll listeners** — `{ passive: true }` on all handlers
+- **configRef pattern** — keyboard listeners registered once, read config from ref
+- **density-focus.ts** — 5-line module-level bridge for viewport position preservation
+- **Field registry** — single source of truth, stable column defs at module level
+- **Tailwind CSS 4** — zero runtime overhead, no CSS-in-JS
+- **ARIA attributes** — zero performance cost (plain HTML attributes)
+- **Module-level column defs** — stable references prevent row model rebuilds
 
 ---
 
-## Bugs Found During Testing
+## Bugs Found & Fixed
 
-### Bug: Logo from image detail shows empty table
+### Logo from image detail shows empty table
 
-**Symptom:** Clicking the Grid logo from the image detail view displays an empty
-(or placeholder-only) table. Clicking the logo again from the now-visible list
-page does nothing — the app is stuck until a manual scroll (mousewheel) or
-browser reload.
+**Symptom:** Clicking the Grid logo from image detail → empty/placeholder table.
+Second click → no-op. Fixed via scroll → immediate data.
 
-**Root cause (two interacting issues):**
+**Root cause:** Two interacting issues:
+1. `useUrlSearchSync` dedup treated `?image=X&nonFree=true` → `?nonFree=true` as
+   unchanged (display-only `image` key stripped before comparison) → skipped `search()`.
+2. Virtualizer not notified of programmatic `scrollTop = 0` on hidden containers.
 
-1. **Dedup prevents re-search.** `useUrlSearchSync` deduplicates search triggers
-   by comparing serialized params. The `image` param is a display-only key,
-   stripped before comparison. When the URL goes from `?image=X&nonFree=true` to
-   `?nonFree=true`, the effective search params are identical — the hook skips
-   `search()`. Second logo click is a complete no-op (same URL → TanStack Router
-   does nothing).
-
-2. **Virtualizer not notified of scroll reset.** Even when `scrollTop` is set to
-   0 programmatically, TanStack Virtual doesn't know — it relies on a `scroll`
-   event from the scroll container to update its internal offset. On hidden
-   containers (`opacity-0`), browsers (Firefox especially) may not fire a native
-   scroll event for programmatic `scrollTop` changes. The virtualizer stays at
-   the old offset (e.g. row 48000) and renders items from the sparse region.
-   The data IS in the store — a single mousewheel scroll fires the listener,
-   the virtualizer recalculates, and rows appear immediately.
-
-**Fix (three parts):**
-
-1. `resetSearchSync()` — clears the dedup state in `useUrlSearchSync`. Both logo
-   onClick handlers call it, ensuring the next sync cycle always fires a fresh
-   `setParams()` + `search()`.
-
-2. Synthetic `scrollContainer.dispatchEvent(new Event("scroll"))` — after setting
-   `scrollTop = 0` in both logo onClick handlers. This guarantees the virtualizer's
-   scroll listener fires regardless of browser behaviour on hidden containers.
-
-3. `virtualizer.scrollToOffset(0)` — in the scroll-reset `useEffect` inside
-   ImageTable (fires when searchParams change and it's not a sort-only or
-   display-only change). Belt-and-suspenders: directly updates the virtualizer's
-   internal state.
-
-**Files changed:**
-- `useUrlSearchSync.ts` — extracted dedup state to module-level `_prevParamsSerialized`;
-  added `resetSearchSync()` export
-- `SearchBar.tsx` — logo onClick calls `resetSearchSync()`, dispatches scroll event
-- `ImageDetail.tsx` — logo onClick calls `resetSearchSync()`, dispatches scroll event,
-  focuses search input
-- `ImageTable.tsx` — scroll-reset effect calls `virtualizer.scrollToOffset(0)`
-
----
-
-## Recommendations Summary (by priority)
-
-| # | Severity | Finding | Effort | Status |
-|---|---|---|---|---|
-| 1 | 🔴 | `imagePositions` Map full rebuild on every range load | Medium | ✅ Fixed |
-| 11 | 🔴 | Sorting while scrolled causes infinite pulsing loop | Low | ✅ Fixed (scroll-to-top); sort-around-focus needs `search_after` |
-| 2 | 🟡 | `visibleImages` useMemo triggers unnecessary table re-renders | Low | Open |
-| 3 | 🟡 | `handleScroll` listener churn on `results.length` change | Low | Open |
-| 4 | 🟡 | `computeFitWidth` scans all loaded data | Low | Open |
-| 5 | 🟡 | `goToPrev`/`goToNext` listener churn in ImageDetail | Low | Open |
-| 6 | 🟢 | Prefetch fires on distant data loads | Very low | Open |
-| 7 | 🟢 | `imgproxyOpts` not reactive to resize/fullscreen | Very low | Open |
-| 8 | 🟢 | `loadRange` state updates may not batch | Low | Open |
-| 9 | 🟢 | Orphaned range requests after new search | Low | Open |
-| 10 | 🟢 | `pageFocus` may land in sparse gap | Very low | Open |
+**Fix:** `resetSearchSync()` clears dedup state; synthetic scroll event; belt-and-
+suspenders `virtualizer.scrollToOffset(0)` in scroll-reset effect.
 
 ---
 
 ## Imgproxy Latency Benchmark (24 March 2026)
 
-Benchmark script: `kupua/exploration/bench-imgproxy.mjs`
+Script: `kupua/exploration/bench-imgproxy.mjs`. 70 real images from TEST ES via local
+imgproxy Docker → S3. Window: 2013×1176 CSS px @ 1.2x DPR.
 
-**Question:** How much does imgproxy contribute to image traversal latency?
-
-**Setup:** 70 real images from TEST ES, fetched via local imgproxy (Docker,
-`darthsim/imgproxy:latest`) → S3 (`media-service-test-imagebucket`). Measures
-the full path: S3 download → resize → WebP encode → HTTP response.
-
-**Window:** 2013×1176 CSS px @ 1.2x DPR. App currently requests 1200×1200
-(no DPR scaling — finding #7).
-
-### Results
-
-#### Sequential (one at a time — pure per-image latency)
+### Sequential (pure per-image latency)
 
 | Stat | 1200×1200 |
 |------|-----------|
@@ -410,110 +567,81 @@ the full path: S3 download → resize → WebP encode → HTTP response.
 | P75 | 603ms |
 | P95 | 803ms |
 | Max | 917ms |
-| Avg size | 81 KB |
 
-**→ Max traversal rate: ~2 images/sec** (if no prefetching).
+→ Max traversal rate without prefetch: **~2 images/sec**.
 
-#### Prefetch batch of 5 (real app pattern)
+### Prefetch batch of 5
 
-Batches of 5 concurrent requests (matching the app's 2-back + 3-forward prefetch):
+Batching 5 concurrent is barely faster than sequential — imgproxy is single-threaded,
+requests queue. Total for 25 images: 3.4s.
 
-| Batch | Wall time | Slowest |
-|-------|-----------|---------|
-| 1 | 730ms | 730ms |
-| 2 | 645ms | 644ms |
-| 3 | 644ms | 644ms |
-| 4 | 791ms | 790ms |
-| 5 | 590ms | 590ms |
-
-Key insight: **batching 5 is barely faster than sequential** — imgproxy processes
-mostly sequentially (single-threaded image processing), so concurrent requests
-just queue up. Total for 5 batches of 5 (25 images): 3.4s.
-
-#### 60fps traversal simulation (1 request per 16.67ms frame)
-
-Simulates the fastest possible traversal — a new image request every frame:
+### 60fps traversal simulation
 
 | Metric | 1200×1200 | 2416×1411 (DPR) |
 |--------|-----------|-----------------|
-| On time (≤1 frame) | **0/70 (0%)** | 0/70 (0%) |
-| Slightly late (2-5 frames) | 0/70 | 0/70 |
-| Late (6-30 frames) | 0/70 | 0/70 |
-| **Very late (30+ frames)** | **70/70 (100%)** | **70/70 (100%)** |
+| On time (≤1 frame) | **0/70 (0%)** | 0/70 |
+| Very late (30+ frames) | **70/70 (100%)** | 70/70 |
 | Median latency | 2,049ms | 3,536ms |
-| P95 latency | 2,962ms | 5,107ms |
 
-**Not a single image arrived within one frame.** Every image was 30+ frames
-(500ms+) late. Under load, contention pushes median latency to 2+ seconds.
+**Not a single image arrived within one frame.** Imgproxy is the traversal bottleneck.
 
-#### Vite proxy overhead
+### Implications
 
-~170ms per request — significant but dwarfed by imgproxy processing time.
-
-### Interpretation
-
-1. **Imgproxy is absolutely the bottleneck for traversal.** At ~456ms per image
-   (sequential) and ~2s under concurrent load, even aggressive prefetching can't
-   make traversal feel instant.
-
-2. **The current 3-ahead prefetch covers ~82 frames of key-repeat** (at 33ms
-   key-repeat interval = ~2.7 seconds of holding arrow key). That's good for
-   casual browsing but not fast flicking.
-
-3. **DPR-scaled images (2416×1411) are ~70% slower** than current 1200×1200.
-   If we add DPR-aware sizing, we'd need to weigh sharpness vs. traversal speed.
-
-4. **Imgproxy's concurrency is limited.** 5 parallel requests don't finish 5x
-   faster — they queue internally. Prefetch helps latency hiding, not throughput.
-
-### What this means for the app
-
-- **Prefetching is the right strategy** — we can't make imgproxy faster, but we
-  can start fetching before the user needs the image.
-- **Increasing prefetch depth** (e.g. 5-ahead instead of 3) would help sustained
-  traversal at the cost of wasted bandwidth for images never viewed.
-- **Thumbnail-first traversal** could show the S3 thumbnail (~instant) while
-  the full-size image loads in background — a progressive disclosure pattern.
-- **Browser caching** means revisiting images is instant (0ms) — only the first
-  visit to each image pays the imgproxy cost.
+- **Prefetching is correct** — can't make imgproxy faster, but 3-ahead covers ~2.7s
+  of sustained key-hold traversal
+- **DPR-scaled images ~70% slower** — weigh sharpness vs traversal speed
+- **Thumbnail-first progressive loading** would show S3 thumbnail (~instant) while
+  full image loads in background
+- **Filmstrip** (future) must use S3 thumbnails, not imgproxy
 
 ---
 
-## Broader Memory Concern: Unbounded `results` Growth
+## Future Architecture: Scrubber & Infinite Scroll
 
-Users may keep the app open for hours without reloading. The `results` sparse array
-only grows — pages are never evicted. At 50k loaded images × ~5-10KB each =
-250-500MB of Image objects in memory. The `imagePositions` Map adds ~2-4MB on top
-(string→number pairs), which is negligible by comparison.
+### Performance prerequisites for scrubber implementation
 
-**The fix is page eviction** — a sliding window of ~500-1000 rows. Scroll up → load
-previous page, evict distant forward page. This bounds memory regardless of how far
-the user scrolls. Already flagged in the kahuna scroll analysis (§4) and on the
-roadmap. When implemented, `imagePositions` entries for evicted images should be
-`.delete()`'d in the same store update.
+These items from the issue table are all scrubber-blocking or scrubber-related:
+
+1. **#4 — `search_after` + PIT.** Hybrid pagination: `search_after` for sequential
+   browsing, `from/size` for random jumps within the 100k window.
+2. **#3 — Windowed buffer.** Replace sparse array with fixed-capacity buffer
+   (~1000 entries). Scrubber thumb = `windowOffset / total`.
+3. **#14 — Tiebreaker sort.** Append `{ "_id": "asc" }` to all sort clauses for
+   deterministic `search_after` pagination.
+4. **#13 — Two-tier gap detection.** Immediate for seeks (scrubber drag, End key),
+   debounced for continuous scroll.
+5. **#15 — Histogram aggregation.** Non-linear scrubber mapping for bursty data.
+   Cache results; refresh on search change.
+
+### Filmstrip performance concerns
+
+The filmstrip (horizontal thumbnail strip in image detail) needs:
+- S3 thumbnails, not imgproxy — must be instant
+- Horizontal virtualisation (only render ±20 thumbnails)
+- `loading="eager"` for ±3 nearest, `loading="lazy"` for rest
+- Leverage browser cache from grid view thumbnails
+
+### "Never Lost" performance budget
+
+Context preservation runs on the critical path of every transition:
+
+| Operation | Complexity | Budget |
+|---|---|---|
+| Adjacency scan for displaced focus | O(N) over ±5 old neighbours | <1ms |
+| Selection survival check | O(selected × new results) membership | <5ms |
+| Sort-around-focus positioning | O(1) `_count` query + seek | Async (no budget — animate) |
+| Edit state preservation | Independent panel mount | No cost (no unmount) |
 
 ---
 
 ## Future Benchmark Ideas
 
-Things to test when time allows — not blocking current work, but would provide
-useful data for optimisation decisions:
+- **Image format comparison** — JPEG vs WebP vs AVIF (encode time vs size)
+- **Quality sweep** — 60/70/80/90/95 (diminishing returns curve)
+- **Viewport dimension matrix** — common sizes for DPR decisions
+- **Thumbnail-first progressive loading** — UX improvement vs complexity
+- **imgproxy caching** — `IMGPROXY_RESULT_STORAGE_LIFETIME` hit rate
+- **Grid overscan + `loading="lazy"` interaction** — Chrome DevTools during
+  fast scroll to verify thumbnail fetch timing
+- **Concurrent prefetch limit** — vary from 3 to 7 to find sweet spot
 
-- **Image format comparison** — benchmark JPEG vs WebP vs AVIF output from
-  imgproxy. AVIF is smaller but slower to encode; WebP is the current default.
-  Measure the encode time vs. transfer size trade-off at different quality levels.
-- **Quality sweep** — run the bench at quality 60, 70, 80, 90, 95 to find the
-  knee of the diminishing-returns curve (quality vs. encode time vs. file size).
-- **Viewport dimension matrix** — test at common viewport sizes (1920×1080,
-  2560×1440, 3840×2160, MacBook 13" vs 16") to understand how resize target
-  affects latency. Important for DPR-scaling decisions (finding #7).
-- **Thumbnail-first progressive loading** — measure the latency of showing the
-  S3 thumbnail (~instant, already cached) while the full imgproxy image loads
-  in the background. Would establish whether the UX improvement justifies the
-  implementation complexity.
-- **imgproxy caching** — test with imgproxy's built-in response caching enabled
-  (e.g. `IMGPROXY_RESULT_STORAGE_LIFETIME`) to measure the hit rate during
-  back-and-forth traversal (user looks at images 1→5 then goes back to 1).
-- **Concurrent request limit** — vary the number of parallel prefetch requests
-  (current: 5) to find the sweet spot. Too many may saturate imgproxy; too few
-  under-utilise the connection.

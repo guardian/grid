@@ -129,11 +129,12 @@ introduced.
 
 📄 **Performance analysis:** `kupua/exploration/docs/performance-analysis.md`
 
-Thorough review of scrolling and image traversal performance. 11 findings
-ranked by severity, with status tracking. Covers: `imagePositions` Map
-rebuild (fixed), sort pulsing loop (fixed), `visibleImages` recompute,
-scroll listener churn, `computeFitWidth` scaling, prefetch redundancy,
-memory growth concerns. Includes sort-around-focus attempt learnings.
+26 findings across render, scroll, state, network, memory, layout, CSS,
+accessibility. Scannable issue table (severity + fix-now/fix-later/watch),
+then detailed per-issue analysis. Includes imgproxy latency benchmark, scrubber
+architecture prerequisites, filmstrip perf concerns, "Never Lost" perf budget.
+Action plan: 5 easy fix-now items (~75 min total), 9 fix-later items blocked by
+scrubber/`search_after`, 11 watch items.
 
 📄 **Grid view plan:** `kupua/exploration/docs/grid-view-plan.md`
 
@@ -286,14 +287,16 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Visible-window table data — TanStack Table only receives images in the current virtualizer window (~60 rows) instead of all loaded images. Virtualizer is created before the table; `getVirtualItems()` determines which images to feed. Fixes `getCoreRowModel` growing unboundedly as more ranges loaded.
 
 **Performance analysis:**
-- ✅ Thorough performance review of scrolling & image traversal — 11 findings documented in `exploration/docs/performance-analysis.md`. Key fixes: incremental `imagePositions` Map (finding #1), sort-while-scrolled pulsing loop (finding #11). Logo-from-image-detail bug found and fixed (dedup bypass + virtualizer scroll reset).
+- ✅ Thorough performance review — 26 findings across render, scroll, state, network, memory, layout, CSS, accessibility documented in `exploration/docs/performance-analysis.md`. Scannable issue table with severity/action classifications (fix-now 🔧, fix-later 📋, watch 🧊). Key fixes already applied: incremental `imagePositions` Map (#1), sort-while-scrolled pulsing loop (#2). Logo-from-image-detail bug found and fixed.
 - ✅ Imgproxy latency benchmark (`exploration/bench-imgproxy.mjs`) — 70 real images, sequential + batch + 60fps simulation. Result: imgproxy is **the** bottleneck for traversal (~456ms median per image, 0/70 on-time at 60fps). Prefetching is the correct mitigation; throughput improvements need server-side caching or thumbnail-first progressive loading.
+- 🔧 **5 easy fix-now items identified** (~75 min total): `visibleImages` useMemo stability (#6), `handleScroll` listener churn (#7), `goToPrev`/`goToNext` churn (#8), orphaned `loadRange` abort (#9), `computeFitWidth` scan cap (#10).
+- 📋 **9 fix-later items** blocked by scrubber/`search_after`: unbounded memory (#3), `from/size` 100k cap (#4), sort-around-focus (#5), array spreading (#11), density mount cost (#12), debounce vs seeks (#13), tiebreaker sort (#14), histogram agg (#15), image object compaction (#20).
 - ⏪ **List scroll smoothness — tried and reverted (2025-03-25).** Goal: make table view feel as smooth as grid during moderate scroll (grid already feels like it never loads). Tried three changes together: (1) page size 50→100, (2) debounce→leading+trailing throttle for gap detection, (3) `LOAD_OVERSCAN` 50→100 rows. **Result: no perceptible improvement in table view.** Also introduced a regression — hover background colour "swimming above" rows during fast scroll (likely from throttle firing more frequently and causing intermediate renders). All three reverted. The bottleneck may be elsewhere (React reconciliation of TanStack Table row model, or the `!row` placeholder flash). Needs more investigation — possibly profiling the render pipeline rather than tuning fetch timing.
 
 ### What's Next (Phase 2 remaining)
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
-- [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md finding #11.
+- [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md findings #4, #5.
 - [ ] Custom scrubber (thumb = `windowStart / total`) — see migration-plan.md "Scrollbar & Infinite Scroll" notes
 
 ### Deferred to Later Phases
@@ -436,7 +439,7 @@ kupua/
       grid-view-plan.md        # Grid view plan: kahuna analysis, architecture stress tests, design decisions
       kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
-      performance-analysis.md  # Scrolling & traversal performance: 11 findings, status tracking, memory concerns
+      performance-analysis.md  # Performance: 26 findings, action plan, imgproxy bench, scrubber prereqs
       safeguards.md            # Elasticsearch + S3 safety documentation
       kupua-audit-assessment.md # Codebase audit: architecture grades, cleanup opportunities, documentation accuracy
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
