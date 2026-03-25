@@ -49,9 +49,12 @@
    */
   --font-sans: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
 
-  /* Bump text-xs from Tailwind's default 0.75rem (12px) to 0.85rem (~13.6px).
-     Used for all UI chrome — filters, labels, metadata, context menus. */
-  --text-xs: 0.85rem;
+  /* text-xs: 13px — compact data text (table body cells, grid cell descriptions).
+     text-sm: 14px (Tailwind default) — UI chrome (toolbar, filters, menus, labels).
+     text-2xs: 12px — dimmed secondary metadata (grid cell dates). */
+  --text-xs: 0.8125rem;
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: calc(1 / 0.75);
 }
 
 /*
@@ -80,7 +83,7 @@ html {
     @apply py-1 bg-grid-panel border border-grid-border rounded shadow-lg z-50;
   }
   .popup-item {
-    @apply flex items-center gap-2 px-3 py-1 text-xs text-grid-text
+    @apply flex items-center gap-2 px-3 py-1 text-sm text-grid-text
            hover:bg-grid-hover/50 cursor-pointer whitespace-nowrap select-none;
   }
 }

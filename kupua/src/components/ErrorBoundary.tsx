@@ -50,28 +50,28 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="h-screen w-screen flex items-center justify-center bg-grid-bg text-grid-text p-8">
           <div className="max-w-lg text-center space-y-4">
             <h1 className="text-lg font-semibold">Something went wrong</h1>
-            <p className="text-xs text-grid-text-muted">
+            <p className="text-sm text-grid-text-muted">
               {this.state.error.message}
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleReset}
-                className="px-3 py-1.5 text-xs rounded bg-grid-accent text-white hover:opacity-90 transition-opacity"
+                className="px-3 py-1.5 text-sm rounded bg-grid-accent text-white hover:opacity-90 transition-opacity"
               >
                 Try again
               </button>
               <button
                 onClick={this.handleReload}
-                className="px-3 py-1.5 text-xs rounded border border-grid-border text-grid-text hover:bg-grid-hover transition-colors"
+                className="px-3 py-1.5 text-sm rounded border border-grid-border text-grid-text hover:bg-grid-hover transition-colors"
               >
                 Reset app
               </button>
             </div>
             <details className="text-left mt-4">
-              <summary className="text-xs text-grid-text-muted cursor-pointer hover:text-grid-text">
+              <summary className="text-sm text-grid-text-muted cursor-pointer hover:text-grid-text">
                 Error details
               </summary>
-              <pre className="mt-2 text-xs text-grid-text-muted bg-grid-panel rounded p-3 overflow-auto max-h-48 whitespace-pre-wrap break-words">
+              <pre className="mt-2 text-sm text-grid-text-muted bg-grid-panel rounded p-3 overflow-auto max-h-48 whitespace-pre-wrap break-words">
                 {this.state.error.stack}
               </pre>
             </details>

@@ -178,7 +178,7 @@ export function SearchBar() {
           <button
             onClick={handleClear}
             aria-label="Clear search"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-grid-text-muted hover:text-grid-text text-xs px-1 py-0.5 rounded hover:bg-grid-hover transition-colors z-10"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-grid-text-muted hover:text-grid-text text-sm px-1 py-0.5 rounded hover:bg-grid-hover transition-colors z-10"
             title="Clear search"
           >
             <span aria-hidden="true">✕</span>
@@ -200,7 +200,7 @@ export function SearchBar() {
       <SearchFilters.Sort />
 
       {/* ES timing — far right. Always rendered to avoid layout shift. */}
-      <span className="text-xs text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
+      <span className="text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
         {took != null ? (
           <>
             {took}ms

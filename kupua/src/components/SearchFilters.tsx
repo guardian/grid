@@ -43,7 +43,7 @@ function FilterControls() {
   return (
     <div className="hidden md:flex items-center gap-3 shrink-0">
       {/* Free to use only toggle */}
-      <label className="flex items-center gap-1.5 text-xs text-grid-text-muted cursor-pointer select-none whitespace-nowrap">
+      <label className="flex items-center gap-1.5 text-sm text-grid-text-muted cursor-pointer select-none whitespace-nowrap">
         <input
           type="checkbox"
           checked={params.nonFree !== "true"}
@@ -126,7 +126,7 @@ function SortControls() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Sort by: ${currentLabel}`}
-        className={`flex items-center gap-1 px-2 py-1 border border-grid-border rounded-l text-xs transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
+        className={`flex items-center gap-1 px-2 py-1 border border-grid-border rounded-l text-sm transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
           open
             ? "text-grid-text-bright border-grid-text-muted"
             : "text-grid-text-muted"
@@ -142,7 +142,7 @@ function SortControls() {
       <button
         onClick={handleToggleDirection}
         aria-label={sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
-        className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-xs text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer"
+        className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer"
         title={sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
       >
         <span aria-hidden="true">{sortDesc ? "↓" : "↑"}</span>

@@ -29,7 +29,7 @@ export function StatusBar() {
   }, [isGrid, updateSearch]);
 
   return (
-    <div className="flex items-center gap-2 px-3 h-7 bg-grid-panel border-b border-grid-separator text-xs text-grid-text-muted shrink-0 select-none">
+    <div className="flex items-center gap-2 px-3 h-7 bg-grid-panel border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none">
       {/* Result count */}
       <span role="status" aria-live="polite" aria-atomic="true">
         {total.toLocaleString()} matches
@@ -39,7 +39,7 @@ export function StatusBar() {
       {newCount > 0 && (
         <button
           onClick={() => reSearch()}
-          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 py-px rounded-sm cursor-pointer text-xs leading-tight"
+          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 py-px rounded-sm cursor-pointer text-sm leading-tight"
           title={`${newCount.toLocaleString()} new images since ${
             newCountSince
               ? formatDistanceToNow(new Date(newCountSince), {

@@ -252,7 +252,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     if (!imageFromResults && !standaloneFetchFailed) {
       return (
         <div className="flex-1 flex items-center justify-center text-grid-text-muted">
-          <p className="text-xs animate-pulse">Loading image…</p>
+          <p className="text-sm animate-pulse">Loading image…</p>
         </div>
       );
     }
@@ -262,12 +262,12 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         <div className="flex-1 flex items-center justify-center text-grid-text-muted">
           <div className="text-center">
             <p className="text-lg mb-2">Image not found</p>
-            <p className="text-xs mb-4">
+            <p className="text-sm mb-4">
               This image does not exist in the index.
             </p>
             <button
               onClick={closeDetail}
-              className="text-grid-accent hover:underline text-xs cursor-pointer"
+              className="text-grid-accent hover:underline text-sm cursor-pointer"
             >
               ← Back to search
             </button>
@@ -331,7 +331,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
             <button
               onClick={closeDetail}
-              className="shrink-0 h-11 flex items-center gap-1.5 px-3 text-xs text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+              className="shrink-0 h-11 flex items-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -354,7 +354,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
           {/* Image position in results */}
           {currentIndex >= 0 && (
-            <span className="text-xs text-grid-text-muted">
+            <span className="text-sm text-grid-text-muted">
               {currentIndex + 1} of {total.toLocaleString()}
             </span>
           )}
@@ -399,7 +399,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
               }}
             />
           ) : (
-            <div className="text-grid-text-muted text-xs text-center p-4">
+            <div className="text-grid-text-muted text-sm text-center p-4">
               <p>Image preview not available</p>
               <p className="mt-1 text-grid-text-dim">
                 Run with <code>--use-TEST</code> to enable image viewing
@@ -501,7 +501,7 @@ function MetadataField({ label, value }: MetadataFieldProps) {
   if (!value) return null;
   return (
     <div className="mb-2.5">
-      <dt className="text-[11px] text-grid-text-dim mb-0.5">
+      <dt className="text-xs text-grid-text-dim mb-0.5">
         {label}
       </dt>
       <dd className="text-xs text-grid-text break-words">{value}</dd>

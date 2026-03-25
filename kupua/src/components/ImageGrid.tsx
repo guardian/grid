@@ -115,8 +115,8 @@ const GridCell = memo(function GridCell({
     <div
       className={`shrink-0 flex flex-col bg-grid-panel rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
-          ? "ring-2 ring-grid-accent shadow-lg"
-          : "hover:ring-1 hover:ring-grid-separator"
+          ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
+          : "hover:bg-grid-hover/15"
       }`}
       style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
       onClick={() => onCellClick(image.id)}
@@ -140,7 +140,7 @@ const GridCell = memo(function GridCell({
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <span className="text-grid-text-dim text-xs">No thumbnail</span>
+            <span className="text-grid-text-dim text-sm">No thumbnail</span>
           </div>
         )}
       </div>
@@ -154,7 +154,7 @@ const GridCell = memo(function GridCell({
           {description || "\u00A0"}
         </p>
         <p
-          className="text-[10px] text-grid-text-dim truncate"
+          className="text-2xs text-grid-text-dim truncate"
           title={dateTooltip}
         >
           Uploaded: {uploadDate}
@@ -179,22 +179,28 @@ export function ImageGrid() {
   const navigate = useNavigate();
 
   // -------------------------------------------------------------------------
-  // Responsive column count via ResizeObserver
+  // Responsive column count + cell width via ResizeObserver
   // -------------------------------------------------------------------------
 
   const [columns, setColumns] = useState(4);
+  const [cellWidth, setCellWidth] = useState(MIN_CELL_WIDTH);
 
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
 
+    const update = (width: number) => {
+      const cols = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
+      setColumns(cols);
+      setCellWidth(Math.floor((width - CELL_GAP * (cols + 1)) / cols));
+    };
+
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? el.clientWidth;
-      setColumns(Math.max(1, Math.floor(width / MIN_CELL_WIDTH)));
+      update(entries[0]?.contentRect.width ?? el.clientWidth);
     });
     observer.observe(el);
-    // Set initial value
-    setColumns(Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH)));
+    // Set initial value synchronously so the first render has correct sizes
+    update(el.clientWidth);
     return () => observer.disconnect();
   }, []);
 
@@ -203,9 +209,6 @@ export function ImageGrid() {
   // -------------------------------------------------------------------------
 
   const rowCount = Math.ceil(virtualizerCount / columns);
-  const cellWidth = parentRef.current
-    ? Math.floor((parentRef.current.clientWidth - CELL_GAP * (columns - 1)) / columns)
-    : MIN_CELL_WIDTH;
 
   // -------------------------------------------------------------------------
   // Virtualizer — virtualises rows, not individual cells.
@@ -419,7 +422,7 @@ export function ImageGrid() {
       ref={parentRef}
       role="region"
       aria-label="Image results grid"
-      className="flex-1 min-w-0 overflow-auto"
+      className="flex-1 min-w-0 overflow-auto pt-1"
     >
       <div
         style={{ height: virtualizer.getTotalSize() }}

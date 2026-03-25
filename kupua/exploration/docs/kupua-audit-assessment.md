@@ -127,9 +127,21 @@ Three module-level mutable variables with exported mutation functions (`cancelSe
 
 The test file is well-structured with 25 tests. Good. But `cql.ts` (the main parser, 460 lines) has **zero tests**. That's the file with the most complex logic — `parseCql`, `fieldToClause`, `buildIsQuery`, `mergeClauses`. Engineers will notice.
 
-### 4. `index.css` — 399 lines
+### 4. `index.css` — ~~399~~ 412 lines — ✅ Resolved, no dead CSS
 
-Haven't fully read it but it's heavy for what should mostly be Tailwind utility classes. The `@theme` declarations are great, but check if there's dead CSS in there.
+**Updated 25 March 2026:** Full read completed. The file is **78% `@font-face` declarations** (~330 lines, copied verbatim from kahuna's `main.css` — same font files, same unicode-range subsets). The functional CSS is only ~80 lines:
+
+| Section | Lines | Status |
+|---|---|---|
+| `@import "tailwindcss"` | 1 | Required |
+| `@theme` block (19 colour tokens, font overrides, text-2xs token) | 54 | All used — three-tier font scale (`text-sm` 14px chrome, `text-xs` 13px data, `text-2xs` 12px dimmed), colour tokens referenced across 130+ `className` usages |
+| Dark scrollbar config (`color-scheme: dark`, `scrollbar-color`) | 4 | Active — prevents jarring bright scrollbar in dark theme |
+| `@layer components` (`popup-menu`, `popup-item`) | 9 | Active — shared by column context menu, sort dropdown, date filter |
+| `@font-face` declarations (4 weights × 8 unicode subsets) | ~330 | From kahuna — browser only downloads subsets it needs (unicode-range subsetting), no runtime cost |
+
+**No dead CSS.** Every token is referenced, every component class is used. The font declarations are inert boilerplate that adds file size only (compressed by Vite in production).
+
+**Update (25 March 2026):** The two arbitrary font sizes (`text-[10px]`, `text-[11px]`) identified previously have been replaced with a `text-2xs` theme token (12px). Zero arbitrary `text-[*]` values remain in the codebase.
 
 ---
 
@@ -149,6 +161,7 @@ Checked AGENTS.md against actual code:
 | Phase 2 status | ✅ All "done" items verified in code. |
 | Project structure tree | ✅ Matches actual file layout (sparse-scroll-plan.md removed, ColumnContextMenu.tsx added). |
 | Key decisions 1–26 | ✅ All accurately describe the code. Decision 8 (scrollbar strategy) updated to reflect implemented sparse scroll. |
+| Decision 19 font sizes | ✅ Fixed — three-tier scale: `text-sm` (14px) chrome, `text-xs` (13px) data, `text-2xs` (12px) dimmed metadata. Zero arbitrary `text-[*]` values remain. |
 
 ---
 

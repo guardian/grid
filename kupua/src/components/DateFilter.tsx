@@ -333,7 +333,7 @@ export function DateFilter() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border transition-colors cursor-pointer select-none whitespace-nowrap border-grid-border hover:text-grid-text-bright hover:border-grid-text-muted ${
+        className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm border transition-colors cursor-pointer select-none whitespace-nowrap border-grid-border hover:text-grid-text-bright hover:border-grid-text-muted ${
           open
             ? "text-grid-text-bright border-grid-text-muted"
             : "text-grid-text-muted"
@@ -356,14 +356,14 @@ export function DateFilter() {
       {open && (
         <div className="absolute top-full right-0 mt-1 z-50 bg-grid-panel border border-grid-border rounded shadow-lg w-80 p-4">
           {/* Field selector */}
-          <h3 className="text-xs font-bold text-grid-text-bright mb-2">
+          <h3 className="text-sm font-bold text-grid-text-bright mb-2">
             Field
           </h3>
           <div className="flex gap-4 mb-4">
             {FIELD_OPTIONS.map((opt) => (
               <label
                 key={opt.key}
-                className="flex items-center gap-1.5 text-xs text-grid-text cursor-pointer"
+                className="flex items-center gap-1.5 text-sm text-grid-text cursor-pointer"
               >
                 <input
                   type="radio"
@@ -378,7 +378,7 @@ export function DateFilter() {
           </div>
 
           {/* Preset buttons */}
-          <h3 className="text-xs font-bold text-grid-text-bright mb-2">
+          <h3 className="text-sm font-bold text-grid-text-bright mb-2">
             Presets
           </h3>
           <div className="flex flex-wrap gap-1.5 mb-4">
@@ -397,7 +397,7 @@ export function DateFilter() {
                   type="button"
                   onClick={() => handlePreset(preset.value)}
                   className={[
-                    "px-2.5 py-1 text-xs rounded border transition-colors cursor-pointer",
+                    "px-2.5 py-1 text-sm rounded border transition-colors cursor-pointer",
                     isPresetActive
                       ? "border-grid-accent bg-grid-accent/15 text-grid-text-bright"
                       : "border-grid-border text-grid-text hover:text-grid-text-bright hover:border-grid-text-muted hover:bg-grid-hover",
@@ -413,7 +413,7 @@ export function DateFilter() {
           <div className="flex gap-6 mb-4">
             {/* From */}
             <div className="flex-1">
-              <h3 className="text-xs font-bold text-grid-text-bright mb-1.5">
+              <h3 className="text-sm font-bold text-grid-text-bright mb-1.5">
                 From
               </h3>
               <input
@@ -421,12 +421,12 @@ export function DateFilter() {
                 value={toDateInputValue(draftSince)}
                 max={toDateInputValue(draftUntil)}
                 onChange={handleFromChange}
-                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-xs text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
+                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button
                 type="button"
                 onClick={handleClearFrom}
-                className="mt-1 text-xs text-grid-text-muted hover:text-grid-text cursor-pointer"
+                className="mt-1 text-sm text-grid-text-muted hover:text-grid-text cursor-pointer"
               >
                 Clear
               </button>
@@ -434,7 +434,7 @@ export function DateFilter() {
 
             {/* To */}
             <div className="flex-1">
-              <h3 className="text-xs font-bold text-grid-text-bright mb-1.5">
+              <h3 className="text-sm font-bold text-grid-text-bright mb-1.5">
                 To
               </h3>
               <input
@@ -442,12 +442,12 @@ export function DateFilter() {
                 value={toDateInputValue(draftUntil)}
                 min={toDateInputValue(draftSince)}
                 onChange={handleToChange}
-                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-xs text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
+                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button
                 type="button"
                 onClick={handleClearTo}
-                className="mt-1 text-xs text-grid-text-muted hover:text-grid-text cursor-pointer"
+                className="mt-1 text-sm text-grid-text-muted hover:text-grid-text cursor-pointer"
               >
                 Clear
               </button>
@@ -459,7 +459,7 @@ export function DateFilter() {
             <button
               type="button"
               onClick={handleCancel}
-              className="px-3 py-1 text-xs text-grid-text-muted hover:text-grid-text cursor-pointer"
+              className="px-3 py-1 text-sm text-grid-text-muted hover:text-grid-text cursor-pointer"
             >
               Cancel
             </button>
@@ -468,7 +468,7 @@ export function DateFilter() {
               onClick={handleSave}
               disabled={draftMatchesUrl}
               className={[
-                "px-3 py-1 text-xs rounded transition-colors cursor-pointer",
+                "px-3 py-1 text-sm rounded transition-colors cursor-pointer",
                 draftMatchesUrl
                   ? "bg-grid-accent/30 text-white/40 cursor-not-allowed"
                   : "bg-grid-accent text-white hover:bg-grid-accent-hover",

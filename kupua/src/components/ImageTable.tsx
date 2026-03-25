@@ -317,7 +317,7 @@ const TableBody = memo(function TableBody({
               key={`pending-${virtualRow.index}`}
               role="row"
               aria-rowindex={virtualRow.index + 2}
-              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 px-2 text-sm text-grid-text-dim truncate"
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 px-2 text-xs text-grid-text-dim truncate"
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
@@ -337,13 +337,12 @@ const TableBody = memo(function TableBody({
             aria-selected={isFocused}
             className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
               isFocused
-                ? "bg-grid-hover/40"
-                : "hover:bg-grid-hover/30"
+                ? "bg-grid-hover/40 ring-2 ring-inset ring-grid-accent"
+                : "hover:bg-grid-hover/15"
             }`}
             style={{
               height: `${virtualRow.size}px`,
               transform: `translateY(${virtualRow.start}px)`,
-              ...(isFocused ? { boxShadow: "inset 2px 0 0 var(--color-grid-accent)" } : undefined),
             }}
             onClick={() => handleRowClick(image.id)}
             onDoubleClick={() => handleRowDoubleClick(image.id)}
@@ -363,7 +362,7 @@ const TableBody = memo(function TableBody({
                 <div
                   key={cell.id}
                   role="gridcell"
-                  className="flex items-center shrink-0 px-2 text-sm text-grid-text truncate border-r border-grid-separator/20"
+                  className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20"
                   style={{ width: `var(--col-${cell.column.id})` }}
                   title={rawValue ?? undefined}
                   onMouseDown={
@@ -796,8 +795,12 @@ export function ImageTable() {
 
       // px-2 = 8px each side, plus 4px for sort arrow, plus a little breathing room
       const PADDING = 8 + 8 + 16;
-      const CELL_FONT = "14px 'Open Sans', sans-serif"; // text-sm
-      const HEADER_FONT = "600 12px 'Open Sans', sans-serif"; // text-xs font-medium
+      // ⚠️ SYNC: these must match the font sizes rendered by CSS.
+      //   Cell font  → text-xs  → --text-xs in index.css  (currently 13px)
+      //   Header font → text-sm → Tailwind default         (currently 14px)
+      // If you change font sizes in the theme, update these too.
+      const CELL_FONT = "13px 'Open Sans', sans-serif";
+      const HEADER_FONT = "600 14px 'Open Sans', sans-serif";
 
       // Header label width
       const headerLabel = typeof col.header === "string" ? col.header : colId;
@@ -1069,7 +1072,7 @@ export function ImageTable() {
                   key={header.id}
                   role="columnheader"
                   aria-sort={ariaSort}
-                  className={`relative flex items-center shrink-0 px-2 py-1.5 text-xs font-medium text-grid-text-muted tracking-wider select-none border-r border-grid-separator ${
+                  className={`relative flex items-center shrink-0 px-2 py-1.5 text-sm font-medium text-grid-text-muted tracking-wider select-none border-r border-grid-separator ${
                     sortField
                       ? "cursor-pointer hover:text-grid-text-bright hover:bg-grid-hover/50"
                       : ""
@@ -1247,7 +1250,7 @@ export function ImageTable() {
         <div
           role="status"
           aria-live="polite"
-          className="sticky bottom-0 flex items-center justify-center py-2 bg-grid-bg/80 text-xs text-grid-accent"
+          className="sticky bottom-0 flex items-center justify-center py-2 bg-grid-bg/80 text-sm text-grid-accent"
         >
           Loading more…
         </div>
