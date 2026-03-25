@@ -18,6 +18,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { useListNavigation } from "@/hooks/useListNavigation";
 import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
@@ -651,6 +652,10 @@ export function ImageTable() {
     virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer]);
 
+  // Ref for focused image — needed by return-from-detail effect below.
+  const focusedImageIdRef = useRef(focusedImageId);
+  focusedImageIdRef.current = focusedImageId;
+
   // Set focus when returning from image detail.
   // When the `image` URL param disappears (user pressed Back), update
   // focus to the last viewed image so it's highlighted in the table.
@@ -724,236 +729,28 @@ export function ImageTable() {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Keyboard navigation — focus-based (replaces pure viewport scrolling)
-  //
-  // Arrow Up/Down: move focus one row, scroll to keep focused row visible
-  // PageUp/PageDown: move focus by one viewport-full of rows
-  // Home: focus first row
-  // End: focus last loaded row (triggers loadMore if more exist)
-  //
-  // Arrow/Page keys propagate out of the CQL input via its keysToPropagate
-  // list, so we handle them in the normal bubble phase.
-  //
-  // Home/End need special treatment: the CQL input contains a ProseMirror
-  // editor inside shadow DOM that would move the cursor on Home/End before
-  // our bubble-phase handler fires. We use a **capture-phase** listener
-  // on `document` to intercept them before they reach the shadow DOM.
+  // Keyboard navigation — delegated to shared hook
   // ---------------------------------------------------------------------------
 
-  // Refs for keyboard handler — avoids re-registering listeners on every
-  // focus/rows change (which would be every render).
-  const focusedImageIdRef = useRef(focusedImageId);
-  focusedImageIdRef.current = focusedImageId;
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
-  const virtualizerCountRef = useRef(virtualizerCount);
-  virtualizerCountRef.current = virtualizerCount;
-  const getImageRef = useRef(getImage);
-  getImageRef.current = getImage;
-  const findImageIndexRef = useRef(findImageIndex);
-  findImageIndexRef.current = findImageIndex;
-
-  const moveFocus = useCallback(
-    (delta: number) => {
-      const count = virtualizerCountRef.current;
-      if (count === 0) return;
-
-      const currentId = focusedImageIdRef.current;
-      let currentIdx = currentId
-        ? findImageIndexRef.current(currentId)
-        : -1;
-
-      // If no focus yet, start from the current viewport position.
-      // Arrow down: start just above the first visible row (so +1 → first row).
-      // Arrow up: start just below the last visible row (so -1 → last visible).
-      // This prevents "arrow up with no focus" from teleporting to the absolute
-      // bottom of a 25k-row table — it stays in the viewport instead.
-      if (currentIdx < 0) {
-        const vItems = virtualizer.getVirtualItems();
-        if (vItems.length > 0) {
-          currentIdx = delta > 0
-            ? vItems[0].index - 1
-            : vItems[vItems.length - 1].index + 1;
-        } else {
-          currentIdx = delta > 0 ? -1 : count;
-        }
-      }
-
-      // Move by delta, clamped to valid range.
-      // If the target is a placeholder, try up to 10 neighbours in the
-      // same direction to find a loaded row. If none within 10, just
-      // focus the target — gap detection will load it.
-      const rawTarget = currentIdx + delta;
-      let nextIdx = Math.max(0, Math.min(count - 1, rawTarget));
-      const step = delta > 0 ? 1 : -1;
-      const MAX_SKIP = 10;
-      if (!getImageRef.current(nextIdx)) {
-        for (let skip = 1; skip <= MAX_SKIP; skip++) {
-          const candidate = nextIdx + step * skip;
-          if (candidate < 0 || candidate >= count) break;
-          if (getImageRef.current(candidate)) {
-            nextIdx = candidate;
-            break;
-          }
-        }
-      }
-
-      const nextImage = getImageRef.current(nextIdx);
-      if (nextImage) {
-        setFocusedImageId(nextImage.id);
-      }
-      virtualizer.scrollToIndex(nextIdx, { align: "auto" });
-
-      // Load more when approaching the end
-      if (count - nextIdx <= 5 && results.length < total) {
-        loadMore();
-      }
-    },
-    [setFocusedImageId, virtualizer, results.length, total, loadMore],
-  );
-
-  // PageUp/PageDown: scroll the viewport by one page, then place focus at
-  // the edge of the new viewport. This matches Finder/Explorer — the
-  // viewport is the primary action, focus follows.
-  //
-  // PageDown: scroll down one page, focus the last fully visible row.
-  // PageUp: scroll up one page, focus the first fully visible row.
-  const pageFocus = useCallback(
-    (direction: "up" | "down") => {
-      const el = parentRef.current;
-      const count = virtualizerCountRef.current;
-      if (!el || count === 0) return;
-
-      const headerEl = el.querySelector<HTMLElement>("[data-table-header]");
-      const headerHeight = headerEl?.offsetHeight ?? 0;
-      const viewportRowSpace = el.clientHeight - headerHeight;
-      const pageRows = Math.max(1, Math.floor(viewportRowSpace / ROW_HEIGHT));
-
-      if (direction === "down") {
-        // Scroll down one page
-        el.scrollTop = Math.min(
-          el.scrollHeight - el.clientHeight,
-          el.scrollTop + pageRows * ROW_HEIGHT,
-        );
-        // Focus the last fully visible row in the new viewport
-        const lastVisibleIdx = Math.min(
-          count - 1,
-          Math.floor((el.scrollTop + el.clientHeight - headerHeight) / ROW_HEIGHT) - 1,
-        );
-        const img = lastVisibleIdx >= 0 ? getImageRef.current(lastVisibleIdx) : undefined;
-        if (img) {
-          setFocusedImageId(img.id);
-        }
-        // Load more when approaching the end
-        if (count - lastVisibleIdx <= 5 && results.length < total) {
-          loadMore();
-        }
-      } else {
-        // Scroll up one page
-        el.scrollTop = Math.max(0, el.scrollTop - pageRows * ROW_HEIGHT);
-        // Focus the first fully visible row in the new viewport
-        const firstVisibleIdx = Math.max(
-          0,
-          Math.ceil((el.scrollTop + headerHeight) / ROW_HEIGHT),
-        );
-        const img = getImageRef.current(firstVisibleIdx);
-        if (img) {
-          setFocusedImageId(img.id);
-        }
-      }
-    },
-    [setFocusedImageId, results.length, total, loadMore],
-  );
-
-  useEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    // Bubble-phase handler: arrows + PageUp/PageDown
-    // Skip when image detail overlay is showing.
-    const handleBubble = (e: KeyboardEvent) => {
-      if (searchParamsRef.current.image) return; // image detail is showing
-      switch (e.key) {
-        case "ArrowUp":
-          e.preventDefault();
-          moveFocus(-1);
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          moveFocus(1);
-          break;
-        case "PageUp":
-          e.preventDefault();
-          pageFocus("up");
-          break;
-        case "PageDown":
-          e.preventDefault();
-          pageFocus("down");
-          break;
-        case "Enter": {
-          // Enter on focused row → open image detail (same as double-click)
-          if (searchParamsRef.current.image) return;
-          const id = focusedImageIdRef.current;
-          if (id) {
-            e.preventDefault();
-            handleRowDoubleClick(id);
-          }
-          break;
-        }
-        default:
-          return;
-      }
-    };
-
-    // Capture-phase handler: Home/End
-    // Fires before the event reaches the CQL input's shadow DOM, so
-    // preventDefault() stops ProseMirror from also moving the cursor.
-    // Skip when image detail overlay is showing.
-    const handleCapture = (e: KeyboardEvent) => {
-      if (searchParamsRef.current.image) return; // image detail is showing
-      switch (e.key) {
-        case "Home":
-          e.preventDefault();
-          el.scrollTop = 0;
-          el.scrollLeft = 0;
-          {
-            const firstImage = getImageRef.current(0);
-            if (firstImage) setFocusedImageId(firstImage.id);
-          }
-          break;
-        case "End":
-          e.preventDefault();
-          el.scrollTop = el.scrollHeight - el.clientHeight;
-          {
-            // Focus the last loaded row near the end — cap scan to 50
-            // indices to avoid O(100k) backwards walk on sparse array
-            const count = virtualizerCountRef.current;
-            const scanFrom = Math.max(0, count - 50);
-            for (let i = count - 1; i >= scanFrom; i--) {
-              const img = getImageRef.current(i);
-              if (img) {
-                setFocusedImageId(img.id);
-                break;
-              }
-            }
-            // Load more when at the end
-            if (results.length < total) {
-              loadMore();
-            }
-          }
-          break;
-        default:
-          return;
-      }
-    };
-
-    document.addEventListener("keydown", handleBubble);
-    document.addEventListener("keydown", handleCapture, true); // capture phase
-    return () => {
-      document.removeEventListener("keydown", handleBubble);
-      document.removeEventListener("keydown", handleCapture, true);
-    };
-  }, [moveFocus, pageFocus, handleRowDoubleClick, setFocusedImageId, results.length, total, loadMore]);
+  useListNavigation({
+    columnsPerRow: 1,
+    virtualizer,
+    scrollRef: parentRef,
+    rowHeight: ROW_HEIGHT,
+    headerHeight: HEADER_HEIGHT,
+    focusedImageId,
+    setFocusedImageId,
+    virtualizerCount,
+    getImage,
+    findImageIndex,
+    resultsLength: results.length,
+    total,
+    loadMore,
+    onEnter: handleRowDoubleClick,
+    imageParam: searchParams.image,
+    flatIndexToRow: (idx) => idx, // table: flat index IS the row index
+    resetScrollLeftOnHome: true,
+  });
 
   // Clean up sort delay timer on unmount
   useEffect(() => {

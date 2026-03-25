@@ -205,7 +205,7 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
 - ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
 
-**Table view (`ImageTable.tsx`, ~1470 lines):**
+**Table view (`ImageTable.tsx`, ~1260 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
 - ✅ Column definitions generated from field registry (`field-registry.ts`) — 22 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
@@ -231,7 +231,7 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Double-click row to open image — adds `image` to URL search params (push, not replace). The search page stays mounted and fully laid out (invisible via `opacity-0`), preserving scroll position, virtualizer state, and search context. Browser back removes `image` and the table reappears at the exact scroll position with the viewed image focused. Navigation in the image view follows the current search results in their current sort order (line-in-the-sand: navigation always within current search context and order).
 - ✅ Row focus (not selection) — single-click sets a sticky highlight on a row (inset box-shadow accent border + brighter background). Focus persists when mouse moves away. Distinct from hover (subtle) and future selection (multi-select for batch ops). Focus is stored in search store (`focusedImageId`), cleared on new search. Returning from image detail auto-focuses the last viewed image; if different from the one originally clicked, centers it in viewport.
 
-**Grid view (`ImageGrid.tsx`, ~590 lines):**
+**Grid view (`ImageGrid.tsx`, ~470 lines):**
 - ✅ Thumbnail grid density — alternative rendering of the same result set. Consumes `useDataWindow()` for data, focus, and gap detection — zero data layer duplication. Grid is the default view (matching Kahuna); table opt-in via URL param `density=table`.
 - ✅ Responsive columns via `ResizeObserver` — `columns = floor(containerWidth / 280)`. Row-based TanStack Virtual (each virtual row renders N cells). Equal-size cells (editorial neutrality — differently-sized images shouldn't influence picture editors).
 - ✅ S3 thumbnails — uses `getThumbnailUrl()` from `image-urls.ts`. Local mode shows "No thumbnail" placeholder (acceptable).
@@ -269,7 +269,8 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Index route (`index.tsx`) — redirects `/` → `/search?nonFree=true` (matches kahuna URL schema, Decision 6)
 - ✅ Fullscreen survives between images — the fullscreened container is a stable DOM element; React reconciles the same component when only `image` prop changes, so the `<div ref>` stays in the DOM and fullscreen persists
 
-**Keyboard navigation (focus-based):**
+**Keyboard navigation (`useListNavigation.ts`, ~327 lines — shared hook):**
+- ✅ Extracted from ImageTable and ImageGrid into a shared hook parameterised by geometry. Table passes `columnsPerRow: 1`, grid passes `columnsPerRow: N`. Same `moveFocus`/`pageFocus`/`home`/`end` logic, one implementation.
 - ✅ App starts with caret in search box (`autofocus` on `<cql-input>`)
 - ✅ Arrow Up/Down: move focus one row, viewport scrolls to keep focused row visible (works even when caret is in search box — keys propagate from CQL input). If no row is focused, first arrow press focuses the first (↓) or last (↑) row. Disabled when table is hidden (image detail overlay showing).
 - ✅ PageUp/PageDown: scroll viewport by one page, then focus the edge row — PageDown focuses the last fully visible row, PageUp focuses the first (matches Finder/Explorer). Scroll is the primary action, focus follows.
@@ -289,7 +290,6 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ✅ Imgproxy latency benchmark (`exploration/bench-imgproxy.mjs`) — 70 real images, sequential + batch + 60fps simulation. Result: imgproxy is **the** bottleneck for traversal (~456ms median per image, 0/70 on-time at 60fps). Prefetching is the correct mitigation; throughput improvements need server-side caching or thumbnail-first progressive loading.
 
 ### What's Next (Phase 2 remaining)
-- [ ] **Extract `useListNavigation`** — abstract keyboard nav parameterised by geometry. Table uses `columnsPerRow: 1`, grid uses `columnsPerRow: N`. Same `moveFocus`/`pageFocus`/`home`/`end` logic, different geometry. Both components currently have their own copies.
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
 - [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md finding #11.
@@ -478,8 +478,8 @@ kupua/
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
       ColumnContextMenu.tsx    # Column header context menu — visibility toggles, fit-to-data (178 lines). Imperative ref handle, self-contained positioning.
-      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1470 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
-      ImageGrid.tsx            # Thumbnail grid density (~550 lines). Responsive columns via ResizeObserver, row-based TanStack Virtual, S3 thumbnails, rich tooltips, grid-geometry keyboard nav. Same useDataWindow as table.
+      ImageTable.tsx           # TanStack Table + Virtual, all table features (~1260 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
+      ImageGrid.tsx            # Thumbnail grid density (~470 lines). Responsive columns via ResizeObserver, row-based TanStack Virtual, S3 thumbnails, rich tooltips, grid-geometry keyboard nav. Same useDataWindow as table.
     stores/
       search-store.ts          # Zustand store (search params, results, loadMore, loadRange, frozenUntil, imagePositions). View components access data via useDataWindow hook, not directly. (~282 lines)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)
@@ -487,6 +487,7 @@ kupua/
       image.ts                 # Image document types from ES mapping
     hooks/
       useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Manages sparse scroll: gap detection, visible range → loadRange, result set freezing, O(1) image position lookup (216 lines).
+      useListNavigation.ts   # Shared keyboard navigation hook — moveFocus, pageFocus, home, end. Parameterised by geometry (columnsPerRow, flatIndexToRow). Used by ImageTable and ImageGrid (327 lines).
       useUrlSearchSync.ts      # URL↔store sync: useUrlSearchSync (URL→store→search) + useUpdateSearchParams (component→URL)
       useFullscreen.ts         # Fullscreen API wrapper — toggle/enter/exit fullscreen on a stable DOM element
 ```

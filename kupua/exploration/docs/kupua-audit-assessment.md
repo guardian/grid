@@ -51,7 +51,7 @@
 
 **Net effect:** ImageTable was 1,489 lines before extraction work. Now 1,403 lines (−86 from ColumnContextMenu). More importantly, the *architectural seam* is in place: `useDataWindow` owns data, ImageTable owns table rendering.
 
-**Remaining:** extract `useListNavigation.ts` (~150 lines of abstract keyboard nav). After that, ImageTable should be ~1,250 lines — still substantial, but all one concern (table density rendering).
+**Remaining:** ~~extract `useListNavigation.ts`~~ **DONE** — 327 lines extracted. ImageTable is now ~1,260 lines — all one concern (table density rendering). Both recommended extractions (`useDataWindow` + `useListNavigation`) are complete.
 
 The original audit text below remains accurate for context:
 
@@ -96,11 +96,11 @@ Split by **what's shared across densities vs. what's table-specific:**
 
 - ✅ **`useDataWindow.ts`** (216 lines) — **DONE.** Shared hook managing sparse data window. Exposes `rows`, `total`, `loadMore`, `loadRange`, `findImageIndex`, `frozenUntil`. Handles gap detection (which visible slots need fetching?), result set freezing, O(1) image position lookup via `imagePositions` Map. Table and image detail both consume it.
 
-- ⬜ **`useListNavigation.ts`** (~150 lines) — **TODO.** Abstract keyboard navigation. Takes `count`, `focusedIndex`, and geometry callbacks (`rowsPerPage()`, `columnsPerRow()`). Returns `moveFocus(delta)`, `pageFocus(direction)`, `home()`, `end()`. Table passes `columnsPerRow: 1`; grid passes `columnsPerRow: N`. Same Home/End/PgUp/PgDown logic, different geometry. Same hook, two densities.
+- ✅ **`useListNavigation.ts`** (327 lines) — **DONE.** Abstract keyboard navigation. Takes geometry config (`columnsPerRow`, `flatIndexToRow`, `headerHeight`, `rowHeight`), data window props, and an `onEnter` callback. Returns nothing — registers its own keyboard listeners. Table passes `columnsPerRow: 1`; grid passes `columnsPerRow: N`. Handles ArrowUp/Down (±columnsPerRow), ArrowLeft/Right (grid only, ±1), PageUp/PageDown, Home/End, Enter. Same hook, two densities. Also added PageUp/PageDown to grid (previously table-only).
 
 - ✅ **`ColumnContextMenu.tsx`** (178 lines) — **DONE.** Self-contained component with imperative ref handle, own state, viewport clamping, dismiss behaviour (outside click, scroll, Escape).
 
-- **`ImageTable.tsx`** (~1,250 lines projected after `useListNavigation` extraction) — everything table-density-specific stays here: TanStack Table setup, column visibility, resize with auto-scroll, sort with delayed click, header rendering, memoised body, CSS-variable widths. Still substantial, but it's all *one concern* — the table density. An engineer building the grid view never touches it.
+- **`ImageTable.tsx`** (~1,260 lines after `useListNavigation` extraction) — everything table-density-specific stays here: TanStack Table setup, column visibility, resize with auto-scroll, sort with delayed click, header rendering, memoised body, CSS-variable widths. Still substantial, but it's all *one concern* — the table density. An engineer building the grid view never touches it.
 
 #### Why this matters (and what it unlocked)
 

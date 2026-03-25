@@ -24,6 +24,7 @@ import {
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { useListNavigation } from "@/hooks/useListNavigation";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import type { Image } from "@/types/image";
@@ -174,8 +175,6 @@ export function ImageGrid() {
     reportVisibleRange, getImage, findImageIndex,
   } = useDataWindow();
   const searchParams = useSearch({ from: "/search" });
-  const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -387,149 +386,27 @@ export function ImageGrid() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Keyboard navigation — grid geometry
+  // Keyboard navigation — delegated to shared hook
   // -------------------------------------------------------------------------
 
-  const columnsRef = useRef(columns);
-  columnsRef.current = columns;
-  const virtualizerCountRef = useRef(virtualizerCount);
-  virtualizerCountRef.current = virtualizerCount;
-  const getImageRef = useRef(getImage);
-  getImageRef.current = getImage;
-  const findImageIndexRef = useRef(findImageIndex);
-  findImageIndexRef.current = findImageIndex;
-
-  const moveFocus = useCallback(
-    (delta: number) => {
-      const count = virtualizerCountRef.current;
-      if (count === 0) return;
-
-      const currentId = focusedImageIdRef.current;
-      let currentIdx = currentId
-        ? findImageIndexRef.current(currentId)
-        : -1;
-
-      // If no focus, start from viewport
-      if (currentIdx < 0) {
-        const vItems = virtualizer.getVirtualItems();
-        if (vItems.length > 0) {
-          const cols = columnsRef.current;
-          currentIdx = delta > 0
-            ? vItems[0].index * cols - 1
-            : (vItems[vItems.length - 1].index + 1) * cols;
-        } else {
-          currentIdx = delta > 0 ? -1 : count;
-        }
-      }
-
-      const rawTarget = currentIdx + delta;
-      let nextIdx = Math.max(0, Math.min(count - 1, rawTarget));
-
-      // Skip placeholders (up to 10)
-      const step = delta > 0 ? 1 : -1;
-      if (!getImageRef.current(nextIdx)) {
-        for (let skip = 1; skip <= 10; skip++) {
-          const candidate = nextIdx + step * skip;
-          if (candidate < 0 || candidate >= count) break;
-          if (getImageRef.current(candidate)) {
-            nextIdx = candidate;
-            break;
-          }
-        }
-      }
-
-      const nextImage = getImageRef.current(nextIdx);
-      if (nextImage) {
-        setFocusedImageId(nextImage.id);
-      }
-
-      // Scroll the row into view
-      const rowIdx = Math.floor(nextIdx / columnsRef.current);
-      virtualizer.scrollToIndex(rowIdx, { align: "auto" });
-
-      if (count - nextIdx <= 5 && results.length < total) {
-        loadMore();
-      }
-    },
-    [setFocusedImageId, virtualizer, results.length, total, loadMore],
-  );
-
-  useEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    const handleBubble = (e: KeyboardEvent) => {
-      if (searchParamsRef.current.image) return;
-      const cols = columnsRef.current;
-      switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          moveFocus(-1);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          moveFocus(1);
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          moveFocus(-cols);
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          moveFocus(cols);
-          break;
-        case "Enter": {
-          const id = focusedImageIdRef.current;
-          if (id) {
-            e.preventDefault();
-            handleCellDoubleClick(id);
-          }
-          break;
-        }
-        default:
-          return;
-      }
-    };
-
-    const handleCapture = (e: KeyboardEvent) => {
-      if (searchParamsRef.current.image) return;
-      const count = virtualizerCountRef.current;
-      switch (e.key) {
-        case "Home":
-          e.preventDefault();
-          el.scrollTop = 0;
-          {
-            const firstImage = getImageRef.current(0);
-            if (firstImage) setFocusedImageId(firstImage.id);
-          }
-          break;
-        case "End":
-          e.preventDefault();
-          el.scrollTop = el.scrollHeight - el.clientHeight;
-          {
-            const scanFrom = Math.max(0, count - 50);
-            for (let i = count - 1; i >= scanFrom; i--) {
-              const img = getImageRef.current(i);
-              if (img) {
-                setFocusedImageId(img.id);
-                break;
-              }
-            }
-            if (results.length < total) loadMore();
-          }
-          break;
-        default:
-          return;
-      }
-    };
-
-    document.addEventListener("keydown", handleBubble);
-    document.addEventListener("keydown", handleCapture, true);
-    return () => {
-      document.removeEventListener("keydown", handleBubble);
-      document.removeEventListener("keydown", handleCapture, true);
-    };
-  }, [moveFocus, handleCellDoubleClick, setFocusedImageId, results.length, total, loadMore]);
+  useListNavigation({
+    columnsPerRow: columns,
+    virtualizer,
+    scrollRef: parentRef,
+    rowHeight: ROW_HEIGHT,
+    headerHeight: 0, // grid has no header inside the scroll container
+    focusedImageId,
+    setFocusedImageId,
+    virtualizerCount,
+    getImage,
+    findImageIndex,
+    resultsLength: results.length,
+    total,
+    loadMore,
+    onEnter: handleCellDoubleClick,
+    imageParam: searchParams.image,
+    flatIndexToRow: (idx) => Math.floor(idx / columns),
+  });
 
   // -------------------------------------------------------------------------
   // Render

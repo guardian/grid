@@ -170,6 +170,10 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           e.preventDefault();
           toggleFullscreen();
           break;
+        case "Backspace":
+          e.preventDefault();
+          closeDetail();
+          break;
         case "ArrowLeft":
           e.preventDefault();
           goToPrev();
@@ -180,13 +184,13 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           break;
         // Escape exits fullscreen — handled natively by the browser.
         // When not in fullscreen, Escape does nothing. Close image detail
-        // via the back button or browser back.
+        // via Backspace, the back button, or browser back.
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [toggleFullscreen, goToPrev, goToNext]);
+  }, [toggleFullscreen, closeDetail, goToPrev, goToNext]);
 
   // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
   // Request viewport-sized image so it looks sharp at the current screen
