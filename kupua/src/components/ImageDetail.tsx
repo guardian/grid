@@ -125,13 +125,21 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     [navigate],
   );
 
+  // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on
+  // every off-screen loadRange (which changes results reference → prevImage/
+  // nextImage identity → callback → keyboard listener teardown/re-register).
+  const prevImageRef = useRef(prevImage);
+  prevImageRef.current = prevImage;
+  const nextImageRef = useRef(nextImage);
+  nextImageRef.current = nextImage;
+
   const goToPrev = useCallback(() => {
-    if (prevImage) goToImage(prevImage.id);
-  }, [prevImage, goToImage]);
+    if (prevImageRef.current) goToImage(prevImageRef.current.id);
+  }, [goToImage]);
 
   const goToNext = useCallback(() => {
-    if (nextImage) goToImage(nextImage.id);
-  }, [nextImage, goToImage]);
+    if (nextImageRef.current) goToImage(nextImageRef.current.id);
+  }, [goToImage]);
 
   // Close image detail — navigate to the search list by stripping the
   // `image` param from the URL.  This is NOT history.back() — it's a

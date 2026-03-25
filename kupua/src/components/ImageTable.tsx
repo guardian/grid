@@ -496,12 +496,36 @@ export function ImageTable() {
   // only those to TanStack Table. The render loop then looks up TanStack Rows
   // by image ID via a Map.
   const virtualItems = virtualizer.getVirtualItems();
+
+  // Stable visible-image extraction: off-screen loadRange calls create a new
+  // `results` array reference, but the images at the *visible* indices haven't
+  // changed. We compare resolved image IDs before/after — if the set of visible
+  // images is identical, we return the cached array. This prevents cascading
+  // getCoreRowModel → TableBody reconciliation on every off-screen load.
+  const prevVisibleImagesRef = useRef<Image[]>([]);
+  const prevVisibleKeyRef = useRef<string>("");
+
   const visibleImages = useMemo(() => {
     const images: Image[] = [];
+    const ids: string[] = [];
     for (const vItem of virtualItems) {
       const img = vItem.index < results.length ? results[vItem.index] : undefined;
-      if (img) images.push(img);
+      if (img) {
+        images.push(img);
+        ids.push(img.id);
+      }
     }
+
+    // Fast path: if the same image IDs in the same order, reuse the old array.
+    // This is the common case during off-screen loadRange — visible rows are
+    // unchanged, only distant indices were filled.
+    const key = ids.join(",");
+    if (key === prevVisibleKeyRef.current) {
+      return prevVisibleImagesRef.current;
+    }
+
+    prevVisibleKeyRef.current = key;
+    prevVisibleImagesRef.current = images;
     return images;
   }, [virtualItems, results]);
 
@@ -579,6 +603,15 @@ export function ImageTable() {
   // Scroll handler: report the visible index range to useDataWindow for
   // gap detection + range loading. Also keeps the old loadMore fallback
   // for sequential scroll near the bottom of loaded data.
+  //
+  // results.length and total are read from refs to keep the callback stable —
+  // without this, every loadRange/loadMore creates a new callback → the
+  // useEffect tears down and re-registers the scroll listener.
+  const resultsLengthRef = useRef(results.length);
+  resultsLengthRef.current = results.length;
+  const totalRef = useRef(total);
+  totalRef.current = total;
+
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -594,10 +627,10 @@ export function ImageTable() {
     // Fallback: append-only loadMore when near the bottom (for small
     // datasets where sparse scroll isn't needed)
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (scrollBottom < 500 && results.length < total) {
+    if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
       loadMore();
     }
-  }, [virtualizer, reportVisibleRange, results.length, total, loadMore]);
+  }, [virtualizer, reportVisibleRange, loadMore]);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -786,8 +819,11 @@ export function ImageTable() {
     return Math.ceil(ctx.measureText(text).width);
   }, []);
 
-  // Compute the ideal width for a column based on loaded data.
-  // Checks both the header label and all visible cell values.
+  // Compute the ideal width for a column based on visible data.
+  // Scans only the current virtualizer window (visible + overscan, ~60 rows)
+  // instead of all loaded results — at 50k+ loaded images the old full scan
+  // would freeze the main thread. Visible-window fit is also better UX:
+  // you're fitting to what you can actually see.
   const computeFitWidth = useCallback(
     (colId: string): number => {
       const col = allColumns.find((c) => getColumnId(c) === colId);
@@ -806,9 +842,10 @@ export function ImageTable() {
       const headerLabel = typeof col.header === "string" ? col.header : colId;
       let maxW = measureText(headerLabel, HEADER_FONT);
 
-      // Cell values — scan loaded results only (for...in skips sparse holes)
-      for (const key in results) {
-        const image = results[Number(key)];
+      // Cell values — scan only the visible virtualizer window
+      const vItems = virtualizer.getVirtualItems();
+      for (const vItem of vItems) {
+        const image = vItem.index < results.length ? results[vItem.index] : undefined;
         if (!image) continue;
         const raw = getFieldRawValue(colId, image);
         if (raw && raw !== "—") {
@@ -819,7 +856,7 @@ export function ImageTable() {
 
       return Math.max(50, maxW + PADDING);
     },
-    [results, measureText]
+    [virtualizer, results, measureText]
   );
 
   // Resize a single column to fit its data

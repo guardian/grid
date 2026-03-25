@@ -82,9 +82,11 @@ export interface ImageDataSource {
   /**
    * Search without cancelling in-flight requests.
    * Used by loadRange — range loads are additive and shouldn't abort
-   * each other or other searches. Falls back to search() if not implemented.
+   * each other or other searches. Accepts an optional AbortSignal so the
+   * store can cancel all in-flight ranges when a new search starts
+   * (generation-based abort).
    */
-  searchRange(params: SearchParams): Promise<SearchResult>;
+  searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult>;
 
   /** Count documents matching params (lightweight — no hits returned). */
   count(params: SearchParams): Promise<number>;

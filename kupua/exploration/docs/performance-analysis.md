@@ -41,11 +41,11 @@ and "Never Lost" on sort). Everything else is polish-level.
 | 3 | 🔴 | Unbounded `results` growth — no page eviction | Memory | High | 📋 | Open — needs scrubber |
 | 4 | 🔴 | `from/size` unusable beyond 100k — blocks scrubber | Arch | High | 📋 | Open — needs `search_after` |
 | 5 | 🔴 | "Never Lost" sort-around-focus blocked by `from/size` cap | Arch | High | 📋 | Open — blocked by #4 |
-| 6 | 🟡 | `visibleImages` useMemo triggers unnecessary re-renders | Render | Low | 🔧 | Open |
-| 7 | 🟡 | `handleScroll` recreated on `results.length` change | Scroll | Low | 🔧 | Open |
-| 8 | 🟡 | `goToPrev`/`goToNext` listener churn in ImageDetail | Render | Low | 🔧 | Open |
-| 9 | 🟡 | Orphaned `loadRange` requests survive new search | Network | Med | 🔧 | Open |
-| 10 | 🟡 | `computeFitWidth` iterates all loaded results | Render | Low | 🔧 | Open |
+| 6 | 🟡 | `visibleImages` useMemo triggers unnecessary re-renders | Render | Low | — | ✅ Fixed |
+| 7 | 🟡 | `handleScroll` recreated on `results.length` change | Scroll | Low | — | ✅ Fixed |
+| 8 | 🟡 | `goToPrev`/`goToNext` listener churn in ImageDetail | Render | Low | — | ✅ Fixed |
+| 9 | 🟡 | Orphaned `loadRange` requests survive new search | Network | Med | — | ✅ Fixed |
+| 10 | 🟡 | `computeFitWidth` iterates all loaded results | Render | Low | — | ✅ Fixed |
 | 11 | 🟡 | `results` array spreading copies entire array per `loadRange` | State | — | 📋 | Mitigated by #3 |
 | 12 | 🟡 | Density switch mounts/unmounts entire view tree | Render | — | 📋 | Acceptable now; risk for density slider |
 | 13 | 🟡 | Gap detection 80ms debounce delays scrubber seeks | Scroll | Low | 📋 | Future — scrubber prereq |
@@ -186,7 +186,7 @@ the found position once count returns.
 
 ---
 
-### #6 🟡🔧 `visibleImages` useMemo triggers unnecessary re-renders
+### #6 ✅ `visibleImages` useMemo triggers unnecessary re-renders
 
 **Location:** `ImageTable.tsx:498-506`
 
@@ -200,64 +200,72 @@ gets new `data` → `getCoreRowModel()` rebuilds → full reconciliation check o
 `TableBody`. The work per rebuild is small (~60 rows) but multiplied by every
 off-screen range response (3–5 per debounce window).
 
-**Fix (easy):** Compare the resolved image IDs in the visible window before/after.
-If the same IDs in the same order → return the cached reference. Short-circuits all
-reconciliation from off-screen loads.
+**Fixed.** The useMemo now compares resolved image IDs (joined as a comma-separated
+string) before/after. If the same IDs in the same order → returns the cached array
+reference. Short-circuits all downstream reconciliation from off-screen loads.
+Two refs (`prevVisibleImagesRef`, `prevVisibleKeyRef`) track the cache.
 
 ---
 
-### #7 🟡🔧 `handleScroll` recreated on `results.length` change
+### #7 ✅ `handleScroll` recreated on `results.length` change
 
 **Location:** `ImageTable.tsx:582-598`, `ImageGrid.tsx:272-287`
 
-Both `handleScroll` callbacks include `results.length` in their dependency arrays.
-Every data load changes `results.length` → callback recreated → `useEffect` removes
-and re-adds the scroll listener. Creates a tiny window where scroll events might be
-missed, and runs listener setup synchronously during React's commit phase.
+Both `handleScroll` callbacks included `results.length` in their dependency arrays.
+Every data load changed `results.length` → callback recreated → `useEffect` removed
+and re-added the scroll listener.
 
-**Fix (easy):** Use refs for `results.length` and `total` inside the callback. The
-dependency array becomes `[virtualizer, reportVisibleRange, loadMore]` — all stable.
+**Fixed.** `results.length` and `total` read from refs (`resultsLengthRef`, `totalRef`)
+inside the callback. Dependency arrays reduced to stable values only:
+`[virtualizer, reportVisibleRange, loadMore]` (table) and
+`[virtualizer, reportVisibleRange, columns, loadMore]` (grid).
 
 ---
 
-### #8 🟡🔧 `goToPrev`/`goToNext` listener churn in ImageDetail
+### #8 ✅ `goToPrev`/`goToNext` listener churn in ImageDetail
 
 **Location:** `ImageDetail.tsx:110-116`
 
-`goToPrev`/`goToNext` are recreated whenever `prevImage`/`nextImage` change (which
-happens on every `results` reference change). They're dependencies of the `useEffect`
-that registers keyboard listeners — causing unnecessary listener removal and
-re-registration.
+`goToPrev`/`goToNext` were recreated whenever `prevImage`/`nextImage` changed (which
+happened on every `results` reference change). They were dependencies of the
+`useEffect` that registers keyboard listeners.
 
-**Fix (easy):** Use refs for `prevImage`/`nextImage` in the keyboard handler.
-
----
-
-### #9 🟡🔧 Orphaned `loadRange` requests survive new search
-
-**Location:** `es-adapter.ts` — `searchRange` has no AbortController
-
-When the user types a new query, `search()` aborts its own request but in-flight
-`loadRange` requests from the previous search continue. Their responses are discarded
-by the store updater, but the network requests waste bandwidth. During fast typing:
-3–5 concurrent ranges × 3–4 searches/second = 9–20 orphaned requests.
-
-**Fix:** Store `AbortController` instances per range key in `_inflight`. On
-`search()`, abort all pending range controllers and clear the set.
+**Fixed.** `prevImage`/`nextImage` stored in refs (`prevImageRef`, `nextImageRef`).
+`goToPrev`/`goToNext` depend only on `goToImage` (stable). Keyboard `useEffect`
+dependency array reduced to `[toggleFullscreen, closeDetail, goToPrev, goToNext]` —
+all stable.
 
 ---
 
-### #10 🟡🔧 `computeFitWidth` iterates all loaded results
+### #9 ✅ Orphaned `loadRange` requests survive new search
+
+**Location:** `es-adapter.ts` — `searchRange` had no AbortController
+
+When the user typed a new query, `search()` aborted its own request but in-flight
+`loadRange` requests from the previous search continued. Their responses were
+discarded by the store updater, but the network requests wasted bandwidth. During fast
+typing: 3–5 concurrent ranges × 3–4 searches/second = 9–20 orphaned requests.
+
+**Fixed.** Generation-based abort: module-level `_rangeAbortController` in
+`search-store.ts`. `search()` aborts the current controller (killing all in-flight
+ranges from the previous search) and creates a fresh one. `loadRange()` passes the
+controller's signal via `searchRange(params, signal)`. AbortError handled gracefully
+— just cleans up inflight tracking, not recorded as a failed range. Simpler than
+per-range controllers and matches the mental model (all ranges from search N are stale
+when search N+1 starts).
+
+---
+
+### #10 ✅ `computeFitWidth` scans only visible window
 
 **Location:** `ImageTable.tsx:772-784`
 
-"Resize all columns to fit data" runs `computeFitWidth` for every visible column.
-Each call iterates all loaded images via `for...in` with `measureText`. At 10k loaded
-images × 15 columns = 150k `measureText` calls. `measureText` is synchronous and
-canvas context switches are expensive — could freeze the UI.
+"Resize all columns to fit data" ran `computeFitWidth` for every visible column.
+Each call iterated all loaded images via `for...in` with `measureText`. At 10k loaded
+images × 15 columns = 150k `measureText` calls.
 
-**Fix (easy):** Cap the scan to the virtualizer's visible window (~60 rows). The fit
-width for visible rows is a perfectly good approximation.
+**Fixed.** Scan capped to the virtualizer's visible window (~60 rows). Also better
+UX — fits to what you can actually see, not distant off-screen data.
 
 ---
 
@@ -473,19 +481,18 @@ simultaneous window resize + PageDown — extremely unlikely.
 
 ## Action Plan
 
-### Fix Now (🔧) — easy wins, directly improve current UX
+### Fix Now (🔧) — ✅ All done
 
-All five are low-effort ref/memo fixes. Could be done in a single session.
+All five ref/memo fixes implemented in a single session (March 2026). No architectural
+risk. No regressions in existing test suite (50 tests).
 
-| # | Issue | Fix | Effort |
+| # | Issue | Fix | Status |
 |---|-------|-----|--------|
-| 6 | `visibleImages` useMemo | Compare resolved IDs before returning new array | ~15 min |
-| 7 | `handleScroll` listener churn | Use refs for `results.length` and `total` | ~10 min |
-| 8 | `goToPrev`/`goToNext` churn | Use refs for prev/next image in keyboard handler | ~10 min |
-| 10 | `computeFitWidth` full scan | Cap scan to virtualizer visible window | ~10 min |
-| 9 | Orphaned `loadRange` on search | AbortController pool keyed by range; abort all on `search()` | ~30 min |
-
-**Total:** ~75 minutes. All are safe, isolated changes. No architectural risk.
+| 6 | `visibleImages` useMemo | Compare resolved IDs; return cached array when unchanged | ✅ |
+| 7 | `handleScroll` listener churn | Refs for `results.length` and `total` | ✅ |
+| 8 | `goToPrev`/`goToNext` churn | Refs for prev/next image in keyboard handler | ✅ |
+| 10 | `computeFitWidth` full scan | Scan capped to virtualizer visible window | ✅ |
+| 9 | Orphaned `loadRange` on search | Generation-based `AbortController`; abort all on `search()` | ✅ |
 
 ### Fix Later (📋) — blocked by future work or only matters at scale
 

@@ -80,6 +80,16 @@ let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
 /** Module-level flag to prevent concurrent loadMore without triggering re-renders */
 let _loadMoreInFlight = false;
 
+/**
+ * Generation-based abort for loadRange requests.
+ * When search() fires, we abort the current controller (killing all in-flight
+ * range loads from the previous search) and create a fresh one. loadRange()
+ * passes this controller's signal so the fetch is cancellable.
+ * This prevents orphaned range requests from wasting bandwidth and clogging
+ * the browser's connection pool after the user types a new query.
+ */
+let _rangeAbortController = new AbortController();
+
 /** Rolling window of recent loadRange ES took values for computing scrollAvg. */
 const _scrollTookWindow: number[] = [];
 const SCROLL_TOOK_WINDOW_SIZE = 10;
@@ -179,6 +189,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { dataSource, params } = get();
     set({ loading: true, error: null });
 
+    // Abort all in-flight loadRange requests from the previous search.
+    // They're for stale offsets — responses would be discarded anyway,
+    // but cancelling frees up browser connections for the new search.
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+
     try {
       const result = await dataSource.search({ ...params, offset: 0 });
       const now = new Date().toISOString();
@@ -276,7 +292,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         offset: start,
         length,
         ...(frozenUntil ? { until: frozenUntil } : {}),
-      });
+      }, _rangeAbortController.signal);
 
       if (result.took != null) {
         _scrollTookWindow.push(result.took);
@@ -319,6 +335,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         };
       });
     } catch (e) {
+      // Aborted requests (from a new search cancelling the previous generation)
+      // are intentional — just clean up inflight tracking, don't set error or
+      // record as failed (the range isn't actually broken, it was just stale).
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set((state) => {
+          const newInflight = new Set(state._inflight);
+          newInflight.delete(key);
+          return { _inflight: newInflight };
+        });
+        return;
+      }
       // Remove from inflight and record as failed to prevent infinite retry
       // (e.g. offset beyond max_result_window returns ES 400)
       set((state) => {

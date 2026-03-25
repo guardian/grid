@@ -248,6 +248,13 @@ export function ImageGrid() {
   // Scroll handler: report visible range for gap detection + loadMore
   // -------------------------------------------------------------------------
 
+  // Ref-stabilise results.length and total so the callback doesn't churn on
+  // every data load (same pattern as ImageTable fix #7).
+  const resultsLengthRef = useRef(results.length);
+  resultsLengthRef.current = results.length;
+  const totalRef = useRef(total);
+  totalRef.current = total;
+
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -262,10 +269,10 @@ export function ImageGrid() {
 
     // Fallback loadMore near bottom
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (scrollBottom < 500 && results.length < total) {
+    if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
       loadMore();
     }
-  }, [virtualizer, reportVisibleRange, columns, results.length, total, loadMore]);
+  }, [virtualizer, reportVisibleRange, columns, loadMore]);
 
   useEffect(() => {
     const el = parentRef.current;
