@@ -63,7 +63,7 @@ export class ImageEmbedder extends GuStack {
       visibilityTimeout: Duration.minutes(10),
       deadLetterQueue: {
         queue: backfillDLQ,
-        maxReceiveCount: 5,
+        maxReceiveCount: 3,
       },
     });
 
