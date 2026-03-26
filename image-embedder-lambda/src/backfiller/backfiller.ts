@@ -1,7 +1,7 @@
 import {Context, EventBridgeEvent} from "aws-lambda";
 import {SQSClient} from "@aws-sdk/client-sqs";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
-import {ElasticSearchResponse, queryElasticSearch} from "./elasticSearch";
+import {ElasticSearchResponse, ElasticSearchSuccess, queryElasticSearch} from "./elasticSearch";
 import {EmbedderQueue} from "./embedderQueue";
 
 const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL;
@@ -29,15 +29,16 @@ const sqsClient = new SQSClient({
 });
 const embedderQueue = new EmbedderQueue(sqsClient);
 
-const elasticSearchResponseToSqsMessages = (esResponse: ElasticSearchResponse): SQSMessageBody[] => {
-  return esResponse.hits?.filter((hit) => {
+const elasticSearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): SQSMessageBody[] => {
+  console.debug("EsResponse", JSON.stringify(esResponse));
+  return esResponse.hits?.hits?.filter((hit) => {
     return hit._id && hit._source?.source?.file && hit._source?.source?.mimeType
   }).map((hit) => {
     const fileUrl = hit._source.source.file;
     // parse the file URL to deduce the S3 bucket
     const parsedUrl = new URL(fileUrl);
     const s3Bucket = parsedUrl.hostname.split('.')[0];
-    const s3Key = parsedUrl.pathname.split('/')[1];
+    const s3Key = parsedUrl.pathname.startsWith('/') ? parsedUrl.pathname.slice(1) : parsedUrl.pathname;
     return {
       imageId: hit._id,
       s3Bucket: s3Bucket,
@@ -52,6 +53,7 @@ export const handler = async (
   context: Context,
 ): Promise<void> => {
   console.log(`Starting handler embedding pipeline`);
+
   console.log("Checking queue size");
   const queueSize = await embedderQueue.checkQueueSize(BACKFILL_SQS_QUEUE!);
   if (queueSize > CROWDED_QUEUE) {
@@ -60,12 +62,20 @@ export const handler = async (
   } else {
     console.log(`Queue size has ${queueSize} messages, proceeding.`);
   }
+
   const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL!);
+  if (esResults.kind === 'error') {
+    console.error(`Error querying ElasticSearch`, esResults);
+    return;
+  }
+
   const sqsMessages = elasticSearchResponseToSqsMessages(esResults)
-  console.log(`Found ${sqsMessages.length} images to process`, sqsMessages);
+  console.log(`Found ${sqsMessages.length} images to process`);
+  console.debug(`3 sampled sqs messages:`, sqsMessages.slice(0, Math.min(sqsMessages.length, 3)));
   if (sqsMessages.length > 0) {
     await embedderQueue.sendSqsMessages(sqsMessages, BACKFILL_SQS_QUEUE!);
     console.log(`Sent ${sqsMessages.length} messages to SQS queue ${BACKFILL_SQS_QUEUE}`);
   }
+
   console.log(`Done queuing ${sqsMessages.length} messages`);
 }

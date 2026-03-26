@@ -1,15 +1,39 @@
-export interface ElasticSearchResponse {
-  hits: [
-    {
-      _id: string,
-      _source: {
-        source: {
-          file: string
-          mimeType: string
+export interface ElasticSearchSuccess {
+  hits: {
+    hits: [
+      {
+        _id: string,
+        _source: {
+          source: {
+            file: string
+            mimeType: string
+          }
         }
       }
-    }
-  ]
+    ],
+
+  },
+  kind: 'success',
+}
+
+export interface ElasticSearchError {
+  error: {
+    root_cause: any,
+    type: string,
+    reason: string,
+  },
+  status: number,
+  kind: 'error',
+}
+
+export type ElasticSearchResponse = ElasticSearchSuccess | ElasticSearchError;
+
+const parseElasticSearchResponse = (response: any): ElasticSearchResponse => {
+  if (response.error) {
+    return {kind: 'error', ...response} as ElasticSearchError;
+  } else {
+    return {kind: 'success', ...response} as ElasticSearchSuccess
+  }
 }
 
 
@@ -37,6 +61,6 @@ export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: st
     body: JSON.stringify(query),
   });
 
-  return await response.json() as ElasticSearchResponse;
+  return parseElasticSearchResponse(await response.json());
 }
 
