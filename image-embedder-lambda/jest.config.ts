@@ -6,9 +6,9 @@ const config: Config = {
 	testMatch: ['**/__tests__/**/*.test.ts'],
 	testPathIgnorePatterns: [
 		'/node_modules/',
-		// Skip integration tests by default, because these call Bedrock for real,
-		// costing us time, money and throughput
+		// Skip integration tests by default — they require real AWS / LocalStack
 		'/__tests__/embedder/integration/',
+		'/__tests__/backfiller/integration/',
 	],
 	moduleFileExtensions: ['ts', 'js', 'json'],
 };

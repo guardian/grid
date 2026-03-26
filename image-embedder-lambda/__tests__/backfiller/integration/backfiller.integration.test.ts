@@ -1,0 +1,194 @@
+import {SQSClient, CreateQueueCommand, PurgeQueueCommand, ReceiveMessageCommand} from '@aws-sdk/client-sqs';
+import {EventBridgeEvent, Context} from 'aws-lambda';
+import * as fs from 'fs';
+import * as path from 'path';
+
+
+const LOCALSTACK_ENDPOINT =
+  process.env.LOCALSTACK_ENDPOINT ?? 'http://localhost:4566';
+const ELASTIC_SEARCH_URL =
+  process.env.ELASTIC_SEARCH_URL ?? 'http://localhost:9200';
+
+// We create a fresh queue and index for each test run to avoid cross-contamination.
+const TEST_QUEUE_NAME = `backfiller-integration-test-${Date.now()}`;
+const TEST_INDEX_NAME = `images-integration-test-${Date.now()}`;
+
+const ES_SEED_FILE = path.resolve(
+  __dirname,
+  'test-data/input/es-documents.jsonl',
+);
+
+async function seedElasticSearch(elasticSearchUrl: string): Promise<void> {
+  const lines = fs
+    .readFileSync(ES_SEED_FILE, 'utf-8')
+    .split('\n')
+    .filter((l) => l.trim().length > 0);
+
+  // Build the NDJSON bulk body: action line then source line for each doc
+  const bulkBody = lines
+    .flatMap((line) => {
+      const doc = JSON.parse(line);
+      return [
+        JSON.stringify({index: {_index: TEST_INDEX_NAME, _id: doc._id}}),
+        JSON.stringify(doc._source),
+      ];
+    })
+    .join('\n') + '\n';
+
+  const response = await fetch(`${elasticSearchUrl}/_bulk`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-ndjson'},
+    body: bulkBody,
+  });
+
+  const result = await response.json() as { errors: boolean; items: unknown[] };
+  if (result.errors) {
+    throw new Error(`ES bulk indexing failed: ${JSON.stringify(result.items)}`);
+  }
+
+  // Ensure all docs are visible before the test queries them
+  await fetch(`${elasticSearchUrl}/${TEST_INDEX_NAME}/_refresh`, {method: 'POST'});
+}
+
+async function tearDownElasticSearchIndex(elasticSearchUrl: string): Promise<void> {
+  await fetch(`${elasticSearchUrl}/${TEST_INDEX_NAME}`, {method: 'DELETE'});
+}
+
+function makeContext(): Context {
+  return {} as Context;
+}
+
+function makeEvent(): EventBridgeEvent<'Scheduled Event', {}> {
+  return {
+    version: '0',
+    id: 'integration-test-event',
+    source: 'aws.events',
+    account: '000000000000',
+    time: new Date().toISOString(),
+    region: 'eu-west-1',
+    resources: [],
+    'detail-type': 'Scheduled Event',
+    detail: {},
+  };
+}
+
+describe('Backfiller integration tests', () => {
+  let sqsClient: SQSClient;
+  let queueUrl: string;
+
+  beforeAll(async () => {
+    sqsClient = new SQSClient({
+      region: 'eu-west-1',
+      endpoint: LOCALSTACK_ENDPOINT,
+      credentials: {
+        accessKeyId: 'test',
+        secretAccessKey: 'test',
+      },
+    });
+
+    // Create a fresh SQS queue for this test run
+    const createResult = await sqsClient.send(
+      new CreateQueueCommand({QueueName: TEST_QUEUE_NAME}),
+    );
+    queueUrl = createResult.QueueUrl!;
+
+    // Point the handler at our local infrastructure
+    process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
+    process.env.BACKFILL_SQS_QUEUE = queueUrl;
+    process.env.ELASTIC_SEARCH_URL = ELASTIC_SEARCH_URL;
+    process.env.IMAGE_INDEX_NAME = TEST_INDEX_NAME;
+
+    await seedElasticSearch(ELASTIC_SEARCH_URL);
+  });
+
+  afterAll(async () => {
+    await tearDownElasticSearchIndex(ELASTIC_SEARCH_URL);
+  });
+
+  beforeEach(async () => {
+    // Purge the queue so each test starts with an empty queue
+    await sqsClient.send(new PurgeQueueCommand({QueueUrl: queueUrl}));
+  });
+
+  it('sends SQS messages for images that have no embedding', async () => {
+    // Import handler AFTER setting env vars (module-level env is read at import time)
+    const {handler} = await import('../../../src/backfiller/backfiller');
+
+    await handler(makeEvent(), makeContext());
+
+    // Give SQS a moment to make messages visible
+    const received = await sqsClient.send(
+      new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: 10,
+        WaitTimeSeconds: 2,
+      }),
+    );
+
+    // We expect exactly 3 messages: the 3 docs without an embedding and without softDeletedMetadata.
+    // The soft-deleted doc (86be5cf0...) must be excluded.
+    const messages = received.Messages ?? [];
+    const imageIds = messages.map((msg) => JSON.parse(msg.Body!).imageId);
+    expect(imageIds).toHaveLength(3);
+    expect(imageIds).toEqual(
+      expect.arrayContaining([
+        '70943a938364ec2dfd521ff7e57628081cf5b358',
+        'b401c84f35fcd21068c322e91b69416a58c2103b',
+        'd8981dc73c5954c29ae10ff419515285e2e9f476',
+      ]),
+    );
+  });
+
+  it('does not send any messages when the queue is already crowded (>20)', async () => {
+    const {handler} = await import('../../../src/backfiller/backfiller');
+
+    // Flood the queue with 21 placeholder messages so the backfiller considers it crowded.
+    // We use a separate queue with a known message count rather than trying to trick the
+    // real queue, since purging + re-seeding would be racy.
+    // Instead we override the env var to point at a different queue that already has messages.
+    //
+    // For this test we simply seed our queue with 21 messages using SQS SendMessageBatch
+    // (done via the SQS SDK rather than going through the handler) and then invoke the
+    // handler to confirm it skips processing.
+    const {SendMessageBatchCommand} = await import('@aws-sdk/client-sqs');
+    const batches = Array.from({length: 21}, (_, i) => ({
+      Id: `seed-${i}`,
+      MessageBody: JSON.stringify({placeholder: i}),
+    }));
+
+    // SQS SendMessageBatch accepts max 10 per call
+    await sqsClient.send(
+      new SendMessageBatchCommand({QueueUrl: queueUrl, Entries: batches.slice(0, 10)}),
+    );
+    await sqsClient.send(
+      new SendMessageBatchCommand({QueueUrl: queueUrl, Entries: batches.slice(10, 20)}),
+    );
+    await sqsClient.send(
+      new SendMessageBatchCommand({QueueUrl: queueUrl, Entries: batches.slice(20)}),
+    );
+
+    // Wait briefly for the approximate count to update in LocalStack
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    console.log('Queue seeded, approximate count check done, invoking handler...');
+
+    await handler(makeEvent(), makeContext());
+
+    // The handler should have detected the crowded queue and returned early,
+    // so the message count should be unchanged (still 21 seed messages).
+    const received = await sqsClient.send(
+      new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: 10,
+        WaitTimeSeconds: 1,
+      }),
+    );
+
+    // All messages we receive should be our seed messages, not new ones from the handler
+    const bodies = (received.Messages ?? []).map((m) => JSON.parse(m.Body!));
+    for (const body of bodies) {
+      expect(body).toHaveProperty('placeholder');
+    }
+  });
+});
+

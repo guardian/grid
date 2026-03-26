@@ -1,17 +1,16 @@
+export interface ElasticSearchHit {
+  _id: string,
+  _source: {
+    source: {
+      file: string
+      mimeType: string
+    }
+  }
+}
+
 export interface ElasticSearchSuccess {
   hits: {
-    hits: [
-      {
-        _id: string,
-        _source: {
-          source: {
-            file: string
-            mimeType: string
-          }
-        }
-      }
-    ],
-
+    hits: ElasticSearchHit[],
   },
   kind: 'success',
 }
@@ -37,13 +36,16 @@ const parseElasticSearchResponse = (response: any): ElasticSearchResponse => {
 }
 
 
-export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: string): Promise<ElasticSearchResponse> => {
+export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: string, elasticSearchIndexName: string): Promise<ElasticSearchResponse> => {
   const query = {
     query: {
       function_score: {
         query: {
           bool: {
-            must_not: {exists: {field: "embedding.cohereEmbedEnglishV3.image"}}
+            must_not: [
+              {exists: {field: "embedding.cohereEmbedEnglishV3.image"}},
+              {exists: {field: "softDeletedMetadata"}}
+            ]
           }
         },
         random_score: {seed: "<lambda_invocation_id>", field: "_seq_no"},
@@ -53,7 +55,7 @@ export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: st
     size: batchSize
   }
 
-  const response = await fetch(`${elasticSearchUrl}/Images_Current/_search`, {
+  const response = await fetch(`${elasticSearchUrl}/${elasticSearchIndexName}/_search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -63,4 +65,5 @@ export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: st
 
   return parseElasticSearchResponse(await response.json());
 }
+
 

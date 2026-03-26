@@ -1,11 +1,12 @@
 import {Context, EventBridgeEvent} from "aws-lambda";
 import {SQSClient} from "@aws-sdk/client-sqs";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
-import {ElasticSearchResponse, ElasticSearchSuccess, queryElasticSearch} from "./elasticSearch";
+import {queryElasticSearch, ElasticSearchSuccess} from "./elasticSearch";
 import {EmbedderQueue} from "./embedderQueue";
 
 const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL;
 const BACKFILL_SQS_QUEUE = process.env.BACKFILL_SQS_QUEUE;
+const IMAGE_INDEX_NAME = process.env.IMAGE_INDEX_NAME ?? 'Images_Current';
 
 const BATCH_SIZE = 100;
 const CROWDED_QUEUE = 20;
@@ -63,7 +64,7 @@ export const handler = async (
     console.log(`Queue size has ${queueSize} messages, proceeding.`);
   }
 
-  const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL!);
+  const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL!, IMAGE_INDEX_NAME);
   if (esResults.kind === 'error') {
     console.error(`Error querying ElasticSearch`, esResults);
     return;
