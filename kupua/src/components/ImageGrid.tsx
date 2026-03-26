@@ -180,10 +180,28 @@ export function ImageGrid() {
 
   // -------------------------------------------------------------------------
   // Responsive column count + cell width via ResizeObserver
+  //
+  // Scroll anchoring: when the column count changes (panel toggle, panel
+  // resize, browser window resize), we capture the anchor image's viewport
+  // position BEFORE React re-renders, then restore it AFTER in a
+  // useLayoutEffect. The anchor is the focused image (if any), otherwise
+  // the image nearest the viewport centre.
   // -------------------------------------------------------------------------
 
   const [columns, setColumns] = useState(4);
   const [cellWidth, setCellWidth] = useState(MIN_CELL_WIDTH);
+
+  // Ref to track previous column count for change detection in ResizeObserver
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+
+  // Anchor state: captured in ResizeObserver, consumed in useLayoutEffect
+  const anchorRef = useRef<{
+    /** Flat image index of the anchor image */
+    imageIndex: number;
+    /** Viewport ratio: 0 = top edge, 1 = bottom edge */
+    viewportRatio: number;
+  } | null>(null);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -191,6 +209,16 @@ export function ImageGrid() {
 
     const update = (width: number) => {
       const cols = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
+      const prevCols = columnsRef.current;
+
+      // Capture anchor BEFORE setting state (before React re-renders)
+      if (cols !== prevCols) {
+        const anchor = captureAnchor(el, prevCols);
+        if (anchor) {
+          anchorRef.current = anchor;
+        }
+      }
+
       setColumns(cols);
       setCellWidth(Math.floor((width - CELL_GAP * (cols + 1)) / cols));
     };
@@ -202,7 +230,32 @@ export function ImageGrid() {
     // Set initial value synchronously so the first render has correct sizes
     update(el.clientWidth);
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable: refs + state setters only
   }, []);
+
+  /**
+   * Capture the anchor image and its viewport position.
+   * Called from ResizeObserver when column count is about to change.
+   */
+  function captureAnchor(el: HTMLElement, cols: number): { imageIndex: number; viewportRatio: number } | null {
+    // Prefer the focused image as anchor
+    const fid = focusedImageIdRef.current;
+    if (fid) {
+      const idx = useSearchStore.getState().imagePositions.get(fid);
+      if (idx != null && idx >= 0) {
+        const rowTop = Math.floor(idx / cols) * ROW_HEIGHT;
+        const ratio = (rowTop - el.scrollTop) / el.clientHeight;
+        return { imageIndex: idx, viewportRatio: ratio };
+      }
+    }
+
+    // Fallback: image nearest the viewport centre
+    const centreScroll = el.scrollTop + el.clientHeight / 2;
+    const centreRow = Math.floor(centreScroll / ROW_HEIGHT);
+    const centreIdx = centreRow * cols; // first image in that row
+    const ratio = (centreRow * ROW_HEIGHT - el.scrollTop) / el.clientHeight;
+    return { imageIndex: centreIdx, viewportRatio: ratio };
+  }
 
   // -------------------------------------------------------------------------
   // Derived layout values
@@ -221,6 +274,27 @@ export function ImageGrid() {
     estimateSize: () => ROW_HEIGHT,
     overscan: 5,
   });
+
+  // -------------------------------------------------------------------------
+  // Scroll anchoring: restore position after column count change.
+  // Runs before paint (useLayoutEffect) so there's no visible jump.
+  // The anchor was captured in the ResizeObserver callback above.
+  // -------------------------------------------------------------------------
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    anchorRef.current = null; // consume once
+
+    const el = parentRef.current;
+    if (!el) return;
+
+    // Calculate the anchor image's new row position with the new column count
+    const newRowTop = Math.floor(anchor.imageIndex / columns) * ROW_HEIGHT;
+    const targetScroll = newRowTop - anchor.viewportRatio * el.clientHeight;
+    const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
+    virtualizer.scrollToOffset(clamped);
+  }, [columns, virtualizer]);
 
   // -------------------------------------------------------------------------
   // Click handlers (match table: single=focus, double=open detail)
@@ -470,9 +544,4 @@ export function ImageGrid() {
     </div>
   );
 }
-
-
-
-
-
 

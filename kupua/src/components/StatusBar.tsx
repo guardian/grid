@@ -2,9 +2,10 @@
  * Results bar — thin strip between the search toolbar and the table/grid.
  *
  * Shows:
+ *   - Left-panel toggle button (left edge)
  *   - Total result count
  *   - New images ticker (polls ES every 10s; click to refresh)
- *   - Density toggle (table / grid) — right-aligned
+ *   - Right-panel toggle button + Density toggle (right edge)
  *
  * Styled to match Grid's `results-toolbar`:
  *   - 28px height, dark background, border bottom
@@ -12,6 +13,7 @@
  */
 
 import { useSearchStore } from "@/stores/search-store";
+import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback } from "react";
@@ -24,14 +26,39 @@ export function StatusBar() {
   const updateSearch = useUpdateSearchParams();
   const isGrid = searchParams.density !== "table";
 
+  const leftVisible = usePanelStore((s) => s.config.left.visible);
+  const rightVisible = usePanelStore((s) => s.config.right.visible);
+  const togglePanel = usePanelStore((s) => s.togglePanel);
+
   const toggleDensity = useCallback(() => {
     updateSearch({ density: isGrid ? "table" : undefined });
   }, [isGrid, updateSearch]);
 
   return (
-    <div className="flex items-center gap-2 px-3 h-7 bg-grid-panel border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none">
+    <div className="flex items-stretch gap-0 h-7 bg-grid-panel border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative">
+      {/* Left panel toggle — full-height strip; when active, extends below
+          the border to visually merge with the panel beneath */}
+      <button
+        onClick={() => togglePanel("left")}
+        className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
+          leftVisible
+            ? "text-grid-accent -mb-px bg-grid-panel z-10"
+            : "text-grid-text-muted hover:bg-grid-hover"
+        }`}
+        title={`${leftVisible ? "Hide" : "Show"} Browse panel  [`}
+        aria-label={`${leftVisible ? "Hide" : "Show"} Browse panel`}
+        aria-pressed={leftVisible}
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 0v16h4V4H5zm6 0v16h8V4h-8z" />
+        </svg>
+        <span className="text-sm">Browse</span>
+      </button>
+
+      <div className="w-px bg-grid-separator shrink-0" />
+
       {/* Result count */}
-      <span role="status" aria-live="polite" aria-atomic="true">
+      <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center">
         {total.toLocaleString()} matches
       </span>
 
@@ -39,7 +66,7 @@ export function StatusBar() {
       {newCount > 0 && (
         <button
           onClick={() => reSearch()}
-          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 py-px rounded-sm cursor-pointer text-sm leading-tight"
+          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center"
           title={`${newCount.toLocaleString()} new images since ${
             newCountSince
               ? formatDistanceToNow(new Date(newCountSince), {
@@ -55,10 +82,12 @@ export function StatusBar() {
       {/* Spacer */}
       <span className="flex-1" />
 
+      <div className="w-px bg-grid-separator shrink-0" />
+
       {/* Density toggle */}
       <button
         onClick={toggleDensity}
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors cursor-pointer"
+        className="flex items-center gap-1 px-2 hover:bg-grid-hover transition-colors cursor-pointer"
         title={isGrid ? "Switch to table view" : "Switch to grid view"}
         aria-label={isGrid ? "Switch to table view" : "Switch to grid view"}
       >
@@ -85,6 +114,26 @@ export function StatusBar() {
           <rect x="1" y="9" width="6" height="6" rx="0.5" />
           <rect x="9" y="9" width="6" height="6" rx="0.5" />
         </svg>
+      </button>
+
+      <div className="w-px bg-grid-separator shrink-0" />
+
+      {/* Right panel toggle — full-height strip; extends below when active */}
+      <button
+        onClick={() => togglePanel("right")}
+        className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
+          rightVisible
+            ? "text-grid-accent -mb-px bg-grid-panel z-10"
+            : "text-grid-text-muted hover:bg-grid-hover"
+        }`}
+        title={`${rightVisible ? "Hide" : "Show"} Details panel  ]`}
+        aria-label={`${rightVisible ? "Hide" : "Show"} Details panel`}
+        aria-pressed={rightVisible}
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M21 4a2 2 0 00-2-2H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V4zm-2 0v16h-4V4h4zm-6 0v16H5V4h8z" />
+        </svg>
+        <span className="text-sm">Details</span>
       </button>
     </div>
   );

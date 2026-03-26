@@ -623,7 +623,7 @@ proportionate caution for a shared production system.
 
 ## Implementation Plan
 
-### Step 1 — Grid view scroll anchoring
+### Step 1 — Grid view scroll anchoring ✅
 
 **Files:** `ImageGrid.tsx` (modify ResizeObserver + add `useLayoutEffect`)
 
@@ -636,7 +636,7 @@ grid view — position should be preserved).
 (fixes browser-resize scroll jump), and it's a prerequisite for panels
 not degrading grid view UX.
 
-### Step 2 — Panel store
+### Step 2 — Panel store ✅
 
 **Files:** `stores/panel-store.ts` (new)
 
@@ -644,9 +644,9 @@ Zustand store with localStorage persist for panel visibility, widths, and
 section open/closed states. Actions: `togglePanel(side)`,
 `setWidth(side, width)`, `toggleSection(sectionId)`.
 
-### Step 3 — Panel layout
+### Step 3 — Panel layout ✅
 
-**Files:** `components/PanelLayout.tsx` (new), `routes/search.tsx` (modify)
+**Files:** `components/PanelLayout.tsx` (new), `components/StatusBar.tsx` (modify), `routes/search.tsx` (modify)
 
 The `PanelLayout` wrapper component: flex row of
 `[left-panel?] [main-content] [right-panel?]` with resize handles.
@@ -656,6 +656,14 @@ children/props, PanelLayout handles the chrome.
 
 Update `search.tsx` to wrap the grid/table in `PanelLayout` and pass
 panel content components.
+
+**Toggle button design (implemented):** StatusBar uses `items-stretch` so
+all children are full-height strips (not floating lozenges). Both panel
+toggles show icon + label ("Browse" / "Details"). Active state: button
+extends 1px below the bar's `border-b` via `-mb-px` and paints
+`bg-grid-panel` over it (tab-merge effect). Both states have identical
+geometry — only colour/background changes, so labels never shift on
+toggle. Full-height dividers between all toolbar zones.
 
 ### Step 4 — Aggregation batching in DAL
 
@@ -703,18 +711,20 @@ and its rendering in the right panel are fully functional from day one.
 ### Dependencies
 
 ```
-Step 1 (scroll anchor)  — independent, do first
-Step 2 (panel store)    — independent
-Step 3 (panel layout)   — depends on Step 2
+Step 1 (scroll anchor)  ✅ done
+Step 2 (panel store)    ✅ done
+Step 3 (panel layout)   ✅ done (depends on Step 2)
 Step 4 (aggregations)   — independent
-Step 5 (facet filters)  — depends on Steps 3 + 4
-Step 6 (right panel)    — depends on Step 3
+Step 5 (facet filters)  — depends on Steps 3 ✅ + 4
+Step 6 (right panel)    — depends on Step 3 ✅
 ```
 
-Steps 1, 2, and 4 can be done in parallel. Step 3 follows 2. Steps 5
-and 6 follow 3 (and 5 also follows 4).
+Steps 1, 2, and 3 are complete. Steps 4, 5, and 6 remain.
+Step 4 is independent and can start now. Steps 5 and 6 are
+unblocked on Step 3 — Step 5 also needs Step 4.
 
-Critical path: **1 → 3 → 5** (scroll anchor → layout → facets).
+Critical path: **4 → 5** (aggregations → facets). Step 6 can
+be done in parallel with 4.
 
 ---
 
