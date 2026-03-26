@@ -18,6 +18,7 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 
 export function StatusBar() {
   const { total, newCount, newCountSince, search: reSearch } =
@@ -45,7 +46,7 @@ export function StatusBar() {
             ? "text-grid-accent -mb-px bg-grid-panel z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
-        title={`${leftVisible ? "Hide" : "Show"} Browse panel  [`}
+        title={`${leftVisible ? "Hide" : "Show"} Browse panel  ${shortcutTooltip("[")}`}
         aria-label={`${leftVisible ? "Hide" : "Show"} Browse panel`}
         aria-pressed={leftVisible}
       >
@@ -126,7 +127,7 @@ export function StatusBar() {
             ? "text-grid-accent -mb-px bg-grid-panel z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
-        title={`${rightVisible ? "Hide" : "Show"} Details panel  ]`}
+        title={`${rightVisible ? "Hide" : "Show"} Details panel  ${shortcutTooltip("]")}`}
         aria-label={`${rightVisible ? "Hide" : "Show"} Details panel`}
         aria-pressed={rightVisible}
       >

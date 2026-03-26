@@ -36,7 +36,7 @@ These are resolved. Change this section if a decision is revisited.
 | 4 | **Accordion sections within each panel.** Left panel: Filters section (immediate), Collections section (Phase 4). Right panel: single metadata section (adapts to focused/selected images). | Sections are the unit of content organisation. Accordion headers are always visible; content collapses. Section open/closed state persisted to localStorage. |
 | 5 | **Facets are NOT individual accordion sections.** The "Filters" section contains all facets in one scrollable area, each with a small field-name header. | Per-facet accordions → Darktable's module-sprawl problem. One scrollable section with inline expand ("Show all N values…") is simpler and doesn't require the user to manage N collapsible sections. |
 | 6 | **No keyboard shortcuts for individual sections.** One shortcut per panel side. | Users won't memorize N section-specific shortcuts. Lightroom doesn't do it. Standard keyboard focus management (Tab/Enter/Space) within the panel is sufficient for accessibility. |
-| 7 | **Keyboard shortcuts: `[` for left panel, `]` for right panel.** | Single-character, adjacent on the keyboard, don't conflict with existing navigation keys (arrows, Home/End, PgUp/PgDn, `f` for fullscreen). Kahuna uses `L` and `M` — we avoid these because `M` would conflict with a future "mark" or "metadata edit" shortcut, and single-letter shortcuts that mean words are harder to extend. `[`/`]` are positional (left bracket = left panel). |
+| 7 | **Keyboard shortcuts: `[` for left panel, `]` for right panel. `Alt+[` / `Alt+]` when focus is in an editable field.** | Single-character, adjacent on the keyboard, don't conflict with existing navigation keys (arrows, Home/End, PgUp/PgDn, `f` for fullscreen). Kahuna uses `L` and `M` — we avoid these because `M` would conflict with a future "mark" or "metadata edit" shortcut, and single-letter shortcuts that mean words are harder to extend. `[`/`]` are positional (left bracket = left panel). The Alt modifier allows shortcuts to work even when focus is in the search box — bare keys type normally, Alt+key fires the shortcut. See `lib/keyboard-shortcuts.ts` for the centralised system and `deviations.md` §15 for rationale. |
 | 8 | **Grid view scroll anchoring on any width change** (panel toggle, panel resize, browser window resize). Table view needs no anchoring — its vertical layout is width-independent. | The anchor technique captures the focused (or viewport-centre) image's viewport ratio before columns change, then restores it in a `useLayoutEffect` after React re-renders. This is a generic ResizeObserver improvement to `ImageGrid.tsx`, not a panel-specific feature. It also fixes scroll-jump on browser window resize, which is a pre-existing gap. |
 | 9 | **Facet aggregations are lazy, cached, and throttled.** Fetched only when the Filters section is expanded, on primary `search()` only (not `loadRange`/`loadMore`), debounced separately (500ms), cached per query. Circuit breaker if response exceeds 2s. | Always-fetching would double ES load for all 50+ users on every keystroke, even when panels are hidden. Most users will have Collections expanded, not Filters — forcing the cluster to run 14 terms aggs for every search on behalf of users who never look at them is unjustifiable. 50-200ms latency on Filters section open/expand is perfectly acceptable UX. See [Aggregation Performance & Safeguards](#aggregation-performance--safeguards) for the full analysis. |
 | 10 | **Existing toolbar filters (date, free-to-use, sort) stay in the toolbar.** Facet filters live in the left panel. Both are available simultaneously. | Toolbar filters are compact, frequently used, and don't benefit from a sidebar's vertical space. Facets (with value lists and counts) need room. The two UIs complement each other — toolbar for quick toggles, panel for exploration. |
@@ -223,13 +223,27 @@ during drag, React state on commit.
 
 ### Keyboard shortcuts
 
-| Key | Action |
-|---|---|
-| `[` | Toggle left panel visibility |
-| `]` | Toggle right panel visibility |
+| Key | Alt+Key (in editable fields) | Action |
+|---|---|---|
+| `[` | `Alt+[` | Toggle left panel visibility |
+| `]` | `Alt+]` | Toggle right panel visibility |
 
-Registered on `document` (capture phase, same as Home/End). Skipped when
-an editable field is focused (search box, metadata editor).
+All single-character shortcuts follow a universal pattern managed by
+`lib/keyboard-shortcuts.ts`:
+- **Not in an editable field:** bare key fires the shortcut
+- **In an editable field (search box, etc.):** `Alt+key` fires the shortcut
+- Both combos always work when not editing
+
+Components register shortcuts via the `useKeyboardShortcut` hook. Stack
+semantics: if two mounted components register the same key, the most
+recently mounted one wins (unmounting restores the previous handler).
+`f` for fullscreen is only registered in ImageDetail — not app-wide
+(see deviations.md §15 for rationale).
+
+Registered on `document` (capture phase, same as Home/End). The
+centralised handler detects editable fields (input, textarea,
+contentEditable, CQL input shadow DOM) and only requires Alt in those
+contexts.
 
 Within a panel: Tab / Shift+Tab between accordion headers. Enter / Space
 to toggle section open/closed. Standard ARIA accordion pattern.

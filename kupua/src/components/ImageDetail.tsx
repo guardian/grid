@@ -18,7 +18,8 @@
  *   stable DOM element. When the imageId prop changes (prev/next), React
  *   reconciles the same component — the DOM node persists, so the Fullscreen
  *   API does not exit.
- * - Keyboard shortcuts: `f` toggle fullscreen, `←/→` prev/next image,
+ * - Keyboard shortcuts: `f` toggle fullscreen (`Alt+f` in text fields),
+ *   `←/→` prev/next image,
  *   `Escape` exit fullscreen only (never navigates — close via the
  *   "← Back" button in the UI).
  * - "← Back" button navigates to the search list (strips `image` from
@@ -36,6 +37,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { format } from "date-fns";
@@ -161,10 +163,15 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     });
   }, [navigate]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
+  // Alt+f works when focus is in an editable field.
+  useKeyboardShortcut("f", toggleFullscreen);
+
+  // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
+  // single-character shortcuts, so they don't go through the shortcut
+  // registry. They only work when not typing in an input.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when typing in an input
       const target = e.target as HTMLElement;
       if (
         target.tagName === "INPUT" ||
@@ -174,10 +181,6 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         return;
 
       switch (e.key) {
-        case "f":
-          e.preventDefault();
-          toggleFullscreen();
-          break;
         case "Backspace":
           e.preventDefault();
           closeDetail();
@@ -198,7 +201,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [toggleFullscreen, closeDetail, goToPrev, goToNext]);
+  }, [closeDetail, goToPrev, goToNext]);
 
   // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
   // Request viewport-sized image so it looks sharp at the current screen

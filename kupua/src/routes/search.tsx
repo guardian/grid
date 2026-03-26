@@ -24,6 +24,7 @@ import { StatusBar } from "@/components/StatusBar";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
+import { PanelLayout } from "@/components/PanelLayout";
 import { useSearch } from "@tanstack/react-router";
 
 export const searchRoute = createRoute({
@@ -55,7 +56,12 @@ function SearchPage() {
       >
         <SearchBar />
         <StatusBar />
-        {isGrid ? <ImageGrid /> : <ImageTable />}
+        <PanelLayout
+          leftPanel={<div className="p-3 text-sm text-grid-text-muted">Browse</div>}
+          rightPanel={<div className="p-3 text-sm text-grid-text-muted">Details</div>}
+        >
+          {isGrid ? <ImageGrid /> : <ImageTable />}
+        </PanelLayout>
       </div>
 
       {/* Image detail overlay — rendered when image is in URL */}

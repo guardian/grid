@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-03-22
+Last updated: 2026-03-26
 
 ---
 
@@ -186,6 +186,36 @@ diminishing returns. See performance-analysis.md findings #2, #4, #5 for full an
 
 **Real fix:** `search_after` + windowed scroll (scrubber). With cursor-based
 pagination there's no depth cap. Until then, scroll-to-top is correct.
+
+### 15. Alt+key modifier for keyboard shortcuts in editable fields
+
+Kahuna's panel shortcuts (`L`, `M`) only work when focus is NOT in the
+search box. This makes them unreliable — users think shortcuts are broken
+half the time.
+
+Kupua uses a universal pattern: bare key when focus is not in an editable
+field, `Alt+key` when it is. Both combos work when not editing. This
+means `[`/`]` (panels) always have a way to fire regardless of focus state.
+`f` (fullscreen) uses the same system but is only registered in image
+detail view — on the search page it does nothing. Fullscreening a
+search-page image was considered (open image detail + fullscreen in one
+key) but rejected: ambiguous when nothing is focused, surprising when the
+wrong image is focused, and likely to be obsoleted by quicklook or a
+navigation paradigm change.
+
+`Alt` was chosen over `Cmd`/`Ctrl` because:
+- `Cmd+F` is browser Find — sacred, never intercept
+- `Cmd+[`/`Cmd+]` are browser Back/Forward
+- `Alt+letter` on macOS types dead characters (`ƒ`, `"`, `'`) — irrelevant
+  in a CQL search field for an image DAM
+- `Alt` has no browser or OS conflicts on any platform
+
+**Trade-off:** macOS users can't type `"` (curly quote via Option+[) or `ƒ`
+(Option+f) while the search box is focused. Zero practical impact — CQL
+uses straight quotes and nobody searches for typographic symbols.
+
+Centralised in `lib/keyboard-shortcuts.ts` with a single `document`
+capture-phase listener. Components register via `useKeyboardShortcut` hook.
 
 ---
 

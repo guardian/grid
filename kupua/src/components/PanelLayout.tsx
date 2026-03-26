@@ -1,8 +1,9 @@
 /**
  * PanelLayout — flex row of [left-panel?] [main-content] [right-panel?].
  *
- * Manages panel visibility, resize handles, keyboard shortcuts (`[`/`]`),
- * and accordion sections. Main content fills remaining space.
+ * Manages panel visibility, resize handles, keyboard shortcuts (`[`/`]`,
+ * or `Alt+[`/`Alt+]` when focus is in an editable field), and accordion
+ * sections. Main content fills remaining space.
  *
  * Resize handles update width via CSS custom property during drag (no
  * React re-render per frame). On drag end, the final width is committed
@@ -15,7 +16,6 @@
 import {
   type ReactNode,
   useCallback,
-  useEffect,
   useRef,
 } from "react";
 import {
@@ -24,6 +24,7 @@ import {
   MAX_PANEL_WIDTH_RATIO,
   type PanelSide,
 } from "@/stores/panel-store";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -154,34 +155,12 @@ export function PanelLayout({ leftPanel, rightPanel, children }: PanelLayoutProp
 
   // -------------------------------------------------------------------------
   // Keyboard shortcuts: [ = toggle left, ] = toggle right
-  // Capture phase on document, skip when editable field is focused.
+  // Alt+[ / Alt+] when focus is in an editable field (search box etc.)
+  // See lib/keyboard-shortcuts.ts for the universal pattern.
   // -------------------------------------------------------------------------
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Skip when typing in an editable field
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.target as HTMLElement)?.isContentEditable) return;
-      // Skip when inside shadow DOM (CQL input)
-      if ((e.target as HTMLElement)?.shadowRoot != null) return;
-      // The CQL input's shadow root dispatches events with the cql-input
-      // host as e.target (composed path). Check if target is inside one.
-      const composed = e.composedPath?.();
-      if (composed?.some((el) => (el as HTMLElement)?.tagName === "CQL-INPUT")) return;
-
-      if (e.key === "[") {
-        e.preventDefault();
-        togglePanel("left");
-      } else if (e.key === "]") {
-        e.preventDefault();
-        togglePanel("right");
-      }
-    };
-
-    document.addEventListener("keydown", handler, { capture: true });
-    return () => document.removeEventListener("keydown", handler, { capture: true });
-  }, [togglePanel]);
+  useKeyboardShortcut("[", () => togglePanel("left"));
+  useKeyboardShortcut("]", () => togglePanel("right"));
 
   // -------------------------------------------------------------------------
   // Render

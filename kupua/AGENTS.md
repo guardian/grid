@@ -263,7 +263,7 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 **Panels (`PanelLayout.tsx`, `panel-store.ts`):**
 - ✅ Panel store — Zustand + localStorage persist for panel visibility, widths, section open/closed state. Two zones (left, right), two states each (visible/hidden). Default widths: left 280px, right 320px. Min 200px, max 50% viewport. Section defaults: Filters collapsed (Decision #13), Collections expanded, Metadata expanded.
 - ✅ Panel layout — flex row of `[left-panel?] [resize-handle] [main-content] [resize-handle] [right-panel?]`. Resize handles: 4px visual / full-height hit target, CSS-only width update during drag (no React re-render per frame), commit to store on mouseup. Main content fills remaining space via `flex-1 min-w-0`.
-- ✅ Keyboard shortcuts: `[` toggles left panel, `]` toggles right panel. Capture phase on document, skipped when editable field focused (input/textarea/contentEditable/CQL input shadow DOM).
+- ✅ Keyboard shortcuts: `[` toggles left panel, `]` toggles right panel. `Alt+[`/`Alt+]` when focus is in an editable field (search box etc.). Centralised shortcut system in `lib/keyboard-shortcuts.ts` — single `document` capture-phase listener, `useKeyboardShortcut` hook for component registration, stack semantics for priority. All single-character shortcuts follow the same pattern: bare key when not editing, Alt+key when editing. See deviations.md §15.
 - ✅ AccordionSection component — collapsible sections within panels. Header always visible with disclosure triangle, content collapses to zero height. Open/closed state persisted to panel store → localStorage.
 - ✅ Column header row height matches search toolbar (44px / `h-11`)
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
@@ -298,7 +298,7 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 - ✅ End: scroll to bottom, focus last loaded row (works even in search box). Triggers loadMore when at the end.
 - ✅ Enter: open focused row in image detail (same as double-click)
 - ✅ Two-phase keyboard handling: arrows/page/enter use bubble phase (propagated from CQL input's `keysToPropagate`); Home/End use capture phase on `document` to intercept before the CQL editor's shadow DOM can consume them.
-- ✅ `f` toggles fullscreen in image detail view (skipped when editable field is focused). `Escape` only exits fullscreen (never navigates or closes image detail).
+- ✅ `f` toggles fullscreen in image detail view (`Alt+f` when in editable field). Uses centralised shortcut system (`useKeyboardShortcut` hook). `Escape` only exits fullscreen (never navigates or closes image detail).
 - ✅ Arrow Down at edge of loaded results triggers loadMore — seamless infinite navigation via keyboard.
 - ✅ O(1) image lookup — `imagePositions: Map<imageId, index>` maintained incrementally in the search store. `search()` rebuilds from the first page; `loadMore()` and `loadRange()` extend the existing Map with only the new hits — O(page size) per update, not O(total loaded). Previously was a `useMemo` full-rebuild in `useDataWindow` that rescanned all loaded entries on every `results` change. At 50k loaded images, the old approach cost measurable ms per range load during scroll; the incremental approach is bounded to ~200 entries regardless of depth.
 - ✅ Bounded placeholder skipping — `moveFocus()` skips at most 10 empty slots in the movement direction (was unbounded, scanning up to 100k holes). If no loaded row within 10, focuses the target index anyway — gap detection will load it. `End` key scan also capped to 50 indices from the end.
@@ -322,7 +322,7 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 - [ ] **Panels + facet filters** — full plan in `exploration/docs/panels-plan.md`:
   1. ✅ Grid view scroll anchoring — anchor-image technique in ImageGrid's ResizeObserver. Captures focused/viewport-centre image + viewport ratio before column count changes, restores in useLayoutEffect after React re-renders. Covers panel toggle, panel resize, browser window resize.
   2. ✅ Panel store (`stores/panel-store.ts`) — Zustand + localStorage for visibility, width, section open/closed. Section defaults: Filters collapsed, Collections expanded, Metadata expanded.
-- ✅ Panel layout (`components/PanelLayout.tsx`) — flex row wrapping main content with resizable left/right panels. Resize handles (CSS-only during drag, commit on mouseup). Keyboard shortcuts `[`/`]` (capture phase, skipped in editable fields + CQL input shadow DOM). Toggle buttons in StatusBar as full-height strips with icon + label ("Browse" / "Details"), tab-merge effect on active panel (extends below bar border). AccordionSection component for collapsible panel sections. Placeholder panel content in search.tsx (will be replaced by Steps 5+6).
+  3. ✅ Panel layout (`components/PanelLayout.tsx`) — flex row wrapping main content with resizable left/right panels. Resize handles (CSS-only during drag, commit on mouseup). Keyboard shortcuts `[`/`]` (`Alt+[`/`Alt+]` in editable fields) via centralised `keyboard-shortcuts.ts`. Toggle buttons in StatusBar as full-height strips with icon + label ("Browse" / "Details"), tab-merge effect on active panel (extends below bar border). AccordionSection component for collapsible panel sections. Placeholder panel content in search.tsx (will be replaced by Steps 5+6).
   4. Aggregation batching in DAL — new `getAggregations()` method: single ES request with `size:0` and N named terms aggs. Fetched only when Filters section is expanded, debounced separately (500ms), cached per query, circuit breaker at 2s.
   5. Facet filters component (`components/FacetFilters.tsx`) — left panel content. All keyword-type fields from field registry. Value lists with counts, click adds/removes CQL chips, active filters highlighted.
   6. Right panel metadata — extract `MetadataPanel` from ImageDetail into shared `ImageMetadata.tsx`. Shows metadata for focused image in grid/table views (same component used by ImageDetail). Functional from day one, not a placeholder.
@@ -502,6 +502,7 @@ kupua/
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
       density-focus.ts         # Transient bridge for viewport-position preservation across density switches (5 lines)
+      keyboard-shortcuts.ts    # Centralised keyboard shortcut registry — single document listener, Alt+key in editable fields, stack semantics. shortcutTooltip helper.
       image-urls.ts            # Image URL builders — thumbnails via S3 proxy, full images via imgproxy
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)
     dal/
@@ -518,7 +519,7 @@ kupua/
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
       ColumnContextMenu.tsx    # Column header context menu — visibility toggles, fit-to-data (178 lines). Imperative ref handle, self-contained positioning.
-      PanelLayout.tsx          # Panel system: flex row of [left?] [main] [right?], resize handles, keyboard shortcuts [`/`], AccordionSection component (~215 lines)
+      PanelLayout.tsx          # Panel system: flex row of [left?] [main] [right?], resize handles, keyboard shortcuts [`/`] (Alt+key in editable fields via keyboard-shortcuts.ts), AccordionSection component (~215 lines)
       ImageTable.tsx           # TanStack Table + Virtual, all table features (~1260 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
       ImageGrid.tsx            # Thumbnail grid density (~520 lines). Responsive columns via ResizeObserver, row-based TanStack Virtual, S3 thumbnails, rich tooltips, grid-geometry keyboard nav. Scroll anchoring on column count change. Same useDataWindow as table.
     stores/
@@ -532,6 +533,7 @@ kupua/
       useListNavigation.ts   # Shared keyboard navigation hook — moveFocus, pageFocus, home, end. Parameterised by geometry (columnsPerRow, flatIndexToRow). Used by ImageTable and ImageGrid (327 lines).
       useUrlSearchSync.ts      # URL↔store sync: useUrlSearchSync (URL→store→search) + useUpdateSearchParams (component→URL)
       useFullscreen.ts         # Fullscreen API wrapper — toggle/enter/exit fullscreen on a stable DOM element
+      useKeyboardShortcut.ts   # React hook wrapping keyboard-shortcuts.ts — auto-register on mount, unregister on unmount, ref-stable action
 ```
 
 ## Kahuna Reference
