@@ -842,7 +842,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
               "Arn",
             ],
           },
-          "maxReceiveCount": 5,
+          "maxReceiveCount": 3,
         },
         "Tags": [
           {
