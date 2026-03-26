@@ -38,7 +38,7 @@ These are resolved. Change this section if a decision is revisited.
 | 6 | **No keyboard shortcuts for individual sections.** One shortcut per panel side. | Users won't memorize N section-specific shortcuts. Lightroom doesn't do it. Standard keyboard focus management (Tab/Enter/Space) within the panel is sufficient for accessibility. |
 | 7 | **Keyboard shortcuts: `[` for left panel, `]` for right panel. `Alt+[` / `Alt+]` when focus is in an editable field.** | Single-character, adjacent on the keyboard, don't conflict with existing navigation keys (arrows, Home/End, PgUp/PgDn, `f` for fullscreen). Kahuna uses `L` and `M` — we avoid these because `M` would conflict with a future "mark" or "metadata edit" shortcut, and single-letter shortcuts that mean words are harder to extend. `[`/`]` are positional (left bracket = left panel). The Alt modifier allows shortcuts to work even when focus is in the search box — bare keys type normally, Alt+key fires the shortcut. See `lib/keyboard-shortcuts.ts` for the centralised system and `deviations.md` §15 for rationale. |
 | 8 | **Grid view scroll anchoring on any width change** (panel toggle, panel resize, browser window resize). Table view needs no anchoring — its vertical layout is width-independent. | The anchor technique captures the focused (or viewport-centre) image's viewport ratio before columns change, then restores it in a `useLayoutEffect` after React re-renders. This is a generic ResizeObserver improvement to `ImageGrid.tsx`, not a panel-specific feature. It also fixes scroll-jump on browser window resize, which is a pre-existing gap. |
-| 9 | **Facet aggregations are lazy, cached, and throttled.** Fetched only when the Filters section is expanded, on primary `search()` only (not `loadRange`/`loadMore`), debounced separately (500ms), cached per query. Circuit breaker if response exceeds 2s. | Always-fetching would double ES load for all 50+ users on every keystroke, even when panels are hidden. Most users will have Collections expanded, not Filters — forcing the cluster to run 14 terms aggs for every search on behalf of users who never look at them is unjustifiable. 50-200ms latency on Filters section open/expand is perfectly acceptable UX. See [Aggregation Performance & Safeguards](#aggregation-performance--safeguards) for the full analysis. |
+| 9 | **Facet aggregations are lazy, cached, and throttled.** Fetched only when the Filters section is expanded, on primary `search()` only (not `loadRange`/`loadMore`), debounced separately (500ms), cached per query. Circuit breaker if response exceeds 2s. **Hover prefetch (magic):** hovering over the Browse toggle prefetches aggs, but only if the panel is closed AND the Filters section is expanded in localStorage — so only "Filters people" benefit. Invisible optimisation; documented in `infra-safeguards.md` §6. | Always-fetching would double ES load for all 50+ users on every keystroke, even when panels are hidden. Most users will have Collections expanded, not Filters — forcing the cluster to run 14 terms aggs for every search on behalf of users who never look at them is unjustifiable. 50-200ms latency on Filters section open/expand is perfectly acceptable UX. See [Aggregation Performance & Safeguards](#aggregation-performance--safeguards) for the full analysis. |
 | 10 | **Existing toolbar filters (date, free-to-use, sort) stay in the toolbar.** Facet filters live in the left panel. Both are available simultaneously. | Toolbar filters are compact, frequently used, and don't benefit from a sidebar's vertical space. Facets (with value lists and counts) need room. The two UIs complement each other — toolbar for quick toggles, panel for exploration. |
 | 11 | **Right panel shows the same metadata component as image detail view.** | This is how Kahuna works (and it's correct). One shared metadata component adapts to context: single focused image, multiple selected images, or image-detail view. Enables selection display + batch editing via the same UI in grid/table views. |
 | 12 | **Panel state (`visible`, `width`, section open/closed) in localStorage, not URL.** | Panel state is user preference, not search context. Putting it in the URL would bloat every shared link. Matches kahuna's approach. |
@@ -679,7 +679,7 @@ extends 1px below the bar's `border-b` via `-mb-px` and paints
 geometry — only colour/background changes, so labels never shift on
 toggle. Full-height dividers between all toolbar zones.
 
-### Step 4 — Aggregation batching in DAL
+### Step 4 — Aggregation batching in DAL ✅
 
 **Files:** `dal/types.ts` (extend interface), `dal/es-adapter.ts` (implement),
 `stores/search-store.ts` (add agg state + cache + circuit breaker)
@@ -696,7 +696,7 @@ response exceeds 2000ms. "Show all" for a single field uses the existing
 Add agg response `took` time to StatusBar display (next to existing search
 timing) — essential for monitoring during rollout.
 
-### Step 5 — Facet filters component
+### Step 5 — Facet filters component ✅
 
 **Files:** `components/FacetFilters.tsx` (new)
 
@@ -728,17 +728,12 @@ and its rendering in the right panel are fully functional from day one.
 Step 1 (scroll anchor)  ✅ done
 Step 2 (panel store)    ✅ done
 Step 3 (panel layout)   ✅ done (depends on Step 2)
-Step 4 (aggregations)   — independent
-Step 5 (facet filters)  — depends on Steps 3 ✅ + 4
+Step 4 (aggregations)   ✅ done
+Step 5 (facet filters)  ✅ done (depends on Steps 3 + 4)
 Step 6 (right panel)    — depends on Step 3 ✅
 ```
 
-Steps 1, 2, and 3 are complete. Steps 4, 5, and 6 remain.
-Step 4 is independent and can start now. Steps 5 and 6 are
-unblocked on Step 3 — Step 5 also needs Step 4.
-
-Critical path: **4 → 5** (aggregations → facets). Step 6 can
-be done in parallel with 4.
+Steps 1–5 are complete. Only Step 6 (right panel metadata) remains.
 
 ---
 

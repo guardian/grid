@@ -168,7 +168,7 @@ curl -s 'http://localhost:9220/images/_search?size=1&pretty' | head -30
       docs/
         migration-plan.md  # this file
         deviations.md
-        safeguards.md
+        infra-safeguards.md
     scripts/
       start.sh
       load-sample-data.sh

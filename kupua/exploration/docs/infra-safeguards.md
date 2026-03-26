@@ -13,6 +13,8 @@
 | 2 | Request coalescing (AbortController) | `es-adapter.ts` | ✅ Active |
 | 3 | Write protection | `es-adapter.ts` + `load-sample-data.sh` | ✅ Active |
 | 4 | S3 proxy — read-only | `scripts/s3-proxy.mjs` | ✅ Active |
+| 5 | imgproxy — read-only | docker compose + Vite proxy | ✅ Active |
+| 6 | Aggregation load control | `search-store.ts` + `FacetFilters.tsx` | ✅ Active |
 
 ---
 
@@ -141,6 +143,60 @@ format conversion is needed.
 - Uses `insecure` mode (no HMAC signing) — local dev only
 
 See `kupua/exploration/docs/imgproxy-research.md` for full background.
+
+---
+
+## 6. Aggregation load control
+
+**Problem:** Facet filters require terms aggregations — one per aggregatable
+field — on every search. This is a new class of ES load that didn't exist
+in Kahuna (which has almost no aggregations). With 50+ concurrent users,
+naively running aggs on every keystroke could strain the cluster.
+
+**Risk assessment (PROD numbers from 2026-03):**
+
+- 7 aggregatable fields (credit, source, category, image type, uploader,
+  MIME type, plus config-driven alias fields)
+- Each terms agg scans all matching documents to build the top-N buckets
+- Unfiltered search matches ~9M docs; even filtered searches often match
+  millions (e.g. `credit:"Getty Images"` → 1M+)
+- 50+ concurrent users × aggs on every search = significant extra load
+
+**Safeguards (all in `search-store.ts` + `FacetFilters.tsx`):**
+
+| Control | Implementation | Effect |
+|---|---|---|
+| **Lazy fetch** | Aggs only fire when the Filters accordion section is expanded (Decision #9). Most users will have Collections expanded, not Filters. | Only power users who actively want facets pay the ES cost. |
+| **Section state persisted** | Open/closed state in localStorage (Decision #13). | New users default to Filters collapsed = zero agg load. |
+| **Batched request** | All N field aggs in a single `_search` with `size:0` — no hits returned. | 1 ES request, not N. Minimal response payload. |
+| **Query-keyed cache** | `aggCacheKey()` hashes only the params that affect the result set (query, filters, dates — not pagination or sort). Skips fetch if cache key unchanged. | Scrolling, sorting, or paging never triggers agg re-fetch. |
+| **500ms debounce** | Separate from the ~300ms search debounce. | During rapid typing, at most 1 agg request fires per 500ms window. |
+| **Abort on re-query** | `AbortController` cancels the previous agg request when a new one starts. | Stale agg requests don't waste connections or ES time. |
+| **Circuit breaker (2s)** | If the wall-clock time of an agg response exceeds 2000ms, `aggCircuitOpen` is set. Auto-fetch is disabled until the user clicks a manual "Refresh" button (which bypasses the breaker). | If ES is slow, kupua stops piling on. The user sees "Refresh (slow)" and can decide whether to retry. |
+| **Small bucket size** | Default 10 buckets per field. "Show all" (future) uses a separate single-field request. | Keeps response small. ES doesn't need to sort millions of unique values. |
+| **`took` tracking** | Agg response `took` time is stored in `aggTook` and displayed in the Filters panel. | Developer and user can see how long aggs take. Visible monitoring. |
+| **Hover prefetch** | When the user hovers over the Browse panel toggle, aggs are prefetched — but only if (a) the panel is closed and (b) the Filters section is already expanded in localStorage (i.e. a "Filters person"). | By the time the user clicks, data is already in flight or cached. Casual users (Filters collapsed) never trigger a prefetch on hover. The cache key check prevents duplicate requests. This is intentionally invisible ("magic") — documented here because it's non-obvious. |
+
+**What to observe in CloudWatch (when connected to TEST/PROD):**
+
+- **ES `SearchRate`** — should not noticeably increase when one developer
+  opens the Filters panel. If it does, the debounce or cache is broken.
+- **ES `SearchLatency` (p99)** — agg requests should appear as a separate
+  population. If p99 spikes, the aggs are too heavy.
+- **ES `JVMMemoryPressure`** — terms aggs build in-memory maps. If this
+  climbs, reduce bucket count or add `execution_hint: "map"`.
+- **ES `CPUUtilization`** — sustained increase during normal use would
+  indicate aggs are too expensive for the cluster size.
+
+**Future considerations:**
+
+- If agg load is problematic at scale, consider: (a) server-side agg
+  caching in a lightweight proxy, (b) `sampler` aggregation to approximate
+  counts on large result sets, (c) reducing default fields to top 3-4
+  most-used, (d) `execution_hint: "global_ordinals"` (default) vs `"map"`
+  tuning.
+- The `took` display in the Filters panel is the first line of monitoring.
+  If users report slowness, the time is right there.
 
 ---
 

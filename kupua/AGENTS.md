@@ -52,7 +52,7 @@ bulk, update, create) against a non-local ES. **Never** weaken or bypass the saf
 in `es-config.ts` or `load-sample-data.sh` without explicit user approval. **Never**
 hardcode real cluster URLs, index names, or credentials in source code. If a task
 requires modifying safeguard configuration, stop and explain the risk before proceeding.
-See `kupua/exploration/docs/safeguards.md` for the full safety framework.
+See `kupua/exploration/docs/infra-safeguards.md` for the full safety framework.
 
 **Directive:** Think about UX/UI as well as tech. When the user proposes a feature or
 interaction pattern, constructively argue about it — raise concerns about usability,
@@ -192,10 +192,10 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 - ✅ Error boundary (`ErrorBoundary.tsx`) — class component wrapping `<Outlet />` in `__root.tsx`. Catches render crashes, shows error message + stack + "Try again" / "Reset app" buttons. 2 tests.
 
 **Data Access Layer (DAL):**
-- ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`
-- ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation. `count()` uses `_count` endpoint for lightweight polling (new images ticker).
+- ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`, `getAggregations()` (batched multi-field terms aggs in one ES request)
+- ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation. `count()` uses `_count` endpoint for lightweight polling (new images ticker). `getAggregations()` batches N terms aggs into a single `size:0` request using the same `buildQuery()` filters.
 - ✅ Configurable ES connection (`dal/es-config.ts`) — env vars for URL (`KUPUA_ES_URL`), index (`VITE_ES_INDEX`), local flag (`VITE_ES_IS_LOCAL`). Defaults to local docker ES on port 9220.
-- ✅ Phase 2 safeguards (see `exploration/docs/safeguards.md`):
+- ✅ Phase 2 safeguards (see `exploration/docs/infra-safeguards.md`):
   1. `_source` excludes — strips heavy fields (EXIF, XMP, Getty, embeddings) from responses
   2. Request coalescing — AbortController cancels in-flight search when a new one starts
   3. Write protection — only `_search`/`_count`/`_cat/aliases` allowed on non-local ES; `load-sample-data.sh` refuses to run against non-9220 port
@@ -262,9 +262,11 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 
 **Panels (`PanelLayout.tsx`, `panel-store.ts`):**
 - ✅ Panel store — Zustand + localStorage persist for panel visibility, widths, section open/closed state. Two zones (left, right), two states each (visible/hidden). Default widths: left 280px, right 320px. Min 200px, max 50% viewport. Section defaults: Filters collapsed (Decision #13), Collections expanded, Metadata expanded.
-- ✅ Panel layout — flex row of `[left-panel?] [resize-handle] [main-content] [resize-handle] [right-panel?]`. Resize handles: 4px visual / full-height hit target, CSS-only width update during drag (no React re-render per frame), commit to store on mouseup. Main content fills remaining space via `flex-1 min-w-0`.
+- ✅ Panel layout — flex row of `[left-panel?] [resize-handle] [main-content] [resize-handle] [right-panel?]`. Resize handles: 4px visual / full-height hit target, CSS-only width update during drag (no React re-render per frame), commit to store on mouseup. Double-click resize handle to close panel. Main content fills remaining space via `flex-1 min-w-0`.
 - ✅ Keyboard shortcuts: `[` toggles left panel, `]` toggles right panel. `Alt+[`/`Alt+]` when focus is in an editable field (search box etc.). Centralised shortcut system in `lib/keyboard-shortcuts.ts` — single `document` capture-phase listener, `useKeyboardShortcut` hook for component registration, stack semantics for priority. All single-character shortcuts follow the same pattern: bare key when not editing, Alt+key when editing. See deviations.md §15.
 - ✅ AccordionSection component — collapsible sections within panels. Header always visible with disclosure triangle, content collapses to zero height. Open/closed state persisted to panel store → localStorage.
+- ✅ Aggregation batching (`search-store.ts` + `dal/es-adapter.ts`) — `fetchAggregations()` action: single ES `size:0` request with N named terms aggs (one per aggregatable field from field registry). Query-keyed cache (skips if params unchanged), 500ms debounce, circuit breaker at 2s (disables auto-fetch, shows manual refresh), abort controller for cancellation. Fetched lazily — only when Filters section is expanded (Decision #9, #13). Agg `took` time tracked in store.
+- ✅ Facet filters (`FacetFilters.tsx`, ~200 lines) — left panel content inside AccordionSection. Renders all aggregatable fields with value lists and compact counts (1.8M, 421k format — Decision #14). Click adds CQL chip, Alt+click excludes, click again removes. Active filters highlighted in accent, excluded in red with strikethrough. Uses `findFieldTerm`/`upsertFieldTerm` from `cql-query-edit.ts`.
 - ✅ Column header row height matches search toolbar (44px / `h-11`)
 - ✅ Result count always visible (never replaced by a loading indicator — prevents layout shift). Shows last known total, updates when new results arrive.
 - ✅ New images ticker — polls ES `_count` every 10s for images uploaded since last search. Styled as filled accent-blue rectangle with white text (matching Grid's `.image-results-count__new`). Tooltip shows count + time since last search. Clicking re-runs the search. No media-api needed — uses DAL `count()` directly against ES.
@@ -322,15 +324,16 @@ CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M
 - [ ] **Panels + facet filters** — full plan in `exploration/docs/panels-plan.md`:
   1. ✅ Grid view scroll anchoring — anchor-image technique in ImageGrid's ResizeObserver. Captures focused/viewport-centre image + viewport ratio before column count changes, restores in useLayoutEffect after React re-renders. Covers panel toggle, panel resize, browser window resize.
   2. ✅ Panel store (`stores/panel-store.ts`) — Zustand + localStorage for visibility, width, section open/closed. Section defaults: Filters collapsed, Collections expanded, Metadata expanded.
-  3. ✅ Panel layout (`components/PanelLayout.tsx`) — flex row wrapping main content with resizable left/right panels. Resize handles (CSS-only during drag, commit on mouseup). Keyboard shortcuts `[`/`]` (`Alt+[`/`Alt+]` in editable fields) via centralised `keyboard-shortcuts.ts`. Toggle buttons in StatusBar as full-height strips with icon + label ("Browse" / "Details"), tab-merge effect on active panel (extends below bar border). AccordionSection component for collapsible panel sections. Placeholder panel content in search.tsx (will be replaced by Steps 5+6).
-  4. Aggregation batching in DAL — new `getAggregations()` method: single ES request with `size:0` and N named terms aggs. Fetched only when Filters section is expanded, debounced separately (500ms), cached per query, circuit breaker at 2s.
-  5. Facet filters component (`components/FacetFilters.tsx`) — left panel content. All keyword-type fields from field registry. Value lists with counts, click adds/removes CQL chips, active filters highlighted.
+  3. ✅ Panel layout (`components/PanelLayout.tsx`) — flex row wrapping main content with resizable left/right panels. Resize handles (CSS-only during drag, commit on mouseup, double-click to close). Keyboard shortcuts `[`/`]` (`Alt+[`/`Alt+]` in editable fields) via centralised `keyboard-shortcuts.ts`. Toggle buttons in StatusBar as full-height strips with icon + label ("Browse" / "Details"), tab-merge effect on active panel (extends below bar border). AccordionSection component for collapsible panel sections.
+  4. ✅ Aggregation batching in DAL — `getAggregations()` method: single ES request with `size:0` and N named terms aggs. `fetchAggregations()` in search-store: query-keyed cache, 500ms debounce, circuit breaker at 2s, abort controller. Fetched only when Filters section is expanded.
+  5. ✅ Facet filters component (`components/FacetFilters.tsx`) — left panel content. All aggregatable fields from field registry. Value lists with compact counts, click adds/removes CQL chips, active filters highlighted, Alt+click to exclude.
   6. Right panel metadata — extract `MetadataPanel` from ImageDetail into shared `ImageMetadata.tsx`. Shows metadata for focused image in grid/table views (same component used by ImageDetail). Functional from day one, not a placeholder.
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
 - [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md findings #4, #5.
 - [ ] Custom scrubber (thumb = `windowStart / total`) — see migration-plan.md "Scrollbar & Infinite Scroll" notes
 
 ### Deferred to Later Phases
+- [ ] **Quicklook** — hold Cmd/Ctrl to show a large imgproxy preview over the hovered image in grid/table. Moving mouse (still holding) swaps to the hovered image. Release dismisses. Purely transient — no navigation, no state change. ~100-150 lines. Main concern is imgproxy latency (~456ms median); progressive JPEG XL may help long-term. Independent of panels, navigation paradigm, or any other feature.
 - [ ] `is:GNM-owned` filter with real org config from Grid (currently recognized in CQL but not filtering)
 - [ ] `GridApiDataSource` (Phase 3 — replaces ES adapter, adds auth, uses Grid media-api HATEOAS links)
 - [ ] Row grouping (e.g. group by credit, source, date) — TanStack Table has built-in `getGroupedRowModel()` + `getExpandedRowModel()` with aggregation functions. Works client-side on loaded rows; for 9M-scale grouping would need server-side via ES composite/terms aggs with `manualGrouping: true`. Consider alongside facet filters.
@@ -475,7 +478,7 @@ kupua/
       kahuna-scroll-analysis.md # Deep read of kahuna's gu-lazy-table: sparse array, from/size, 100k cap. Lessons for kupua.
       deviations.md            # Intentional differences from Grid/kahuna + library convention bends
       performance-analysis.md  # Performance: 26 findings, action plan, imgproxy bench, scrubber prereqs
-      safeguards.md            # Elasticsearch + S3 safety documentation
+      infra-safeguards.md            # Elasticsearch + S3 safety documentation
       kupua-audit-assessment.md # Codebase audit: architecture grades, cleanup opportunities, documentation accuracy
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
       imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy
@@ -506,8 +509,8 @@ kupua/
       image-urls.ts            # Image URL builders — thumbnails via S3 proxy, full images via imgproxy
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)
     dal/
-      types.ts                 # ImageDataSource interface + SearchParams type
-      es-adapter.ts            # Elasticsearch implementation (~273 lines — sort aliases, CQL translation, free-to-use filter)
+      types.ts                 # ImageDataSource interface + SearchParams + AggregationRequest/AggregationsResult types
+      es-adapter.ts            # Elasticsearch implementation (~416 lines — sort aliases, CQL translation, free-to-use filter, batched aggregations)
       index.ts                 # Barrel export
     components/
       CqlSearchInput.tsx       # React wrapper around @guardian/cql <cql-input> Web Component (227 lines)
@@ -519,11 +522,12 @@ kupua/
       SearchBar.tsx            # Single-row toolbar: logo + CQL search input + clear button (123 lines)
       SearchFilters.tsx        # Compound component: FilterControls (free-to-use, dates) + SortControls (custom dropdown + direction toggle) (185 lines)
       ColumnContextMenu.tsx    # Column header context menu — visibility toggles, fit-to-data (178 lines). Imperative ref handle, self-contained positioning.
-      PanelLayout.tsx          # Panel system: flex row of [left?] [main] [right?], resize handles, keyboard shortcuts [`/`] (Alt+key in editable fields via keyboard-shortcuts.ts), AccordionSection component (~215 lines)
+      FacetFilters.tsx          # Facet filter panel content (~200 lines) — aggregatable fields, value lists with compact counts, click adds/removes CQL chips, Alt+click excludes
+      PanelLayout.tsx          # Panel system: flex row of [left?] [main] [right?], resize handles (double-click to close), keyboard shortcuts [`/`] (Alt+key in editable fields via keyboard-shortcuts.ts), AccordionSection component (~220 lines)
       ImageTable.tsx           # TanStack Table + Virtual, all table features (~1260 lines — column defs generated from field-registry.ts). Uses useDataWindow for data/pagination.
       ImageGrid.tsx            # Thumbnail grid density (~520 lines). Responsive columns via ResizeObserver, row-based TanStack Virtual, S3 thumbnails, rich tooltips, grid-geometry keyboard nav. Scroll anchoring on column count change. Same useDataWindow as table.
     stores/
-      search-store.ts          # Zustand store (search params, results, loadMore, loadRange, frozenUntil, imagePositions). View components access data via useDataWindow hook, not directly. (~282 lines)
+      search-store.ts          # Zustand store (search params, results, loadMore, loadRange, frozenUntil, imagePositions, aggregations + fetchAggregations with cache/debounce/circuit-breaker). View components access data via useDataWindow hook, not directly. (~488 lines)
       column-store.ts          # Zustand store + localStorage persist (column visibility, widths, pre-double-click widths) (~109 lines)
       panel-store.ts           # Zustand store + localStorage persist (panel visibility, widths, section open/closed) (~140 lines)
     types/

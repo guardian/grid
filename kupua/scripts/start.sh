@@ -28,7 +28,7 @@
 #   - For local mode: sample data file at kupua/exploration/mock/sample-data.ndjson
 #   - For --use-TEST: media-service AWS profile with valid credentials
 #
-# See kupua/exploration/docs/safeguards.md for safety documentation.
+# See kupua/exploration/docs/infra-safeguards.md for safety documentation.
 
 set -euo pipefail
 
@@ -173,7 +173,7 @@ if [ "$USE_TEST" = true ]; then
   echo
   echo -e "${yellow}  ⚠  Connecting to real TEST Elasticsearch cluster.${plain}"
   echo -e "${yellow}     Write protection is enabled (read-only queries only).${plain}"
-  echo -e "${yellow}     See kupua/exploration/docs/safeguards.md${plain}"
+  echo -e "${yellow}     See kupua/exploration/docs/infra-safeguards.md${plain}"
   echo
 
   # --- 1. Establish SSH tunnel if not already running ---

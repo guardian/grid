@@ -9,6 +9,8 @@ export type {
   SearchResult,
   AggregationResult,
   AggregationBucket,
+  AggregationRequest,
+  AggregationsResult,
 } from "./types";
 
 export { ElasticsearchDataSource } from "./es-adapter";

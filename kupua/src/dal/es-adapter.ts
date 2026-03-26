@@ -4,7 +4,7 @@
  * Queries ES via the Vite dev server proxy.
  * Connection config (base URL, index, safeguards) comes from es-config.ts.
  *
- * Safeguards (see kupua/exploration/docs/safeguards.md):
+ * Safeguards (see kupua/exploration/docs/infra-safeguards.md):
  *   1. _source excludes — heavy fields stripped from responses
  *   2. Request coalescing — in-flight searches cancelled when a new one starts
  *   3. Write protection — only _search / _count allowed on non-local ES
@@ -16,6 +16,8 @@ import type {
   SearchParams,
   SearchResult,
   AggregationResult,
+  AggregationRequest,
+  AggregationsResult,
 } from "./types";
 import { parseCql } from "@/lib/cql";
 import {
@@ -211,7 +213,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       throw new Error(
         `[Safeguard] Blocked ES request to "${path}" — only read operations ` +
           `(${ALLOWED_ES_PATHS.join(", ")}) are allowed on non-local ES. ` +
-          `See kupua/exploration/docs/safeguards.md`
+          `See kupua/exploration/docs/infra-safeguards.md`
       );
     }
   }
@@ -367,6 +369,47 @@ export class ElasticsearchDataSource implements ImageDataSource {
       })),
       total: result.hits.total.value,
     };
+  }
+
+  async getAggregations(
+    params: SearchParams,
+    fields: AggregationRequest[],
+    signal?: AbortSignal,
+  ): Promise<AggregationsResult> {
+    // Build named aggs — one terms agg per field, keyed by field path
+    const aggs: Record<string, unknown> = {};
+    for (const { field, size } of fields) {
+      // Use a safe agg name: replace dots with underscores
+      aggs[field] = { terms: { field, size: size ?? 10 } };
+    }
+
+    const body: Record<string, unknown> = {
+      size: 0, // No hits — aggs only
+      query: buildQuery(params),
+      aggs,
+    };
+
+    const result = (await this.esRequest("_search", body, signal)) as {
+      took?: number;
+      aggregations: Record<
+        string,
+        { buckets: Array<{ key: string; doc_count: number }> }
+      >;
+      hits: { total: { value: number } };
+    };
+
+    const out: Record<string, AggregationResult> = {};
+    for (const { field } of fields) {
+      const agg = result.aggregations[field];
+      out[field] = {
+        buckets: agg
+          ? agg.buckets.map((b) => ({ key: b.key, count: b.doc_count }))
+          : [],
+        total: result.hits.total.value,
+      };
+    }
+
+    return { fields: out, took: result.took };
   }
 }
 

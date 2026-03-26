@@ -13,8 +13,9 @@
 
 import { create } from "zustand";
 import type { Image } from "@/types/image";
-import type { ImageDataSource, SearchParams } from "@/dal";
+import type { ImageDataSource, SearchParams, AggregationsResult } from "@/dal";
 import { ElasticsearchDataSource } from "@/dal";
+import { FIELD_REGISTRY } from "@/lib/field-registry";
 
 /** How often to poll for new images (ms). */
 const NEW_IMAGES_POLL_INTERVAL = 10_000;
@@ -26,6 +27,24 @@ const NEW_IMAGES_POLL_INTERVAL = 10_000;
  * gracefully if offset exceeds the window.
  */
 const MAX_RESULT_WINDOW = 100_000;
+
+// ---------------------------------------------------------------------------
+// Aggregation constants
+// ---------------------------------------------------------------------------
+
+/** Debounce delay for aggregation fetches (ms). Longer than search (~300ms). */
+const AGG_DEBOUNCE_MS = 500;
+
+/** Circuit breaker threshold — if agg response exceeds this, disable auto-fetch. */
+const AGG_CIRCUIT_BREAKER_MS = 2000;
+
+/** Default number of buckets per field in the batched request. */
+const AGG_DEFAULT_SIZE = 10;
+
+/** Aggregatable fields derived from the field registry — built once. */
+const AGG_FIELDS = FIELD_REGISTRY
+  .filter((f) => f.aggregatable && f.sortKey)
+  .map((f) => ({ field: f.sortKey!, size: AGG_DEFAULT_SIZE }));
 
 interface SearchState {
   // Data source (swappable between ES and Grid API)
@@ -45,28 +64,36 @@ interface SearchState {
   scrollAvg: number | null;
 
   // O(1) image ID → index lookup, maintained incrementally.
-  // Updated in search() (full rebuild from first page), loadMore() (append new),
-  // and loadRange() (insert new). Consumers never rebuild this — they subscribe
-  // to it via useSearchStore(s => s.imagePositions).
   imagePositions: Map<string, number>;
 
-  // Focus — the "current" row, distinct from selection (which comes later).
-  // Set by clicking a row or returning from image detail. Cleared on new search.
+  // Focus
   focusedImageId: string | null;
 
   // New images ticker
   newCount: number;
-  newCountSince: string | null; // ISO timestamp of when results were frozen
+  newCountSince: string | null;
 
-  // Result set freezing — stabilise offsets while the user scrolls.
-  // Set by search(), passed as `until` on all loadMore/loadRange calls.
-  // Prevents new uploads from shifting row positions mid-scroll.
+  // Result set freezing
   frozenUntil: string | null;
 
   // Track which ranges are currently being fetched to avoid duplicate requests
-  _inflight: Set<string>; // "start-end" keys
-  // Track ranges that failed (e.g. beyond max_result_window) to avoid infinite retry
+  _inflight: Set<string>;
   _failedRanges: Set<string>;
+
+  // --- Aggregation state ---
+  /** Cached aggregation results, keyed by field path. */
+  aggregations: AggregationsResult | null;
+  /** ES took time for the most recent agg request. */
+  aggTook: number | null;
+  /** True while an aggregation request is in flight. */
+  aggLoading: boolean;
+  /** Circuit breaker tripped — auto-fetch disabled until manual refresh succeeds. */
+  aggCircuitOpen: boolean;
+  /**
+   * Hash of the SearchParams that produced the cached aggregations.
+   * If the current params hash differs, the cache is stale.
+   */
+  _aggCacheKey: string | null;
 
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
@@ -74,6 +101,13 @@ interface SearchState {
   loadMore: () => Promise<void>;
   loadRange: (start: number, end: number) => Promise<void>;
   setFocusedImageId: (id: string | null) => void;
+  /**
+   * Fetch aggregations for the current search params.
+   * Called when Filters section is expanded or after a search completes
+   * while Filters is already expanded. Respects cache and circuit breaker.
+   * @param force — bypass cache + circuit breaker (manual refresh button).
+   */
+  fetchAggregations: (force?: boolean) => Promise<void>;
 }
 
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -82,17 +116,38 @@ let _loadMoreInFlight = false;
 
 /**
  * Generation-based abort for loadRange requests.
- * When search() fires, we abort the current controller (killing all in-flight
- * range loads from the previous search) and create a fresh one. loadRange()
- * passes this controller's signal so the fetch is cancellable.
- * This prevents orphaned range requests from wasting bandwidth and clogging
- * the browser's connection pool after the user types a new query.
  */
 let _rangeAbortController = new AbortController();
 
 /** Rolling window of recent loadRange ES took values for computing scrollAvg. */
 const _scrollTookWindow: number[] = [];
 const SCROLL_TOOK_WINDOW_SIZE = 10;
+
+// ---------------------------------------------------------------------------
+// Aggregation module-level state
+// ---------------------------------------------------------------------------
+
+/** Debounce timer for aggregation fetches. */
+let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Abort controller for the current aggregation request. */
+let _aggAbortController: AbortController | null = null;
+
+/**
+ * Compute a cache key from SearchParams that affect the result set.
+ * Only includes fields that change what documents match — not pagination
+ * or display params. This way, scrolling doesn't invalidate the agg cache.
+ */
+function aggCacheKey(params: SearchParams): string {
+  const { query, nonFree, since, until, takenSince, takenUntil,
+    modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
+    hasRightsAcquired, syndicationStatus, persisted } = params;
+  return JSON.stringify({
+    query, nonFree, since, until, takenSince, takenUntil,
+    modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
+    hasRightsAcquired, syndicationStatus, persisted,
+  });
+}
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
@@ -176,6 +231,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   frozenUntil: null,
   _inflight: new Set(),
   _failedRanges: new Set(),
+
+  // Aggregation state
+  aggregations: null,
+  aggTook: null,
+  aggLoading: false,
+  aggCircuitOpen: false,
+  _aggCacheKey: null,
 
   setParams: (newParams) => {
     set((state) => ({
@@ -358,6 +420,66 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _failedRanges: newFailed,
           error: e instanceof Error ? e.message : "Load range failed",
         };
+      });
+    }
+  },
+
+  fetchAggregations: async (force) => {
+    const { dataSource, params, aggCircuitOpen, _aggCacheKey } = get();
+
+    // Check cache — if params haven't changed, skip (unless forced)
+    const key = aggCacheKey(params);
+    if (!force && key === _aggCacheKey) return;
+
+    // Circuit breaker — skip auto-fetch if tripped (unless forced)
+    if (!force && aggCircuitOpen) return;
+
+    // Cancel any pending debounce or in-flight request
+    if (_aggDebounceTimer) clearTimeout(_aggDebounceTimer);
+    if (_aggAbortController) _aggAbortController.abort();
+
+    // Debounce — wait AGG_DEBOUNCE_MS before firing (unless forced)
+    if (!force) {
+      await new Promise<void>((resolve) => {
+        _aggDebounceTimer = setTimeout(resolve, AGG_DEBOUNCE_MS);
+      });
+    }
+
+    // Re-check cache after debounce — params may have changed again
+    const currentKey = aggCacheKey(get().params);
+    if (!force && currentKey === get()._aggCacheKey) return;
+
+    _aggAbortController = new AbortController();
+    set({ aggLoading: true });
+
+    const startTime = performance.now();
+
+    try {
+      const result = await dataSource.getAggregations(
+        get().params,
+        AGG_FIELDS,
+        _aggAbortController.signal,
+      );
+
+      const elapsed = performance.now() - startTime;
+
+      set({
+        aggregations: result,
+        aggTook: result.took ?? null,
+        aggLoading: false,
+        _aggCacheKey: aggCacheKey(get().params),
+        // Reset circuit breaker on fast response
+        aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        // Intentional cancellation — don't update state
+        set({ aggLoading: false });
+        return;
+      }
+      set({
+        aggLoading: false,
+        // Don't overwrite search error — agg errors are non-critical
       });
     }
   },

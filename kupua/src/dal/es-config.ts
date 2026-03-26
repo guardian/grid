@@ -14,7 +14,7 @@
  * (KUPUA_ES_URL env var, defaults to http://localhost:9220).
  * This keeps credentials and URLs out of client-side code.
  *
- * See kupua/exploration/docs/safeguards.md for safety documentation.
+ * See kupua/exploration/docs/infra-safeguards.md for safety documentation.
  */
 
 /** Vite proxy path for ES requests. */

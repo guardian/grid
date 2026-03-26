@@ -41,7 +41,7 @@ if echo "$ES_URL" | grep -qv ':9220'; then
   echo "  (possibly a TEST tunnel on port 9200)."
   echo ""
   echo "  If you really need to override this, edit the script."
-  echo "  See kupua/exploration/docs/safeguards.md for details."
+  echo "  See kupua/exploration/docs/infra-safeguards.md for details."
   exit 1
 fi
 

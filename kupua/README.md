@@ -37,7 +37,7 @@ TEST mode automatically:
 5. Enables **write protection** – only read operations (`_search`, `_count`, `_cat/aliases`) are allowed against the real cluster
 6. Starts the Vite dev server on port 3000
 
-All image access is read-only and uses your existing developer AWS credentials. See `exploration/docs/safeguards.md` for the full safety framework.
+All image access is read-only and uses your existing developer AWS credentials. See `exploration/docs/infra-safeguards.md` for the full safety framework.
 
 ### Options
 
@@ -128,7 +128,7 @@ Kupua is fully isolated from the main Grid application:
 - **[Migration Plan](exploration/docs/migration-plan.md)** – phased roadmap, kahuna feature inventory, architecture
 - **[Frontend Philosophy](exploration/docs/frontend-philosophy.md)** – UX/UI philosophy: density continuum, interaction patterns, comparison with Lightroom/Photos/Finder
 - **[Deviations](exploration/docs/deviations.md)** – intentional differences from Grid/kahuna
-- **[Safeguards](exploration/docs/safeguards.md)** – Elasticsearch + S3 safety documentation
+- **[Safeguards](exploration/docs/infra-safeguards.md)** – Elasticsearch & S3 safety documentation
 
 ## Current Status
 

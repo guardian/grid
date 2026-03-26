@@ -24,7 +24,8 @@ import { StatusBar } from "@/components/StatusBar";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
-import { PanelLayout } from "@/components/PanelLayout";
+import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
+import { FacetFilters } from "@/components/FacetFilters";
 import { useSearch } from "@tanstack/react-router";
 
 export const searchRoute = createRoute({
@@ -57,7 +58,11 @@ function SearchPage() {
         <SearchBar />
         <StatusBar />
         <PanelLayout
-          leftPanel={<div className="p-3 text-sm text-grid-text-muted">Browse</div>}
+          leftPanel={
+            <AccordionSection sectionId="left-filters" title="Filters">
+              <FacetFilters />
+            </AccordionSection>
+          }
           rightPanel={<div className="p-3 text-sm text-grid-text-muted">Details</div>}
         >
           {isGrid ? <ImageGrid /> : <ImageTable />}

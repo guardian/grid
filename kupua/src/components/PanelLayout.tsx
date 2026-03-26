@@ -90,6 +90,11 @@ interface ResizeHandleProps {
 
 function ResizeHandle({ side, panelRef }: ResizeHandleProps) {
   const setWidth = usePanelStore((s) => s.setWidth);
+  const togglePanel = usePanelStore((s) => s.togglePanel);
+
+  const handleDoubleClick = useCallback(() => {
+    togglePanel(side);
+  }, [togglePanel, side]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -134,7 +139,9 @@ function ResizeHandle({ side, panelRef }: ResizeHandleProps) {
       style={{ touchAction: "none" }}
       role="separator"
       aria-orientation="vertical"
+      aria-label={`Resize ${side} panel (double-click to close)`}
       onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
     />
   );
 }

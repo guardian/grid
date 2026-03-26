@@ -30,10 +30,24 @@ export function StatusBar() {
   const leftVisible = usePanelStore((s) => s.config.left.visible);
   const rightVisible = usePanelStore((s) => s.config.right.visible);
   const togglePanel = usePanelStore((s) => s.togglePanel);
+  const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
+  const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
   const toggleDensity = useCallback(() => {
     updateSearch({ density: isGrid ? "table" : undefined });
   }, [isGrid, updateSearch]);
+
+  // Prefetch aggregations on hover — intentionally invisible ("magic") UX.
+  // Only fires if panel is closed AND the Filters section is expanded in
+  // localStorage (i.e. user is a "Filters person" who will see facets
+  // immediately on open). The cache check inside fetchAggregations()
+  // prevents duplicate requests.
+  // Documented: infra-safeguards.md §6, panels-plan.md Decision #9.
+  const handleBrowseHover = useCallback(() => {
+    if (!leftVisible && filtersExpanded) {
+      fetchAggregations();
+    }
+  }, [leftVisible, filtersExpanded, fetchAggregations]);
 
   return (
     <div className="flex items-stretch gap-0 h-7 bg-grid-panel border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative">
@@ -41,6 +55,7 @@ export function StatusBar() {
           the border to visually merge with the panel beneath */}
       <button
         onClick={() => togglePanel("left")}
+        onMouseEnter={handleBrowseHover}
         className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
           leftVisible
             ? "text-grid-accent -mb-px bg-grid-panel z-10"

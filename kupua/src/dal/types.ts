@@ -75,6 +75,22 @@ export interface AggregationResult {
   total: number;
 }
 
+/** Request for a single field aggregation within a batch. */
+export interface AggregationRequest {
+  /** ES field path (e.g. "metadata.credit", "usageRights.category"). */
+  field: string;
+  /** Max number of buckets to return. Default: 10. */
+  size?: number;
+}
+
+/** Result of a batched aggregation — keyed by field path, with timing. */
+export interface AggregationsResult {
+  /** Per-field aggregation results, keyed by ES field path. */
+  fields: Record<string, AggregationResult>;
+  /** ES query time in milliseconds. */
+  took?: number;
+}
+
 export interface ImageDataSource {
   /** Full-text search with filters, pagination, and sorting. */
   search(params: SearchParams): Promise<SearchResult>;
@@ -100,5 +116,16 @@ export interface ImageDataSource {
     query?: string,
     size?: number
   ): Promise<AggregationResult>;
+
+  /**
+   * Batched terms aggregations — multiple fields in a single ES request.
+   * Used by facet filters. Returns keyed by field path.
+   * The query is derived from SearchParams (same filters as the main search).
+   */
+  getAggregations(
+    params: SearchParams,
+    fields: AggregationRequest[],
+    signal?: AbortSignal,
+  ): Promise<AggregationsResult>;
 }
 
