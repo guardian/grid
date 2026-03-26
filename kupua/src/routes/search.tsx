@@ -25,7 +25,7 @@ import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
-import { FacetFilters } from "@/components/FacetFilters";
+import { FacetFilters, AggTiming } from "@/components/FacetFilters";
 import { useSearch } from "@tanstack/react-router";
 
 export const searchRoute = createRoute({
@@ -59,7 +59,7 @@ function SearchPage() {
         <StatusBar />
         <PanelLayout
           leftPanel={
-            <AccordionSection sectionId="left-filters" title="Filters">
+            <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggTiming />}>
               <FacetFilters />
             </AccordionSection>
           }

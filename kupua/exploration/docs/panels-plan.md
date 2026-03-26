@@ -702,7 +702,17 @@ timing) — essential for monitoring during rollout.
 
 The facet filter panel content. Reads aggregation results from the search
 store. Renders faceted value lists with counts. Click adds/removes CQL
-chips via `updateSearch()`. Active filters highlighted.
+chips via `updateSearch()`. Active filters highlighted. Alt+click to
+exclude (platform-aware tooltip: ⌥click on Mac, Alt+click on Windows,
+via `ALT_CLICK` from `keyboard-shortcuts.ts`).
+
+"Show more" per field fetches a separate single-field request at 100
+buckets (not mixed into the recurring batch). Expanded state is
+component-level — cleared on new search, not persisted. "Show fewer"
+collapses back to the batch size and scroll-anchors the field header to
+the top of the panel (`findScrollParent` + `requestAnimationFrame` +
+`scrollTop` adjustment). Browser scroll anchoring disabled on panel
+containers (`overflow-anchor: none`) to prevent conflicts.
 
 ### Step 6 — Right panel metadata
 

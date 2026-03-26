@@ -13,7 +13,7 @@
 
 import { create } from "zustand";
 import type { Image } from "@/types/image";
-import type { ImageDataSource, SearchParams, AggregationsResult } from "@/dal";
+import type { ImageDataSource, SearchParams, AggregationsResult, AggregationResult } from "@/dal";
 import { ElasticsearchDataSource } from "@/dal";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 
@@ -40,6 +40,9 @@ const AGG_CIRCUIT_BREAKER_MS = 2000;
 
 /** Default number of buckets per field in the batched request. */
 const AGG_DEFAULT_SIZE = 10;
+
+/** Bucket count for "show more" — single-field on-demand request. */
+const AGG_EXPANDED_SIZE = 100;
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
@@ -95,6 +98,16 @@ interface SearchState {
    */
   _aggCacheKey: string | null;
 
+  /**
+   * Per-field expanded aggregation results (from "show more").
+   * Keyed by ES field path. These are fetched on-demand, separately from
+   * the batch, at a larger bucket size (AGG_EXPANDED_SIZE).
+   * Cleared when the query changes (new _aggCacheKey).
+   */
+  expandedAggs: Record<string, AggregationResult>;
+  /** Fields currently being fetched for expansion. */
+  expandedAggsLoading: Set<string>;
+
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
   search: () => Promise<void>;
@@ -108,6 +121,17 @@ interface SearchState {
    * @param force — bypass cache + circuit breaker (manual refresh button).
    */
   fetchAggregations: (force?: boolean) => Promise<void>;
+  /**
+   * Fetch an expanded aggregation for a single field (on-demand "show more").
+   * Fires a separate single-field request at AGG_EXPANDED_SIZE.
+   * Result stored in expandedAggs[field] and cleared on next search.
+   */
+  fetchExpandedAgg: (field: string) => Promise<void>;
+  /**
+   * Collapse an expanded field back to the default bucket count.
+   * Removes the entry from expandedAggs.
+   */
+  collapseExpandedAgg: (field: string) => void;
 }
 
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -238,6 +262,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   aggLoading: false,
   aggCircuitOpen: false,
   _aggCacheKey: null,
+  expandedAggs: {},
+  expandedAggsLoading: new Set(),
 
   setParams: (newParams) => {
     set((state) => ({
@@ -470,6 +496,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _aggCacheKey: aggCacheKey(get().params),
         // Reset circuit breaker on fast response
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
+        // Clear expanded aggs — they're for the old result set
+        expandedAggs: {},
+        expandedAggsLoading: new Set(),
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -482,6 +511,48 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // Don't overwrite search error — agg errors are non-critical
       });
     }
+  },
+
+  fetchExpandedAgg: async (field: string) => {
+    const { dataSource, params, expandedAggs, expandedAggsLoading } = get();
+
+    // Already expanded or in-flight for this field
+    if (expandedAggs[field] || expandedAggsLoading.has(field)) return;
+
+    set({ expandedAggsLoading: new Set([...expandedAggsLoading, field]) });
+
+    try {
+      const result = await dataSource.getAggregations(
+        params,
+        [{ field, size: AGG_EXPANDED_SIZE }],
+      );
+
+      const fieldResult = result.fields[field];
+      if (fieldResult) {
+        set((state) => {
+          const newLoading = new Set(state.expandedAggsLoading);
+          newLoading.delete(field);
+          return {
+            expandedAggs: { ...state.expandedAggs, [field]: fieldResult },
+            expandedAggsLoading: newLoading,
+          };
+        });
+      }
+    } catch {
+      // Non-critical — just remove loading state
+      set((state) => {
+        const newLoading = new Set(state.expandedAggsLoading);
+        newLoading.delete(field);
+        return { expandedAggsLoading: newLoading };
+      });
+    }
+  },
+
+  collapseExpandedAgg: (field: string) => {
+    set((state) => {
+      const { [field]: _, ...rest } = state.expandedAggs;
+      return { expandedAggs: rest };
+    });
   },
 }));
 

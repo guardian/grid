@@ -148,7 +148,10 @@ document.addEventListener("keydown", handleKeyDown, { capture: true });
 // ---------------------------------------------------------------------------
 
 /** Platform-aware modifier key symbol for display in tooltips. */
-const ALT_SYMBOL = navigator.platform.includes("Mac") ? "⌥" : "Alt+";
+export const ALT_SYMBOL = navigator.platform.includes("Mac") ? "⌥" : "Alt+";
+
+/** Platform-aware "Alt+click" label for tooltips (e.g. "⌥click" / "Alt+click"). */
+export const ALT_CLICK = `${ALT_SYMBOL}click`;
 
 /**
  * Format a shortcut for display in a tooltip.

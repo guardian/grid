@@ -11,13 +11,14 @@
  * See kupua/exploration/docs/panels-plan.md §Facet Filters for the full design.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
 import { findFieldTerm, upsertFieldTerm } from "@/lib/cql-query-edit";
+import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import type { AggregationBucket } from "@/dal";
 
 // ---------------------------------------------------------------------------
@@ -43,17 +44,46 @@ function formatCount(n: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// AggTiming — shows ms counter in the section header (right side).
+// Rendered by search.tsx as AccordionSection's headerRight prop.
+// Only visible once a real value has been received.
+// ---------------------------------------------------------------------------
+
+export function AggTiming() {
+  const aggLoading = useSearchStore((s) => s.aggLoading);
+  const aggTook = useSearchStore((s) => s.aggTook);
+  const aggCircuitOpen = useSearchStore((s) => s.aggCircuitOpen);
+  const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
+
+  if (aggCircuitOpen) {
+    return (
+      <button
+        onClick={() => fetchAggregations(true)}
+        className="text-grid-accent hover:underline cursor-pointer"
+      >
+        Refresh (slow)
+      </button>
+    );
+  }
+
+  if (aggLoading) return <span>…</span>;
+  if (aggTook != null) return <span>{aggTook}ms</span>;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // FacetFilters component
 // ---------------------------------------------------------------------------
 
 export function FacetFilters() {
   const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
   const aggregations = useSearchStore((s) => s.aggregations);
-  const aggLoading = useSearchStore((s) => s.aggLoading);
-  const aggCircuitOpen = useSearchStore((s) => s.aggCircuitOpen);
-  const aggTook = useSearchStore((s) => s.aggTook);
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
   const total = useSearchStore((s) => s.total);
+  const expandedAggs = useSearchStore((s) => s.expandedAggs);
+  const expandedAggsLoading = useSearchStore((s) => s.expandedAggsLoading);
+  const fetchExpandedAgg = useSearchStore((s) => s.fetchExpandedAgg);
+  const collapseExpandedAgg = useSearchStore((s) => s.collapseExpandedAgg);
 
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
@@ -101,35 +131,17 @@ export function FacetFilters() {
   // Render
   // ------------------------------------------------------------------
 
-  if (!aggregations && !aggLoading) {
-    return (
-      <div className="px-3 py-4 text-xs text-grid-text-dim">
-        Expand this section to load filter counts.
-      </div>
-    );
-  }
-
   return (
     <div className="py-1">
-      {/* Timing + circuit breaker status */}
-      <div className="px-3 pb-2 flex items-center gap-2 text-2xs text-grid-text-dim">
-        {aggLoading && <span>Loading…</span>}
-        {!aggLoading && aggTook != null && <span>{aggTook}ms</span>}
-        {aggCircuitOpen && (
-          <button
-            onClick={() => fetchAggregations(true)}
-            className="text-grid-accent hover:underline cursor-pointer"
-          >
-            Refresh (slow)
-          </button>
-        )}
-      </div>
-
       {FACET_FIELDS.map((field) => (
         <FacetSection
           key={field.id}
           field={field}
           buckets={aggregations?.fields[field.sortKey!]?.buckets ?? []}
+          expandedBuckets={expandedAggs[field.sortKey!]?.buckets}
+          expandedLoading={expandedAggsLoading.has(field.sortKey!)}
+          onShowMore={() => fetchExpandedAgg(field.sortKey!)}
+          onCollapse={() => collapseExpandedAgg(field.sortKey!)}
           currentQuery={currentQuery}
           onFacetClick={handleFacetClick}
         />
@@ -139,33 +151,78 @@ export function FacetFilters() {
 }
 
 // ---------------------------------------------------------------------------
+// Scroll anchor helper — find the nearest scrollable ancestor
+// ---------------------------------------------------------------------------
+
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === "scroll" || overflowY === "auto") return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // FacetSection — one field's values + counts
 // ---------------------------------------------------------------------------
 
 interface FacetSectionProps {
   field: FieldDefinition;
   buckets: AggregationBucket[];
+  expandedBuckets: AggregationBucket[] | undefined;
+  expandedLoading: boolean;
+  onShowMore: () => void;
+  onCollapse: () => void;
   currentQuery: string;
   onFacetClick: (cqlKey: string, value: string, e: React.MouseEvent) => void;
 }
 
-function FacetSection({ field, buckets, currentQuery, onFacetClick }: FacetSectionProps) {
+function FacetSection({
+  field, buckets, expandedBuckets, expandedLoading,
+  onShowMore, onCollapse, currentQuery, onFacetClick,
+}: FacetSectionProps) {
+  const headerRef = useRef<HTMLDivElement>(null);
+
   if (buckets.length === 0) return null;
 
   const cqlKey = field.cqlKey;
   if (!cqlKey) return null;
 
-  const visibleBuckets = buckets.slice(0, INITIAL_VISIBLE);
+  const isExpanded = !!expandedBuckets;
+  const visibleBuckets = isExpanded ? expandedBuckets : buckets.slice(0, INITIAL_VISIBLE);
+
+  // Show "more" link when the batch returned exactly INITIAL_VISIBLE buckets
+  // (there are likely more) and we haven't expanded yet.
+  const hasMore = !isExpanded && buckets.length >= INITIAL_VISIBLE;
+
+  // Scroll-anchored collapse: after collapsing the expanded bucket list,
+  // scroll so this field's header is at the top of the panel. Without this,
+  // the user clicks "Show fewer" at the bottom of a long list and ends up
+  // staring at whatever section was below — completely lost.
+  const handleCollapse = () => {
+    const header = headerRef.current;
+    const scroller = header && findScrollParent(header);
+    onCollapse();
+    if (header && scroller) {
+      requestAnimationFrame(() => {
+        const scrollerRect = scroller.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        scroller.scrollTop += headerRect.top - scrollerRect.top;
+      });
+    }
+  };
 
   return (
-    <div className="px-3 pb-2">
-      {/* Field name header */}
-      <div className="text-2xs text-grid-text-dim font-medium uppercase tracking-wide pb-1">
+    <div className="pb-2">
+      {/* Field name — sub-section header, no divider */}
+      <div ref={headerRef} className="px-3 pt-2 pb-1 text-sm text-grid-text-muted">
         {field.label}
       </div>
 
       {/* Value list */}
-      <div className="flex flex-col gap-px">
+      <div className="flex flex-col gap-px px-3">
         {visibleBuckets.map((bucket) => {
           const existing = findFieldTerm(currentQuery, cqlKey, bucket.key);
           const isActive = !!existing && !existing.negated;
@@ -182,7 +239,7 @@ function FacetSection({ field, buckets, currentQuery, onFacetClick }: FacetSecti
                     : "text-grid-text hover:bg-grid-hover/30"
               }`}
               onClick={(e) => onFacetClick(cqlKey, bucket.key, e)}
-              title={`${bucket.key} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : "\nAlt+click to exclude"}`}
+              title={`${bucket.key} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
             >
               <span className="truncate min-w-0">{bucket.key}</span>
               <span className="text-2xs text-grid-text-dim shrink-0 tabular-nums">
@@ -191,6 +248,25 @@ function FacetSection({ field, buckets, currentQuery, onFacetClick }: FacetSecti
             </button>
           );
         })}
+
+        {/* Show more / Show less toggle */}
+        {hasMore && (
+          <button
+            className="text-2xs text-grid-text-dim hover:text-grid-accent cursor-pointer pt-0.5 text-left px-1.5"
+            onClick={onShowMore}
+            disabled={expandedLoading}
+          >
+            {expandedLoading ? "Loading…" : "Show more…"}
+          </button>
+        )}
+        {isExpanded && (
+          <button
+            className="text-2xs text-grid-text-dim hover:text-grid-accent cursor-pointer pt-0.5 text-left px-1.5"
+            onClick={handleCollapse}
+          >
+            Show fewer
+          </button>
+        )}
       </div>
     </div>
   );

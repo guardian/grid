@@ -46,32 +46,51 @@ interface PanelLayoutProps {
 interface AccordionSectionProps {
   sectionId: string;
   title: string;
+  /** Optional content rendered on the right side of the header (e.g. timing). */
+  headerRight?: ReactNode;
   children: ReactNode;
 }
 
-export function AccordionSection({ sectionId, title, children }: AccordionSectionProps) {
+export function AccordionSection({ sectionId, title, headerRight, children }: AccordionSectionProps) {
   const isOpen = usePanelStore((s) => s.isSectionOpen(sectionId));
   const toggleSection = usePanelStore((s) => s.toggleSection);
 
   return (
-    <div className="border-b border-grid-separator last:border-b-0">
+    <div className={isOpen ? undefined : "border-b border-grid-separator"}>
       <button
-        className="flex items-center gap-1.5 w-full px-3 py-2 text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
+        className="flex items-center gap-1 w-full px-1.5 py-2 text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
         onClick={() => toggleSection(sectionId)}
         aria-expanded={isOpen}
         aria-controls={`section-${sectionId}`}
       >
-        <span
-          className="text-[10px] text-grid-text-dim transition-transform"
-          style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}
+        {/* Material chevron_right (collapsed) / expand_more (expanded) */}
+        <svg
+          className="w-5 h-5 shrink-0 text-grid-text-dim"
+          viewBox="0 0 24 24"
+          fill="currentColor"
           aria-hidden="true"
         >
-          ▶
-        </span>
+          {isOpen
+            ? <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" /> /* expand_more */
+            : <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" /> /* chevron_right */
+          }
+        </svg>
         {title}
+        {/* Right-side content (e.g. timing) — click doesn't toggle, stop propagation */}
+        {headerRight && (
+          <span className="flex-1" />
+        )}
+        {headerRight && (
+          <span
+            className="text-2xs text-grid-text-dim"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {headerRight}
+          </span>
+        )}
       </button>
       {isOpen && (
-        <div id={`section-${sectionId}`} className="px-3 pb-3">
+        <div id={`section-${sectionId}`}>
           {children}
         </div>
       )}
@@ -180,8 +199,8 @@ export function PanelLayout({ leftPanel, rightPanel, children }: PanelLayoutProp
         <>
           <div
             ref={leftPanelRef}
-            className="shrink-0 overflow-y-auto bg-grid-panel border-r border-grid-separator"
-            style={{ width: leftWidth }}
+            className="shrink-0 overflow-y-scroll bg-grid-panel border-r border-grid-separator"
+            style={{ width: leftWidth, overflowAnchor: "none" }}
           >
             {leftPanel}
           </div>
@@ -200,7 +219,7 @@ export function PanelLayout({ leftPanel, rightPanel, children }: PanelLayoutProp
           <ResizeHandle side="right" panelRef={rightPanelRef} />
           <div
             ref={rightPanelRef}
-            className="shrink-0 overflow-y-auto bg-grid-panel border-l border-grid-separator"
+            className="shrink-0 overflow-y-scroll bg-grid-panel border-l border-grid-separator"
             style={{ width: rightWidth }}
           >
             {rightPanel}
