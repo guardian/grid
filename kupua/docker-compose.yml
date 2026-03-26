@@ -45,6 +45,12 @@ services:
       IMGPROXY_ALLOW_ORIGIN: "*"
       # Disable URL signing for local dev (matches eelpie fork's "no-signature" approach)
       IMGPROXY_ALLOW_INSECURE: "true"
+      # Default is 16.8MP which rejects large press images (panoramas, hi-res scans).
+      # 510MP covers the largest known test image. libvips streams in tiles so
+      # actual RAM is far below width×height×4; one slow request won't block others.
+      IMGPROXY_MAX_SRC_RESOLUTION: "510"
+      # Default download timeout is 5s — the 510MP test image takes ~5.1s.
+      IMGPROXY_DOWNLOAD_TIMEOUT: "10"
     # AWS credentials are passed via env_file (not inline environment) so that
     # `docker inspect` shows only variable names, not their values.
     # start.sh writes ~/.kupua-imgproxy.env and deletes it immediately after

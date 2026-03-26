@@ -142,6 +142,18 @@ format conversion is needed.
   credentials never reach the browser
 - Uses `insecure` mode (no HMAC signing) — local dev only
 
+**Tuning (`docker-compose.yml` environment):**
+
+- `IMGPROXY_MAX_SRC_RESOLUTION: 510` — max source image resolution in
+  megapixels. Default is 16.8MP, which rejects large press panoramas and
+  hi-res scans (422 "Source image resolution is too big"). 510MP covers the
+  largest known test image. libvips streams in tiles so actual RAM is far
+  below width×height×4; one slow request won't block others (each request
+  occupies one concurrency slot — `IMGPROXY_CONCURRENCY` defaults to
+  CPU count × 2).
+- `IMGPROXY_DOWNLOAD_TIMEOUT: 10` — seconds to wait for S3 download.
+  Default is 5s; the 510MP test image takes ~5.1s to download.
+
 See `kupua/exploration/docs/imgproxy-research.md` for full background.
 
 ---
