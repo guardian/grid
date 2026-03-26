@@ -1094,12 +1094,6 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
-    <td><code>auth.key.s3watcher</code></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
     <td><code>s3.ingest.bucket</code></td>
     <td></td>
     <td></td>
