@@ -151,6 +151,18 @@ sparse arrays, `from/size`, RxJS reactive pipeline). Covers the 100k cap,
 result set freezing, duplicate detection. Lessons for kupua's `useDataWindow`.
 Grid-view-specific analysis is in `grid-view-plan.md` instead.
 
+📄 **Panels plan:** `kupua/exploration/docs/panels-plan.md`
+
+Design and implementation plan for the side-panel system. Both panels (left:
+filters + collections; right: metadata/info), resize handles, accordion sections,
+keyboard shortcuts (`[`/`]`), grid view scroll anchoring on any width change.
+Facet filter design (batched aggregations, which fields, interaction with toolbar
+filters). Kahuna panel reference. Prior art (Lightroom, Bridge, Darktable/Ansel,
+IDEs). Decided-against log (overlay mode, per-facet accordions, per-section shortcuts).
+Aggregation performance & safeguards section: lazy fetching (only when Filters
+section expanded), query-keyed cache, separate 500ms debounce, circuit breaker,
+CloudWatch metrics to watch, honest load analysis for 50+ concurrent users on 9M docs.
+
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
 **Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against ~9M images. Still read-only, no auth, no Grid API. Phase 1 (local sample data) is complete.
@@ -300,8 +312,14 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 - ⏪ **List scroll smoothness — tried and reverted (2025-03-25).** Goal: make table view feel as smooth as grid during moderate scroll (grid already feels like it never loads). Tried three changes together: (1) page size 50→100, (2) debounce→leading+trailing throttle for gap detection, (3) `LOAD_OVERSCAN` 50→100 rows. **Result: no perceptible improvement in table view.** Also introduced a regression — hover background colour "swimming above" rows during fast scroll (likely from throttle firing more frequently and causing intermediate renders). All three reverted. The bottleneck may be elsewhere (React reconciliation of TanStack Table row model, or the `!row` placeholder flash). Needs more investigation — possibly profiling the render pipeline rather than tuning fetch timing.
 
 ### What's Next (Phase 2 remaining)
+- [ ] **Panels + facet filters** — full plan in `exploration/docs/panels-plan.md`:
+  1. Grid view scroll anchoring — anchor-image technique in ImageGrid's ResizeObserver so column-count changes (panel toggle, panel resize, browser window resize) preserve the user's position. Standalone improvement, prerequisite for panels.
+  2. Panel store (`stores/panel-store.ts`) — Zustand + localStorage for visibility, width, section open/closed.
+  3. Panel layout (`components/PanelLayout.tsx`) — flex row wrapping main content with resizable left/right panels. Keyboard shortcuts `[`/`]`. Toggle buttons in StatusBar.
+  4. Aggregation batching in DAL — new `getAggregations()` method: single ES request with `size:0` and N named terms aggs. Fetched only when Filters section is expanded, debounced separately (500ms), cached per query, circuit breaker at 2s.
+  5. Facet filters component (`components/FacetFilters.tsx`) — left panel content. All keyword-type fields from field registry. Value lists with counts, click adds/removes CQL chips, active filters highlighted.
+  6. Right panel metadata — extract `MetadataPanel` from ImageDetail into shared `ImageMetadata.tsx`. Shows metadata for focused image in grid/table views (same component used by ImageDetail). Functional from day one, not a placeholder.
 - [ ] Column reordering via drag-and-drop (extend `column-store.ts` to persist order)
-- [ ] Facet filters — dropdown/multi-select for `uploadedBy`, `usageRights.category`, `metadata.source` (use DAL `getAggregation()` for options)
 - [ ] Windowed scroll + `search_after` cursor-based pagination (for deep pagination of 9M docs) — depends on `useDataWindow` extraction above. **Also unblocks sort-around-focus** ("Never Lost" on sort): attempted via `_count` to find the focused image's new position, hit `max_result_window` wall (100k cap) and equal-value ambiguity. `search_after` removes the depth cap. See performance-analysis.md findings #4, #5.
 - [ ] Custom scrubber (thumb = `windowStart / total`) — see migration-plan.md "Scrollbar & Infinite Scroll" notes
 
@@ -417,6 +435,10 @@ Grid-view-specific analysis is in `grid-view-plan.md` instead.
 
 26. **Field Definition Registry** — `src/lib/field-registry.ts` is the single source of truth for every image field kupua can display, search, sort, or aggregate. Each `FieldDefinition` captures: identity (id, label, group), data access (accessor, rawValue), search (cqlKey, esSearchPath), sort (sortKey, descByDefault), display (defaultWidth, defaultHidden, formatter, cellRenderer), and type metadata (fieldType, isList, isComposite, editable, aggregatable). Config-driven alias fields from `grid-config.ts` are merged in automatically. Consumers (`ImageTable`, `SearchFilters.Sort`, `column-store`, future MetadataPanel/grid view) import derived maps (`COLUMN_CQL_KEYS`, `SORTABLE_FIELDS`, `DESC_BY_DEFAULT`, `DEFAULT_HIDDEN_COLUMNS`, `SORT_DROPDOWN_OPTIONS`) and helper functions (`getFieldRawValue`, `getFieldDisplayValue`) — they never hardcode field knowledge. ImageTable generates TanStack column defs from the registry via `fieldToColumnDef()`. **Coupling note:** `fieldType` and `aggregatable` restate the ES mapping — if the mapping changes (e.g. mapping-enhancements.md §2a), these must be updated. When facet filters are built, consider dynamic introspection via `_mapping` at startup instead.
 
+27. **Panels — always-in-flow, no overlay mode** — Two panel zones (left, right) flanking the main content in a flex row. Panels are either visible (in the layout flow, pushing content) or hidden. No kahuna-style overlay/locked distinction, no auto-hide-on-scroll. Resizable via drag handles, width persisted to localStorage. Accordion sections within each panel. Left: Filters + Collections (Phase 4). Right: shared Metadata component (same as image detail). Keyboard: `[` left, `]` right. Panel state in localStorage (not URL — it's user preference, not search context). Facet aggregations are lazy: fetched only when the Filters section is expanded, debounced separately (500ms), cached per query, with a circuit breaker if response exceeds 2s. Section open/closed state persisted to localStorage — most users keep Filters collapsed (no ES agg load); power users who expand Filters self-select into the agg cost. Full plan: `panels-plan.md`. Deviation from kahuna: see `deviations.md` when implemented.
+
+28. **Grid view scroll anchoring on width change** — When `ImageGrid.tsx`'s container width changes (from any cause: panel toggle, panel resize, browser window resize) and the column count changes, the focused (or viewport-centre) image's viewport ratio is captured before the change and restored in a `useLayoutEffect` after React re-renders. No visible jump. Table view doesn't need this — its vertical layout is width-independent. This is a generic `ResizeObserver` improvement, not panel-specific. Same algorithm concept as `density-focus.ts` (density switches) but within the same component lifecycle rather than across unmount→remount.
+
 ## Project Structure
 
 ```
@@ -451,6 +473,7 @@ kupua/
       s3-proxy.md              # S3 thumbnail proxy documentation (temporary)
       imgproxy-research.md     # Research: how eelpie fork replaced nginx imgops with imgproxy
       mapping-enhancements.md  # Proposed ES mapping improvements
+      panels-plan.md           # Panels design + implementation plan: layout, facet filters, scroll anchoring, kahuna reference
   scripts:
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     load-sample-data.sh        # Index creation + bulk load
