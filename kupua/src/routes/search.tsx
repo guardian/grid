@@ -26,6 +26,8 @@ import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { FacetFilters, AggTiming } from "@/components/FacetFilters";
+import { ImageMetadata } from "@/components/ImageMetadata";
+import { useSearchStore } from "@/stores/search-store";
 import { useSearch } from "@tanstack/react-router";
 
 export const searchRoute = createRoute({
@@ -63,7 +65,11 @@ function SearchPage() {
               <FacetFilters />
             </AccordionSection>
           }
-          rightPanel={<div className="p-3 text-sm text-grid-text-muted">Details</div>}
+          rightPanel={
+            <AccordionSection sectionId="right-metadata" title="Details">
+              <FocusedImageMetadata />
+            </AccordionSection>
+          }
         >
           {isGrid ? <ImageGrid /> : <ImageTable />}
         </PanelLayout>
@@ -72,6 +78,36 @@ function SearchPage() {
       {/* Image detail overlay — rendered when image is in URL */}
       {showImageDetail && <ImageDetail imageId={image} />}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FocusedImageMetadata — right panel content showing metadata for the
+// focused image in grid/table views. Reads focusedImageId from the search
+// store and resolves it to an Image via imagePositions + results.
+// ---------------------------------------------------------------------------
+
+function FocusedImageMetadata() {
+  const focusedImageId = useSearchStore((s) => s.focusedImageId);
+  const imagePositions = useSearchStore((s) => s.imagePositions);
+  const results = useSearchStore((s) => s.results);
+
+  const image = focusedImageId
+    ? results[imagePositions.get(focusedImageId) ?? -1] ?? null
+    : null;
+
+  if (!image) {
+    return (
+      <div className="px-3 py-4 text-xs text-grid-text-dim">
+        Focus an image to see its metadata.
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-3">
+      <ImageMetadata image={image} />
+    </div>
   );
 }
 

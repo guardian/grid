@@ -224,7 +224,13 @@ function FacetSection({
       {/* Value list */}
       <div className="flex flex-col gap-px px-3">
         {visibleBuckets.map((bucket) => {
-          const existing = findFieldTerm(currentQuery, cqlKey, bucket.key);
+          // Apply formatter for display (e.g. "image/jpeg" → "jpeg").
+          // The formatted value is also used as the CQL click value —
+          // fileType:jpeg is what CQL expects (translateMimeType handles
+          // short names → full MIME). Using the raw ES value would produce
+          // fileType:image/jpeg which CQL can't translate.
+          const displayValue = field.formatter ? field.formatter(bucket.key) : bucket.key;
+          const existing = findFieldTerm(currentQuery, cqlKey, displayValue);
           const isActive = !!existing && !existing.negated;
           const isExcluded = !!existing && existing.negated;
 
@@ -238,10 +244,10 @@ function FacetSection({
                     ? "bg-red-500/15 text-red-400 line-through"
                     : "text-grid-text hover:bg-grid-hover/30"
               }`}
-              onClick={(e) => onFacetClick(cqlKey, bucket.key, e)}
-              title={`${bucket.key} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
+              onClick={(e) => onFacetClick(cqlKey, displayValue, e)}
+              title={`${displayValue} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
             >
-              <span className="truncate min-w-0">{bucket.key}</span>
+              <span className="truncate min-w-0">{displayValue}</span>
               <span className="text-2xs text-grid-text-dim shrink-0 tabular-nums">
                 {formatCount(bucket.count)}
               </span>

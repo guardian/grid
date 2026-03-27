@@ -27,6 +27,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
+import { DataSearchPill } from "./SearchPill";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
 import {
@@ -46,27 +47,19 @@ const columnHelper = createColumnHelper<Image>();
 
 /**
  * Build a cell renderer for a list field (subjects, people).
- * Each item is individually clickable for search via data-cql-key/data-cql-value.
+ * Each item is a pill — individually clickable for search via
+ * data-cql-key/data-cql-value (delegated click handling in the table).
  */
 function listCellRenderer(field: FieldDefinition) {
   return (image: Image) => {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return "—";
     return (
-      <>
+      <span className="inline-flex flex-wrap gap-0.5">
         {values.map((v, i) => (
-          <span key={i}>
-            {i > 0 && <span className="text-grid-text-dim">, </span>}
-            <span
-              data-cql-key={field.cqlKey}
-              data-cql-value={v}
-              className="hover:underline hover:text-grid-accent cursor-pointer"
-            >
-              {v}
-            </span>
-          </span>
+          <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} />
         ))}
-      </>
+      </span>
     );
   };
 }

@@ -1,7 +1,7 @@
 # Kupua — Panels Plan
 
 > **Created:** 2026-03-25
-> **Status:** Decided — ready to implement.
+> **Status:** Complete — all six implementation steps done.
 > **Purpose:** Design and implementation plan for the side-panel system. Covers both
 > panels (left: filters + collections; right: metadata/info), the scroll-anchor
 > technique that preserves the user's position during any width change, and the
@@ -714,23 +714,23 @@ the top of the panel (`findScrollParent` + `requestAnimationFrame` +
 `scrollTop` adjustment). Browser scroll anchoring disabled on panel
 containers (`overflow-anchor: none`) to prevent conflicts.
 
-### Step 6 — Right panel metadata
+### Step 6 — Right panel metadata ✅
 
 **Files:** `components/ImageMetadata.tsx` (new — extracted from `ImageDetail.tsx`),
-`ImageDetail.tsx` (modify to use shared component)
+`ImageDetail.tsx` (modified to use shared component), `routes/search.tsx` (modified)
 
-Extract the existing `MetadataPanel` component (currently private inside
-`ImageDetail.tsx` — renders title, description, by, credit, source, copyright,
-category, location, dates, dimensions, file info, subjects, people, keywords,
-image ID) into a standalone `ImageMetadata.tsx`. Both the right side-panel
-and ImageDetail import the same component.
+Extracted `MetadataPanel`, `MetadataField`, and formatters from `ImageDetail.tsx`
+into a standalone `ImageMetadata.tsx` (~120 lines). The component takes an `Image`
+prop and renders a `<dl>` of all metadata fields. No layout chrome (no `<aside>`,
+no width, no border) — callers handle container styling.
 
-In the right panel context it shows metadata for the **focused image**
-(from `focusedImageId` in the search store). When no image is focused, it
-shows a brief empty state ("Select an image to see its metadata"). When
-multi-selection arrives (Phase 4), it adapts to show shared/differing
-fields across selected images — but that's future work. The core component
-and its rendering in the right panel are fully functional from day one.
+**ImageDetail** wraps it in `<aside className="w-72 ...">` (same as before).
+
+**Right side panel** uses a `FocusedImageMetadata` wrapper in `search.tsx` that
+reads `focusedImageId` from the search store, resolves it to an Image via
+`imagePositions` + `results`, and renders `ImageMetadata` with `p-3` padding.
+Empty state: "Focus an image to see its metadata." Wrapped in
+`AccordionSection sectionId="right-metadata" title="Details"`.
 
 ### Dependencies
 
@@ -740,10 +740,10 @@ Step 2 (panel store)    ✅ done
 Step 3 (panel layout)   ✅ done (depends on Step 2)
 Step 4 (aggregations)   ✅ done
 Step 5 (facet filters)  ✅ done (depends on Steps 3 + 4)
-Step 6 (right panel)    — depends on Step 3 ✅
+Step 6 (right panel)    ✅ done (depends on Step 3)
 ```
 
-Steps 1–5 are complete. Only Step 6 (right panel metadata) remains.
+All six steps complete. The panel system is fully functional.
 
 ---
 

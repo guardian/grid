@@ -40,7 +40,7 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
-import { format } from "date-fns";
+import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
 
 interface ImageDetailProps {
@@ -466,101 +466,13 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         </div>
 
         {/* Metadata sidebar — hidden in fullscreen */}
-        {!isFullscreen && <MetadataPanel image={displayImage} />}
+        {!isFullscreen && (
+          <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto p-3">
+            <ImageMetadata image={displayImage} />
+          </aside>
+        )}
       </div>
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Metadata sidebar
-// ---------------------------------------------------------------------------
-
-function formatDetailDate(dateStr?: string): string {
-  if (!dateStr) return "";
-  try {
-    return format(new Date(dateStr), "dd MMM yyyy HH:mm");
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatFileSize(bytes?: number): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDimensions(image: import("@/types/image").Image): string {
-  const dims = image.source.orientedDimensions ?? image.source.dimensions;
-  if (!dims) return "";
-  return `${dims.width} × ${dims.height}`;
-}
-
-function formatLocation(m: import("@/types/image").ImageMetadata): string {
-  const parts = [m.subLocation, m.city, m.state, m.country].filter(Boolean);
-  return parts.join(", ");
-}
-
-interface MetadataFieldProps {
-  label: string;
-  value?: string | null;
-}
-
-function MetadataField({ label, value }: MetadataFieldProps) {
-  if (!value) return null;
-  return (
-    <div className="mb-2.5">
-      <dt className="text-xs text-grid-text-dim mb-0.5">
-        {label}
-      </dt>
-      <dd className="text-xs text-grid-text break-words">{value}</dd>
-    </div>
-  );
-}
-
-function MetadataPanel({ image }: { image: import("@/types/image").Image }) {
-  const m = image.metadata;
-  const dims = formatDimensions(image);
-  const location = formatLocation(m);
-  const fileSize = formatFileSize(image.source.size);
-
-  return (
-    <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto p-3">
-      <dl>
-        <MetadataField label="Title" value={m.title} />
-        <MetadataField label="Description" value={m.description} />
-        <MetadataField label="By" value={m.byline} />
-        <MetadataField label="Credit" value={m.credit} />
-        <MetadataField label="Source" value={m.source} />
-        <MetadataField label="Copyright" value={m.copyright} />
-        <MetadataField label="Category" value={image.usageRights?.category} />
-        <MetadataField label="Special instructions" value={m.specialInstructions} />
-        <MetadataField label="Suppliers reference" value={m.suppliersReference} />
-        <MetadataField label="Location" value={location || undefined} />
-        <MetadataField label="Taken on" value={formatDetailDate(m.dateTaken)} />
-        <MetadataField label="Uploaded" value={formatDetailDate(image.uploadTime)} />
-        <MetadataField label="Uploader" value={image.uploadedBy} />
-        <MetadataField label="Dimensions" value={dims || undefined} />
-        <MetadataField label="File size" value={fileSize || undefined} />
-        <MetadataField
-          label="File type"
-          value={image.source.mimeType?.replace("image/", "") || undefined}
-        />
-        <MetadataField label="Image type" value={m.imageType} />
-        {m.subjects && m.subjects.length > 0 && (
-          <MetadataField label="Subjects" value={m.subjects.join(", ")} />
-        )}
-        {m.peopleInImage && m.peopleInImage.length > 0 && (
-          <MetadataField label="People" value={m.peopleInImage.join(", ")} />
-        )}
-        {m.keywords && m.keywords.length > 0 && (
-          <MetadataField label="Keywords" value={m.keywords.join(", ")} />
-        )}
-        <MetadataField label="Image ID" value={image.id} />
-      </dl>
-    </aside>
   );
 }
 
