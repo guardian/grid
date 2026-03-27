@@ -1,3 +1,4 @@
+import 'source-map-support/register';
 import {Context, EventBridgeEvent} from "aws-lambda";
 import {SQSClient} from "@aws-sdk/client-sqs";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
