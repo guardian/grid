@@ -40,6 +40,7 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
+import { resetScrollAndFocusSearch } from "@/lib/scroll-reset";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
 
@@ -310,25 +311,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                 // Force useUrlSearchSync to re-search even if params haven't
                 // changed (e.g. was already at ?nonFree=true before opening image).
                 resetSearchSync();
-
-                // Reset scroll position on the table underneath and notify
-                // the virtualizer. Programmatic scrollTop changes on hidden
-                // (opacity-0) containers may not fire a scroll event in all
-                // browsers, so we dispatch one explicitly.
-                const scrollContainer = document.querySelector<HTMLElement>(
-                  '[role="region"][aria-label="Image results table"]',
-                );
-                if (scrollContainer) {
-                  scrollContainer.scrollTop = 0;
-                  scrollContainer.scrollLeft = 0;
-                  scrollContainer.dispatchEvent(new Event("scroll"));
-                }
-
-                // Focus the CQL search input after the navigation completes
-                requestAnimationFrame(() => {
-                  const cqlInput = document.querySelector("cql-input");
-                  if (cqlInput instanceof HTMLElement) cqlInput.focus();
-                });
+                resetScrollAndFocusSearch();
               }}
             >
               <img

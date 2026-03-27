@@ -23,7 +23,6 @@
  * ## What stays in the density component
  *
  * - Scroll reset on search param change
- * - Return-from-detail scroll restoration
  * - Density-switch viewport position preservation
  * - All rendering
  */

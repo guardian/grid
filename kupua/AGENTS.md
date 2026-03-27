@@ -241,7 +241,7 @@ GridApiDataSource + auth), Phase 4 (multi-selection reconciliation).
 - ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
 - ✅ Sort alias system — `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`)
 - ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified, Width), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
-- ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13.
+- ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13. Upstream fix: [guardian/cql#121](https://github.com/guardian/cql/pull/121); remove workaround after merge+release.
 - ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
 - ✅ Cell tooltips via `title` attribute
 - ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, Width, Height, File type, Suppliers reference, Byline title, all config-driven alias columns. Persisted to localStorage.
@@ -520,6 +520,7 @@ kupua/
       lazy-typeahead.ts        # LazyTypeahead — deferred value resolution for CQL typeahead (212 lines)
       search-params-schema.ts  # Zod schema for URL search params — single source of truth
       density-focus.ts         # Transient bridge for viewport-position preservation across density switches (5 lines)
+      scroll-reset.ts          # Shared helper — resets scroll position on result containers + focuses CQL input. Used by SearchBar + ImageDetail logo clicks.
       keyboard-shortcuts.ts    # Centralised keyboard shortcut registry — single document listener, Alt+key in editable fields, stack semantics. shortcutTooltip helper.
       image-urls.ts            # Image URL builders — thumbnails via S3 proxy, full images via imgproxy
       typeahead-fields.ts      # Builds typeahead field definitions for CQL input from DAL (251 lines)

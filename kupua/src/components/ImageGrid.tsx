@@ -25,6 +25,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useListNavigation } from "@/hooks/useListNavigation";
+import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import type { Image } from "@/types/image";
@@ -379,42 +380,24 @@ export function ImageGrid() {
   }, [searchParams, virtualizer]);
 
   // -------------------------------------------------------------------------
-  // Ref for focused image — declared early so return-from-detail and
-  // keyboard nav effects can both access it.
+  // Ref for focused image — used by captureAnchor (scroll anchoring).
   // -------------------------------------------------------------------------
 
   const focusedImageIdRef = useRef(focusedImageId);
   focusedImageIdRef.current = focusedImageId;
 
   // -------------------------------------------------------------------------
-  // Return-from-detail focus: scroll to focused image when image param clears.
-  // Scroll position is preserved natively (grid stays fully laid out while
-  // hidden — opacity:0, not display:none). Only scroll if the user navigated
-  // to a different image via prev/next in image detail.
+  // Restore focus and scroll when returning from image detail overlay.
   // -------------------------------------------------------------------------
 
-  const prevImageParam = useRef(searchParams.image);
-  useEffect(() => {
-    const wasViewing = prevImageParam.current;
-    prevImageParam.current = searchParams.image;
-
-    if (!wasViewing || searchParams.image) return;
-
-    const previousFocus = focusedImageIdRef.current;
-    setFocusedImageId(wasViewing);
-
-    // Only scroll if the user navigated to a different image in detail.
-    // If they viewed the same image, the grid's scroll position is intact.
-    if (wasViewing !== previousFocus) {
-      const idx = findImageIndex(wasViewing);
-      if (idx >= 0) {
-        const rowIdx = Math.floor(idx / columns);
-        requestAnimationFrame(() => {
-          virtualizer.scrollToIndex(rowIdx, { align: "center" });
-        });
-      }
-    }
-  }, [searchParams.image, findImageIndex, virtualizer, setFocusedImageId, columns]);
+  useReturnFromDetail({
+    imageParam: searchParams.image,
+    focusedImageId,
+    setFocusedImageId,
+    findImageIndex,
+    virtualizer,
+    flatIndexToRow: (idx) => Math.floor(idx / columns),
+  });
 
   // -------------------------------------------------------------------------
   // Preserve focused item's viewport position across density switches.

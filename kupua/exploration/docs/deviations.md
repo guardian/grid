@@ -528,14 +528,18 @@ that change polarity — not on normal typing.  The alternative (patching
 the CQL input's internal state) would require reaching into the web
 component's shadow DOM and ProseMirror instance, which is fragile.
 
-**Upstream fix:** `@guardian/cql`'s `<cql-input>` web component should
-reliably re-render when the `value` attribute changes, even if only
-polarity differs.  The issue is in `attributeChangedCallback`: it
-normalises the current and new values via `cqlQueryStrFromQueryAst` and
-skips `updateEditorView` if they match — but the comparison should detect
-polarity changes.  Alternatively, the ProseMirror document model could
-track polarity as a node attribute so that `updateEditorView` produces a
-visible change.  If fixed upstream, the remount workaround
-(`_cqlInputGeneration` key) can be removed, and `setAttribute("value", ...)`
-will work directly.
+**Upstream fix:** The root cause is in `@guardian/cql`'s vendored
+ProseMirror diff (`findDiffStartForContent` / `findDiffEndForContent`),
+which compares child nodes by content only and ignores the `POLARITY`
+node attribute.  The `sameMarkup` check was removed to fix #52
+(transient `IS_SELECTED` attr causing cursor disruption); the fix
+re-adds a targeted `sameContentMarkup` that skips transient attrs
+while detecting semantic ones like `POLARITY`.
+
+PR: https://github.com/guardian/cql/pull/121
+
+Once merged and released, bump `@guardian/cql` in kupua and remove the
+remount workaround (`_cqlInputGeneration` key + generation-bumping in
+`cancelSearchDebounce`).  `setAttribute("value", ...)` will then work
+directly for polarity changes.
 

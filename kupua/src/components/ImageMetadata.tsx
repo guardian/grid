@@ -128,14 +128,14 @@ interface ValueLinkProps {
 
 function ValueLink({ cqlKey, value, onSearch, className }: ValueLinkProps) {
   return (
-    <a
-      href="#"
-      className={`text-grid-text underline decoration-[#999] underline-offset-2 hover:text-grid-accent hover:decoration-grid-accent cursor-pointer ${className ?? ""}`}
+    <button
+      type="button"
+      className={`text-grid-text underline decoration-[#999] underline-offset-2 hover:text-grid-accent hover:decoration-grid-accent cursor-pointer bg-transparent border-none p-0 font-inherit text-left ${className ?? ""}`}
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${value}\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
       {value}
-    </a>
+    </button>
   );
 }
 

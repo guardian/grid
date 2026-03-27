@@ -19,6 +19,7 @@ import {
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useListNavigation } from "@/hooks/useListNavigation";
+import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
@@ -683,40 +684,15 @@ export function ImageTable() {
     virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer]);
 
-  // Ref for focused image — needed by return-from-detail effect below.
-  const focusedImageIdRef = useRef(focusedImageId);
-  focusedImageIdRef.current = focusedImageId;
-
-  // Set focus when returning from image detail.
-  // When the `image` URL param disappears (user pressed Back), update
-  // focus to the last viewed image so it's highlighted in the table.
-  // Scroll position is preserved natively (the table stays fully laid out
-  // while hidden — opacity:0, not display:none). Only scroll if the user
-  // navigated to a different image via prev/next in image detail.
-  const prevImageParam = useRef(searchParams.image);
-  useEffect(() => {
-    const wasViewing = prevImageParam.current;
-    prevImageParam.current = searchParams.image;
-
-    // Only act on the transition: image param was set → now gone
-    if (!wasViewing || searchParams.image) return;
-
-    const previousFocus = focusedImageIdRef.current;
-    setFocusedImageId(wasViewing);
-
-    // If the user navigated to a different image (prev/next in detail),
-    // the focused row changed — center it in the viewport. "center" not
-    // "auto" because the user has never seen this row's table position,
-    // so placing it in the middle gives equal context above and below.
-    if (wasViewing !== previousFocus) {
-      const idx = findImageIndex(wasViewing);
-      if (idx >= 0) {
-        requestAnimationFrame(() => {
-          virtualizer.scrollToIndex(idx, { align: "center" });
-        });
-      }
-    }
-  }, [searchParams.image, findImageIndex, virtualizer, setFocusedImageId]);
+  // Restore focus and scroll when returning from image detail overlay.
+  useReturnFromDetail({
+    imageParam: searchParams.image,
+    focusedImageId,
+    setFocusedImageId,
+    findImageIndex,
+    virtualizer,
+    flatIndexToRow: (idx) => idx,
+  });
 
   // ---------------------------------------------------------------------------
   // Preserve focused item's viewport position across density switches.

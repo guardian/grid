@@ -5,6 +5,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
+import { resetScrollAndFocusSearch } from "@/lib/scroll-reset";
 
 // ---------------------------------------------------------------------------
 // Module-level debounce cancellation
@@ -126,27 +127,7 @@ export function SearchBar() {
           // changed (e.g. already at ?nonFree=true). Without this, clicking
           // the logo when already at the default state would be a no-op.
           resetSearchSync();
-
-          // Always reset scroll position — even when params don't change
-          // (e.g. already at default state). The scroll-reset effect in
-          // ImageTable only fires on param changes, so we handle this case
-          // directly via DOM. Dispatch a scroll event so the virtualizer
-          // picks up the new position (programmatic scrollTop changes on
-          // hidden containers may not fire a native scroll event).
-          const scrollContainer = document.querySelector<HTMLElement>(
-            '[role="region"][aria-label="Image results table"], [role="region"][aria-label="Image results grid"]'
-          );
-          if (scrollContainer) {
-            scrollContainer.scrollTop = 0;
-            scrollContainer.scrollLeft = 0;
-            scrollContainer.dispatchEvent(new Event("scroll"));
-          }
-
-          // Focus the CQL search input after the navigation completes
-          requestAnimationFrame(() => {
-            const cqlInput = document.querySelector("cql-input");
-            if (cqlInput instanceof HTMLElement) cqlInput.focus();
-          });
+          resetScrollAndFocusSearch();
         }}
       >
         <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />

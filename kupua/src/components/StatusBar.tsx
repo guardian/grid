@@ -21,8 +21,10 @@ import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 
 export function StatusBar() {
-  const { total, newCount, newCountSince, search: reSearch } =
-    useSearchStore();
+  const total = useSearchStore((s) => s.total);
+  const newCount = useSearchStore((s) => s.newCount);
+  const newCountSince = useSearchStore((s) => s.newCountSince);
+  const reSearch = useSearchStore((s) => s.search);
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const isGrid = searchParams.density !== "table";
