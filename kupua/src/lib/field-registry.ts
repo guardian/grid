@@ -427,11 +427,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     },
     /**
      * Sort by total pixel count (w × h) via a Painless script.
-     * The `_script:` prefix tells buildSortClause to emit a script sort
-     * instead of a plain field sort. Orientation doesn't matter because
-     * w × h == h × w — the pixel count is the same either way.
+     * buildSortClause recognises "dimensions" in its scriptSorts map
+     * and emits a script sort instead of a plain field sort.
+     * Orientation doesn't matter because w × h == h × w.
      */
-    sortKey: "_script:dimensions",
+    sortKey: "dimensions",
     descByDefault: true,
     defaultWidth: 120,
     fieldType: "integer",

@@ -39,7 +39,8 @@ function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   };
 
   /**
-   * Script sort definitions — keyed by the name after `_script:`.
+   * Script sort definitions — keyed by the sort key name as it appears
+   * in the URL (e.g. "dimensions" → ?orderBy=-dimensions).
    * Each returns a Painless source string and the script type.
    * These are only evaluated by ES when the user actually sorts by
    * this field — zero cost when unused.
@@ -78,19 +79,16 @@ function buildSortClause(orderBy?: string): Record<string, unknown>[] {
     const key = desc ? part.slice(1) : part;
     const order = desc ? "desc" : "asc";
 
-    // Handle script-based sorts (_script:name)
-    if (key.startsWith("_script:")) {
-      const scriptName = key.slice("_script:".length);
-      const script = scriptSorts[scriptName];
-      if (script) {
-        return {
-          _script: {
-            type: script.type,
-            script: { lang: "painless", source: script.source },
-            order,
-          },
-        };
-      }
+    // Script-based sorts — looked up by key name (e.g. "dimensions")
+    const script = scriptSorts[key];
+    if (script) {
+      return {
+        _script: {
+          type: script.type,
+          script: { lang: "painless", source: script.source },
+          order,
+        },
+      };
     }
 
     return { [key]: order };
