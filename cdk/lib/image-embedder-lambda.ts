@@ -92,7 +92,7 @@ export class ImageEmbedder extends GuStack {
       },
     );
 
-    new GuScheduledLambda(
+    const backfiller = new GuScheduledLambda(
       this,
       'ImageEmbedderBackfiller',
       {
@@ -105,7 +105,7 @@ export class ImageEmbedder extends GuStack {
         environment: {
           STAGE: props.stage,
           ELASTIC_SEARCH_URL: elasticSearchUrl.valueAsString,
-          BACKFILL_SQS_QUEUE: backfillQueue.queueName,
+          BACKFILL_SQS_QUEUE: backfillQueue.queueUrl,
         },
         memorySize: 512,
         timeout: Duration.minutes(1),
@@ -117,6 +117,14 @@ export class ImageEmbedder extends GuStack {
           noMonitoring: true,
         },
       },
+    );
+    
+    backfillQueue.grantSendMessages(backfiller);
+    backfiller.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['sqs:GetQueueAttributes'],
+        resources: [backfillQueue.queueArn],
+      }),
     );
 
     imageEmbedderLambda.addEventSource(

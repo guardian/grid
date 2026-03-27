@@ -89,10 +89,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "Variables": {
             "APP": "image-embedder-backfill-lambda",
             "BACKFILL_SQS_QUEUE": {
-              "Fn::GetAtt": [
-                "imageEmbedderBackfill5DD09905",
-                "QueueName",
-              ],
+              "Ref": "imageEmbedderBackfill5DD09905",
             },
             "ELASTIC_SEARCH_URL": {
               "Ref": "ElasticSearchUrl",
@@ -338,6 +335,30 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     },
                     ":parameter/TEST/media-service/image-embedder-backfill-lambda/*",
                   ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "imageEmbedderBackfill5DD09905",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": "sqs:GetQueueAttributes",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "imageEmbedderBackfill5DD09905",
+                  "Arn",
                 ],
               },
             },
