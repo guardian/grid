@@ -20,7 +20,6 @@ export interface MyCropsWrapperProps {
 //-- filter change event --
 interface Filter { croppedByMe: boolean }
 interface FilterChangeEventDetail { filter: Filter }
-interface FilterChangeEvent extends CustomEvent<FilterChangeEventDetail> {}
 
 //-- main control --
 const MyCrops: React.FC<MyCropsWrapperProps> = ({ props }) => {
@@ -42,7 +41,7 @@ const MyCrops: React.FC<MyCropsWrapperProps> = ({ props }) => {
     }
   };
 
-  const handleFilterChange = (event: FilterChangeEvent) => {
+  const handleFilterChange = (event: CustomEvent<FilterChangeEventDetail>) => {
     setMyCrops(event.detail.filter.croppedByMe);
   };
 

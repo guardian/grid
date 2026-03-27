@@ -535,6 +535,7 @@ query.controller('SearchQueryCtrl', [
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
+    // eslint-disable-next-line complexity
     mediaApi.getSession().then(session => {
         //-uploaded by me-
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
