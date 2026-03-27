@@ -9,6 +9,13 @@ const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL;
 const BACKFILL_SQS_QUEUE = process.env.BACKFILL_SQS_QUEUE;
 const IMAGE_INDEX_NAME = process.env.IMAGE_INDEX_NAME ?? 'Images_Current';
 
+if (!ELASTIC_SEARCH_URL) {
+  throw new Error('Missing required environment variable: ELASTIC_SEARCH_URL');
+}
+if (!BACKFILL_SQS_QUEUE) {
+  throw new Error('Missing required environment variable: BACKFILL_SQS_QUEUE');
+}
+
 const BATCH_SIZE = 100;
 const CROWDED_QUEUE = 20;
 
@@ -65,7 +72,7 @@ export const handler = async (
     console.log(`Queue size has ${queueSize} messages, proceeding.`);
   }
 
-  const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL!, IMAGE_INDEX_NAME);
+  const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME);
   if (esResults.kind === 'error') {
     console.error(`Error querying ElasticSearch`, esResults);
     return;
@@ -75,7 +82,7 @@ export const handler = async (
   console.log(`Found ${sqsMessages.length} images to process`);
   console.debug(`3 sampled sqs messages:`, sqsMessages.slice(0, Math.min(sqsMessages.length, 3)));
   if (sqsMessages.length > 0) {
-    await embedderQueue.sendSqsMessages(sqsMessages, BACKFILL_SQS_QUEUE!);
+    await embedderQueue.sendSqsMessages(sqsMessages, BACKFILL_SQS_QUEUE);
     console.log(`Sent ${sqsMessages.length} messages to SQS queue ${BACKFILL_SQS_QUEUE}`);
   }
 

@@ -55,13 +55,16 @@ export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: st
     size: batchSize
   }
 
-  const response = await fetch(`${elasticSearchUrl}/${elasticSearchIndexName}/_search`, {
+  const url = `${elasticSearchUrl}/${elasticSearchIndexName}/_search`;
+  const payload = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(query),
-  });
+  };
+  console.debug(`About to call ES on ${url} with ${payload}`);
+  const response = await fetch(url, payload);
 
   return parseElasticSearchResponse(await response.json());
 }
