@@ -28,6 +28,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
+import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { DataSearchPill } from "./SearchPill";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
@@ -426,12 +427,14 @@ export function ImageTable() {
   const handleRowDoubleClick = useCallback(
     (imageId: string) => {
       setFocusedImageId(imageId);
+      const idx = findImageIndex(imageId);
+      if (idx >= 0) storeImageOffset(imageId, idx, buildSearchKey(searchParamsRef.current));
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId],
+    [navigate, setFocusedImageId, findImageIndex],
   );
 
   // Column context menu — imperative handle; the component manages its own

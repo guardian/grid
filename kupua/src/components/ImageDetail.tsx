@@ -33,7 +33,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -41,6 +41,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { resetScrollAndFocusSearch } from "@/lib/scroll-reset";
+import { storeImageOffset, getImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
 
@@ -51,7 +52,10 @@ interface ImageDetailProps {
 export function ImageDetail({ imageId }: ImageDetailProps) {
   const { results, total, loadMore, findImageIndex } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
+  const loadRange = useSearchStore((s) => s.loadRange);
   const navigate = useNavigate();
+  const searchParams = useSearch({ from: "/search" });
+  const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +67,34 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     [findImageIndex, imageId],
   );
   const imageFromResults = currentIndex >= 0 ? results[currentIndex] : undefined;
+
+  // ── Restore search context from cached offset ─────────────────────
+  //
+  // On page reload, the image may not be in the first page of results.
+  // If we have a cached offset (stored when entering image detail or
+  // navigating prev/next), load a range around it so findImageIndex
+  // resolves → counter + prev/next work.  The load is a no-op if the
+  // range is already populated.  If the image isn't at the expected
+  // offset (data changed), we just fall back to standalone mode.
+  const offsetRestoreAttempted = useRef(false);
+  useEffect(() => {
+    if (currentIndex >= 0) {
+      // Image is already in results — no restore needed
+      offsetRestoreAttempted.current = false;
+      return;
+    }
+    // Don't attempt restore until the initial search has returned —
+    // loadRange clamps to `total` which is 0 before search completes.
+    if (total === 0) return;
+    if (offsetRestoreAttempted.current) return; // already tried
+    const cachedOffset = getImageOffset(imageId, searchKey);
+    if (cachedOffset == null) return; // no cached offset — standalone mode
+    offsetRestoreAttempted.current = true;
+    // Load a window around the cached offset (±50 for buffer)
+    const rangeStart = Math.max(0, cachedOffset - 50);
+    const rangeEnd = cachedOffset + 50;
+    loadRange(rangeStart, rangeEnd);
+  }, [imageId, currentIndex, loadRange, searchKey, total]);
 
   // Standalone fetch — when the imageId isn't in the search results
   // (e.g. direct URL navigation, bookmark, /images/:id redirect),
@@ -117,15 +149,18 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   // Navigate to prev/next image — replaces current history entry so browser
   // back always returns to the table, not through every viewed image.
+  // Stores the target image's offset in sessionStorage so it survives reload.
   const goToImage = useCallback(
     (id: string) => {
+      const idx = findImageIndex(id);
+      if (idx >= 0) storeImageOffset(id, idx, searchKey);
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: id }),
         replace: true,
       });
     },
-    [navigate],
+    [navigate, findImageIndex, searchKey],
   );
 
   // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on
@@ -222,46 +257,75 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   const imageUrl = imgLoadFailed ? undefined : (fullUrl ?? thumbUrl);
 
-  // Prefetch nearby images — 2 prev, 3 next (asymmetric: users flick
-  // forward more than backward). Uses `new Image().src` which triggers
-  // a browser fetch + cache. When the user flicks, the next image loads
-  // instantly from the browser's memory/disk cache.
+  // ── Prefetch nearby images ──────────────────────────────────────
   //
-  // These are fire-and-forget: orphaned prefetch Image objects for images
-  // the user has already flicked past complete harmlessly in the background
-  // and warm the browser cache (useful if the user flicks back). We
-  // intentionally do NOT cancel them on cleanup — aborting a partially
-  // downloaded image can leave the cache entry incomplete, causing the
-  // main <img> to re-fetch from scratch when it arrives at that image.
+  // 2 prev + 3 next (asymmetric: users flick forward more).  Uses
+  // fetch() + AbortController so prefetches are cancelled when the user
+  // navigates away — no more zombie requests clogging the connection pool.
+  //
+  // Debounced: only fires after the user has stayed on an image for
+  // PREFETCH_SETTLE_MS.  During rapid flicking, zero prefetches fire.
+  // When the user settles, prefetch kicks in and warms the browser cache.
+  // Completed prefetches are left in the browser's HTTP cache (we do NOT
+  // abort completed fetches — they warm the cache for future navigation).
   useEffect(() => {
     if (currentIndex < 0) return;
-    const prefetchIndices: number[] = [];
-    // 2 backward
-    for (let i = 1; i <= 2; i++) {
-      if (currentIndex - i >= 0) prefetchIndices.push(currentIndex - i);
-    }
-    // 3 forward
-    for (let i = 1; i <= 3; i++) {
-      if (currentIndex + i < results.length) prefetchIndices.push(currentIndex + i);
-    }
-    for (const idx of prefetchIndices) {
-      const prefetchImage = results[idx];
-      if (!prefetchImage) continue; // skip placeholder slots
-      const url =
-        getFullImageUrl(prefetchImage, imgproxyOpts) ??
-        getThumbnailUrl(prefetchImage);
-      if (url) {
-        const img = new Image();
-        img.src = url;
+
+    const PREFETCH_SETTLE_MS = 400;
+    let abortController: AbortController | null = null;
+
+    const timer = setTimeout(() => {
+      abortController = new AbortController();
+      const signal = abortController.signal;
+
+      const prefetchIndices: number[] = [];
+      // 2 backward
+      for (let i = 1; i <= 2; i++) {
+        if (currentIndex - i >= 0) prefetchIndices.push(currentIndex - i);
       }
-    }
+      // 3 forward
+      for (let i = 1; i <= 3; i++) {
+        if (currentIndex + i < results.length) prefetchIndices.push(currentIndex + i);
+      }
+
+      for (const idx of prefetchIndices) {
+        const prefetchImage = results[idx];
+        if (!prefetchImage) continue;
+        const url =
+          getFullImageUrl(prefetchImage, imgproxyOpts) ??
+          getThumbnailUrl(prefetchImage);
+        if (url) {
+          // Fire and forget — but cancellable via the shared controller.
+          // We intentionally don't await or store the blob — the purpose
+          // is to warm the browser's HTTP cache so the main fetch (above)
+          // gets a cache hit when the user arrives at this image.
+          fetch(url, { signal }).catch(() => {/* aborted or failed — fine */});
+        }
+      }
+    }, PREFETCH_SETTLE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      abortController?.abort();
+    };
   }, [currentIndex, results, imgproxyOpts]);
+
+  // Delay showing the loading indicator so it doesn't flash on fast loads
+  // (tab reload, cached ES responses).  Only appears after 500ms of waiting.
+  const [showLoading, setShowLoading] = useState(false);
+  useEffect(() => {
+    if (image) { setShowLoading(false); return; }
+    const timer = setTimeout(() => setShowLoading(true), 500);
+    return () => clearTimeout(timer);
+  }, [image]);
 
   // Loading / not-found states.
   // When image is null: either still fetching (standalone) or truly absent.
   if (!image) {
-    // Standalone fetch in progress — show loading, not an error
+    // Standalone fetch in progress — show loading after a delay, or
+    // nothing at all if ES responds quickly (avoids flash).
     if (!imageFromResults && !standaloneFetchFailed) {
+      if (!showLoading) return <div className="flex-1" />;
       return (
         <div className="flex-1 flex items-center justify-center text-grid-text-muted">
           <p className="text-sm animate-pulse">Loading image…</p>

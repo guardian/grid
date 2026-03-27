@@ -28,6 +28,7 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
+import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
@@ -311,12 +312,14 @@ export function ImageGrid() {
   const handleCellDoubleClick = useCallback(
     (imageId: string) => {
       setFocusedImageId(imageId);
+      const idx = findImageIndex(imageId);
+      if (idx >= 0) storeImageOffset(imageId, idx, buildSearchKey(searchParams));
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId],
+    [navigate, setFocusedImageId, findImageIndex, searchParams],
   );
 
   // -------------------------------------------------------------------------
