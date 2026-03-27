@@ -10,6 +10,10 @@ import {EventBridgeEvent, Context} from 'aws-lambda';
 jest.mock('../../src/backfiller/elasticSearch');
 
 import {queryElasticSearch} from '../../src/backfiller/elasticSearch';
+
+process.env.ELASTIC_SEARCH_URL = 'http://localhost:9200';
+process.env.BACKFILL_SQS_QUEUE = 'https://sqs.eu-west-1.amazonaws.com/123456789/test-queue';
+process.env.IMAGE_INDEX_NAME = 'test-index';
 import {handler} from '../../src/backfiller/backfiller';
 
 const sqsMock = mockClient(SQSClient);
@@ -17,8 +21,6 @@ const mockQueryElasticSearch = queryElasticSearch as jest.MockedFunction<
   typeof queryElasticSearch
 >;
 
-const QUEUE_URL = 'https://sqs.eu-west-1.amazonaws.com/123456789/test-queue';
-const IMAGE_INDEX_NAME = 'test-index';
 
 // Helper to build a minimal EventBridge event
 function makeEvent(): EventBridgeEvent<'Scheduled Event', {}> {
@@ -58,9 +60,6 @@ function makeEsHit(
 
 beforeEach(() => {
   sqsMock.reset();
-  process.env.ELASTIC_SEARCH_URL = 'http://localhost:9200';
-  process.env.BACKFILL_SQS_QUEUE = QUEUE_URL;
-  process.env.IMAGE_INDEX_NAME = IMAGE_INDEX_NAME;
   sqsMock.on(SendMessageBatchCommand).resolves({});
 });
 
