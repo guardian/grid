@@ -110,13 +110,12 @@ describe("FIELD_REGISTRY structure", () => {
 // Accessor logic — the tricky cases
 // ---------------------------------------------------------------------------
 describe("accessors", () => {
-  it("uses oriented dimensions, not raw", () => {
-    expect(getFieldRawValue("width", FIXTURE)).toBe("3000");
-    expect(getFieldRawValue("height", FIXTURE)).toBe("4000");
+  it("uses oriented dimensions for combined Dimensions field", () => {
+    expect(getFieldRawValue("dimensions", FIXTURE)).toBe("3,000 × 4,000");
   });
 
   it("falls back to raw dimensions when oriented absent", () => {
-    expect(getFieldRawValue("width", SPARSE)).toBe("100");
+    expect(getFieldRawValue("dimensions", SPARSE)).toBe("100 × 100");
   });
 
   it("strips image/ prefix from MIME type", () => {

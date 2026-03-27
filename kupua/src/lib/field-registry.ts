@@ -416,31 +416,24 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
 
   // -- Technical ------------------------------------------------------------
   {
-    id: "width",
-    label: "Width",
+    id: "dimensions",
+    label: "Dimensions",
     group: "technical",
     accessor: (img) => {
       const w = getWidth(img);
-      return w !== undefined ? String(w) : undefined;
-    },
-    formatter: (v) => Number(v).toLocaleString(),
-    sortKey: "source.dimensions.width",
-    defaultWidth: 70,
-    defaultHidden: true,
-    fieldType: "integer",
-  },
-  {
-    id: "height",
-    label: "Height",
-    group: "technical",
-    accessor: (img) => {
       const h = getHeight(img);
-      return h !== undefined ? String(h) : undefined;
+      if (w === undefined || h === undefined) return undefined;
+      return `${w.toLocaleString()} × ${h.toLocaleString()}`;
     },
-    formatter: (v) => Number(v).toLocaleString(),
-    sortKey: "source.dimensions.height",
-    defaultWidth: 70,
-    defaultHidden: true,
+    /**
+     * Sort by total pixel count (w × h) via a Painless script.
+     * The `_script:` prefix tells buildSortClause to emit a script sort
+     * instead of a plain field sort. Orientation doesn't matter because
+     * w × h == h × w — the pixel count is the same either way.
+     */
+    sortKey: "_script:dimensions",
+    descByDefault: true,
+    defaultWidth: 120,
     fieldType: "integer",
   },
   {

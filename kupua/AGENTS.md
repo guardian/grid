@@ -65,6 +65,17 @@ The biggest failure mode is following instructions too literally — implementin
 exactly what's asked without questioning whether it should be done at all. Say "no,
 and here's why" when appropriate. Say "this isn't worth it because…" when it isn't.
 The user considers this the single most valuable behaviour the agent can have.
+
+**Directive: Commit messages.** Never pass multiline commit messages via `git commit -m`
+in the shell — special characters and line breaks get mangled by zsh quoting. Instead:
+write the message to a temp file (e.g. via a heredoc or the file-creation tool), then
+run `git commit -F <file>`, then delete the temp file and `git commit --amend --no-edit`.
+
+**Directive: Two-file sync rule.** The directives in `.github/copilot-instructions.md`
+and in the `<details>` block in `kupua/AGENTS.md` must stay identical. If you add,
+remove, or change a directive in one place, copy the change to the other. The `.github/`
+file is what Copilot actually auto-loads; the copy in `AGENTS.md` is for humans and for
+sessions where the `.github/` file might be missing (fresh clone).
 </details>
 
 ## What is Kupua?
@@ -233,18 +244,19 @@ GridApiDataSource + auth), Phase 4 (multi-selection reconciliation).
 
 **Table view (`ImageTable.tsx`, ~1260 lines):**
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ Column definitions generated from field registry (`field-registry.ts`) — 22 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
+- ✅ Column definitions generated from field registry (`field-registry.ts`) — 21 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
+- ✅ Dimensions column — single column showing oriented `w × h` (e.g. `5,997 × 4,000`), sortable by total pixel count via Painless script sort (orientation-agnostic since `w × h == h × w`). Replaces separate Width/Height columns. Script sort only evaluated when user sorts by this field. See deviations.md §10.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
 - ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
 - ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
 - ✅ Sort on any keyword/date/numeric column by clicking header. Text-only fields (Title, Description, etc.) not sortable (no `.keyword` sub-field). Single click is delayed 250ms to distinguish from double-click.
 - ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
-- ✅ Sort alias system — `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`)
-- ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified, Width), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
+- ✅ Sort alias system — `buildSortClause` expands aliases per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`) and supports `_script:` prefixed sort keys for Painless script sorts (used by Dimensions).
+- ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
 - ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13. Upstream fix: [guardian/cql#121](https://github.com/guardian/cql/pull/121); remove workaround after merge+release.
 - ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
 - ✅ Cell tooltips via `title` attribute
-- ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, Width, Height, File type, Suppliers reference, Byline title, all config-driven alias columns. Persisted to localStorage.
+- ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, File type, Suppliers reference, Byline title, all config-driven alias columns. Persisted to localStorage.
 - ✅ Column widths persisted to localStorage via `column-store.ts` — manual drag resizes and auto-fit widths both persist. Restored on reload.
 - ✅ Double-click header to auto-fit — first double-click measures the widest cell value and fits the column. Second double-click restores the previous width. Pre-fit widths are stored in the column store (session-only, not persisted to localStorage). Manual drag-resize clears the saved pre-fit width.
 - ✅ Column context menu — right-click any header cell: "Resize column to fit data", "Resize all columns to fit data", separator, then column visibility toggles. Menu uses shared `popup-menu`/`popup-item` classes. Auto-clamps to viewport bounds (never renders off-screen). Right-clicking a specific column shows the single-column resize option; right-clicking the trailing spacer shows only "Resize all" + visibility.
@@ -375,7 +387,7 @@ GridApiDataSource + auth), Phase 4 (multi-selection reconciliation).
 
 1. **Separate ES instance on port 9220** — kupua's `docker-compose.yml` is independent of Grid's. Container `kupua-elasticsearch`, cluster `kupua`, volume `kupua-es-data`. Grid's `dev/script/start.sh` won't affect it.
 
-2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `count()`, `getById()`, `getAggregation()`. Currently implemented by `ElasticsearchDataSource` (direct ES access). `GridApiDataSource` deferred until auth/writes needed. UI code never knows the difference.
+2. **Data Access Layer (DAL)** — TypeScript interface `ImageDataSource` with methods: `search()`, `count()`, `getById()`, `getAggregation()`. Currently implemented by `ElasticsearchDataSource` (direct ES access via ~1,760 lines across 5 files: `es-adapter.ts`, `cql.ts`, `field-registry.ts`, `types.ts`, `es-config.ts`). Phase 3+ architecture: **dual-path** — keep direct ES for reads (fast, supports script sorts and custom aggregations), add `GridApiDataSource` for writes (metadata editing, crops, leases via media-api). Full migration surface analysis in deviations.md §16.
 
 3. **Scripts in `kupua/scripts/`** (not `kupua/dev/scripts/`) — kupua is a self-contained app; no need for Grid's layered `dev/` hierarchy.
 

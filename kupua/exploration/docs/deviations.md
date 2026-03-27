@@ -102,18 +102,31 @@ Kupua's date filter adds several improvements over kahuna's `gu-date-range`:
 
 These are intentional enhancements, not parity deviations.
 
-### 10. Width/Height columns use `orientedDimensions` fallback
+### 10. Single "Dimensions" column replaces separate Width/Height
 
-Kupua's `ImageTable.tsx` reads width/height from
-`source.orientedDimensions` (post-EXIF rotation), falling back to
-`source.dimensions` when `orientedDimensions` is absent.  Kahuna displays
-dimensions through the API's asset model, which pre-resolves this on the
-server side.
+Kahuna displays width and height as separate values; Grid's API
+pre-resolves orientation on the server side.
 
-This deviation is cosmetic — both show the same values when
-`orientedDimensions` exists — but the fallback path means kupua may show
-un-rotated dimensions for images missing the `orientedDimensions` field
-(older images that were indexed before this field was added).
+Kupua merges these into one "Dimensions" column (e.g. `5,997 × 4,000`)
+that always shows oriented dimensions (`orientedDimensions` with fallback
+to `dimensions`). Sorting uses a Painless script (`w × h`) to order by
+total pixel count — orientation-agnostic since `w × h == h × w`. The
+script sort is only evaluated by ES when the user actually sorts by this
+field; zero cost otherwise.
+
+**Trade-off:** The `_script` sort is slightly slower than a native field
+sort (~10-20ms on large indexes), but only fires when explicitly
+requested. A single meaningful sort (pixel count / image size) replaces
+two misleading ones (sorting by raw width was wrong for rotated images).
+
+**Migration impact (Phase 3+):** Grid's `sorts.scala` only supports plain
+`fieldSort()` — no script sorts. When kupua connects to media-api for
+reads, Dimensions sort must either: (a) degrade to
+`source.dimensions.width` (loses the pixel-count ordering but still
+works), or (b) a `dimensions` script-sort alias is added to
+`sorts.scala` (trivial ~5-line change). Option (b) is preferred. If
+kupua keeps direct ES access for reads and only uses media-api for
+writes, this is a non-issue.
 
 ### 11. CQL free-text search uses simpler `cross_fields` strategy
 
@@ -216,6 +229,62 @@ uses straight quotes and nobody searches for typographic symbols.
 
 Centralised in `lib/keyboard-shortcuts.ts` with a single `document`
 capture-phase listener. Components register via `useKeyboardShortcut` hook.
+
+### 16. Direct ES access bypasses media-api — migration surface
+
+Kupua talks to Elasticsearch directly for all read operations, bypassing
+Grid's `media-api` entirely. Kahuna never touches ES — it calls
+`media-api` (Scala/Play), which handles CQL parsing (`querysyntax/`),
+query building (`QueryBuilder.scala`), filter construction
+(`SearchFilters.scala`), sort aliases (`sorts.scala`), and response
+shaping (`ImageResponse.scala`) — ~2,200 lines of Scala.
+
+Kupua replicates this logic in ~1,760 lines of TypeScript across 5 files:
+
+| Kupua file | Grid equivalent |
+|---|---|
+| `es-adapter.ts` (445 lines) | `ElasticSearch.scala` + `sorts.scala` + `SearchFilters.scala` |
+| `cql.ts` (477 lines) | `querysyntax/` + `QueryBuilder.scala` + `MatchFields.scala` |
+| `field-registry.ts` (617 lines) | `ImageResponse.scala` (field extraction) + `sorts.scala` (sort keys) |
+| `types.ts` (131 lines) | `ElasticSearchModel.scala` (param types) |
+| `es-config.ts` (91 lines) | Config / safeguards (no Grid equivalent) |
+
+**When kupua connects to media-api (Phase 3+, required for writes):**
+
+The likely architecture is **dual-path** — direct ES for reads (fast,
+flexible, supports script sorts and custom aggregations), media-api for
+writes (metadata editing, crops, leases, collections). This means the
+ES read path stays as-is and writes go through a new
+`GridApiDataSource` adapter.
+
+If a single-path architecture is chosen instead (all traffic via
+media-api), the following kupua-specific features need migration:
+
+1. **`_script:dimensions` sort** — media-api's `sorts.scala` only does
+   plain `fieldSort()`. Needs a 5-line upstream change or client-side
+   degradation to `source.dimensions.width`. See §10.
+2. **Typeahead via terms aggregations** — kupua runs terms aggs directly
+   on ES for CQL value suggestions. media-api has
+   `/suggest/metadata/{field}` but only for a subset of fields. See §13.
+3. **CQL parsing** — kupua uses `@guardian/cql` (TypeScript); media-api
+   uses its own Scala `querysyntax/Parser`. In the API path, the CQL
+   string passes through verbatim to media-api which parses it
+   server-side, so `cql.ts` is unused. But any kupua-specific CQL
+   extensions (if added) would need to be upstreamed.
+4. **Custom filters** — `es-adapter.ts` builds filter clauses
+   (free-to-use, date ranges, hasCrops, etc.) that mirror media-api's
+   `SearchFilters.scala`. In the API path these map to HTTP query params
+   (`free`, `since`, `until`, `hasExports`, etc.) — straightforward
+   1:1 mapping, ~100 lines.
+5. **Response shape** — direct ES returns raw `_source` documents
+   (kupua's `Image` type). media-api wraps them in HATEOAS JSON with
+   links, actions, cost calculation, signed URLs. A `GridApiDataSource`
+   would need to unwrap this or kupua's components would need to
+   consume the richer shape.
+
+**Recommendation:** Dual-path (ES for reads, API for writes) avoids all
+of the above. The only new code is the write adapter. This is already
+the plan in `migration-plan.md` Phase 3.
 
 ---
 
