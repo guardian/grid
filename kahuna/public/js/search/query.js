@@ -89,6 +89,7 @@ query.controller('SearchQueryCtrl', [
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
     }
+    ctrl.shouldDisplayMyCrops = getFeatureSwitchActive("enable-my-crops");
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {

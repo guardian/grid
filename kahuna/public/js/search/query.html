@@ -69,7 +69,7 @@
                 </label>
             </li>
 
-            <li ng-if="searchQuery.canUpload" id="my-crops-checkbox" class="search__modifier-item search__modifier-checkbox">
+            <li ng-if="searchQuery.canUpload && searchQuery.shouldDisplayMyCrops" id="my-crops-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
                            ng-model="searchQuery.filter.croppedByMe" />
