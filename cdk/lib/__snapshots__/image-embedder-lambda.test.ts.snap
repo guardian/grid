@@ -88,6 +88,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-backfill-lambda",
+            "BACKFILL_SQS_QUEUE": {
+              "Fn::GetAtt": [
+                "imageEmbedderBackfill5DD09905",
+                "QueueName",
+              ],
+            },
             "ELASTIC_SEARCH_URL": {
               "Ref": "ElasticSearchUrl",
             },
