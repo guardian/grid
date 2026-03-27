@@ -8,7 +8,7 @@ const config: Config = {
 		'/node_modules/',
 		// Skip integration tests by default, because these call Bedrock for real,
 		// costing us time, money and throughput
-		'/__tests__/integration/',
+		'/__tests__/embedder/integration/',
 	],
 	moduleFileExtensions: ['ts', 'js', 'json'],
 };

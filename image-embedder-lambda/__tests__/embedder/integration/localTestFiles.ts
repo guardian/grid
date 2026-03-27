@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { S3Client } from '@aws-sdk/client-s3';
-import {S3Fetcher} from "../../src/s3Fetcher";
+import {S3Fetcher} from "../../../src/embedder/s3Fetcher";
 
 const CACHE_DIR = path.join(__dirname, 'test-data', 'input');
 const OUTPUT_DIR = path.join(__dirname, 'test-data', 'output');

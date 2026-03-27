@@ -117,3 +117,5 @@ jobs:
               - cdk/cdk.out
             image-embedder-lambda:
               - image-embedder.zip
+            image-embedder-backfill-lambda:
+              - image-embedder.zip

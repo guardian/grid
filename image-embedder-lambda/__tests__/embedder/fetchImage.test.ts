@@ -2,8 +2,8 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
 import { sdkStreamMixin } from '@smithy/util-stream';
 import { Readable } from 'stream';
-import {S3Fetcher} from "../src/s3Fetcher";
-import {S3ImageResolver} from "../src/imageResolver";
+import {S3Fetcher} from "../../src/embedder/s3Fetcher";
+import {S3ImageResolver} from "../../src/embedder/imageResolver";
 
 
 const s3Mock = mockClient(S3Client);
