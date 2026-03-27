@@ -158,20 +158,38 @@ query.controller('SearchQueryCtrl', [
     function manageCroppedBy(filter, sender) {
       if (!ctrl.usePermissionsFilter) {
         const myCropsCheckbox = filter.croppedByMe;
-        const shouldOverwriteCroppedBy =
-          !filter.croppedBy || filter.croppedBy === ctrl.user.email || myCropsCheckbox;
-        if (shouldOverwriteCroppedBy) {
-          ctrl.filter.croppedBy = filter.croppedByMe ? ctrl.user.email : undefined;
+        const structuredQuery = structureQuery(filter.query) || [];
+        const croppedByIndex = structuredQuery.findIndex(item => item.key === 'croppedBy');
+
+        if (myCropsCheckbox && croppedByIndex === -1) {
+          // Add croppedBy chip to query
+          structuredQuery.push({
+            type: "filter",
+            filterType: "inclusion",
+            key: "croppedBy",
+            value: ctrl.user.email
+          });
+          ctrl.filter.query = renderQuery(structuredQuery);
+        } else if (!myCropsCheckbox && croppedByIndex >= 0) {
+          // Remove croppedBy chip from query
+          structuredQuery.splice(croppedByIndex, 1);
+          ctrl.filter.query = renderQuery(structuredQuery);
         }
       } else {
         if (sender === "selectMyCrops") {
-          const shouldOverwriteCroppedBy =
-            !filter.croppedBy ||
-            filter.croppedBy === (ctrl.user ? ctrl.user.email : undefined) ||
-            ctrl.filterMyCrops;
-          if (shouldOverwriteCroppedBy) {
-            ctrl.filter.croppedBy = (ctrl.user && ctrl.filterMyCrops) ? ctrl.user.email : undefined;
-            ctrl.filter.croppedByMe = ctrl.filterMyCrops;
+          const structuredQuery = structureQuery(filter.query) || [];
+          const croppedByIndex = structuredQuery.findIndex(item => item.key === 'croppedBy');
+          if (ctrl.filterMyCrops && croppedByIndex === -1) {
+            structuredQuery.push({
+              type: "filter",
+              filterType: "inclusion",
+              key: "croppedBy",
+              value: ctrl.user ? ctrl.user.email : undefined
+            });
+            ctrl.filter.query = renderQuery(structuredQuery);
+          } else if (!ctrl.filterMyCrops && croppedByIndex >= 0) {
+            structuredQuery.splice(croppedByIndex, 1);
+            ctrl.filter.query = renderQuery(structuredQuery);
           }
         }
       }
