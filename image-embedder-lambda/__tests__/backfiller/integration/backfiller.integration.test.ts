@@ -112,7 +112,7 @@ describe('Backfiller integration tests', () => {
 
   it('sends SQS messages for images that have no embedding', async () => {
     // Import handler AFTER setting env vars (module-level env is read at import time)
-    const {handler} = await import('../../../src/backfiller/backfiller');
+    const {handler} = await import('../../../src/backfiller/backfiller.ts');
 
     await handler(makeEvent(), makeContext());
 
@@ -140,7 +140,7 @@ describe('Backfiller integration tests', () => {
   });
 
   it('does not send any messages when the queue is already crowded (>20)', async () => {
-    const {handler} = await import('../../../src/backfiller/backfiller');
+    const {handler} = await import('../../../src/backfiller/backfiller.ts');
 
     // Flood the queue with 21 placeholder messages so the backfiller considers it crowded.
     // We use a separate queue with a known message count rather than trying to trick the
