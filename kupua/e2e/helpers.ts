@@ -447,6 +447,21 @@ export class KupuaHelpers {
     await this.page.waitForTimeout(300);
   }
 
+  /**
+   * Wait for sort-around-focus to complete (status null, loading false).
+   */
+  async waitForSortAroundFocus(timeout = 15_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      { timeout },
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Console log capture — for telemetry assertions
   // -------------------------------------------------------------------------

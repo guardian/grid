@@ -209,17 +209,27 @@ export function ImageGrid() {
     const el = parentRef.current;
     if (!el) return;
 
+    // Track whether this is the first update (mount). On mount, the column
+    // count changes from the useState default (4) to the real value. We must
+    // NOT capture an anchor for this initial change — the mount layout effect
+    // already handles scroll positioning. Capturing an anchor here uses the
+    // wrong column count (the default, not the real one), producing a bad
+    // ratio that the scroll-anchoring effect then uses to scroll to the wrong
+    // position (Bug #17).
+    let isFirstUpdate = true;
+
     const update = (width: number) => {
       const cols = Math.max(1, Math.floor(width / MIN_CELL_WIDTH));
       const prevCols = columnsRef.current;
 
       // Capture anchor BEFORE setting state (before React re-renders)
-      if (cols !== prevCols) {
+      if (cols !== prevCols && !isFirstUpdate) {
         const anchor = captureAnchor(el, prevCols);
         if (anchor) {
           anchorRef.current = anchor;
         }
       }
+      isFirstUpdate = false;
 
       setColumns(cols);
       setCellWidth(Math.floor((width - CELL_GAP * (cols + 1)) / cols));
@@ -381,10 +391,26 @@ export function ImageGrid() {
     prevPrependGenRef.current = prependGeneration;
     const el = parentRef.current;
     if (!el || lastPrependCount <= 0) return;
-    // Prepended items add rows = ceil(count / columns)
     const prependedRows = Math.ceil(lastPrependCount / columns);
     el.scrollTop += prependedRows * ROW_HEIGHT;
   }, [prependGeneration, lastPrependCount, columns]);
+
+  // Forward extend scroll compensation (Bug #16): when extendForward evicts
+  // items from the start of the buffer, the data shifts under the viewport.
+  // Without adjustment, the visible indices remain near the buffer end →
+  // triggers another extendForward → infinite loop. Subtract the evicted
+  // rows' pixel height so the viewport tracks the same data after eviction.
+  const forwardEvictGeneration = useSearchStore((s) => s._forwardEvictGeneration);
+  const lastForwardEvictCount = useSearchStore((s) => s._lastForwardEvictCount);
+  const prevForwardEvictGenRef = useRef(forwardEvictGeneration);
+  useLayoutEffect(() => {
+    if (forwardEvictGeneration === prevForwardEvictGenRef.current) return;
+    prevForwardEvictGenRef.current = forwardEvictGeneration;
+    const el = parentRef.current;
+    if (!el || lastForwardEvictCount <= 0) return;
+    const evictedRows = Math.ceil(lastForwardEvictCount / columns);
+    el.scrollTop -= evictedRows * ROW_HEIGHT;
+  }, [forwardEvictGeneration, lastForwardEvictCount, columns]);
 
   // Scroll to target position after seek (same as ImageTable).
   const seekGeneration = useSearchStore((s) => s._seekGeneration);
@@ -396,6 +422,18 @@ export function ImageGrid() {
     const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
     const rowIdx = Math.floor(targetIdx / columns);
     virtualizer.scrollToIndex(rowIdx, { align: "start" });
+    // Dispatch a deferred scroll event after the seek cooldown (500ms) has
+    // expired. This triggers reportVisibleRange → extendForward/Backward,
+    // ensuring the buffer extends if the seek landed near a buffer edge.
+    // Without this, the user would be stuck at the bottom of a short buffer
+    // with no way to scroll further until a manual scroll event fires.
+    const el = parentRef.current;
+    if (el) {
+      const timer = setTimeout(() => {
+        el.dispatchEvent(new Event("scroll"));
+      }, 600);
+      return () => clearTimeout(timer);
+    }
   }, [seekGeneration, seekTargetLocalIndex, virtualizer, columns]);
 
   // -------------------------------------------------------------------------
@@ -403,7 +441,7 @@ export function ImageGrid() {
   // -------------------------------------------------------------------------
 
   const prevSearchParamsRef = useRef(searchParams);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = parentRef.current;
     if (!el) return;
 
@@ -417,9 +455,23 @@ export function ImageGrid() {
     );
     if (onlyDisplayKeysChanged) return;
 
+    // Skip scroll-reset when sort-around-focus is active. When the user
+    // changes sort with a focused image, sort-around-focus handles scroll
+    // positioning. Resetting scrollTop here would flash wrong content
+    // (old buffer at position 0) before sort-around-focus corrects it.
+    const isSortOnlyChange =
+      prev.orderBy !== searchParams.orderBy &&
+      Object.keys({ ...prev, ...searchParams }).every(
+        (key) =>
+          key === "orderBy" ||
+          URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) ||
+          prev[key as keyof typeof prev] === searchParams[key as keyof typeof searchParams]
+      );
+    if (isSortOnlyChange && focusedImageId) return;
+
     el.scrollTop = 0;
     virtualizer.scrollToOffset(0);
-  }, [searchParams, virtualizer]);
+  }, [searchParams, virtualizer, focusedImageId]);
 
   // -------------------------------------------------------------------------
   // Ref for focused image — used by captureAnchor (scroll anchoring).
@@ -445,7 +497,7 @@ export function ImageGrid() {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     const id = useSearchStore.getState().focusedImageId;
     if (!id) return;
@@ -469,6 +521,7 @@ export function ImageGrid() {
   // useLayoutEffect is synchronous before paint — no visible jump.
   // -------------------------------------------------------------------------
 
+  // Mount: restore scroll position for focused image
   useLayoutEffect(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -484,18 +537,21 @@ export function ImageGrid() {
 
     const ratio = consumeFocusRatio();
     if (ratio != null) {
-      // Restore: place focused row at the same relative viewport position
       const targetScroll = rowTop - ratio * el.clientHeight;
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
       virtualizer.scrollToOffset(clamped);
     } else {
-      // No saved ratio (first load, not a density switch) — center
       const rowIdx = Math.floor(idx / cols);
       virtualizer.scrollToIndex(rowIdx, { align: "center" });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
+  }, []);
 
+  // Unmount: ALWAYS save the focused image's viewport ratio.
+  // Separate from mount so the cleanup is registered unconditionally —
+  // even when focusedImageId was null at mount time (Bug #17).
+  useLayoutEffect(() => {
     return () => {
-      // Save viewport ratio on unmount for the next density to consume
       const el = parentRef.current;
       if (!el) return;
       const { focusedImageId: fid, imagePositions, bufferOffset } = useSearchStore.getState();
@@ -508,7 +564,7 @@ export function ImageGrid() {
       const fRowTop = Math.floor(localIdx / c) * ROW_HEIGHT;
       saveFocusRatio((fRowTop - el.scrollTop) / el.clientHeight);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: scroll to persisted focus on density switch
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
   }, []);
 
   // -------------------------------------------------------------------------

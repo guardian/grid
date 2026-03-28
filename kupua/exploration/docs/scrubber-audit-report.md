@@ -1,17 +1,18 @@
 # Audit Report: Windowed Scroll + Scrubber Work
 
-**Scope:** 3 unpushed commits + uncommitted changes on `mk-next-next-next`
-**Files:** 46 changed, ~10,200 new lines (net: +9,786)
+**Scope:** 5 unpushed commits on `mk-next-next-next`
+**Files:** 52 changed, ~12,140 new lines (net: +11,324)
 
 ## Line Budget Breakdown
 
 | Category | Lines Added | % |
 |---|---:|---:|
-| **Feature code** (store, adapter, scrubber, hooks, views, sort-context, types) | ~2,840 | 28% |
-| **Tests + test infra** (unit tests, mock data source, E2E specs, helpers, Playwright configs, scripts, env files) | ~4,580 | 45% |
-| **Documentation** (search-after-plan, scrubber research, deviations, AGENTS.md) | ~2,770 | 27% |
+| **Feature code** (store, adapter, scrubber, hooks, views, sort-context, types, density-focus, vite config) | ~2,840 | 23% |
+| **Tests + test infra** (unit tests, mock data source, E2E specs + helpers + smoke tests, Playwright configs, scripts, env files) | ~5,160 | 43% |
+| **Documentation** (search-after-plan, scrubber research, deviations, performance analysis, changelog, audit report, AGENTS.md) | ~3,830 | 32% |
+| **Removed** | −815 | — |
 
-Test-to-feature ratio is excellent (~1.6:1). The E2E suite alone (1,310 + 480 lines) is nearly half the feature code.
+Test-to-feature ratio is excellent (~1.8:1). The E2E suite alone (1,729 + 495 + 397 lines) is larger than all feature code.
 
 ---
 

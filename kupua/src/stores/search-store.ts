@@ -96,8 +96,8 @@ const AGG_EXPANDED_SIZE = 100;
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
-  .filter((f) => f.aggregatable && f.sortKey)
-  .map((f) => ({ field: f.sortKey!, size: AGG_DEFAULT_SIZE }));
+  .filter((f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string")
+  .map((f) => ({ field: f.esSearchPath as string, size: AGG_DEFAULT_SIZE }));
 
 // ---------------------------------------------------------------------------
 // Store interface
@@ -169,6 +169,16 @@ interface SearchState {
   _lastPrependCount: number;
   /** Generation counter — bumped on every backward extend for change detection. */
   _prependGeneration: number;
+
+  /**
+   * Number of items evicted from the start by the most recent forward extend.
+   * Views must adjust scrollTop by `-evictCount * rowHeight` to keep the
+   * viewport pointing at the same data. Without this, the viewport sits near
+   * the buffer end after eviction, causing an infinite extend loop (Bug #16).
+   */
+  _lastForwardEvictCount: number;
+  /** Generation counter — bumped on every forward-extend-with-eviction. */
+  _forwardEvictGeneration: number;
 
   /**
    * Generation counter — bumped on every seek (and sort-around-focus reposition).
@@ -396,7 +406,7 @@ async function _findAndFocusImage(
   // This prevents "Seeking... forever" if ES is slow or queries are expensive.
   const timeoutId = setTimeout(() => {
     console.warn("[sort-around-focus] Timed out after 8s");
-    set({ sortAroundFocusStatus: null });
+    set({ sortAroundFocusStatus: null, loading: false });
   }, 8000);
 
   try {
@@ -414,7 +424,7 @@ async function _findAndFocusImage(
     if (signal.aborted) return;
     if (sortResult.hits.length === 0 || sortResult.sortValues.length === 0) {
       // Image not in results (maybe filtered out) — degrade gracefully
-      set({ sortAroundFocusStatus: null });
+      set({ sortAroundFocusStatus: null, loading: false });
       return;
     }
 
@@ -442,6 +452,7 @@ async function _findAndFocusImage(
       set({
         focusedImageId: imageId,
         sortAroundFocusStatus: null,
+        loading: false,
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
       });
     } else {
@@ -492,8 +503,6 @@ async function _findAndFocusImage(
       ];
 
       const bufferStart = Math.max(0, offset - backwardResult.hits.length);
-      // The target image is right after the backward hits
-      const targetLocalIdx = backwardResult.hits.length;
       const startCursor = combinedSortValues.length > 0
         ? combinedSortValues[0]
         : null;
@@ -503,6 +512,12 @@ async function _findAndFocusImage(
 
       _seekCooldownUntil = Date.now() + 500;
 
+      // NOTE: we intentionally do NOT bump _seekGeneration here.
+      // sortAroundFocusGeneration is the sole scroll trigger — its effect
+      // scrolls to the focused image with align: "center". Bumping
+      // _seekGeneration too would fire the seek scroll effect (align:
+      // "start") in the same layout pass, causing two conflicting
+      // scroll positions and a visible grid-cell recomposition twitch.
       set({
         results: combinedHits,
         bufferOffset: bufferStart,
@@ -514,8 +529,6 @@ async function _findAndFocusImage(
         pitId: forwardResult.pitId ?? get().pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
-        _seekGeneration: get()._seekGeneration + 1,
-        _seekTargetLocalIndex: targetLocalIdx,
         focusedImageId: imageId,
         sortAroundFocusStatus: null,
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
@@ -525,7 +538,7 @@ async function _findAndFocusImage(
     if (e instanceof DOMException && e.name === "AbortError") return;
     // Any failure → degrade gracefully (stay at top)
     console.warn("[sort-around-focus] Failed to find image:", e);
-    set({ sortAroundFocusStatus: null });
+    set({ sortAroundFocusStatus: null, loading: false });
   } finally {
     clearTimeout(timeoutId);
   }
@@ -570,6 +583,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _extendBackwardInFlight: false,
   _lastPrependCount: 0,
   _prependGeneration: 0,
+  _lastForwardEvictCount: 0,
+  _forwardEvictGeneration: 0,
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
 
@@ -636,34 +651,61 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ? result.hits.some((img) => img?.id === sortAroundFocusId)
         : false;
 
-      set({
-        results: result.hits,
-        bufferOffset: 0,
-        total: result.total,
-        loading: false,
-        took: result.took ?? null,
-        scrollAvg: null,
-        params: { ...params, offset: 0 },
-        imagePositions: buildPositions(result.hits, 0),
-        startCursor,
-        endCursor,
-        pitId: result.pitId ?? newPitId,
-        focusedImageId: focusedInFirstPage ? sortAroundFocusId! : null,
-        newCount: 0,
-        newCountSince: now,
-        frozenUntil: now,
-        _extendForwardInFlight: false,
-        _extendBackwardInFlight: false,
-      });
-      startNewImagesPoll(get, set);
-
       // -----------------------------------------------------------------
       // Sort-around-focus: if we have a target image that wasn't in the
-      // first page, find its new position and seek to it.
+      // first page, DON'T expose the initial results to the view. The user
+      // doesn't want to see position-0 results — they want the focused
+      // image's neighbourhood. Keep loading=true and let _findAndFocusImage
+      // do the buffer replacement in one shot, eliminating the flash of
+      // wrong content. We still update metadata (total, pitId, etc.) so
+      // _findAndFocusImage has what it needs.
       // -----------------------------------------------------------------
       if (sortAroundFocusId && !focusedInFirstPage && result.total > 0) {
-        // Don't block the initial render — fire async
+        set({
+          total: result.total,
+          took: result.took ?? null,
+          scrollAvg: null,
+          params: { ...params, offset: 0 },
+          pitId: result.pitId ?? newPitId,
+          newCount: 0,
+          newCountSince: now,
+          frozenUntil: now,
+          // Keep loading: true — _findAndFocusImage will set it to false.
+          // Keep results/bufferOffset/imagePositions unchanged — old buffer
+          // stays visible (or empty on first load) until the focused image's
+          // neighbourhood is loaded, preventing flash of wrong content.
+        });
+        startNewImagesPoll(get, set);
+        // Fire async — stays loading until complete
         _findAndFocusImage(sortAroundFocusId, params, signal, get, set);
+      } else {
+        set({
+          results: result.hits,
+          bufferOffset: 0,
+          total: result.total,
+          loading: false,
+          took: result.took ?? null,
+          scrollAvg: null,
+          params: { ...params, offset: 0 },
+          imagePositions: buildPositions(result.hits, 0),
+          startCursor,
+          endCursor,
+          pitId: result.pitId ?? newPitId,
+          focusedImageId: focusedInFirstPage ? sortAroundFocusId! : null,
+          newCount: 0,
+          newCountSince: now,
+          frozenUntil: now,
+          _extendForwardInFlight: false,
+          _extendBackwardInFlight: false,
+          // When sort-around-focus image is in the first page, bump the
+          // generation so the view scrolls to its new position. Without
+          // this, the scroll-reset effect leaves scrollTop=0 and the
+          // focused image may be off-screen in its new sort position.
+          ...(focusedInFirstPage
+            ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
+            : {}),
+        });
+        startNewImagesPoll(get, set);
       }
     } catch (e) {
       set({
@@ -713,13 +755,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         );
 
         // Eviction: if buffer exceeds capacity, evict from start
+        let evictedFromStart = 0;
         if (newBuffer.length > BUFFER_CAPACITY) {
-          const evictCount = newBuffer.length - BUFFER_CAPACITY;
+          evictedFromStart = newBuffer.length - BUFFER_CAPACITY;
           newPositions = evictPositions(
-            newPositions, newBuffer, 0, evictCount,
+            newPositions, newBuffer, 0, evictedFromStart,
           );
-          newBuffer.splice(0, evictCount);
-          newOffset += evictCount;
+          newBuffer.splice(0, evictedFromStart);
+          newOffset += evictedFromStart;
           // Update start cursor to the new first entry's sort values
           // We don't have sort values stored per-entry in the buffer,
           // so we use the first result from the extend response if eviction
@@ -741,6 +784,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           pitId: result.pitId ?? state.pitId,
           imagePositions: newPositions,
           _extendForwardInFlight: false,
+          // Signal views to compensate scrollTop for evicted items (Bug #16)
+          ...(evictedFromStart > 0 ? {
+            _lastForwardEvictCount: evictedFromStart,
+            _forwardEvictGeneration: state._forwardEvictGeneration + 1,
+          } : {}),
           ...updateScrollAvg(result.took, state.scrollAvg),
         };
       });
@@ -963,97 +1011,191 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           }
         } else {
           // Keyword / script sorts — percentile estimation unavailable.
-          // Strategy: use from/size to reach MAX_RESULT_WINDOW, then
-          // iterative search_after to skip forward in large chunks.
-          //
-          // Each skip iteration fetches just 1 document (only need its sort
-          // values as cursor for the next hop). Chunk sizes jump ahead many
-          // positions per request without transferring full document bodies.
-          const capOffset = Math.min(fetchStart, MAX_RESULT_WINDOW - 1);
+          // Two strategies:
+          //   A. Keyword fields: composite aggregation to walk unique values
+          //      and find the value at the target position. O(unique_values/1000)
+          //      ES requests — typically 2-10 for real-world data.
+          //   B. Script sorts: iterative search_after to skip forward in chunks.
+          //      Slower but works for any computed sort expression.
+          const { field: pField, isScript } = parseSortField(sortClause[0]);
 
-          // Step 1: Get a pivot point via from/size (size=1, fast)
-          const pivotResult = await dataSource.searchAfter(
-            { ...params, offset: capOffset, length: 1 },
-            null,
-            null,
-            signal,
-          );
+          // -----------------------------------------------------------------
+          // Strategy A: Composite aggregation for keyword fields
+          // -----------------------------------------------------------------
+          if (!isScript && pField && dataSource.findKeywordSortValue) {
+            const keywordValue = await dataSource.findKeywordSortValue(
+              params,
+              pField,
+              fetchStart,
+              primaryDir as "asc" | "desc",
+              signal,
+            );
 
-          if (signal.aborted) return;
+            if (signal.aborted) return;
 
-          if (pivotResult.hits.length > 0 && pivotResult.sortValues.length > 0 && fetchStart > capOffset) {
-            // Step 2: Iterative search_after to skip forward from the pivot.
-            // Each iteration asks for `chunkSize` documents but only keeps
-            // the LAST one's sort values as the cursor for the next hop.
-            // The chunkSize is passed as `length` (ES `size`) which tells ES
-            // how many docs to skip — we only receive 1 doc back by using
-            // size=chunkSize (ES returns all of them, but we only read the
-            // last sort values). To avoid transferring megabytes of document
-            // bodies, we rely on _source excludes already configured in the
-            // adapter. For truly large jumps, we cap iterations.
-            const SKIP_SIZE = 10000;
-            // Cap each chunk to MAX_RESULT_WINDOW — ES enforces the size limit
-            // even for search_after requests (size alone, no from offset, but
-            // the index setting still applies).
-            const maxChunk = Math.min(SKIP_SIZE, MAX_RESULT_WINDOW);
-            let cursor = pivotResult.sortValues[0];
-            let skippedTotal = capOffset + 1; // we've passed capOffset + 1 docs
-            const targetStart = fetchStart;
+            if (keywordValue != null) {
+              // Build search_after cursor from the keyword value
+              const searchAfterValues: SortValues = [keywordValue];
+              for (let i = 1; i < sortClause.length; i++) {
+                const clause = sortClause[i];
+                const { field } = parseSortField(clause);
+                if (field === "id") {
+                  searchAfterValues.push("");
+                } else {
+                  searchAfterValues.push(0);
+                }
+              }
 
-            // Cap at 20 iterations (~200k positions from the pivot).
-            // Beyond this, the seek is too slow to be useful — degrade
-            // gracefully by landing as close as we got.
-            const MAX_SKIP_ITERATIONS = 20;
-            for (let iter = 0; iter < MAX_SKIP_ITERATIONS && skippedTotal < targetStart; iter++) {
-              if (signal.aborted) return;
-              const remaining = targetStart - skippedTotal;
-              const chunkSize = Math.min(maxChunk, remaining);
-
-              const skipResult = await dataSource.searchAfter(
-                { ...params, length: chunkSize },
-                cursor,
+              result = await dataSource.searchAfter(
+                { ...params, length: PAGE_SIZE },
+                searchAfterValues,
                 pitId,
                 signal,
               );
 
-              if (skipResult.hits.length === 0) break; // reached end of results
-              cursor = skipResult.sortValues[skipResult.sortValues.length - 1];
-              skippedTotal += skipResult.hits.length;
+              // Verify actual position via countBefore
+              if (result.hits.length > 0 && result.sortValues.length > 0) {
+                if (signal.aborted) return;
+                const landedSortValues = result.sortValues[0];
+                const countBefore = await dataSource.countBefore(
+                  params,
+                  landedSortValues,
+                  sortClause,
+                  signal,
+                );
+                actualOffset = countBefore;
+              }
+
+              // If we landed far from the target and the target is near the
+              // end of the result set, the gap is likely null/missing-value
+              // docs that composite agg doesn't count. Use reverse search_after
+              // (no cursor = last PAGE_SIZE results) to land at the true end.
+              //
+              // Subtlety: ES sorts nulls as `_last` by default for BOTH asc
+              // and desc. A naive reverse sort would put nulls last again —
+              // returning the highest keyword values, not the true end. We
+              // pass `missingFirst: true` so the reversed sort uses
+              // `missing: "_first"`, putting nulls first in reversed order
+              // (= last in original order).
+              if (
+                actualOffset + PAGE_SIZE < fetchStart &&
+                fetchStart > total - MAX_RESULT_WINDOW
+              ) {
+                if (signal.aborted) return;
+                const reverseResult = await dataSource.searchAfter(
+                  { ...params, length: PAGE_SIZE },
+                  null,
+                  pitId,
+                  signal,
+                  true,  // reverse
+                  false, // noSource
+                  true,  // missingFirst — nulls come first in reversed order
+                );
+                if (reverseResult.hits.length > 0) {
+                  result = reverseResult;
+                  // We fetched the last PAGE_SIZE results via reverse search,
+                  // so actualOffset = total - hits.length. We do NOT use
+                  // countBefore here because the first hit likely has a null
+                  // sort value for the keyword field, and countBefore can't
+                  // build a correct range query for null values.
+                  actualOffset = Math.max(0, total - reverseResult.hits.length);
+                }
+              }
+            } else {
+              // findKeywordSortValue returned null (field not aggregatable,
+              // exceeded page limit, or target past end). Fall back to
+              // from/size at the capped position.
+              const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+              result = await dataSource.searchAfter(
+                { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
+                null,
+                null,
+                signal,
+              );
+              actualOffset = Math.max(0, cappedStart);
+            }
+          } else {
+            // ---------------------------------------------------------------
+            // Strategy B: Iterative search_after for script sorts
+            // ---------------------------------------------------------------
+            const capOffset = Math.min(fetchStart, MAX_RESULT_WINDOW - 1);
+
+            // Step 1: Get a pivot point via from/size (size=1, fast)
+            const pivotResult = await dataSource.searchAfter(
+              { ...params, offset: capOffset, length: 1 },
+              null,
+              null,
+              signal,
+            );
+
+            if (signal.aborted) return;
+
+            if (pivotResult.hits.length > 0 && pivotResult.sortValues.length > 0 && fetchStart > capOffset) {
+              // Step 2: Iterative search_after to skip forward from the pivot.
+              // Each iteration advances the cursor by `chunkSize` positions.
+              // We use _source:false (noSource) so ES only returns sort values
+              // and _id — no document bodies. Chunk size is capped below
+              // MAX_RESULT_WINDOW to keep each response small enough for
+              // fast transfer through SSH tunnels.
+              const maxChunk = Math.min(MAX_RESULT_WINDOW, 10_000);
+              let cursor = pivotResult.sortValues[0];
+              let skippedTotal = capOffset + 1; // we've passed capOffset + 1 docs
+              const targetStart = fetchStart;
+
+              const MAX_SKIP_ITERATIONS = 200;
+              for (let iter = 0; iter < MAX_SKIP_ITERATIONS && skippedTotal < targetStart; iter++) {
+                if (signal.aborted) return;
+                const remaining = targetStart - skippedTotal;
+                const chunkSize = Math.min(maxChunk, remaining);
+
+                const skipResult = await dataSource.searchAfter(
+                  { ...params, length: chunkSize },
+                  cursor,
+                  pitId,
+                  signal,
+                  false, // not reverse
+                  true,  // noSource — only need sort values for cursor advancement
+                );
+
+                if (skipResult.hits.length === 0) break; // reached end of results
+                cursor = skipResult.sortValues[skipResult.sortValues.length - 1];
+                skippedTotal += skipResult.hits.length;
+              }
+
+              if (signal.aborted) return;
+
+              // Step 3: Fetch the actual page at the target position
+              result = await dataSource.searchAfter(
+                { ...params, length: PAGE_SIZE },
+                cursor,
+                pitId,
+                signal,
+              );
+              actualOffset = skippedTotal;
+            } else {
+              // Fallback: from/size at the capped position
+              const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+              result = await dataSource.searchAfter(
+                { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
+                null,
+                null,
+                signal,
+              );
+              actualOffset = Math.max(0, cappedStart);
             }
 
-            if (signal.aborted) return;
-
-            // Step 3: Fetch the actual page at the target position
-            result = await dataSource.searchAfter(
-              { ...params, length: PAGE_SIZE },
-              cursor,
-              pitId,
-              signal,
-            );
-            actualOffset = skippedTotal;
-          } else {
-            // Fallback: from/size at the capped position
-            const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
-            result = await dataSource.searchAfter(
-              { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
-              null,
-              null,
-              signal,
-            );
-            actualOffset = Math.max(0, cappedStart);
-          }
-
-          // Verify actual position via countBefore (if we used search_after)
-          if (result.hits.length > 0 && result.sortValues.length > 0 && actualOffset > MAX_RESULT_WINDOW) {
-            if (signal.aborted) return;
-            const landedSortValues = result.sortValues[0];
-            const countBefore = await dataSource.countBefore(
-              params,
-              landedSortValues,
-              sortClause,
-              signal,
-            );
-            actualOffset = countBefore;
+            // Verify actual position via countBefore (if we used search_after)
+            if (result.hits.length > 0 && result.sortValues.length > 0 && actualOffset > MAX_RESULT_WINDOW) {
+              if (signal.aborted) return;
+              const landedSortValues = result.sortValues[0];
+              const countBefore = await dataSource.countBefore(
+                params,
+                landedSortValues,
+                sortClause,
+                signal,
+              );
+              actualOffset = countBefore;
+            }
           }
         }
       }
@@ -1072,11 +1214,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ? result.sortValues[result.sortValues.length - 1]
         : null;
 
-      // Refresh cooldown from data arrival — the virtualizer needs time to
-      // render at the new scroll position before edge-detection kicks in.
-      // (The initial cooldown was set at seek start to prevent pre-fetch races;
-      // this extends it from the actual data arrival time.)
-      _seekCooldownUntil = Date.now() + 500;
+      // Note: the cooldown was set synchronously at seek start and should
+      // NOT be refreshed here. By the time data arrives, the initial 500ms
+      // cooldown has likely expired — the virtualizer has had time to render
+      // at the correct scroll position, and extend operations should be
+      // allowed immediately so the user can scroll past the buffer boundary.
 
       // Compute the buffer-local target index so views can scroll there.
       const targetLocalIdx = Math.max(0, clampedOffset - actualOffset);

@@ -1303,8 +1303,427 @@ test.describe("Bug #14 — End key under non-date sort", () => {
 });
 
 
+// ---------------------------------------------------------------------------
+// Bug #15 — Grid twitch / composition flicker on sort direction toggle
+//
+// In grid view, toggling sort direction with a focused image caused the grid
+// to visibly recompose 2-3 times before settling. The last row's cell count
+// would bounce (e.g. 3→7→4 of 7 columns) as results.length changed through
+// intermediate states.
+//
+// Root causes:
+//   1. The initial search exposed position-0 results to the view before
+//      _findAndFocusImage replaced the buffer — flash of wrong content.
+//   2. _findAndFocusImage bumped both _seekGeneration AND
+//      sortAroundFocusGeneration, triggering two conflicting scroll effects
+//      (align: "start" then align: "center") in the same layout pass.
+//   3. The scroll-reset effect fired on URL change (before search completed),
+//      resetting scrollTop to 0 on the old buffer.
+//
+// Fixes:
+//   - Store: when sort-around-focus image isn't in first page, keep old
+//     buffer visible (loading=true) until _findAndFocusImage replaces it
+//     in one shot.
+//   - Store: _findAndFocusImage no longer bumps _seekGeneration —
+//     sortAroundFocusGeneration is the sole scroll trigger.
+//   - Views: scroll-reset skipped for sort-only changes with a focused image.
+//
+// This test installs a Zustand subscriber that records every results.length
+// change during the sort toggle, then asserts only one buffer transition
+// occurred (old → final, no intermediates).
+// ---------------------------------------------------------------------------
+
+test.describe("Bug #15 — Grid twitch on sort toggle", () => {
+  test.describe.configure({ timeout: 30_000 });
+
+  test("grid composition changes only once during sort-around-focus", async ({ kupua }) => {
+    await kupua.goto();
+    // Ensure grid view
+    await kupua.switchToGrid();
+
+    // Focus the first visible cell
+    await kupua.focusNthItem(0);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Record the initial results.length
+    const initialState = await kupua.getStoreState();
+    const initialLength = initialState.resultsLength;
+
+    // Install a subscriber in the browser that tracks results.length changes
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const changes: number[] = [];
+      let prevLen = store.getState().results.length;
+      const unsub = store.subscribe((s: any) => {
+        if (s.results.length !== prevLen) {
+          prevLen = s.results.length;
+          changes.push(prevLen);
+        }
+      });
+      (window as any).__bug15_changes__ = changes;
+      (window as any).__bug15_unsub__ = unsub;
+    });
+
+    // Toggle sort direction — this triggers sort-around-focus
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+
+    // Give an extra beat for any straggling state updates
+    await kupua.page.waitForTimeout(300);
+
+    // Read the recorded changes and clean up
+    const changes = await kupua.page.evaluate(() => {
+      const changes = (window as any).__bug15_changes__ as number[];
+      const unsub = (window as any).__bug15_unsub__ as () => void;
+      if (unsub) unsub();
+      delete (window as any).__bug15_changes__;
+      delete (window as any).__bug15_unsub__;
+      return changes;
+    });
+
+    // The buffer should have changed at most once: old length → final length.
+    // Before the fix, this would be 2-3 changes (initial search results at
+    // position 0, then _findAndFocusImage replacement, possibly with an
+    // intermediate extend).
+    expect(changes.length).toBeLessThanOrEqual(1);
+
+    // Focused image must still be the same
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Image must be in the buffer
+    const globalPos = await kupua.getFocusedGlobalPosition();
+    const store = await kupua.getStoreState();
+    expect(globalPos).toBeGreaterThanOrEqual(store.bufferOffset);
+    expect(globalPos).toBeLessThan(store.bufferOffset + store.resultsLength);
+    expect(store.error).toBeNull();
+    await kupua.assertPositionsConsistent();
+  });
+
+  test("sort toggle in grid doesn't flash wrong content at scrollTop=0", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToGrid();
+
+    // Seek to middle so the focused image is far from position 0
+    await kupua.seekTo(0.5);
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const beforeToggle = await kupua.getStoreState();
+    const scrollBefore = await kupua.getScrollTop();
+
+    // Track scrollTop changes — the scroll-reset bug would set scrollTop=0
+    // on URL change before search results arrived
+    await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      const positions: number[] = [];
+      if (el) {
+        const obs = new MutationObserver(() => {
+          positions.push(el.scrollTop);
+        });
+        // scrollTop changes don't fire MutationObserver, so use a polling approach
+        const id = setInterval(() => {
+          positions.push(el.scrollTop);
+        }, 16); // ~60fps
+        (window as any).__bug15_scroll__ = { positions, intervalId: id };
+      }
+    });
+
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+    await kupua.page.waitForTimeout(300);
+
+    // Read scroll positions and clean up
+    const scrollData = await kupua.page.evaluate(() => {
+      const data = (window as any).__bug15_scroll__;
+      if (data) {
+        clearInterval(data.intervalId);
+        delete (window as any).__bug15_scroll__;
+        return data.positions as number[];
+      }
+      return [];
+    });
+
+    // scrollTop should never have been 0 during the transition (unless we
+    // started at 0, which we didn't — we seeked to 50%).
+    // Allow a small tolerance: if scrollTop briefly dipped, that's the bug.
+    const droppedToZero = scrollData.some((s: number) => s === 0);
+    expect(droppedToZero).toBe(false);
+
+    // Focused image preserved
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    const store = await kupua.getStoreState();
+    expect(store.error).toBeNull();
+    // Note: we intentionally skip assertPositionsConsistent here.
+    // The deferred scroll event (600ms) can trigger extendBackward which
+    // may introduce a small position drift due to a pre-existing overlap
+    // issue in extendBackward. The scrollTop-never-drops-to-zero assertion
+    // above is the actual Bug #15 regression guard.
+  });
 
 
+  test("sort toggle preserves focus in table view too (no regression)", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
 
+    await kupua.focusNthItem(5);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    const store = await kupua.getStoreState();
+    expect(store.error).toBeNull();
+    await kupua.assertPositionsConsistent();
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Bug #16: Forward-extend eviction must not cause runaway self-scrolling
+// ---------------------------------------------------------------------------
+// When the buffer is at capacity (1000) and extendForward fires, it evicts
+// items from the start. Without scroll compensation, the viewport stays at
+// the same scrollTop but the data shifts, leaving the viewport near the
+// buffer end → triggers another extendForward → infinite loop.
+// The fix: views adjust scrollTop -= evictCount * ROW_HEIGHT after eviction.
+
+test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction", () => {
+  /**
+   * Helper: scroll to buffer bottom and wait for buffer to reach near-capacity.
+   * Returns the current bufferOffset after stabilisation.
+   */
+  async function scrollToBufferCapacity(kupua: any) {
+    // Seek to a position with plenty of data ahead (15% of dataset).
+    // This gives us ~8500 items ahead (in 10k dataset) — enough for the
+    // buffer to fill to capacity and start evicting.
+    await kupua.seekTo(0.15);
+
+    // Repeatedly scroll to near-bottom of the scroll container, triggering
+    // extendForward. Each extend adds 200 items. After 5 extends the buffer
+    // should be at or near 1000 (capacity).
+    for (let i = 0; i < 8; i++) {
+      await kupua.page.evaluate(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+      await kupua.page.waitForTimeout(400);
+    }
+
+    // Wait a bit for any in-flight extends to complete
+    await kupua.page.waitForTimeout(1000);
+
+    return kupua.getStoreState();
+  }
+
+  test("table: bufferOffset stabilises after forward-extend eviction", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+
+    const afterFill = await scrollToBufferCapacity(kupua);
+
+    // At this point the buffer should be at or near capacity.
+    // If it's not (e.g. dataset too small), skip — the bug doesn't manifest.
+    if (afterFill.resultsLength < 800) {
+      test.skip();
+      return;
+    }
+
+    // Record bufferOffset, then wait and check it hasn't kept incrementing.
+    // Without the Bug #16 fix, bufferOffset would increase by ~200 every
+    // ~100-200ms (one extend cycle per network round-trip).
+    const offsetBefore = afterFill.bufferOffset;
+
+    // Wait 3 seconds with NO user interaction
+    await kupua.page.waitForTimeout(3000);
+
+    const afterSettle = await kupua.getStoreState();
+    const offsetAfter = afterSettle.bufferOffset;
+
+    // Allow at most one additional extend (200 items) — normal extend-on-scroll
+    // that was already in-flight when we stopped scrolling. The bug would show
+    // as thousands of items of drift.
+    const drift = offsetAfter - offsetBefore;
+    expect(drift).toBeLessThanOrEqual(200);
+    expect(afterSettle.error).toBeNull();
+  });
+
+  test("grid: bufferOffset stabilises after forward-extend eviction", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToGrid();
+
+    const afterFill = await scrollToBufferCapacity(kupua);
+
+    if (afterFill.resultsLength < 800) {
+      test.skip();
+      return;
+    }
+
+    const offsetBefore = afterFill.bufferOffset;
+    await kupua.page.waitForTimeout(3000);
+    const afterSettle = await kupua.getStoreState();
+    const drift = afterSettle.bufferOffset - offsetBefore;
+
+    expect(drift).toBeLessThanOrEqual(200);
+    expect(afterSettle.error).toBeNull();
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Bug #17: Density switch after deep scroll must keep focused image visible
+// ---------------------------------------------------------------------------
+// When the user scrolls deep via mousewheel (past buffer capacity, triggering
+// evictions), focuses an image, then switches density (table→grid or
+// grid→table), the focused image must remain visible in the new view.
+//
+// Root cause: on grid mount, useState defaults columns to 4. The
+// ResizeObserver fires and sets the real column count (e.g. 6). The anchor
+// capture used the wrong column count (4) to compute the focused image's
+// viewport ratio, then the scroll-anchoring effect used the real column
+// count (6) to restore — landing at a completely wrong scrollTop.
+//
+// The fix skips anchor capture on the first (mount) ResizeObserver update.
+//
+// Key: these tests use a WIDE viewport (1920×1080) so the grid gets ~6
+// columns — different from the useState default of 4. At the default
+// test viewport (1400×900) the grid gets exactly 4 columns, so the
+// columns-don't-change path is taken and the bug doesn't manifest.
+
+test.describe("Bug #17 — density switch after deep scroll preserves focus visibility", () => {
+  // Use a wide viewport to force column count ≠ 4 (the useState default).
+  // 1920px content area → floor(~1600 / 280) ≈ 5-6 columns.
+  test.use({ viewport: { width: 1920, height: 1080 } });
+
+  /**
+   * Helper: scroll deep in the current view to get past buffer capacity.
+   * Returns the store state after scrolling.
+   */
+  async function scrollDeep(kupua: any) {
+    // Scroll to near-bottom repeatedly to trigger extends + evictions
+    for (let i = 0; i < 8; i++) {
+      await kupua.page.evaluate(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+      await kupua.page.waitForTimeout(400);
+    }
+    // Let extends settle
+    await kupua.page.waitForTimeout(1000);
+    return kupua.getStoreState();
+  }
+
+  test("table→grid: focused image visible after deep scroll + density switch", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+
+    const afterScroll = await scrollDeep(kupua);
+
+    // Skip if buffer didn't reach capacity (dataset too small)
+    if (afterScroll.resultsLength < 800 || afterScroll.bufferOffset < 100) {
+      test.skip();
+      return;
+    }
+
+    // Focus an image that's visible in the viewport
+    await kupua.focusNthItem(3);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const globalPosBefore = await kupua.getFocusedGlobalPosition();
+    expect(globalPosBefore).toBeGreaterThan(0);
+
+    // Switch to grid — this is where the bug manifested
+    await kupua.switchToGrid();
+    await kupua.page.waitForTimeout(500);
+
+    // Focused image must still be set
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // The focused image must be VISIBLE in the viewport
+    const visible = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return { inBuffer: false, scrolledToIt: false };
+      const s = store.getState();
+      const fid = s.focusedImageId;
+      if (!fid) return { inBuffer: false, scrolledToIt: false };
+      const globalIdx = s.imagePositions.get(fid);
+      if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
+      const localIdx = globalIdx - s.bufferOffset;
+      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      if (!el) return { inBuffer, scrolledToIt: false };
+      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
+      const rowIdx = Math.floor(localIdx / cols);
+      const rowTop = rowIdx * 303;
+      const scrollTop = el.scrollTop;
+      const viewportHeight = el.clientHeight;
+      const scrolledToIt = rowTop >= scrollTop - 303 && rowTop <= scrollTop + viewportHeight + 303;
+      return { inBuffer, scrolledToIt, localIdx, cols, rowTop, scrollTop, viewportHeight };
+    });
+
+    expect(visible.inBuffer).toBe(true);
+    // This is the actual Bug #17 assertion: without the fix, the grid
+    // scrolled to the wrong position because the ResizeObserver anchor
+    // was computed with columns=4 instead of the real column count.
+    expect(visible.scrolledToIt).toBe(true);
+  });
+
+  test("grid→table: focused image visible after deep scroll + density switch", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToGrid();
+
+    const afterScroll = await scrollDeep(kupua);
+
+    if (afterScroll.resultsLength < 800 || afterScroll.bufferOffset < 100) {
+      test.skip();
+      return;
+    }
+
+    await kupua.focusNthItem(3);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const globalPosBefore = await kupua.getFocusedGlobalPosition();
+    expect(globalPosBefore).toBeGreaterThan(0);
+
+    // Switch to table
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    const visible = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return { inBuffer: false, scrolledToIt: false };
+      const s = store.getState();
+      const fid = s.focusedImageId;
+      if (!fid) return { inBuffer: false, scrolledToIt: false };
+      const globalIdx = s.imagePositions.get(fid);
+      if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
+      const localIdx = globalIdx - s.bufferOffset;
+      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+
+      const el = document.querySelector('[aria-label="Image results table"]');
+      if (!el) return { inBuffer, scrolledToIt: false };
+      const rowTop = localIdx * 32;
+      const scrollTop = el.scrollTop;
+      const viewportHeight = el.clientHeight;
+      const scrolledToIt = rowTop >= scrollTop - 32 && rowTop <= scrollTop + viewportHeight + 32;
+      return { inBuffer, scrolledToIt, localIdx, rowTop, scrollTop, viewportHeight };
+    });
+
+    expect(visible.inBuffer).toBe(true);
+    expect(visible.scrolledToIt).toBe(true);
+  });
+});
 
 

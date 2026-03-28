@@ -16,6 +16,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    watch: {
+      ignored: ["**/exploration/**", "**/e2e/**", "**/scripts/**", "**/playwright-report/**", "**/test-results/**"],
+    },
     proxy: {
       // Proxy ES requests to Elasticsearch.
       // Default: kupua's local docker ES on port 9220

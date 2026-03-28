@@ -173,16 +173,16 @@ Full implementation of `search_after` + PIT windowed scroll + custom scrubber. R
 - **Bug #12:** Wheel scroll after scrubber seek — seek cooldown was refreshed at data arrival, blocking extends. Fixed: single cooldown + deferred scroll event.
 - **Bug #13:** Keyword sort seek no effect at scale — composite `BUCKET_SIZE` too small (1000→10000), added 8s time cap, telemetry logging.
 - **Bug #14:** End key short under non-date sort — composite agg returned null for exhausted null-credit docs. Fixed: return `lastKeywordValue` + `missingFirst` for reverse seek + skip `countBefore` for null sort values.
-- **Bug #15:** Grid twitch on sort change — missing `sortAroundFocusGeneration` bump + `useEffect` → `useLayoutEffect` for scroll effects.
+- **Bug #15:** Grid twitch on sort change — three root causes: (1) initial search at position 0 exposed wrong results before `_findAndFocusImage` replaced the buffer; (2) `_findAndFocusImage` bumped both `_seekGeneration` and `sortAroundFocusGeneration`, triggering two conflicting scroll effects; (3) scroll-reset effect fired on URL change before search completed, resetting scrollTop on old buffer. Fixes: store keeps old buffer visible (loading=true) until `_findAndFocusImage` replaces it in one shot; `_findAndFocusImage` no longer bumps `_seekGeneration` (`sortAroundFocusGeneration` is sole scroll trigger); scroll-reset skipped for sort-only changes with focused image. 3 new E2E tests: single buffer transition assertion (Zustand subscriber tracking `results.length` changes), no scroll-to-0 flash (60fps scrollTop polling during toggle), table regression guard.
 - **4 global→local index bugs** in `FocusedImageMetadata`, density-switch unmount, scroll anchoring — all needed `bufferOffset` subtraction.
 
-### E2E Tests (54 tests, all passing)
+### E2E Tests (57 tests, all passing)
 
 - `scripts/run-e2e.sh` orchestrates Docker ES + data + Playwright
 - `e2e/global-setup.ts` auto-starts Docker ES, verifies data
 - `KupuaHelpers` fixture class: `seekTo()`, `dragScrubberTo()`, `assertPositionsConsistent()`, `getStoreState()`, `startConsoleCapture()`, etc.
 - 8 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`) — S1–S5 pass as of 2026-03-28. Auto-skip on local ES.
-- Coverage: ARIA, seek accuracy, drag, scroll, buffer extension, density switch, sort change, sort tooltip, sort-around-focus, keyboard, metadata panel, 3 full workflows, bug regressions (#1, #3, #7, #9, #11–14)
+- Coverage: ARIA, seek accuracy, drag, scroll, buffer extension, density switch, sort change, sort tooltip, sort-around-focus, keyboard, metadata panel, 3 full workflows, bug regressions (#1, #3, #7, #9, #11–15)
 
 ### List Scroll Smoothness — Tried and Reverted
 

@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   readonly VITE_MAX_RESULT_WINDOW?: string;
   /** Offset above which seek uses deep path (search_after). Default: 10000. */
   readonly VITE_DEEP_SEEK_THRESHOLD?: string;
+  /** Bucket size for composite agg in findKeywordSortValue. Default: 10000. */
+  readonly VITE_KEYWORD_SEEK_BUCKET_SIZE?: string;
 }
 
 interface ImportMeta {

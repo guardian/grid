@@ -199,6 +199,12 @@ export interface ImageDataSource {
    * @param signal — optional AbortSignal for cancellation.
    * @param reverse — if true, reverses the sort clause and reverses the
    *   returned hits/sortValues. Used for backward `search_after` pagination.
+   * @param noSource — if true, sets _source: false (only sort values returned).
+   * @param missingFirst — if true (typically with reverse), sets `missing: "_first"`
+   *   on the primary sort field. Needed when seeking to the end of a keyword-sorted
+   *   result set where null-value docs sit at the tail — without this, ES default
+   *   `missing: "_last"` puts nulls last in BOTH asc and desc, so a naive reverse
+   *   search returns high-value docs instead of the true last docs.
    */
   searchAfter(
     params: SearchParams,
@@ -206,6 +212,8 @@ export interface ImageDataSource {
     pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
+    noSource?: boolean,
+    missingFirst?: boolean,
   ): Promise<SearchAfterResult>;
 
   /**
@@ -243,5 +251,30 @@ export interface ImageDataSource {
     percentile: number,
     signal?: AbortSignal,
   ): Promise<number | null>;
+
+  /**
+   * Find the keyword sort value at a given global position using composite
+   * aggregation. Used for deep seek on keyword-sorted fields where
+   * percentile estimation is unavailable.
+   *
+   * Walks through unique values of the sort field via composite aggregation,
+   * accumulating doc_counts until the cumulative count reaches the target
+   * position. Returns the keyword value at that position (for use as a
+   * search_after cursor anchor).
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the primary sort field (e.g. "metadata.credit").
+   * @param targetPosition — the 0-based global position to seek to.
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   * @returns The keyword value at the target position, or null if not found.
+   */
+  findKeywordSortValue?(
+    params: SearchParams,
+    field: string,
+    targetPosition: number,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<string | null>;
 }
 

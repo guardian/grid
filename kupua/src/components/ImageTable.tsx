@@ -514,7 +514,7 @@ export function ImageTable() {
     }
 
     // Fast path: if the same image IDs in the same order, reuse the old array.
-    // This is the common case during off-screen loadRange — visible rows are
+    // This is the common case during off-screen load — visible rows are
     // unchanged, only distant indices were filled.
     const key = ids.join(",");
     if (key === prevVisibleKeyRef.current) {
@@ -662,6 +662,23 @@ export function ImageTable() {
     el.scrollTop += lastPrependCount * ROW_HEIGHT;
   }, [prependGeneration, lastPrependCount]);
 
+  // Forward extend scroll compensation (Bug #16): when extendForward evicts
+  // items from the start of the buffer, the data shifts under the viewport
+  // but scrollTop stays the same. Without adjustment, the visible indices
+  // remain near the buffer end → triggers another extendForward → infinite
+  // loop that makes the table "scroll by itself". Subtract the evicted rows'
+  // pixel height so the viewport points at the same data after eviction.
+  const forwardEvictGeneration = useSearchStore((s) => s._forwardEvictGeneration);
+  const lastForwardEvictCount = useSearchStore((s) => s._lastForwardEvictCount);
+  const prevForwardEvictGenRef = useRef(forwardEvictGeneration);
+  useLayoutEffect(() => {
+    if (forwardEvictGeneration === prevForwardEvictGenRef.current) return;
+    prevForwardEvictGenRef.current = forwardEvictGeneration;
+    const el = parentRef.current;
+    if (!el || lastForwardEvictCount <= 0) return;
+    el.scrollTop -= lastForwardEvictCount * ROW_HEIGHT;
+  }, [forwardEvictGeneration, lastForwardEvictCount]);
+
   // Scroll to target position after seek: when _seekGeneration bumps,
   // the buffer has been replaced. Scroll the virtualizer to the buffer-local
   // index that corresponds to the user's target position. Without this,
@@ -675,6 +692,18 @@ export function ImageTable() {
     prevSeekGenRef.current = seekGeneration;
     const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
     virtualizer.scrollToIndex(targetIdx, { align: "start" });
+    // Dispatch a deferred scroll event after the seek cooldown (500ms) has
+    // expired. This triggers reportVisibleRange → extendForward/Backward,
+    // ensuring the buffer extends if the seek landed near a buffer edge.
+    // Without this, the user would be stuck at the bottom of a short buffer
+    // with no way to scroll further until a manual scroll event fires.
+    const el = parentRef.current;
+    if (el) {
+      const timer = setTimeout(() => {
+        el.dispatchEvent(new Event("scroll"));
+      }, 600);
+      return () => clearTimeout(timer);
+    }
   }, [seekGeneration, seekTargetLocalIndex, virtualizer]);
 
   // Reset scroll position when search params change.  loadMore doesn't
@@ -690,7 +719,7 @@ export function ImageTable() {
   // The user may have scrolled right to reach the column header they
   // clicked to sort; resetting scrollLeft would lose that context.
   const prevSearchParamsRef = useRef(searchParams);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = parentRef.current;
     if (!el) return;
 
@@ -717,6 +746,12 @@ export function ImageTable() {
     );
     const sortOnly = isSortAction && !nonSortChanged;
 
+    // Skip scroll-reset when sort-around-focus is active. When the user
+    // changes sort with a focused image, sort-around-focus handles scroll
+    // positioning. Resetting scrollTop here would flash wrong content
+    // (old buffer at position 0) before sort-around-focus corrects it.
+    if (sortOnly && focusedImageId) return;
+
     el.scrollTop = 0;
     if (!sortOnly) {
       el.scrollLeft = 0;
@@ -726,7 +761,7 @@ export function ImageTable() {
     // the virtualizer rendering stale rows. scrollToOffset(0) directly
     // updates the virtualizer's internal scroll state.
     virtualizer.scrollToOffset(0);
-  }, [searchParams, virtualizer]);
+  }, [searchParams, virtualizer, focusedImageId]);
 
   // Restore focus and scroll when returning from image detail overlay.
   useReturnFromDetail({
@@ -746,7 +781,7 @@ export function ImageTable() {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     const id = useSearchStore.getState().focusedImageId;
     if (!id) return;
@@ -763,8 +798,14 @@ export function ImageTable() {
   // position it occupied in the previous density. Falls back to center.
   //
   // Unmount: save the focused row's viewport ratio for the next density.
+  // These are SEPARATE effects because the unmount save must always register
+  // a cleanup — even when focusedImageId is null at mount time. If they were
+  // one effect with an early return, focusing an image AFTER mount would
+  // leave no cleanup registered → no saveFocusRatio → density switch loses
+  // the scroll position (Bug #17).
   // ---------------------------------------------------------------------------
 
+  // Mount: restore scroll position for focused image
   useLayoutEffect(() => {
     const id = focusedImageId;
     if (!id) return;
@@ -784,7 +825,12 @@ export function ImageTable() {
     } else {
       virtualizer.scrollToIndex(idx, { align: "center" });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
+  }, []);
 
+  // Unmount: ALWAYS save the focused image's viewport ratio.
+  // Separate from mount so the cleanup is registered unconditionally.
+  useLayoutEffect(() => {
     return () => {
       const el = parentRef.current;
       if (!el) return;
@@ -796,7 +842,7 @@ export function ImageTable() {
       if (localIdx < 0) return;
       saveFocusRatio((localIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: scroll to persisted focus on density switch
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
   }, []);
 
   // ---------------------------------------------------------------------------

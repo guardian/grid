@@ -94,7 +94,7 @@ port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simult
 
 **Performance:** 36 findings documented. All 5 fix-now items done. Windowed buffer resolved memory/depth issues. Lighthouse: Perf 61 (dev), A11y 94, BP 96. Imgproxy benchmark confirms prefetch is correct mitigation.
 
-**E2E tests:** 54 Playwright tests (all pass, none skipped). `run-e2e.sh` orchestrates Docker ES + data + cleanup. `KupuaHelpers` fixture class. 8 smoke tests for TEST cluster (manual-only, auto-skip on local). Console telemetry capture for algorithmic assertions.
+**E2E tests:** 57 Playwright tests (all pass, none skipped). `run-e2e.sh` orchestrates Docker ES + data + cleanup. `KupuaHelpers` fixture class. 8 smoke tests for TEST cluster (manual-only, auto-skip on local). Console telemetry capture for algorithmic assertions.
 
 ### What's Next
 

@@ -234,6 +234,164 @@ test.describe("Smoke — real ES", () => {
     // At minimum, no error
     expect(store.sortAroundFocusStatus).toBeNull();
   });
+
+  // -------------------------------------------------------------------------
+  // Smoke #8 — Sort-around-focus: focused image preserved in grid view
+  // after sort direction toggle (verifies the in-first-page fix).
+  // -------------------------------------------------------------------------
+
+  test("S8: sort toggle in grid preserves focus and scrolls to image", async ({ kupua }) => {
+    // Use a filtered query so total fits in one page (< PAGE_SIZE=200)
+    await kupua.page.goto("/search?nonFree=true&query=%2Bcategory%3Astaff-photographer");
+    await kupua.waitForResults();
+    // No requireRealData — works at any scale
+
+    // Focus the 5th image
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    console.log(`  [S8] Focused image before toggle: ${focusedId}`);
+    expect(focusedId).not.toBeNull();
+
+    const beforeStore = await kupua.getStoreState();
+    const safGenBefore = beforeStore.seekGeneration; // baseline
+    console.log(`  [S8] Before: total=${beforeStore.total}, len=${beforeStore.resultsLength}, safGen=${safGenBefore}`);
+
+    // Toggle sort direction
+    await kupua.toggleSortDirection();
+    await kupua.page.waitForTimeout(1000);
+
+    const afterStore = await kupua.getStoreState();
+    console.log(`  [S8] After: focused=${afterStore.focusedImageId}, orderBy=${afterStore.orderBy}, error=${afterStore.error}`);
+
+    // The focused image should still be focused after the sort toggle
+    expect(afterStore.error).toBeNull();
+    expect(afterStore.focusedImageId).toBe(focusedId);
+
+    // Verify the image is actually in the buffer at a valid position
+    const focusedPos = await kupua.getFocusedGlobalPosition();
+    console.log(`  [S8] Focused image global position: ${focusedPos}`);
+    expect(focusedPos).toBeGreaterThanOrEqual(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Smoke #9 — Bug #17: density switch after deep scroll preserves focus
+  // ---------------------------------------------------------------------------
+
+  test("S9: table->grid density switch after deep scroll keeps focused image visible", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+    console.log(`  [S9] total=${total}`);
+
+    await kupua.switchToTable();
+
+    // Scroll deep using mousewheel (not programmatic scrollTop).
+    // The real user scrolls with mousewheel which fires many small scroll
+    // events — this may trigger different extend/evict timing than
+    // programmatic scrollTop = scrollHeight.
+    const tableEl = kupua.page.locator('[aria-label="Image results table"]');
+    const tableBox = await tableEl.boundingBox();
+    expect(tableBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      tableBox!.x + tableBox!.width / 2,
+      tableBox!.y + tableBox!.height / 2,
+    );
+    // Scroll aggressively — many large wheel events
+    for (let i = 0; i < 60; i++) {
+      await kupua.page.mouse.wheel(0, 2000);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(2000);
+
+    const preState = await kupua.getStoreState();
+    console.log(`  [S9] After scroll: bufferOffset=${preState.bufferOffset}, len=${preState.resultsLength}`);
+
+    // We need to be deep enough that multiple eviction cycles have occurred.
+    // The bug manifests when bufferOffset is well past BUFFER_CAPACITY (1000).
+    if (preState.bufferOffset < 1000) {
+      console.log(`  [S9] WARNING: only reached bufferOffset=${preState.bufferOffset}, wanted >1000. Bug may not reproduce.`);
+    }
+
+    // Focus an image
+    await kupua.focusNthItem(5);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const globalPos = await kupua.getFocusedGlobalPosition();
+    console.log(`  [S9] Focused: id=${focusedId}, globalPos=${globalPos}`);
+
+    // Capture table scroll diagnostics before switch
+    const tableDiag = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results table"]');
+      if (!el) return null;
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const fid = s.focusedImageId;
+      const gIdx = fid ? s.imagePositions.get(fid) : null;
+      const localIdx = gIdx != null ? gIdx - s.bufferOffset : null;
+      return {
+        scrollTop: el.scrollTop,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        localIdx,
+        rowTop: localIdx != null ? localIdx * 32 : null,
+      };
+    });
+    console.log(`  [S9] Table diag:`, JSON.stringify(tableDiag));
+
+    // Capture console logs from the density switch
+    kupua.startConsoleCapture();
+
+    // Switch to grid
+    await kupua.switchToGrid();
+    await kupua.page.waitForTimeout(800);
+
+    // Dump density-switch diagnostics
+    const mountLogs = kupua.getConsoleLogs(/TABLE-UNMOUNT|GRID-MOUNT/);
+    for (const log of mountLogs) {
+      console.log(`  [S9] ${log}`);
+    }
+
+    // Check focus preserved
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Check visibility
+    const gridDiag = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      const fid = s.focusedImageId;
+      if (!fid) return { error: "no focused image" };
+      const gIdx = s.imagePositions.get(fid);
+      if (gIdx == null) return { error: "not in imagePositions" };
+      const localIdx = gIdx - s.bufferOffset;
+      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      if (!el) return { error: "no grid element", inBuffer, localIdx };
+      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
+      const rowIdx = Math.floor(localIdx / cols);
+      const rowTop = rowIdx * 303;
+      const scrollTop = el.scrollTop;
+      const viewportHeight = el.clientHeight;
+      const scrollHeight = el.scrollHeight;
+      const visible = rowTop >= scrollTop - 303 && rowTop <= scrollTop + viewportHeight + 303;
+
+      // What IS the first visible image?
+      const firstVisibleRow = Math.floor(scrollTop / 303);
+      const firstVisibleImageIdx = firstVisibleRow * cols;
+      const firstVisibleGlobalPos = firstVisibleImageIdx + s.bufferOffset;
+
+      return {
+        inBuffer, localIdx, cols, rowIdx, rowTop,
+        scrollTop, viewportHeight, scrollHeight,
+        visible, firstVisibleGlobalPos,
+        bufferOffset: s.bufferOffset, resultsLength: s.results.length,
+      };
+    });
+    console.log(`  [S9] Grid diag:`, JSON.stringify(gridDiag));
+
+    expect(gridDiag).not.toBeNull();
+    expect(gridDiag!.inBuffer).toBe(true);
+    expect(gridDiag!.visible).toBe(true);
+  });
 });
-
-

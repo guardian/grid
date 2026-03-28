@@ -560,9 +560,22 @@ export class ElasticsearchDataSource implements ImageDataSource {
     pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
+    noSource?: boolean,
+    missingFirst?: boolean,
   ): Promise<SearchAfterResult> {
     const sortClause = buildSortClause(params.orderBy);
-    const effectiveSort = reverse ? reverseSortClause(sortClause) : sortClause;
+    let effectiveSort = reverse ? reverseSortClause(sortClause) : sortClause;
+
+    // missingFirst: override the primary sort field to use missing: "_first".
+    // Needed for reverse-seek-to-end on keyword fields with null values.
+    if (missingFirst && effectiveSort.length > 0) {
+      effectiveSort = effectiveSort.map((clause, idx) => {
+        if (idx !== 0) return clause;
+        const { field, direction, isScript } = parseSortField(clause);
+        if (isScript || !field) return clause;
+        return { [field]: { order: direction, missing: "_first" } };
+      });
+    }
 
     const body: Record<string, unknown> = {
       query: buildQuery(params),
@@ -577,8 +590,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
       body.from = params.offset;
     }
 
-    // _source filtering
-    if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
+    // _source filtering — noSource: true omits all source fields (only sort values needed)
+    if (noSource) {
+      body._source = false;
+    } else if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
       body._source = {
         ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
         ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
@@ -765,6 +780,137 @@ export class ElasticsearchDataSource implements ImageDataSource {
       console.warn("[ES] estimateSortValue failed:", e);
       return null;
     }
+  }
+
+  async findKeywordSortValue(
+    params: SearchParams,
+    field: string,
+    targetPosition: number,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    // Walk through unique keyword values using composite aggregation.
+    // Each page returns up to BUCKET_SIZE buckets with doc_counts.
+    // Accumulate counts until we pass targetPosition.
+    //
+    // Performance: BUCKET_SIZE=10000 (ES allows up to 65536). At 10k
+    // buckets per page, even 100k unique values only need 10 pages.
+    // A time cap (TIME_CAP_MS) ensures we return the best-known value
+    // if the walk is taking too long (e.g. SSH tunnel latency × many pages).
+    const BUCKET_SIZE = Number(
+      import.meta.env.VITE_KEYWORD_SEEK_BUCKET_SIZE ?? 10_000,
+    );
+    const MAX_PAGES = 50;
+    const TIME_CAP_MS = 8_000;
+    const startTime = Date.now();
+    let cumulative = 0;
+    let afterKey: Record<string, unknown> | undefined;
+    // Track the last keyword value we've seen — if we hit the time cap,
+    // this gives an approximate (but usable) seek position.
+    let lastKeywordValue: string | null = null;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      if (signal?.aborted) return null;
+
+      // Time cap: if we've been walking for too long, return the best
+      // value we have so far. An approximate position is far better than
+      // returning null (which falls back to a capped from/size at ~100k).
+      if (page > 0 && Date.now() - startTime > TIME_CAP_MS) {
+        console.warn(
+          `[ES] findKeywordSortValue: time cap hit after ${page} pages ` +
+          `(${Date.now() - startTime}ms). Returning approximate value at ` +
+          `cumulative=${cumulative} (target=${targetPosition}).`,
+        );
+        return lastKeywordValue;
+      }
+
+      const composite: Record<string, unknown> = {
+        sources: [
+          { _sort_field: { terms: { field, order: direction } } },
+        ],
+        size: BUCKET_SIZE,
+      };
+      if (afterKey) {
+        composite.after = afterKey;
+      }
+
+      const body: Record<string, unknown> = {
+        size: 0,
+        query: buildQuery(params),
+        aggs: { pos: { composite } },
+        track_total_hits: false,
+      };
+
+      try {
+        const result = (await this.esRequest("_search", body, signal)) as {
+          aggregations?: {
+            pos?: {
+              after_key?: Record<string, unknown>;
+              buckets?: Array<{ key: Record<string, unknown>; doc_count: number }>;
+            };
+          };
+        };
+
+        const buckets = result.aggregations?.pos?.buckets;
+        if (!buckets || buckets.length === 0) {
+          // Composite returned no buckets. If we've accumulated some counts
+          // but haven't reached the target, the remaining docs likely have
+          // null/missing keyword values (composite skips nulls by default).
+          // Return the last known value — search_after from there lands at
+          // the boundary between valued and null docs, then countBefore
+          // determines the exact offset.
+          console.log(
+            `[ES] findKeywordSortValue: exhausted (empty) at page ${page} ` +
+            `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
+            `target=${targetPosition}). Returning lastKeywordValue.`,
+          );
+          return lastKeywordValue;
+        }
+
+        for (const bucket of buckets) {
+          const nextCumulative = cumulative + bucket.doc_count;
+          if (nextCumulative > targetPosition) {
+            // Target position falls within this bucket.
+            const value = String(bucket.key._sort_field);
+            console.log(
+              `[ES] findKeywordSortValue: found "${value}" at page ${page} ` +
+              `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
+              `target=${targetPosition}).`,
+            );
+            return value;
+          }
+          cumulative = nextCumulative;
+          lastKeywordValue = String(bucket.key._sort_field);
+        }
+
+        // Check if there are more pages
+        afterKey = result.aggregations?.pos?.after_key;
+        if (!afterKey || buckets.length < BUCKET_SIZE) {
+          // No more pages. If cumulative < targetPosition, the remaining
+          // docs have null/missing values for this keyword field (composite
+          // agg skips nulls). Return the last keyword value — search_after
+          // from there puts us at the valued→null boundary, close to target.
+          console.log(
+            `[ES] findKeywordSortValue: no more pages at page ${page} ` +
+            `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
+            `target=${targetPosition}). Returning lastKeywordValue.`,
+          );
+          return lastKeywordValue;
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return null;
+        console.warn("[ES] findKeywordSortValue failed:", e);
+        return null;
+      }
+    }
+
+    // Exceeded MAX_PAGES — return approximate value if available
+    console.warn(
+      `[ES] findKeywordSortValue: exceeded ${MAX_PAGES} pages ` +
+      `(${Date.now() - startTime}ms, cumulative=${cumulative}). ` +
+      `Returning approximate value.`,
+    );
+    return lastKeywordValue;
   }
 }
 

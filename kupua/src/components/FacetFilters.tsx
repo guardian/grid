@@ -27,7 +27,7 @@ import type { AggregationBucket } from "@/dal";
 
 /** Aggregatable fields from the registry, ordered for display. */
 const FACET_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY.filter(
-  (f) => f.aggregatable && f.sortKey,
+  (f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string",
 );
 
 /** Max buckets shown before "show more" (matches AGG_DEFAULT_SIZE in store). */
@@ -137,11 +137,11 @@ export function FacetFilters() {
         <FacetSection
           key={field.id}
           field={field}
-          buckets={aggregations?.fields[field.sortKey!]?.buckets ?? []}
-          expandedBuckets={expandedAggs[field.sortKey!]?.buckets}
-          expandedLoading={expandedAggsLoading.has(field.sortKey!)}
-          onShowMore={() => fetchExpandedAgg(field.sortKey!)}
-          onCollapse={() => collapseExpandedAgg(field.sortKey!)}
+          buckets={aggregations?.fields[field.esSearchPath as string]?.buckets ?? []}
+          expandedBuckets={expandedAggs[field.esSearchPath as string]?.buckets}
+          expandedLoading={expandedAggsLoading.has(field.esSearchPath as string)}
+          onShowMore={() => fetchExpandedAgg(field.esSearchPath as string)}
+          onCollapse={() => collapseExpandedAgg(field.esSearchPath as string)}
           currentQuery={currentQuery}
           onFacetClick={handleFacetClick}
         />
