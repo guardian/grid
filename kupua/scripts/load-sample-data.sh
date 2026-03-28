@@ -74,9 +74,23 @@ until curl -sf "${ES_URL}/_cluster/health" > /dev/null 2>&1; do
 done
 echo -e "${green}Elasticsearch is up!${plain}"
 
+# --- Wait for shards to be ready (yellow = primaries allocated) ---
+# After container restart, _cluster/health responds before shard recovery finishes.
+# _count / _search will fail with 503 until at least yellow status.
+retry=0
+until curl -sf "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=2s" > /dev/null 2>&1; do
+  retry=$((retry + 1))
+  if [ $retry -ge 15 ]; then
+    echo -e "${yellow}  Warning: cluster not yet yellow after 30s — proceeding anyway${plain}"
+    break
+  fi
+  printf "  Waiting for shard recovery... (%d/15)\r" "$retry"
+  sleep 2
+done
+
 # --- Check if index already exists ---
 if curl -sf "${ES_URL}/${INDEX_NAME}" > /dev/null 2>&1; then
-  DOC_COUNT=$(curl -sf "${ES_URL}/${INDEX_NAME}/_count" | python3 -c "import sys,json; print(json.load(sys.stdin)['count'])")
+  DOC_COUNT=$(curl -sf "${ES_URL}/${INDEX_NAME}/_count" | python3 -c "import sys,json; d=sys.stdin.read().strip(); print(json.loads(d)['count'] if d else 0)" 2>/dev/null || echo "0")
   echo -e "${yellow}Index '${INDEX_NAME}' already exists with ${DOC_COUNT} documents.${plain}"
   read -p "  Delete and recreate? [y/N] " -n 1 -r
   echo
@@ -133,7 +147,12 @@ body = {
             }
         },
         'index': {
-            'mapping.total_fields.limit': 2147483647
+            'mapping.total_fields.limit': 2147483647,
+            # Lower max_result_window so e2e tests exercise the deep seek path
+            # (percentile estimation + search_after + countBefore) with only 10k docs.
+            # Default ES value is 10000; with 500 any scrub past position ~500
+            # must use the deep path — covering ~95% of the 10k dataset.
+            'max_result_window': 500
         }
     },
     'mappings': mappings
@@ -229,7 +248,7 @@ done
 echo -e "${yellow}Refreshing index...${plain}"
 curl -sf -X POST "${ES_URL}/${INDEX_NAME}/_refresh" > /dev/null
 
-FINAL_COUNT=$(curl -sf "${ES_URL}/${INDEX_NAME}/_count" | python3 -c "import sys,json; print(json.load(sys.stdin)['count'])")
+FINAL_COUNT=$(curl -sf "${ES_URL}/${INDEX_NAME}/_count" | python3 -c "import sys,json; d=sys.stdin.read().strip(); print(json.loads(d)['count'] if d else '?')" 2>/dev/null || echo "?")
 echo ""
 echo -e "${green}========================================${plain}"
 echo -e "${green}  Done! Loaded ${FINAL_COUNT} documents into '${INDEX_NAME}'${plain}"

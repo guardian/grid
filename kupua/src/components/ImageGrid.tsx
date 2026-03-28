@@ -172,7 +172,7 @@ const GridCell = memo(function GridCell({
 
 export function ImageGrid() {
   const {
-    results, total, virtualizerCount, loadMore,
+    results, total, bufferOffset, virtualizerCount, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
   } = useDataWindow();
@@ -243,11 +243,15 @@ export function ImageGrid() {
     // Prefer the focused image as anchor
     const fid = focusedImageIdRef.current;
     if (fid) {
-      const idx = useSearchStore.getState().imagePositions.get(fid);
-      if (idx != null && idx >= 0) {
-        const rowTop = Math.floor(idx / cols) * ROW_HEIGHT;
-        const ratio = (rowTop - el.scrollTop) / el.clientHeight;
-        return { imageIndex: idx, viewportRatio: ratio };
+      const { imagePositions, bufferOffset } = useSearchStore.getState();
+      const globalIdx = imagePositions.get(fid);
+      if (globalIdx != null && globalIdx >= 0) {
+        const localIdx = globalIdx - bufferOffset;
+        if (localIdx >= 0) {
+          const rowTop = Math.floor(localIdx / cols) * ROW_HEIGHT;
+          const ratio = (rowTop - el.scrollTop) / el.clientHeight;
+          return { imageIndex: localIdx, viewportRatio: ratio };
+        }
       }
     }
 
@@ -313,13 +317,13 @@ export function ImageGrid() {
     (imageId: string) => {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
-      if (idx >= 0) storeImageOffset(imageId, idx, buildSearchKey(searchParams));
+      if (idx >= 0) storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParams));
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, searchParams],
+    [navigate, setFocusedImageId, findImageIndex, searchParams, bufferOffset],
   );
 
   // -------------------------------------------------------------------------
@@ -358,6 +362,41 @@ export function ImageGrid() {
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
+
+  // After buffer changes (seek / search / extend), the virtualizer re-renders
+  // but scrollTop may not change, so no scroll event fires. Manually refresh
+  // the visible range so the Scrubber thumb stays in sync.
+  useEffect(() => {
+    handleScroll();
+  }, [bufferOffset, results.length, handleScroll]);
+
+  // Backward extend scroll compensation: when items are prepended to the
+  // buffer, adjust scrollTop to prevent content shift (same as ImageTable).
+  // Uses useLayoutEffect to adjust before paint — prevents visible flicker.
+  const prependGeneration = useSearchStore((s) => s._prependGeneration);
+  const lastPrependCount = useSearchStore((s) => s._lastPrependCount);
+  const prevPrependGenRef = useRef(prependGeneration);
+  useLayoutEffect(() => {
+    if (prependGeneration === prevPrependGenRef.current) return;
+    prevPrependGenRef.current = prependGeneration;
+    const el = parentRef.current;
+    if (!el || lastPrependCount <= 0) return;
+    // Prepended items add rows = ceil(count / columns)
+    const prependedRows = Math.ceil(lastPrependCount / columns);
+    el.scrollTop += prependedRows * ROW_HEIGHT;
+  }, [prependGeneration, lastPrependCount, columns]);
+
+  // Scroll to target position after seek (same as ImageTable).
+  const seekGeneration = useSearchStore((s) => s._seekGeneration);
+  const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
+  const prevSeekGenRef = useRef(seekGeneration);
+  useLayoutEffect(() => {
+    if (seekGeneration === prevSeekGenRef.current) return;
+    prevSeekGenRef.current = seekGeneration;
+    const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
+    const rowIdx = Math.floor(targetIdx / columns);
+    virtualizer.scrollToIndex(rowIdx, { align: "start" });
+  }, [seekGeneration, seekTargetLocalIndex, virtualizer, columns]);
 
   // -------------------------------------------------------------------------
   // Scroll reset on search param change
@@ -402,6 +441,21 @@ export function ImageGrid() {
     flatIndexToRow: (idx) => Math.floor(idx / columns),
   });
 
+  // Sort-around-focus: scroll to the focused image at its new position.
+  const sortAroundFocusGeneration = useSearchStore(
+    (s) => s.sortAroundFocusGeneration,
+  );
+  useEffect(() => {
+    if (sortAroundFocusGeneration === 0) return;
+    const id = useSearchStore.getState().focusedImageId;
+    if (!id) return;
+    const idx = findImageIndex(id);
+    if (idx >= 0) {
+      const rowIdx = Math.floor(idx / columns);
+      virtualizer.scrollToIndex(rowIdx, { align: "center" });
+    }
+  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, columns]);
+
   // -------------------------------------------------------------------------
   // Preserve focused item's viewport position across density switches.
   //
@@ -444,12 +498,14 @@ export function ImageGrid() {
       // Save viewport ratio on unmount for the next density to consume
       const el = parentRef.current;
       if (!el) return;
-      const { focusedImageId: fid, imagePositions } = useSearchStore.getState();
+      const { focusedImageId: fid, imagePositions, bufferOffset } = useSearchStore.getState();
       if (!fid) return;
-      const fIdx = imagePositions.get(fid) ?? -1;
-      if (fIdx < 0) return;
+      const globalIdx = imagePositions.get(fid) ?? -1;
+      if (globalIdx < 0) return;
+      const localIdx = globalIdx - bufferOffset;
+      if (localIdx < 0) return;
       const c = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
-      const fRowTop = Math.floor(fIdx / c) * ROW_HEIGHT;
+      const fRowTop = Math.floor(localIdx / c) * ROW_HEIGHT;
       saveFocusRatio((fRowTop - el.scrollTop) / el.clientHeight);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: scroll to persisted focus on density switch
@@ -476,6 +532,8 @@ export function ImageGrid() {
     onEnter: handleCellDoubleClick,
     imageParam: searchParams.image,
     flatIndexToRow: (idx) => Math.floor(idx / columns),
+    bufferOffset,
+    seek,
   });
 
   // -------------------------------------------------------------------------
@@ -489,7 +547,7 @@ export function ImageGrid() {
       ref={parentRef}
       role="region"
       aria-label="Image results grid"
-      className="flex-1 min-w-0 overflow-auto pt-1"
+      className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1"
     >
       <div
         style={{ height: virtualizer.getTotalSize() }}

@@ -35,6 +35,8 @@ interface PanelLayoutProps {
   leftPanel?: ReactNode;
   /** Content for the right panel (e.g. metadata). Rendered when right panel is visible. */
   rightPanel?: ReactNode;
+  /** Optional scrubber element rendered on the right edge of the content area. */
+  scrubber?: ReactNode;
   /** Main content (grid or table). Always rendered. */
   children: ReactNode;
 }
@@ -169,7 +171,7 @@ function ResizeHandle({ side, panelRef }: ResizeHandleProps) {
 // PanelLayout — main component
 // ---------------------------------------------------------------------------
 
-export function PanelLayout({ leftPanel, rightPanel, children }: PanelLayoutProps) {
+export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: PanelLayoutProps) {
   const leftVisible = usePanelStore((s) => s.config.left.visible);
   const leftWidth = usePanelStore((s) => s.config.left.width);
   const rightVisible = usePanelStore((s) => s.config.right.visible);
@@ -208,9 +210,12 @@ export function PanelLayout({ leftPanel, rightPanel, children }: PanelLayoutProp
         </>
       )}
 
-      {/* Main content — fills remaining space */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {children}
+      {/* Main content — fills remaining space. Scrubber sits on the right edge. */}
+      <div className="flex-1 min-w-0 flex overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          {children}
+        </div>
+        {scrubber}
       </div>
 
       {/* Right panel */}

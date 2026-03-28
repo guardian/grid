@@ -1,32 +1,82 @@
 /**
- * Main application store.
+ * Main application store — windowed buffer architecture.
  *
- * Manages search params, results, loading state, and the data source.
+ * Manages search params, results buffer, loading state, and the data source.
  * URL sync is handled by the useUrlSearchSync hook (URL → store → search).
  *
- * Results are stored as a dense array starting at offset 0. The `loadMore`
- * action appends pages sequentially. The `loadRange` action fetches an
- * arbitrary offset range and fills specific indices (extending the array
- * with undefined gaps if needed — the `useDataWindow` hook handles gap
- * detection and placeholder rendering).
+ * Results are stored in a fixed-capacity windowed buffer. `bufferOffset` maps
+ * buffer[0] to a global position in the result set. The buffer slides as the
+ * user scrolls — `extendForward` and `extendBackward` fetch pages via
+ * `search_after` cursors, and old entries are evicted to keep memory bounded.
+ *
+ * For random access (scrubber, sort-around-focus), `seek()` clears the buffer
+ * and refills at the target position using `from/size` (≤100k) or
+ * `search_after` with sort-value estimation (>100k).
+ *
+ * PIT (Point In Time) is used on non-local ES for pagination consistency.
+ * On local ES (stable 10k dataset), PIT is skipped — search_after still works
+ * but without snapshot isolation.
  */
 
 import { create } from "zustand";
 import type { Image } from "@/types/image";
-import type { ImageDataSource, SearchParams, AggregationsResult, AggregationResult } from "@/dal";
-import { ElasticsearchDataSource } from "@/dal";
+import type {
+  ImageDataSource,
+  SearchParams,
+  SortValues,
+  AggregationsResult,
+  AggregationResult,
+} from "@/dal";
+import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
+import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 
-/** How often to poll for new images (ms). */
-const NEW_IMAGES_POLL_INTERVAL = 10_000;
+// ---------------------------------------------------------------------------
+// Buffer constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum number of images in the buffer at any time.
+ * At ~5-10KB per image: 5-10MB. Comfortable for any device.
+ * Provides ~10 screens of overscan at typical viewport heights.
+ */
+const BUFFER_CAPACITY = 1000;
+
+/**
+ * Number of images to fetch per extend (forward or backward).
+ * Smaller than BUFFER_CAPACITY so extends don't replace the entire buffer.
+ */
+const PAGE_SIZE = 200;
 
 /**
  * Maximum number of rows addressable via `from/size` pagination.
- * Matches the ES `max_result_window` on TEST/PROD (101,000).
- * Local docker ES uses the default 10,000 — `loadRange` will fail
- * gracefully if offset exceeds the window.
+ *
+ * Must match the ES index's `max_result_window` setting.
+ * Real clusters (TEST/PROD): 101,000 (custom setting).
+ * Local docker ES: 500 (deliberately low so e2e tests exercise the deep
+ * seek path with only 10k docs — see load-sample-data.sh).
+ *
+ * Configurable via VITE_MAX_RESULT_WINDOW env var (set in .env).
  */
-const MAX_RESULT_WINDOW = 100_000;
+const MAX_RESULT_WINDOW = Number(
+  import.meta.env.VITE_MAX_RESULT_WINDOW ?? 100_000,
+);
+
+/**
+ * Threshold above which seek uses the deep path (percentile estimation +
+ * search_after + countBefore) instead of from/size. Set well below
+ * MAX_RESULT_WINDOW because from/size at large offsets is painfully slow
+ * (~1-3s on real clusters) — ES must score and skip all preceding docs.
+ * The deep path is ~20-70ms regardless of depth.
+ *
+ * Configurable via VITE_DEEP_SEEK_THRESHOLD env var (set in .env).
+ */
+const DEEP_SEEK_THRESHOLD = Number(
+  import.meta.env.VITE_DEEP_SEEK_THRESHOLD ?? 10_000,
+);
+
+/** How often to poll for new images (ms). */
+const NEW_IMAGES_POLL_INTERVAL = 10_000;
 
 // ---------------------------------------------------------------------------
 // Aggregation constants
@@ -49,113 +99,169 @@ const AGG_FIELDS = FIELD_REGISTRY
   .filter((f) => f.aggregatable && f.sortKey)
   .map((f) => ({ field: f.sortKey!, size: AGG_DEFAULT_SIZE }));
 
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
+
 interface SearchState {
   // Data source (swappable between ES and Grid API)
   dataSource: ImageDataSource;
 
   // Search state
   params: SearchParams;
-  results: Image[];
+  /**
+   * Windowed buffer of loaded images. Dense array, max BUFFER_CAPACITY entries.
+   * May contain `undefined` gaps during loading (same as the old sparse array).
+   * buffer[0] corresponds to global position `bufferOffset`.
+   */
+  results: (Image | undefined)[];
+  /** Global offset of buffer[0] in the full result set. */
+  bufferOffset: number;
   total: number;
   loading: boolean;
   error: string | null;
 
-  /** ES query time in ms from the most recent primary search (not loadMore/loadRange). */
+  /** ES query time in ms from the most recent primary search. */
   took: number | null;
-
-  /** Rolling average of recent loadRange ES times (ms). Updated every few loads. */
+  /** Rolling average of recent extend ES times (ms). */
   scrollAvg: number | null;
 
-  // O(1) image ID → index lookup, maintained incrementally.
+  // O(1) image ID → global index lookup, maintained incrementally.
   imagePositions: Map<string, number>;
+
+  // Cursors for search_after pagination
+  /** Sort values of the first buffer entry — for backward extend. */
+  startCursor: SortValues | null;
+  /** Sort values of the last buffer entry — for forward extend. */
+  endCursor: SortValues | null;
+
+  /** PIT ID for consistent pagination (null on local ES or before first search). */
+  pitId: string | null;
 
   // Focus
   focusedImageId: string | null;
+
+  /** Non-null while sort-around-focus is finding the image's new position. */
+  sortAroundFocusStatus: string | null;
+  /**
+   * Incremented each time sort-around-focus completes and sets focusedImageId.
+   * Views watch this to scroll to the focused image at its new position.
+   */
+  sortAroundFocusGeneration: number;
 
   // New images ticker
   newCount: number;
   newCountSince: string | null;
 
-  // Result set freezing
+  // Result set freezing (used when PIT is not active — local ES)
   frozenUntil: string | null;
 
-  // Track which ranges are currently being fetched to avoid duplicate requests
-  _inflight: Set<string>;
-  _failedRanges: Set<string>;
+  // Track in-flight extend operations to avoid duplicates
+  _extendForwardInFlight: boolean;
+  _extendBackwardInFlight: boolean;
 
-  // --- Aggregation state ---
-  /** Cached aggregation results, keyed by field path. */
+  /**
+   * Number of items prepended by the most recent backward extend.
+   * Incremented as a generation counter (not reset to 0) so views can
+   * detect the change via useEffect. Views must adjust scrollTop by
+   * `prependCount * rowHeight` to prevent content shift.
+   */
+  _lastPrependCount: number;
+  /** Generation counter — bumped on every backward extend for change detection. */
+  _prependGeneration: number;
+
+  /**
+   * Generation counter — bumped on every seek (and sort-around-focus reposition).
+   * Views watch this to reset scrollTop after the buffer is replaced.
+   * The buffer-local target index is stored in `_seekTargetLocalIndex`
+   * so views can scroll to the right position (not always 0).
+   */
+  _seekGeneration: number;
+  /**
+   * Buffer-local index the seek targeted. Views should scroll here after
+   * the seek completes. -1 means "scroll to 0" (default).
+   */
+  _seekTargetLocalIndex: number;
+
+  // --- Aggregation state (unchanged from before) ---
   aggregations: AggregationsResult | null;
-  /** ES took time for the most recent agg request. */
   aggTook: number | null;
-  /** True while an aggregation request is in flight. */
   aggLoading: boolean;
-  /** Circuit breaker tripped — auto-fetch disabled until manual refresh succeeds. */
   aggCircuitOpen: boolean;
-  /**
-   * Hash of the SearchParams that produced the cached aggregations.
-   * If the current params hash differs, the cache is stale.
-   */
   _aggCacheKey: string | null;
-
-  /**
-   * Per-field expanded aggregation results (from "show more").
-   * Keyed by ES field path. These are fetched on-demand, separately from
-   * the batch, at a larger bucket size (AGG_EXPANDED_SIZE).
-   * Cleared when the query changes (new _aggCacheKey).
-   */
   expandedAggs: Record<string, AggregationResult>;
-  /** Fields currently being fetched for expansion. */
   expandedAggsLoading: Set<string>;
 
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
-  search: () => Promise<void>;
+  /**
+   * Run a new search. If `sortAroundFocusId` is provided, attempts to find
+   * that image's position in the new results and seek to it after the
+   * initial page loads. Used for sort-around-focus ("Never Lost").
+   */
+  search: (sortAroundFocusId?: string | null) => Promise<void>;
+  /**
+   * Extend the buffer forward (append pages after the current end).
+   * Uses search_after with endCursor. Evicts from start if over capacity.
+   */
+  extendForward: () => Promise<void>;
+  /**
+   * Extend the buffer backward (prepend pages before the current start).
+   * Uses reverse search_after with startCursor. Evicts from end if over capacity.
+   */
+  extendBackward: () => Promise<void>;
+  /**
+   * Seek to a global offset — clear buffer and refill at the target position.
+   * Used by scrubber drags and sort-around-focus.
+   */
+  seek: (globalOffset: number) => Promise<void>;
+
+  // Legacy compatibility — thin wrappers over extend/seek
+  /** @deprecated Use extendForward instead. Kept for view compatibility during migration. */
   loadMore: () => Promise<void>;
+  /** @deprecated Use seek instead. Kept for ImageDetail offset restore during migration. */
   loadRange: (start: number, end: number) => Promise<void>;
+
   setFocusedImageId: (id: string | null) => void;
-  /**
-   * Fetch aggregations for the current search params.
-   * Called when Filters section is expanded or after a search completes
-   * while Filters is already expanded. Respects cache and circuit breaker.
-   * @param force — bypass cache + circuit breaker (manual refresh button).
-   */
   fetchAggregations: (force?: boolean) => Promise<void>;
-  /**
-   * Fetch an expanded aggregation for a single field (on-demand "show more").
-   * Fires a separate single-field request at AGG_EXPANDED_SIZE.
-   * Result stored in expandedAggs[field] and cleared on next search.
-   */
   fetchExpandedAgg: (field: string) => Promise<void>;
-  /**
-   * Collapse an expanded field back to the default bucket count.
-   * Removes the entry from expandedAggs.
-   */
   collapseExpandedAgg: (field: string) => void;
 }
 
+// ---------------------------------------------------------------------------
+// Module-level state (not in Zustand — avoids re-renders)
+// ---------------------------------------------------------------------------
+
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
-/** Module-level flag to prevent concurrent loadMore without triggering re-renders */
-let _loadMoreInFlight = false;
 
 /**
- * Generation-based abort for loadRange requests.
+ * Generation-based abort for extend/seek requests.
+ * search() aborts all in-flight extends from the previous search.
  */
 let _rangeAbortController = new AbortController();
 
-/** Rolling window of recent loadRange ES took values for computing scrollAvg. */
+/**
+ * Cooldown timestamp after a seek. Extends are suppressed until this time
+ * to prevent a cascade of backward extends when the virtualizer starts at
+ * scrollTop=0 after a seek (visible range [0..20], bufferOffset > 0 →
+ * extendBackward fires repeatedly until bufferOffset reaches 0).
+ * The cooldown gives the view time to settle at the correct position.
+ */
+let _seekCooldownUntil = 0;
+
+/** Rolling window of recent extend ES took values for computing scrollAvg. */
 const _scrollTookWindow: number[] = [];
 const SCROLL_TOOK_WINDOW_SIZE = 10;
-
-// ---------------------------------------------------------------------------
-// Aggregation module-level state
-// ---------------------------------------------------------------------------
 
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /**
  * Compute a cache key from SearchParams that affect the result set.
@@ -179,12 +285,6 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
     try {
-      // Use whichever is later: the user's date filter or our poll timestamp.
-      // If the user filtered to "since 2026-06-01" and the last search was at
-      // 2026-06-15T10:00:00Z, we want images since 2026-06-15T10:00:00Z that
-      // also match the user's filter.  If the user's since is *after* our
-      // poll timestamp we keep the user's — everything before it is already
-      // excluded by their filter anyway.
       const since =
         params.since && params.since > newCountSince
           ? params.since
@@ -212,10 +312,10 @@ function stopNewImagesPoll() {
 
 /**
  * Build an imagePositions Map from a hits array starting at `offset`.
- * Used for full rebuilds (search) and incremental updates (loadMore, loadRange).
+ * Used for full rebuilds (search) and incremental updates (extend).
  */
 function buildPositions(
-  hits: Image[],
+  hits: (Image | undefined)[],
   offset: number,
   existing?: Map<string, number>,
 ): Map<string, number> {
@@ -229,17 +329,224 @@ function buildPositions(
   return map;
 }
 
+/**
+ * Remove positions for images in a given global index range from the Map.
+ * Used during eviction to keep imagePositions accurate.
+ */
+function evictPositions(
+  map: Map<string, number>,
+  buffer: (Image | undefined)[],
+  evictStart: number,  // buffer-local start index
+  evictEnd: number,    // buffer-local end index (exclusive)
+): Map<string, number> {
+  const newMap = new Map(map);
+  for (let i = evictStart; i < evictEnd; i++) {
+    const img = buffer[i];
+    if (img?.id) {
+      newMap.delete(img.id);
+    }
+  }
+  return newMap;
+}
+
+/**
+ * Update the scrollAvg rolling average and return the new value (or null).
+ * Only returns a value if it changed (to avoid unnecessary state updates).
+ */
+function updateScrollAvg(took: number | undefined, currentAvg: number | null): { scrollAvg: number | null } | {} {
+  if (took == null) return {};
+  _scrollTookWindow.push(took);
+  if (_scrollTookWindow.length > SCROLL_TOOK_WINDOW_SIZE) _scrollTookWindow.shift();
+  const avg = Math.round(_scrollTookWindow.reduce((a, b) => a + b, 0) / _scrollTookWindow.length);
+  return avg !== currentAvg ? { scrollAvg: avg } : {};
+}
+
+// ---------------------------------------------------------------------------
+// Sort-around-focus — async find-and-seek after sort change
+// ---------------------------------------------------------------------------
+
+/**
+ * After a sort change, asynchronously find a specific image's new position
+ * and seek to it. This runs after the initial search has completed and
+ * results are showing at position 0. Non-blocking — the user sees fresh
+ * results immediately; this work happens in the background.
+ *
+ * Algorithm:
+ * 1. Fetch image by ID with current sort to get its sort[] values.
+ * 2. countBefore query → exact global offset.
+ * 3. If offset is within the current buffer → just focus + scroll. Done.
+ * 4. If outside → use searchAfter directly with the image's sort values
+ *    (NOT seek(), which uses imprecise percentile estimation for deep
+ *    positions). This guarantees the image is near the start of the
+ *    fetched page.
+ * 5. Graceful degradation: any failure → stay at top, clear status.
+ */
+async function _findAndFocusImage(
+  imageId: string,
+  params: SearchParams,
+  signal: AbortSignal,
+  get: () => SearchState,
+  set: (s: Partial<SearchState>) => void,
+): Promise<void> {
+  const { dataSource } = get();
+
+  set({ sortAroundFocusStatus: "Finding image…" });
+
+  // Timeout: if the whole process takes longer than 8s, give up gracefully.
+  // This prevents "Seeking... forever" if ES is slow or queries are expensive.
+  const timeoutId = setTimeout(() => {
+    console.warn("[sort-around-focus] Timed out after 8s");
+    set({ sortAroundFocusStatus: null });
+  }, 8000);
+
+  try {
+    // Step 1: Search for this specific image with the current sort to get
+    // both the image and its sort[] values in one request.
+    if (signal.aborted) return;
+    const sortClause = buildSortClause(params.orderBy);
+    const sortResult = await dataSource.searchAfter(
+      { ...params, ids: imageId, length: 1 },
+      null,
+      null,
+      signal,
+    );
+
+    if (signal.aborted) return;
+    if (sortResult.hits.length === 0 || sortResult.sortValues.length === 0) {
+      // Image not in results (maybe filtered out) — degrade gracefully
+      set({ sortAroundFocusStatus: null });
+      return;
+    }
+
+    const targetHit = sortResult.hits[0];
+    const imageSortValues = sortResult.sortValues[0];
+
+    // Step 2: countBefore → exact global offset
+    if (signal.aborted) return;
+    const offset = await dataSource.countBefore(
+      params,
+      imageSortValues,
+      sortClause,
+      signal,
+    );
+
+    if (signal.aborted) return;
+
+    // Step 3: Check if the offset is within the current buffer
+    const { bufferOffset, results } = get();
+    const bufferEnd = bufferOffset + results.length;
+    const isInBuffer = offset >= bufferOffset && offset < bufferEnd;
+
+    if (isInBuffer) {
+      // Image is in the buffer — just focus it
+      set({
+        focusedImageId: imageId,
+        sortAroundFocusStatus: null,
+        sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+      });
+    } else {
+      // Outside buffer — fetch a page directly using the image's sort
+      // values as the search_after cursor. This lands us right after
+      // the target image (search_after is exclusive). We'll also fetch
+      // backward to get items before it, centering the image in the buffer.
+      set({ sortAroundFocusStatus: "Seeking…" });
+
+      // Abort any in-flight extends from the previous search and create
+      // a fresh controller for our own requests. Note: this aborts the
+      // parent `signal` (which came from the same controller), so we must
+      // NOT check `signal.aborted` after this point — only `seekSignal`.
+      _rangeAbortController.abort();
+      _rangeAbortController = new AbortController();
+      const seekSignal = _rangeAbortController.signal;
+
+      // Forward page: items after the target image
+      const forwardResult = await dataSource.searchAfter(
+        { ...params, length: Math.floor(PAGE_SIZE / 2) },
+        imageSortValues,
+        get().pitId,
+        seekSignal,
+      );
+      if (seekSignal.aborted) return;
+
+      // Backward page: items before the target image
+      const backwardResult = await dataSource.searchAfter(
+        { ...params, length: Math.floor(PAGE_SIZE / 2) },
+        imageSortValues,
+        get().pitId,
+        seekSignal,
+        true, // reverse
+      );
+      if (seekSignal.aborted) return;
+
+      // Combine: backward hits + target image + forward hits
+      // The target image itself is NOT in either result (search_after is exclusive).
+      const combinedHits: (Image | undefined)[] = [
+        ...backwardResult.hits,
+        targetHit,
+        ...forwardResult.hits,
+      ];
+      const combinedSortValues: SortValues[] = [
+        ...backwardResult.sortValues,
+        imageSortValues,
+        ...forwardResult.sortValues,
+      ];
+
+      const bufferStart = Math.max(0, offset - backwardResult.hits.length);
+      // The target image is right after the backward hits
+      const targetLocalIdx = backwardResult.hits.length;
+      const startCursor = combinedSortValues.length > 0
+        ? combinedSortValues[0]
+        : null;
+      const endCursor = combinedSortValues.length > 0
+        ? combinedSortValues[combinedSortValues.length - 1]
+        : null;
+
+      _seekCooldownUntil = Date.now() + 500;
+
+      set({
+        results: combinedHits,
+        bufferOffset: bufferStart,
+        total: forwardResult.total,
+        loading: false,
+        imagePositions: buildPositions(combinedHits, bufferStart),
+        startCursor,
+        endCursor,
+        pitId: forwardResult.pitId ?? get().pitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        _seekGeneration: get()._seekGeneration + 1,
+        _seekTargetLocalIndex: targetLocalIdx,
+        focusedImageId: imageId,
+        sortAroundFocusStatus: null,
+        sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+      });
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    // Any failure → degrade gracefully (stay at top)
+    console.warn("[sort-around-focus] Failed to find image:", e);
+    set({ sortAroundFocusStatus: null });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
+
 export const useSearchStore = create<SearchState>((set, get) => ({
   dataSource: new ElasticsearchDataSource(),
 
   params: {
     query: undefined,
     offset: 0,
-    length: 50,
+    length: PAGE_SIZE,
     orderBy: "-uploadTime",
     nonFree: "true",
   },
   results: [],
+  bufferOffset: 0,
   total: 0,
   loading: false,
   error: null,
@@ -248,13 +555,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   imagePositions: new Map(),
 
+  startCursor: null,
+  endCursor: null,
+  pitId: null,
+
   focusedImageId: null,
+  sortAroundFocusStatus: null,
+  sortAroundFocusGeneration: 0,
 
   newCount: 0,
   newCountSince: null,
   frozenUntil: null,
-  _inflight: new Set(),
-  _failedRanges: new Set(),
+  _extendForwardInFlight: false,
+  _extendBackwardInFlight: false,
+  _lastPrependCount: 0,
+  _prependGeneration: 0,
+  _seekGeneration: 0,
+  _seekTargetLocalIndex: -1,
 
   // Aggregation state
   aggregations: null,
@@ -273,205 +590,564 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   setFocusedImageId: (id) => set({ focusedImageId: id }),
 
-  search: async () => {
-    const { dataSource, params } = get();
-    set({ loading: true, error: null });
+  search: async (sortAroundFocusId?: string | null) => {
+    const { dataSource, params, pitId: oldPitId } = get();
+    set({ loading: true, error: null, sortAroundFocusStatus: null });
 
-    // Abort all in-flight loadRange requests from the previous search.
-    // They're for stale offsets — responses would be discarded anyway,
-    // but cancelling frees up browser connections for the new search.
+    // Abort all in-flight extends from the previous search
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
+    const signal = _rangeAbortController.signal;
+
+    // Close old PIT (fire-and-forget)
+    if (oldPitId) {
+      dataSource.closePit(oldPitId);
+    }
 
     try {
-      const result = await dataSource.search({ ...params, offset: 0 });
+      // Open a new PIT on non-local ES for consistent pagination
+      let newPitId: string | null = null;
+      if (!IS_LOCAL_ES) {
+        try {
+          newPitId = await dataSource.openPit("5m");
+        } catch (e) {
+          console.warn("[search] Failed to open PIT, proceeding without:", e);
+        }
+      }
+
+      // Initial search — use searchAfter (first page, no cursor)
+      const result = await dataSource.searchAfter(
+        { ...params, length: PAGE_SIZE },
+        null, // no cursor — first page
+        newPitId,
+      );
+
       const now = new Date().toISOString();
       _scrollTookWindow.length = 0;
+
+      // Extract cursors from sort values
+      const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
+      const endCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+
+      // Check if the focused image landed in the first page
+      const focusedInFirstPage = sortAroundFocusId
+        ? result.hits.some((img) => img?.id === sortAroundFocusId)
+        : false;
+
       set({
         results: result.hits,
+        bufferOffset: 0,
         total: result.total,
         loading: false,
         took: result.took ?? null,
         scrollAvg: null,
         params: { ...params, offset: 0 },
         imagePositions: buildPositions(result.hits, 0),
-        focusedImageId: null, // clear focus on new search
+        startCursor,
+        endCursor,
+        pitId: result.pitId ?? newPitId,
+        focusedImageId: focusedInFirstPage ? sortAroundFocusId! : null,
         newCount: 0,
         newCountSince: now,
         frozenUntil: now,
-        _inflight: new Set(),
-        _failedRanges: new Set(),
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
       });
-      // Restart the poll with fresh params + timestamp
       startNewImagesPoll(get, set);
+
+      // -----------------------------------------------------------------
+      // Sort-around-focus: if we have a target image that wasn't in the
+      // first page, find its new position and seek to it.
+      // -----------------------------------------------------------------
+      if (sortAroundFocusId && !focusedInFirstPage && result.total > 0) {
+        // Don't block the initial render — fire async
+        _findAndFocusImage(sortAroundFocusId, params, signal, get, set);
+      }
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Search failed",
+        loading: false,
+        sortAroundFocusStatus: null,
+      });
+    }
+  },
+
+  extendForward: async () => {
+    const {
+      dataSource, params, results, bufferOffset, total,
+      endCursor, pitId, _extendForwardInFlight,
+    } = get();
+
+    // Guards
+    if (_extendForwardInFlight) return;
+    if (!endCursor) return; // no cursor — can't extend
+    if (Date.now() < _seekCooldownUntil) return; // post-seek cooldown
+    const globalEnd = bufferOffset + results.length;
+    if (globalEnd >= total) return; // already at the end
+
+    set({ _extendForwardInFlight: true });
+
+    try {
+      const result = await dataSource.searchAfter(
+        { ...params, length: PAGE_SIZE },
+        endCursor,
+        pitId,
+        _rangeAbortController.signal,
+      );
+
+      if (result.hits.length === 0) {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+
+      set((state) => {
+        const newBuffer = [...state.results, ...result.hits];
+        let newOffset = state.bufferOffset;
+        let newStartCursor = state.startCursor;
+        let newPositions = buildPositions(
+          result.hits,
+          state.bufferOffset + state.results.length,
+          state.imagePositions,
+        );
+
+        // Eviction: if buffer exceeds capacity, evict from start
+        if (newBuffer.length > BUFFER_CAPACITY) {
+          const evictCount = newBuffer.length - BUFFER_CAPACITY;
+          newPositions = evictPositions(
+            newPositions, newBuffer, 0, evictCount,
+          );
+          newBuffer.splice(0, evictCount);
+          newOffset += evictCount;
+          // Update start cursor to the new first entry's sort values
+          // We don't have sort values stored per-entry in the buffer,
+          // so we use the first result from the extend response if eviction
+          // consumed the entire old buffer, otherwise the cursor stays
+          // (it's stale but won't be used until we extend backward)
+          newStartCursor = null; // Invalidate — backward extend will need a fresh fetch
+        }
+
+        const newEndCursor = result.sortValues.length > 0
+          ? result.sortValues[result.sortValues.length - 1]
+          : state.endCursor;
+
+        return {
+          results: newBuffer,
+          bufferOffset: newOffset,
+          total: result.total,
+          endCursor: newEndCursor,
+          startCursor: newStartCursor ?? state.startCursor,
+          pitId: result.pitId ?? state.pitId,
+          imagePositions: newPositions,
+          _extendForwardInFlight: false,
+          ...updateScrollAvg(result.took, state.scrollAvg),
+        };
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      set({
+        _extendForwardInFlight: false,
+        error: e instanceof Error ? e.message : "Extend forward failed",
+      });
+    }
+  },
+
+  extendBackward: async () => {
+    const {
+      dataSource, params, bufferOffset, startCursor, pitId,
+      _extendBackwardInFlight,
+    } = get();
+
+    // Guards
+    if (_extendBackwardInFlight) return;
+    if (bufferOffset <= 0) return; // already at the start
+    if (Date.now() < _seekCooldownUntil) return; // post-seek cooldown
+    if (!startCursor) return; // no cursor — can't extend backward
+
+    const fetchCount = Math.min(PAGE_SIZE, bufferOffset);
+
+    set({ _extendBackwardInFlight: true });
+
+    try {
+      // Reverse search_after: flip sort, use startCursor as anchor,
+      // results come back in reversed order (adapter reverses them).
+      // Works at any depth — no from/size offset limit.
+      const result = await dataSource.searchAfter(
+        { ...params, length: fetchCount },
+        startCursor,
+        pitId,
+        _rangeAbortController.signal,
+        true, // reverse
+      );
+
+      if (result.hits.length === 0) {
+        set({ _extendBackwardInFlight: false });
+        return;
+      }
+
+      set((state) => {
+        // result.hits are already in correct (forward) order after reversal
+        const newBuffer = [...result.hits, ...state.results];
+        const newOffset = Math.max(0, state.bufferOffset - result.hits.length);
+        let newEndCursor = state.endCursor;
+        let newPositions = buildPositions(
+          result.hits,
+          newOffset,
+          state.imagePositions,
+        );
+
+        // Eviction: if buffer exceeds capacity, evict from end
+        if (newBuffer.length > BUFFER_CAPACITY) {
+          const evictCount = newBuffer.length - BUFFER_CAPACITY;
+          const evictStart = newBuffer.length - evictCount;
+          newPositions = evictPositions(
+            newPositions, newBuffer, evictStart, newBuffer.length,
+          );
+          newBuffer.splice(evictStart, evictCount);
+          newEndCursor = null; // Invalidate — forward extend will refetch
+        }
+
+        // Start cursor from the first result (earliest in sort order)
+        const newStartCursor = result.sortValues.length > 0
+          ? result.sortValues[0]
+          : state.startCursor;
+
+        return {
+          results: newBuffer,
+          bufferOffset: newOffset,
+          startCursor: newStartCursor,
+          endCursor: newEndCursor ?? state.endCursor,
+          total: result.total,
+          imagePositions: newPositions,
+          _extendBackwardInFlight: false,
+          _lastPrependCount: result.hits.length,
+          _prependGeneration: state._prependGeneration + 1,
+          ...updateScrollAvg(result.took, state.scrollAvg),
+        };
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendBackwardInFlight: false });
+        return;
+      }
+      set({
+        _extendBackwardInFlight: false,
+        error: e instanceof Error ? e.message : "Extend backward failed",
+      });
+    }
+  },
+
+  seek: async (globalOffset: number) => {
+    const { dataSource, params, pitId } = get();
+
+    // Clamp to valid range
+    const { total } = get();
+    const clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
+
+    // Abort in-flight extends / previous seeks
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+    // Capture the signal NOW — if another seek starts later, it will abort
+    // this controller and all our in-flight requests will be cancelled.
+    // Without this capture, requests made later in this async function would
+    // read the module-level _rangeAbortController (which may have been
+    // replaced by a newer seek), allowing stale seeks to complete uncancelled.
+    const signal = _rangeAbortController.signal;
+
+    // Set cooldown IMMEDIATELY (synchronous, before any await). This prevents
+    // extendForward/extendBackward from racing when a scroll event and seek
+    // fire in the same microtask (e.g. Home key sets scrollTop=0 then seeks).
+    // Without this, the scroll handler triggers reportVisibleRange → extend
+    // before the seek's async fetch can set the cooldown.
+    _seekCooldownUntil = Date.now() + 500;
+
+    set({ loading: true, error: null });
+
+    try {
+      // Center the buffer around the target offset
+      const halfBuffer = Math.floor(PAGE_SIZE / 2);
+      const fetchStart = Math.max(0, clampedOffset - halfBuffer);
+
+      let result;
+      let actualOffset = fetchStart;
+
+      if (fetchStart < DEEP_SEEK_THRESHOLD) {
+        // ---------------------------------------------------------------
+        // Shallow seek — from/size is fast at small offsets (<10k)
+        // ---------------------------------------------------------------
+        result = await dataSource.searchAfter(
+          { ...params, offset: fetchStart, length: PAGE_SIZE },
+          null,
+          null,
+          signal,
+        );
+      } else {
+        // ---------------------------------------------------------------
+        // Deep seek — percentile estimation + search_after + countBefore
+        //
+        // 1. Estimate the sort value at the target percentile
+        // 2. search_after from that value (no from/size depth limit)
+        // 3. countBefore to find the exact global offset we landed at
+        // ---------------------------------------------------------------
+        const sortClause = buildSortClause(params.orderBy);
+        const primarySort = sortClause[0];
+        const primaryField = primarySort ? Object.keys(primarySort)[0] : null;
+        const primaryDir = primaryField
+          ? (primarySort[primaryField] as string)
+          : "desc";
+
+        // For desc sort: position 0 = highest value. To find the value at
+        // position P in N results, we need percentile (100 - P/N * 100).
+        // For asc sort: position 0 = lowest value → percentile P/N * 100.
+        const positionRatio = clampedOffset / Math.max(1, total);
+        const percentile =
+          primaryDir === "desc"
+            ? (1 - positionRatio) * 100
+            : positionRatio * 100;
+
+        // Clamp percentile to avoid 0/100 edge cases (ES returns -Inf/+Inf)
+        const clampedPercentile = Math.max(0.01, Math.min(99.99, percentile));
+
+        let estimatedValue: number | null = null;
+        if (primaryField && primaryField !== "_script") {
+          estimatedValue = await dataSource.estimateSortValue(
+            params,
+            primaryField,
+            clampedPercentile,
+            signal,
+          );
+        }
+
+        if (estimatedValue != null) {
+          // Use search_after with the estimated sort value. Secondary sort
+          // fields get type-appropriate anchors so ES doesn't reject the
+          // cursor (e.g. "" is not valid for a date field like uploadTime).
+          const searchAfterValues: SortValues = [estimatedValue];
+          for (let i = 1; i < sortClause.length; i++) {
+            const clause = sortClause[i];
+            const { field } = parseSortField(clause);
+            // The last field is always `id` (keyword) → "".
+            // Date/numeric fields → 0 (epoch zero for dates, zero for numbers).
+            // Unknown fields → 0 (safer than "" for non-keyword types).
+            if (field === "id") {
+              searchAfterValues.push("");
+            } else {
+              searchAfterValues.push(0);
+            }
+          }
+
+          result = await dataSource.searchAfter(
+            { ...params, length: PAGE_SIZE },
+            searchAfterValues,
+            pitId,
+            signal,
+          );
+
+          // Find where we actually landed via countBefore
+          if (result.hits.length > 0 && result.sortValues.length > 0) {
+            // Check abort before starting another async operation —
+            // searchAfter may have completed just before we were aborted.
+            if (signal.aborted) return;
+            const landedSortValues = result.sortValues[0];
+            const countBefore = await dataSource.countBefore(
+              params,
+              landedSortValues,
+              sortClause,
+              signal,
+            );
+            actualOffset = countBefore;
+          }
+        } else {
+          // Keyword / script sorts — percentile estimation unavailable.
+          // Strategy: use from/size to reach MAX_RESULT_WINDOW, then
+          // iterative search_after to skip forward in large chunks.
+          //
+          // Each skip iteration fetches just 1 document (only need its sort
+          // values as cursor for the next hop). Chunk sizes jump ahead many
+          // positions per request without transferring full document bodies.
+          const capOffset = Math.min(fetchStart, MAX_RESULT_WINDOW - 1);
+
+          // Step 1: Get a pivot point via from/size (size=1, fast)
+          const pivotResult = await dataSource.searchAfter(
+            { ...params, offset: capOffset, length: 1 },
+            null,
+            null,
+            signal,
+          );
+
+          if (signal.aborted) return;
+
+          if (pivotResult.hits.length > 0 && pivotResult.sortValues.length > 0 && fetchStart > capOffset) {
+            // Step 2: Iterative search_after to skip forward from the pivot.
+            // Each iteration asks for `chunkSize` documents but only keeps
+            // the LAST one's sort values as the cursor for the next hop.
+            // The chunkSize is passed as `length` (ES `size`) which tells ES
+            // how many docs to skip — we only receive 1 doc back by using
+            // size=chunkSize (ES returns all of them, but we only read the
+            // last sort values). To avoid transferring megabytes of document
+            // bodies, we rely on _source excludes already configured in the
+            // adapter. For truly large jumps, we cap iterations.
+            const SKIP_SIZE = 10000;
+            let cursor = pivotResult.sortValues[0];
+            let skippedTotal = capOffset + 1; // we've passed capOffset + 1 docs
+            const targetStart = fetchStart;
+
+            // Cap at 20 iterations (~200k positions from the pivot).
+            // Beyond this, the seek is too slow to be useful — degrade
+            // gracefully by landing as close as we got.
+            const MAX_SKIP_ITERATIONS = 20;
+            for (let iter = 0; iter < MAX_SKIP_ITERATIONS && skippedTotal < targetStart; iter++) {
+              if (signal.aborted) return;
+              const remaining = targetStart - skippedTotal;
+              const chunkSize = Math.min(SKIP_SIZE, remaining);
+
+              const skipResult = await dataSource.searchAfter(
+                { ...params, length: chunkSize },
+                cursor,
+                pitId,
+                signal,
+              );
+
+              if (skipResult.hits.length === 0) break; // reached end of results
+              cursor = skipResult.sortValues[skipResult.sortValues.length - 1];
+              skippedTotal += skipResult.hits.length;
+            }
+
+            if (signal.aborted) return;
+
+            // Step 3: Fetch the actual page at the target position
+            result = await dataSource.searchAfter(
+              { ...params, length: PAGE_SIZE },
+              cursor,
+              pitId,
+              signal,
+            );
+            actualOffset = skippedTotal;
+          } else {
+            // Fallback: from/size at the capped position
+            const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+            result = await dataSource.searchAfter(
+              { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
+              null,
+              null,
+              signal,
+            );
+            actualOffset = Math.max(0, cappedStart);
+          }
+
+          // Verify actual position via countBefore (if we used search_after)
+          if (result.hits.length > 0 && result.sortValues.length > 0 && actualOffset > MAX_RESULT_WINDOW) {
+            if (signal.aborted) return;
+            const landedSortValues = result.sortValues[0];
+            const countBefore = await dataSource.countBefore(
+              params,
+              landedSortValues,
+              sortClause,
+              signal,
+            );
+            actualOffset = countBefore;
+          }
+        }
+      }
+
+      // If this seek was superseded by a newer one, our signal is aborted.
+      // Don't overwrite the store with stale results.
+      if (signal.aborted) return;
+
+      if (result.hits.length === 0) {
+        set({ loading: false });
+        return;
+      }
+
+      const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
+      const endCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+
+      // Refresh cooldown from data arrival — the virtualizer needs time to
+      // render at the new scroll position before edge-detection kicks in.
+      // (The initial cooldown was set at seek start to prevent pre-fetch races;
+      // this extends it from the actual data arrival time.)
+      _seekCooldownUntil = Date.now() + 500;
+
+      // Compute the buffer-local target index so views can scroll there.
+      const targetLocalIdx = Math.max(0, clampedOffset - actualOffset);
+
+      set({
+        results: result.hits,
+        bufferOffset: actualOffset,
+        total: result.total,
+        loading: false,
+        imagePositions: buildPositions(result.hits, actualOffset),
+        startCursor,
+        endCursor,
+        pitId: result.pitId ?? pitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        _seekGeneration: get()._seekGeneration + 1,
+        _seekTargetLocalIndex: targetLocalIdx,
+        ...updateScrollAvg(result.took, get().scrollAvg),
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        // Don't set loading: false here — the newer seek/search that
+        // aborted us now owns the loading state.
+        return;
+      }
+      set({
+        error: e instanceof Error ? e.message : "Seek failed",
         loading: false,
       });
     }
   },
 
+  // -------------------------------------------------------------------------
+  // Legacy compatibility wrappers
+  // -------------------------------------------------------------------------
+
   loadMore: async () => {
-    const { dataSource, params, results, total, frozenUntil } = get();
-    if (_loadMoreInFlight || results.length >= total) return;
-
-    const nextOffset = results.length;
-    // Don't set loading: true — it triggers a full re-render of the view
-    // components (ImageTable, ImageDetail) for every page load, causing a
-    // visible hiccup during image traversal. The offset guard in the
-    // functional updater below already prevents duplicate data.
-    _loadMoreInFlight = true;
-
-    try {
-      const result = await dataSource.search({
-        ...params,
-        offset: nextOffset,
-        // Freeze result set so new uploads don't shift offsets
-        ...(frozenUntil ? { until: frozenUntil } : {}),
-      });
-
-      // Use a functional updater so we read the *current* results array,
-      // not the stale snapshot from before the await.  If another loadMore
-      // already appended at this offset, skip to avoid duplicates.
-      set((state) => {
-        _loadMoreInFlight = false;
-        if (state.results.length !== nextOffset) {
-          // Another loadMore already landed — discard this batch.
-          return {};
-        }
-        // Guard: don't overwrite total with 0 from an aborted response
-        if (result.hits.length === 0 && result.total === 0) {
-          return {};
-        }
-        return {
-          results: [...state.results, ...result.hits],
-          total: result.total,
-          params: { ...state.params, offset: nextOffset },
-          imagePositions: buildPositions(result.hits, nextOffset, state.imagePositions),
-        };
-      });
-    } catch (e) {
-      _loadMoreInFlight = false;
-      set({
-        error: e instanceof Error ? e.message : "Load more failed",
-      });
-    }
+    // Delegate to extendForward — same semantics (append more data)
+    return get().extendForward();
   },
 
   loadRange: async (start: number, end: number) => {
-    const { dataSource, params, total, frozenUntil, _inflight } = get();
+    // loadRange is used by ImageDetail's offset restore (loads a window
+    // around a cached offset). With the windowed buffer, this is a seek.
+    const { bufferOffset, results } = get();
+    const bufferEnd = bufferOffset + results.length;
 
-    // Clamp to valid range
-    const clampedEnd = Math.min(end, Math.min(total, MAX_RESULT_WINDOW) - 1);
-    if (start > clampedEnd || start < 0) return;
+    // If the requested range is already within the buffer, no-op
+    if (start >= bufferOffset && end < bufferEnd) return;
 
-    // Deduplicate in-flight requests and skip previously failed ranges
-    const key = `${start}-${clampedEnd}`;
-    if (_inflight.has(key)) return;
-    const { _failedRanges } = get();
-    if (_failedRanges.has(key)) return;
-    set({ _inflight: new Set([..._inflight, key]) });
-
-    try {
-      const length = clampedEnd - start + 1;
-      const result = await dataSource.searchRange({
-        ...params,
-        offset: start,
-        length,
-        ...(frozenUntil ? { until: frozenUntil } : {}),
-      }, _rangeAbortController.signal);
-
-      if (result.took != null) {
-        _scrollTookWindow.push(result.took);
-        if (_scrollTookWindow.length > SCROLL_TOOK_WINDOW_SIZE) _scrollTookWindow.shift();
-      }
-
-      set((state) => {
-        // Extend the results array if needed — fill gaps with undefined
-        // (useDataWindow will treat undefined slots as unloaded)
-        const newResults = [...state.results];
-        const neededLength = start + result.hits.length;
-        if (newResults.length < neededLength) {
-          newResults.length = neededLength;
-        }
-
-        // Fill in the loaded images at their correct indices
-        for (let i = 0; i < result.hits.length; i++) {
-          newResults[start + i] = result.hits[i];
-        }
-
-        // Remove from inflight
-        const newInflight = new Set(state._inflight);
-        newInflight.delete(key);
-
-        // Incrementally extend imagePositions — O(page size) not O(total loaded)
-        const newPositions = buildPositions(result.hits, start, state.imagePositions);
-
-        // Update scrollAvg only when the rounded value changes
-        const avg = _scrollTookWindow.length > 0
-          ? Math.round(_scrollTookWindow.reduce((a, b) => a + b, 0) / _scrollTookWindow.length)
-          : null;
-        const avgChanged = avg !== state.scrollAvg;
-
-        return {
-          results: newResults,
-          total: result.total,
-          _inflight: newInflight,
-          imagePositions: newPositions,
-          ...(avgChanged ? { scrollAvg: avg } : {}),
-        };
-      });
-    } catch (e) {
-      // Aborted requests (from a new search cancelling the previous generation)
-      // are intentional — just clean up inflight tracking, don't set error or
-      // record as failed (the range isn't actually broken, it was just stale).
-      if (e instanceof DOMException && e.name === "AbortError") {
-        set((state) => {
-          const newInflight = new Set(state._inflight);
-          newInflight.delete(key);
-          return { _inflight: newInflight };
-        });
-        return;
-      }
-      // Remove from inflight and record as failed to prevent infinite retry
-      // (e.g. offset beyond max_result_window returns ES 400)
-      set((state) => {
-        const newInflight = new Set(state._inflight);
-        newInflight.delete(key);
-        const newFailed = new Set(state._failedRanges);
-        newFailed.add(key);
-        return {
-          _inflight: newInflight,
-          _failedRanges: newFailed,
-          error: e instanceof Error ? e.message : "Load range failed",
-        };
-      });
-    }
+    // Otherwise seek to center the requested range in the buffer
+    const center = Math.floor((start + end) / 2);
+    return get().seek(center);
   },
+
+  // -------------------------------------------------------------------------
+  // Aggregation actions (unchanged from pre-buffer architecture)
+  // -------------------------------------------------------------------------
 
   fetchAggregations: async (force) => {
     const { dataSource, params, aggCircuitOpen, _aggCacheKey } = get();
 
-    // Check cache — if params haven't changed, skip (unless forced)
     const key = aggCacheKey(params);
     if (!force && key === _aggCacheKey) return;
-
-    // Circuit breaker — skip auto-fetch if tripped (unless forced)
     if (!force && aggCircuitOpen) return;
 
-    // Cancel any pending debounce or in-flight request
     if (_aggDebounceTimer) clearTimeout(_aggDebounceTimer);
     if (_aggAbortController) _aggAbortController.abort();
 
-    // Debounce — wait AGG_DEBOUNCE_MS before firing (unless forced)
     if (!force) {
       await new Promise<void>((resolve) => {
         _aggDebounceTimer = setTimeout(resolve, AGG_DEBOUNCE_MS);
       });
     }
 
-    // Re-check cache after debounce — params may have changed again
     const currentKey = aggCacheKey(get().params);
     if (!force && currentKey === get()._aggCacheKey) return;
 
@@ -494,29 +1170,22 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         aggTook: result.took ?? null,
         aggLoading: false,
         _aggCacheKey: aggCacheKey(get().params),
-        // Reset circuit breaker on fast response
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
-        // Clear expanded aggs — they're for the old result set
         expandedAggs: {},
         expandedAggsLoading: new Set(),
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
-        // Intentional cancellation — don't update state
         set({ aggLoading: false });
         return;
       }
-      set({
-        aggLoading: false,
-        // Don't overwrite search error — agg errors are non-critical
-      });
+      set({ aggLoading: false });
     }
   },
 
   fetchExpandedAgg: async (field: string) => {
     const { dataSource, params, expandedAggs, expandedAggsLoading } = get();
 
-    // Already expanded or in-flight for this field
     if (expandedAggs[field] || expandedAggsLoading.has(field)) return;
 
     set({ expandedAggsLoading: new Set([...expandedAggsLoading, field]) });
@@ -539,7 +1208,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         });
       }
     } catch {
-      // Non-critical — just remove loading state
       set((state) => {
         const newLoading = new Set(state.expandedAggsLoading);
         newLoading.delete(field);
@@ -555,4 +1223,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     });
   },
 }));
+
+// Expose store on window in dev mode for E2E test state inspection.
+// Playwright tests use window.__kupua_store__ to read buffer state,
+// focused image, and other internals without relying on DOM scraping.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__kupua_store__ = useSearchStore;
+}
 

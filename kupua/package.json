@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:full": "./scripts/run-e2e.sh",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@guardian/cql": "^1.8.4",
@@ -28,6 +33,7 @@
     "@aws-sdk/client-s3": "^3.1014.0",
     "@aws-sdk/credential-providers": "^3.1014.0",
     "@eslint/js": "^9.29.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.8",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.1.6",

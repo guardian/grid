@@ -86,6 +86,43 @@ html {
     @apply flex items-center gap-2 px-3 py-1 text-sm text-grid-text
            hover:bg-grid-hover/50 cursor-pointer whitespace-nowrap select-none;
   }
+
+  /*
+   * Hide native scrollbars — keeps the container scrollable (wheel, touch,
+   * keyboard) but removes the visual scrollbar. The custom Scrubber component
+   * provides the visual position indicator instead.
+   *
+   * `contain: strict` is critical for Firefox scroll performance. Without it,
+   * Gecko recalculates layout for the entire page whenever virtualizer items
+   * are repositioned during scroll. `strict` (= size + layout + paint + style)
+   * tells the browser this subtree is fully independent. The element's size
+   * comes from the flex parent, not content, so `size` containment is safe.
+   * (cf. Immich's #asset-grid uses the same pattern.)
+   */
+  .hide-scrollbar {
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE / Edge legacy */
+    contain: strict;
+    &::-webkit-scrollbar {
+      display: none;                 /* Chrome / Safari / Opera */
+    }
+  }
+
+  /**
+   * Hide only the vertical scrollbar — preserves horizontal scrollbar.
+   * Used by the table view which needs horizontal scroll for wide columns
+   * but replaces the vertical scrollbar with the custom scrubber.
+   * The `:vertical` pseudo-class targets only the vertical scrollbar in
+   * WebKit/Blink. Firefox doesn't support per-axis scrollbar hiding via
+   * CSS, so we fall back to hiding both (scrollbar-width: none) and rely
+   * on `overflow-x: auto` to show the horizontal one.
+   */
+  .hide-scrollbar-y {
+    contain: strict;
+    &::-webkit-scrollbar:vertical {
+      display: none;                 /* Chrome / Safari / Opera — vertical only */
+    }
+  }
 }
 
 /*

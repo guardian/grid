@@ -394,7 +394,7 @@ const TableBody = memo(function TableBody({
 
 export function ImageTable() {
   const {
-    results, total, virtualizerCount, loading, loadMore,
+    results, total, bufferOffset, virtualizerCount, loading, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
   } = useDataWindow();
@@ -428,13 +428,13 @@ export function ImageTable() {
     (imageId: string) => {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
-      if (idx >= 0) storeImageOffset(imageId, idx, buildSearchKey(searchParamsRef.current));
+      if (idx >= 0) storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParamsRef.current));
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex],
+    [navigate, setFocusedImageId, findImageIndex, bufferOffset],
   );
 
   // Column context menu — imperative handle; the component manages its own
@@ -636,6 +636,47 @@ export function ImageTable() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
+  // After buffer changes (seek / search / extend), the virtualizer re-renders
+  // but scrollTop may not change, so no scroll event fires. Manually refresh
+  // the visible range so the Scrubber thumb stays in sync.
+  useEffect(() => {
+    handleScroll();
+  }, [bufferOffset, results.length, handleScroll]);
+
+  // Backward extend scroll compensation: when items are prepended to the
+  // buffer, the virtualizer count grows but scrollTop doesn't change, so
+  // the visible content shifts down (user sees different images). Adjust
+  // scrollTop by the pixel height of the prepended items to keep the
+  // viewport stable. Without this, a cascade of backward extends fires
+  // (the shifted viewport still shows near-start indices → another extend).
+  // Uses useLayoutEffect to adjust before paint — prevents visible flicker.
+  const prependGeneration = useSearchStore((s) => s._prependGeneration);
+  const lastPrependCount = useSearchStore((s) => s._lastPrependCount);
+  const prevPrependGenRef = useRef(prependGeneration);
+  useLayoutEffect(() => {
+    if (prependGeneration === prevPrependGenRef.current) return;
+    prevPrependGenRef.current = prependGeneration;
+    const el = parentRef.current;
+    if (!el || lastPrependCount <= 0) return;
+    // Adjust scrollTop by the pixel height of prepended rows
+    el.scrollTop += lastPrependCount * ROW_HEIGHT;
+  }, [prependGeneration, lastPrependCount]);
+
+  // Scroll to target position after seek: when _seekGeneration bumps,
+  // the buffer has been replaced. Scroll the virtualizer to the buffer-local
+  // index that corresponds to the user's target position. Without this,
+  // the scroll container retains its old scrollTop after buffer replacement,
+  // leaving the user at a random position within the new buffer.
+  const seekGeneration = useSearchStore((s) => s._seekGeneration);
+  const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
+  const prevSeekGenRef = useRef(seekGeneration);
+  useLayoutEffect(() => {
+    if (seekGeneration === prevSeekGenRef.current) return;
+    prevSeekGenRef.current = seekGeneration;
+    const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
+    virtualizer.scrollToIndex(targetIdx, { align: "start" });
+  }, [seekGeneration, seekTargetLocalIndex, virtualizer]);
+
   // Reset scroll position when search params change.  loadMore doesn't
   // change URL params, so this only fires on genuinely new searches.
   //
@@ -698,6 +739,24 @@ export function ImageTable() {
   });
 
   // ---------------------------------------------------------------------------
+  // Sort-around-focus: scroll to the focused image after sort-around-focus
+  // finds its new position and optionally seeks to it.
+  // ---------------------------------------------------------------------------
+
+  const sortAroundFocusGeneration = useSearchStore(
+    (s) => s.sortAroundFocusGeneration,
+  );
+  useEffect(() => {
+    if (sortAroundFocusGeneration === 0) return;
+    const id = useSearchStore.getState().focusedImageId;
+    if (!id) return;
+    const idx = findImageIndex(id);
+    if (idx >= 0) {
+      virtualizer.scrollToIndex(idx, { align: "center" });
+    }
+  }, [sortAroundFocusGeneration, findImageIndex, virtualizer]);
+
+  // ---------------------------------------------------------------------------
   // Preserve focused item's viewport position across density switches.
   //
   // Mount: scroll so the focused row appears at the same relative viewport
@@ -729,11 +788,13 @@ export function ImageTable() {
     return () => {
       const el = parentRef.current;
       if (!el) return;
-      const { focusedImageId: fid, imagePositions } = useSearchStore.getState();
+      const { focusedImageId: fid, imagePositions, bufferOffset } = useSearchStore.getState();
       if (!fid) return;
-      const fIdx = imagePositions.get(fid) ?? -1;
-      if (fIdx < 0) return;
-      saveFocusRatio((fIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight);
+      const globalIdx = imagePositions.get(fid) ?? -1;
+      if (globalIdx < 0) return;
+      const localIdx = globalIdx - bufferOffset;
+      if (localIdx < 0) return;
+      saveFocusRatio((localIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: scroll to persisted focus on density switch
   }, []);
@@ -760,6 +821,8 @@ export function ImageTable() {
     imageParam: searchParams.image,
     flatIndexToRow: (idx) => idx, // table: flat index IS the row index
     resetScrollLeftOnHome: true,
+    bufferOffset,
+    seek,
   });
 
   // Clean up sort delay timer on unmount
@@ -1031,7 +1094,7 @@ export function ImageTable() {
   );
 
   return (
-    <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto">
+    <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y">
       {/* (C) CSS-variable column widths — a single <style> tag sets
           --col-<id> for every visible column.  Header and body cells
           reference these variables, so width changes during resize

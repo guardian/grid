@@ -284,6 +284,10 @@ print('')
   export KUPUA_ES_URL="http://localhost:9200"
   export VITE_ES_INDEX="$INDEX_ALIAS"
   export VITE_ES_IS_LOCAL="false"
+  # Real cluster has a much higher max_result_window than local docker ES.
+  # These override the low values in .env.development (shell env > .env file).
+  export VITE_MAX_RESULT_WINDOW="100000"
+  export VITE_DEEP_SEEK_THRESHOLD="10000"
 
   # --- 3. Discover S3 bucket names + start thumbnail proxy ---
   echo -e "${yellow}[3/6] Discovering S3 bucket names...${plain}"
@@ -510,6 +514,19 @@ if [ "$SKIP_ES" = false ]; then
     sleep 2
   done
   echo -e "${green}      Elasticsearch is ready ✓${plain}"
+
+  # Wait for shards to recover (yellow = primaries allocated).
+  # Without this, _count/_search can 503 immediately after container restart.
+  shard_retry=0
+  until curl -sf "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=2s" > /dev/null 2>&1; do
+    shard_retry=$((shard_retry + 1))
+    if [ $shard_retry -ge 15 ]; then
+      echo -e "${yellow}      Warning: cluster not yet yellow after 30s — proceeding anyway${plain}"
+      break
+    fi
+    printf "      Waiting for shard recovery... (%d/15)\r" "$shard_retry"
+    sleep 2
+  done
 else
   echo -e "${yellow}[1/4] Skipping Elasticsearch (--skip-es)${plain}"
 fi
@@ -521,7 +538,7 @@ if [ "$SKIP_DATA" = false ] && [ "$SKIP_ES" = false ]; then
   INDEX_EXISTS=$(curl -sf -o /dev/null -w "%{http_code}" "${ES_URL}/images" 2>/dev/null || echo "000")
 
   if [ "$INDEX_EXISTS" = "200" ]; then
-    DOC_COUNT=$(curl -sf "${ES_URL}/images/_count" | python3 -c "import sys,json; print(json.load(sys.stdin)['count'])" 2>/dev/null || echo "0")
+    DOC_COUNT=$(curl -sf "${ES_URL}/images/_count" | python3 -c "import sys,json; d=sys.stdin.read().strip(); print(json.loads(d)['count'] if d else 0)" 2>/dev/null || echo "0")
     if [ "$DOC_COUNT" -gt 0 ] 2>/dev/null; then
       echo -e "${green}      Index 'images' exists with ${DOC_COUNT} documents ✓${plain}"
     else

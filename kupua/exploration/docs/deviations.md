@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-03-26
+Last updated: 2026-03-28
 
 ---
 
@@ -611,4 +611,218 @@ Once merged and released, bump `@guardian/cql` in kupua and remove the
 remount workaround (`_cqlInputGeneration` key + generation-bumping in
 `cancelSearchDebounce`).  `setAttribute("value", ...)` will then work
 directly for polarity changes.
+
+### 17. No migration-aware dual-index search
+
+During a Grid index migration (`ThrallMigrationClient`), the `media-api`
+queries both the current index AND the migration index simultaneously,
+with a filter excluding already-migrated docs from the current index.
+This ensures users see each image exactly once — either from the old
+index (not yet migrated) or the new index (already migrated).
+
+Kupua queries ES directly via the `images` alias (which resolves to the
+current index only). During migration, kupua does NOT query the migration
+index. This means:
+
+- Images already migrated to the new index may show slightly stale data
+  (the current index copy hasn't been updated — the migration writes to
+  the new index, not updates the current one).
+- After migration completion (alias swap), kupua's PIT still references
+  the old physical index until the next PIT refresh (≤10 minutes) or
+  re-search.
+
+**Why this is acceptable:** Migrations are rare (~a few times per year),
+take hours, and the data difference between old and new index for any
+given image is minimal (migration re-indexes the same data with a new
+mapping, not new content). After the alias swap, the PIT refresh timer
+handles the transition within 10 minutes. This is no worse than kahuna
+for users who were mid-scroll during migration.
+
+**When this goes away:** Phase 3 (`GridApiDataSource`) would inherit
+media-api's migration-aware dual-index search automatically.
+
+See `search-after-plan.md` → "PIT and Grid's index migration" for the
+full analysis.
+
+### 18. Tiebreaker sort uses `id` field, not `_id` meta field
+
+The Elasticsearch documentation recommends `_id` as the tiebreaker for
+`search_after` pagination. However, ES 8.x disables fielddata on `_id`
+by default (`indices.id_field_data.enabled = false`). Sorting by `_id`
+fails with "Fielddata access on the _id field is disallowed."
+
+Grid's mapping includes a top-level `id` field (type `keyword`) that
+contains the same value as `_id`. We use `{ id: "asc" }` as the
+tiebreaker instead. This is functionally identical — `id` is unique per
+document and keyword-typed (efficient for sorting) — but departs from
+the standard ES `search_after` examples.
+
+**Why not enable fielddata?** It's a cluster-level setting that affects
+all indices. Changing it on shared clusters (TEST/PROD) is unnecessary
+risk for zero benefit, since the `id` keyword field works perfectly.
+
+**Trade-off:** None meaningful. The `id` field is always present in Grid
+documents and always equals `_id`.
+
+### 19. Native scrollbar hidden — Scrubber is the sole scroll control
+
+The search-after-plan.md (line ~990-999) explicitly says to keep the
+native scrollbar visible alongside the custom Scrubber in Phase 2, with
+hiding deferred to Phase 6. We departed from this during implementation.
+
+**Why:** The dual-scrollbar UX was actively confusing:
+- After a deep seek, the native scrollbar sits at the top of a 200-item
+  buffer. Users can't scroll "up" because the buffer starts there. The
+  two scrollbars represent different ranges (200 items vs 1.3M) with no
+  visual distinction.
+- When the Scrubber hid for small result sets (total ≤ 0), the
+  content area shifted horizontally by 12px (the Scrubber's width).
+- After seeking to position 0, the native scrollbar might not be at top,
+  requiring the user to manually scroll a second control.
+
+**What we did:** Applied `.hide-scrollbar` (CSS `scrollbar-width: none` +
+`::-webkit-scrollbar { display: none }`) to the table/grid scroll
+containers. The Scrubber is always rendered — when total ≤ 0, it shows a
+disabled empty track (opacity 0.15) to prevent layout shifts. When
+total > 0, it operates in two modes:
+- **Scroll mode** (total ≤ buffer): directly scrolls the content
+  container via `scrollTop` manipulation. No seek.
+- **Seek mode** (total > buffer): triggers `seek()` to reposition the
+  windowed buffer.
+
+Wheel/trackpad scrolling still works normally (the container is
+`overflow: auto` — only the visual scrollbar is hidden). The virtualizer
+functions as before.
+
+**Trade-off:** We lose the native scrollbar's momentum/inertia physics
+on the Scrubber itself. But wheel/trackpad scrolling retains native
+physics (the browser handles it). Only click-to-position and drag are
+custom — and those don't need momentum.
+
+### 20. Scrubber drag is purely linear seeking, not fine-grained browsing
+
+`scrubber-nonlinear-research.md` analysed two approaches for making drag
+handle both fine browsing and fast seeking:
+
+- **Approach A (position mapping, k=2 power curve):** Thumb stays under
+  cursor. Dealbreaker: thumb snaps back on release because non-linear Y ≠
+  linear(position/total).
+- **Approach B (velocity-based delta accumulation):** No snap-back, but
+  position races ahead of visual scroll (in-buffer browsing fails) OR
+  can't reach distant positions (low gain).
+
+After implementing and testing both, **we reverted to simple linear drag
+with deferred seek.** The scrubber is a seeking tool: drag = teleport to
+any position (thumb follows cursor linearly, one seek on pointer up).
+Fine-grained browsing uses wheel/trackpad (native scroll physics, always
+worked). This matches every real-world scrubber — Google Photos, Lightroom,
+YouTube, Spotify — all use linear drag for seeking.
+
+**Key improvement over the original linear drag:** No seeks fire during
+drag. Only the thumb and tooltip move. One single seek on pointer up.
+This eliminates the cascading seeks that caused "forever flashing."
+
+**Trade-off:** 1px of drag ≈ 1,600 items on TEST, ≈ 11,000 on PROD.
+You can't fine-browse via drag. But wheel/trackpad covers that.
+
+### 21. Backward extend uses reverse `search_after`, not `from/size`
+
+Kahuna's `gu-lazy-table` loads backward pages via `from/size` with a
+computed offset. Kupua originally did the same, but `from/size` is
+capped at `max_result_window` (101k on PROD, 10k local). After a deep
+seek (e.g. scrubber drag to position 500k), backward scrolling silently
+failed.
+
+Kupua now uses **reverse `search_after`**: flip every sort field's
+direction (asc↔desc), use `startCursor` as the `search_after` anchor,
+fetch the page, then reverse the returned hits. This has no depth limit.
+
+`reverseSortClause()` is exported from `es-adapter.ts`. The `searchAfter()`
+DAL method accepts a `reverse: boolean` parameter. The reversal happens
+inside the adapter — callers see hits in the correct (forward) order.
+
+**Trade-off:** Reverse `search_after` requires `startCursor` to be valid.
+After eviction (forward extend evicts from start, invalidating
+`startCursor`), backward extend is blocked until the next seek or search
+provides a fresh cursor. This is the same behaviour as forward extend
+when `endCursor` is invalidated — consistent.
+
+### 22. Sort-around-focus uses direct searchAfter, not generic seek
+
+Kahuna doesn't have sort-around-focus — re-sorting always resets to the
+top. Kupua implements the "Never Lost" pattern: on sort-only changes,
+the initial search shows results immediately at position 0, then an
+async background process finds the focused image's new position and
+navigates to it.
+
+The async flow is: fetch image by ID → get sort values via
+`searchAfter({ids: imageId})` → `countBefore()` → if in buffer, focus;
+if outside, **directly populate the buffer** using the image's exact sort
+values as `searchAfter` cursors (forward + backward pages centered on the
+image). This guarantees the image is in the resulting buffer.
+
+The previous approach used generic `seek(offset)`, which for deep positions
+(>10k) employed percentile estimation + `search_after`. Percentile
+estimation is imprecise — the image could land outside the resulting
+buffer. The new approach bypasses estimation entirely by using the
+image's own sort values as cursors.
+
+Status indicator ("Finding image…" / "Seeking…") appears in the
+StatusBar. If anything fails (image not in results, network error,
+abort), gracefully degrades to staying at the top.
+
+**Trade-off:** There's a brief moment where the user sees results at
+position 0 before the view jumps to the focused image's new position.
+This is by design — showing stale data while computing is better than
+blocking. Google Photos does the same (shows results, then animates to
+the anchor). The alternative (blocking until position is found) would
+freeze the UI for 100-300ms.
+
+### 23. Backward extend scroll compensation via useLayoutEffect
+
+When `extendBackward` prepends items to the buffer, the virtualizer count
+grows but `scrollTop` doesn't change. The visible content shifts down —
+the user suddenly sees different images. Without compensation, this
+triggers another `extendBackward` (the shifted viewport still shows
+near-start indices), creating a cascade of backward extends that causes
+"flashing random pages."
+
+Kupua tracks `_lastPrependCount` and `_prependGeneration` in the store.
+Both ImageTable and ImageGrid watch these via `useLayoutEffect` and adjust
+`scrollTop` by `prependCount * ROW_HEIGHT` (table) or
+`ceil(prependCount / columns) * ROW_HEIGHT` (grid) before paint.
+
+Kahuna's `gu-lazy-table` doesn't have this problem because it uses
+`from/size` pagination where the virtualizer row count is always
+`total` (not buffer length) — prepending data doesn't change the count.
+
+**Trade-off:** `useLayoutEffect` blocks paint, adding a tiny synchronous
+delay. In practice this is <1ms (a single scrollTop write). The
+alternative (`useEffect`, after paint) would show one frame of content
+shift — a visible flicker.
+
+### 24. Scrubber sort label interpolates dates for out-of-buffer positions
+
+During a scrubber drag, the thumb position maps to a global position that
+may be far outside the loaded buffer. Kupua's `interpolateSortLabel()`
+linearly extrapolates date values from the first and last buffer entries:
+
+```
+msPerPosition = (lastDate - firstDate) / (bufferLength - 1)
+estimatedDate = firstDate + msPerPosition * (globalPosition - bufferOffset)
+```
+
+For keyword sorts, the nearest buffer edge value is shown (no
+interpolation possible for text).
+
+This differs from both kahuna (which doesn't have a scrubber) and from
+the original kupua implementation (which clamped to buffer bounds,
+showing a static date).
+
+**Trade-off:** The extrapolated date is approximate — it assumes uniform
+distribution of the sort field across the result set. In practice, upload
+dates cluster around business hours and events, so the estimate may be
+off by hours or days at the extremes. This is acceptable for scrubber
+orientation (the user needs "am I in 2024 or 2020?", not "which hour?").
+The position counter ("650,000 of 1,300,000") remains exact.
 

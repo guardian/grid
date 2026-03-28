@@ -13,6 +13,10 @@ interface ImportMetaEnv {
   readonly VITE_IMGPROXY_ENABLED?: string;
   /** S3 bucket name for full-size images (needed for imgproxy URL generation) */
   readonly VITE_IMAGE_BUCKET?: string;
+  /** ES max_result_window — from/size pagination limit. Default: 100000. */
+  readonly VITE_MAX_RESULT_WINDOW?: string;
+  /** Offset above which seek uses deep path (search_after). Default: 10000. */
+  readonly VITE_DEEP_SEEK_THRESHOLD?: string;
 }
 
 interface ImportMeta {

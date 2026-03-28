@@ -91,6 +91,12 @@ export interface ListNavigationConfig {
 
   /** Whether Home should also reset horizontal scroll (table: yes). */
   resetScrollLeftOnHome?: boolean;
+
+  /** Current buffer offset (for Home/End seek detection). */
+  bufferOffset?: number;
+
+  /** Seek to a global offset (for Home/End when buffer is windowed). */
+  seek?: (globalOffset: number) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,24 +204,34 @@ export function useListNavigation(config: ListNavigationConfig): void {
 
     const viewportRowSpace = el.clientHeight - headerHeight;
     const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));
+    const scrollDelta = pageRows * rowHeight;
 
     if (direction === "down") {
+      const prevTop = el.scrollTop;
       el.scrollTop = Math.min(
         el.scrollHeight - el.clientHeight,
-        el.scrollTop + pageRows * rowHeight,
+        prevTop + scrollDelta,
       );
-      // Last visible visual row → first flat index in that row
+      el.dispatchEvent(new Event("scroll"));
+      // Focus the first item of the last fully visible row
       const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
-      const lastVisibleIdx = Math.min(count - 1, lastVisibleRow * cols);
+      const lastVisibleIdx = Math.min(count - 1, Math.max(0, lastVisibleRow * cols));
       const img = lastVisibleIdx >= 0 ? getImage(lastVisibleIdx) : undefined;
       if (img) setFocusedImageId(img.id);
       if (count - lastVisibleIdx <= 5 && resultsLength < total) loadMore();
     } else {
-      el.scrollTop = Math.max(0, el.scrollTop - pageRows * rowHeight);
-      // First visible visual row → first flat index in that row
+      const prevTop = el.scrollTop;
+      el.scrollTop = Math.max(0, prevTop - scrollDelta);
+      el.dispatchEvent(new Event("scroll"));
+      // Focus the first item of the first fully visible row
       const firstVisibleRow = Math.ceil((el.scrollTop + headerHeight) / rowHeight);
       const firstVisibleIdx = Math.max(0, firstVisibleRow * cols);
-      const img = getImage(firstVisibleIdx);
+      // Scan forward a few indices to find a loaded image
+      let img: import("@/types/image").Image | undefined;
+      for (let i = 0; i <= 10; i++) {
+        img = getImage(firstVisibleIdx + i);
+        if (img) break;
+      }
       if (img) setFocusedImageId(img.id);
     }
   }, []);
@@ -285,26 +301,43 @@ export function useListNavigation(config: ListNavigationConfig): void {
             if (el) {
               el.scrollTop = 0;
               if (c.resetScrollLeftOnHome) el.scrollLeft = 0;
+              // Dispatch synthetic scroll so the scroll handler fires and
+              // updates the visible range (drives the Scrubber thumb).
+              el.dispatchEvent(new Event("scroll"));
             }
-            const firstImage = c.getImage(0);
-            if (firstImage) c.setFocusedImageId(firstImage.id);
+            // If the buffer is windowed and not at the start, seek to 0
+            if (c.bufferOffset && c.bufferOffset > 0 && c.seek) {
+              c.seek(0);
+            } else {
+              const firstImage = c.getImage(0);
+              if (firstImage) c.setFocusedImageId(firstImage.id);
+            }
           }
           break;
         case "End":
           e.preventDefault();
           {
-            const el = c.scrollRef.current;
-            if (el) el.scrollTop = el.scrollHeight - el.clientHeight;
-            const count = c.virtualizerCount;
-            const scanFrom = Math.max(0, count - 50);
-            for (let i = count - 1; i >= scanFrom; i--) {
-              const img = c.getImage(i);
-              if (img) {
-                c.setFocusedImageId(img.id);
-                break;
+            // If the buffer is windowed and not at the end, seek to the last position
+            const bufOff = c.bufferOffset ?? 0;
+            if (c.seek && bufOff + c.resultsLength < c.total) {
+              c.seek(Math.max(0, c.total - 1));
+            } else {
+              const el = c.scrollRef.current;
+              if (el) {
+                el.scrollTop = el.scrollHeight - el.clientHeight;
+                el.dispatchEvent(new Event("scroll"));
               }
+              const count = c.virtualizerCount;
+              const scanFrom = Math.max(0, count - 50);
+              for (let i = count - 1; i >= scanFrom; i--) {
+                const img = c.getImage(i);
+                if (img) {
+                  c.setFocusedImageId(img.id);
+                  break;
+                }
+              }
+              if (c.resultsLength < c.total) c.loadMore();
             }
-            if (c.resultsLength < c.total) c.loadMore();
           }
           break;
         default:

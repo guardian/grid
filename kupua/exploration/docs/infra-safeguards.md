@@ -78,8 +78,10 @@ modify, or delete indices on the shared cluster.
 
 **Safeguard (adapter level):** `assertReadOnly()` in `es-adapter.ts`
 checks every request path against `ALLOWED_ES_PATHS`. Only `_search`,
-`_count`, and `_cat/aliases` are permitted. Any other path (e.g.
-`_bulk`, `_doc`, `_delete_by_query`) throws an error.
+`_count`, `_cat/aliases`, and `_pit` are permitted. Any other path (e.g.
+`_bulk`, `_doc`, `_delete_by_query`) throws an error. `_pit` was added
+for Point In Time lifecycle operations (open/close) — these are read-only
+snapshot operations, not data mutations.
 
 This check is **bypassed on local ES** (`IS_LOCAL_ES === true`) because
 `load-sample-data.sh` needs to create indices and bulk-load data.

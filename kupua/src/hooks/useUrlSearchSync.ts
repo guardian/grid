@@ -45,6 +45,9 @@ function cleanParams(
  *  to force a re-search on the next URL change or re-render). */
 let _prevParamsSerialized = "";
 
+/** Previous search-only params (not serialized) for sort-only change detection. */
+let _prevSearchOnly: Record<string, unknown> = {};
+
 /**
  * Reset the search sync dedup state so the next render cycle of
  * useUrlSearchSync will treat the current params as "new" and trigger
@@ -54,6 +57,7 @@ let _prevParamsSerialized = "";
  */
 export function resetSearchSync() {
   _prevParamsSerialized = "";
+  _prevSearchOnly = {};
 }
 
 export function useUrlSearchSync() {
@@ -105,7 +109,22 @@ export function useUrlSearchSync() {
     );
     const serialized = JSON.stringify(searchOnly);
     if (serialized === _prevParamsSerialized) return;
+
+    // Detect sort-only change: orderBy changed, nothing else did.
+    // If so and there's a focused image, pass its ID to search() for
+    // sort-around-focus ("Never Lost").
+    const prev = _prevSearchOnly;
+    const isSortOnly =
+      _prevParamsSerialized !== "" && // not the first search
+      searchOnly.orderBy !== prev.orderBy &&
+      Object.keys({ ...prev, ...searchOnly }).every(
+        (k) => k === "orderBy" || searchOnly[k] === prev[k]
+      );
+    const sortAroundFocusId =
+      isSortOnly ? useSearchStore.getState().focusedImageId : null;
+
     _prevParamsSerialized = serialized;
+    _prevSearchOnly = { ...searchOnly };
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed
@@ -119,7 +138,7 @@ export function useUrlSearchSync() {
       searchKeys.map((k) => [k, undefined])
     );
     setParams({ ...reset, ...searchOnly });
-    search();
+    search(sortAroundFocusId);
   }, [searchParams, setParams, search, navigate]);
 }
 

@@ -50,7 +50,7 @@ interface ImageDetailProps {
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, loadMore, findImageIndex } = useDataWindow();
+  const { results, total, bufferOffset, loadMore, findImageIndex } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
   const loadRange = useSearchStore((s) => s.loadRange);
   const navigate = useNavigate();
@@ -153,14 +153,14 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   const goToImage = useCallback(
     (id: string) => {
       const idx = findImageIndex(id);
-      if (idx >= 0) storeImageOffset(id, idx, searchKey);
+      if (idx >= 0) storeImageOffset(id, bufferOffset + idx, searchKey);
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: id }),
         replace: true,
       });
     },
-    [navigate, findImageIndex, searchKey],
+    [navigate, findImageIndex, searchKey, bufferOffset],
   );
 
   // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on
@@ -376,6 +376,9 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                 // changed (e.g. was already at ?nonFree=true before opening image).
                 resetSearchSync();
                 resetScrollAndFocusSearch();
+                const store = useSearchStore.getState();
+                store.setParams({ query: undefined, offset: 0 });
+                store.search();
               }}
             >
               <img
@@ -413,7 +416,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           {/* Image position in results */}
           {currentIndex >= 0 && (
             <span className="text-sm text-grid-text-muted">
-              {currentIndex + 1} of {total.toLocaleString()}
+              {bufferOffset + currentIndex + 1} of {total.toLocaleString()}
             </span>
           )}
         </header>

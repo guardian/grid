@@ -128,6 +128,12 @@ export function SearchBar() {
           // the logo when already at the default state would be a no-op.
           resetSearchSync();
           resetScrollAndFocusSearch();
+          // Explicitly fire a fresh search — the URL sync effect won't re-run
+          // if the URL params are already at the default state, but the buffer
+          // may be at a deep offset from a previous seek.
+          const store = useSearchStore.getState();
+          store.setParams({ query: undefined, offset: 0 });
+          store.search();
         }}
       >
         <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />

@@ -24,6 +24,7 @@ export function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const newCount = useSearchStore((s) => s.newCount);
   const newCountSince = useSearchStore((s) => s.newCountSince);
+  const sortAroundFocusStatus = useSearchStore((s) => s.sortAroundFocusStatus);
   const reSearch = useSearchStore((s) => s.search);
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
@@ -79,6 +80,13 @@ export function StatusBar() {
       <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center">
         {total.toLocaleString()} matches
       </span>
+
+      {/* Sort-around-focus indicator — brief, non-blocking */}
+      {sortAroundFocusStatus && (
+        <span className="flex items-center text-grid-accent text-xs animate-pulse">
+          {sortAroundFocusStatus}
+        </span>
+      )}
 
       {/* New images ticker */}
       {newCount > 0 && (

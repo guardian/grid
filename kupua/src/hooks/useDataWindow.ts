@@ -1,78 +1,122 @@
 /**
  * Data window hook — the shared interface between the search store and view
- * components (ImageTable, ImageDetail, future ImageGrid).
+ * components (ImageTable, ImageGrid, ImageDetail).
  *
  * ## Why this exists
  *
- * This hook mediates between the search store (which manages raw ES results)
- * and view components (which render them). It provides:
+ * This hook mediates between the search store (which manages a windowed buffer
+ * of ES results) and view components (which render them). It provides:
  *
- * 1. **Sparse data access** — `getImage(index)` returns the image at a global
- *    index, or undefined if that slot hasn't been loaded yet. Views render
- *    placeholder skeletons for undefined slots.
+ * 1. **Buffer-aware data access** — `getImage(index)` accepts a buffer-local
+ *    index and returns the image, or undefined if that slot hasn't been loaded.
  *
- * 2. **Gap detection + range loading** — `reportVisibleRange(start, end)` tells
- *    the hook which indices are currently on screen. The hook detects gaps
- *    (unloaded slots) in that range and fires `loadRange()` requests to fill
- *    them, with debouncing to avoid flooding during fast scroll.
+ * 2. **Edge detection + extend triggers** — `reportVisibleRange(start, end)`
+ *    tells the hook which buffer-local indices are on screen. When the viewport
+ *    approaches the buffer boundaries, the hook triggers `extendForward` or
+ *    `extendBackward` to fetch more data.
  *
  * 3. **Density-independent API** — table, grid, and image detail all consume
  *    the same hook. Switching density swaps the render component; the data
- *    window, focus, and loaded ranges persist.
+ *    window, focus, and buffer state persist.
  *
- * ## What belongs here vs. in the search store
+ * ## Buffer model
  *
- * - **Here:** sparse data access, gap detection, visible range tracking,
- *   debounced loading, focus, and helpers for navigation (prev/next image).
- * - **Search store:** raw results array, params, search(), loadMore(),
- *   loadRange(), dataSource, newCount/ticker, frozenUntil.
+ * The store holds a fixed-capacity buffer (`results[]`, max ~1000 entries)
+ * with `bufferOffset` mapping buffer[0] to a global position. Views work
+ * with buffer-local indices (0 to results.length). When they need global
+ * positions (e.g. for the image counter "X of Y"), they add `bufferOffset`.
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 
+/** How close to the buffer edge before triggering an extend (buffer-local indices). */
+const EXTEND_THRESHOLD = 50;
+
+// ---------------------------------------------------------------------------
+// Visible-range external store (module-level, no React re-renders on write)
+// ---------------------------------------------------------------------------
+
+/** Current buffer-local visible start index (set by reportVisibleRange). */
+let _visibleStart = 0;
+/** Current buffer-local visible end index. */
+let _visibleEnd = 0;
+/** Cached snapshot object — replaced only when values change. */
+let _visibleSnapshot = { start: 0, end: 0 };
+/** Listeners for useSyncExternalStore. */
+const _visibleListeners = new Set<() => void>();
+
+function _notifyVisibleListeners() {
+  _visibleSnapshot = { start: _visibleStart, end: _visibleEnd };
+  for (const fn of _visibleListeners) fn();
+}
+
+function _subscribeVisible(listener: () => void) {
+  _visibleListeners.add(listener);
+  return () => { _visibleListeners.delete(listener); };
+}
+
+function _getVisibleSnapshot(): { start: number; end: number } {
+  return _visibleSnapshot;
+}
+
 /**
- * Maximum rows addressable via native scrollbar + from/size pagination.
- * Must match MAX_RESULT_WINDOW in search-store.ts.
+ * React hook that returns the current buffer-local visible range.
+ * Re-renders only when the range actually changes (i.e. on scroll).
+ * Used by the Scrubber to track thumb position without polling.
  */
-const MAX_SPARSE_ROWS = 100_000;
+export function useVisibleRange(): { start: number; end: number } {
+  return useSyncExternalStore(_subscribeVisible, _getVisibleSnapshot, _getVisibleSnapshot);
+}
 
-/** Debounce delay for gap detection after visible range changes (ms). */
-const GAP_DETECT_DELAY = 80;
-
-/** How many extra rows to load on each side of the visible range (buffer). */
-const LOAD_OVERSCAN = 50;
-
-/** Maximum number of rows to request in a single loadRange call. */
-const MAX_RANGE_SIZE = 200;
+/**
+ * Imperatively reset the visible range to 0. Call this alongside
+ * programmatic scroll resets (e.g. logo click) to ensure the
+ * Scrubber thumb immediately reflects position 0 without waiting
+ * for a scroll event.
+ */
+export function resetVisibleRange(): void {
+  if (_visibleStart !== 0 || _visibleEnd !== 0) {
+    _visibleStart = 0;
+    _visibleEnd = 0;
+    _notifyVisibleListeners();
+  }
+}
 
 export interface DataWindow {
-  /** Loaded images in display order (may have undefined gaps). */
+  /** Windowed buffer of loaded images (may have undefined gaps during loading). */
   results: (Image | undefined)[];
-  /** Total number of matching images (may be >> loaded count). */
+  /** Global offset of buffer[0] in the full result set. */
+  bufferOffset: number;
+  /** Total number of matching images in ES (may be >> buffer size). */
   total: number;
-  /** Number of rows the virtualizer should render (min(total, cap)). */
+  /** Number of rows the virtualizer should render (= buffer length). */
   virtualizerCount: number;
-  /** Whether a search or loadMore is currently in flight. */
+  /** Whether a search or seek is currently in flight. */
   loading: boolean;
   /** Last error message, or null. */
   error: string | null;
-  /** Load the next page of results (append-only, for backward compat). */
+  /** Extend the buffer forward (append pages). */
+  extendForward: () => Promise<void>;
+  /** Extend the buffer backward (prepend pages). */
+  extendBackward: () => Promise<void>;
+  /** Seek to a global offset — clear buffer and refill at that position. */
+  seek: (globalOffset: number) => Promise<void>;
+  /** @deprecated Alias for extendForward — kept for view compatibility. */
   loadMore: () => Promise<void>;
   /** The currently focused image ID (single, ephemeral). */
   focusedImageId: string | null;
   /** Set the focused image ID. */
   setFocusedImageId: (id: string | null) => void;
   /**
-   * Report the currently visible index range. The hook will detect gaps
-   * (unloaded slots) and fire loadRange requests to fill them.
-   * Call this from the scroll handler with the virtualizer's visible range.
+   * Report the currently visible buffer-local index range. The hook will
+   * detect proximity to buffer edges and trigger extend operations.
    */
   reportVisibleRange: (startIndex: number, endIndex: number) => void;
-  /** Get the image at a global index, or undefined if not loaded. */
+  /** Get the image at a buffer-local index, or undefined if not loaded. */
   getImage: (index: number) => Image | undefined;
-  /** Find the global index of an image by ID, or -1 if not loaded. */
+  /** Find the buffer-local index of an image by ID, or -1 if not in the buffer. */
   findImageIndex: (imageId: string) => number;
 }
 
@@ -82,7 +126,8 @@ export interface DataWindow {
  * Usage:
  * ```ts
  * const {
- *   results, total, virtualizerCount, loading, loadMore,
+ *   results, total, bufferOffset, virtualizerCount, loading,
+ *   extendForward, extendBackward, loadMore,
  *   focusedImageId, setFocusedImageId,
  *   reportVisibleRange, getImage, findImageIndex,
  * } = useDataWindow();
@@ -90,90 +135,55 @@ export interface DataWindow {
  */
 export function useDataWindow(): DataWindow {
   const results = useSearchStore((s) => s.results);
+  const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const total = useSearchStore((s) => s.total);
   const loading = useSearchStore((s) => s.loading);
   const error = useSearchStore((s) => s.error);
+  const extendForward = useSearchStore((s) => s.extendForward);
+  const extendBackward = useSearchStore((s) => s.extendBackward);
+  const seek = useSearchStore((s) => s.seek);
   const loadMore = useSearchStore((s) => s.loadMore);
-  const loadRange = useSearchStore((s) => s.loadRange);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
   const setFocusedImageId = useSearchStore((s) => s.setFocusedImageId);
-
-  // imagePositions is now maintained incrementally in the store.
-  // O(page size) per loadRange/loadMore, not O(total loaded).
   const imagePositions = useSearchStore((s) => s.imagePositions);
 
-  // The number of rows the virtualizer should create.
-  // When results haven't arrived yet (empty array), use 0 — don't pre-size
-  // to 100k placeholders before we have any data (causes a flash of empty table).
-  // Once at least one page is loaded, cap at MAX_SPARSE_ROWS so the native
-  // scrollbar represents the full addressable range.
-  const virtualizerCount = results.length === 0 ? 0 : Math.min(total, MAX_SPARSE_ROWS);
+  // The virtualizer count is simply the buffer length.
+  // When no results have loaded yet, use 0.
+  const virtualizerCount = results.length;
 
-  // --- Gap detection + range loading ---
-
-  // Ref to track the last reported visible range (avoid redundant work)
-  const visibleRangeRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
-  const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Use refs for values needed in the debounced callback to avoid
-  // re-creating the callback on every render
-  const resultsRef = useRef(results);
-  resultsRef.current = results;
+  // Use refs for values needed in the callback to keep it stable
+  const bufferOffsetRef = useRef(bufferOffset);
+  bufferOffsetRef.current = bufferOffset;
+  const resultsLenRef = useRef(results.length);
+  resultsLenRef.current = results.length;
   const totalRef = useRef(total);
   totalRef.current = total;
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (gapTimerRef.current) clearTimeout(gapTimerRef.current);
-    };
-  }, []);
-
   const reportVisibleRange = useCallback(
     (startIndex: number, endIndex: number) => {
-      visibleRangeRef.current = { start: startIndex, end: endIndex };
+      const offset = bufferOffsetRef.current;
+      const len = resultsLenRef.current;
+      const t = totalRef.current;
 
-      // Debounce gap detection — during fast scrolling we don't want to
-      // fire a loadRange for every scroll frame
-      if (gapTimerRef.current) clearTimeout(gapTimerRef.current);
-      gapTimerRef.current = setTimeout(() => {
-        const currentResults = resultsRef.current;
-        const currentTotal = totalRef.current;
-        const cap = Math.min(currentTotal, MAX_SPARSE_ROWS);
+      // Update module-level visible range for Scrubber (useSyncExternalStore)
+      if (startIndex !== _visibleStart || endIndex !== _visibleEnd) {
+        _visibleStart = startIndex;
+        _visibleEnd = endIndex;
+        _notifyVisibleListeners();
+      }
 
-        // Expand range with overscan buffer
-        const rangeStart = Math.max(0, startIndex - LOAD_OVERSCAN);
-        const rangeEnd = Math.min(cap - 1, endIndex + LOAD_OVERSCAN);
+      // Near the end of the buffer → extend forward
+      if (endIndex >= len - EXTEND_THRESHOLD && offset + len < t) {
+        extendForward();
+      }
 
-        // Find gaps (undefined slots) in the expanded range
-        let gapStart: number | null = null;
-        for (let i = rangeStart; i <= rangeEnd; i++) {
-          const isLoaded = i < currentResults.length && currentResults[i] != null;
-
-          if (!isLoaded && gapStart === null) {
-            gapStart = i;
-          }
-
-          if ((isLoaded || i === rangeEnd) && gapStart !== null) {
-            const gapEnd = isLoaded ? i - 1 : i;
-            // Break large gaps into chunks of MAX_RANGE_SIZE
-            for (let chunkStart = gapStart; chunkStart <= gapEnd; chunkStart += MAX_RANGE_SIZE) {
-              const chunkEnd = Math.min(chunkStart + MAX_RANGE_SIZE - 1, gapEnd);
-              loadRange(chunkStart, chunkEnd);
-            }
-            gapStart = null;
-          }
-        }
-      }, GAP_DETECT_DELAY);
+      // Near the start of the buffer → extend backward
+      if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
+        extendBackward();
+      }
     },
-    [loadRange],
+    [extendForward, extendBackward],
   );
-
-  // --- O(1) image ID → index lookup ---
-  // imagePositions is maintained incrementally in the store (see search-store.ts).
-  // Each loadRange/loadMore only inserts O(page size) entries into the Map,
-  // instead of the old approach which rebuilt the entire Map from scratch
-  // (O(total loaded)) on every results change.
 
   const getImage = useCallback(
     (index: number): Image | undefined => {
@@ -183,19 +193,31 @@ export function useDataWindow(): DataWindow {
     [results],
   );
 
+  /**
+   * Find the buffer-local index of an image by ID.
+   * Returns -1 if the image is not in the current buffer.
+   */
   const findImageIndex = useCallback(
     (imageId: string): number => {
-      return imagePositions.get(imageId) ?? -1;
+      const globalIdx = imagePositions.get(imageId);
+      if (globalIdx == null) return -1;
+      const localIdx = globalIdx - bufferOffset;
+      if (localIdx < 0 || localIdx >= results.length) return -1;
+      return localIdx;
     },
-    [imagePositions],
+    [imagePositions, bufferOffset, results.length],
   );
 
   return {
     results,
+    bufferOffset,
     total,
     virtualizerCount,
     loading,
     error,
+    extendForward,
+    extendBackward,
+    seek,
     loadMore,
     focusedImageId,
     setFocusedImageId,

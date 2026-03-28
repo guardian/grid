@@ -75,7 +75,7 @@ export const SOURCE_INCLUDES: string[] = [];
  * This is a safeguard against accidentally issuing write operations
  * (index, delete, bulk, etc.) against a shared cluster.
  */
-export const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases"];
+export const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit"];
 
 /**
  * Whether the current ES target is "local" (kupua's own docker instance).

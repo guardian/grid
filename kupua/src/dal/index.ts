@@ -7,11 +7,14 @@ export type {
   ImageDataSource,
   SearchParams,
   SearchResult,
+  SearchAfterResult,
+  SortValues,
+  BufferEntry,
   AggregationResult,
   AggregationBucket,
   AggregationRequest,
   AggregationsResult,
 } from "./types";
 
-export { ElasticsearchDataSource } from "./es-adapter";
+export { ElasticsearchDataSource, buildSortClause, reverseSortClause, parseSortField } from "./es-adapter";
 
