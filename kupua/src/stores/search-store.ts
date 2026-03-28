@@ -992,6 +992,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             // bodies, we rely on _source excludes already configured in the
             // adapter. For truly large jumps, we cap iterations.
             const SKIP_SIZE = 10000;
+            // Cap each chunk to MAX_RESULT_WINDOW — ES enforces the size limit
+            // even for search_after requests (size alone, no from offset, but
+            // the index setting still applies).
+            const maxChunk = Math.min(SKIP_SIZE, MAX_RESULT_WINDOW);
             let cursor = pivotResult.sortValues[0];
             let skippedTotal = capOffset + 1; // we've passed capOffset + 1 docs
             const targetStart = fetchStart;
@@ -1003,7 +1007,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             for (let iter = 0; iter < MAX_SKIP_ITERATIONS && skippedTotal < targetStart; iter++) {
               if (signal.aborted) return;
               const remaining = targetStart - skippedTotal;
-              const chunkSize = Math.min(SKIP_SIZE, remaining);
+              const chunkSize = Math.min(maxChunk, remaining);
 
               const skipResult = await dataSource.searchAfter(
                 { ...params, length: chunkSize },
