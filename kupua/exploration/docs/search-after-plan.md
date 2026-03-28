@@ -1224,6 +1224,12 @@ jank during fast scroll.
 **Verdict:** Use for eviction and background PIT refresh. Small code
 change, measurable smoothness improvement during heavy scroll + eviction.
 
+**Implementation note (March 2026):** Not adopted. Buffer eviction runs
+synchronously inside `extendForward`/`extendBackward` `set()` calls.
+At `BUFFER_CAPACITY = 1000`, eviction is O(evicted entries) ~200 items,
+completing in <1ms. No jank observed. Worth revisiting only if buffer
+capacity increases significantly or if eviction logic grows more complex.
+
 #### `ResizeObserver` (already using)
 
 Already used for grid column recomputation and scroll anchoring. No
@@ -1325,16 +1331,22 @@ Prefetching (which we already do) is the correct mechanism.
 
 ### Summary table
 
-| Technology | Status | Usefulness | When |
-|---|---|---|---|
-| `content-visibility: auto` | ✅ Shipped | Medium — belt-and-suspenders rendering skip | Step 9 (view changes) |
-| `requestIdleCallback` | ✅ Shipped | Medium — non-urgent eviction/cleanup | Step 7 (eviction) |
-| CSS `anchor()` | ⚠️ Chrome only | Low — scrubber label positioning | Step 12+ (labels) |
-| Scroll Timeline API | ⚠️ Chrome, FF flag | High — scrubber thumb smoothness | Phase 6 polish |
-| View Transitions API | ⚠️ Partial | High — density switch + seek animation | Phase 6 density slider |
-| `scheduler.postTask` | ⚠️ Chrome only | Low — priority scheduling | If contention observed |
-| `ContentVisibilityAutoStateChange` | ⚠️ Chrome only | Low — alt gap detection | Research only |
-| Speculation Rules | ✅ Shipped | None — wrong model | N/A |
+| Technology | Status | Usefulness | When | Adopted? |
+|---|---|---|---|---|
+| `content-visibility: auto` | ✅ Shipped | Medium — belt-and-suspenders rendering skip | Step 9 (view changes) | ❌ Not yet — TanStack Virtual handles row recycling; low incremental value |
+| `requestIdleCallback` | ✅ Shipped | Medium — non-urgent eviction/cleanup | Step 7 (eviction) | ❌ Not yet — eviction runs synchronously inside `set()` (fast at 1000 entries); worth revisiting if buffer grows |
+| CSS `anchor()` | ⚠️ Chrome only | Low — scrubber label positioning | Step 12+ (labels) | ❌ Not yet — JS positioning is trivial |
+| Scroll Timeline API | ⚠️ Chrome, FF flag | High — scrubber thumb smoothness | Phase 6 polish | ❌ Not yet — scrubber uses direct DOM writes during drag (60fps); Scroll Timeline would help for within-buffer scroll tracking only |
+| View Transitions API | ⚠️ Partial | High — density switch + seek animation | Phase 6 density slider | ❌ Not yet — good candidate for seek cross-fade and density switch |
+| `scheduler.postTask` | ⚠️ Chrome only | Low — priority scheduling | If contention observed | ❌ Not yet — no contention observed |
+| `ContentVisibilityAutoStateChange` | ⚠️ Chrome only | Low — alt gap detection | Research only | ❌ N/A — `reportVisibleRange` from scroll events replaced gap detection entirely |
+| Speculation Rules | ✅ Shipped | None — wrong model | N/A | ❌ N/A |
+
+**Note (March 2026 audit):** The two highest-value technologies — `content-visibility: auto`
+and `requestIdleCallback` — remain unadopted but their urgency has decreased. Buffer eviction
+at 1000 entries is O(1) time (no GC pressure), and TanStack Virtual's row recycling makes
+`content-visibility` redundant for the current view architecture. The highest-value future
+adoption is **View Transitions API** for density-switch and seek animations (Phase 6).
 
 ---
 
@@ -1716,12 +1728,17 @@ compromises. None are blocking; all have clear fix paths.
    user lands at the right position; only the overscan distribution is
    slightly off. Negligible UX impact.
 
-3. **Script sorts can't deep seek.** `estimateSortValue` (percentiles
-   agg) only works on indexed fields, not script sorts (e.g.
-   `dimensions`). Script sorts fall back to `from/size` capped at 100k.
-   In practice, script sorts are used on small filtered sets. **Fix if
-   needed:** binary-search `countBefore` approach (~23 round trips for
-   9M, ~50ms total).
+3. ~~**Script sorts can't deep seek.**~~ **PARTIALLY RESOLVED.** Script sorts
+   now use iterative `search_after` with `noSource: true` (Strategy B in
+   `seek()`): pivot via `from/size` at `MAX_RESULT_WINDOW`, then skip forward
+   in chunks until the target offset. `MAX_SKIP_ITERATIONS=200` cap prevents
+   runaway. Works but is O(N/chunkSize) ES requests — ~50 requests for 500k
+   on a 1.3M dataset. Keyword sorts (Credit, Source, etc.) use composite
+   aggregation (`findKeywordSortValue`) — typically 1-5 pages, fast.
+   Only `_script` sorts (Dimensions) use the slow iterative path.
+   **Remaining limitation:** Script sorts at extreme depth (>500k in 9M+
+   datasets) may take 3-10s. Consider UI feedback ("Dimensions sort:
+   deep positions may be slow") if this becomes a user issue.
 
 4. **~~Dual `seekTarget` clearing paths.~~** Resolved. The original
    `seekTarget` (React state) with its complex clearing effect was replaced

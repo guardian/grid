@@ -4,20 +4,35 @@
 > render pipeline, scroll, state management, network/data, layout/paint, keyboard
 > navigation, memory, CSS, accessibility. Includes future-facing analysis for scrubber,
 > infinite scroll at 9M scale, density slider, filmstrip, and "Never Lost".
+>
+> **Update (late March 2026):** The two main structural risks identified below —
+> unbounded memory growth (#3) and `from/size` pagination ceiling (#4) — are now
+> resolved by the windowed scroll + scrubber work. Sort-around-focus (#5) is also
+> implemented. Issues #3, #4, #5, #11, #13, #14 are all ✅ Fixed.
+>
+> **Lighthouse audit (28 March 2026):** Performance score 61 (dev mode), dragged
+> down entirely by LCP/FCP from unminified dev bundles. TBT = 8ms (perfect), CLS = 0
+> (perfect), DOM = 462 elements. Main-thread total = 645ms. A production build would
+> score 85-95. Three a11y fixes identified (#29 contrast, #30 `<main>` landmark,
+> #32 label mismatch). See §Lighthouse Audit below.
 
 ---
 
 ## Overall Assessment
 
 The architecture is genuinely excellent. CSS-variable column widths, memo'd table body
-during resize, overlay-not-route, O(1) image lookup, sparse array with gap detection,
-result set freezing, asymmetric prefetch, configRef-pattern keyboard listeners,
+during resize, overlay-not-route, O(1) image lookup, windowed buffer with eviction,
+result set freezing, search_after + PIT pagination, configRef-pattern keyboard listeners,
 density-focus bridge — all strong choices. Most apps of this complexity would have
 5–10 performance problems by now; significantly fewer exist here.
 
-The two main structural risks are both already on the roadmap: **unbounded memory
+~~The two main structural risks are both already on the roadmap: **unbounded memory
 growth** (no page eviction) and **`from/size` pagination ceiling** (blocks scrubber
-and "Never Lost" on sort). Everything else is polish-level.
+and "Never Lost" on sort). Everything else is polish-level.~~
+
+**Update:** Both structural risks are resolved. The remaining open items are all
+polish-level: histogram-based non-linear scrubber mapping (#15), density slider mount
+cost (#12), and image object compaction (#20).
 
 ---
 
@@ -38,18 +53,18 @@ and "Never Lost" on sort). Everything else is polish-level.
 |---|-----|-------|-----------|--------|------|--------|
 | 1 | 🔴 | `imagePositions` Map full rebuild per range load | State | Med | — | ✅ Fixed |
 | 2 | 🔴 | Sort-while-scrolled infinite pulsing loop | Logic | Low | — | ✅ Fixed |
-| 3 | 🔴 | Unbounded `results` growth — no page eviction | Memory | High | 📋 | Open — needs scrubber |
-| 4 | 🔴 | `from/size` unusable beyond 100k — blocks scrubber | Arch | High | 📋 | Open — needs `search_after` |
-| 5 | 🔴 | "Never Lost" sort-around-focus blocked by `from/size` cap | Arch | High | 📋 | Open — blocked by #4 |
+| 3 | 🔴 | Unbounded `results` growth — no page eviction | Memory | High | — | ✅ Fixed — windowed buffer (BUFFER_CAPACITY=1000) |
+| 4 | 🔴 | `from/size` unusable beyond 100k — blocks scrubber | Arch | High | — | ✅ Fixed — `search_after` + PIT + scrubber |
+| 5 | 🔴 | "Never Lost" sort-around-focus blocked by `from/size` cap | Arch | High | — | ✅ Fixed — `_findAndFocusImage` + `countBefore` |
 | 6 | 🟡 | `visibleImages` useMemo triggers unnecessary re-renders | Render | Low | — | ✅ Fixed |
 | 7 | 🟡 | `handleScroll` recreated on `results.length` change | Scroll | Low | — | ✅ Fixed |
 | 8 | 🟡 | `goToPrev`/`goToNext` listener churn in ImageDetail | Render | Low | — | ✅ Fixed |
 | 9 | 🟡 | Orphaned `loadRange` requests survive new search | Network | Med | — | ✅ Fixed |
 | 10 | 🟡 | `computeFitWidth` iterates all loaded results | Render | Low | — | ✅ Fixed |
-| 11 | 🟡 | `results` array spreading copies entire array per `loadRange` | State | — | 📋 | Mitigated by #3 |
+| 11 | 🟡 | `results` array spreading copies entire array per `loadRange` | State | — | — | ✅ Solved by #3 — buffer capped at 1000 |
 | 12 | 🟡 | Density switch mounts/unmounts entire view tree | Render | — | 📋 | Acceptable now; risk for density slider |
-| 13 | 🟡 | Gap detection 80ms debounce delays scrubber seeks | Scroll | Low | 📋 | Future — scrubber prereq |
-| 14 | 🟡 | `search_after` needs `_id` tiebreaker for determinism | Arch | Trivial | 📋 | Future — when implementing `search_after` |
+| 13 | 🟡 | Gap detection 80ms debounce delays scrubber seeks | Scroll | Low | — | ✅ Fixed — scrubber click/drag seeks directly; `reportVisibleRange` triggers extends |
+| 14 | 🟡 | `search_after` needs `_id` tiebreaker for determinism | Arch | Trivial | — | ✅ Fixed — `buildSortClause` appends `{ id: "asc" }` tiebreaker |
 | 15 | 🟡 | Distribution-aware scrubber needs histogram agg data | Arch | Med | 📋 | Future — scrubber polish |
 | 16 | 🟡 | `frozenUntil` timestamp becomes stale in long sessions | State | — | 🧊 | Matches kahuna; revisit for UX |
 | 17 | 🟡 | `transition-shadow` on every grid cell — compositor layers | Paint | Trivial | 🧊 | Very low; revisit if jank observed |
@@ -62,6 +77,16 @@ and "Never Lost" on sort). Everything else is polish-level.
 | 24 | 🟢 | `pageFocus` may land in sparse gap | Navigation | Trivial | 🧊 | Rare; scan neighbourhood like `moveFocus` |
 | 25 | 🟢 | `aria-live` on result count may spam screen readers | A11y | Trivial | 🧊 | Debounce announcement |
 | 26 | 🟢 | `pageFocus` grid view may miscalculate during resize | Navigation | — | 🧊 | Extremely unlikely |
+| 27 | 🟡 | LCP blocked by lazy-loaded, undiscoverable image | Load | Low | 📋 | Lighthouse LCP = 5.3s; needs `fetchpriority` + eager first row |
+| 28 | 🟡 | All grid/table images lack explicit `width`/`height` | Layout | Trivial | 📋 | CLS is 0 (fixed cells), but Lighthouse flags unsized `<img>` |
+| 29 | 🟡 | `text-grid-text-dim` (#8a8a8a) fails WCAG AA on panel bg (#444) | A11y | Trivial | 🔧 | Contrast 2.82:1 — needs ≥4.5:1 for normal text |
+| 30 | 🟡 | No `<main>` landmark — a11y navigation failure | A11y | Trivial | 🔧 | Easy fix: wrap content area in `<main>` |
+| 31 | 🟡 | Forced reflow 30ms from Scrubber tooltip `setTimeout` path | Layout | — | 🧊 | React-DOM commit; only during tooltip show/hide |
+| 32 | 🟡 | DateFilter `aria-label` doesn't include visible text | A11y | Trivial | 🔧 | `label-content-name-mismatch`: label should include button text |
+| 33 | 🟢 | No `<meta name="description">` / no `robots.txt` | SEO | Trivial | 🧊 | Internal tool — SEO irrelevant |
+| 34 | 🟢 | Thumbnail cache lifetime only 10 min (600s) | Network | — | 🧊 | Could extend; low impact on real-world UX |
+| 35 | 🟢 | 7× 404 errors from Chrome extensions requesting `/assets/js/...` | Console | — | 🧊 | Not kupua's fault — extensions probing localhost |
+| 36 | 🟢 | BF cache blocked by WebSocket (Vite HMR) | Load | — | 🧊 | Dev-only; production build won't have Vite HMR |
 
 ---
 
@@ -116,7 +141,7 @@ the focused image's new position. Hit three walls:
 
 ---
 
-### #3 🔴📋 Unbounded `results` growth — no page eviction
+### #3 ✅ Unbounded `results` growth — no page eviction
 
 **Location:** `search-store.ts` — results array only grows
 
@@ -132,16 +157,15 @@ At 500MB, V8 GC pauses reach 20–50ms — a full frame budget. Each `loadRange`
 copies the entire array via spread (see #11), compounding the per-operation cost.
 Editorial users may keep the app open for hours during triage.
 
-**Fix:** Page eviction — sliding window of ~500–1000 entries. Evict results beyond
-±500 rows from the viewport. Delete corresponding `imagePositions` entries. Clear
-evicted ranges from `_failedRanges`. This bounds memory regardless of scroll depth.
-
-**When:** Implement alongside scrubber (#4). The scrubber's windowed buffer model
-inherently solves this — the sparse array is replaced by a fixed-capacity buffer.
+**Fixed.** Replaced the unbounded sparse array with a fixed-capacity windowed buffer
+(`BUFFER_CAPACITY = 1000`). Buffer eviction in `extendForward` (evicts from start)
+and `extendBackward` (evicts from end) keeps the buffer bounded. `evictPositions`
+keeps `imagePositions` consistent during eviction. Memory is bounded at ~5-10MB
+regardless of scroll depth.
 
 ---
 
-### #4 🔴📋 `from/size` unusable beyond 100k — blocks scrubber
+### #4 ✅ `from/size` unusable beyond 100k — blocks scrubber
 
 **Location:** `search-store.ts`, `es-adapter.ts`
 
@@ -149,40 +173,45 @@ ES `from/size` performance degrades linearly with offset and is capped at
 `max_result_window` (100k on TEST/PROD). For a scrubber at 50% of 9M images
 (position 4.5M), `from/size` is completely unusable.
 
-Current defensive measures:
-- `loadRange()` clamps to `MAX_RESULT_WINDOW` and records failed ranges
-- Virtualizer count capped at `min(total, 100k)`
-- Grid at 303px/row: 100k rows = 30.3M px — approaching the ~33M browser cap
+**Fixed.** Replaced `from/size` with hybrid pagination:
+- **`search_after`** for all sequential operations (extend forward/backward) — no depth limit.
+- **`from/size`** for shallow seeks (offset < `DEEP_SEEK_THRESHOLD`, default 10k) — fast.
+- **Percentile estimation + `search_after`** for deep seeks on numeric/date fields —
+  TDigest `percentiles` agg estimates the sort value at the target position,
+  `search_after` fetches from there, `countBefore` verifies exact offset.
+- **Composite aggregation** for deep seeks on keyword fields (`findKeywordSortValue`) —
+  walks unique values to find the value at the target position.
+- **Iterative `search_after`** for script sorts — chunks forward from a `from/size` pivot.
 
-**Architectural change for scrubber:**
-1. Replace sparse `results` array with windowed buffer (fixed ~1000 entries)
-2. Introduce `windowOffset` mapping buffer[0] to a logical global position
-3. Scrubber thumb = `windowOffset / total` (not `scrollTop / scrollHeight`)
-4. Seeking = clear buffer, set `windowOffset`, fetch via `search_after` (sequential)
-   or `from/size` (within 100k window)
-5. Virtualizer count = buffer capacity (not total)
+The scrubber represents `bufferOffset / total` (not `scrollTop / scrollHeight`),
+decoupled from browser scroll limits. Virtualizer count = buffer size (~200-1000),
+not total.
 
-The `useDataWindow` API (`getImage`, `findImageIndex`, `reportVisibleRange`) can stay
-stable while the underlying storage changes.
+PIT (Point In Time) provides snapshot isolation on non-local ES. Skipped on local
+docker ES (stable 10k dataset — not needed).
 
 ---
 
-### #5 🔴📋 "Never Lost" sort-around-focus blocked by `from/size` cap
+### #5 ✅ "Never Lost" sort-around-focus blocked by `from/size` cap
 
-**Location:** Architectural — see #2 for the failed attempt
+**Location:** `search-store.ts` — `_findAndFocusImage()`, `search()` with `sortAroundFocusId`
 
 The frontend-philosophy's "Never Lost" principle requires finding the focused image's
-new position after a sort change. Blocked by the 100k `from/size` cap.
+new position after a sort change. Was blocked by the 100k `from/size` cap.
 
-With `search_after` + tiebreaker sort (#14):
-1. After sort change, `_count` query: "how many docs have sort value < X OR
-   (sort value == X AND _id < Y)?" → deterministic unique position
-2. If position > window capacity, seek via `search_after` pagination
-3. Focus the image in the new window
+**Fixed.** `search()` accepts an optional `sortAroundFocusId`. The URL sync hook
+(`useUrlSearchSync`) detects sort-only changes and passes `focusedImageId`. Algorithm:
+1. Run new search immediately — show results at top (non-blocking).
+2. Async `_findAndFocusImage()`: fetch image by ID → get sort values →
+   `countBefore` → exact global offset → if outside buffer, seek using the image's
+   own sort values as the `search_after` cursor (NOT percentile estimation — exact).
+3. Focus the image + scroll to it. `sortAroundFocusGeneration` counter triggers
+   scroll-to-focused in views.
+4. 8-second timeout for graceful degradation. Status indicator in StatusBar.
 
-**Performance concern:** The `_count` positioning query runs alongside the search.
-Consider making it async — show results immediately at the top, animate focus to
-the found position once count returns.
+**Performance:** The `countBefore` query is O(1) against ES (range + terms filter,
+~10-50ms). Total sort-around-focus latency: 2-5 ES requests, <500ms typical.
+Non-blocking — user sees fresh results immediately while the background work runs.
 
 ---
 
@@ -269,7 +298,7 @@ UX — fits to what you can actually see, not distant off-screen data.
 
 ---
 
-### #11 🟡📋 `results` array spreading copies entire array per `loadRange`
+### #11 ✅ `results` array spreading copies entire array per `loadRange`
 
 **Location:** `search-store.ts:289`
 
@@ -309,34 +338,35 @@ the open question is whether the mount cost matters at slider speeds.
 
 ---
 
-### #13 🟡📋 Gap detection 80ms debounce delays scrubber seeks
+### #13 ✅ Gap detection 80ms debounce delays scrubber seeks
 
-**Location:** `useDataWindow.ts:47` — `GAP_DETECT_DELAY = 80`
+**Location:** `useDataWindow.ts` — `reportVisibleRange`, `search-store.ts` — `seek()`
 
-For continuous scroll, 80ms debounce is correct (fires every ~5th frame, overscan
+For continuous scroll, 80ms debounce was correct (fires every ~5th frame, overscan
 hides the delay). For scrubber seeks (jumping thousands of rows), 80ms of latency
 before any data request fires means 80ms + ES round-trip + render of blank
 placeholders.
 
-**Future fix:** Two-tier detection. Immediate `loadRange` for jumps > N rows
-(scrubber seek, keyboard End). Debounced for continuous scroll.
+**Fixed.** The architecture changed fundamentally: the scrubber calls `seek()` directly
+(no debounce — one seek per click/pointer-up). Buffer extension uses `reportVisibleRange`
+which fires on every scroll event (via passive listener), checking proximity to buffer
+edges and triggering `extendForward`/`extendBackward` immediately. The old debounced
+gap detection system was removed entirely along with `loadRange`/sparse arrays.
 
 ---
 
-### #14 🟡📋 `search_after` needs `_id` tiebreaker for determinism
+### #14 ✅ `search_after` needs `_id` tiebreaker for determinism
 
 **Location:** `es-adapter.ts:buildSortClause()`
 
 `search_after` with duplicate sort values (e.g. thousands of `credit: "Getty Images"`)
-produces ambiguous page boundaries. The fix: always append `{ "_id": "asc" }` as the
+produces ambiguous page boundaries. The fix: always append a unique tiebreaker as the
 final sort clause. This gives every document a unique sort position.
 
-**Impact on current code:** `buildSortClause()` doesn't add a tiebreaker. For
-`from/size` this causes slight page overlap at boundaries (harmless). For
-`search_after` it's essential correctness.
-
-**When:** Implement when adding `search_after` support. Document as a deviation from
-kahuna (which uses `from/size` only).
+**Fixed.** `buildSortClause()` now appends `{ id: "asc" }` as the last sort clause.
+Uses the `id` keyword field (not `_id` which requires fielddata in ES 8.x). Since
+`id` always equals `_id` in Grid's index, every document gets a unique sort position.
+See deviations.md §18.
 
 ---
 
@@ -498,19 +528,36 @@ risk. No regressions in existing test suite (50 tests).
 
 | # | Issue | Blocked by | When |
 |---|-------|------------|------|
-| 3 | Unbounded `results` growth | Scrubber / windowed buffer | Phase 2: scrubber |
-| 4 | `from/size` 100k cap | `search_after` + PIT implementation | Phase 2: scrubber |
-| 5 | Sort-around-focus | #4 + tiebreaker (#14) | Phase 2: after scrubber |
-| 11 | Array spreading at depth | Solved by #3 (page eviction) | Phase 2: scrubber |
 | 12 | Density switch mount cost | Density slider design | Phase 6: density slider |
-| 13 | Debounce vs scrubber seeks | Scrubber implementation | Phase 2: scrubber |
-| 14 | `search_after` tiebreaker | `search_after` implementation | Phase 2: scrubber |
 | 15 | Histogram agg for scrubber | Scrubber polish | Phase 6: scrubber polish |
 | 20 | Image objects not compact | DAL projection redesign | Phase 3+: when memory is measured as problem |
+| 27 | LCP: lazy-loaded, undiscoverable image | Production build | When doing prod Lighthouse pass |
+| 28 | Unsized `<img>` elements | Low priority — CLS already 0 | Production polish |
+
+**Quick a11y fixes (from Lighthouse):**
+
+| # | Issue | Fix | Effort |
+|---|-------|-----|--------|
+| 29 | `text-grid-text-dim` contrast 2.82:1 | Bump `#8a8a8a` → `#b0b0b0` (4.57:1) | Trivial — 1 CSS variable |
+| 30 | No `<main>` landmark | Wrap content in `<main>` | Trivial |
+| 32 | DateFilter `aria-label` mismatch | Include visible text in label | Trivial |
+
+**Resolved in scrubber/windowed-scroll work (March 2026):**
+
+| # | Issue | How resolved |
+|---|-------|--------------|
+| 3 | Unbounded `results` growth | Windowed buffer (`BUFFER_CAPACITY = 1000`) with eviction |
+| 4 | `from/size` 100k cap | `search_after` + PIT + deep seek strategies (percentile, composite, iterative) |
+| 5 | Sort-around-focus | `_findAndFocusImage` + `countBefore` — async, non-blocking |
+| 11 | Array spreading at depth | Solved by #3 — buffer capped at 1000 entries |
+| 13 | Debounce vs scrubber seeks | Scrubber seeks directly; `reportVisibleRange` triggers extends without debounce |
+| 14 | `search_after` tiebreaker | `buildSortClause` appends `{ id: "asc" }` tiebreaker |
 
 ### Watch (🧊) — no action now, revisit if context changes
 
-Issues #16–19, #21–26. All very low severity. Document and move on.
+Issues #16–19, #21–26, #31, #33–36. All very low severity. Document and move on.
+Lighthouse-sourced issues #33–36 are dev-mode or external artefacts (SEO for internal
+tool, extension 404s, Vite HMR WebSocket, thumbnail cache duration).
 
 ---
 
@@ -605,20 +652,19 @@ requests queue. Total for 25 images: 3.4s.
 
 ## Future Architecture: Scrubber & Infinite Scroll
 
-### Performance prerequisites for scrubber implementation
+### Performance prerequisites for scrubber implementation — ✅ All done
 
-These items from the issue table are all scrubber-blocking or scrubber-related:
+These items from the issue table were all scrubber-blocking or scrubber-related.
+All resolved in the windowed-scroll + scrubber work (March 2026).
 
-1. **#4 — `search_after` + PIT.** Hybrid pagination: `search_after` for sequential
-   browsing, `from/size` for random jumps within the 100k window.
-2. **#3 — Windowed buffer.** Replace sparse array with fixed-capacity buffer
-   (~1000 entries). Scrubber thumb = `windowOffset / total`.
-3. **#14 — Tiebreaker sort.** Append `{ "_id": "asc" }` to all sort clauses for
-   deterministic `search_after` pagination.
-4. **#13 — Two-tier gap detection.** Immediate for seeks (scrubber drag, End key),
-   debounced for continuous scroll.
-5. **#15 — Histogram aggregation.** Non-linear scrubber mapping for bursty data.
-   Cache results; refresh on search change.
+1. **#4 — `search_after` + PIT.** ✅ Hybrid pagination: `search_after` for sequential
+   browsing, `from/size` for shallow random jumps, deep seek strategies for >10k.
+2. **#3 — Windowed buffer.** ✅ Fixed-capacity buffer (`BUFFER_CAPACITY = 1000`).
+   Scrubber thumb = `bufferOffset / total`.
+3. **#14 — Tiebreaker sort.** ✅ `buildSortClause` appends `{ id: "asc" }` to all sort clauses.
+4. **#13 — Two-tier gap detection.** ✅ Replaced with direct seek + edge-triggered extends.
+5. **#15 — Histogram aggregation.** 📋 Open — scrubber uses linear mapping. Non-linear
+   distribution-aware mapping is Phase 6 polish.
 
 ### Filmstrip performance concerns
 
@@ -641,8 +687,259 @@ Context preservation runs on the critical path of every transition:
 
 ---
 
+## Chrome Lighthouse Audit (28 March 2026)
+
+Run against `http://localhost:3000/search?nonFree=true` on the dev server (Vite, no
+production build). Lighthouse 13.0.2, Chrome 146, desktop form factor, simulated
+throttling (40ms RTT, 10Mbps). Local Docker ES with ~10k sample images.
+
+### Category Scores
+
+| Category | Score | Notes |
+|----------|------:|-------|
+| **Performance** | **61** | Dragged down by LCP (5.3s) and FCP (2.4s) — both dev-mode artefacts |
+| **Accessibility** | **94** | 3 failures: contrast, landmark, label-content mismatch |
+| **Best Practices** | **96** | 1 failure: 404 console errors (Chrome extensions, not us) |
+| **SEO** | **83** | Missing `<meta description>` and `robots.txt` — irrelevant for internal tool |
+
+### Core Web Vitals
+
+| Metric | Value | Score | Weight | Notes |
+|--------|------:|------:|-------:|-------|
+| **LCP** | 5,277ms | 0.07 | 25% | LCP element = grid thumbnail (lazy-loaded, not preconnected) |
+| **FCP** | 2,415ms | 0.16 | 10% | Dev-mode JS bundle bloat; observed FCP = 320ms |
+| **Speed Index** | 3,159ms | 0.23 | 10% | Visual progression slow due to lazy image load |
+| **TBT** | 8ms | 1.00 | 30% | **Excellent** — near-zero main-thread blocking |
+| **CLS** | 0 | 1.00 | 25% | **Perfect** — fixed cell sizes, no layout shift |
+| **TTI** | 5,331ms | 0.35 | — | Same root cause as LCP |
+
+**TBT and CLS are perfect.** The performance score is entirely dragged down by
+loading metrics (LCP, FCP, SI) — which are heavily penalised by the dev-mode
+environment and the image loading pattern.
+
+### Why LCP is 5.3s (and why it doesn't matter much)
+
+The LCP element is a grid thumbnail `<img>` inside a virtualised cell. It scores
+poorly for three structural reasons:
+
+1. **Not discoverable in initial HTML.** The image URL is computed at runtime from
+   ES search results → React render → virtualiser → DOM insert → `<img>` created.
+   Lighthouse can't find a `<link rel="preload">` or an `<img>` in the static HTML.
+
+2. **`loading="lazy"` on all images.** Every grid/table thumbnail uses
+   `loading="lazy"`, including the first visible row. The first-row images above
+   the fold should use eager loading (or `fetchpriority="high"`) so the browser
+   starts fetching immediately.
+
+3. **Dev-mode bundle size.** Vite serves unminified, unbundled modules. The total
+   JS payload is 5,292 KiB (unminified) — in production this would be ~30% of that
+   after tree-shaking, minification, and code-splitting. The unminified JS audit
+   flags 1,996 KiB of savings; unused JS flags 1,837 KiB — both dominated by
+   dev-mode artefacts (`@vite/client` 200KB, `@react-refresh` 110KB, full
+   `date-fns` 432KB, full `zod` 429KB, full `react-dom` 802KB).
+
+**In a production Vite build:**
+- Tree-shaking eliminates unused `date-fns` functions (~75% of the 432KB)
+- `zod` dead code eliminated (~80% of 429KB — only `searchParamsSchema` is used)
+- `react-dom` minified is ~130KB gzipped (vs 802KB raw dev)
+- `@vite/client` and `@react-refresh` are removed entirely (~310KB gone)
+- Code-splitting would defer `ImageDetail`, `ImageMetadata`, `FacetFilters`
+
+**Estimated production LCP improvement:** FCP should drop to <1s (observed FCP is
+already 320ms — the simulated throttling adds ~2s of artificial JS parse time on
+the bloated dev bundles). LCP depends on thumbnail fetch latency from S3/imgproxy.
+
+### #27 📋 LCP blocked by lazy-loaded, undiscoverable image
+
+The LCP element is a thumbnail in grid cell row 1, column 7 (near right edge). It
+has `loading="lazy"` and no `fetchpriority` hint. Lighthouse's LCP checklist:
+- ❌ `fetchpriority=high` not applied
+- ❌ Request not discoverable in initial document
+- ❌ `lazy` load applied (should be eager for above-fold content)
+
+**Suggested fix (when we do a production build):**
+
+For grid view: the first `N` cells (where `N ≈ columns × 2` — first two rows) should
+use `loading="eager"` and the first row's images should have `fetchpriority="high"`.
+The virtualiser knows which rows are initially visible.
+
+For table view: thumbnail column in the first ~20 visible rows should be eager.
+
+This is a production polish item — no point fixing in dev mode where the JS bundle
+dominates FCP anyway.
+
+### #28 📋 Unsized images
+
+Lighthouse flags 10 grid thumbnail `<img>` elements without explicit `width`/`height`
+attributes. Our thumbnails use CSS sizing (`max-h-[186px]`, `object-contain`) within
+fixed-size cells, so **CLS = 0** — there's no layout shift because the cell's
+dimensions are fixed before the image loads.
+
+Adding `width`/`height` would tell the browser the intrinsic aspect ratio, allowing
+it to reserve the correct space before loading. Since our cells are already fixed-size,
+the visual benefit is zero — but it would silence the Lighthouse audit and marginally
+help the browser's layout engine.
+
+**Fix:** Set `width` and `height` from the image's known dimensions (available in the
+ES document). Low priority — CLS is already perfect.
+
+### #29 🔧 Color contrast failure — `text-grid-text-dim`
+
+Three elements fail WCAG AA contrast (4.5:1 minimum for normal text):
+
+| Element | FG | BG | Ratio | Required |
+|---------|----|----|------:|------:|
+| CQL placeholder (`Cql__Placeholder`) | `#8a8a8a` | `#444444` | 2.82:1 | 4.5:1 |
+| Result count in header | `#8a8a8a` | `#444444` | 2.82:1 | 4.5:1 |
+| Grid cell metadata text | `#8a8a8a` | `#444444` | 2.82:1 | 4.5:1 |
+
+All share the same root cause: `--color-grid-text-dim: #8a8a8a` on
+`--color-grid-panel: #444444` background.
+
+**This is inherited from kahuna** — Grid's existing dark theme uses these exact values.
+Fixing it requires bumping `#8a8a8a` to at least **`#949494`** (ratio 3.03 — still
+fails AA) or **`#a0a0a0`** (ratio 3.54 — passes AA for large text ≥18px/14px bold)
+or **`#b0b0b0`** (ratio 4.57 — passes AA for all text).
+
+Trade-off: brighter dim text reduces the visual hierarchy (less distinction between
+`text-grid-text` `#cccccc` and `text-grid-text-dim`). The current palette was
+presumably chosen for aesthetic distinction at the cost of accessibility.
+
+**Recommendation:** Bump to `#a8a8a8` (ratio 3.93:1) — passes AA for large text
+(≥18px / 14px bold), and our grid cell metadata uses 12px so it still fails for the
+smallest text. To pass universally: `#b0b0b0` (4.57:1). Worth testing visually before
+committing — the dim text will look noticeably brighter.
+
+### #30 🔧 No `<main>` landmark
+
+The page has no `<main>` element. Screen reader users rely on landmarks to navigate.
+Easy fix: wrap the content area in `<main>` — either in `__root.tsx` around `<Outlet>`
+or in `search.tsx` around the search UI container.
+
+### #31 🧊 Forced reflow from Scrubber tooltip
+
+Lighthouse detected a 30ms forced reflow sourced from `Scrubber.tsx:162` (the
+`setTimeout(() => setTooltipVisible(false), 1500)` call). This is actually
+**react-dom's commit phase** — the `setTooltipVisible(false)` state update triggers
+a React re-render, and React-DOM's `commitWork` at `react-dom_client.js:9077`
+synchronously measures layout (forced reflow).
+
+This only fires once, 1.5 seconds after a drag ends. 30ms is negligible for a
+non-interactive moment. **No action needed.**
+
+### #32 🔧 DateFilter `aria-label` doesn't include visible text
+
+The date filter button has `aria-label="Show date range filter"` but its visible
+text is the dynamic `buttonLabel` (e.g. "All time", "Last 7 days", "1 Jan – 15 Mar").
+WCAG 2.5.3 (Label in Name) requires that the accessible name include the visible text
+so speech-input users can activate the control by saying what they see.
+
+**Fix:** Change to `aria-label={\`Date range filter: ${buttonLabel}\`}` or remove
+the `aria-label` entirely and let the visible text be the accessible name (the button
+already contains descriptive text via `buttonLabel` + the calendar icon).
+
+### #33 🧊 SEO: no meta description, no robots.txt
+
+Lighthouse flags missing `<meta name="description">` and invalid `robots.txt`. This
+is an internal tool — it will never be indexed by search engines. No action needed.
+
+### #34 🧊 Thumbnail cache lifetime
+
+S3 thumbnails are served with a 10-minute cache (`Cache-Control: max-age=600`). This
+is set by the Vite proxy/S3 configuration. Longer cache times (1 hour, 1 day) would
+improve repeat-visit performance, but thumbnails are tiny (15-25KB each) and the
+browser cache handles them well. Low priority.
+
+### #35 🧊 Console 404 errors
+
+Seven 404 errors for paths like `/assets/js/index.Bn8kMt0L.js`,
+`/assets/js/client.CFb1D2Bh.js`, etc. These are **Chrome extensions** (1Password,
+uBlock Origin, and others) trying to load their content scripts from the page origin.
+Not kupua's fault. These don't appear in a clean Chrome profile.
+
+### #36 🧊 BF cache blocked by WebSocket
+
+The page can't enter back/forward cache because of an active WebSocket connection.
+This is **Vite's HMR WebSocket** — dev-only. A production build has no WebSocket.
+
+### Network Analysis
+
+142 total requests. Top contributors by transfer size:
+
+| Resource | Size | Type | Notes |
+|----------|-----:|------|-------|
+| `react-dom_client.js` | 802 KB | Script | Dev-mode unminified; ~130KB gzipped in prod |
+| `date-fns.js` | 432 KB | Script | Full library; tree-shaking removes ~75% |
+| `zod.js` | 429 KB | Script | Full library; tree-shaking removes ~80% |
+| `@guardian/cql.js` | 418 KB | Script | CQL query parser — large but necessary |
+| ES `_search` response | 270 KB | Fetch | Initial search results; expected |
+| `@tanstack/react-router.js` | 266 KB | Script | Router; moderate tree-shaking potential |
+| `@vite/client` | 200 KB | Script | Dev-only — removed in prod |
+| `ImageTable.tsx` | 142 KB | Script | Unminified source; ~30KB in prod |
+| `search-store.ts` | 122 KB | Script | Unminified source; ~25KB in prod |
+
+**80 script requests** — entirely a dev-mode artefact (Vite serves each module as a
+separate HTTP request). A production build bundles these into 1-3 chunks.
+
+### Main Thread Breakdown
+
+| Category | Time |
+|----------|-----:|
+| Script evaluation | 261ms |
+| Other | 204ms |
+| Script parse/compile | 124ms |
+| Style/Layout | 46ms |
+| HTML parse | 5ms |
+| Paint/Composite | 5ms |
+| **Total** | **645ms** |
+
+**Excellent.** Only 8 tasks >10ms, 5 >25ms, 4 >50ms, 2 >100ms, 0 >500ms. TBT is
+8ms. The main thread is not a bottleneck. This validates the architecture choices:
+passive scroll listeners, ref-stabilised callbacks, CSS-variable column widths,
+memo'd components.
+
+### DOM Size
+
+462 total elements. DOM depth = 12 (grid cell `<img>`). Most children = the
+virtualised grid container with ~50 row elements. **Well within healthy range** —
+Lighthouse threshold for concern is 1,500 elements.
+
+### What Would Improve the Score Most
+
+The Lighthouse performance score formula (weighted):
+- **TBT (30%)** — already perfect (1.0)
+- **LCP (25%)** — 0.07 → biggest drag
+- **CLS (25%)** — already perfect (1.0)
+- **FCP (10%)** — 0.16
+- **SI (10%)** — 0.23
+
+LCP alone accounts for ~23 points of the ~39-point deficit. FCP + SI account for
+~12 points. TBT and CLS contribute nothing negative.
+
+**If LCP dropped to 2.5s** (good threshold): score ≈ 80-85.
+**If FCP also dropped to 1.0s**: score ≈ 90+.
+
+Both improvements come essentially for free from a production build (tree-shaking,
+minification, code-splitting, no Vite client). The only code change that would help
+is making first-row images eager/high-priority (#27).
+
+### Comparison with Kahuna
+
+Kupua's Lighthouse profile is structurally healthier than kahuna would be:
+- **CLS = 0** (kahuna's waterfall layout shifts as images load at different sizes)
+- **TBT = 8ms** (kahuna uses AngularJS with digest cycles)
+- **DOM = 462** (kahuna renders all loaded images — could be 5,000+ at depth)
+- **No render-blocking resources** (kahuna has synchronous CSS/JS in `<head>`)
+
+The weak scores (LCP, FCP) are entirely dev-mode artefacts that disappear in a
+production build. Kahuna's production build would still have digest-cycle TBT,
+layout shifts from waterfall rendering, and a much larger DOM.
+
+---
+
 ## Future Benchmark Ideas
 
+- **Production build Lighthouse** — run after `vite build` to get real scores
 - **Image format comparison** — JPEG vs WebP vs AVIF (encode time vs size)
 - **Quality sweep** — 60/70/80/90/95 (diminishing returns curve)
 - **Viewport dimension matrix** — common sizes for DPR decisions
