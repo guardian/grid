@@ -22,6 +22,7 @@ import type {
   AggregationsResult,
 } from "./types";
 import { parseCql } from "@/lib/cql";
+import { gridConfig } from "@/lib/grid-config";
 import {
   ES_BASE,
   ES_INDEX,
@@ -44,10 +45,21 @@ import {
 export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   if (!orderBy) return [{ uploadTime: "desc" }, { id: "asc" }];
 
-  // Grid's short sort aliases (from dropdown / URL) → ES fields.
-  // Only match standalone words, not substrings (e.g. "taken" but not "dateTaken").
+  // Short sort aliases (from dropdown / URL) → ES field paths.
+  // The URL only ever contains the short alias; the full ES path is
+  // resolved here at query time. See field-registry.ts sortKey values.
   const aliases: Record<string, string> = {
     taken: "metadata.dateTaken,-uploadTime",
+    credit: "metadata.credit",
+    source: "metadata.source",
+    imageType: "metadata.imageType",
+    category: "usageRights.category",
+    filename: "uploadInfo.filename",
+    mimeType: "source.mimeType",
+    // Config-driven alias fields (e.g. editStatus → fileMetadata.iptc.Edit Status)
+    ...Object.fromEntries(
+      gridConfig.fieldAliases.map((a) => [a.alias, a.elasticsearchPath]),
+    ),
   };
 
   /**

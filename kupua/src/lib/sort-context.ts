@@ -23,7 +23,7 @@ const SORT_LABEL_MAP: Record<
     accessor: (img) => img.uploadTime,
     type: "date",
   },
-  "metadata.dateTaken": {
+  taken: {
     accessor: (img) => img.metadata?.dateTaken,
     type: "date",
   },
@@ -31,11 +31,11 @@ const SORT_LABEL_MAP: Record<
     accessor: (img) => img.lastModified,
     type: "date",
   },
-  "metadata.credit": {
+  credit: {
     accessor: (img) => img.metadata?.credit,
     type: "keyword",
   },
-  "metadata.source": {
+  source: {
     accessor: (img) => img.metadata?.source,
     type: "keyword",
   },
@@ -43,24 +43,22 @@ const SORT_LABEL_MAP: Record<
     accessor: (img) => img.uploadedBy,
     type: "keyword",
   },
-  "usageRights.category": {
+  category: {
     accessor: (img) => img.usageRights?.category,
     type: "keyword",
   },
-  "source.mimeType": {
+  mimeType: {
     accessor: (img) => img.source?.mimeType,
     type: "keyword",
   },
-  "metadata.imageType": {
+  imageType: {
     accessor: (img) => img.metadata?.imageType,
     type: "keyword",
   },
 };
 
-/** Aliases: sort key name → expanded field name for lookup. */
-const SORT_KEY_ALIASES: Record<string, string> = {
-  taken: "metadata.dateTaken",
-};
+/** Aliases are no longer needed — all keys in SORT_LABEL_MAP are now short form. */
+const SORT_KEY_ALIASES: Record<string, string> = {};
 
 function formatSortDate(dateStr: string): string {
   try {

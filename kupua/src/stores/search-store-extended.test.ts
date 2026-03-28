@@ -136,10 +136,10 @@ describe("sort-context label — resolveSortMapping", () => {
     expect(label).not.toBeNull();
   });
 
-  it("resolves -metadata.credit to keyword label", async () => {
+  it("resolves -credit to keyword label", async () => {
     await actions().search();
     const img = state().results[0]!;
-    const label = getSortContextLabel("-metadata.credit", img);
+    const label = getSortContextLabel("-credit", img);
     expect(label).not.toBeNull();
     expect(["Getty", "Reuters", "AP", "EPA", "PA"]).toContain(label);
   });
@@ -214,7 +214,7 @@ describe("interpolateSortLabel — interpolation", () => {
   it("returns keyword from nearest edge for text sort outside buffer", async () => {
     await actions().search();
     const { results, bufferOffset, total } = state();
-    const label = interpolateSortLabel("-metadata.credit", 5000, total, bufferOffset, results);
+    const label = interpolateSortLabel("-credit", 5000, total, bufferOffset, results);
     expect(label).not.toBeNull();
     // Should be one of the credits
     expect(["Getty", "Reuters", "AP", "EPA", "PA"]).toContain(label);
@@ -260,7 +260,7 @@ describe("sort change — buffer reset", () => {
 
     // Change orderBy and search
     useSearchStore.setState({
-      params: { ...state().params, orderBy: "-metadata.credit" },
+      params: { ...state().params, orderBy: "-credit" },
     });
     await actions().search();
 

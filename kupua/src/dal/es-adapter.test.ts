@@ -30,7 +30,7 @@ describe("buildSortClause", () => {
   });
 
   it("appends tiebreaker to a multi-field sort", () => {
-    const result = buildSortClause("-uploadTime,-metadata.credit");
+    const result = buildSortClause("-uploadTime,-credit");
     expect(result).toEqual([
       { uploadTime: "desc" },
       { "metadata.credit": "desc" },
@@ -89,6 +89,36 @@ describe("buildSortClause", () => {
     // No duplicate { id: "asc" }
   });
 
+  it("expands short alias 'credit' to metadata.credit", () => {
+    const result = buildSortClause("-credit");
+    expect(result).toEqual([{ "metadata.credit": "desc" }, { id: "asc" }]);
+  });
+
+  it("expands short alias 'source' to metadata.source", () => {
+    const result = buildSortClause("source");
+    expect(result).toEqual([{ "metadata.source": "asc" }, { id: "asc" }]);
+  });
+
+  it("expands short alias 'imageType' to metadata.imageType", () => {
+    const result = buildSortClause("-imageType");
+    expect(result).toEqual([{ "metadata.imageType": "desc" }, { id: "asc" }]);
+  });
+
+  it("expands short alias 'category' to usageRights.category", () => {
+    const result = buildSortClause("category");
+    expect(result).toEqual([{ "usageRights.category": "asc" }, { id: "asc" }]);
+  });
+
+  it("expands short alias 'filename' to uploadInfo.filename", () => {
+    const result = buildSortClause("filename");
+    expect(result).toEqual([{ "uploadInfo.filename": "asc" }, { id: "asc" }]);
+  });
+
+  it("expands short alias 'mimeType' to source.mimeType", () => {
+    const result = buildSortClause("-mimeType");
+    expect(result).toEqual([{ "source.mimeType": "desc" }, { id: "asc" }]);
+  });
+
   it("tiebreaker is always the last element", () => {
     const cases = [
       undefined,
@@ -96,9 +126,9 @@ describe("buildSortClause", () => {
       "uploadTime",
       "-taken",
       "taken",
-      "-metadata.credit",
+      "-credit",
       "-dimensions",
-      "-uploadTime,-metadata.credit",
+      "-uploadTime,-credit",
     ];
 
     for (const orderBy of cases) {
