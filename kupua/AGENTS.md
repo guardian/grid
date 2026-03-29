@@ -54,6 +54,8 @@ port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simult
 | `search_after` plan | `exploration/docs/search-after-plan.md` | Windowed buffer, PIT, scrubber, sort-around-focus. 13-step plan, test checkpoints A–D |
 | Scrubber nonlinear research | `exploration/docs/scrubber-nonlinear-research.md` | Power curve k=2 recommendation. Tried & rejected — revisit when scrubber is mature |
 | Scrubber dual-mode ideation | `exploration/docs/scrubber-dual-mode-ideation.md` | Scroll mode vs seek mode, bug analysis (fixed), adaptive buffer fill (done), visual philosophy, data demands. Steps 1–2 complete, 3–4 pending. **Tooltip ideation section** added: prior art (immich, Google Photos, YouTube, Lightroom, VS Code minimap), 6 themes (richer labels, track markers, content preview, progressive disclosure, search context, animation), prioritised recommendations (Tier 1–3), kill list, open questions, perf notes |
+| Rendering perf plan | `exploration/docs/rendering-perf-plan.md` | Systematic rendering performance audit — baselines at 1400px, Retina, 4K. Issue taxonomy (A–F), work plan, quantitative gates |
+| Rendering perf session plan | `exploration/docs/rendering-perf-session-plan.md` | Succinct handoff for next agent session — Retina analysis, prioritised steps, files to read |
 | Panels plan | `exploration/docs/panels-plan.md` | Left (filters + collections) / right (metadata), resize, keyboard, agg perf/safeguards |
 | Metadata display plan | `exploration/docs/metadata-display-plan.md` | Kahuna `gr-image-metadata` analysis, field visibility, click-to-search, phased build |
 | Changelog | `exploration/docs/changelog.md` | Blow-by-blow development history extracted from this file. Full detail on every feature, bug fix, and decision |
@@ -77,7 +79,7 @@ port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simult
 
 **CQL:** `@guardian/cql` parser + custom CQL→ES translator. `<cql-input>` Web Component. `LazyTypeahead` for non-blocking suggestions. Supports structured queries (`credit:"Getty" -by:"Foo"`), `fileType:jpeg` → MIME, `is:GNM-owned`.
 
-**Table view** (~1260 lines): TanStack Table + Virtual, column defs from `field-registry.ts` (23 hardcoded + config-driven alias fields). Column resize (auto-scroll at edges, CSS-variable widths, memoised body during drag), auto-fit (double-click header, `<canvas>` measurement), column visibility context menu, sort on header click (shift-click for secondary), sort aliases, auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip). Row focus (sticky ring highlight), double-click to open image detail. ARIA roles throughout. List fields (pills) render single-line with overflow clip. Horizontal scrollbar via proxy div (synced `scrollLeft`, `ResizeObserver` on table root); vertical scrollbar hidden (replaced by Scrubber). Scroll reset on new search.
+**Table view** (~1260 lines): TanStack Table + Virtual (overscan 5 — reduced from 20 for -61% severe jank), column defs from `field-registry.ts` (23 hardcoded + config-driven alias fields). Column resize (auto-scroll at edges, CSS-variable widths, memoised body during drag), auto-fit (double-click header, `<canvas>` measurement), column visibility context menu, sort on header click (shift-click for secondary), sort aliases, auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip). Row focus (sticky ring highlight), double-click to open image detail. ARIA roles throughout. List fields (pills) render single-line with overflow clip. Cell divs use `contain: layout` + `overflow-hidden` (prevents pill reflow propagation, no visible effect on CLS but architecturally correct). Horizontal scrollbar via proxy div (synced `scrollLeft`, `ResizeObserver` on table root); vertical scrollbar hidden (replaced by Scrubber). Scroll reset on new search.
 
 **Grid view** (~520 lines): Responsive columns (`ResizeObserver`, `floor(width/280)`), row-based TanStack Virtual, S3 thumbnails, cell layout matching kahuna (303px height), rich tooltips, focus ring + grid-geometry keyboard nav, scroll anchoring on column count change, density-switch viewport preservation.
 
@@ -93,7 +95,7 @@ port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simult
 
 **Keyboard nav** (~327-line shared hook): Arrow/Page/Home/End, two-phase handling (bubble + capture), `f` for fullscreen, bounded placeholder skipping, prefetch near edge.
 
-**Performance:** 36 findings documented. All 5 fix-now items done. Windowed buffer resolved memory/depth issues. Lighthouse: Perf 61 (dev), A11y 94, BP 96. Imgproxy benchmark confirms prefetch is correct mitigation.
+**Performance:** 36 findings documented. All 5 fix-now items done. Windowed buffer resolved memory/depth issues. Lighthouse: Perf 61 (dev), A11y 94, BP 96. Imgproxy benchmark confirms prefetch is correct mitigation. **Rendering perf experiments (29 Mar 2026):** P8 table scroll improved significantly — reduced virtualizer overscan (20→5, -61% severe frames, -49% P95), added `contain: layout` + `overflow-hidden` on gridcell divs. Combined: max frame 300→217ms, severe 36→14, P95 67→34ms, DOM churn 76k→42k. CLS 0.041 accepted as inherent to virtualiser recycling (SPAN pill shifts during row recycle — false positive, invisible during scroll). `content-visibility: auto` on rows (no effect — virtualiser already manages DOM), `contain: strict` on cells (broke flex height), PAGE_SIZE 200→100 (more frequent extends = more jank), `startTransition` on density toggle (broke P12 drift) — all tried and reverted. See `rendering-perf-plan.md` for full experiment data.
 
 **E2E tests:** 64 Playwright tests (all pass, none skipped). `run-e2e.sh` orchestrates Docker ES + data + cleanup. `KupuaHelpers` fixture class. 10 smoke tests for TEST cluster (manual-only, auto-skip on local). Console telemetry capture for algorithmic assertions. Bug #13 tests culled (absorbed into Bug #7 with tighter assertions). Width sort test uses percentile path with tight ratio tolerance (0.35–0.65).
 
@@ -261,11 +263,14 @@ kupua/
       panels-plan.md           # Panels design + implementation plan: layout, facet filters, scroll anchoring, kahuna reference
       search-after-plan.md     # search_after + windowed scroll: analysis, architecture, 13-step implementation plan (~25-35h)
       scrubber-nonlinear-research.md # Non-linear drag mapping: prior art, curve analysis, gotchas, recommendation (power curve k=2)
+      rendering-perf-plan.md   # Systematic rendering perf audit: baselines (1400px/Retina/4K), issue taxonomy (A–F), work plan, quantitative gates
+      rendering-perf-session-plan.md # Succinct handoff for next agent: Retina analysis, prioritised steps, files to read
       copilot-instructions-copy-for-humans.md # Human-readable copy of directives (identical to .github/copilot-instructions.md)
   scripts:
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     run-e2e.sh                 # E2E test orchestration (Docker ES + data check + stale-process cleanup + Playwright)
     run-smoke.mjs              # Interactive runner for manual smoke tests. Lists tests, prompts for selection, runs headed. MANUAL ONLY.
+    run-perf-smoke.mjs         # Runner for rendering perf smoke tests. Optional P<N> arg for single test. MANUAL ONLY.
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
   src/                         # ~16,300 lines total
@@ -327,6 +332,7 @@ kupua/
     helpers.ts                 # Playwright test fixtures + KupuaHelpers class (scrubber interaction, store state access, sort/density helpers)
     scrubber.spec.ts           # E2E tests: scrubber seek/drag, scroll position after seek, density switch preservation, sort change, sort-around-focus, full workflows
     manual-smoke-test.spec.ts  # Smoke tests against real ES (TEST cluster). MANUAL ONLY — agent must never run. Auto-skips on local ES (total < 100k). Run via: node scripts/run-smoke.mjs
+    rendering-perf-smoke.spec.ts # Rendering performance smoke tests (12 tests, P1–P12). Browser probes: CLS, LoAF, frame jank, DOM mutations, paint. MANUAL ONLY via: node scripts/run-perf-smoke.mjs
     tsconfig.json              # TypeScript config for e2e directory (ES2022, bundler resolution)
     hooks/
       useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Buffer-aware: exposes bufferOffset, reportVisibleRange (triggers extend at edges), seek, getImage (buffer-local), findImageIndex (global→local translation). Exports useVisibleRange() via useSyncExternalStore for Scrubber position tracking. Virtualizer count = buffer length. (~215 lines).

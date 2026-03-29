@@ -58,7 +58,7 @@ function listCellRenderer(field: FieldDefinition) {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return "—";
     return (
-      <span className="inline-flex flex-nowrap gap-0.5">
+      <span className="inline-flex flex-nowrap gap-0.5 overflow-hidden" style={{ contain: "layout" }}>
         {values.map((v, i) => (
           <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} />
         ))}
@@ -358,8 +358,8 @@ const TableBody = memo(function TableBody({
                 <div
                   key={cell.id}
                   role="gridcell"
-                  className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20"
-                  style={{ width: `var(--col-${cell.column.id})` }}
+                  className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
+                  style={{ width: `var(--col-${cell.column.id})`, contain: 'layout' }}
                   title={rawValue ?? undefined}
                   onMouseDown={
                     isClickable
@@ -473,7 +473,7 @@ export function ImageTable() {
     count: virtualizerCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 20,
+    overscan: 5,
     // Account for sticky header — without this, scrollToIndex considers
     // rows behind the header as "visible" and won't scroll to them.
     // Subtract one ROW_HEIGHT because the padding is additive with the

@@ -27,20 +27,26 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const SPEC_FILE = resolve(ROOT, "e2e/manual-smoke-test.spec.ts");
+const SPEC_FILES = [
+  resolve(ROOT, "e2e/manual-smoke-test.spec.ts"),
+  resolve(ROOT, "e2e/rendering-perf-smoke.spec.ts"),
+];
 
 // ---------------------------------------------------------------------------
-// Parse test names from the spec file
+// Parse test names from the spec files
 // ---------------------------------------------------------------------------
 
 function listTests() {
-  const src = readFileSync(SPEC_FILE, "utf-8");
   const tests = [];
-  // Match: test("S1: description", ...
-  const re = /test\(\s*"(S\d+:\s*[^"]+)"/g;
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    tests.push(m[1]);
+  for (const specFile of SPEC_FILES) {
+    let src;
+    try { src = readFileSync(specFile, "utf-8"); } catch { continue; }
+    // Match: test("S1: description", ... or test("P1: description", ...
+    const re = /test\(\s*"([SP]\d+:\s*[^"]+)"/g;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      tests.push(m[1]);
+    }
   }
   return tests;
 }
@@ -101,7 +107,11 @@ async function main() {
   // Build grep pattern
   let grepPattern;
   if (selection.toLowerCase() === "all") {
-    grepPattern = "^Smoke";
+    grepPattern = "Smoke — real ES|Rendering Performance Smoke";
+  } else if (selection.toLowerCase() === "perf") {
+    grepPattern = "Rendering Performance Smoke";
+  } else if (selection.toLowerCase() === "smoke") {
+    grepPattern = "Smoke — real ES";
   } else {
     const indices = selection.split(",").map((s) => parseInt(s.trim(), 10) - 1);
     const invalid = indices.filter((i) => isNaN(i) || i < 0 || i >= tests.length);
@@ -109,9 +119,9 @@ async function main() {
       console.error(`Invalid selection. Pick numbers 1-${tests.length}.`);
       process.exit(1);
     }
-    // Extract the S-number from each test name for grep
+    // Extract the S/P-number from each test name for grep
     const patterns = indices.map((i) => {
-      const match = tests[i].match(/^(S\d+)/);
+      const match = tests[i].match(/^([SP]\d+)/);
       return match ? match[1] : tests[i];
     });
     grepPattern = patterns.join("|");

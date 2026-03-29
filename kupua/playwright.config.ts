@@ -22,10 +22,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
-  /* Manual smoke tests are excluded from default runs.
+  /* Manual smoke tests and rendering perf tests are excluded from default runs.
    * They require a real ES cluster via --use-TEST and must be invoked
    * via the wrapper script: node scripts/run-smoke.mjs */
-  testIgnore: "**/manual-smoke-test.spec.ts",
+  testIgnore: ["**/manual-smoke-test.spec.ts", "**/rendering-perf-smoke.spec.ts"],
 
   /* Verify ES + sample data before starting any tests.
    * Fails fast with a clear message instead of 46 individual timeouts. */

@@ -25,3 +25,11 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
+// Scheduling API (Chrome 129+). Used in es-adapter.ts to yield after
+// JSON.parse, breaking long animation frames. Safe to optional-chain.
+interface Scheduler {
+  yield(): Promise<void>;
+}
+
+declare var scheduler: Scheduler | undefined;
+

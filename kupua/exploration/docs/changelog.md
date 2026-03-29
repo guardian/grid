@@ -153,6 +153,54 @@
 - ✅ All 5 fix-now items implemented (#6 visibleImages stability, #7 handleScroll churn, #8 goToPrev/Next churn, #9 generation-based abort, #10 computeFitWidth visible-only scan)
 - 📋 Fix-later items: several resolved by windowed buffer (#3, #4, #11, #14). Still pending: density mount cost (#12), debounce vs seeks (#13), histogram agg (#15), image object compaction (#20).
 
+### Rendering Performance Experiments (29 Mar 2026)
+
+**Context:** P8 (table fast scroll with extend/evict) was the critical bottleneck.
+Retina baseline: max frame 300ms, severe 36, P95 67ms, CLS 0.041, DOM churn 76,354.
+LoAF worst 309ms dominated by `DIV.onscroll` from TanStack Virtual (178ms).
+
+**Experiment A: Reduce virtualizer overscan (20 → 5) — ✅ KEPT.**
+Changed `overscan: 20` → `overscan: 5` in `ImageTable.tsx`. Grid already used
+overscan 5. Cuts rendered off-screen cells from ~920 to ~230 per scroll frame.
+Results: max frame -28% (300→217ms), severe -56% (36→16), P95 -25% (67→50ms),
+DOM churn -32% (76k→52k). The single biggest win of all experiments.
+
+**Experiment B: `content-visibility: auto` on rows — REVERTED (no effect).**
+Added `contentVisibility: 'auto'` + `containIntrinsicSize` to all three row types.
+Numbers identical to baseline. Expected: TanStack Virtual already does DOM
+virtualisation; browser-level `content-visibility` can't add value on top.
+
+**Experiment C: `contain: strict` on table cells — REVERTED (broke tests).**
+`contain: strict` includes `contain: size` which prevents flex children from
+inheriting parent height. Cells collapsed to content height, breaking Playwright
+click targets. Bug #17 E2E tests failed consistently.
+
+**Experiment D: Reduce PAGE_SIZE (200 → 100) — REVERTED (worse).**
+More frequent extends overwhelmed the smaller per-extend cost. Severe +6%,
+janky +50%, DOM churn +5%, LoAF count +33%. Also caused Bug #17 E2E tests to
+skip (buffer fills slower on 10k local dataset).
+
+**Experiment E: `contain: layout` on cell divs — ✅ KEPT.**
+Added `contain: 'layout'` + `overflow-hidden` on gridcell `<div>`. Unlike
+`strict`, `layout` doesn't affect height inheritance from flex parent. Combined
+with Experiment A, final results: max frame -28% (300→217ms), severe -61%
+(36→14), P95 -49% (67→34ms), DOM churn -44% (76k→42k), LoAF worst -34%
+(309→204ms). No regressions across all 12 perf smoke tests. P12 drift still 0px.
+
+**CLS remains at 0.041** — inherent to virtualiser row recycling with
+variable-width pill content. The CLS API counts element position changes during
+scroll as shifts even though users never perceive them. Tried `contain: layout`
+on pill wrapper, cell div, and `overflow-hidden` — none helped. Accepted as a
+false positive. The CLS < 0.005 target is unreachable without eliminating pills
+or making them fixed-width.
+
+**`startTransition` on density toggle — TRIED AND REVERTED (earlier session).**
+Broke P12 Credit sort density drift (0px → -303px). The density-focus bridge
+relies on synchronous unmount timing. Documented as "do not retry."
+
+**Files changed:** `ImageTable.tsx` (overscan 5, contain: layout + overflow-hidden
+on cells), `rendering-perf-plan.md` (experiment results, updated gates), AGENTS.md.
+
 ### search_after + Windowed Scroll + Scrubber
 
 Full implementation of `search_after` + PIT windowed scroll + custom scrubber. Replaces `from/size` pagination. All 13 steps implemented, all test checkpoints (A–D) passed.

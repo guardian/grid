@@ -292,7 +292,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
       throw new Error(`ES request failed: ${response.status} ${url}`);
     }
 
-    return response.json();
+    // Yield after JSON.parse to break the long task — lets the browser paint
+    // between parsing the (often 1-2MB) ES response and the virtualizer's
+    // synchronous scroll handler. Without this, JSON.parse + downstream React
+    // work fuse into a single >150ms LoAF. See rendering-perf-plan.md §Issue F.
+    const data = await response.json();
+    await (scheduler?.yield?.() ?? new Promise(r => setTimeout(r, 0)));
+    return data;
   }
 
   /**
@@ -323,7 +329,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
       throw new Error(`ES request failed: ${response.status} ${url}`);
     }
 
-    return response.json();
+    // Same yield as esRequest — see comment above.
+    const data = await response.json();
+    await (scheduler?.yield?.() ?? new Promise(r => setTimeout(r, 0)));
+    return data;
   }
 
   async search(params: SearchParams): Promise<SearchResult> {

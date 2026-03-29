@@ -12,11 +12,11 @@
  * - Longer timeouts (real cluster + SSH tunnel)
  */
 
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "**/manual-smoke-test.spec.ts",
+  testMatch: ["**/manual-smoke-test.spec.ts", "**/rendering-perf-smoke.spec.ts"],
 
   /* No globalSetup — we don't want the local ES health check.
    * The smoke tests themselves check total > 100k and skip if local. */
@@ -39,13 +39,22 @@ export default defineConfig({
     navigationTimeout: 30_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
-    viewport: { width: 1400, height: 900 },
+    /* MacBook Pro Retina — measured from the developer's actual browser:
+       window.innerWidth=1987, innerHeight=1110, devicePixelRatio=1.25.
+       The Desktop Chrome device preset is NOT used because it overrides
+       viewport and DPR with its own defaults (1280×720). */
+    viewport: { width: 1987, height: 1110 },
+    deviceScaleFactor: 1.25,
   },
 
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        browserName: "chromium",
+        /* Do NOT spread ...devices["Desktop Chrome"] — it overrides
+           viewport and deviceScaleFactor with its own defaults. */
+      },
     },
   ],
 

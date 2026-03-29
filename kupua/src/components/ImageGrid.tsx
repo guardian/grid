@@ -135,7 +135,7 @@ const GridCell = memo(function GridCell({
             src={thumbUrl}
             alt=""
             loading="lazy"
-            className="block max-w-full max-h-[186px] mx-auto object-contain"
+            className="block w-full h-[186px] object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
