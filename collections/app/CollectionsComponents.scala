@@ -4,12 +4,13 @@ import controllers.{CollectionsController, ImageCollectionsController}
 import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import store.{CollectionsStore, ImageCollectionsStore}
 
 class CollectionsComponents(context: Context) extends GridComponents(context, new CollectionsConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val collectionsStore = new CollectionsStore(config)
+  private val collectionsStore = new CollectionsStore(config.collectionsTable, config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build())
   val imageCollectionsStore = new ImageCollectionsStore(config)
   val metrics = new CollectionsMetrics(config, actorSystem, applicationLifecycle)
   val notifications = new Notifications(config)
