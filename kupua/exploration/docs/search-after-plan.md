@@ -1,7 +1,7 @@
 # `search_after` + Windowed Scroll — Analysis & Implementation Plan
 
 > **Created:** 2026-03-27
-> **Status:** Steps 1–12 (partial) done, checkpoints A–D passed. Limitations #1 and #8 resolved. Sort-around-focus (step 11), sort-aware tooltip (step 12 partial), backward reverse search_after, scrubber auto-hide + Shift+Arrow all complete.
+> **Status:** Steps 1–12 (partial) done, checkpoints A–D passed. Limitations #1 and #8 resolved. Sort-around-focus (step 11), sort-aware tooltip (step 12 partial), backward reverse search_after, scrubber auto-hide all complete.
 > **Purpose:** Deep analysis of everything required to replace `from/size`
 > pagination with `search_after`-based windowed scroll, enabling kupua to
 > browse the full 9M image dataset with a custom scrubber.
@@ -2024,7 +2024,6 @@ support seeking — the scrubber is a new input for it.
   date, keyword sorts show value. `sort-context.ts` utility with
   `SORT_LABEL_MAP` and alias resolution. Updated live during drag via DOM
   writes (`data-sort-label` span).
-- **Scrubber Shift+Arrow**: steps by 500 instead of 50.
 - **Scrubber auto-hide**: fades to opacity 0 after 2s inactivity, fades in
   on scroll/hover/focus/drag. 300ms transition.
 - **Prior uncommitted fixes rolled in**: deferred-seek scrubber drag, 500ms

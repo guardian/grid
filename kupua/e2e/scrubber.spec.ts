@@ -525,34 +525,6 @@ test.describe("Keyboard navigation", () => {
     const after = await kupua.getScrollTop();
     expect(after).toBe(0);
   });
-
-  test("Shift+ArrowDown on scrubber seeks forward", async ({ kupua }) => {
-    await kupua.goto();
-
-    await kupua.scrubber.focus();
-    const posBefore = await kupua.getScrubberPosition();
-
-    await kupua.page.keyboard.press("Shift+ArrowDown");
-
-    // Wait for seek to complete
-    await kupua.page.waitForFunction(
-      (before) => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return false;
-        const s = store.getState();
-        return !s.loading && s.bufferOffset > before;
-      },
-      posBefore,
-      { timeout: 10_000 },
-    );
-    await kupua.page.waitForTimeout(200);
-
-    const posAfter = await kupua.getScrubberPosition();
-    expect(posAfter - posBefore).toBeGreaterThan(50);
-    const store = await kupua.getStoreState();
-    expect(store.error).toBeNull();
-    await kupua.assertPositionsConsistent();
-  });
 });
 
 // ---------------------------------------------------------------------------

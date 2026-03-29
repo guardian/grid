@@ -115,10 +115,6 @@ describe("buildSortClause", () => {
     expect(result).toEqual([{ "usageRights.category": "asc" }, { id: "asc" }]);
   });
 
-  it("expands short alias 'filename' to uploadInfo.filename", () => {
-    const result = buildSortClause("filename");
-    expect(result).toEqual([{ "uploadInfo.filename": "asc" }, { id: "asc" }]);
-  });
 
   it("expands short alias 'mimeType' to source.mimeType", () => {
     const result = buildSortClause("-mimeType");

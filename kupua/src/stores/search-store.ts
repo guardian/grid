@@ -26,12 +26,12 @@ import type {
   SortValues,
   AggregationsResult,
   AggregationResult,
-  KeywordDistribution,
+  SortDistribution,
 } from "@/dal";
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
-import { resolveKeywordSortInfo } from "@/lib/sort-context";
+import { resolveKeywordSortInfo, resolveDateSortInfo } from "@/lib/sort-context";
 
 // ---------------------------------------------------------------------------
 // Buffer constants
@@ -222,11 +222,11 @@ interface SearchState {
   expandedAggs: Record<string, AggregationResult>;
   expandedAggsLoading: Set<string>;
 
-  // --- Keyword distribution for scrubber tooltip (sort-context) ---
-  /** Pre-fetched keyword distribution for the current keyword sort field. */
-  keywordDistribution: KeywordDistribution | null;
+  // --- Sort distribution for scrubber (tooltip + track ticks) ---
+  /** Pre-fetched distribution for the current sort field (keyword or date). */
+  sortDistribution: SortDistribution | null;
   /** Cache key: query params + orderBy. Null = not fetched. */
-  _kwDistCacheKey: string | null;
+  _sortDistCacheKey: string | null;
 
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
@@ -263,10 +263,10 @@ interface SearchState {
   fetchExpandedAgg: (field: string) => Promise<void>;
   collapseExpandedAgg: (field: string) => void;
   /**
-   * Fetch keyword distribution for the current sort field (if keyword sort).
+   * Fetch sort distribution for the current sort field (keyword or date).
    * Lazy — called on first scrubber interaction, cached until query/sort changes.
    */
-  fetchKeywordDistribution: () => Promise<void>;
+  fetchSortDistribution: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,8 +296,8 @@ let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
 
-/** Abort controller for the keyword distribution request. */
-let _kwDistAbortController: AbortController | null = null;
+/** Abort controller for the sort distribution request (keyword or date). */
+let _sortDistAbortController: AbortController | null = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -320,10 +320,10 @@ function aggCacheKey(params: SearchParams): string {
 }
 
 /**
- * Cache key for keyword distribution — includes orderBy (sort field + direction
+ * Cache key for sort distribution — includes orderBy (sort field + direction
  * matter) on top of the result-set-affecting params from aggCacheKey.
  */
-function kwDistCacheKey(params: SearchParams): string {
+function sortDistCacheKey(params: SearchParams): string {
   return aggCacheKey(params) + "|" + (params.orderBy ?? "");
 }
 
@@ -719,9 +719,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   expandedAggs: {},
   expandedAggsLoading: new Set(),
 
-  // Keyword distribution state (scrubber tooltip)
-  keywordDistribution: null,
-  _kwDistCacheKey: null,
+  // Sort distribution state (scrubber tooltip + ticks)
+  sortDistribution: null,
+  _sortDistCacheKey: null,
 
   setParams: (newParams) => {
     set((state) => ({
@@ -740,8 +740,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _rangeAbortController = new AbortController();
     const signal = _rangeAbortController.signal;
 
-    // Abort any in-flight keyword distribution fetch
-    if (_kwDistAbortController) _kwDistAbortController.abort();
+    // Abort any in-flight sort distribution fetch
+    if (_sortDistAbortController) _sortDistAbortController.abort();
 
     // Clear extend-in-flight flags — the abort above cancels any in-flight
     // extends or scroll-mode fill from the previous search. Without this,
@@ -749,7 +749,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // stuck at true, blocking sort-around-focus and future extends.
     set({
       _extendForwardInFlight: false, _extendBackwardInFlight: false,
-      keywordDistribution: null, _kwDistCacheKey: null,
+      sortDistribution: null, _sortDistCacheKey: null,
     });
 
     // Close old PIT (fire-and-forget)
@@ -1567,42 +1567,47 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     });
   },
 
-  fetchKeywordDistribution: async () => {
-    const { dataSource, params, _kwDistCacheKey } = get();
-
-    // Check if the current sort is a keyword sort
-    const sortInfo = resolveKeywordSortInfo(params.orderBy);
-    if (!sortInfo) return; // Not a keyword sort — nothing to fetch
+  fetchSortDistribution: async () => {
+    const { dataSource, params, _sortDistCacheKey } = get();
 
     // Check cache — skip if already fetched for this query + sort
-    const key = kwDistCacheKey(params);
-    if (key === _kwDistCacheKey) return;
+    const key = sortDistCacheKey(params);
+    if (key === _sortDistCacheKey) return;
+
+    // Determine sort type — keyword or date
+    const kwInfo = resolveKeywordSortInfo(params.orderBy);
+    const dateInfo = resolveDateSortInfo(params.orderBy);
+    if (!kwInfo && !dateInfo) return; // Not a distributable sort (e.g. script sort)
 
     // Abort previous in-flight request
-    if (_kwDistAbortController) _kwDistAbortController.abort();
-    _kwDistAbortController = new AbortController();
-
-    // Check if the data source supports this method
-    if (!dataSource.getKeywordDistribution) return;
+    if (_sortDistAbortController) _sortDistAbortController.abort();
+    _sortDistAbortController = new AbortController();
 
     try {
-      const dist = await dataSource.getKeywordDistribution(
-        params,
-        sortInfo.field,
-        sortInfo.direction,
-        _kwDistAbortController.signal,
-      );
+      let dist: SortDistribution | null = null;
+
+      if (kwInfo && dataSource.getKeywordDistribution) {
+        dist = await dataSource.getKeywordDistribution(
+          params, kwInfo.field, kwInfo.direction,
+          _sortDistAbortController.signal,
+        );
+      } else if (dateInfo && dataSource.getDateDistribution) {
+        dist = await dataSource.getDateDistribution(
+          params, dateInfo.field, dateInfo.direction,
+          _sortDistAbortController.signal,
+        );
+      }
 
       // Guard: params may have changed while awaiting
-      if (kwDistCacheKey(get().params) !== key) return;
+      if (sortDistCacheKey(get().params) !== key) return;
 
       set({
-        keywordDistribution: dist,
-        _kwDistCacheKey: key,
+        sortDistribution: dist,
+        _sortDistCacheKey: key,
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
-      console.warn("[search-store] fetchKeywordDistribution failed:", e);
+      console.warn("[search-store] fetchSortDistribution failed:", e);
     }
   },
 }));

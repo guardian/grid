@@ -585,7 +585,6 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.uploadInfo?.filename,
     cqlKey: "filename",
     esSearchPath: "uploadInfo.filename",
-    sortKey: "filename",
     detailClickable: false,
     defaultWidth: 180,
     fieldType: "keyword",

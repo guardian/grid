@@ -1,15 +1,20 @@
 /**
- * Sort-context label for the scrubber tooltip.
+ * Sort-context label for the scrubber tooltip and track ticks.
  *
  * Given the current orderBy and an image, returns a human-readable label
- * for the primary sort value. For date sorts: a formatted date.
- * For keyword sorts: the field value (from pre-fetched distribution when
- * available, falling back to nearest buffer edge). Returns null if no
- * meaningful label.
+ * for the primary sort value. For date sorts: a formatted date using the
+ * pre-fetched date histogram distribution. For keyword sorts: the field
+ * value from the pre-fetched keyword distribution. Both use O(log n)
+ * binary search — zero network during drag.
+ *
+ * When no distribution is loaded yet, falls back to buffer interpolation
+ * (exact for in-buffer positions, linear extrapolation for outside — the
+ * latter is inaccurate for non-uniform distributions but self-corrects
+ * once the distribution loads).
  */
 
 import type { Image } from "@/types/image";
-import type { KeywordDistribution } from "@/dal/types";
+import type { SortDistribution } from "@/dal/types";
 import { format } from "date-fns";
 
 /**
@@ -67,16 +72,18 @@ const SORT_LABEL_MAP: Record<
   width: {
     accessor: (img) => {
       const w = (img.source?.orientedDimensions ?? img.source?.dimensions)?.width;
-      return w != null ? `${w.toLocaleString()}px` : undefined;
+      return w != null ? `${w}` : undefined;
     },
     type: "keyword",
+    format: (v) => `${Number(v).toLocaleString()}px`,
   },
   height: {
     accessor: (img) => {
       const h = (img.source?.orientedDimensions ?? img.source?.dimensions)?.height;
-      return h != null ? `${h.toLocaleString()}px` : undefined;
+      return h != null ? `${h}` : undefined;
     },
     type: "keyword",
+    format: (v) => `${Number(v).toLocaleString()}px`,
   },
 };
 
@@ -97,16 +104,106 @@ function formatKeywordLabel(value: string, format?: (v: string) => string): stri
  */
 const MONTH_SPAN_STYLE = 'display:inline-block;width:2.05em;text-align:center';
 
-function formatSortDate(dateStr: string): string {
+/**
+ * Fixed-width time span — prevents tooltip width jitter across time values.
+ * All HH:MM values are 5 chars; the span reserves exactly that width.
+ * Monospace-like alignment via tabular-nums.
+ */
+const TIME_SPAN_STYLE = 'display:inline-block;width:3.1em;text-align:right;font-variant-numeric:tabular-nums';
+
+/**
+ * Fixed-width day span — prevents jitter between 1-digit and 2-digit days.
+ * 1.2em fits "31" comfortably; text-align:right keeps single digits flush.
+ */
+const DAY_SPAN_STYLE = 'display:inline-block;width:1.2em;text-align:right';
+
+// ---------------------------------------------------------------------------
+// Adaptive date granularity
+//
+// Two simple rules:
+//
+// 1. **Always show year.** It's 4 characters and never hurts orientation.
+//    The only exception: total result set spans < 28 days AND local
+//    viewport density is sub-day → year is dropped (you're within a
+//    single month, the year is obvious from context, and you need the
+//    space for time).
+//
+// 2. **Show time (H:mm) only when the total result set spans < 28 days.**
+//    If the set spans months or years, hours race uselessly during scrub
+//    and provide zero orientation value. Time only matters when you're
+//    exploring a narrow window (a day, a week) where hours differentiate
+//    positions.
+//
+// 3. **Drop day when each viewport covers > 28 days** (optional, rare).
+//    This only happens with very large sets over many years where each
+//    pixel of scrubber movement covers a month. Day is noise at that
+//    scale — show Mon yyyy only.
+//
+// | Total span    | Local span   | Format           | Example            |
+// |---------------|--------------|------------------|--------------------|
+// | any           | > 28 days    | Mon yyyy         | Mar 2024           |
+// | ≥ 28 days     | ≤ 28 days    | d Mon yyyy       | 14 Mar 2024        |
+// | < 28 days     | > 1 day      | d Mon yyyy       | 14 Mar 2024        |
+// | < 28 days     | ≤ 1 day      | d Mon, H:mm      | 14 Mar, 15:42      |
+//
+// Width stability: each component uses a fixed-width <span>. Format
+// level changes rarely during a single drag (driven by smooth density
+// curves). When they do, right-aligned tooltip pushes the change to the
+// less-visible left edge.
+// ---------------------------------------------------------------------------
+
+const MS_PER_DAY = 86_400_000;
+const MS_PER_MONTH = 28 * MS_PER_DAY;
+
+/**
+ * Format a date string with adaptive granularity.
+ *
+ * @param dateStr — ISO date string to format
+ * @param totalSpanMs — time span of the full result set (ms)
+ * @param localSpanMs — time span of one viewport at this position (ms)
+ */
+function formatSortDateAdaptive(
+  dateStr: string,
+  totalSpanMs: number,
+  localSpanMs: number,
+): string {
   try {
     const d = new Date(dateStr);
-    const day = format(d, "d");
-    const month = format(d, "MMM");
+    const day = `<span style="${DAY_SPAN_STYLE}">${format(d, "d")}</span>`;
+    const monthAbbr = format(d, "MMM");
+    const month = `<span style="${MONTH_SPAN_STYLE}">${monthAbbr}</span>`;
     const year = format(d, "yyyy");
-    return `${day} <span style="${MONTH_SPAN_STYLE}">${month}</span> ${year}`;
+    const time = `<span style="${TIME_SPAN_STYLE}">${format(d, "H:mm")}</span>`;
+
+    const absTotal = Math.abs(totalSpanMs);
+    const absLocal = Math.abs(localSpanMs);
+
+    // Rule 3: drop day when scrubbing so fast each viewport covers > 1 month
+    if (absLocal > MS_PER_MONTH) {
+      return `${month} ${year}`;
+    }
+
+    // Rule 2: show time only when the entire result set spans < 28 days
+    // Comma inside the month span so it hugs the text, not the padding.
+    if (absTotal < MS_PER_MONTH && absLocal <= MS_PER_DAY) {
+      return `${day} ${monthAbbr}, ${time}`;
+    }
+
+    // Default: day + month + year
+    return `${day} ${month} ${year}`;
   } catch {
     return dateStr;
   }
+}
+
+/**
+ * Default date format (day + month + year) — used by getSortContextLabel
+ * which doesn't have visibleCount context for adaptive granularity.
+ */
+function formatSortDate(dateStr: string): string {
+  // Pass spans that produce the default "d Mon yyyy" format:
+  // totalSpan ≥ 28 days (no time), localSpan ≤ 28 days (shows day)
+  return formatSortDateAdaptive(dateStr, 2 * MS_PER_MONTH, 2 * MS_PER_DAY);
 }
 
 /** The default sort when orderBy is undefined (matches buildSortClause fallback). */
@@ -144,13 +241,8 @@ export function getSortContextLabel(
 }
 
 /**
- * Short sort key → ES field path mapping. Mirrors buildSortClause aliases
- * in es-adapter.ts. We duplicate this small map here to avoid importing
- * from the DAL (sort-context is a pure utility, DAL is an implementation).
- *
- * Only keyword-sortable fields are listed — date sorts don't need this
- * (they use buffer interpolation, not composite agg distribution).
- * `filename` excluded — too high cardinality, values not useful as context.
+ * Short sort key → ES field path for keyword-sortable fields.
+ * Used to decide whether to fetch keyword distribution.
  */
 const KEYWORD_SORT_ES_FIELDS: Record<string, string> = {
   credit: "metadata.credit",
@@ -159,12 +251,23 @@ const KEYWORD_SORT_ES_FIELDS: Record<string, string> = {
   category: "usageRights.category",
   mimeType: "source.mimeType",
   imageType: "metadata.imageType",
+  width: "source.dimensions.width",
+  height: "source.dimensions.height",
+};
+
+/**
+ * Short sort key → ES field path for date-sortable fields.
+ * Used to decide whether to fetch date histogram distribution.
+ */
+const DATE_SORT_ES_FIELDS: Record<string, string> = {
+  uploadTime: "uploadTime",
+  taken: "metadata.dateTaken",
+  lastModified: "lastModified",
 };
 
 /**
  * Resolve the current orderBy to keyword sort info (ES field path + direction).
  * Returns null if the sort is not a keyword sort that supports distribution lookup.
- * Used by the store to decide whether to fetch a keyword distribution.
  */
 export function resolveKeywordSortInfo(
   orderBy: string | undefined,
@@ -179,14 +282,29 @@ export function resolveKeywordSortInfo(
 }
 
 /**
- * Binary search a KeywordDistribution for the value at a global position.
- * O(log n) where n = number of unique values. Returns null if position
- * is outside the distribution's covered range (e.g. null-value docs at the tail).
+ * Resolve the current orderBy to date sort info (ES field path + direction).
+ * Returns null if the sort is not a date sort that supports distribution lookup.
  */
-export function lookupKeywordDistribution(
-  dist: KeywordDistribution,
+export function resolveDateSortInfo(
+  orderBy: string | undefined,
+): { field: string; direction: "asc" | "desc" } | null {
+  const effective = orderBy || DEFAULT_ORDER_BY;
+  const primary = effective.split(",")[0].trim();
+  const desc = primary.startsWith("-");
+  const bare = desc ? primary.slice(1) : primary;
+  const esField = DATE_SORT_ES_FIELDS[bare];
+  if (!esField) return null;
+  return { field: esField, direction: desc ? "desc" : "asc" };
+}
+
+/**
+ * Binary search a SortDistribution for the bucket at a global position.
+ * O(log n) where n = number of buckets. Returns the bucket key (keyword
+ * value or ISO date string), or null if position is outside the covered range.
+ */
+export function lookupSortDistribution(
+  dist: SortDistribution,
   globalPosition: number,
-  format?: (v: string) => string,
 ): string | null {
   const { buckets } = dist;
   if (buckets.length === 0) return null;
@@ -206,27 +324,29 @@ export function lookupKeywordDistribution(
     }
   }
 
-  return formatKeywordLabel(buckets[lo].key, format);
+  return buckets[lo].key;
 }
 
 /**
  * Interpolate a sort label for a global position that may be outside the buffer.
  *
- * For date sorts: linearly interpolates between the first and last buffer
- * entries' date values based on position ratio within the full result set.
- * This gives a meaningful "14 Mar 2024" even when the scrubber is dragged
- * far from the loaded buffer.
+ * For keyword sorts: uses the pre-fetched distribution if available
+ * (O(log n) binary search — no network). Falls back to nearest buffer edge.
  *
- * For keyword sorts: uses the pre-fetched keyword distribution if available
- * (O(log n) binary search — no network). Falls back to nearest buffer edge
- * if no distribution is available yet.
+ * For date sorts: uses the pre-fetched date histogram distribution if available
+ * (O(log n) binary search — no network). Falls back to linear buffer
+ * extrapolation (inaccurate for non-uniform distributions but harmless —
+ * self-corrects after seeking or once the distribution loads).
+ *
+ * Uses adaptive granularity when `visibleCount` is provided.
  *
  * @param orderBy — current orderBy string
  * @param globalPosition — the position in the full result set (0-based)
  * @param total — total results in the result set
  * @param bufferOffset — global offset of buffer[0]
  * @param results — the loaded buffer
- * @param keywordDist — optional pre-fetched keyword distribution
+ * @param sortDist — optional pre-fetched sort distribution (keyword or date)
+ * @param visibleCount — optional number of items visible in the viewport.
  */
 export function interpolateSortLabel(
   orderBy: string | undefined,
@@ -234,31 +354,166 @@ export function interpolateSortLabel(
   total: number,
   bufferOffset: number,
   results: (Image | undefined)[],
-  keywordDist?: KeywordDistribution | null,
+  sortDist?: SortDistribution | null,
+  visibleCount?: number,
 ): string | null {
   if (!results.length || total <= 0) return null;
 
   const mapping = resolveSortMapping(orderBy);
   if (!mapping) return null;
 
-  // If position is inside the buffer, return exact value
+  // --- Keyword sorts ---
+
+  if (mapping.type === "keyword") {
+    // Inside buffer: exact value
+    const localIdx = globalPosition - bufferOffset;
+    if (localIdx >= 0 && localIdx < results.length) {
+      const img = results[localIdx];
+      if (!img) return null;
+      const val = mapping.accessor(img);
+      if (!val) return null;
+      return formatKeywordLabel(val, mapping.format);
+    }
+    // Outside buffer: distribution or nearest edge
+    if (sortDist) {
+      const key = lookupSortDistribution(sortDist, globalPosition);
+      return key ? formatKeywordLabel(key, mapping.format) : null;
+    }
+    const edge = findBufferEdges(results, mapping);
+    if (!edge) return null;
+    return localIdx < 0
+      ? (edge.firstVal ? formatKeywordLabel(edge.firstVal, mapping.format) : null)
+      : (edge.lastVal ? formatKeywordLabel(edge.lastVal, mapping.format) : null);
+  }
+
+  // --- Date sorts ---
+
+  // Distribution available → use it (accurate for all positions)
+  if (sortDist) {
+    const isoDate = lookupSortDistribution(sortDist, globalPosition);
+    if (isoDate) {
+      // Compute granularity spans from distribution
+      const totalSpanMs = computeDistributionSpanMs(sortDist);
+      const localSpanMs = visibleCount
+        ? computeLocalSpanFromDist(sortDist, globalPosition, visibleCount)
+        : 2 * MS_PER_DAY;
+      return formatSortDateAdaptive(isoDate, totalSpanMs, localSpanMs);
+    }
+  }
+
+  // Fallback: linear buffer extrapolation (inaccurate outside buffer)
+  const estimatedDate = estimateDateAtPosition(
+    globalPosition, bufferOffset, results, mapping,
+  );
+  if (!estimatedDate) return null;
+
+  if (visibleCount == null || visibleCount <= 0) {
+    return formatSortDateAdaptive(
+      estimatedDate.toISOString(), 2 * MS_PER_MONTH, 2 * MS_PER_DAY,
+    );
+  }
+
+  const dateAtStart = estimateDateAtPosition(0, bufferOffset, results, mapping);
+  const dateAtEnd = estimateDateAtPosition(
+    Math.max(0, total - 1), bufferOffset, results, mapping,
+  );
+  const totalSpanMs = dateAtStart && dateAtEnd
+    ? dateAtEnd.getTime() - dateAtStart.getTime()
+    : 2 * MS_PER_MONTH;
+
+  const lookaheadPos = Math.min(globalPosition + visibleCount, total - 1);
+  const lookaheadDate = estimateDateAtPosition(
+    lookaheadPos, bufferOffset, results, mapping,
+  );
+  const localSpanMs = lookaheadDate
+    ? lookaheadDate.getTime() - estimatedDate.getTime()
+    : 2 * MS_PER_DAY;
+
+  return formatSortDateAdaptive(estimatedDate.toISOString(), totalSpanMs, localSpanMs);
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/** Compute total time span from first to last bucket in a date distribution. */
+function computeDistributionSpanMs(dist: SortDistribution): number {
+  if (dist.buckets.length < 2) return 2 * MS_PER_MONTH;
+  const first = new Date(dist.buckets[0].key).getTime();
+  const last = new Date(dist.buckets[dist.buckets.length - 1].key).getTime();
+  return Math.abs(last - first) || 2 * MS_PER_MONTH;
+}
+
+/**
+ * Compute the time span of one viewport (visibleCount items) at a given
+ * position, using the distribution for accurate density-aware estimation.
+ * Binary-searches for the bucket at position and position+visibleCount,
+ * then returns the time delta between their keys.
+ */
+function computeLocalSpanFromDist(
+  dist: SortDistribution,
+  globalPosition: number,
+  visibleCount: number,
+): number {
+  const endPos = Math.min(globalPosition + visibleCount, dist.coveredCount - 1);
+  const startKey = lookupSortDistribution(dist, globalPosition);
+  const endKey = lookupSortDistribution(dist, endPos);
+  if (!startKey || !endKey) return 2 * MS_PER_DAY;
+  const delta = Math.abs(new Date(endKey).getTime() - new Date(startKey).getTime());
+  return delta || 2 * MS_PER_DAY;
+}
+
+/** Buffer edge values for keyword fallback. */
+function findBufferEdges(
+  results: (Image | undefined)[],
+  mapping: { accessor: (img: Image) => string | undefined },
+): { firstVal: string | undefined; lastVal: string | undefined } | null {
+  let firstImg: Image | undefined;
+  let lastImg: Image | undefined;
+  for (let i = 0; i < results.length; i++) {
+    if (results[i]) { firstImg = results[i]; break; }
+  }
+  for (let i = results.length - 1; i >= 0; i--) {
+    if (results[i]) { lastImg = results[i]; break; }
+  }
+  if (!firstImg || !lastImg) return null;
+  return { firstVal: mapping.accessor(firstImg), lastVal: mapping.accessor(lastImg) };
+}
+
+/**
+ * Estimate the Date at a global position using the buffer's date anchors.
+ * For positions inside the buffer: returns the exact date from the image.
+ * For positions outside: linearly extrapolates from the buffer edges.
+ *
+ * ⚠️  LINEAR EXTRAPOLATION IS INACCURATE for non-uniform distributions.
+ * Real-world upload times are heavily skewed — recent images are dense,
+ * old images are sparse. A buffer covering 2 days of recent uploads will
+ * extrapolate a slope of ~minutes/position, wildly underestimating the
+ * time span to position 1M+. E.g., "2010" label may appear where "Jul
+ * 2022" actually is. This affects:
+ *   - Tooltip hover-preview dates during drag (self-corrects after seek)
+ *   - computeTrackTicks() — currently disabled for seek mode (search.tsx)
+ * Proper fix: date histogram aggregation from ES (see ideation Theme 2a).
+ * Returns null if the buffer has no usable date data.
+ */
+function estimateDateAtPosition(
+  globalPosition: number,
+  bufferOffset: number,
+  results: (Image | undefined)[],
+  mapping: { accessor: (img: Image) => string | undefined },
+): Date | null {
+  // Inside buffer: exact value
   const localIdx = globalPosition - bufferOffset;
   if (localIdx >= 0 && localIdx < results.length) {
     const img = results[localIdx];
     if (!img) return null;
     const val = mapping.accessor(img);
     if (!val) return null;
-    return mapping.type === "date" ? formatSortDate(val) : formatKeywordLabel(val, mapping.format);
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
   }
 
-  // --- Outside buffer: interpolate/extrapolate ---
-
-  // Keyword sort with pre-fetched distribution — binary search, no network
-  if (mapping.type === "keyword" && keywordDist) {
-    return lookupKeywordDistribution(keywordDist, globalPosition, mapping.format);
-  }
-
-  // Find the first and last non-undefined images in the buffer
+  // Outside buffer: interpolate from edges
   let firstImg: Image | undefined;
   let lastImg: Image | undefined;
   for (let i = 0; i < results.length; i++) {
@@ -271,31 +526,268 @@ export function interpolateSortLabel(
 
   const firstVal = mapping.accessor(firstImg);
   const lastVal = mapping.accessor(lastImg);
+  if (!firstVal || !lastVal) return null;
 
-  if (mapping.type === "date" && firstVal && lastVal) {
-    // Interpolate date: compute a date between the extremes of the full
-    // result set, using the buffer's dates as anchor points.
-    const firstTime = new Date(firstVal).getTime();
-    const lastTime = new Date(lastVal).getTime();
-    if (isNaN(firstTime) || isNaN(lastTime)) return null;
+  const firstTime = new Date(firstVal).getTime();
+  const lastTime = new Date(lastVal).getTime();
+  if (isNaN(firstTime) || isNaN(lastTime)) return null;
 
-    // The buffer covers positions [bufferOffset, bufferOffset + len - 1].
-    // Extrapolate linearly: what date would position globalPosition have?
-    const bufferLen = results.length;
-    if (bufferLen <= 1) return formatSortDate(firstVal);
+  const bufferLen = results.length;
+  if (bufferLen <= 1) return new Date(firstTime);
 
-    // Rate of change: ms per position within the buffer
-    const msPerPos = (lastTime - firstTime) / (bufferLen - 1);
-    // Extrapolate from the buffer's start
-    const estimatedTime = firstTime + msPerPos * (globalPosition - bufferOffset);
-    return formatSortDate(new Date(estimatedTime).toISOString());
+  const msPerPos = (lastTime - firstTime) / (bufferLen - 1);
+  const estimatedTime = firstTime + msPerPos * (globalPosition - bufferOffset);
+  return new Date(estimatedTime);
+}
+
+// ---------------------------------------------------------------------------
+// Track tick marks — month/year boundary positions for scrubber orientation
+// ---------------------------------------------------------------------------
+
+export interface TrackTick {
+  /** Global position (0-based) of this boundary in the result set. */
+  position: number;
+  /** 'major' boundaries are more prominent than 'minor'. What constitutes
+   *  major vs minor depends on the adaptive resolution and span length:
+   *  - Month resolution, short span (< 15 years): major = every January,
+   *    minor = other months. Every year gets a label.
+   *  - Month resolution, long span (≥ 15 years): major = decade/half-decade
+   *    January (2020, 2025…), minor = everything else. All Januaries carry
+   *    a year label; Scrubber decimation controls which are visible.
+   *  - Day resolution: major = month boundary, minor = day
+   *  - Hour resolution: major = 6-hour mark (00/06/12/18), minor = other hours */
+  type: "minor" | "major";
+  /** Optional human-readable label for this boundary. Assigned to major
+   *  ticks and labelled minor ticks. Shown on hover to orient the user
+   *  without requiring tooltip interaction.
+   *  - Month resolution, short span: major = "2024", minor = "Mar", "Apr", …
+   *  - Month resolution, long span: major = "2020", "2025", minor = "2022";
+   *    all Januaries carry year label; non-January months have month abbr.
+   *  - Day resolution: major = "Mar", "Apr", …, minor (no label)
+   *  - Hour resolution: major = "00:00"/"06:00"/…, midnight = "14 Mar";
+   *    minor = "09:00", "10:00", … */
+  label?: string;
+}
+
+/**
+ * Compute date boundary positions for scrubber track tick marks.
+ *
+ * When a SortDistribution is provided (date histogram from ES), uses its
+ * buckets directly as ticks. The distribution's adaptive interval (month /
+ * day / hour) and cumulative positions give density-correct spacing — e.g.
+ * a recent-skewed 15-year set gets month ticks spread across the top 90%
+ * of the track (where the data is) and a cluster at the bottom (old data).
+ * The Scrubber's label decimation then shows labels only where there's
+ * enough pixel space.
+ *
+ * Without a distribution, falls back to time-span-based generation with
+ * linear buffer extrapolation (only accurate in scroll mode).
+ *
+ * Returns an empty array for keyword sorts, script sorts, or when no
+ * usable date data is available.
+ */
+export function computeTrackTicks(
+  orderBy: string | undefined,
+  total: number,
+  bufferOffset: number,
+  results: (Image | undefined)[],
+  sortDist?: SortDistribution | null,
+): TrackTick[] {
+  if (total <= 0) return [];
+
+  const mapping = resolveSortMapping(orderBy);
+  if (!mapping || mapping.type !== "date") return [];
+
+  const MONTH_ABBRS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  // -----------------------------------------------------------------------
+  // Distribution mode: use histogram buckets directly as ticks.
+  // Each bucket key is an ISO date (e.g. "2024-03-01T00:00:00.000Z"),
+  // each startPosition is the accurate cumulative doc count.
+  // -----------------------------------------------------------------------
+
+  if (sortDist && sortDist.buckets.length >= 2) {
+    const ticks: TrackTick[] = [];
+
+    // Detect the histogram interval from the first two bucket keys
+    const d0 = new Date(sortDist.buckets[0].key);
+    const d1 = new Date(sortDist.buckets[1].key);
+    const intervalMs = Math.abs(d1.getTime() - d0.getTime());
+    const isMonthly = intervalMs > 20 * MS_PER_DAY; // ~28–31 days
+    const isDaily = !isMonthly && intervalMs > 12 * 3600_000; // ~24h
+    // Otherwise: hourly
+
+    // For monthly buckets: compute span in years to decide label density.
+    // Short spans (< ~15 years): every January gets a year label and major
+    // status — individual years are the primary orientation landmarks.
+    // Long spans (≥ 15 years): decade/half-decade hierarchy prevents
+    // overcrowding — only yr%5==0 gets a label, only yr%10==0 is major.
+    const dFirst = new Date(sortDist.buckets[0].key);
+    const dLast = new Date(sortDist.buckets[sortDist.buckets.length - 1].key);
+    const spanYears = Math.abs(dLast.getUTCFullYear() - dFirst.getUTCFullYear());
+    const shortSpan = spanYears < 15;
+
+    for (const bucket of sortDist.buckets) {
+      const pos = bucket.startPosition;
+      if (pos < 0 || pos >= total) continue;
+
+      const d = new Date(bucket.key);
+
+      if (isMonthly) {
+        // Monthly buckets: Jan = major (year label), other months = minor (month abbr).
+        // Label/major strategy adapts to span length — see shortSpan above.
+        const isJan = d.getUTCMonth() === 0;
+        const yr = d.getUTCFullYear();
+        if (shortSpan) {
+          // Short span: every January is major with a year label.
+          // Non-January months are minor with month abbreviation.
+          ticks.push({
+            position: pos,
+            type: isJan ? "major" : "minor",
+            label: isJan ? `${yr}` : MONTH_ABBRS[d.getUTCMonth()],
+          });
+        } else {
+          // Long span: decade hierarchy — label only at yr%5, major at yr%10.
+          // All January ticks still carry a year label so the Scrubber's
+          // label-decimation can show them when there's enough pixel space
+          // (e.g. an isolated year in the middle of the track).
+          const isDecade = yr % 10 === 0;
+          const isHalfDecade = yr % 5 === 0;
+          ticks.push({
+            position: pos,
+            type: isJan && isHalfDecade ? "major" : "minor",
+            label: isJan
+              ? `${yr}`
+              : MONTH_ABBRS[d.getUTCMonth()],
+          });
+        }
+      } else if (isDaily) {
+        // Daily buckets: 1st of month = major (month label), others = minor
+        const isMajor = d.getUTCDate() === 1;
+        ticks.push({
+          position: pos,
+          type: isMajor ? "major" : "minor",
+          label: isMajor ? MONTH_ABBRS[d.getUTCMonth()] : undefined,
+        });
+      } else {
+        // Hourly buckets: 6-hour marks = major, midnight = day+month label
+        const h = d.getUTCHours();
+        const isMajor = h % 6 === 0;
+        const label = h === 0
+          ? `${d.getUTCDate()} ${MONTH_ABBRS[d.getUTCMonth()]}`
+          : `${String(h).padStart(2, "0")}:00`;
+        ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
+      }
+    }
+
+    return ticks;
   }
 
-  // Keyword: return nearest edge value
-  if (localIdx < 0) {
-    return firstVal ? formatKeywordLabel(firstVal, mapping.format) : null;
+  // -----------------------------------------------------------------------
+  // Buffer fallback: linear extrapolation (accurate only in scroll mode).
+  // -----------------------------------------------------------------------
+
+  if (results.length === 0) return [];
+
+  const dateAtStart = estimateDateAtPosition(0, bufferOffset, results, mapping);
+  const dateAtEnd = estimateDateAtPosition(
+    Math.max(0, total - 1), bufferOffset, results, mapping,
+  );
+  if (!dateAtStart || !dateAtEnd) return [];
+
+  const startMs = dateAtStart.getTime();
+  const endMs = dateAtEnd.getTime();
+  if (startMs === endMs) return [];
+
+  const msPerPos = (endMs - startMs) / Math.max(1, total - 1);
+  if (msPerPos === 0) return [];
+
+  const earlierMs = Math.min(startMs, endMs);
+  const laterMs = Math.max(startMs, endMs);
+  const spanMs = laterMs - earlierMs;
+  if (spanMs <= 0) return [];
+  const earlier = new Date(earlierMs);
+  const ticks: TrackTick[] = [];
+
+  const toPosition = (ms: number): number | null => {
+    const pos = Math.round((ms - startMs) / msPerPos);
+    return pos >= 0 && pos < total ? pos : null;
+  };
+
+  if (spanMs > 2 * 365 * MS_PER_DAY) {
+    const later = new Date(laterMs);
+    const fallbackSpanYears = later.getFullYear() - earlier.getFullYear();
+    const fbShortSpan = fallbackSpanYears < 15;
+    let cursor = new Date(earlier.getFullYear() + 1, 0, 1);
+    while (cursor.getTime() <= laterMs) {
+      const pos = toPosition(cursor.getTime());
+      if (pos != null) {
+        const yr = cursor.getFullYear();
+        if (fbShortSpan) {
+          // Short span: every year is major with a label
+          ticks.push({ position: pos, type: "major", label: `${yr}` });
+        } else {
+          // Long span: decade hierarchy
+          const isDecade = yr % 10 === 0;
+          const isHalfDecade = yr % 5 === 0;
+          ticks.push({
+            position: pos,
+            type: isDecade ? "major" : "minor",
+            label: isHalfDecade ? `${yr}` : undefined,
+          });
+        }
+      }
+      cursor = new Date(cursor.getFullYear() + 1, 0, 1);
+    }
+  } else if (spanMs > 2 * MS_PER_MONTH) {
+    let cursor = new Date(earlier.getFullYear(), earlier.getMonth() + 1, 1);
+    while (cursor.getTime() <= laterMs) {
+      const pos = toPosition(cursor.getTime());
+      if (pos != null) {
+        const isMajor = cursor.getMonth() === 0;
+        ticks.push({
+          position: pos,
+          type: isMajor ? "major" : "minor",
+          label: isMajor ? `${cursor.getFullYear()}` : MONTH_ABBRS[cursor.getMonth()],
+        });
+      }
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+  } else if (spanMs > MS_PER_DAY) {
+    let cursor = new Date(earlier.getFullYear(), earlier.getMonth(), earlier.getDate() + 1);
+    while (cursor.getTime() <= laterMs) {
+      const pos = toPosition(cursor.getTime());
+      if (pos != null) {
+        const isMajor = cursor.getDate() === 1;
+        ticks.push({
+          position: pos,
+          type: isMajor ? "major" : "minor",
+          label: isMajor ? MONTH_ABBRS[cursor.getMonth()] : undefined,
+        });
+      }
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+  } else {
+    const startHour = Math.ceil(earlier.getHours());
+    let cursor = new Date(earlier.getFullYear(), earlier.getMonth(), earlier.getDate(), startHour);
+    if (cursor.getTime() <= earlierMs) {
+      cursor = new Date(cursor.getTime() + 3600_000);
+    }
+    while (cursor.getTime() <= laterMs) {
+      const pos = toPosition(cursor.getTime());
+      if (pos != null) {
+        const h = cursor.getHours();
+        const isMajor = h % 6 === 0;
+        const label = h === 0
+          ? `${cursor.getDate()} ${MONTH_ABBRS[cursor.getMonth()]}`
+          : `${String(h).padStart(2, "0")}:00`;
+        ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
+      }
+      cursor = new Date(cursor.getTime() + 3600_000);
+    }
   }
-  return lastVal ? formatKeywordLabel(lastVal, mapping.format) : null;
+
+  return ticks;
 }
 
 

@@ -167,7 +167,7 @@ Full implementation of `search_after` + PIT windowed scroll + custom scrubber. R
 - Backward extend scroll compensation (`_lastPrependCount` + `_prependGeneration`)
 - Sort-around-focus ("Never Lost"): async `_findAndFocusImage()` with 8s timeout
 - Sort-aware scrubber tooltip: date interpolation for date sorts, keyword value for keyword sorts
-- Scrubber: vertical track, proportional thumb, click/drag-to-seek (deferred to pointer up), keyboard (arrows + Shift+arrows), auto-hide after 2s, callback ref + ResizeObserver, `pendingSeekPosRef`
+- Scrubber: vertical track, proportional thumb, click/drag-to-seek (deferred to pointer up), auto-hide after 2s, callback ref + ResizeObserver, `pendingSeekPosRef`
 - Non-linear drag researched and rejected — linear drag + deferred seek is correct (see deviations.md §20, `scrubber-nonlinear-research.md`)
 
 **Bugs found via TEST ES (~1.3M docs) and fixed:**
@@ -537,3 +537,102 @@ registry-driven), `ImageTable.tsx` (horizontal scrollbar proxy, single-line pill
 `index.css` (`.hide-scrollbar-y` rewritten).
 
 **Docs updated:** AGENTS.md (KAD #26, #29, table view, panels), changelog.
+
+### Scrubber tick visual polish + isolation-based promotion (29 Mar 2026)
+
+**Major tick visual differentiation:** Major ticks now have distinct visual weight
+from minor ticks — wider extent (extend further left/right, including beyond the
+track edges on hover) and brighter opacity. On hover, all ticks extend further to
+the left for better visibility. Height is uniform at 1px (2px was tried for majors
+but reverted — width and opacity provide enough differentiation).
+
+**Long-span year labels:** In the long-span path (≥15 years), all January ticks
+now carry a year label (previously only yr%5 got labels, leaving years like 2022
+with no label even when isolated). The Scrubber's label decimation controls which
+labels are actually shown based on available pixel space — so clustered years at
+the top/bottom still get decimated, but an isolated year in the middle of the track
+gets its label shown.
+
+**Half-decade promotion:** In the long-span path, half-decade Januaries (yr%5==0)
+are now promoted to major type (previously only yr%10 was major). This gives
+2025, 2015, etc. the same visual weight as decade boundaries.
+
+**Isolation-based tick promotion:** New algorithm in Scrubber.tsx — after computing
+tick pixel positions, a promotion pass checks each minor tick with a 4-digit year
+label (e.g. "2022"). If its nearest major tick is ≥80px away (ISOLATION_THRESHOLD),
+it's added to a `promoted` Set and rendered with major visual treatment (wider,
+bolder, brighter label). Month abbreviation ticks ("Mar", "Apr") are never
+candidates for promotion — only year-boundary ticks. Promoted ticks also get
+priority in the label decimation pass (included alongside real majors in the
+first pass). This handles the common case where a year like 2022 sits alone in
+the middle of a density-skewed track (e.g. source:PA — most data recent, sparse
+in the middle) and deserves landmark treatment.
+
+**Files changed:** `Scrubber.tsx` (tick insets, height, isolation promotion),
+`sort-context.ts` (long-span year labels, half-decade major promotion, updated
+TrackTick docstrings).
+
+### Width/Height sort tooltip fix — distribution-based labels (29 Mar 2026)
+
+**Bug:** When sorting by Width or Height, the scrubber tooltip showed the same
+stale value across the entire track. Dragging from top to bottom showed e.g.
+"4,000px" everywhere because width/height had no distribution and the tooltip
+fell back to the nearest buffer edge value.
+
+**Root cause:** Width and height were typed as `"keyword"` in `SORT_LABEL_MAP`
+but were NOT registered in `KEYWORD_SORT_ES_FIELDS`. This meant
+`resolveKeywordSortInfo()` returned null for them, so `fetchSortDistribution()`
+never fired. The tooltip fell back to `findBufferEdges()` which returned the
+same value for all out-of-buffer positions.
+
+Additionally, the accessor returned pre-formatted strings (`"4,000px"` via
+`toLocaleString()`) while the distribution pipeline applies `mapping.format`
+to both in-buffer accessor values and raw distribution keys. This would have
+caused double-formatting if a format function were added naively.
+
+**Fix:**
+1. Added `width: "source.dimensions.width"` and `height: "source.dimensions.height"`
+   to `KEYWORD_SORT_ES_FIELDS`. The composite agg now fetches the distribution
+   for these sorts — ES composite `terms` works on numeric fields, returning
+   each unique integer value as a bucket (typically ~4000–8000 unique widths,
+   well within the 50k composite cap, single page).
+2. Changed width/height accessors to return raw number strings (`"4000"` instead
+   of `"4,000px"`), added `format: (v) => \`${Number(v).toLocaleString()}px\``
+   to both entries. This ensures both paths (in-buffer accessor → formatKeywordLabel
+   and distribution key → formatKeywordLabel) produce consistent `"4,000px"` output.
+
+**No ticks for numeric sorts** — `computeTrackTicks()` still returns `[]` for
+non-date sorts. Adding tick marks for width/height would require a "nice number"
+algorithm for round boundaries (1000px, 2000px, etc.) — deferred as low priority
+given the niche usage of these sorts.
+
+**Files changed:** `sort-context.ts` (KEYWORD_SORT_ES_FIELDS, width/height
+accessor+format).
+
+**Docs updated:** AGENTS.md (DAL methods, Scrubber description, tooltip), changelog.
+
+### Removed Filename sort (29 Mar 2026)
+
+**Problem:** Sorting by Filename was glacially slow on real data (~1.3M docs).
+The initial ES query sorts 1.3M strings (byte-by-byte comparison, heavier than
+numeric/date). Deep seek uses the keyword composite-agg walk path — but filename
+has ~1.3M unique values (nearly every image has a unique filename), requiring 65+
+paged composite requests to reach 50%. The 8s time cap returns an approximate
+result but that's still 8 painful seconds of waiting. Filename is the worst-case
+field for the keyword seek strategy: maximum cardinality with doc_count=1 per
+bucket (no density benefit from binary search refinement).
+
+**Fix:** Removed sorting capability from Filename entirely:
+1. `field-registry.ts` — removed `sortKey: "filename"` from the Filename field
+   definition. This removes it from the sort dropdown and makes the table column
+   header non-sortable (no click-to-sort).
+2. `es-adapter.ts` — removed `filename: "uploadInfo.filename"` from the sort
+   alias map (dead code now).
+3. `es-adapter.test.ts` — removed the filename alias expansion test.
+
+Filename remains fully functional for display, CQL search (`filename:...`), and
+the details panel — only sorting is removed.
+
+**Files changed:** `field-registry.ts`, `es-adapter.ts`, `es-adapter.test.ts`.
+
+**Docs updated:** changelog.

@@ -31,8 +31,8 @@ import { ImageMetadata } from "@/components/ImageMetadata";
 import { useSearchStore } from "@/stores/search-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback } from "react";
-import { interpolateSortLabel, resolveKeywordSortInfo } from "@/lib/sort-context";
+import { useCallback, useRef } from "react";
+import { interpolateSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicks } from "@/lib/sort-context";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -59,14 +59,12 @@ function SearchPage() {
   const visibleCount = Math.max(1, visibleRange.end - visibleRange.start + 1);
 
   // Sort-context label for the scrubber tooltip.
-  // Uses interpolation for positions outside the buffer — linearly extrapolates
-  // dates from the buffer's anchor points, giving meaningful labels during drag.
-  // For keyword sorts: uses the pre-fetched keyword distribution (binary search,
-  // no network during drag). Falls back to nearest buffer edge if distribution
-  // hasn't loaded yet.
+  // Uses the pre-fetched sort distribution (keyword or date) for accurate
+  // position→value mapping via binary search (no network during drag).
+  // Falls back to buffer interpolation before the distribution loads.
   const orderBy = useSearchStore((s) => s.params.orderBy);
   const results = useSearchStore((s) => s.results);
-  const keywordDistribution = useSearchStore((s) => s.keywordDistribution);
+  const sortDistribution = useSearchStore((s) => s.sortDistribution);
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
@@ -76,24 +74,42 @@ function SearchPage() {
         store.total,
         store.bufferOffset,
         store.results,
-        store.keywordDistribution,
+        store.sortDistribution,
+        visibleCount,
       );
     },
-    // Depend on orderBy so the callback is fresh when sort changes.
-    // results dependency ensures we get updated data after extends.
-    // keywordDistribution dependency ensures fresh data after distribution loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orderBy, results, keywordDistribution],
+    [orderBy, results, sortDistribution, visibleCount],
   );
 
-  // Lazy fetch: trigger keyword distribution fetch on first scrubber interaction.
-  // Only fetches if the current sort is a keyword sort and the distribution
-  // hasn't been fetched yet for this query/sort combination.
-  const fetchKeywordDistribution = useSearchStore((s) => s.fetchKeywordDistribution);
-  const isKeywordSort = !!resolveKeywordSortInfo(orderBy);
+  // Lazy fetch: trigger sort distribution on first scrubber interaction.
+  // Fires for both keyword sorts (composite agg) and date sorts (date_histogram).
+  const fetchSortDistribution = useSearchStore((s) => s.fetchSortDistribution);
+  const hasDistributableSort = !!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy);
   const onScrubberInteraction = useCallback(() => {
-    if (isKeywordSort) fetchKeywordDistribution();
-  }, [isKeywordSort, fetchKeywordDistribution]);
+    if (hasDistributableSort) fetchSortDistribution();
+  }, [hasDistributableSort, fetchSortDistribution]);
+
+  // Track tick marks — date boundary positions for scrubber orientation.
+  // In scroll mode (all data in buffer): computed from buffer data (exact).
+  // In seek mode: computed from the sort distribution when available (accurate).
+  // Without distribution in seek mode: empty (linear extrapolation is unreliable).
+  const allDataInBuffer = total <= bufferLength;
+  const ticksCacheRef = useRef<{ key: string; ticks: ReturnType<typeof computeTrackTicks> }>({ key: "", ticks: [] });
+  const ticksCacheKey = allDataInBuffer
+    ? `buffer:${orderBy ?? ""}:${total}`
+    : sortDistribution
+      ? `dist:${orderBy ?? ""}:${total}:${sortDistribution.buckets.length}`
+      : "";
+  if (ticksCacheKey && ticksCacheRef.current.key !== ticksCacheKey) {
+    ticksCacheRef.current = {
+      key: ticksCacheKey,
+      ticks: computeTrackTicks(orderBy, total, bufferOffset, results, sortDistribution),
+    };
+  } else if (!ticksCacheKey) {
+    ticksCacheRef.current = { key: "", ticks: [] };
+  }
+  const trackTicks = ticksCacheRef.current.ticks;
 
   const scrubberElement = (
     <Scrubber
@@ -104,7 +120,8 @@ function SearchPage() {
       loading={loading}
       onSeek={seek}
       getSortLabel={getSortLabel}
-      onFirstInteraction={isKeywordSort ? onScrubberInteraction : undefined}
+      onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
+      trackTicks={trackTicks}
     />
   );
 

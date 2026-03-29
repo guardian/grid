@@ -14,7 +14,7 @@
  * Position Control" for the full design.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -78,6 +78,43 @@ function thumbTopFromPosition(
   return Math.min(maxTop, ratio * maxTop);
 }
 
+/** Update tooltip DOM position and text content (no thumb movement). */
+function applyTooltipContent(
+  position: number,
+  total: number,
+  topPx: number,
+  trackEl: HTMLElement,
+  tooltipEl: HTMLElement,
+  sortLabel?: string | null,
+): void {
+  const tipH = tooltipEl.offsetHeight || 28;
+  tooltipEl.style.top = `${Math.max(0, Math.min(trackEl.clientHeight - tipH, topPx))}px`;
+
+  // Update the sort context label (first child span, data-sort-label).
+  // Uses innerHTML because date labels contain a fixed-width <span> for
+  // the month abbreviation (prevents tooltip width jitter across months).
+  const sortLabelEl = tooltipEl.querySelector("[data-sort-label]") as HTMLElement | null;
+  if (sortLabelEl) {
+    if (sortLabel) {
+      sortLabelEl.innerHTML = sortLabel;
+      sortLabelEl.style.display = "";
+    } else {
+      sortLabelEl.style.display = "none";
+    }
+  }
+
+  // Update the position text — find the text node that contains "X of Y"
+  // It's after the sort label span in the new layout.
+  const label = `${Math.min(position + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
+  // Walk child nodes looking for the text node with position info
+  for (const node of tooltipEl.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent?.includes("of")) {
+      node.textContent = label;
+      break;
+    }
+  }
+}
+
 /** Set thumb + tooltip DOM positions and text for instant visual feedback. */
 function applyThumbPosition(
   position: number,
@@ -92,38 +129,17 @@ function applyThumbPosition(
   const top = thumbTopFromPosition(position, total, visibleCount, trackEl);
   thumbEl.style.top = `${top}px`;
   if (tooltipEl) {
-    const tipH = tooltipEl.offsetHeight || 28;
-    tooltipEl.style.top = `${Math.max(0, Math.min(trackEl.clientHeight - tipH, top))}px`;
-
-    // Update the sort context label (first child span, data-sort-label).
-    // Uses innerHTML because date labels contain a fixed-width <span> for
-    // the month abbreviation (prevents tooltip width jitter across months).
-    const sortLabelEl = tooltipEl.querySelector("[data-sort-label]") as HTMLElement | null;
-    if (sortLabelEl) {
-      if (sortLabel) {
-        sortLabelEl.innerHTML = sortLabel;
-        sortLabelEl.style.display = "";
-      } else {
-        sortLabelEl.style.display = "none";
-      }
-    }
-
-    // Update the position text — find the text node that contains "X of Y"
-    // It's after the sort label span in the new layout.
-    const label = `${Math.min(position + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
-    // Walk child nodes looking for the text node with position info
-    for (const node of tooltipEl.childNodes) {
-      if (node.nodeType === Node.TEXT_NODE && node.textContent?.includes("of")) {
-        node.textContent = label;
-        break;
-      }
-    }
+    applyTooltipContent(position, total, top, trackEl, tooltipEl, sortLabel);
   }
 }
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+import type { TrackTick } from "@/lib/sort-context";
+
+// ...existing code...
 
 export interface ScrubberProps {
   /** Total number of matching results in the full result set. */
@@ -150,6 +166,12 @@ export interface ScrubberProps {
    * that aren't needed until the user actually touches the scrubber.
    */
   onFirstInteraction?: () => void;
+  /**
+   * Optional month/year boundary tick marks for the scrubber track.
+   * Rendered as subtle horizontal lines within the track to communicate
+   * temporal structure and density without labels or width expansion.
+   */
+  trackTicks?: TrackTick[];
 }
 
 // ---------------------------------------------------------------------------
@@ -165,28 +187,19 @@ export function Scrubber({
   onSeek,
   getSortLabel,
   onFirstInteraction,
+  trackTicks,
 }: ScrubberProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Fire onFirstInteraction once per sort configuration. Ref-stabilised so
-  // it doesn't re-fire when the callback identity changes. Reset when the
-  // prop transitions from undefined→defined (e.g. sort change to keyword).
+  // Ref-stabilise onFirstInteraction so callers don't need to memoize it.
+  // Called on every user interaction (hover, click, drag). The store's own
+  // cache key check prevents duplicate fetches — no client-side guard needed.
   const onFirstInteractionRef = useRef(onFirstInteraction);
   onFirstInteractionRef.current = onFirstInteraction;
-  const hasInteractedRef = useRef(false);
-  // Reset if the prop appeared (new keyword sort needs its distribution fetched)
-  if (onFirstInteraction && !hasInteractedRef.current) {
-    // No reset needed — hasn't interacted yet
-  } else if (!onFirstInteraction) {
-    hasInteractedRef.current = false; // Reset for next keyword sort
-  }
   const notifyFirstInteraction = useCallback(() => {
-    if (!hasInteractedRef.current && onFirstInteractionRef.current) {
-      hasInteractedRef.current = true;
-      onFirstInteractionRef.current();
-    }
+    onFirstInteractionRef.current?.();
   }, []);
 
   // Set initial thumb position when the element mounts. Without this,
@@ -205,6 +218,8 @@ export function Scrubber({
   const [trackHeight, setTrackHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  /** True when mouse is over the track and NOT dragging — drives hover-preview tooltip. */
+  const [isHoveringTrack, setIsHoveringTrack] = useState(false);
 
   // Stable visibleCount for thumb height calculation. In scroll mode,
   // the thumb height should not change as the user scrolls (native
@@ -226,25 +241,26 @@ export function Scrubber({
   // Otherwise: scroll mode, already captured — keep the frozen value.
   const thumbVisibleCount = allDataInBuffer ? stableVisibleCountRef.current : visibleCount;
 
-  // Tooltip visibility — stays on during drag, lingers 1.5s after click/keyboard
-  const [tooltipVisible, setTooltipVisible] = useState(false);
+  // Tooltip visibility — visible during: hover preview, drag, or 1.5s flash
+  const [tooltipFlashing, setTooltipFlashing] = useState(false);
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipVisible = isHoveringTrack || isDragging || tooltipFlashing;
 
-  /** Show the tooltip — stays visible during drag, auto-hides after delay otherwise. */
+  /** Flash the tooltip for 1.5s (after click or keyboard interaction). */
   const flashTooltip = useCallback(() => {
     if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
-    setTooltipVisible(true);
-    tooltipTimerRef.current = setTimeout(() => setTooltipVisible(false), 1500);
+    setTooltipFlashing(true);
+    tooltipTimerRef.current = setTimeout(() => setTooltipFlashing(false), 1500);
   }, []);
 
-  // Keep tooltip visible during drag, clear timer on drag end
+  // Keep tooltip visible during drag, restart linger timer on drag end
   useEffect(() => {
     if (isDragging) {
       if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
-      setTooltipVisible(true);
-    } else if (tooltipVisible) {
+      setTooltipFlashing(true);
+    } else if (tooltipFlashing) {
       // Drag ended — start the linger timer
-      tooltipTimerRef.current = setTimeout(() => setTooltipVisible(false), 1500);
+      tooltipTimerRef.current = setTimeout(() => setTooltipFlashing(false), 1500);
     }
   }, [isDragging]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -505,6 +521,7 @@ export function Scrubber({
       const thumb = e.currentTarget as HTMLElement;
       thumb.setPointerCapture(e.pointerId);
       setIsDragging(true);
+      setIsHoveringTrack(false); // Drag owns the tooltip now
 
       // Freeze the thumb at its current visual position during the grab.
       pendingSeekPosRef.current = currentPosition;
@@ -621,6 +638,222 @@ export function Scrubber({
   );
 
   // -------------------------------------------------------------------------
+  // Hover preview — tooltip follows cursor on the track, showing the
+  // sort label + position at the hovered point. Tells the user "if you
+  // click here, you'll land at [date/keyword], position [X of Y]."
+  // Uses direct DOM writes for 60fps — no React state during mousemove.
+  // Suppressed during drag (drag handler owns the tooltip).
+  // -------------------------------------------------------------------------
+
+  const handleTrackMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (isDragging) return;
+      // Ignore moves over the thumb — thumb hover shows current position
+      if ((e.target as HTMLElement).dataset.scrubberThumb) {
+        // Restore tooltip to current/thumb position when mouse enters thumb
+        const tipEl = tooltipRef.current;
+        const trackEl = trackRef.current;
+        if (tipEl && trackEl) {
+          const pos = pendingSeekPosRef.current ?? currentPosition;
+          const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
+          applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
+        }
+        return;
+      }
+      notifyFirstInteraction();
+      const tipEl = tooltipRef.current;
+      const trackEl = trackRef.current;
+      if (!tipEl || !trackEl) return;
+
+      const pos = positionFromY(e.clientY);
+      // Position tooltip at cursor Y (clamped to track), not at the thumb
+      const rect = trackEl.getBoundingClientRect();
+      const cursorTop = Math.max(0, Math.min(trackEl.clientHeight, e.clientY - rect.top));
+      applyTooltipContent(pos, total, cursorTop, trackEl, tipEl, getSortLabelRef.current?.(pos));
+    },
+    [isDragging, currentPosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
+  );
+
+  const handleTrackMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    if (!isDragging) setIsHoveringTrack(true);
+  }, [isDragging]);
+
+  const handleTrackMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    setIsHoveringTrack(false);
+
+    // During hover-preview, handleTrackMouseMove writes the hovered
+    // position directly to the tooltip DOM. On leave, React re-renders
+    // and overwrites that content with the current scroll position
+    // (sortLabel / positionLabel). Without intervention, the 150ms
+    // opacity transition means the tooltip is still partially visible
+    // when the content swaps → one-frame flash of wrong data.
+    //
+    // Fix: immediately hide the tooltip (no transition) before React
+    // re-renders. The subsequent render restores the normal transition.
+    if (!tooltipFlashing) {
+      const tipEl = tooltipRef.current;
+      if (tipEl) {
+        tipEl.style.transition = "none";
+        tipEl.style.opacity = "0";
+      }
+    } else {
+      // Tooltip is lingering after a click/keyboard action — restore
+      // its content to the current/thumb position so it doesn't show
+      // stale hover-preview data.
+      const tipEl = tooltipRef.current;
+      const trackEl = trackRef.current;
+      if (tipEl && trackEl && total > 0) {
+        const pos = pendingSeekPosRef.current ?? currentPosition;
+        const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
+        applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
+      }
+    }
+  }, [tooltipFlashing, total, currentPosition, thumbVisibleCount]);
+
+  // -------------------------------------------------------------------------
+  // Memoised tick marks — only recomputed when the tick data, track
+  // geometry, or hover state changes. During scroll-driven re-renders
+  // (currentPosition / visibleCount props), this is a no-op — avoids
+  // re-creating dozens of React elements on every frame.
+  //
+  // MUST be above the `total <= 0` early return — hooks must always run
+  // in the same order. The null guard inside handles the empty case.
+  // -------------------------------------------------------------------------
+
+  const tickElements = useMemo(() => {
+    if (!trackTicks || trackTicks.length === 0 || trackHeight <= 0) return null;
+
+    // Pre-compute which labeled ticks have enough spacing to show their
+    // label. Two passes: major labels first (they win ties), then minor.
+    // Labels sit above their tick, so we need vertical clearance.
+    // 18px ≈ 11px font height + 7px gap — enough air to read comfortably.
+    const MIN_LABEL_GAP = 18;
+    const labelVisible = new Set<number>();
+
+    // Collect all tick pixel positions for gap checks
+    const tickPx = trackTicks.map((tick) => {
+      const ratio = total > 1 ? tick.position / (total - 1) : 0;
+      return Math.round(ratio * trackHeight);
+    });
+
+    // Isolation-based promotion: a minor year-boundary tick that sits far
+    // from any major tick is a visual landmark — promote it to major
+    // rendering (wider, bolder, heavier label). This handles the case
+    // where e.g. "2022" sits alone in the middle of the track surrounded
+    // only by month ticks — it deserves major treatment even though the
+    // decade hierarchy says it's minor. Only year labels (4-digit) are
+    // candidates — month abbreviations ("Mar", "Apr") always stay minor.
+    const ISOLATION_THRESHOLD = 80; // px — how far from nearest major to promote
+    const promoted = new Set<number>();
+    for (let i = 0; i < trackTicks.length; i++) {
+      const tick = trackTicks[i];
+      if (tick.type === "major" || !tick.label) continue;
+      if (!/^\d{4}$/.test(tick.label)) continue; // only year-boundary ticks
+      const px = tickPx[i];
+      let nearestMajorDist = Infinity;
+      for (let j = 0; j < trackTicks.length; j++) {
+        if (trackTicks[j].type === "major") {
+          nearestMajorDist = Math.min(nearestMajorDist, Math.abs(px - tickPx[j]));
+        }
+      }
+      if (nearestMajorDist >= ISOLATION_THRESHOLD) {
+        promoted.add(i);
+      }
+    }
+
+    // Drop first tick's label if it's too close to the top — the label
+    // sits above the tick and would overflow outside the track.
+    const LABEL_HEIGHT = 13; // approx height of an 11px label
+
+    // Major labels first (including promoted) — they always take priority
+    let lastLabelPx = -Infinity;
+    for (let i = 0; i < trackTicks.length; i++) {
+      const tick = trackTicks[i];
+      if (!tick.label || (tick.type !== "major" && !promoted.has(i))) continue;
+      const topPx = tickPx[i];
+      // Skip if label-above would overflow the top of the track
+      if (topPx < LABEL_HEIGHT + 2) continue;
+      if (topPx - lastLabelPx >= MIN_LABEL_GAP) {
+        labelVisible.add(i);
+        lastLabelPx = topPx;
+      }
+    }
+    // Minor labels fill remaining gaps
+    for (let i = 0; i < trackTicks.length; i++) {
+      const tick = trackTicks[i];
+      if (!tick.label || labelVisible.has(i)) continue;
+      const topPx = tickPx[i];
+      if (topPx < LABEL_HEIGHT + 2) continue;
+      // Check against ALL shown labels (major + previously accepted minor)
+      let tooClose = false;
+      for (const j of labelVisible) {
+        if (Math.abs(topPx - tickPx[j]) < MIN_LABEL_GAP) { tooClose = true; break; }
+      }
+      if (!tooClose) {
+        labelVisible.add(i);
+      }
+    }
+
+    return (
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        {trackTicks.map((tick, i) => {
+          const topPx = tickPx[i];
+          const isMajor = tick.type === "major" || promoted.has(i);
+          const showLabel = labelVisible.has(i);
+          return (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                top: topPx,
+                left: isHovered
+                  ? (isMajor ? -6 : -1)
+                  : (isMajor ? THUMB_INSET - 1 : THUMB_INSET + 1),
+                right: isHovered
+                  ? (isMajor ? -1 : THUMB_INSET - 1)
+                  : (isMajor ? THUMB_INSET - 1 : THUMB_INSET + 1),
+                height: 1,
+                backgroundColor: `rgba(255, 255, 255, ${
+                  isHovered
+                    ? (isMajor ? 0.6 : 0.25)
+                    : (isMajor ? 0.4 : 0.16)
+                })`,
+                transition: "left 200ms ease, right 200ms ease, background-color 200ms ease",
+              }}
+            >
+              {showLabel && (
+                <span
+                  style={{
+                    position: "absolute",
+                    right: isHovered
+                      ? (isMajor ? 0 : -(THUMB_INSET - 1))
+                      : (isMajor ? 0 : -(THUMB_INSET + 1)),
+                    bottom: "100%",
+                    marginBottom: 1,
+                    fontSize: 11,
+                    lineHeight: 1,
+                    fontWeight: isMajor ? 700 : 400,
+                    color: `rgba(255, 255, 255, ${isMajor ? 0.7 : 0.45})`,
+                    whiteSpace: "nowrap",
+                    opacity: isHovered ? 1 : 0,
+                    transition: "opacity 250ms ease 50ms",
+                    fontVariantNumeric: "tabular-nums",
+                    userSelect: "none",
+                  }}
+                >
+                  {tick.label}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [trackTicks, trackHeight, total, isHovered]);
+
+  // -------------------------------------------------------------------------
   // Empty state — show a disabled scrubber when there are no results.
   // Never fully hide: layout shifts are disorienting.
   // -------------------------------------------------------------------------
@@ -659,7 +892,6 @@ export function Scrubber({
       aria-valuenow={Math.round(effectivePosition)}
       aria-valuetext={sortLabel ? `${positionLabel} — ${sortLabel}` : positionLabel}
       aria-orientation="vertical"
-      tabIndex={0}
       className="relative z-20 h-full shrink-0 select-none outline-none"
       style={{
         width: TRACK_WIDTH,
@@ -669,10 +901,18 @@ export function Scrubber({
         transition: "opacity 300ms",
       }}
       onClick={handleTrackClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onKeyDown={handleKeyDown}
+      onMouseEnter={handleTrackMouseEnter}
+      onMouseLeave={handleTrackMouseLeave}
+      onMouseMove={handleTrackMouseMove}
     >
+      {/* Track tick marks — subtle horizontal lines at date boundaries.
+          Resolution adapts to the total time span (years → months → days → hours).
+          Major boundaries are slightly more prominent. On hover, ticks elongate
+          and major ticks reveal labels — progressive disclosure of temporal
+          structure. Labels are positioned above each tick, right-aligned to the
+          track edge. Memoised to avoid re-creating elements during scroll. */}
+      {tickElements}
+
       {/* Thumb — narrow pill inset within the track. Position controlled
           exclusively via DOM writes (useEffect + applyThumbPosition).
           Inline style omits `top` to prevent React reconciler fighting. */}
@@ -693,22 +933,25 @@ export function Scrubber({
         onPointerDown={handleThumbPointerDown}
       />
 
-      {/* Position tooltip — shown during drag and briefly after click/keyboard.
+      {/* Position tooltip — always rendered (opacity-controlled) so
+          tooltipRef is always valid for direct DOM writes during drag.
+          Shown during drag and briefly after click/keyboard.
           Suppressed when all data fits on screen (thumb covers most of the track) —
           showing "1 of 3" when everything is visible is just noise.
           Right-aligned so width changes (month names, position digits) push the
           less-visible left edge while the right edge stays locked to the scrubber. */}
-      {tooltipVisible && !(allDataInBuffer && thumbHeight >= trackHeight * 0.8) && (
-        <div
-          ref={tooltipRef}
-          className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
-          style={{
-            top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
-            textAlign: "right",
-            backgroundColor: "var(--color-grid-panel)",
-            border: "1px solid var(--color-grid-border)",
-          }}
-        >
+      <div
+        ref={tooltipRef}
+        className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
+        style={{
+          top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
+          textAlign: "right",
+          backgroundColor: "var(--color-grid-panel)",
+          border: "1px solid var(--color-grid-border)",
+          opacity: tooltipVisible && !(allDataInBuffer && thumbHeight >= trackHeight * 0.8) ? 1 : 0,
+          transition: "opacity 150ms ease-in",
+        }}
+      >
           {/* Sort context label — primary display, updated live via data-sort-label.
               Uses innerHTML because date labels contain a fixed-width <span> for
               the month abbreviation. Values are always generated internally
@@ -728,7 +971,6 @@ export function Scrubber({
             style={{ visibility: loading ? "visible" : "hidden" }}
           >●</span>
         </div>
-      )}
     </div>
   );
 }

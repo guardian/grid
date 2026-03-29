@@ -20,8 +20,8 @@ import type {
   AggregationResult,
   AggregationRequest,
   AggregationsResult,
-  KeywordDistribution,
-  KeywordDistBucket,
+  SortDistribution,
+  SortDistBucket,
 } from "./types";
 import { parseCql } from "@/lib/cql";
 import { gridConfig } from "@/lib/grid-config";
@@ -56,7 +56,6 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
     source: "metadata.source",
     imageType: "metadata.imageType",
     category: "usageRights.category",
-    filename: "uploadInfo.filename",
     mimeType: "source.mimeType",
     width: "source.dimensions.width",
     height: "source.dimensions.height",
@@ -925,11 +924,11 @@ export class ElasticsearchDataSource implements ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
-  ): Promise<KeywordDistribution | null> {
+  ): Promise<SortDistribution | null> {
     const BUCKET_SIZE = 10_000;
     const MAX_PAGES = 5;
     const startTime = Date.now();
-    const buckets: KeywordDistBucket[] = [];
+    const buckets: SortDistBucket[] = [];
     let cumulative = 0;
     let afterKey: Record<string, unknown> | undefined;
 
@@ -993,6 +992,113 @@ export class ElasticsearchDataSource implements ImageDataSource {
     );
 
     return { buckets, coveredCount: cumulative };
+  }
+
+  /**
+   * Fetch a date histogram distribution for a date sort field.
+   * Single ES request using `date_histogram` — one of ES's most optimised
+   * aggregations (BKD tree interval counting, no per-doc evaluation).
+   *
+   * Interval adapts to the total time span:
+   *   > 2 years  → month buckets (~180 for 15 years)
+   *   2–60 days  → day buckets
+   *   < 2 days   → hour buckets
+   *
+   * Returns buckets in sort order (asc or desc) with cumulative start
+   * positions, matching the SortDistribution structure used by keyword sorts.
+   */
+  async getDateDistribution(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<SortDistribution | null> {
+    const startTime = Date.now();
+
+    // First, get the min/max of the field to choose the right interval.
+    // stats agg is very cheap on date fields (~5ms).
+    const statsBody: Record<string, unknown> = {
+      size: 0,
+      query: buildQuery(params),
+      aggs: { range: { stats: { field } } },
+      track_total_hits: false,
+    };
+
+    let interval: string;
+    try {
+      const statsResult = (await this.esRequest("_search", statsBody, signal)) as {
+        aggregations?: { range?: { min: number; max: number; count: number } };
+      };
+      const stats = statsResult.aggregations?.range;
+      if (!stats || stats.count === 0) return null;
+
+      const spanMs = Math.abs(stats.max - stats.min);
+      const MS_PER_DAY = 86_400_000;
+      if (spanMs > 2 * 365 * MS_PER_DAY) {
+        interval = "month";
+      } else if (spanMs > 2 * MS_PER_DAY) {
+        interval = "day";
+      } else {
+        interval = "hour";
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return null;
+      console.warn("[ES] getDateDistribution stats failed:", e);
+      return null;
+    }
+
+    // Now fetch the histogram
+    const body: Record<string, unknown> = {
+      size: 0,
+      query: buildQuery(params),
+      aggs: {
+        timeline: {
+          date_histogram: {
+            field,
+            calendar_interval: interval,
+            min_doc_count: 1, // skip empty buckets
+            order: { _key: direction },
+          },
+        },
+      },
+      track_total_hits: false,
+    };
+
+    try {
+      const result = (await this.esRequest("_search", body, signal)) as {
+        aggregations?: {
+          timeline?: {
+            buckets?: Array<{ key_as_string: string; doc_count: number }>;
+          };
+        };
+      };
+
+      const esBuckets = result.aggregations?.timeline?.buckets;
+      if (!esBuckets || esBuckets.length === 0) return null;
+
+      const buckets: SortDistBucket[] = [];
+      let cumulative = 0;
+      for (const b of esBuckets) {
+        buckets.push({
+          key: b.key_as_string,
+          count: b.doc_count,
+          startPosition: cumulative,
+        });
+        cumulative += b.doc_count;
+      }
+
+      console.log(
+        `[ES] getDateDistribution: ${field} ${direction} ${interval} — ` +
+        `${buckets.length} buckets, ${cumulative} docs covered ` +
+        `(${Date.now() - startTime}ms)`,
+      );
+
+      return { buckets, coveredCount: cumulative };
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return null;
+      console.warn("[ES] getDateDistribution failed:", e);
+      return null;
+    }
   }
 }
 

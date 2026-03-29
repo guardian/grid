@@ -210,8 +210,11 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
         </>
       )}
 
-      {/* Main content — fills remaining space. Scrubber sits on the right edge. */}
-      <div className="flex-1 min-w-0 flex overflow-hidden">
+      {/* Main content — fills remaining space. Scrubber sits on the right edge.
+          No overflow-hidden on the flex parent — the scrubber's tick labels
+          extend leftward on hover and must not be clipped. Content overflow
+          is contained by the inner flex-col child. */}
+      <div className="flex-1 min-w-0 flex relative">
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {children}
         </div>

@@ -135,23 +135,26 @@ export interface AggregationsResult {
 }
 
 /**
- * Complete keyword distribution for a sort field — all unique values with
- * cumulative position ranges. Used by the scrubber tooltip to show the
- * keyword value at any global position via binary search (no network during drag).
+ * Sort field distribution — all unique values (or time buckets) with
+ * cumulative position ranges. Used by the scrubber to map any global
+ * position to a sort value via binary search (no network during drag).
+ *
+ * Works for both keyword sorts (composite agg → one bucket per unique value)
+ * and date sorts (date_histogram agg → one bucket per time interval).
  */
-export interface KeywordDistribution {
+export interface SortDistribution {
   /** Buckets in sort order, with cumulative start positions. */
-  buckets: KeywordDistBucket[];
+  buckets: SortDistBucket[];
   /** Total docs covered by the distribution (may be < total if nulls exist). */
   coveredCount: number;
 }
 
-export interface KeywordDistBucket {
-  /** The keyword value (e.g. "Getty Images"). */
+export interface SortDistBucket {
+  /** The bucket key — keyword value (e.g. "Getty") or ISO date string (e.g. "2024-03-01T00:00:00.000Z"). */
   key: string;
-  /** Number of docs with this value. */
+  /** Number of docs in this bucket. */
   count: number;
-  /** Cumulative start position (0-based) — first doc with this value. */
+  /** Cumulative start position (0-based) — first doc in this bucket. */
   startPosition: number;
 }
 
@@ -316,6 +319,27 @@ export interface ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
-  ): Promise<KeywordDistribution | null>;
+  ): Promise<SortDistribution | null>;
+
+  /**
+   * Fetch a date histogram distribution for a date sort field.
+   * Returns time-interval buckets with doc counts in sort order, plus
+   * cumulative start positions for O(log n) position→date lookup.
+   *
+   * Uses ES `date_histogram` aggregation — single request, ~10–30ms on 1M+
+   * docs. Bucket interval adapts to the time span (month for multi-year,
+   * day for sub-year, hour for sub-week).
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the ES date field (e.g. "uploadTime").
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getDateDistribution?(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<SortDistribution | null>;
 }
 
