@@ -34,6 +34,7 @@ import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-sche
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
 import {
   FIELD_REGISTRY,
+  FIELDS_BY_ID,
   COLUMN_CQL_KEYS,
   SORTABLE_FIELDS as REGISTRY_SORTABLE_FIELDS,
   DESC_BY_DEFAULT,
@@ -57,7 +58,7 @@ function listCellRenderer(field: FieldDefinition) {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return "—";
     return (
-      <span className="inline-flex flex-wrap gap-0.5">
+      <span className="inline-flex flex-nowrap gap-0.5">
         {values.map((v, i) => (
           <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} />
         ))}
@@ -927,14 +928,33 @@ export function ImageTable() {
 
       // Cell values — scan only the visible virtualizer window
       const vItems = virtualizer.getVirtualItems();
+      const fieldDef = FIELDS_BY_ID.get(colId);
+      // Pill columns (isList) render each value as a <DataSearchPill> with
+      // px-1.5 (12px) inline padding per pill and gap-0.5 (2px) between pills.
+      // Measuring the comma-joined string misses this overhead entirely —
+      // the rendered pills are significantly wider than plain text.
+      const PILL_PADDING = 12; // px-1.5 = 6px × 2
+      const PILL_GAP = 2;     // gap-0.5 = 0.125rem ≈ 2px
+
       for (const vItem of vItems) {
         const image = vItem.index < results.length ? results[vItem.index] : undefined;
         if (!image) continue;
-        const raw = getFieldRawValue(colId, image);
-        if (raw && raw !== "—") {
-          const w = measureText(raw, CELL_FONT);
-          if (w > maxW) maxW = w;
+
+        let w: number;
+        if (fieldDef?.isList) {
+          // Sum individual pill widths instead of measuring joined string
+          const values = fieldDef.accessor(image);
+          if (!Array.isArray(values) || values.length === 0) continue;
+          w = values.reduce(
+            (sum, v) => sum + measureText(v, CELL_FONT) + PILL_PADDING,
+            0
+          ) + PILL_GAP * (values.length - 1);
+        } else {
+          const raw = getFieldRawValue(colId, image);
+          if (!raw || raw === "—") continue;
+          w = measureText(raw, CELL_FONT);
         }
+        if (w > maxW) maxW = w;
       }
 
       return Math.max(50, maxW + PADDING);
@@ -1141,8 +1161,71 @@ export function ImageTable() {
     [updateSearch]
   );
 
+  // ---------------------------------------------------------------------------
+  // Horizontal scrollbar proxy — a thin native-scrollbar div at the bottom
+  // that mirrors scrollLeft of the main (all-scrollbars-hidden) container.
+  // This is the only cross-browser way to show a horizontal scrollbar while
+  // hiding the vertical one: hide everything, then add an explicit proxy.
+  // ---------------------------------------------------------------------------
+  const hScrollRef = useRef<HTMLDivElement>(null);
+  const hScrollInnerRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false); // guard against infinite scroll loops
+
+  // Sync scrollLeft: main → proxy, proxy → main
+  useEffect(() => {
+    const main = parentRef.current;
+    const proxy = hScrollRef.current;
+    if (!main || !proxy) return;
+
+    const syncMainToProxy = () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      proxy.scrollLeft = main.scrollLeft;
+      syncingRef.current = false;
+    };
+    const syncProxyToMain = () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      main.scrollLeft = proxy.scrollLeft;
+      syncingRef.current = false;
+    };
+
+    main.addEventListener("scroll", syncMainToProxy, { passive: true });
+    proxy.addEventListener("scroll", syncProxyToMain, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", syncMainToProxy);
+      proxy.removeEventListener("scroll", syncProxyToMain);
+    };
+  }, []);
+
+  // Keep the proxy's inner width in sync with the main container's scrollWidth.
+  // Uses ResizeObserver on the data-table-root element (the inline-block that
+  // shrink-wraps to header width) to detect content width changes from column
+  // resizes and visibility toggles.
+  useEffect(() => {
+    const main = parentRef.current;
+    const inner = hScrollInnerRef.current;
+    if (!main || !inner) return;
+
+    const tableRoot = main.querySelector("[data-table-root]");
+    if (!tableRoot) return;
+
+    const sync = () => {
+      inner.style.width = `${main.scrollWidth}px`;
+    };
+    sync();
+
+    const ro = new ResizeObserver(sync);
+    ro.observe(tableRoot);
+    // Also watch the main container itself — its clientWidth changes on
+    // panel resize, which affects whether the proxy scrollbar is needed.
+    ro.observe(main);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y">
+    <div className="flex-1 min-w-0 flex flex-col">
+      <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y">
       {/* (C) CSS-variable column widths — a single <style> tag sets
           --col-<id> for every visible column.  Header and body cells
           reference these variables, so width changes during resize
@@ -1387,6 +1470,20 @@ export function ImageTable() {
         onResizeAllColumnsToFit={resizeAllColumnsToFit}
       />
     </div>
+
+    {/* Horizontal scrollbar proxy — native scrollbar on a thin div that
+        syncs scrollLeft with the main container above. This is the only
+        cross-browser way to show a horizontal scrollbar while hiding the
+        vertical one (scrollbar-width:none hides both in all modern browsers). */}
+    <div
+      ref={hScrollRef}
+      className="shrink-0 overflow-x-auto overflow-y-hidden"
+      style={{ height: 12 }}
+      aria-hidden="true"
+    >
+      <div ref={hScrollInnerRef} style={{ height: 1 }} />
+    </div>
+  </div>
   );
 }
 

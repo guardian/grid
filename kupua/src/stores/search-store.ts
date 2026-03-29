@@ -1115,7 +1115,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const clampedPercentile = Math.max(0.01, Math.min(99.99, percentile));
 
         let estimatedValue: number | null = null;
-        if (primaryField && primaryField !== "_script") {
+        if (primaryField) {
           estimatedValue = await dataSource.estimateSortValue(
             params,
             primaryField,
@@ -1164,21 +1164,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             actualOffset = countBefore;
           }
         } else {
-          // Keyword / script sorts — percentile estimation unavailable.
-          // Two strategies:
-          //   A. Keyword fields: composite aggregation to walk unique values
-          //      and find the value at the target position. O(unique_values/1000)
-          //      ES requests — typically 2-10 for real-world data.
-          //   B. Script sorts: iterative search_after to skip forward in chunks.
-          //      Slower but works for any computed sort expression.
-          const { field: pField, isScript } = parseSortField(sortClause[0]);
+          // Keyword sorts — percentile estimation unavailable.
+          // Composite aggregation to walk unique values and find the
+          // value at the target position. O(unique_values/1000) ES
+          // requests — typically 2-10 for real-world data.
+          const { field: pField } = parseSortField(sortClause[0]);
 
-          // -----------------------------------------------------------------
-          // Strategy A: Composite aggregation for keyword fields
-          // -----------------------------------------------------------------
-          if (!isScript && pField && dataSource.findKeywordSortValue) {
+          if (pField && dataSource.findKeywordSortValue) {
             console.log(
-              `[seek] keyword strategy A: field=${pField}, target=${fetchStart}, ` +
+              `[seek] keyword strategy: field=${pField}, target=${fetchStart}, ` +
               `dir=${primaryDir}, total=${total}`,
             );
             const keywordValue = await dataSource.findKeywordSortValue(
@@ -1241,12 +1235,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               // bucket — e.g. 400k docs all with credit "PA"), binary-search
               // on the tiebreaker field to find a precise cursor.
               //
-              // Old approach: iterative search_after hops transferring 100k+
-              // sort values per hop — 46s for a 456k drift through SSH tunnel.
-              //
-              // New approach: binary search using countBefore (a single _count
-              // query per iteration, ~5-10ms each). The tiebreaker is always
-              // the `id` field (40-char hex SHA-1), uniformly distributed.
+              // Binary search using countBefore (a single _count query per
+              // iteration, ~5-10ms each). The tiebreaker is always the `id`
+              // field (40-char hex SHA-1), uniformly distributed.
               // ~20 binary search steps → ~200ms total.
               // -----------------------------------------------------------------
               const drift = fetchStart - actualOffset;
@@ -1337,7 +1328,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   }
                 } else {
                   // Non-id tiebreaker (shouldn't happen with current sort configs).
-                  // Fall through to the reverse-seek-to-end check below.
                   console.warn(
                     `[seek] large drift=${drift} but tiebreaker is "${tiebreakerField}", not "id". ` +
                     `Binary search not applicable — results may be approximate.`,
@@ -1372,11 +1362,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 );
                 if (reverseResult.hits.length > 0) {
                   result = reverseResult;
-                  // We fetched the last PAGE_SIZE results via reverse search,
-                  // so actualOffset = total - hits.length. We do NOT use
-                  // countBefore here because the first hit likely has a null
-                  // sort value for the keyword field, and countBefore can't
-                  // build a correct range query for null values.
                   actualOffset = Math.max(0, total - reverseResult.hits.length);
                 }
               }
@@ -1394,87 +1379,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               actualOffset = Math.max(0, cappedStart);
             }
           } else {
-            // ---------------------------------------------------------------
-            // Strategy B: Iterative search_after for script sorts
-            // ---------------------------------------------------------------
-            const capOffset = Math.min(fetchStart, MAX_RESULT_WINDOW - 1);
-
-            // Step 1: Get a pivot point via from/size (size=1, fast)
-            const pivotResult = await dataSource.searchAfter(
-              { ...params, offset: capOffset, length: 1 },
+            // No keyword seek available — fall back to from/size at capped position.
+            const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+            result = await dataSource.searchAfter(
+              { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
               null,
               null,
               signal,
             );
-
-            if (signal.aborted) return;
-
-            if (pivotResult.hits.length > 0 && pivotResult.sortValues.length > 0 && fetchStart > capOffset) {
-              // Step 2: Iterative search_after to skip forward from the pivot.
-              // Each iteration advances the cursor by `chunkSize` positions.
-              // We use _source:false (noSource) so ES only returns sort values
-              // and _id — no document bodies. Chunk size is capped below
-              // MAX_RESULT_WINDOW to keep each response small enough for
-              // fast transfer through SSH tunnels.
-              const maxChunk = Math.min(MAX_RESULT_WINDOW, 10_000);
-              let cursor = pivotResult.sortValues[0];
-              let skippedTotal = capOffset + 1; // we've passed capOffset + 1 docs
-              const targetStart = fetchStart;
-
-              const MAX_SKIP_ITERATIONS = 200;
-              for (let iter = 0; iter < MAX_SKIP_ITERATIONS && skippedTotal < targetStart; iter++) {
-                if (signal.aborted) return;
-                const remaining = targetStart - skippedTotal;
-                const chunkSize = Math.min(maxChunk, remaining);
-
-                const skipResult = await dataSource.searchAfter(
-                  { ...params, length: chunkSize },
-                  cursor,
-                  pitId,
-                  signal,
-                  false, // not reverse
-                  true,  // noSource — only need sort values for cursor advancement
-                );
-
-                if (skipResult.hits.length === 0) break; // reached end of results
-                cursor = skipResult.sortValues[skipResult.sortValues.length - 1];
-                skippedTotal += skipResult.hits.length;
-              }
-
-              if (signal.aborted) return;
-
-              // Step 3: Fetch the actual page at the target position
-              result = await dataSource.searchAfter(
-                { ...params, length: PAGE_SIZE },
-                cursor,
-                pitId,
-                signal,
-              );
-              actualOffset = skippedTotal;
-            } else {
-              // Fallback: from/size at the capped position
-              const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
-              result = await dataSource.searchAfter(
-                { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
-                null,
-                null,
-                signal,
-              );
-              actualOffset = Math.max(0, cappedStart);
-            }
-
-            // Verify actual position via countBefore (if we used search_after)
-            if (result.hits.length > 0 && result.sortValues.length > 0 && actualOffset > MAX_RESULT_WINDOW) {
-              if (signal.aborted) return;
-              const landedSortValues = result.sortValues[0];
-              const countBefore = await dataSource.countBefore(
-                params,
-                landedSortValues,
-                sortClause,
-                signal,
-              );
-              actualOffset = countBefore;
-            }
+            actualOffset = Math.max(0, cappedStart);
           }
         }
       }

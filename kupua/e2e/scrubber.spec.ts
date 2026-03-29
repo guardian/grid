@@ -794,16 +794,16 @@ test.describe("Bug #11 — Date Taken sort seek", () => {
 // Bug #7 — CRITICAL: Keyword sort seek doesn't move results
 //
 // For sorts on keyword fields (Credit, Source, Uploader, etc.) and script
-// sorts (Dimensions), the scrubber seek should reposition the buffer.
+// sorts (Width), the scrubber seek should reposition the buffer.
 // Percentile estimation doesn't work for keyword fields (returns null),
 // so seek falls through to the iterative search_after path.
 // ---------------------------------------------------------------------------
 
-// Bug #7 was: keyword/script sort seek hung forever because the iterative
+// Bug #7 was: keyword sort seek hung forever because the iterative
 // search_after skip loop sent size > max_result_window (ES returned 400,
 // seek caught the error but waitForSeekComplete waited for error===null).
 // Fix: cap skip chunk size to MAX_RESULT_WINDOW in search-store.ts seek().
-test.describe("Bug #7 — Keyword/script sort seek", () => {
+test.describe("Bug #7 — Keyword sort seek", () => {
   // Absorbs Bug #13 tests — the composite-agg telemetry check from Bug #13.1
   // is folded in here; Bug #13.2 (drag) is covered by generic drag tests;
   // Bug #13.3 (two positions differ) duplicated Bug #7.4; Bug #13.4 (timing)
@@ -865,13 +865,12 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
     await kupua.assertPositionsConsistent();
   });
 
-  test("seek to middle works under Dimensions sort", async ({ kupua }) => {
-    // Dimensions is a script sort (Painless, w×h pixel count), NOT a keyword
-    // sort. Seek accuracy is lower on small datasets because the percentile
-    // aggregation has limited precision with 10k docs. Ratio check is
-    // intentionally weaker than keyword sorts — `> 0` is the correct bar here.
+  test("seek to middle works under Width sort", async ({ kupua }) => {
+    // Width is a plain integer field (source.dimensions.width) — uses the
+    // fast percentile estimation path for deep seek. Replaces the old
+    // Dimensions script sort (w×h Painless) which was unusably slow.
     await kupua.goto();
-    await kupua.selectSort("Dimensions");
+    await kupua.selectSort("Width");
 
     await kupua.seekTo(0.5);
 
@@ -879,6 +878,9 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
     expect(store.error).toBeNull();
     expect(store.resultsLength).toBeGreaterThan(0);
     expect(store.bufferOffset).toBeGreaterThan(0);
+    const ratio = store.bufferOffset / store.total;
+    expect(ratio).toBeGreaterThan(0.35);
+    expect(ratio).toBeLessThan(0.65);
     await kupua.assertPositionsConsistent();
   });
 

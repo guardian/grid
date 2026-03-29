@@ -572,15 +572,6 @@ describe("buildSortClause + reverseSortClause", () => {
     }
   });
 
-  it("reverseSortClause handles script sorts", () => {
-    const sort = buildSortClause("-dimensions");
-    const reversed = reverseSortClause(sort);
-    expect(reversed[0]).toHaveProperty("_script");
-    const origOrder = (sort[0]._script as { order: string }).order;
-    const revOrder = (reversed[0]._script as { order: string }).order;
-    expect(origOrder).toBe("desc");
-    expect(revOrder).toBe("asc");
-  });
 });
 
 // ---------------------------------------------------------------------------

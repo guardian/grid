@@ -58,25 +58,12 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
     category: "usageRights.category",
     filename: "uploadInfo.filename",
     mimeType: "source.mimeType",
+    width: "source.dimensions.width",
+    height: "source.dimensions.height",
     // Config-driven alias fields (e.g. editStatus → fileMetadata.iptc.Edit Status)
     ...Object.fromEntries(
       gridConfig.fieldAliases.map((a) => [a.alias, a.elasticsearchPath]),
     ),
-  };
-
-  /**
-   * Script sort definitions — keyed by the sort key name as it appears
-   * in the URL (e.g. "dimensions" → ?orderBy=-dimensions).
-   * Each returns a Painless source string and the script type.
-   * These are only evaluated by ES when the user actually sorts by
-   * this field — zero cost when unused.
-   */
-  const scriptSorts: Record<string, { source: string; type: string }> = {
-    dimensions: {
-      source:
-        "doc['source.dimensions.width'].value * (long)doc['source.dimensions.height'].value",
-      type: "number",
-    },
   };
 
   // Expand aliases in comma-separated parts
@@ -105,17 +92,6 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
     const key = desc ? part.slice(1) : part;
     const order = desc ? "desc" : "asc";
 
-    // Script-based sorts — looked up by key name (e.g. "dimensions")
-    const script = scriptSorts[key];
-    if (script) {
-      return {
-        _script: {
-          type: script.type,
-          script: { lang: "painless", source: script.source },
-          order,
-        },
-      };
-    }
 
     return { [key]: order };
   });
@@ -139,11 +115,6 @@ export function reverseSortClause(
   sort: Record<string, unknown>[],
 ): Record<string, unknown>[] {
   return sort.map((clause) => {
-    if ("_script" in clause) {
-      const scriptDef = { ...(clause._script as Record<string, unknown>) };
-      scriptDef.order = scriptDef.order === "desc" ? "asc" : "desc";
-      return { _script: scriptDef };
-    }
     const key = Object.keys(clause)[0];
     if (!key) return clause;
     const val = clause[key];
@@ -573,8 +544,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
     if (missingFirst && effectiveSort.length > 0) {
       effectiveSort = effectiveSort.map((clause, idx) => {
         if (idx !== 0) return clause;
-        const { field, direction, isScript } = parseSortField(clause);
-        if (isScript || !field) return clause;
+        const { field, direction } = parseSortField(clause);
+        if (!field) return clause;
         return { [field]: { order: direction, missing: "_first" } };
       });
     }
@@ -719,16 +690,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
         const prev = parseSortField(prevClause);
         if (!prev.field || prevValue == null) continue;
 
-        // For script sorts, equality is impractical — skip
-        if (prev.isScript) continue;
 
         equalityConditions.push({
           range: { [prev.field]: { gte: prevValue, lte: prevValue } },
         });
       }
 
-      // Script sorts can't be used in range queries — skip this level
-      if (field === "_script") continue;
 
       const rangeCondition = {
         range: { [field]: { [rangeOp]: value } },
@@ -1034,31 +1001,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
 // ---------------------------------------------------------------------------
 
 /**
- * Extract field name, direction, and script flag from a single sort clause.
- * Handles both regular field sorts ({field: "desc"}) and script sorts
- * ({_script: {type, script, order}}).
+ * Extract field name and direction from a single sort clause.
+ * Handles regular field sorts ({field: "desc"}).
  */
 export function parseSortField(clause: Record<string, unknown>): {
   field: string | null;
   direction: "asc" | "desc";
-  isScript: boolean;
 } {
-  if ("_script" in clause) {
-    const scriptDef = clause._script as Record<string, unknown>;
-    return {
-      field: "_script",
-      direction: (scriptDef.order as "asc" | "desc") ?? "asc",
-      isScript: true,
-    };
-  }
-
   const key = Object.keys(clause)[0];
-  if (!key) return { field: null, direction: "asc", isScript: false };
+  if (!key) return { field: null, direction: "asc" };
 
   const val = clause[key];
   const direction: "asc" | "desc" =
     typeof val === "string" ? (val as "asc" | "desc") : "asc";
 
-  return { field: key, direction, isScript: false };
+  return { field: key, direction };
 }
 

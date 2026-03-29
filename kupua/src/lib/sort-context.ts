@@ -64,6 +64,20 @@ const SORT_LABEL_MAP: Record<
     accessor: (img) => img.metadata?.imageType,
     type: "keyword",
   },
+  width: {
+    accessor: (img) => {
+      const w = (img.source?.orientedDimensions ?? img.source?.dimensions)?.width;
+      return w != null ? `${w.toLocaleString()}px` : undefined;
+    },
+    type: "keyword",
+  },
+  height: {
+    accessor: (img) => {
+      const h = (img.source?.orientedDimensions ?? img.source?.dimensions)?.height;
+      return h != null ? `${h.toLocaleString()}px` : undefined;
+    },
+    type: "keyword",
+  },
 };
 
 /** Aliases are no longer needed — all keys in SORT_LABEL_MAP are now short form. */

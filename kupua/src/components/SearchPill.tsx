@@ -63,7 +63,7 @@ export function DataSearchPill({ value, cqlKey }: DataSearchPillProps) {
     <span
       data-cql-key={cqlKey}
       data-cql-value={value}
-      className="inline-flex items-center px-1.5 py-0 rounded-sm text-xs
+      className="inline-flex items-center shrink-0 px-1.5 py-0 rounded-sm text-xs
                  bg-grid-panel-hover/60 text-grid-text
                  hover:bg-grid-accent/20 hover:text-grid-accent
                  cursor-pointer transition-colors leading-snug"

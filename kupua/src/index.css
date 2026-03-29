@@ -112,18 +112,22 @@ html {
    * Hide only the vertical scrollbar — preserves horizontal scrollbar.
    * Used by the table view which needs horizontal scroll for wide columns
    * but replaces the vertical scrollbar with the custom scrubber.
-   * The `:vertical` pseudo-class targets only the vertical scrollbar in
-   * WebKit/Blink. Firefox doesn't support per-axis scrollbar hiding via
-   * CSS, so we hide both axes (scrollbar-width: none). This means Firefox
-   * loses the horizontal scrollbar too — acceptable trade-off since
-   * horizontal overflow is rare (most column sets fit the viewport).
+   *
+   * Modern Chrome (v121+) supports `scrollbar-width`, which disables the
+   * `::-webkit-scrollbar` pseudo-element model — making per-axis hiding
+   * impossible via CSS alone. Firefox never supported per-axis control.
+   *
+   * Strategy: hide ALL native scrollbars. The vertical scrollbar is replaced
+   * by the Scrubber component. The horizontal scrollbar is replaced by a
+   * synced proxy <div> rendered by the table (see ImageTable's scrollbar
+   * sync logic). This works identically in Chrome, Firefox, and Safari.
    */
   .hide-scrollbar-y {
-    scrollbar-width: none;           /* Firefox — hides both axes (no per-axis control) */
+    scrollbar-width: none;           /* Firefox + Chrome 121+ */
     -ms-overflow-style: none;        /* IE / Edge legacy */
     contain: strict;
-    &::-webkit-scrollbar:vertical {
-      display: none;                 /* Chrome / Safari / Opera — vertical only */
+    &::-webkit-scrollbar {
+      display: none;                 /* Safari / older Chrome */
     }
   }
 }

@@ -102,31 +102,29 @@ Kupua's date filter adds several improvements over kahuna's `gu-date-range`:
 
 These are intentional enhancements, not parity deviations.
 
-### 10. Single "Dimensions" column replaces separate Width/Height
+### 10. ~~Single "Dimensions" column replaces separate Width/Height~~ — REVERSED
 
-Kahuna displays width and height as separate values; Grid's API
-pre-resolves orientation on the server side.
+Kupua initially merged Width and Height into a single "Dimensions" column
+sorted by a Painless script (`w × h`). This was reversed because the
+script sort was unusably slow for deep seeks — Strategy B (iterative
+`search_after` with 10k chunks) took ~60s through SSH tunnels to reach
+positions beyond 100k. The script sort prevented use of percentile
+estimation (which only works on plain field values).
 
-Kupua merges these into one "Dimensions" column (e.g. `5,997 × 4,000`)
-that always shows oriented dimensions (`orientedDimensions` with fallback
-to `dimensions`). Sorting uses a Painless script (`w × h`) to order by
-total pixel count — orientation-agnostic since `w × h == h × w`. The
-script sort is only evaluated by ES when the user actually sorts by this
-field; zero cost otherwise.
+Kupua now has three columns: **Dimensions** (display-only, shows oriented
+`w × h`), **Width** (sortable, `source.dimensions.width`), and **Height**
+(sortable, `source.dimensions.height`). Both Width and Height are plain
+integer fields that use the fast percentile estimation path (~200ms for any
+depth). Users can sort by Width alone, Height alone, or both via
+shift-click secondary sort — strictly more powerful than pixel count.
 
-**Trade-off:** The `_script` sort is slightly slower than a native field
-sort (~10-20ms on large indexes), but only fires when explicitly
-requested. A single meaningful sort (pixel count / image size) replaces
-two misleading ones (sorting by raw width was wrong for rotated images).
+The entire script sort infrastructure was removed: `scriptSorts` map,
+`isScript` flag in `parseSortField`, Strategy B iterative skip loop in
+seek, script handling in `reverseSortClause`, `countBefore`, and
+`searchAfter`. ~120 lines deleted.
 
-**Migration impact (Phase 3+):** Grid's `sorts.scala` only supports plain
-`fieldSort()` — no script sorts. When kupua connects to media-api for
-reads, Dimensions sort must either: (a) degrade to
-`source.dimensions.width` (loses the pixel-count ordering but still
-works), or (b) a `dimensions` script-sort alias is added to
-`sorts.scala` (trivial ~5-line change). Option (b) is preferred. If
-kupua keeps direct ES access for reads and only uses media-api for
-writes, this is a non-issue.
+**Migration impact:** No longer a concern — Width/Height are plain field
+sorts that work with `fieldSort()` in media-api's `sorts.scala`.
 
 ### 11. CQL free-text search uses simpler `cross_fields` strategy
 
@@ -243,16 +241,16 @@ Kupua replicates this logic in ~1,760 lines of TypeScript across 5 files:
 
 | Kupua file | Grid equivalent |
 |---|---|
-| `es-adapter.ts` (445 lines) | `ElasticSearch.scala` + `sorts.scala` + `SearchFilters.scala` |
+| `es-adapter.ts` (1020 lines) | `ElasticSearch.scala` + `sorts.scala` + `SearchFilters.scala` |
 | `cql.ts` (477 lines) | `querysyntax/` + `QueryBuilder.scala` + `MatchFields.scala` |
-| `field-registry.ts` (617 lines) | `ImageResponse.scala` (field extraction) + `sorts.scala` (sort keys) |
-| `types.ts` (131 lines) | `ElasticSearchModel.scala` (param types) |
+| `field-registry.ts` (644 lines) | `ImageResponse.scala` (field extraction) + `sorts.scala` (sort keys) |
+| `types.ts` (321 lines) | `ElasticSearchModel.scala` (param types) |
 | `es-config.ts` (91 lines) | Config / safeguards (no Grid equivalent) |
 
 **When kupua connects to media-api (Phase 3+, required for writes):**
 
 The likely architecture is **dual-path** — direct ES for reads (fast,
-flexible, supports script sorts and custom aggregations), media-api for
+flexible, supports custom aggregations), media-api for
 writes (metadata editing, crops, leases, collections). This means the
 ES read path stays as-is and writes go through a new
 `GridApiDataSource` adapter.
@@ -260,9 +258,9 @@ ES read path stays as-is and writes go through a new
 If a single-path architecture is chosen instead (all traffic via
 media-api), the following kupua-specific features need migration:
 
-1. **`_script:dimensions` sort** — media-api's `sorts.scala` only does
-   plain `fieldSort()`. Needs a 5-line upstream change or client-side
-   degradation to `source.dimensions.width`. See §10.
+1. ~~**`_script:dimensions` sort**~~ — **Resolved.** Dimensions script sort
+   removed; Width and Height are plain integer field sorts that work
+   natively with media-api's `fieldSort()`. See §10.
 2. **Typeahead via terms aggregations** — kupua runs terms aggs directly
    on ES for CQL value suggestions. media-api has
    `/suggest/metadata/{field}` but only for a subset of fields. See §13.
@@ -289,6 +287,29 @@ the plan in `migration-plan.md` Phase 3.
 ---
 
 ## From library defaults / conventions
+
+> **Browser & CSS workarounds index** — fights with browsers, the web
+> platform, and CSS that required overrides, hacks, or non-obvious
+> patterns.  Each item lives in context with the feature it supports;
+> this index exists for discoverability.
+>
+> | Workaround | Where | Why |
+> |---|---|---|
+> | `contain: strict` on scroll containers | `index.css` `.hide-scrollbar` / `.hide-scrollbar-y` | Firefox recalculates layout for the entire page on every virtualizer repositioning without it |
+> | `scrollbar-width: none` + `::-webkit-scrollbar { display: none }` | `index.css` | No CSS way to hide only the vertical scrollbar cross-browser; hide both, add a proxy `<div>` for horizontal — see §19 (Grid/Kahuna), §9 below |
+> | Horizontal scrollbar proxy `<div>` with bidirectional `scrollLeft` sync | `ImageTable.tsx` | The only cross-browser way to show h-scroll while hiding v-scroll (Chrome 121+ `scrollbar-width` kills the `::-webkit-scrollbar` pseudo-element axis model) |
+> | `opacity-0 + pointer-events-none` instead of `display: none` for hidden search UI | `search.tsx` | `display: none` resets `scrollTop` to 0; opacity keeps scroll position intact |
+> | Synthetic `scroll` event after programmatic `scrollTop = 0` | `scroll-reset.ts`, `ImageTable.tsx` | Programmatic `scrollTop` changes on hidden (`opacity-0`) containers don't always fire native scroll events; virtualizer needs the event |
+> | Synthetic `mousemove` / `mouseup` with scroll-adjusted `clientX` during column resize drag | `ImageTable.tsx` resize handle | TanStack Table's `getResizeHandler()` has no scroll awareness; cursor stays still in viewport space while container scrolls — see §8 below |
+> | Capture-phase `mouseup` blocker after resize drag with scroll | `ImageTable.tsx` resize handle | Real browser `mouseup` carries unadjusted `clientX`; must be blocked so only the synthetic (adjusted) event reaches TanStack — see §8 below |
+> | `inline-block` / `inline-flex` layout instead of JS-computed widths | `ImageTable.tsx` table root + header | Browser rounds each cell's pixel width independently at non-100% zoom; JS sum diverges from rendered total — see §9 below |
+> | CSS custom properties (`--col-<id>`) via `dangerouslySetInnerHTML` `<style>` tag | `ImageTable.tsx` | Avoids 300+ `getSize()` calls per render; browser applies widths via CSS — see §10 below |
+> | Single-value CSS padding in CQL theme (not shorthand) | `CqlSearchInput.tsx` | Multi-value shorthand (e.g. `"2px 6px"`) breaks `calc()` inside the `@guardian/cql` shadow DOM |
+> | Capture-phase `document` listener for Home/End keys | `keyboard-shortcuts.ts`, `ImageTable.tsx` | ProseMirror inside the CQL web component's shadow DOM swallows Home/End before bubble-phase handlers fire — see §7 below |
+> | `customElements.define()` one-shot guard with module-level flag | `CqlSearchInput.tsx` | Browser API is one-shot — cannot re-register an element name — see §6 below |
+> | `requestAnimationFrame` for post-seek focus | `ImageTable.tsx` scroll-reset | Ensures the CQL input focus happens after the browser has flushed layout from the `scrollTop` change |
+> | `useLayoutEffect` for backward/forward extend scroll compensation | `ImageTable.tsx` | Must adjust `scrollTop` before paint to prevent one-frame content shift; `useEffect` would flicker — see §23 (Grid/Kahuna) |
+> | `setPointerCapture` on resize handles and Scrubber thumb | `ImageTable.tsx`, `Scrubber.tsx` | Without capture, pointer events stop when cursor leaves the element during drag (especially fast drags that exit the window) |
 
 ### 1. Custom `parseSearch` / `stringifySearch` bypassing TanStack Router's built-in helpers
 

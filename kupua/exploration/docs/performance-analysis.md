@@ -181,7 +181,8 @@ ES `from/size` performance degrades linearly with offset and is capped at
   `search_after` fetches from there, `countBefore` verifies exact offset.
 - **Composite aggregation** for deep seeks on keyword fields (`findKeywordSortValue`) —
   walks unique values to find the value at the target position.
-- **Iterative `search_after`** for script sorts — chunks forward from a `from/size` pivot.
+- ~~**Iterative `search_after`** for script sorts~~ — **Removed.** Dimensions script
+  sort replaced with plain Width/Height field sorts using percentile estimation.
 
 The scrubber represents `bufferOffset / total` (not `scrollTop / scrollHeight`),
 decoupled from browser scroll limits. Virtualizer count = buffer size (~200-1000),

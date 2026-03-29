@@ -46,11 +46,10 @@ The `useCallback` depends on `results`. Since `results` changes on every extend,
 
 ### A2. ES Query Paths
 
-**[critical] [search-store.ts:1097-1115] Iterative search_after skip loop — O(N/chunkSize) ES requests for script sorts**
-The script sort deep seek (Strategy B) iterates forward in chunks, each requiring a full ES round-trip. For a 1.3M dataset with `MAX_RESULT_WINDOW=101000` and `maxChunk=10000`, seeking to position 500k requires ~50 requests. Each request through an SSH tunnel takes ~50-200ms, totalling 2.5-10 seconds. The `MAX_SKIP_ITERATIONS=200` cap prevents infinite loops but allows up to 200 sequential requests.
-
-This is inherent to the problem — `_script` sorts can't use percentile estimation or composite aggregation. The code correctly uses `noSource: true` to minimise payload. The 200-iteration cap and abort signal provide safety.
-→ **Known limitation, well-documented.** No fix needed unless script sort deep seek is common in production. Consider a UI warning ("Dimensions sort: deep positions may be slow") if this becomes a user issue.
+**~~[critical]~~ [RESOLVED] [search-store.ts] Iterative search_after skip loop — removed**
+~~The script sort deep seek (Strategy B) iterates forward in chunks, each requiring a full ES round-trip.~~
+**Resolved:** Dimensions script sort replaced with plain Width/Height integer field sorts that use the fast percentile estimation path. Strategy B deleted entirely. See deviations.md §10.
+→ **No longer applicable.**
 
 **[minor] [search-store.ts:406-411] sort-around-focus: `searchAfter` with `ids` filter**
 Step 1 of `_findAndFocusImage` does `searchAfter({ ...params, ids: imageId, length: 1 }, null, null, signal)` — this is a from/size search (no cursor) with an `ids` filter. It works but hits `_doSearch` internally via the adapter, which includes `track_total_hits: true`. For a single-doc lookup, this is slightly wasteful (ES must count all matching docs). Using `getById` would be faster but doesn't return sort values.

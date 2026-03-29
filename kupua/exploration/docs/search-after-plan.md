@@ -1728,17 +1728,13 @@ compromises. None are blocking; all have clear fix paths.
    user lands at the right position; only the overscan distribution is
    slightly off. Negligible UX impact.
 
-3. ~~**Script sorts can't deep seek.**~~ **PARTIALLY RESOLVED.** Script sorts
-   now use iterative `search_after` with `noSource: true` (Strategy B in
-   `seek()`): pivot via `from/size` at `MAX_RESULT_WINDOW`, then skip forward
-   in chunks until the target offset. `MAX_SKIP_ITERATIONS=200` cap prevents
-   runaway. Works but is O(N/chunkSize) ES requests — ~50 requests for 500k
-   on a 1.3M dataset. Keyword sorts (Credit, Source, etc.) use composite
-   aggregation (`findKeywordSortValue`) — typically 1-5 pages, fast.
-   Only `_script` sorts (Dimensions) use the slow iterative path.
-   **Remaining limitation:** Script sorts at extreme depth (>500k in 9M+
-   datasets) may take 3-10s. Consider UI feedback ("Dimensions sort:
-   deep positions may be slow") if this becomes a user issue.
+3. ~~**Script sorts can't deep seek.**~~ **FULLY RESOLVED.** The Dimensions
+   script sort has been removed entirely. Width and Height are now separate
+   plain integer field sorts (`source.dimensions.width`, `source.dimensions.height`)
+   that use the fast percentile estimation path like all other numeric fields.
+   Strategy B (iterative `search_after` skip loop) was deleted — no script sorts
+   remain in the codebase. See `deviations.md §10` and `changelog.md` for full
+   details.
 
 4. **~~Dual `seekTarget` clearing paths.~~** Resolved. The original
    `seekTarget` (React state) with its complex clearing effect was replaced

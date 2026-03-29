@@ -9,13 +9,15 @@
  * No layout chrome (no <aside>, no width, no border) — callers handle
  * their own container styling.
  *
+ * Field order, layout (stacked vs inline), and visibility are all driven
+ * by the field registry (DETAIL_PANEL_FIELDS). Section breaks are inserted
+ * whenever the `group` changes between consecutive fields.
+ *
  * Display rules replicate kahuna's layout:
  *   - Sections separated by solid #565656 dividers (kahuna's image-info__group
  *     border-bottom: 1px solid #565656) — these are orientation landmarks
- *   - Title, Description, Special instructions are STACKED (label above value,
- *     not side-by-side) — matching kahuna's image-info__wrap block flow
- *   - Most other fields are INLINE (key 30% left, value 70% right) — matching
- *     kahuna's image-info__group--dl__key--panel / __value--panel pattern
+ *   - Fields with detailLayout: "stacked" render label above value
+ *   - All other fields render INLINE (key 30% left, value 70% right)
  *   - Labels are bold (kahuna's .metadata-line__key { font-weight: bold })
  *   - Clickable values have a persistent underline (kahuna's
  *     .metadata-line__info a { border-bottom: 1px solid #999 })
@@ -34,46 +36,12 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { cancelSearchDebounce } from "@/components/SearchBar";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
-import { format } from "date-fns";
-import type { Image, ImageMetadata as ImageMetadataType } from "@/types/image";
+import type { Image } from "@/types/image";
 import { SearchPill } from "./SearchPill";
-
-// ---------------------------------------------------------------------------
-// Formatters
-// ---------------------------------------------------------------------------
-
-function formatDetailDate(dateStr?: string): string {
-  if (!dateStr) return "";
-  try {
-    return format(new Date(dateStr), "d MMM yyyy, HH:mm");
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatFileSize(bytes?: number): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDimensions(image: Image): string {
-  const dims = image.source.orientedDimensions ?? image.source.dimensions;
-  if (!dims) return "";
-  return `${dims.width} × ${dims.height}`;
-}
-
-// ---------------------------------------------------------------------------
-// Location sub-parts — for individual search links
-// ---------------------------------------------------------------------------
-
-const LOCATION_PARTS: { key: keyof ImageMetadataType; cqlKey: string }[] = [
-  { key: "subLocation", cqlKey: "location" },
-  { key: "city", cqlKey: "city" },
-  { key: "state", cqlKey: "state" },
-  { key: "country", cqlKey: "country" },
-];
+import {
+  DETAIL_PANEL_FIELDS,
+  type FieldDefinition,
+} from "@/lib/field-registry";
 
 // ---------------------------------------------------------------------------
 // useMetadataSearch — hook for click-to-search on metadata values.
@@ -216,7 +184,110 @@ function MetadataBlock({ label, children }: MetadataBlockProps) {
 }
 
 // ---------------------------------------------------------------------------
-// ImageMetadata — the full metadata display
+// FieldValue — renders a single field's value with appropriate interactivity.
+// Handles plain text, clickable values, lists (pills), composites (location),
+// and special cases (Image ID with monospace + select-all).
+// ---------------------------------------------------------------------------
+
+function FieldValue({
+  field,
+  image,
+  onSearch,
+}: {
+  field: FieldDefinition;
+  image: Image;
+  onSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
+}) {
+  // Image ID — special rendering: monospace, select-all, no click-to-search
+  if (field.id === "imageId") {
+    return <span className="select-all font-mono text-2xs">{image.id}</span>;
+  }
+
+  // Composite field (location) — each sub-field is a separate search link
+  if (field.isComposite && field.subFields) {
+    const parts = field.subFields
+      .map((sf) => ({ cqlKey: sf.cqlKey, value: sf.accessor(image) }))
+      .filter((p): p is { cqlKey: string; value: string } => p.value != null);
+    if (parts.length === 0) return null;
+    return (
+      <span>
+        {parts.map((p, i) => (
+          <span key={p.cqlKey}>
+            {i > 0 && ", "}
+            <ValueLink cqlKey={p.cqlKey} value={p.value} onSearch={onSearch} />
+          </span>
+        ))}
+      </span>
+    );
+  }
+
+  // List field — render as search pills
+  if (field.isList) {
+    const values = field.accessor(image);
+    if (!Array.isArray(values) || values.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1 pt-0.5">
+        {values.map((v) => (
+          <SearchPill key={v} cqlKey={field.cqlKey!} value={v} onSearch={onSearch} />
+        ))}
+      </div>
+    );
+  }
+
+  // Scalar field
+  const raw = field.accessor(image);
+  if (raw == null || raw === "") return null;
+  const displayValue = typeof raw === "string" && field.formatter
+    ? field.formatter(raw)
+    : typeof raw === "string" ? raw : String(raw);
+
+  // Clickable if it has a cqlKey and detailClickable is not explicitly false
+  if (field.cqlKey && field.detailClickable !== false) {
+    // Use rawValue (stripped/normalised) for search if available, else accessor value.
+    // e.g. fileType: rawValue="jpeg", accessor="image/jpeg" — search needs "jpeg".
+    const searchValue = field.rawValue?.(image) ?? (typeof raw === "string" ? raw : String(raw));
+    if (!searchValue) return null;
+    // Show the display-formatted text but use the search-friendly value for the CQL query
+    return (
+      <ValueLink cqlKey={field.cqlKey} value={searchValue} onSearch={onSearch} />
+    );
+  }
+
+  // Non-clickable plain text
+  // Stacked text fields get whitespace-pre-line for multi-line values
+  if (field.detailLayout === "stacked" && field.fieldType === "text") {
+    return <span className="whitespace-pre-line">{displayValue}</span>;
+  }
+
+  return <span>{displayValue}</span>;
+}
+
+// ---------------------------------------------------------------------------
+// Group the flat field list into sections (split on group change)
+// ---------------------------------------------------------------------------
+
+function groupFieldsIntoSections(fields: readonly FieldDefinition[]): FieldDefinition[][] {
+  const sections: FieldDefinition[][] = [];
+  let currentGroup: string | null = null;
+  let currentSection: FieldDefinition[] = [];
+
+  for (const field of fields) {
+    const effectiveGroup = field.detailGroup ?? field.group;
+    if (effectiveGroup !== currentGroup) {
+      if (currentSection.length > 0) sections.push(currentSection);
+      currentSection = [];
+      currentGroup = effectiveGroup;
+    }
+    currentSection.push(field);
+  }
+  if (currentSection.length > 0) sections.push(currentSection);
+  return sections;
+}
+
+const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
+
+// ---------------------------------------------------------------------------
+// ImageMetadata — the full metadata display, driven by the field registry
 // ---------------------------------------------------------------------------
 
 interface ImageMetadataProps {
@@ -224,184 +295,28 @@ interface ImageMetadataProps {
 }
 
 export function ImageMetadata({ image }: ImageMetadataProps) {
-  const m = image.metadata;
   const onSearch = useMetadataSearch();
-  const dims = formatDimensions(image);
-  const fileSize = formatFileSize(image.source.size);
-  const dateTaken = formatDetailDate(m.dateTaken);
-  const uploaded = formatDetailDate(image.uploadTime);
-  const fileType = image.source.mimeType?.replace("image/", "");
-
-  // Location parts that have values
-  const locationParts = LOCATION_PARTS
-    .map((lp) => ({ ...lp, value: m[lp.key] as string | undefined }))
-    .filter((lp) => lp.value);
 
   return (
     <dl>
-      {/* --- Rights & restrictions (kahuna: first group) --- */}
-      <MetadataSection>
-        {image.usageRights?.category && (
-          <MetadataRow label="Category">
-            <span>{image.usageRights.category}</span>
-          </MetadataRow>
-        )}
+      {SECTIONS.map((section, sIdx) => (
+        <MetadataSection key={sIdx}>
+          {section.map((field) => {
+            // Check if the field has a value for this image
+            const raw = field.accessor(image);
+            const hasValue = field.id === "imageId" // always show
+              || (Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "");
+            if (!hasValue) return null;
 
-        {m.imageType && (
-          <MetadataRow label="Image type">
-            <span>{m.imageType}</span>
-          </MetadataRow>
-        )}
-      </MetadataSection>
-
-      {/* --- Title & Description (stacked, kahuna: own group) --- */}
-      <MetadataSection>
-        {m.title && (
-          <MetadataBlock label="Title">
-            <ValueLink cqlKey="title" value={m.title} onSearch={onSearch} />
-          </MetadataBlock>
-        )}
-
-        {m.description && (
-          <MetadataBlock label="Description">
-            <span className="whitespace-pre-line">{m.description}</span>
-          </MetadataBlock>
-        )}
-      </MetadataSection>
-
-      {/* --- Special instructions (stacked, kahuna: own group) --- */}
-      <MetadataSection>
-        {m.specialInstructions && (
-          <MetadataBlock label="Special instructions">
-            <span className="whitespace-pre-line">{m.specialInstructions}</span>
-          </MetadataBlock>
-        )}
-      </MetadataSection>
-
-      {/* --- Core metadata (kahuna: big inline group) --- */}
-      <MetadataSection>
-        {dateTaken && (
-          <MetadataRow label="Taken on">
-            <span>{dateTaken}</span>
-          </MetadataRow>
-        )}
-
-        {m.byline && (
-          <MetadataRow label="By">
-            <ValueLink cqlKey="by" value={m.byline} onSearch={onSearch} />
-          </MetadataRow>
-        )}
-
-        {m.credit && (
-          <MetadataRow label="Credit">
-            <ValueLink cqlKey="credit" value={m.credit} onSearch={onSearch} />
-          </MetadataRow>
-        )}
-
-        {locationParts.length > 0 && (
-          <MetadataRow label="Location">
-            <span>
-              {locationParts.map((lp, i) => (
-                <span key={lp.key}>
-                  {i > 0 && ", "}
-                  <ValueLink cqlKey={lp.cqlKey} value={lp.value!} onSearch={onSearch} />
-                </span>
-              ))}
-            </span>
-          </MetadataRow>
-        )}
-
-        {m.copyright && (
-          <MetadataRow label="Copyright">
-            <ValueLink cqlKey="copyright" value={m.copyright} onSearch={onSearch} />
-          </MetadataRow>
-        )}
-
-        {m.source && (
-          <MetadataRow label="Source">
-            <ValueLink cqlKey="source" value={m.source} onSearch={onSearch} />
-          </MetadataRow>
-        )}
-
-        {uploaded && (
-          <MetadataRow label="Uploaded">
-            <span>{uploaded}</span>
-          </MetadataRow>
-        )}
-
-        {image.uploadedBy && (
-          <MetadataRow label="Uploader">
-            <ValueLink cqlKey="uploader" value={image.uploadedBy} onSearch={onSearch} />
-          </MetadataRow>
-        )}
-
-        {m.suppliersReference && (
-          <MetadataRow label="Supplier ref">
-            <span>{m.suppliersReference}</span>
-          </MetadataRow>
-        )}
-
-        {m.subjects && m.subjects.length > 0 && (
-          <MetadataRow label="Subjects">
-            <div className="flex flex-wrap gap-1">
-              {m.subjects.map((s) => (
-                <SearchPill key={s} cqlKey="subject" value={s} onSearch={onSearch} />
-              ))}
-            </div>
-          </MetadataRow>
-        )}
-
-        {m.peopleInImage && m.peopleInImage.length > 0 && (
-          <MetadataRow label="People">
-            <div className="flex flex-wrap gap-1">
-              {m.peopleInImage.map((p) => (
-                <SearchPill key={p} cqlKey="person" value={p} onSearch={onSearch} />
-              ))}
-            </div>
-          </MetadataRow>
-        )}
-      </MetadataSection>
-
-      {/* --- Keywords (kahuna: own group) --- */}
-      <MetadataSection>
-        {m.keywords && m.keywords.length > 0 && (
-          <MetadataBlock label="Keywords">
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {m.keywords.map((k) => (
-                <SearchPill key={k} cqlKey="keyword" value={k} onSearch={onSearch} />
-              ))}
-            </div>
-          </MetadataBlock>
-        )}
-      </MetadataSection>
-
-      {/* --- Technical info --- */}
-      <MetadataSection>
-        {dims && (
-          <MetadataRow label="Dimensions">
-            <span>{dims}</span>
-          </MetadataRow>
-        )}
-
-        {fileSize && (
-          <MetadataRow label="File size">
-            <span>{fileSize}</span>
-          </MetadataRow>
-        )}
-
-        {fileType && (
-          <MetadataRow label="File type">
-            <span>{fileType}</span>
-          </MetadataRow>
-        )}
-      </MetadataSection>
-
-      {/* --- Identity (always shown) --- */}
-      <MetadataSection>
-        <MetadataRow label="Image ID">
-          <span className="select-all font-mono text-2xs">{image.id}</span>
-        </MetadataRow>
-      </MetadataSection>
+            const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
+            return (
+              <Layout key={field.id} label={field.label}>
+                <FieldValue field={field} image={image} onSearch={onSearch} />
+              </Layout>
+            );
+          })}
+        </MetadataSection>
+      ))}
     </dl>
   );
 }

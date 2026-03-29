@@ -42,9 +42,8 @@ export type FieldType = "keyword" | "text" | "date" | "integer" | "composite" | 
 export type FieldGroup =
   | "core"           // always-relevant fields (credit, byline, description)
   | "dates"          // date/time fields
-  | "technical"      // dimensions, file type, colour model
+  | "technical"      // dimensions, file type, colour model, filename
   | "rights"         // usage rights, category
-  | "upload"         // uploader, filename
   | "location"       // subLocation, city, state, country
   | "alias";         // config-driven alias fields from grid-config
 
@@ -124,6 +123,38 @@ export interface FieldDefinition {
    */
   formatter?: (value: string) => string;
 
+  // -- Detail panel ---------------------------------------------------------
+
+  /**
+   * Layout hint for the metadata/details panel.
+   * "stacked" = label above value (for long text: title, description, etc.)
+   * "inline"  = label left 30%, value right 70% (default for most fields)
+   */
+  detailLayout?: "stacked" | "inline";
+
+  /**
+   * If true, this field is excluded from the details/metadata panel.
+   * Used for fields that are redundant there (e.g. Width/Height when
+   * Dimensions is shown, or fields only meaningful as table columns).
+   */
+  detailHidden?: boolean;
+
+  /**
+   * Override `group` for detail panel section breaks only.
+   * When set, the detail panel uses this value instead of `group` to
+   * decide where to insert section dividers. The main `group` still
+   * controls sort-dropdown inclusion and other non-detail concerns.
+   */
+  detailGroup?: string;
+
+  /**
+   * When explicitly false, the detail panel renders this field as plain
+   * text even if it has a cqlKey. Useful for long-text fields where
+   * click-to-search doesn't make sense (Description, Special instructions).
+   * Defaults to true when cqlKey is present.
+   */
+  detailClickable?: boolean;
+
   // -- Type metadata --------------------------------------------------------
 
   /** ES mapping type — drives sort, aggregation, and search behaviour. */
@@ -179,6 +210,13 @@ function formatDate(dateStr?: string): string {
   }
 }
 
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** Read width from orientedDimensions (post-EXIF rotation), falling back to dimensions. */
 function getWidth(image: Image): number | undefined {
   return (image.source.orientedDimensions ?? image.source.dimensions)?.width;
@@ -217,6 +255,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     cqlKey: "imageType",
     esSearchPath: "metadata.imageType",
     sortKey: "imageType",
+    detailGroup: "imageType", // Own section in detail panel
     defaultWidth: 100,
     fieldType: "keyword",
     aggregatable: true,
@@ -228,6 +267,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.metadata?.title,
     cqlKey: "title",
     esSearchPath: "metadata.title",
+    detailLayout: "stacked",
     // Not sortable — text field, no .keyword sub-field
     defaultWidth: 250,
     fieldType: "text",
@@ -239,6 +279,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.metadata?.description,
     cqlKey: "description",
     esSearchPath: "metadata.description",
+    detailLayout: "stacked",
+    detailClickable: false,
     defaultWidth: 300,
     fieldType: "text",
   },
@@ -249,6 +291,9 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.metadata?.specialInstructions,
     cqlKey: "specialInstructions",
     esSearchPath: "metadata.specialInstructions",
+    detailLayout: "stacked",
+    detailClickable: false,
+    detailGroup: "specialInstructions",
     defaultWidth: 200,
     fieldType: "text",
   },
@@ -313,6 +358,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       return parts.length > 0 ? parts.join(", ") : undefined;
     },
     // Click-to-search uses per-sub-field keys, not a single key
+    detailGroup: "core", // No section break — continues from Source
     defaultWidth: 200,
     fieldType: "composite",
     isComposite: true,
@@ -333,6 +379,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.metadata?.dateTaken,
     formatter: formatDate,
     sortKey: "taken",
+    detailGroup: "core", // No section break — continues from Location
     descByDefault: true,
     defaultWidth: 150,
     fieldType: "date",
@@ -345,6 +392,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.uploadTime,
     formatter: formatDate,
     sortKey: "uploadTime",
+    detailGroup: "core", // No section break — continues from Taken on
     descByDefault: true,
     defaultWidth: 150,
     fieldType: "date",
@@ -357,35 +405,25 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.lastModified,
     formatter: formatDate,
     sortKey: "lastModified",
+    detailGroup: "core", // No section break — continues from Uploaded
     descByDefault: true,
     defaultWidth: 150,
     defaultHidden: true,
     fieldType: "date",
   },
 
-  // -- Upload info ----------------------------------------------------------
   {
     id: "uploadedBy",
     label: "Uploader",
-    group: "upload",
+    group: "core",
     accessor: (img) => img.uploadedBy,
     cqlKey: "uploader",
     esSearchPath: "uploadedBy",
     sortKey: "uploadedBy",
+    detailGroup: "core", // Same section as dates above
     defaultWidth: 150,
     fieldType: "keyword",
     aggregatable: true,
-  },
-  {
-    id: "uploadInfo_filename",
-    label: "Filename",
-    group: "upload",
-    accessor: (img) => img.uploadInfo?.filename,
-    cqlKey: "filename",
-    esSearchPath: "uploadInfo.filename",
-    sortKey: "filename",
-    defaultWidth: 180,
-    fieldType: "keyword",
   },
 
   // -- Lists ----------------------------------------------------------------
@@ -413,6 +451,46 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "list",
     isList: true,
   },
+  {
+    id: "metadata_suppliersReference",
+    label: "Suppliers reference",
+    group: "core",
+    accessor: (img) => img.metadata?.suppliersReference,
+    cqlKey: "suppliersReference",
+    esSearchPath: "metadata.suppliersReference",
+    detailGroup: "extended", // Section break after People
+    defaultWidth: 150,
+    defaultHidden: true,
+    fieldType: "text",
+  },
+  {
+    id: "metadata_bylineTitle",
+    label: "Byline title",
+    group: "core",
+    accessor: (img) => img.metadata?.bylineTitle,
+    cqlKey: "bylineTitle",
+    esSearchPath: "metadata.bylineTitle",
+    detailGroup: "extended",
+    defaultWidth: 150,
+    defaultHidden: true,
+    fieldType: "text",
+  },
+
+  // -- Keywords -------------------------------------------------------------
+  {
+    id: "keywords",
+    label: "Keywords",
+    group: "core",
+    accessor: (img) => img.metadata?.keywords,
+    rawValue: (img) => img.metadata?.keywords?.join(", "),
+    cqlKey: "keyword",
+    esSearchPath: "metadata.keywords",
+    detailLayout: "stacked",
+    detailGroup: "keywords", // Own section in detail panel
+    defaultWidth: 250,
+    fieldType: "list",
+    isList: true,
+  },
 
   // -- Technical ------------------------------------------------------------
   {
@@ -425,15 +503,61 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       if (w === undefined || h === undefined) return undefined;
       return `${w.toLocaleString()} × ${h.toLocaleString()}`;
     },
-    /**
-     * Sort by total pixel count (w × h) via a Painless script.
-     * buildSortClause recognises "dimensions" in its scriptSorts map
-     * and emits a script sort instead of a plain field sort.
-     * Orientation doesn't matter because w × h == h × w.
-     */
-    sortKey: "dimensions",
-    descByDefault: true,
+    // Display-only — not sortable. Use Width / Height columns instead.
     defaultWidth: 120,
+    fieldType: "integer",
+  },
+  {
+    id: "source_width",
+    label: "Width",
+    group: "technical",
+    accessor: (img) => {
+      const w = getWidth(img);
+      return w != null ? w.toLocaleString() : undefined;
+    },
+    rawValue: (img) => {
+      const w = getWidth(img);
+      return w != null ? String(w) : undefined;
+    },
+    sortKey: "width",
+    descByDefault: true,
+    defaultWidth: 80,
+    detailHidden: true, // Redundant — Dimensions shown instead
+    fieldType: "integer",
+  },
+  {
+    id: "source_height",
+    label: "Height",
+    group: "technical",
+    accessor: (img) => {
+      const h = getHeight(img);
+      return h != null ? h.toLocaleString() : undefined;
+    },
+    rawValue: (img) => {
+      const h = getHeight(img);
+      return h != null ? String(h) : undefined;
+    },
+    sortKey: "height",
+    descByDefault: true,
+    defaultWidth: 80,
+    detailHidden: true, // Redundant — Dimensions shown instead
+    fieldType: "integer",
+  },
+  {
+    id: "source_size",
+    label: "File size",
+    group: "technical",
+    accessor: (img) => {
+      const size = img.source?.size;
+      return size != null ? formatFileSize(size) : undefined;
+    },
+    rawValue: (img) => {
+      const size = img.source?.size;
+      return size != null ? String(size) : undefined;
+    },
+    defaultWidth: 90,
+    defaultHidden: true, // Only shown in details panel
+    detailHidden: false,
     fieldType: "integer",
   },
   {
@@ -455,26 +579,26 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     aggregatable: true,
   },
   {
-    id: "metadata_suppliersReference",
-    label: "Suppliers reference",
-    group: "core",
-    accessor: (img) => img.metadata?.suppliersReference,
-    cqlKey: "suppliersReference",
-    esSearchPath: "metadata.suppliersReference",
-    defaultWidth: 150,
-    defaultHidden: true,
-    fieldType: "text",
+    id: "uploadInfo_filename",
+    label: "Filename",
+    group: "technical",
+    accessor: (img) => img.uploadInfo?.filename,
+    cqlKey: "filename",
+    esSearchPath: "uploadInfo.filename",
+    sortKey: "filename",
+    detailClickable: false,
+    defaultWidth: 180,
+    fieldType: "keyword",
   },
   {
-    id: "metadata_bylineTitle",
-    label: "Byline title",
-    group: "core",
-    accessor: (img) => img.metadata?.bylineTitle,
-    cqlKey: "bylineTitle",
-    esSearchPath: "metadata.bylineTitle",
-    defaultWidth: 150,
-    defaultHidden: true,
-    fieldType: "text",
+    id: "imageId",
+    label: "Image ID",
+    group: "technical",
+    accessor: (img) => img.id,
+    defaultWidth: 280,
+    defaultHidden: true, // Only shown in details panel
+    detailHidden: false,
+    fieldType: "keyword",
   },
 ];
 
@@ -507,6 +631,7 @@ const ALIAS_FIELDS: FieldDefinition[] = gridConfig.fieldAliases
     cqlKey: a.alias,
     esSearchPath: a.elasticsearchPath,
     sortKey: a.alias, // alias fields are all keyword → sortable; URL uses short alias
+    detailGroup: "extended", // Merge with Byline title's section in detail panel
     defaultWidth: 120,
     defaultHidden: true,
     fieldType: "keyword" as FieldType,
@@ -517,11 +642,18 @@ const ALIAS_FIELDS: FieldDefinition[] = gridConfig.fieldAliases
 // The Registry — all fields, ordered
 // ---------------------------------------------------------------------------
 
-/** All field definitions, in display order. */
-export const FIELD_REGISTRY: readonly FieldDefinition[] = [
-  ...HARDCODED_FIELDS,
-  ...ALIAS_FIELDS,
-];
+/** All field definitions, in display order.
+ *  Alias fields are spliced in after Byline title so they appear in the
+ *  correct position in the detail panel (same section as core metadata). */
+export const FIELD_REGISTRY: readonly FieldDefinition[] = (() => {
+  const spliceIdx = HARDCODED_FIELDS.findIndex((f) => f.id === "metadata_bylineTitle");
+  if (spliceIdx === -1) return [...HARDCODED_FIELDS, ...ALIAS_FIELDS];
+  return [
+    ...HARDCODED_FIELDS.slice(0, spliceIdx + 1),
+    ...ALIAS_FIELDS,
+    ...HARDCODED_FIELDS.slice(spliceIdx + 1),
+  ];
+})();
 
 // ---------------------------------------------------------------------------
 // Derived lookup maps — built once from the registry
@@ -567,19 +699,24 @@ export const DEFAULT_HIDDEN_COLUMNS: readonly string[] = FIELD_REGISTRY
   .filter((f) => f.defaultHidden)
   .map((f) => f.id);
 
-/** Sortable fields for the dropdown (label + orderBy key). */
-export const SORT_DROPDOWN_OPTIONS: readonly { label: string; value: string }[] =
-  FIELD_REGISTRY
+/** Sortable fields for the dropdown (label + orderBy key), in registry order.
+ *  Dates are promoted to the top in a fixed order: Uploaded → Taken → Modified. */
+export const SORT_DROPDOWN_OPTIONS: readonly { label: string; value: string }[] = (() => {
+  const sortable = FIELD_REGISTRY
     .filter((f) => f.sortKey != null)
-    // Only include fields useful in the sort dropdown (not every sortable column)
-    .filter((f) => ["dates", "core", "upload", "rights", "technical"].includes(f.group))
-    // Dates first, then alphabetical
-    .sort((a, b) => {
-      if (a.group === "dates" && b.group !== "dates") return -1;
-      if (a.group !== "dates" && b.group === "dates") return 1;
-      return a.label.localeCompare(b.label);
-    })
-    .map((f) => ({ label: f.label, value: f.sortKey! }));
+    .filter((f) => ["dates", "core", "rights", "technical"].includes(f.group));
+  const dates = sortable.filter((f) => f.group === "dates");
+  const rest = sortable.filter((f) => f.group !== "dates");
+  // Dates in explicit order: Uploaded, Taken on, Last modified
+  const DATE_ORDER = ["uploadTime", "taken", "lastModified"];
+  dates.sort((a, b) => DATE_ORDER.indexOf(a.sortKey!) - DATE_ORDER.indexOf(b.sortKey!));
+  return [...dates, ...rest].map((f) => ({ label: f.label, value: f.sortKey! }));
+})();
+
+/** Fields shown in the details/metadata panel, in display order.
+ *  Excludes fields with detailHidden: true. Includes alias fields. */
+export const DETAIL_PANEL_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY
+  .filter((f) => !f.detailHidden);
 
 /**
  * Get the raw string value from any field for a given image.

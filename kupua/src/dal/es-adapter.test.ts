@@ -72,14 +72,20 @@ describe("buildSortClause", () => {
     ]);
   });
 
-  it("handles script sort (dimensions) with tiebreaker", () => {
-    const result = buildSortClause("-dimensions");
-    expect(result).toHaveLength(2);
-    expect(result[0]).toHaveProperty("_script");
-    const script = result[0]._script as Record<string, unknown>;
-    expect(script.order).toBe("desc");
-    expect(script.type).toBe("number");
-    expect(result[1]).toEqual({ id: "asc" });
+  it("expands 'width' alias to source.dimensions.width with tiebreaker", () => {
+    const result = buildSortClause("-width");
+    expect(result).toEqual([
+      { "source.dimensions.width": "desc" },
+      { id: "asc" },
+    ]);
+  });
+
+  it("expands 'height' alias to source.dimensions.height with tiebreaker", () => {
+    const result = buildSortClause("height");
+    expect(result).toEqual([
+      { "source.dimensions.height": "asc" },
+      { id: "asc" },
+    ]);
   });
 
   it("does not duplicate tiebreaker if id is already the last field", () => {
@@ -127,7 +133,8 @@ describe("buildSortClause", () => {
       "-taken",
       "taken",
       "-credit",
-      "-dimensions",
+      "-width",
+      "-height",
       "-uploadTime,-credit",
     ];
 

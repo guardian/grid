@@ -20,7 +20,7 @@
 - ✅ Migration plan: `exploration/docs/migration-plan.md`
 - ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
 
-### App Scaffold (~11,200 lines of source)
+### App Scaffold (~16,300 lines of source)
 
 - ✅ Vite 8 (Rolldown) + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
 - ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
@@ -66,14 +66,15 @@
 ### Table View (`ImageTable.tsx`, ~1260 lines)
 
 - ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
-- ✅ Column definitions generated from field registry (`field-registry.ts`) — 21 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
-- ✅ Dimensions column — single column showing oriented `w × h` (e.g. `5,997 × 4,000`), sortable by total pixel count via Painless script sort (orientation-agnostic since `w × h == h × w`). Replaces separate Width/Height columns. Script sort only evaluated when user sorts by this field. See deviations.md §10.
+- ✅ Column definitions generated from field registry (`field-registry.ts`) — 23 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
+- ✅ Dimensions column — single column showing oriented `w × h` (e.g. `5,997 × 4,000`), display-only (not sortable). Separate Width and Height columns are sortable by plain integer field (`source.dimensions.width`, `source.dimensions.height`) — uses the fast percentile estimation path for deep seek. Replaces the old Painless script sort (w×h pixel count) which was unusably slow for deep seeks (~60s via SSH tunnel).
+- ✅ Width / Height columns — sortable integer fields, `descByDefault: true`. Use `orientedDimensions` with fallback to `dimensions` for display. Sort aliases: `width` → `source.dimensions.width`, `height` → `source.dimensions.height`.
 - ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
 - ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
 - ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
 - ✅ Sort on any keyword/date/numeric column by clicking header. Text-only fields (Title, Description, etc.) not sortable (no `.keyword` sub-field). Single click is delayed 250ms to distinguish from double-click.
 - ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
-- ✅ Sort alias system — `buildSortClause` expands short URL aliases to full ES paths per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`, `credit` → `metadata.credit`, `category` → `usageRights.category`, `filename` → `uploadInfo.filename`, `mimeType` → `source.mimeType`, plus config-driven alias fields). URLs never contain dotted ES paths — only clean short keys (e.g. `?orderBy=-credit`, not `?orderBy=-metadata.credit`). Supports `_script:` prefixed sort keys for Painless script sorts (used by Dimensions).
+- ✅ Sort alias system — `buildSortClause` expands short URL aliases to full ES paths per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`, `credit` → `metadata.credit`, `category` → `usageRights.category`, `filename` → `uploadInfo.filename`, `mimeType` → `source.mimeType`, `width` → `source.dimensions.width`, `height` → `source.dimensions.height`, plus config-driven alias fields). URLs never contain dotted ES paths — only clean short keys (e.g. `?orderBy=-credit`, not `?orderBy=-metadata.credit`).
 - ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
 - ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13. Upstream fix: [guardian/cql#121](https://github.com/guardian/cql/pull/121); remove workaround after merge+release.
 - ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
@@ -161,7 +162,7 @@ Full implementation of `search_after` + PIT windowed scroll + custom scrubber. R
 - Windowed buffer (max 1000 entries), `extendForward`/`extendBackward` via `search_after`, page eviction
 - Seek: shallow (<10k) via `from/size`, deep (≥10k) via percentile estimation + `search_after` + `countBefore`
 - Keyword deep seek via composite aggregation (`findKeywordSortValue`, configurable `BUCKET_SIZE=10000`, 8s time cap)
-- Script sort (dimensions) falls back to iterative `search_after` with `noSource: true`
+- ~~Script sort (dimensions) falls back to iterative `search_after` with `noSource: true`~~ — **Removed.** Width/Height are now plain field sorts using percentile estimation. See "Width/Height replace Dimensions script sort" entry below.
 - `extendBackward` via reverse `search_after` (no depth limit, replaces `from/size` fallback)
 - Backward extend scroll compensation (`_lastPrependCount` + `_prependGeneration`)
 - Sort-around-focus ("Never Lost"): async `_findAndFocusImage()` with 8s timeout
@@ -423,3 +424,116 @@ steps, ~4 seconds total, landing within 45 docs of target (ratio 0.7498 for 75% 
 - **Net test count:** 68 → 64 e2e tests (4 removed from Bug #13), 8 → 10 smoke tests
   (S9 + S10 added).
 
+### Width/Height replace Dimensions script sort (2026-03-29)
+
+**Problem:** Dimensions sort used a Painless script (`w × h`) which forced the slow
+Strategy B (iterative `search_after` skip loop) for deep seeks. Through SSH tunnels,
+seeking to position 500k required ~40 sequential 10k-chunk requests, taking ~60 seconds.
+The `MAX_SKIP_ITERATIONS` increase from 20 → 200 (in the "Polish" commit) made it
+worse — the old 20-iteration cap degraded gracefully at ~20s; the new cap doggedly
+completed all iterations.
+
+**Root cause:** Script sorts cannot use percentile estimation (ES `percentiles` agg
+only works on indexed field values, not computed expressions). They also can't use
+`countBefore` correctly (can't build range queries on computed values). This forced
+the brute-force iterative skip path.
+
+**Solution — Option Nuclear:** Replaced the single Dimensions script sort with two
+plain integer field sorts: **Width** (`source.dimensions.width`) and **Height**
+(`source.dimensions.height`). Both are native ES integer fields that get the fast
+percentile estimation path (~200ms for any depth).
+
+**Changes:**
+
+1. **`field-registry.ts`**: Dimensions field is now display-only (no `sortKey`).
+   Added `source_width` (Width) and `source_height` (Height) as separate sortable
+   integer fields with `descByDefault: true`.
+
+2. **`es-adapter.ts`**: Removed `scriptSorts` map entirely. Added `width` →
+   `source.dimensions.width` and `height` → `source.dimensions.height` aliases.
+   Simplified `reverseSortClause` (no more `_script` branch), `countBefore` (no
+   more script field skips), `parseSortField` (removed `isScript` property),
+   `searchAfter` missingFirst handler (no more `isScript` check).
+
+3. **`search-store.ts`**: Removed Strategy B entirely (~80 lines of iterative
+   search_after skip loop). Removed `primaryField !== "_script"` guard from
+   percentile estimation. Width/Height now take the fast path.
+
+4. **`sort-context.ts`**: Added `width` and `height` entries for scrubber tooltip
+   labels (shows "4,000px" etc.).
+
+5. **Tests**: Replaced script sort tests with width/height alias tests. Removed
+   `reverseSortClause handles script sorts`. Changed e2e "Dimensions" test to
+   "Width" with tighter accuracy tolerance (0.35–0.65 ratio).
+
+**Net code deleted:** ~120 lines of script sort infrastructure.
+
+**Why Width/Height is better than Dimensions (w×h):**
+- Fast: percentile estimation → ~200ms deep seek vs ~60s
+- More powerful: users can sort by Width alone, Height alone, or both (shift-click)
+- Simpler: no Painless scripts, no Strategy B, no `isScript` branches
+- Media-api compatible: plain `fieldSort()`, no upstream changes needed
+- Display preserved: Dimensions column still shows "4,000 × 3,000" in table/metadata
+
+**Docs updated:** AGENTS.md, deviations.md §10 (reversed), §16 (resolved), changelog.
+
+### Field Registry Canonical Ordering + Registry-Driven Details Panel + Horizontal Scrollbar Fix (29 Mar 2026)
+
+**Problem:** Field ordering was hardcoded in four separate places (sort dropdown,
+facet filters, table columns, details panel) with three different ordering strategies.
+The details panel was entirely hand-crafted JSX — ~170 lines of per-field rendering
+that didn't use the field registry at all. Additionally, the table view's horizontal
+scrollbar was broken in both Chrome 146+ and Firefox 148+ because modern Chrome now
+supports `scrollbar-width` (standard CSS), which disables `::-webkit-scrollbar`
+pseudo-elements — making CSS-only per-axis scrollbar hiding impossible.
+
+**Solution — Canonical Field Ordering:**
+
+Established `HARDCODED_FIELDS` array order in `field-registry.ts` as the single source
+of truth for field ordering across all five surfaces: table columns, column chooser,
+facet filters, sort dropdown, and details panel. The sort dropdown promotes dates to
+the top in a fixed order (Uploaded → Taken → Modified), then follows registry order
+for the rest. All other surfaces use registry order directly.
+
+Added three new fields to the registry: Keywords (list, default visible), File size
+(integer, detail-only via `defaultHidden + detailHidden: false`), Image ID (keyword,
+detail-only). Alias fields are now spliced in after Byline title (not appended at
+the end) so they appear in the correct position.
+
+**Solution — Registry-Driven Details Panel:**
+
+Rewrote `ImageMetadata.tsx` to iterate `DETAIL_PANEL_FIELDS` (derived from registry,
+excluding `detailHidden` fields). Added four new `FieldDefinition` properties:
+- `detailLayout: "stacked" | "inline"` — controls label-above vs side-by-side
+- `detailHidden: boolean` — excludes from details panel (Width/Height hidden,
+  Dimensions shown instead)
+- `detailGroup: string` — overrides `group` for section break logic in the panel
+  only, without affecting sort dropdown inclusion
+- `detailClickable: boolean` — when false, renders plain text even if `cqlKey`
+  exists (Description, Special instructions, Filename)
+
+Section breaks are inserted whenever `detailGroup ?? group` changes between
+consecutive fields. File type is now a clickable search link. Alias fields are
+displayed with their labels and are clickable.
+
+**Solution — Horizontal Scrollbar:**
+
+Replaced the broken `.hide-scrollbar-y` CSS (which relied on `::-webkit-scrollbar:vertical`)
+with a structural approach: hide ALL native scrollbars via `scrollbar-width: none` +
+`::-webkit-scrollbar { display: none }`, then add a proxy `<div>` at the bottom of the
+table that syncs `scrollLeft` bidirectionally with the main scroll container. A
+`ResizeObserver` on the `data-table-root` element keeps the proxy width in sync with
+the table's content width during column resizes and visibility toggles.
+
+**Other fixes:**
+- Table list pills (People, Keywords, Subjects) now render single-line with
+  `flex-nowrap overflow-hidden` — no more row height overflow from multi-line wrapping.
+- Uploader moved from `group: "upload"` to `group: "core"`, Filename moved to
+  `group: "technical"` (after File type). The `"upload"` group was removed entirely.
+
+**Files changed:** `field-registry.ts` (reordered, 3 new fields, 4 new FieldDefinition
+properties, alias splice, sort dropdown rewrite), `ImageMetadata.tsx` (full rewrite to
+registry-driven), `ImageTable.tsx` (horizontal scrollbar proxy, single-line pills),
+`index.css` (`.hide-scrollbar-y` rewritten).
+
+**Docs updated:** AGENTS.md (KAD #26, #29, table view, panels), changelog.
