@@ -613,12 +613,14 @@ export function ImageTable() {
     const el = parentRef.current;
     if (!el) return;
 
-    // Report visible range for sparse gap detection
-    const virtualItems = virtualizer.getVirtualItems();
-    if (virtualItems.length > 0) {
-      const firstIdx = virtualItems[0].index;
-      const lastIdx = virtualItems[virtualItems.length - 1].index;
-      reportVisibleRange(firstIdx, lastIdx);
+    // Report the *actual* visible range (without overscan) so the Scrubber
+    // thumb tracks content position precisely. getVirtualItems() includes
+    // overscan items, which creates a dead zone at the top: start stays 0
+    // for `overscan` rows of scroll because max(0, visibleStart - overscan) = 0.
+    // virtualizer.range gives the true visible range from calculateRange().
+    const range = virtualizer.range;
+    if (range) {
+      reportVisibleRange(range.startIndex, range.endIndex);
     }
 
     // Fallback: append-only loadMore when near the bottom (for small

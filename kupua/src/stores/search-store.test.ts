@@ -644,8 +644,8 @@ describe("sort-context label", async () => {
     );
 
     expect(label).not.toBeNull();
-    // Should be a formatted date string
-    expect(label).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
+    // Should be a formatted date string (may contain HTML span for month)
+    expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
   });
 
   it("returns null for unknown sort field", async () => {
@@ -677,8 +677,180 @@ describe("sort-context label", async () => {
     );
 
     expect(label).not.toBeNull();
-    // Should still be a formatted date
-    expect(label).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
+    // Should still be a formatted date (may contain HTML span for month)
+    expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
   });
 });
 
+// ---------------------------------------------------------------------------
+// Tests: Scroll mode — buffer fill for small datasets
+//
+// When total ≤ SCROLL_MODE_THRESHOLD (default 1000), search() eagerly
+// fills the buffer with ALL results so the scrubber enters scroll mode
+// (allDataInBuffer = true). The fill happens in the background after the
+// first PAGE_SIZE results are returned.
+// ---------------------------------------------------------------------------
+
+describe("scroll mode — buffer fill", () => {
+  /** Set up the store with a small mock dataset. */
+  function setupSmallDataset(totalImages: number) {
+    const smallMock = new MockDataSource(totalImages);
+    useSearchStore.setState({
+      dataSource: smallMock,
+      results: [],
+      bufferOffset: 0,
+      total: 0,
+      loading: false,
+      error: null,
+      imagePositions: new Map(),
+      startCursor: null,
+      endCursor: null,
+      pitId: null,
+      focusedImageId: null,
+      sortAroundFocusStatus: null,
+      sortAroundFocusGeneration: 0,
+      _extendForwardInFlight: false,
+      _extendBackwardInFlight: false,
+      _lastPrependCount: 0,
+      _prependGeneration: 0,
+      _seekGeneration: 0,
+      _seekTargetLocalIndex: -1,
+      params: {
+        query: undefined,
+        offset: 0,
+        length: 200,
+        orderBy: "-uploadTime",
+        nonFree: "true",
+      },
+    });
+    return smallMock;
+  }
+
+  it("fills the entire buffer for datasets ≤ threshold", async () => {
+    const smallMock = setupSmallDataset(500);
+    await actions().search();
+
+    // After search, the fill runs in the background — wait for it
+    await waitFor(
+      () => state().results.length === 500,
+      3000,
+      "buffer fill to 500",
+    );
+
+    expect(state().results.length).toBe(500);
+    expect(state().total).toBe(500);
+    expect(state().bufferOffset).toBe(0);
+    assertPositionsConsistent("after scroll-mode fill");
+  });
+
+  it("fills even when total exactly equals PAGE_SIZE", async () => {
+    setupSmallDataset(200);
+    await actions().search();
+    await flush();
+
+    // 200 results = PAGE_SIZE, so no extra fetch needed
+    expect(state().results.length).toBe(200);
+    expect(state().total).toBe(200);
+    assertPositionsConsistent("exact PAGE_SIZE");
+  });
+
+  it("fills very small datasets (< PAGE_SIZE) in one shot", async () => {
+    setupSmallDataset(50);
+    await actions().search();
+    await flush();
+
+    // All 50 results fetched in the initial search (no fill needed)
+    expect(state().results.length).toBe(50);
+    expect(state().total).toBe(50);
+    assertPositionsConsistent("small dataset");
+  });
+
+  it("does NOT fill for datasets > threshold (seek mode)", async () => {
+    // Default threshold is 1000, so 10k stays in seek mode
+    await actions().search();
+    await flush();
+
+    // Should only have the first page
+    expect(state().results.length).toBe(200);
+    expect(state().total).toBe(10_000);
+  });
+
+  it("imagePositions covers all results after fill", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+
+    await waitFor(
+      () => state().results.length === 700,
+      3000,
+      "buffer fill to 700",
+    );
+
+    const { imagePositions, results, bufferOffset } = state();
+    expect(imagePositions.size).toBeGreaterThanOrEqual(700);
+
+    // Check first, middle, and last
+    expect(imagePositions.get("img-0")).toBe(0);
+    expect(imagePositions.get("img-350")).toBe(350);
+    expect(imagePositions.get("img-699")).toBe(699);
+
+    // Every image should be correctly mapped
+    for (let i = 0; i < results.length; i++) {
+      const img = results[i];
+      if (!img) continue;
+      expect(imagePositions.get(img.id)).toBe(bufferOffset + i);
+    }
+  });
+
+  it("cursors are valid after fill completes", async () => {
+    setupSmallDataset(500);
+    await actions().search();
+
+    await waitFor(
+      () => state().results.length === 500,
+      3000,
+      "buffer fill to 500",
+    );
+
+    expect(state().startCursor).not.toBeNull();
+    expect(state().endCursor).not.toBeNull();
+  });
+
+  it("clears _extendForwardInFlight after fill completes", async () => {
+    setupSmallDataset(500);
+    await actions().search();
+
+    await waitFor(
+      () => state().results.length === 500,
+      3000,
+      "buffer fill to 500",
+    );
+
+    // Fill should have cleared the flag
+    expect(state()._extendForwardInFlight).toBe(false);
+  });
+
+  it("new search aborts in-progress fill", async () => {
+    setupSmallDataset(800);
+
+    // Start first search — fill begins in background
+    const firstSearch = actions().search();
+    await firstSearch;
+
+    // Immediately start a second search (aborts the first fill)
+    setupSmallDataset(300);
+    await actions().search();
+
+    await waitFor(
+      () => state().results.length === 300,
+      3000,
+      "second search to complete",
+    );
+
+    // Buffer should have the new dataset, not a mix
+    expect(state().total).toBe(300);
+    expect(state().results.length).toBe(300);
+    expect(state().results[0]?.id).toBe("img-0");
+    expect(state()._extendForwardInFlight).toBe(false);
+    assertPositionsConsistent("after aborted fill");
+  });
+});

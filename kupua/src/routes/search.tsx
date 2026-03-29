@@ -32,7 +32,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback } from "react";
-import { interpolateSortLabel } from "@/lib/sort-context";
+import { interpolateSortLabel, resolveKeywordSortInfo } from "@/lib/sort-context";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -61,8 +61,12 @@ function SearchPage() {
   // Sort-context label for the scrubber tooltip.
   // Uses interpolation for positions outside the buffer — linearly extrapolates
   // dates from the buffer's anchor points, giving meaningful labels during drag.
+  // For keyword sorts: uses the pre-fetched keyword distribution (binary search,
+  // no network during drag). Falls back to nearest buffer edge if distribution
+  // hasn't loaded yet.
   const orderBy = useSearchStore((s) => s.params.orderBy);
   const results = useSearchStore((s) => s.results);
+  const keywordDistribution = useSearchStore((s) => s.keywordDistribution);
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
@@ -72,13 +76,24 @@ function SearchPage() {
         store.total,
         store.bufferOffset,
         store.results,
+        store.keywordDistribution,
       );
     },
     // Depend on orderBy so the callback is fresh when sort changes.
     // results dependency ensures we get updated data after extends.
+    // keywordDistribution dependency ensures fresh data after distribution loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orderBy, results],
+    [orderBy, results, keywordDistribution],
   );
+
+  // Lazy fetch: trigger keyword distribution fetch on first scrubber interaction.
+  // Only fetches if the current sort is a keyword sort and the distribution
+  // hasn't been fetched yet for this query/sort combination.
+  const fetchKeywordDistribution = useSearchStore((s) => s.fetchKeywordDistribution);
+  const isKeywordSort = !!resolveKeywordSortInfo(orderBy);
+  const onScrubberInteraction = useCallback(() => {
+    if (isKeywordSort) fetchKeywordDistribution();
+  }, [isKeywordSort, fetchKeywordDistribution]);
 
   const scrubberElement = (
     <Scrubber
@@ -89,6 +104,7 @@ function SearchPage() {
       loading={loading}
       onSeek={seek}
       getSortLabel={getSortLabel}
+      onFirstInteraction={isKeywordSort ? onScrubberInteraction : undefined}
     />
   );
 

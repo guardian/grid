@@ -20,11 +20,30 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Track width in pixels. */
-const TRACK_WIDTH = 12;
+/**
+ * Track hit-target width in pixels. Wider than the visible thumb to make
+ * it easy to grab. The thumb is visually inset within this space.
+ */
+const TRACK_WIDTH = 14;
 
 /** Minimum thumb height in pixels (ensures it's always grabbable). */
 const MIN_THUMB_HEIGHT = 20;
+
+/**
+ * Thumb inset — left/right margin within the track, creating a narrow
+ * pill centered in the hit target. Native macOS overlay scrollbar thumb
+ * is ~7px wide; with 14px track and 3px inset each side = 8px thumb.
+ */
+const THUMB_INSET = 3;
+
+/**
+ * Thumb colors — semi-transparent white on the dark Grid background.
+ * Inspired by Chrome/macOS overlay scrollbar on dark backgrounds.
+ * Always visible (no fade-to-zero) — Apple is wrong. ;-)
+ */
+const THUMB_COLOR_IDLE = "rgba(255, 255, 255, 0.25)";
+const THUMB_COLOR_HOVER = "rgba(255, 255, 255, 0.45)";
+const THUMB_COLOR_ACTIVE = "rgba(255, 255, 255, 0.6)";
 
 /** Arrow key step size (number of results to move per press). */
 const ARROW_STEP = 50;
@@ -50,7 +69,13 @@ function thumbTopFromPosition(
   const th = trackEl.clientHeight;
   const minH = Math.max(MIN_THUMB_HEIGHT, (visibleCount / total) * th);
   const maxTop = Math.max(0, th - minH);
-  return Math.min(maxTop, (position / total) * th);
+  // The scrubber position is the first visible item. Its range is
+  // 0..(total - visibleCount). When the last item is visible (position =
+  // total - visibleCount), ratio = 1.0 and the thumb touches the bottom.
+  // This matches native scrollbar behavior: scrollTop / (scrollHeight - clientHeight).
+  const maxPosition = Math.max(1, total - visibleCount);
+  const ratio = Math.min(1, position / maxPosition);
+  return Math.min(maxTop, ratio * maxTop);
 }
 
 /** Set thumb + tooltip DOM positions and text for instant visual feedback. */
@@ -67,13 +92,16 @@ function applyThumbPosition(
   const top = thumbTopFromPosition(position, total, visibleCount, trackEl);
   thumbEl.style.top = `${top}px`;
   if (tooltipEl) {
-    tooltipEl.style.top = `${Math.max(0, Math.min(trackEl.clientHeight - 28, top))}px`;
+    const tipH = tooltipEl.offsetHeight || 28;
+    tooltipEl.style.top = `${Math.max(0, Math.min(trackEl.clientHeight - tipH, top))}px`;
 
-    // Update the sort context label (first child span, data-sort-label)
+    // Update the sort context label (first child span, data-sort-label).
+    // Uses innerHTML because date labels contain a fixed-width <span> for
+    // the month abbreviation (prevents tooltip width jitter across months).
     const sortLabelEl = tooltipEl.querySelector("[data-sort-label]") as HTMLElement | null;
     if (sortLabelEl) {
       if (sortLabel) {
-        sortLabelEl.textContent = sortLabel;
+        sortLabelEl.innerHTML = sortLabel;
         sortLabelEl.style.display = "";
       } else {
         sortLabelEl.style.display = "none";
@@ -116,6 +144,12 @@ export interface ScrubberProps {
    * or null if no label available. Called during drag and for the current position.
    */
   getSortLabel?: (globalPosition: number) => string | null;
+  /**
+   * Called once on the first user interaction (click, drag, or keyboard).
+   * Used to lazily trigger data fetches (e.g. keyword distribution for sort labels)
+   * that aren't needed until the user actually touches the scrubber.
+   */
+  onFirstInteraction?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,16 +164,67 @@ export function Scrubber({
   loading,
   onSeek,
   getSortLabel,
+  onFirstInteraction,
 }: ScrubberProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // Fire onFirstInteraction once per sort configuration. Ref-stabilised so
+  // it doesn't re-fire when the callback identity changes. Reset when the
+  // prop transitions from undefined→defined (e.g. sort change to keyword).
+  const onFirstInteractionRef = useRef(onFirstInteraction);
+  onFirstInteractionRef.current = onFirstInteraction;
+  const hasInteractedRef = useRef(false);
+  // Reset if the prop appeared (new keyword sort needs its distribution fetched)
+  if (onFirstInteraction && !hasInteractedRef.current) {
+    // No reset needed — hasn't interacted yet
+  } else if (!onFirstInteraction) {
+    hasInteractedRef.current = false; // Reset for next keyword sort
+  }
+  const notifyFirstInteraction = useCallback(() => {
+    if (!hasInteractedRef.current && onFirstInteractionRef.current) {
+      hasInteractedRef.current = true;
+      onFirstInteractionRef.current();
+    }
+  }, []);
+
+  // Set initial thumb position when the element mounts. Without this,
+  // the thumb would flash at top:0 for one frame before the useEffect
+  // sets the correct position (useEffect fires after paint).
+  const thumbCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    (thumbRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (el && trackRef.current && total > 0) {
+      const top = thumbTopFromPosition(currentPosition, total, stableVisibleCountRef.current || visibleCount, trackRef.current);
+      el.style.top = `${top}px`;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty — only runs on mount
+
   const allDataInBuffer = total <= bufferLength;
   const [trackHeight, setTrackHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+
+  // Stable visibleCount for thumb height calculation. In scroll mode,
+  // the thumb height should not change as the user scrolls (native
+  // scrollbar behavior). We freeze visibleCount when scroll mode first
+  // activates. Reset when total changes (new search) or when leaving
+  // scroll mode. In seek mode, use the live value (thumb height matters
+  // less — the scrubber is a seeking control, not a scrollbar).
+  const stableVisibleCountRef = useRef<number>(visibleCount);
+  const stableTotalRef = useRef<number>(total);
+  if (!allDataInBuffer) {
+    // Seek mode — always use live value
+    stableVisibleCountRef.current = visibleCount;
+    stableTotalRef.current = total;
+  } else if (stableVisibleCountRef.current === 0 || total !== stableTotalRef.current) {
+    // Scroll mode, first activation or new search — capture current value
+    stableVisibleCountRef.current = visibleCount;
+    stableTotalRef.current = total;
+  }
+  // Otherwise: scroll mode, already captured — keep the frozen value.
+  const thumbVisibleCount = allDataInBuffer ? stableVisibleCountRef.current : visibleCount;
 
   // Tooltip visibility — stays on during drag, lingers 1.5s after click/keyboard
   const [tooltipVisible, setTooltipVisible] = useState(false);
@@ -256,24 +341,92 @@ export function Scrubber({
   const effectivePosition = pendingSeekPosRef.current ?? currentPosition;
   const thumbHeight = Math.max(
     MIN_THUMB_HEIGHT,
-    trackHeight > 0 ? (visibleCount / total) * trackHeight : MIN_THUMB_HEIGHT,
+    trackHeight > 0 ? (thumbVisibleCount / total) * trackHeight : MIN_THUMB_HEIGHT,
   );
   const maxThumbTop = Math.max(0, trackHeight - thumbHeight);
+  // maxPosition: the highest value currentPosition can reach (first visible
+  // item when scrolled to the very bottom). Matches thumbTopFromPosition().
+  const maxPosition = Math.max(1, total - thumbVisibleCount);
+  // Used for tooltip positioning and aria — NOT for inline thumb style
+  // (thumb position is controlled exclusively via DOM writes to avoid
+  // React reconciler fighting with direct DOM writes during drag).
   const thumbTop =
-    total > 0
-      ? Math.min(maxThumbTop, (effectivePosition / total) * trackHeight)
+    total > 1
+      ? Math.min(maxThumbTop, (effectivePosition / maxPosition) * maxThumbTop)
       : 0;
 
-  // Force-sync thumb DOM position with React's computed value when no
-  // seek is pending and not dragging. Direct DOM writes during interaction
-  // may drift from React's last-set style; this corrects on completion.
+  // Sync thumb DOM position with React's computed value when no
+  // seek is pending and not dragging. This is the ONLY path that sets
+  // thumb.style.top outside of drag/click handlers — the inline JSX
+  // style intentionally omits `top` to prevent the React reconciler
+  // from fighting direct DOM writes.
+  //
+  // In scroll mode, the continuous sync effect below handles positioning
+  // from the actual scroll ratio — skip here to avoid the two fighting.
   useEffect(() => {
     if (isDragging || pendingSeekPosRef.current != null) return;
+    if (allDataInBuffer) return; // scroll mode — handled by scroll listener below
     const thumbEl = thumbRef.current;
     if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
     const tipEl = tooltipRef.current;
-    if (tipEl) tipEl.style.top = `${Math.max(0, Math.min(trackHeight - 28, thumbTop))}px`;
-  }, [thumbTop, isDragging, trackHeight]);
+    if (tipEl) {
+      const tipH = tipEl.offsetHeight || 28;
+      tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
+    }
+  }, [thumbTop, isDragging, trackHeight, allDataInBuffer]);
+
+  // -------------------------------------------------------------------------
+  // Scroll-mode continuous sync
+  //
+  // In scroll mode (allDataInBuffer), the discrete visibleRange.start from
+  // the virtualizer has a "dead zone" at the top: it stays at 0 until the
+  // first row fully scrolls out of view. This makes the scrubber thumb lag
+  // behind the native scrollbar.
+  //
+  // Fix: attach a scroll listener directly to the content container and
+  // compute thumb position from the continuous scroll ratio:
+  //   ratio = scrollTop / (scrollHeight - clientHeight)
+  // This exactly matches native scrollbar behavior — pixel-perfect.
+  // -------------------------------------------------------------------------
+
+  /** Find the scroll container adjacent to the scrubber track. */
+  const findScrollContainer = useCallback((): Element | null => {
+    const contentCol = trackRef.current?.previousElementSibling;
+    if (!contentCol) return null;
+    return contentCol.querySelector("[role='region']")
+      ?? contentCol.querySelector(".overflow-auto");
+  }, []);
+
+  useEffect(() => {
+    if (!allDataInBuffer) return; // seek mode — handled by the discrete sync above
+
+    const scrollEl = findScrollContainer();
+    if (!scrollEl) return;
+
+    const syncFromScroll = () => {
+      if (isDragging) return; // drag handler controls thumb during drag
+      const thumbEl = thumbRef.current;
+      if (!thumbEl) return;
+
+      const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+      const ratio = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
+      const clampedRatio = Math.max(0, Math.min(1, ratio));
+      const top = clampedRatio * maxThumbTop;
+
+      thumbEl.style.top = `${top}px`;
+      const tipEl = tooltipRef.current;
+      if (tipEl) {
+        const tipH = tipEl.offsetHeight || 28;
+        tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, top))}px`;
+      }
+    };
+
+    // Sync immediately (covers programmatic scroll resets, buffer changes)
+    syncFromScroll();
+
+    scrollEl.addEventListener("scroll", syncFromScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", syncFromScroll);
+  }, [allDataInBuffer, isDragging, maxThumbTop, trackHeight, findScrollContainer]);
 
   // -------------------------------------------------------------------------
   // Position → offset and back
@@ -298,9 +451,10 @@ export function Scrubber({
       if (!el || total <= 0) return 0;
       const rect = el.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-      return Math.round(ratio * (total - 1));
+      const maxPos = Math.max(1, total - thumbVisibleCount);
+      return Math.round(ratio * maxPos);
     },
-    [total],
+    [total, thumbVisibleCount],
   );
 
   // -------------------------------------------------------------------------
@@ -311,20 +465,22 @@ export function Scrubber({
     (e: React.MouseEvent) => {
       // Don't re-seek if the user clicked the thumb
       if ((e.target as HTMLElement).dataset.scrubberThumb) return;
+      notifyFirstInteraction();
       const pos = positionFromY(e.clientY);
 
-      applyThumbPosition(pos, total, visibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
+      applyThumbPosition(pos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
 
       if (allDataInBuffer) {
         // All data in buffer — scroll the content container
-        scrollContentTo(pos / Math.max(1, total - 1));
+        const maxPos = Math.max(1, total - thumbVisibleCount);
+        scrollContentTo(pos / maxPos);
       } else {
         pendingSeekPosRef.current = pos;
         onSeekRef.current(pos);
       }
       flashTooltip();
     },
-    [positionFromY, total, visibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
+    [positionFromY, total, thumbVisibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
   );
 
   // -------------------------------------------------------------------------
@@ -344,6 +500,7 @@ export function Scrubber({
     (e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      notifyFirstInteraction();
 
       const thumb = e.currentTarget as HTMLElement;
       thumb.setPointerCapture(e.pointerId);
@@ -360,17 +517,22 @@ export function Scrubber({
       let latestPosition = currentPosition;
       let hasMoved = false;
 
+      // Freeze visible count for the duration of this drag — prevents
+      // thumb height from fluctuating as content scrolls.
+      const dragVisibleCount = thumbVisibleCount;
+
       /** Compute position from clientY, adjusting for the grab offset. */
       const positionFromDragY = (clientY: number): number => {
         const el = trackRef.current;
         if (!el || total <= 0) return 0;
         const rect = el.getBoundingClientRect();
         const th = el.clientHeight;
-        const minH = Math.max(MIN_THUMB_HEIGHT, (visibleCount / total) * th);
+        const minH = Math.max(MIN_THUMB_HEIGHT, (dragVisibleCount / total) * th);
         const adjustedY = clientY - pointerOffsetInThumb;
         const maxTop = Math.max(0, th - minH);
         const ratio = Math.max(0, Math.min(1, (adjustedY - rect.top) / maxTop));
-        return Math.round(ratio * (total - 1));
+        const maxPos = Math.max(1, total - dragVisibleCount);
+        return Math.round(ratio * maxPos);
       };
 
       const onPointerMove = (moveEvent: PointerEvent) => {
@@ -379,11 +541,12 @@ export function Scrubber({
         latestPosition = pos;
 
         // Move thumb + tooltip via direct DOM writes (60fps, no React)
-        applyThumbPosition(pos, total, visibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
+        applyThumbPosition(pos, total, dragVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
 
         if (allDataInBuffer) {
           // Small result set — scroll content directly
-          scrollContentTo(pos / Math.max(1, total - 1));
+          const maxPos = Math.max(1, total - dragVisibleCount);
+          scrollContentTo(pos / maxPos);
         }
         // Large result set: no seek during drag. Thumb + tooltip show
         // the target position; data loads on pointer up.
@@ -393,7 +556,8 @@ export function Scrubber({
       const onPointerUp = () => {
         if (hasMoved) {
           if (allDataInBuffer) {
-            scrollContentTo(latestPosition / Math.max(1, total - 1));
+            const maxPos = Math.max(1, total - dragVisibleCount);
+            scrollContentTo(latestPosition / maxPos);
           } else {
             // Single seek to the final position
             onSeekRef.current(latestPosition);
@@ -413,7 +577,7 @@ export function Scrubber({
       document.addEventListener("pointerup", onPointerUp);
       document.addEventListener("pointercancel", onPointerUp);
     },
-    [currentPosition, total, visibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
+    [currentPosition, total, thumbVisibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
   );
 
   // -------------------------------------------------------------------------
@@ -422,6 +586,7 @@ export function Scrubber({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      notifyFirstInteraction();
       let newPos: number | null = null;
       const step = e.shiftKey ? ARROW_STEP_LARGE : ARROW_STEP;
       switch (e.key) {
@@ -449,10 +614,10 @@ export function Scrubber({
         pendingSeekPosRef.current = newPos;
         onSeekRef.current(newPos);
         flashTooltip();
-        applyThumbPosition(newPos, total, visibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(newPos));
+        applyThumbPosition(newPos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(newPos));
       }
     },
-    [currentPosition, total, visibleCount, flashTooltip],
+    [currentPosition, total, thumbVisibleCount, flashTooltip],
   );
 
   // -------------------------------------------------------------------------
@@ -474,9 +639,15 @@ export function Scrubber({
   // Render
   // -------------------------------------------------------------------------
 
-  const active = isDragging || isHovered || isFocused;
   const positionLabel = `${Math.min(effectivePosition + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
+
+  // Thumb color — three states: dragging > hover > idle
+  const thumbColor = isDragging
+    ? THUMB_COLOR_ACTIVE
+    : isHovered
+      ? THUMB_COLOR_HOVER
+      : THUMB_COLOR_IDLE;
 
   return (
     <div
@@ -489,68 +660,73 @@ export function Scrubber({
       aria-valuetext={sortLabel ? `${positionLabel} — ${sortLabel}` : positionLabel}
       aria-orientation="vertical"
       tabIndex={0}
-      className="relative z-20 h-full shrink-0 cursor-pointer select-none outline-none"
+      className="relative z-20 h-full shrink-0 select-none outline-none"
       style={{
         width: TRACK_WIDTH,
-        opacity: active ? 1 : 0.4,
-        backgroundColor: active
-          ? "var(--color-grid-separator)"
-          : "transparent",
-        transition: "opacity 300ms, background-color 150ms",
+        /* Track is always transparent — the thumb is the only visible part.
+           The track is wider than the thumb for a generous hit target. */
+        backgroundColor: "transparent",
+        transition: "opacity 300ms",
       }}
       onClick={handleTrackClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsFocused(true)}
-      onBlur={() => setIsFocused(false)}
       onKeyDown={handleKeyDown}
     >
-      {/* Thumb */}
+      {/* Thumb — narrow pill inset within the track. Position controlled
+          exclusively via DOM writes (useEffect + applyThumbPosition).
+          Inline style omits `top` to prevent React reconciler fighting. */}
       <div
-        ref={thumbRef}
+        ref={thumbCallbackRef}
         data-scrubber-thumb="true"
-        className="absolute left-0 right-0 rounded-sm transition-colors"
+        className="absolute"
         style={{
-          top: thumbTop,
+          left: THUMB_INSET,
+          right: THUMB_INSET,
           height: thumbHeight,
-          backgroundColor:
-            isDragging || isHovered
-              ? "var(--color-grid-accent)"
-              : "var(--color-grid-text-dim)",
+          borderRadius: (TRACK_WIDTH - THUMB_INSET * 2) / 2, // full pill
+          backgroundColor: thumbColor,
           transition: isDragging
-            ? "background-color 100ms"
-            : "top 100ms, height 100ms, background-color 150ms",
-          cursor: isDragging ? "grabbing" : "grab",
+            ? "background-color 80ms"
+            : "top 100ms, height 100ms, background-color 200ms",
         }}
         onPointerDown={handleThumbPointerDown}
       />
 
       {/* Position tooltip — shown during drag and briefly after click/keyboard.
           Suppressed when all data fits on screen (thumb covers most of the track) —
-          showing "1 of 3" when everything is visible is just noise. */}
+          showing "1 of 3" when everything is visible is just noise.
+          Right-aligned so width changes (month names, position digits) push the
+          less-visible left edge while the right edge stays locked to the scrubber. */}
       {tooltipVisible && !(allDataInBuffer && thumbHeight >= trackHeight * 0.8) && (
         <div
           ref={tooltipRef}
           className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
           style={{
-            top: Math.max(0, Math.min(trackHeight - 28, thumbTop)),
+            top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
+            textAlign: "right",
             backgroundColor: "var(--color-grid-panel)",
             border: "1px solid var(--color-grid-border)",
           }}
         >
-          {/* Sort context label — primary display, updated live via data-sort-label */}
+          {/* Sort context label — primary display, updated live via data-sort-label.
+              Uses innerHTML because date labels contain a fixed-width <span> for
+              the month abbreviation. Values are always generated internally
+              (formatSortDate or ES keyword values), never user input. */}
           <span
             data-sort-label=""
             className="block font-medium"
             style={sortLabel ? undefined : { display: "none" }}
-          >
-            {sortLabel}
-          </span>
+            dangerouslySetInnerHTML={sortLabel ? { __html: sortLabel } : undefined}
+          />
           {/* Position text — secondary, must be the first text node child for live DOM updates */}
           {positionLabel}
-          {loading && (
-            <span className="ml-1.5 text-grid-accent animate-pulse">●</span>
-          )}
+          {/* Loading dot — always in the DOM to prevent width twitch on load
+              state changes. Visibility toggled, not presence. */}
+          <span
+            className="ml-1.5 text-grid-accent animate-pulse"
+            style={{ visibility: loading ? "visible" : "hidden" }}
+          >●</span>
         </div>
       )}
     </div>

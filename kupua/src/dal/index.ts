@@ -14,6 +14,8 @@ export type {
   AggregationBucket,
   AggregationRequest,
   AggregationsResult,
+  KeywordDistribution,
+  KeywordDistBucket,
 } from "./types";
 
 export { ElasticsearchDataSource, buildSortClause, reverseSortClause, parseSortField } from "./es-adapter";

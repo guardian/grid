@@ -351,10 +351,13 @@ export function ImageGrid() {
     const el = parentRef.current;
     if (!el) return;
 
-    const virtualItems = virtualizer.getVirtualItems();
-    if (virtualItems.length > 0) {
-      const firstRowIdx = virtualItems[0].index;
-      const lastRowIdx = virtualItems[virtualItems.length - 1].index;
+    // Report the *actual* visible range (without overscan) — see ImageTable
+    // handleScroll for detailed rationale. For the grid, overscan rows are
+    // converted to flat image indices.
+    const range = virtualizer.range;
+    if (range) {
+      const firstRowIdx = range.startIndex;
+      const lastRowIdx = range.endIndex;
       // Convert row indices to flat image indices
       reportVisibleRange(firstRowIdx * columns, (lastRowIdx + 1) * columns - 1);
     }

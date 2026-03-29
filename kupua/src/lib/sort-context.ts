@@ -3,10 +3,13 @@
  *
  * Given the current orderBy and an image, returns a human-readable label
  * for the primary sort value. For date sorts: a formatted date.
- * For keyword sorts: the field value. Returns null if no meaningful label.
+ * For keyword sorts: the field value (from pre-fetched distribution when
+ * available, falling back to nearest buffer edge). Returns null if no
+ * meaningful label.
  */
 
 import type { Image } from "@/types/image";
+import type { KeywordDistribution } from "@/dal/types";
 import { format } from "date-fns";
 
 /**
@@ -17,7 +20,12 @@ import { format } from "date-fns";
  */
 const SORT_LABEL_MAP: Record<
   string,
-  { accessor: (img: Image) => string | undefined; type: "date" | "keyword" }
+  {
+    accessor: (img: Image) => string | undefined;
+    type: "date" | "keyword";
+    /** Optional display formatter for keyword values (applied before truncation). */
+    format?: (v: string) => string;
+  }
 > = {
   uploadTime: {
     accessor: (img) => img.uploadTime,
@@ -50,6 +58,7 @@ const SORT_LABEL_MAP: Record<
   mimeType: {
     accessor: (img) => img.source?.mimeType,
     type: "keyword",
+    format: (v) => v.replace("image/", ""),
   },
   imageType: {
     accessor: (img) => img.metadata?.imageType,
@@ -60,9 +69,27 @@ const SORT_LABEL_MAP: Record<
 /** Aliases are no longer needed — all keys in SORT_LABEL_MAP are now short form. */
 const SORT_KEY_ALIASES: Record<string, string> = {};
 
+/** Format + truncate a keyword value for tooltip display. */
+function formatKeywordLabel(value: string, format?: (v: string) => string): string {
+  const formatted = format ? format(value) : value;
+  return formatted.length > 30 ? formatted.slice(0, 27) + "…" : formatted;
+}
+
+/**
+ * Fixed-width month span — prevents tooltip width jitter when dragging
+ * across month boundaries. The inline-block reserves the widest month's
+ * space; text-align:center keeps narrower months visually balanced.
+ * 2.05em fits any 3-letter abbreviation in Open Sans at text-xs.
+ */
+const MONTH_SPAN_STYLE = 'display:inline-block;width:2.05em;text-align:center';
+
 function formatSortDate(dateStr: string): string {
   try {
-    return format(new Date(dateStr), "d MMM yyyy");
+    const d = new Date(dateStr);
+    const day = format(d, "d");
+    const month = format(d, "MMM");
+    const year = format(d, "yyyy");
+    return `${day} <span style="${MONTH_SPAN_STYLE}">${month}</span> ${year}`;
   } catch {
     return dateStr;
   }
@@ -98,8 +125,74 @@ export function getSortContextLabel(
     return formatSortDate(value);
   }
 
-  // Keyword: truncate long values
-  return value.length > 30 ? value.slice(0, 27) + "…" : value;
+  // Keyword: format + truncate
+  return formatKeywordLabel(value, mapping.format);
+}
+
+/**
+ * Short sort key → ES field path mapping. Mirrors buildSortClause aliases
+ * in es-adapter.ts. We duplicate this small map here to avoid importing
+ * from the DAL (sort-context is a pure utility, DAL is an implementation).
+ *
+ * Only keyword-sortable fields are listed — date sorts don't need this
+ * (they use buffer interpolation, not composite agg distribution).
+ * `filename` excluded — too high cardinality, values not useful as context.
+ */
+const KEYWORD_SORT_ES_FIELDS: Record<string, string> = {
+  credit: "metadata.credit",
+  source: "metadata.source",
+  uploadedBy: "uploadedBy",
+  category: "usageRights.category",
+  mimeType: "source.mimeType",
+  imageType: "metadata.imageType",
+};
+
+/**
+ * Resolve the current orderBy to keyword sort info (ES field path + direction).
+ * Returns null if the sort is not a keyword sort that supports distribution lookup.
+ * Used by the store to decide whether to fetch a keyword distribution.
+ */
+export function resolveKeywordSortInfo(
+  orderBy: string | undefined,
+): { field: string; direction: "asc" | "desc" } | null {
+  const effective = orderBy || DEFAULT_ORDER_BY;
+  const primary = effective.split(",")[0].trim();
+  const desc = primary.startsWith("-");
+  const bare = desc ? primary.slice(1) : primary;
+  const esField = KEYWORD_SORT_ES_FIELDS[bare];
+  if (!esField) return null;
+  return { field: esField, direction: desc ? "desc" : "asc" };
+}
+
+/**
+ * Binary search a KeywordDistribution for the value at a global position.
+ * O(log n) where n = number of unique values. Returns null if position
+ * is outside the distribution's covered range (e.g. null-value docs at the tail).
+ */
+export function lookupKeywordDistribution(
+  dist: KeywordDistribution,
+  globalPosition: number,
+  format?: (v: string) => string,
+): string | null {
+  const { buckets } = dist;
+  if (buckets.length === 0) return null;
+  // Position beyond covered range — null-valued docs at the tail
+  if (globalPosition >= dist.coveredCount) return null;
+  if (globalPosition < 0) return null;
+
+  // Binary search: find the last bucket where startPosition <= globalPosition
+  let lo = 0;
+  let hi = buckets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (buckets[mid].startPosition <= globalPosition) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  return formatKeywordLabel(buckets[lo].key, format);
 }
 
 /**
@@ -110,14 +203,16 @@ export function getSortContextLabel(
  * This gives a meaningful "14 Mar 2024" even when the scrubber is dragged
  * far from the loaded buffer.
  *
- * For keyword sorts: returns the value from the nearest buffer edge
- * (no interpolation possible for text — shows what's near).
+ * For keyword sorts: uses the pre-fetched keyword distribution if available
+ * (O(log n) binary search — no network). Falls back to nearest buffer edge
+ * if no distribution is available yet.
  *
  * @param orderBy — current orderBy string
  * @param globalPosition — the position in the full result set (0-based)
  * @param total — total results in the result set
  * @param bufferOffset — global offset of buffer[0]
  * @param results — the loaded buffer
+ * @param keywordDist — optional pre-fetched keyword distribution
  */
 export function interpolateSortLabel(
   orderBy: string | undefined,
@@ -125,6 +220,7 @@ export function interpolateSortLabel(
   total: number,
   bufferOffset: number,
   results: (Image | undefined)[],
+  keywordDist?: KeywordDistribution | null,
 ): string | null {
   if (!results.length || total <= 0) return null;
 
@@ -138,7 +234,14 @@ export function interpolateSortLabel(
     if (!img) return null;
     const val = mapping.accessor(img);
     if (!val) return null;
-    return mapping.type === "date" ? formatSortDate(val) : (val.length > 30 ? val.slice(0, 27) + "…" : val);
+    return mapping.type === "date" ? formatSortDate(val) : formatKeywordLabel(val, mapping.format);
+  }
+
+  // --- Outside buffer: interpolate/extrapolate ---
+
+  // Keyword sort with pre-fetched distribution — binary search, no network
+  if (mapping.type === "keyword" && keywordDist) {
+    return lookupKeywordDistribution(keywordDist, globalPosition, mapping.format);
   }
 
   // Find the first and last non-undefined images in the buffer
@@ -176,9 +279,9 @@ export function interpolateSortLabel(
 
   // Keyword: return nearest edge value
   if (localIdx < 0) {
-    return firstVal ? (firstVal.length > 30 ? firstVal.slice(0, 27) + "…" : firstVal) : null;
+    return firstVal ? formatKeywordLabel(firstVal, mapping.format) : null;
   }
-  return lastVal ? (lastVal.length > 30 ? lastVal.slice(0, 27) + "…" : lastVal) : null;
+  return lastVal ? formatKeywordLabel(lastVal, mapping.format) : null;
 }
 
 

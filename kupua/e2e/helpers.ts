@@ -46,6 +46,12 @@ export class KupuaHelpers {
     await this.waitForResults();
   }
 
+  /** Navigate with custom search params (merged with nonFree=true). */
+  async gotoWithParams(extraParams: string) {
+    await this.page.goto(`/search?nonFree=true&${extraParams}`);
+    await this.waitForResults();
+  }
+
   /** Wait until search results are visible (at least one row/cell). */
   async waitForResults(timeout = 15_000) {
     // Wait for either grid cells or table rows to appear
@@ -252,6 +258,50 @@ export class KupuaHelpers {
   async getScrubberMax(): Promise<number> {
     const val = await this.scrubber.getAttribute("aria-valuemax");
     return val ? parseInt(val, 10) : 0;
+  }
+
+  /** Get the scrubber thumb's top offset in pixels (from the track top). */
+  async getScrubberThumbTop(): Promise<number> {
+    return this.page.evaluate(() => {
+      const thumb = document.querySelector('[data-scrubber-thumb="true"]') as HTMLElement;
+      if (!thumb) return 0;
+      return parseFloat(thumb.style.top) || 0;
+    });
+  }
+
+  /** Get the scroll container's scroll ratio: scrollTop / (scrollHeight - clientHeight). */
+  async getScrollRatio(): Promise<number> {
+    return this.page.evaluate(() => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = grid ?? table;
+      if (!el) return 0;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      return maxScroll > 0 ? el.scrollTop / maxScroll : 0;
+    });
+  }
+
+  /** Check if the store has all results in the buffer (scroll mode). */
+  async isScrollMode(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return false;
+      const s = store.getState();
+      return s.total > 0 && s.results.length >= s.total;
+    });
+  }
+
+  /** Wait until the buffer is fully filled (scroll mode activates). */
+  async waitForScrollMode(timeout = 10_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.total > 0 && s.results.length >= s.total;
+      },
+      { timeout },
+    );
   }
 
   /**

@@ -26,10 +26,12 @@ import type {
   SortValues,
   AggregationsResult,
   AggregationResult,
+  KeywordDistribution,
 } from "@/dal";
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
+import { resolveKeywordSortInfo } from "@/lib/sort-context";
 
 // ---------------------------------------------------------------------------
 // Buffer constants
@@ -47,6 +49,24 @@ const BUFFER_CAPACITY = 1000;
  * Smaller than BUFFER_CAPACITY so extends don't replace the entire buffer.
  */
 const PAGE_SIZE = 200;
+
+/**
+ * Maximum total result count for which the store will eagerly fetch ALL
+ * results into the buffer after the initial page. When total ≤ this value,
+ * the scrubber enters "scroll mode" (drag directly scrolls content, no
+ * seek-on-pointer-up). When total > this value, the scrubber stays in
+ * "seek mode" (windowed buffer, scrubber is a position-seeking control).
+ *
+ * Two-phase approach: search() always fetches PAGE_SIZE first (instant
+ * results), then if total ≤ threshold, fires a follow-up fetch for the
+ * remainder. User sees results immediately; scroll mode activates ~200-
+ * 500ms later.
+ *
+ * Configurable via VITE_SCROLL_MODE_THRESHOLD env var (set in .env).
+ */
+const SCROLL_MODE_THRESHOLD = Number(
+  import.meta.env.VITE_SCROLL_MODE_THRESHOLD ?? 1000,
+);
 
 /**
  * Maximum number of rows addressable via `from/size` pagination.
@@ -123,8 +143,8 @@ interface SearchState {
 
   /** ES query time in ms from the most recent primary search. */
   took: number | null;
-  /** Rolling average of recent extend ES times (ms). */
-  scrollAvg: number | null;
+  /** Wall-clock time in ms of the most recent seek operation (null if no seek yet). */
+  seekTime: number | null;
 
   // O(1) image ID → global index lookup, maintained incrementally.
   imagePositions: Map<string, number>;
@@ -202,6 +222,12 @@ interface SearchState {
   expandedAggs: Record<string, AggregationResult>;
   expandedAggsLoading: Set<string>;
 
+  // --- Keyword distribution for scrubber tooltip (sort-context) ---
+  /** Pre-fetched keyword distribution for the current keyword sort field. */
+  keywordDistribution: KeywordDistribution | null;
+  /** Cache key: query params + orderBy. Null = not fetched. */
+  _kwDistCacheKey: string | null;
+
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
   /**
@@ -236,6 +262,11 @@ interface SearchState {
   fetchAggregations: (force?: boolean) => Promise<void>;
   fetchExpandedAgg: (field: string) => Promise<void>;
   collapseExpandedAgg: (field: string) => void;
+  /**
+   * Fetch keyword distribution for the current sort field (if keyword sort).
+   * Lazy — called on first scrubber interaction, cached until query/sort changes.
+   */
+  fetchKeywordDistribution: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,15 +290,14 @@ let _rangeAbortController = new AbortController();
  */
 let _seekCooldownUntil = 0;
 
-/** Rolling window of recent extend ES took values for computing scrollAvg. */
-const _scrollTookWindow: number[] = [];
-const SCROLL_TOOK_WINDOW_SIZE = 10;
-
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
+
+/** Abort controller for the keyword distribution request. */
+let _kwDistAbortController: AbortController | null = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -287,6 +317,14 @@ function aggCacheKey(params: SearchParams): string {
     modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
     hasRightsAcquired, syndicationStatus, persisted,
   });
+}
+
+/**
+ * Cache key for keyword distribution — includes orderBy (sort field + direction
+ * matter) on top of the result-set-affecting params from aggCacheKey.
+ */
+function kwDistCacheKey(params: SearchParams): string {
+  return aggCacheKey(params) + "|" + (params.orderBy ?? "");
 }
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
@@ -359,16 +397,100 @@ function evictPositions(
   return newMap;
 }
 
+// ---------------------------------------------------------------------------
+// Scroll-mode buffer fill — eagerly load all results for small sets
+// ---------------------------------------------------------------------------
+
 /**
- * Update the scrollAvg rolling average and return the new value (or null).
- * Only returns a value if it changed (to avoid unnecessary state updates).
+ * After the initial search, if total ≤ SCROLL_MODE_THRESHOLD, fetch all
+ * remaining results so the buffer contains the entire result set. This
+ * activates "scroll mode" in the scrubber (drag directly scrolls content).
+ *
+ * Runs in the background — user already sees the first PAGE_SIZE results.
+ * Fetches in PAGE_SIZE chunks via searchAfter, appending to the buffer.
+ * Aborted if a new search starts (signal is cancelled).
  */
-function updateScrollAvg(took: number | undefined, currentAvg: number | null): { scrollAvg: number | null } | {} {
-  if (took == null) return {};
-  _scrollTookWindow.push(took);
-  if (_scrollTookWindow.length > SCROLL_TOOK_WINDOW_SIZE) _scrollTookWindow.shift();
-  const avg = Math.round(_scrollTookWindow.reduce((a, b) => a + b, 0) / _scrollTookWindow.length);
-  return avg !== currentAvg ? { scrollAvg: avg } : {};
+async function _fillBufferForScrollMode(
+  dataSource: ImageDataSource,
+  params: SearchParams,
+  loadedSoFar: number,
+  total: number,
+  cursor: SortValues,
+  pitId: string | null,
+  signal: AbortSignal,
+  get: () => SearchState,
+  set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
+): Promise<void> {
+  let currentCursor = cursor;
+  let fetched = loadedSoFar;
+
+  console.log(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
+
+  // Suppress forward extends while filling — prevents the virtualizer's
+  // reportVisibleRange from firing overlapping searchAfter requests.
+  set({ _extendForwardInFlight: true });
+
+  while (fetched < total) {
+    if (signal.aborted) {
+      set({ _extendForwardInFlight: false });
+      return;
+    }
+
+    const remaining = total - fetched;
+    const chunkSize = Math.min(PAGE_SIZE, remaining);
+
+    try {
+      const result = await dataSource.searchAfter(
+        { ...params, length: chunkSize },
+        currentCursor,
+        pitId,
+        signal,
+      );
+
+      if (signal.aborted) {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      if (result.hits.length === 0) break;
+
+      // Update cursor for next iteration
+      const newEndCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+      if (!newEndCursor) break;
+      currentCursor = newEndCursor;
+
+      // Append to buffer — no eviction (we want the full set)
+      set((state) => {
+        const newBuffer = [...state.results, ...result.hits];
+        const newPositions = buildPositions(
+          result.hits,
+          state.bufferOffset + state.results.length,
+          state.imagePositions,
+        );
+        return {
+          results: newBuffer,
+          imagePositions: newPositions,
+          endCursor: newEndCursor,
+          total: result.total, // may have changed
+        };
+      });
+
+      fetched += result.hits.length;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      // Non-fatal — user already has partial results, scroll mode just
+      // won't activate. Log and stop.
+      console.warn("[scroll-mode-fill] Failed to fetch chunk:", e);
+      break;
+    }
+  }
+
+  console.log(`[scroll-mode-fill] Complete — buffer now has ${get().results.length} results`);
+  set({ _extendForwardInFlight: false });
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +686,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   loading: false,
   error: null,
   took: null,
-  scrollAvg: null,
+  seekTime: null,
 
   imagePositions: new Map(),
 
@@ -597,6 +719,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   expandedAggs: {},
   expandedAggsLoading: new Set(),
 
+  // Keyword distribution state (scrubber tooltip)
+  keywordDistribution: null,
+  _kwDistCacheKey: null,
+
   setParams: (newParams) => {
     set((state) => ({
       params: { ...state.params, ...newParams, offset: 0 },
@@ -613,6 +739,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
     const signal = _rangeAbortController.signal;
+
+    // Abort any in-flight keyword distribution fetch
+    if (_kwDistAbortController) _kwDistAbortController.abort();
+
+    // Clear extend-in-flight flags — the abort above cancels any in-flight
+    // extends or scroll-mode fill from the previous search. Without this,
+    // a scroll-mode fill that gets aborted leaves _extendForwardInFlight
+    // stuck at true, blocking sort-around-focus and future extends.
+    set({
+      _extendForwardInFlight: false, _extendBackwardInFlight: false,
+      keywordDistribution: null, _kwDistCacheKey: null,
+    });
 
     // Close old PIT (fire-and-forget)
     if (oldPitId) {
@@ -638,7 +776,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       );
 
       const now = new Date().toISOString();
-      _scrollTookWindow.length = 0;
 
       // Extract cursors from sort values
       const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
@@ -664,7 +801,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({
           total: result.total,
           took: result.took ?? null,
-          scrollAvg: null,
+          seekTime: null,
           params: { ...params, offset: 0 },
           pitId: result.pitId ?? newPitId,
           newCount: 0,
@@ -685,7 +822,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           total: result.total,
           loading: false,
           took: result.took ?? null,
-          scrollAvg: null,
+          seekTime: null,
           params: { ...params, offset: 0 },
           imagePositions: buildPositions(result.hits, 0),
           startCursor,
@@ -706,6 +843,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             : {}),
         });
         startNewImagesPoll(get, set);
+
+        // -----------------------------------------------------------
+        // Scroll-mode fill: if the total is small enough, eagerly
+        // fetch ALL remaining results so the scrubber enters scroll
+        // mode (drag directly scrolls content, no seek needed).
+        // Runs in the background — user already sees the first page.
+        // -----------------------------------------------------------
+        if (
+          result.total > result.hits.length &&
+          result.total <= SCROLL_MODE_THRESHOLD &&
+          endCursor
+        ) {
+          _fillBufferForScrollMode(
+            dataSource, params, result.hits.length, result.total,
+            endCursor, result.pitId ?? newPitId, signal, get, set,
+          );
+        }
       }
     } catch (e) {
       set({
@@ -789,7 +943,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             _lastForwardEvictCount: evictedFromStart,
             _forwardEvictGeneration: state._forwardEvictGeneration + 1,
           } : {}),
-          ...updateScrollAvg(result.took, state.scrollAvg),
         };
       });
     } catch (e) {
@@ -874,7 +1027,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _extendBackwardInFlight: false,
           _lastPrependCount: result.hits.length,
           _prependGeneration: state._prependGeneration + 1,
-          ...updateScrollAvg(result.took, state.scrollAvg),
         };
       });
     } catch (e) {
@@ -914,6 +1066,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _seekCooldownUntil = Date.now() + 500;
 
     set({ loading: true, error: null });
+
+    const seekStartTime = Date.now();
 
     try {
       // Center the buffer around the target offset
@@ -1023,6 +1177,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // Strategy A: Composite aggregation for keyword fields
           // -----------------------------------------------------------------
           if (!isScript && pField && dataSource.findKeywordSortValue) {
+            console.log(
+              `[seek] keyword strategy A: field=${pField}, target=${fetchStart}, ` +
+              `dir=${primaryDir}, total=${total}`,
+            );
             const keywordValue = await dataSource.findKeywordSortValue(
               params,
               pField,
@@ -1032,6 +1190,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             );
 
             if (signal.aborted) return;
+
+            console.log(
+              `[seek] findKeywordSortValue returned: ${JSON.stringify(keywordValue)}`,
+            );
 
             if (keywordValue != null) {
               // Build search_after cursor from the keyword value
@@ -1045,6 +1207,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   searchAfterValues.push(0);
                 }
               }
+
+              console.log(
+                `[seek] search_after cursor: ${JSON.stringify(searchAfterValues)}`,
+              );
 
               result = await dataSource.searchAfter(
                 { ...params, length: PAGE_SIZE },
@@ -1064,6 +1230,119 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   signal,
                 );
                 actualOffset = countBefore;
+                console.log(
+                  `[seek] countBefore=${countBefore}, landedSortValues=${JSON.stringify(landedSortValues)}, ` +
+                  `target was ${fetchStart}, drift=${Math.abs(countBefore - fetchStart)}`,
+                );
+              }
+
+              // -----------------------------------------------------------------
+              // Refinement: if we landed far from the target (large keyword
+              // bucket — e.g. 400k docs all with credit "PA"), binary-search
+              // on the tiebreaker field to find a precise cursor.
+              //
+              // Old approach: iterative search_after hops transferring 100k+
+              // sort values per hop — 46s for a 456k drift through SSH tunnel.
+              //
+              // New approach: binary search using countBefore (a single _count
+              // query per iteration, ~5-10ms each). The tiebreaker is always
+              // the `id` field (40-char hex SHA-1), uniformly distributed.
+              // ~20 binary search steps → ~200ms total.
+              // -----------------------------------------------------------------
+              const drift = fetchStart - actualOffset;
+              if (drift > PAGE_SIZE && result.hits.length > 0 && result.sortValues.length > 0) {
+                // Identify the tiebreaker field (last sort clause — always `id`)
+                const lastClause = sortClause[sortClause.length - 1];
+                const { field: tiebreakerField } = parseSortField(lastClause);
+
+                if (tiebreakerField === "id") {
+                  console.log(
+                    `[seek] large bucket drift=${drift}, refining via binary search on id...`,
+                  );
+
+                  // Binary search bounds: hex values for the id field.
+                  // IDs are 40-char hex SHA-1 hashes (chars 0-9, a-f).
+                  // We interpolate on the first 12 hex chars (~48 bits).
+                  let loNum = 0;
+                  let hiNum = 0xffffffffffff; // 12 hex "f"s
+                  const MAX_BISECT = 50;
+                  let bestCursor: SortValues = searchAfterValues;
+                  let bestOffset = actualOffset;
+
+                  for (let step = 0; step < MAX_BISECT; step++) {
+                    if (signal.aborted) return;
+
+                    if (hiNum - loNum <= 1) break; // converged
+
+                    const midNum = Math.floor((loNum + hiNum) / 2);
+                    const mid = midNum.toString(16).padStart(12, "0");
+
+                    // Build cursor with the keyword value + interpolated id
+                    const probeCursor: SortValues = [...searchAfterValues];
+                    probeCursor[probeCursor.length - 1] = mid;
+
+                    const count = await dataSource.countBefore(
+                      params,
+                      probeCursor,
+                      sortClause,
+                      signal,
+                    );
+
+                    if (step < 5 || step % 5 === 0) {
+                      console.log(
+                        `[seek] bisect step ${step}: mid=${mid}, count=${count}, ` +
+                        `target=${fetchStart}, gap=${count - fetchStart}`,
+                      );
+                    }
+
+                    if (count <= fetchStart) {
+                      loNum = midNum;
+                      if (count > bestOffset) {
+                        bestOffset = count;
+                        bestCursor = probeCursor;
+                      }
+                    } else {
+                      hiNum = midNum;
+                    }
+
+                    // Close enough — within PAGE_SIZE of target
+                    if (Math.abs(count - fetchStart) <= PAGE_SIZE) {
+                      bestOffset = count;
+                      bestCursor = probeCursor;
+                      console.log(
+                        `[seek] binary search converged at step ${step + 1}: ` +
+                        `count=${count}, target=${fetchStart}, gap=${Math.abs(count - fetchStart)}`,
+                      );
+                      break;
+                    }
+                  }
+
+                  if (signal.aborted) return;
+
+                  // Fetch the actual page from the converged cursor
+                  const refinedResult = await dataSource.searchAfter(
+                    { ...params, length: PAGE_SIZE },
+                    bestCursor,
+                    pitId,
+                    signal,
+                  );
+
+                  if (refinedResult.hits.length > 0) {
+                    result = refinedResult;
+                    actualOffset = bestOffset;
+                    console.log(
+                      `[seek] binary search refinement complete: ` +
+                      `actualOffset=${actualOffset}, target=${fetchStart}`,
+                    );
+                  }
+                } else {
+                  // Non-id tiebreaker (shouldn't happen with current sort configs).
+                  // Fall through to the reverse-seek-to-end check below.
+                  console.warn(
+                    `[seek] large drift=${drift} but tiebreaker is "${tiebreakerField}", not "id". ` +
+                    `Binary search not applicable — results may be approximate.`,
+                  );
+                }
               }
 
               // If we landed far from the target and the target is near the
@@ -1236,8 +1515,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: targetLocalIdx,
-        ...updateScrollAvg(result.took, get().scrollAvg),
+        seekTime: Date.now() - seekStartTime,
       });
+
+      console.log(
+        `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
+        `hits=${result.hits.length}, targetLocalIdx=${targetLocalIdx}, ` +
+        `ratio=${(actualOffset / (result.total || 1)).toFixed(4)}`,
+      );
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         // Don't set loading: false here — the newer seek/search that
@@ -1367,6 +1652,45 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       const { [field]: _, ...rest } = state.expandedAggs;
       return { expandedAggs: rest };
     });
+  },
+
+  fetchKeywordDistribution: async () => {
+    const { dataSource, params, _kwDistCacheKey } = get();
+
+    // Check if the current sort is a keyword sort
+    const sortInfo = resolveKeywordSortInfo(params.orderBy);
+    if (!sortInfo) return; // Not a keyword sort — nothing to fetch
+
+    // Check cache — skip if already fetched for this query + sort
+    const key = kwDistCacheKey(params);
+    if (key === _kwDistCacheKey) return;
+
+    // Abort previous in-flight request
+    if (_kwDistAbortController) _kwDistAbortController.abort();
+    _kwDistAbortController = new AbortController();
+
+    // Check if the data source supports this method
+    if (!dataSource.getKeywordDistribution) return;
+
+    try {
+      const dist = await dataSource.getKeywordDistribution(
+        params,
+        sortInfo.field,
+        sortInfo.direction,
+        _kwDistAbortController.signal,
+      );
+
+      // Guard: params may have changed while awaiting
+      if (kwDistCacheKey(get().params) !== key) return;
+
+      set({
+        keywordDistribution: dist,
+        _kwDistCacheKey: key,
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      console.warn("[search-store] fetchKeywordDistribution failed:", e);
+    }
   },
 }));
 

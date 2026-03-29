@@ -53,7 +53,7 @@ export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const took = useSearchStore((s) => s.took);
-  const scrollAvg = useSearchStore((s) => s.scrollAvg);
+  const seekTime = useSearchStore((s) => s.seekTime);
   // Track whether the CQL editor has content (for showing the clear button)
   const [hasEditorContent, setHasEditorContent] = useState(
     !!(searchParams.query)
@@ -188,12 +188,16 @@ export function SearchBar() {
 
       {/* ES timing — far right. Always rendered to avoid layout shift. */}
       <span className="text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
-        {took != null ? (
-          <>
+        {took != null && (
+          <span title="Elasticsearch query time for initial search">
             {took}ms
-            {scrollAvg != null && ` / ${scrollAvg}ms`}
-          </>
-        ) : null}
+          </span>
+        )}
+        {seekTime != null && (
+          <span title="Total wall-clock time of last scrubber seek (includes all ES round-trips)">
+            {" / "}{seekTime < 1000 ? `${seekTime}ms` : `${(seekTime / 1000).toFixed(1)}s`}
+          </span>
+        )}
       </span>
     </header>
   );

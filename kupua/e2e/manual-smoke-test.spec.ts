@@ -394,4 +394,169 @@ test.describe("Smoke — real ES", () => {
     expect(gridDiag!.inBuffer).toBe(true);
     expect(gridDiag!.visible).toBe(true);
   });
+
+  // ---------------------------------------------------------------------------
+  // Smoke #10 — Credit sort: seek to 75% diagnostic
+  //
+  // Bug: clicking 75% on Credit sort — thumb moves but results don't scroll.
+  // This test captures everything needed to diagnose: console logs from the
+  // seek pipeline, store state before/after, scroll position, timing.
+  // ---------------------------------------------------------------------------
+
+  test("S10: Credit sort seek to 75% — full diagnostic", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+
+    // Switch to Credit sort — wait for loading to fully settle
+    await kupua.selectSort("Credit");
+    await kupua.waitForSeekComplete(30_000);
+    const before = await kupua.getStoreState();
+    console.log(`\n  [S10] ── BEFORE SEEK ──`);
+    console.log(`  total=${before.total}, bufferOffset=${before.bufferOffset}, len=${before.resultsLength}`);
+    console.log(`  orderBy=${before.orderBy}, error=${before.error}, loading=${before.loading}`);
+    console.log(`  seekGeneration=${before.seekGeneration}, seekTargetLocalIdx=${before.seekTargetLocalIndex}`);
+
+    // Start capturing console logs BEFORE the seek
+    kupua.startConsoleCapture();
+
+    // Compute expected target position
+    const targetRatio = 0.75;
+    const expectedGlobalPos = Math.floor(total * targetRatio);
+    console.log(`  [S10] Target: ratio=${targetRatio}, expectedGlobalPos≈${expectedGlobalPos}`);
+
+    // Click scrubber at 75% — with long timeout since refinement may be slow
+    const seekStart = Date.now();
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
+    const clickX = trackBox!.x + trackBox!.width / 2;
+    const clickY = trackBox!.y + targetRatio * trackBox!.height;
+    console.log(`  [S10] Clicking scrubber at y=${clickY.toFixed(0)} (track top=${trackBox!.y.toFixed(0)}, height=${trackBox!.height.toFixed(0)})`);
+    await kupua.page.mouse.click(clickX, clickY);
+
+    // Poll store state every 2s for up to 90s to see what's happening
+    let settled = false;
+    for (let poll = 0; poll < 45; poll++) {
+      await kupua.page.waitForTimeout(2000);
+      const s = await kupua.getStoreState();
+      const elapsed = Date.now() - seekStart;
+      console.log(
+        `  [S10] poll ${poll} (${(elapsed / 1000).toFixed(1)}s): ` +
+        `offset=${s.bufferOffset}, len=${s.resultsLength}, loading=${s.loading}, ` +
+        `error=${s.error}, seekGen=${s.seekGeneration}`
+      );
+      if (!s.loading && s.resultsLength > 0 && s.seekGeneration > before.seekGeneration) {
+        settled = true;
+        break;
+      }
+      if (s.error) {
+        console.log(`  [S10] ERROR during seek: ${s.error}`);
+        settled = true;
+        break;
+      }
+    }
+    const seekMs = Date.now() - seekStart;
+
+    // Dump ALL [seek] and [ES] console logs from the seek
+    const seekLogs = kupua.getConsoleLogs(/\[seek\]|\[ES\]/);
+    console.log(`\n  [S10] ── SEEK CONSOLE LOGS (${seekLogs.length} lines) ──`);
+    for (const log of seekLogs) {
+      console.log(`  ${log}`);
+    }
+
+    // Final store state
+    const after = await kupua.getStoreState();
+    console.log(`\n  [S10] ── AFTER SEEK (${seekMs}ms, settled=${settled}) ──`);
+    console.log(`  total=${after.total}, bufferOffset=${after.bufferOffset}, len=${after.resultsLength}`);
+    console.log(`  loading=${after.loading}, error=${after.error}`);
+    console.log(`  seekGeneration=${after.seekGeneration}, seekTargetLocalIdx=${after.seekTargetLocalIndex}`);
+    console.log(`  firstImageId=${after.firstImageId}, lastImageId=${after.lastImageId}`);
+
+    // Check: is _seekTargetLocalIndex within the buffer?
+    const targetInBounds = after.seekTargetLocalIndex >= 0 && after.seekTargetLocalIndex < after.resultsLength;
+    console.log(`  seekTargetLocalIndex in bounds: ${targetInBounds} (${after.seekTargetLocalIndex} < ${after.resultsLength})`);
+
+    // Check grid scroll position
+    const gridDiag = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      if (!el) return null;
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
+      const firstVisibleRow = Math.floor(el.scrollTop / 303);
+      const firstVisibleLocalIdx = firstVisibleRow * cols;
+      const firstVisibleGlobalPos = firstVisibleLocalIdx + s.bufferOffset;
+      return {
+        scrollTop: el.scrollTop,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        cols,
+        firstVisibleRow,
+        firstVisibleLocalIdx,
+        firstVisibleGlobalPos,
+        bufferOffset: s.bufferOffset,
+        resultsLength: s.results.length,
+      };
+    });
+    console.log(`  [S10] Grid diag:`, JSON.stringify(gridDiag, null, 2));
+
+    // Compute actual position ratio
+    if (gridDiag && after.total > 0) {
+      const actualRatio = gridDiag.firstVisibleGlobalPos / after.total;
+      const bufferRatio = after.bufferOffset / after.total;
+      console.log(`  [S10] Position ratios: target=${targetRatio}, buffer=${bufferRatio.toFixed(4)}, visible=${actualRatio.toFixed(4)}`);
+      console.log(`  [S10] Drift: buffer is ${(bufferRatio - targetRatio) * 100}% off target`);
+    }
+
+    // Basic assertions — the seek must have completed and moved the buffer
+    expect(after.error).toBeNull();
+    expect(settled).toBe(true);
+    expect(after.bufferOffset).toBeGreaterThan(before.bufferOffset);
+
+    // The buffer should be somewhere near 75% (within 10% tolerance)
+    const actualBufferRatio = after.bufferOffset / after.total;
+    console.log(`  [S10] VERDICT: bufferOffset/total = ${actualBufferRatio.toFixed(4)}, target was ${targetRatio}`);
+    // Don't fail on tolerance — we want the diagnostic data even if it's wrong
+    if (Math.abs(actualBufferRatio - targetRatio) > 0.1) {
+      console.log(`  [S10] ⚠️  BUFFER IS MORE THAN 10% OFF TARGET — THIS IS THE BUG`);
+    }
+
+    // Performance gate: 75% seek must complete in <15s.
+    // Old refinement loop: 46s. New binary search: should be <5s.
+    console.log(`  [S10] Seek time: ${(seekMs / 1000).toFixed(1)}s`);
+    expect(seekMs).toBeLessThan(15_000);
+
+    // Also do 50% for comparison
+    console.log(`\n  [S10] ── NOW SEEKING TO 50% FOR COMPARISON ──`);
+    kupua.startConsoleCapture();
+    const seekStart2 = Date.now();
+    await kupua.page.mouse.click(clickX, trackBox!.y + 0.5 * trackBox!.height);
+
+    for (let poll = 0; poll < 30; poll++) {
+      await kupua.page.waitForTimeout(2000);
+      const s = await kupua.getStoreState();
+      const elapsed = Date.now() - seekStart2;
+      console.log(
+        `  [S10] 50% poll ${poll} (${(elapsed / 1000).toFixed(1)}s): ` +
+        `offset=${s.bufferOffset}, len=${s.resultsLength}, loading=${s.loading}, ` +
+        `seekGen=${s.seekGeneration}`
+      );
+      if (!s.loading && s.resultsLength > 0 && s.seekGeneration > after.seekGeneration) {
+        break;
+      }
+    }
+
+    const seekLogs2 = kupua.getConsoleLogs(/\[seek\]|\[ES\]/);
+    console.log(`\n  [S10] ── 50% SEEK CONSOLE LOGS (${seekLogs2.length} lines) ──`);
+    for (const log of seekLogs2) {
+      console.log(`  ${log}`);
+    }
+
+    const after50 = await kupua.getStoreState();
+    const seekMs2 = Date.now() - seekStart2;
+    console.log(`\n  [S10] ── AFTER 50% SEEK (${seekMs2}ms) ──`);
+    console.log(`  bufferOffset=${after50.bufferOffset}, len=${after50.resultsLength}, error=${after50.error}`);
+    if (after50.total > 0) {
+      console.log(`  50% ratio: ${(after50.bufferOffset / after50.total).toFixed(4)}, target was 0.5`);
+    }
+  });
 });

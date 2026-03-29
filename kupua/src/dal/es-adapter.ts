@@ -20,6 +20,8 @@ import type {
   AggregationResult,
   AggregationRequest,
   AggregationsResult,
+  KeywordDistribution,
+  KeywordDistBucket,
 } from "./types";
 import { parseCql } from "@/lib/cql";
 import { gridConfig } from "@/lib/grid-config";
@@ -642,6 +644,36 @@ export class ElasticsearchDataSource implements ImageDataSource {
       if (e instanceof DOMException && e.name === "AbortError") {
         return { hits: [], total: 0, sortValues: [] };
       }
+      // PIT 404/410 — the PIT expired or was closed by a concurrent search().
+      // Retry without PIT using the index-prefixed path. This loses snapshot
+      // isolation but is far better than failing the seek entirely.
+      if (pitId && e instanceof Error && /40[04]/.test(e.message)) {
+        console.warn("[ES] searchAfter: PIT expired/closed, retrying without PIT");
+        delete body.pit;
+        try {
+          const fallbackResult = (await this.esRequest("_search", body, signal)) as {
+            took?: number;
+            hits: {
+              total: { value: number };
+              hits: Array<{ _id: string; _source: Image; sort: SortValues }>;
+            };
+          };
+          const rawHits = fallbackResult.hits.hits;
+          const orderedHits = reverse ? [...rawHits].reverse() : rawHits;
+          return {
+            hits: orderedHits.map((hit) => hit._source),
+            total: fallbackResult.hits.total.value,
+            took: fallbackResult.took,
+            sortValues: orderedHits.map((hit) => hit.sort),
+            // No pitId — caller should open a new one if needed
+          };
+        } catch (fallbackErr) {
+          if (fallbackErr instanceof DOMException && fallbackErr.name === "AbortError") {
+            return { hits: [], total: 0, sortValues: [] };
+          }
+          throw fallbackErr;
+        }
+      }
       throw e;
     }
   }
@@ -911,6 +943,89 @@ export class ElasticsearchDataSource implements ImageDataSource {
       `Returning approximate value.`,
     );
     return lastKeywordValue;
+  }
+
+  /**
+   * Fetch the complete keyword distribution for a sort field.
+   * Returns all unique values with doc counts in sort order, plus cumulative
+   * start positions for O(log n) position→value lookup.
+   *
+   * Capped at 5 composite pages (50k unique values). Fields with higher
+   * cardinality return a partial distribution (still useful for the covered range).
+   */
+  async getKeywordDistribution(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<KeywordDistribution | null> {
+    const BUCKET_SIZE = 10_000;
+    const MAX_PAGES = 5;
+    const startTime = Date.now();
+    const buckets: KeywordDistBucket[] = [];
+    let cumulative = 0;
+    let afterKey: Record<string, unknown> | undefined;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      if (signal?.aborted) return null;
+
+      const composite: Record<string, unknown> = {
+        sources: [
+          { _sort_field: { terms: { field, order: direction } } },
+        ],
+        size: BUCKET_SIZE,
+      };
+      if (afterKey) {
+        composite.after = afterKey;
+      }
+
+      const body: Record<string, unknown> = {
+        size: 0,
+        query: buildQuery(params),
+        aggs: { dist: { composite } },
+        track_total_hits: false,
+      };
+
+      try {
+        const result = (await this.esRequest("_search", body, signal)) as {
+          aggregations?: {
+            dist?: {
+              after_key?: Record<string, unknown>;
+              buckets?: Array<{ key: Record<string, unknown>; doc_count: number }>;
+            };
+          };
+        };
+
+        const esBuckets = result.aggregations?.dist?.buckets;
+        if (!esBuckets || esBuckets.length === 0) break;
+
+        for (const b of esBuckets) {
+          buckets.push({
+            key: String(b.key._sort_field),
+            count: b.doc_count,
+            startPosition: cumulative,
+          });
+          cumulative += b.doc_count;
+        }
+
+        afterKey = result.aggregations?.dist?.after_key;
+        if (!afterKey || esBuckets.length < BUCKET_SIZE) break; // last page
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return null;
+        console.warn("[ES] getKeywordDistribution failed:", e);
+        return null;
+      }
+    }
+
+    if (buckets.length === 0) return null;
+
+    console.log(
+      `[ES] getKeywordDistribution: ${field} ${direction} — ` +
+      `${buckets.length} unique values, ${cumulative} docs covered ` +
+      `(${Date.now() - startTime}ms)`,
+    );
+
+    return { buckets, coveredCount: cumulative };
   }
 }
 

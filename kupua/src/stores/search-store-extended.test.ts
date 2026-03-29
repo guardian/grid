@@ -110,7 +110,7 @@ describe("sort-context label — resolveSortMapping", () => {
     const img = state().results[0]!;
     const label = getSortContextLabel("-uploadTime", img);
     expect(label).not.toBeNull();
-    expect(label).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
+    expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
   });
 
   it("resolves uploadTime (asc) to date label", async () => {
@@ -164,7 +164,7 @@ describe("sort-context label — resolveSortMapping", () => {
     // undefined orderBy means default sort = -uploadTime, so we should get a date
     const label = getSortContextLabel(undefined, img);
     expect(label).not.toBeNull();
-    expect(label).toMatch(/\d{1,2} \w{3} \d{4}/); // e.g. "1 Jan 2020"
+    expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2} \w{3} \d{4}/); // e.g. "1 Jan 2020"
   });
 });
 
@@ -187,7 +187,7 @@ describe("interpolateSortLabel — interpolation", () => {
     const { results, bufferOffset, total } = state();
     const label = interpolateSortLabel("-uploadTime", 5000, total, bufferOffset, results);
     expect(label).not.toBeNull();
-    expect(label).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
+    expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
   });
 
   it("interpolates dates outside buffer (below — negative local)", async () => {
@@ -433,19 +433,21 @@ describe("sort-around-focus — different sorts", () => {
     expect(globalIdx).toBeDefined();
   });
 
-  it("sort-around-focus bumps _seekGeneration when outside buffer", async () => {
+  it("sort-around-focus bumps sortAroundFocusGeneration when outside buffer", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
 
     await actions().search();
-    const genBefore = state()._seekGeneration;
+    const genBefore = state().sortAroundFocusGeneration;
     actions().setFocusedImageId("img-400");
 
     await actions().search("img-400");
     await waitFor(() => state().sortAroundFocusStatus === null, 5000, "focus found");
 
-    // Should have bumped _seekGeneration (needed reposition)
-    expect(state()._seekGeneration).toBeGreaterThan(genBefore);
+    // Should have bumped sortAroundFocusGeneration (needed reposition).
+    // NOTE: _seekGeneration is intentionally NOT bumped — see Bug #15 fix.
+    // sortAroundFocusGeneration is the sole scroll trigger for sort-around-focus.
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
   });
 
   it("sort-around-focus does NOT bump _seekGeneration when in first page", async () => {

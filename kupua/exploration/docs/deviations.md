@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-03-28
+Last updated: 2026-03-29
 
 ---
 
@@ -825,4 +825,29 @@ dates cluster around business hours and events, so the estimate may be
 off by hours or days at the extremes. This is acceptable for scrubber
 orientation (the user needs "am I in 2024 or 2020?", not "which hour?").
 The position counter ("650,000 of 1,300,000") remains exact.
+
+### 25. PIT fallback: retry without PIT on 404/410
+
+When `searchAfter()` is called with a PIT ID and ES returns 404 or 410
+(PIT expired or closed), kupua retries the same request without a PIT —
+querying the index directly instead.
+
+This is needed because `seek()` can read a stale PIT from the store
+that was already closed by a concurrent `search()` (e.g. when a sort
+change triggers both a new search and a scrubber seek in quick
+succession). The old PIT is closed before the new one is stored.
+
+Elasticsearch's PIT documentation says results should always use the
+same PIT for consistency. Kupua intentionally breaks this — the retry
+uses a non-PIT search, which means the results reflect the current
+index state rather than a frozen snapshot.
+
+**Trade-off:** A concurrent index update between the PIT-based search
+and the fallback retry could cause a minor position inconsistency (a
+document appearing or disappearing). In practice this is invisible:
+(1) kupua is read-only — it never mutates the index; (2) the retry
+only fires during seek(), which replaces the entire buffer anyway;
+(3) the alternative (failing the seek entirely, leaving the user
+staring at stale data) is worse. The fallback is logged as a console
+warning for diagnostics.
 

@@ -134,6 +134,27 @@ export interface AggregationsResult {
   took?: number;
 }
 
+/**
+ * Complete keyword distribution for a sort field — all unique values with
+ * cumulative position ranges. Used by the scrubber tooltip to show the
+ * keyword value at any global position via binary search (no network during drag).
+ */
+export interface KeywordDistribution {
+  /** Buckets in sort order, with cumulative start positions. */
+  buckets: KeywordDistBucket[];
+  /** Total docs covered by the distribution (may be < total if nulls exist). */
+  coveredCount: number;
+}
+
+export interface KeywordDistBucket {
+  /** The keyword value (e.g. "Getty Images"). */
+  key: string;
+  /** Number of docs with this value. */
+  count: number;
+  /** Cumulative start position (0-based) — first doc with this value. */
+  startPosition: number;
+}
+
 export interface ImageDataSource {
   /** Full-text search with filters, pagination, and sorting. */
   search(params: SearchParams): Promise<SearchResult>;
@@ -276,5 +297,25 @@ export interface ImageDataSource {
     direction: "asc" | "desc",
     signal?: AbortSignal,
   ): Promise<string | null>;
+
+  /**
+   * Fetch the complete keyword distribution for a sort field — all unique
+   * values with doc counts, in sort order. Used by the scrubber tooltip to
+   * look up the keyword value at any global position via binary search.
+   *
+   * Uses composite aggregation to page through all unique values. Capped at
+   * MAX_PAGES to avoid runaway requests on very high cardinality fields.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the ES field path (e.g. "metadata.credit").
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getKeywordDistribution?(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<KeywordDistribution | null>;
 }
 

@@ -804,6 +804,11 @@ test.describe("Bug #11 — Date Taken sort seek", () => {
 // seek caught the error but waitForSeekComplete waited for error===null).
 // Fix: cap skip chunk size to MAX_RESULT_WINDOW in search-store.ts seek().
 test.describe("Bug #7 — Keyword/script sort seek", () => {
+  // Absorbs Bug #13 tests — the composite-agg telemetry check from Bug #13.1
+  // is folded in here; Bug #13.2 (drag) is covered by generic drag tests;
+  // Bug #13.3 (two positions differ) duplicated Bug #7.4; Bug #13.4 (timing)
+  // was redundant with the describe-level timeout.
+
   test("seek to middle works under Credit sort", async ({ kupua }) => {
     await kupua.goto();
     await kupua.selectSort("Credit");
@@ -812,6 +817,9 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
     expect(store1.bufferOffset).toBe(0);
     expect(store1.error).toBeNull();
 
+    // Capture console to verify composite agg telemetry (from Bug #13)
+    kupua.startConsoleCapture();
+
     await kupua.seekTo(0.5);
 
     const store2 = await kupua.getStoreState();
@@ -819,7 +827,26 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
     expect(store2.resultsLength).toBeGreaterThan(0);
     // MUST have moved — the bug was that results didn't shift at all
     expect(store2.bufferOffset).toBeGreaterThan(0);
+    // Buffer should be near 50% — within 15% tolerance.
+    // The old `> 0` assertion was too weak — a buffer at 10% would pass.
+    // This tighter check catches future regressions where refinement
+    // silently fails and the buffer stays at a bucket boundary.
+    const ratio = store2.bufferOffset / store2.total;
+    expect(ratio).toBeGreaterThan(0.35);
+    expect(ratio).toBeLessThan(0.65);
     await kupua.assertPositionsConsistent();
+
+    // Telemetry: verify findKeywordSortValue used the composite path
+    // and completed efficiently (≤ 5 pages for local 10k data)
+    const kwLogs = kupua.getConsoleLogs(/findKeywordSortValue/);
+    expect(kwLogs.length).toBeGreaterThan(0);
+    const foundLog = kwLogs.find((l) => l.includes("found"));
+    expect(foundLog).toBeDefined();
+    const pageMatch = foundLog?.match(/at page (\d+)/);
+    if (pageMatch) {
+      const pages = parseInt(pageMatch[1], 10);
+      expect(pages).toBeLessThanOrEqual(5);
+    }
   });
 
   test("seek to middle works under Source sort", async ({ kupua }) => {
@@ -832,10 +859,17 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
     expect(store.error).toBeNull();
     expect(store.resultsLength).toBeGreaterThan(0);
     expect(store.bufferOffset).toBeGreaterThan(0);
+    const ratio = store.bufferOffset / store.total;
+    expect(ratio).toBeGreaterThan(0.35);
+    expect(ratio).toBeLessThan(0.65);
     await kupua.assertPositionsConsistent();
   });
 
   test("seek to middle works under Dimensions sort", async ({ kupua }) => {
+    // Dimensions is a script sort (Painless, w×h pixel count), NOT a keyword
+    // sort. Seek accuracy is lower on small datasets because the percentile
+    // aggregation has limited precision with 10k docs. Ratio check is
+    // intentionally weaker than keyword sorts — `> 0` is the correct bar here.
     await kupua.goto();
     await kupua.selectSort("Dimensions");
 
@@ -862,6 +896,54 @@ test.describe("Bug #7 — Keyword/script sort seek", () => {
 
     // The two seeks should have landed at different offsets
     expect(store2.bufferOffset).not.toBe(store1.bufferOffset);
+    await kupua.assertPositionsConsistent();
+  });
+
+  // Bug #18 — Regression guard for binary search refinement.
+  //
+  // Context: when a keyword bucket is much larger than PAGE_SIZE,
+  // search_after lands at the bucket START. The binary search on the `id`
+  // tiebreaker refines the cursor to reach the target position.
+  //
+  // The ORIGINAL problem (46s seek on TEST via SSH) was pure performance —
+  // the old skip loop transferred 100k+ sort values per hop. That can't be
+  // reproduced locally (local ES is instant). The old loop would have passed
+  // this test just fine.
+  //
+  // This test guards against regressions in the NEW binary search code:
+  //   - The "g" hex upper bound bug (NaN in parseInt → search did nothing)
+  //   - Any future breakage where refinement silently fails and the buffer
+  //     stays at the bucket start (~40-60% instead of 75%)
+  //
+  // With 10k local docs and 5 credits cycling, each credit has ~2k docs.
+  // Seeking to 75% targets position ~7500, inside a ~2k-doc bucket.
+  // Drift ≈ 1800 > PAGE_SIZE (200) → binary search kicks in.
+  //
+  // NOTE: PIT race condition (stale PIT from concurrent search) is NOT
+  // testable locally — local ES skips PIT entirely. That bug class is
+  // covered by the PIT fallback in es-adapter.ts and smoke test S10.
+  test("seek to 75% under Credit sort lands near 75% (binary search refinement)", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.selectSort("Credit");
+
+    kupua.startConsoleCapture();
+    await kupua.seekTo(0.75);
+
+    const store = await kupua.getStoreState();
+    expect(store.error).toBeNull();
+    expect(store.resultsLength).toBeGreaterThan(0);
+
+    // The buffer must be near 75% — within 10% tolerance.
+    // Without the binary search refinement, it would land at ~40-60%
+    // (the start of whatever keyword bucket contains position 75%).
+    const ratio = store.bufferOffset / store.total;
+    expect(ratio).toBeGreaterThan(0.65);
+    expect(ratio).toBeLessThan(0.85);
+
+    // Verify the binary search path was actually taken
+    const logs = kupua.getConsoleLogs(/binary search/);
+    expect(logs.length).toBeGreaterThan(0);
+
     await kupua.assertPositionsConsistent();
   });
 });
@@ -1102,113 +1184,6 @@ test.describe("Bug #12 — Wheel scroll after scrubber seek", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Bug #13 — Keyword sort scrubber seek has no effect
-//
-// Under non-date sorts (Credit, Source, etc.) clicking or dragging the
-// scrubber to a different position doesn't reposition the results. The seek
-// fires but results don't move. On large datasets (TEST, 1.3M docs) the
-// iterative search_after path is too slow / hits the 20-iteration cap.
-// On local ES (10k docs, max_result_window=500) the seek should work because
-// the iteration count is small. This test verifies local correctness; the
-// fix should also increase the iteration budget or optimise the skip loop
-// for large datasets.
-// ---------------------------------------------------------------------------
-
-test.describe("Bug #13 — Keyword sort scrubber seek", () => {
-  test.describe.configure({ timeout: 45_000 });
-
-  test("scrubber seek under Credit sort moves buffer from 0", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.selectSort("Credit");
-
-    const before = await kupua.getStoreState();
-    expect(before.bufferOffset).toBe(0);
-    expect(before.error).toBeNull();
-
-    // Start capturing console logs to verify composite agg telemetry
-    kupua.startConsoleCapture();
-
-    // Click scrubber at ~50%
-    await kupua.seekTo(0.5);
-
-    const after = await kupua.getStoreState();
-    expect(after.error).toBeNull();
-    expect(after.resultsLength).toBeGreaterThan(0);
-    expect(after.bufferOffset).toBeGreaterThan(0);
-    await kupua.assertPositionsConsistent();
-
-    // Telemetry: verify findKeywordSortValue used the composite path
-    // and completed efficiently (≤ 5 pages for local 10k data)
-    const kwLogs = kupua.getConsoleLogs(/findKeywordSortValue/);
-    expect(kwLogs.length).toBeGreaterThan(0); // must have logged
-    const foundLog = kwLogs.find((l) => l.includes("found"));
-    expect(foundLog).toBeDefined(); // must have found a value (not null/fallback)
-    // Extract page number from "at page N" — should be small for local data
-    const pageMatch = foundLog?.match(/at page (\d+)/);
-    if (pageMatch) {
-      const pages = parseInt(pageMatch[1], 10);
-      expect(pages).toBeLessThanOrEqual(5); // local data: few unique credits
-    }
-  });
-
-  test("scrubber drag under Credit sort moves buffer", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.selectSort("Credit");
-
-    const before = await kupua.getStoreState();
-    expect(before.bufferOffset).toBe(0);
-
-    // Drag scrubber to ~60%
-    await kupua.dragScrubberTo(0.6);
-
-    const after = await kupua.getStoreState();
-    expect(after.error).toBeNull();
-    expect(after.resultsLength).toBeGreaterThan(0);
-    expect(after.bufferOffset).toBeGreaterThan(0);
-    await kupua.assertPositionsConsistent();
-  });
-
-  test("two different scrubber positions under keyword sort land differently", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.selectSort("Credit");
-
-    await kupua.seekTo(0.25);
-    const store1 = await kupua.getStoreState();
-    expect(store1.error).toBeNull();
-    const offset1 = store1.bufferOffset;
-
-    await kupua.seekTo(0.75);
-    const store2 = await kupua.getStoreState();
-    expect(store2.error).toBeNull();
-    const offset2 = store2.bufferOffset;
-
-    // Different positions must land at different offsets
-    expect(offset2).toBeGreaterThan(offset1);
-    await kupua.assertPositionsConsistent();
-  });
-
-  test("keyword seek completes within a reasonable time", async ({ kupua }) => {
-    // This test catches performance regressions in findKeywordSortValue.
-    // On local ES (10k docs, few unique credits), seek should be fast.
-    // If the algorithm regresses to O(N) pages, this will catch it even
-    // locally — the timing budget is generous but finite.
-    await kupua.goto();
-    await kupua.selectSort("Credit");
-
-    const start = Date.now();
-    await kupua.seekTo(0.5);
-    const elapsed = Date.now() - start;
-
-    const store = await kupua.getStoreState();
-    expect(store.error).toBeNull();
-    expect(store.bufferOffset).toBeGreaterThan(0);
-
-    // Local seek should complete in <5 seconds (typically <1s).
-    // On TEST, the smoke test S3 uses a 15s budget.
-    expect(elapsed).toBeLessThan(5_000);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Bug #14 — End key doesn't scroll to end under non-date sort
@@ -1301,7 +1276,6 @@ test.describe("Bug #14 — End key under non-date sort", () => {
     expect(endOfBuffer).toBeGreaterThanOrEqual(store.total - 1);
   });
 });
-
 
 // ---------------------------------------------------------------------------
 // Bug #15 — Grid twitch / composition flicker on sort direction toggle
@@ -1726,4 +1700,155 @@ test.describe("Bug #17 — density switch after deep scroll preserves focus visi
   });
 });
 
+// ---------------------------------------------------------------------------
+// Scroll mode — small result set (all data in buffer)
+//
+// When total ≤ SCROLL_MODE_THRESHOLD, the store fills the buffer with all
+// results and the scrubber enters scroll mode (drag scrolls content directly,
+// no seek). Use a narrow date range to get <1000 results from local ES.
+// ---------------------------------------------------------------------------
 
+test.describe("Scroll mode — buffer fill", () => {
+  test("buffer fills completely for small result set", async ({ kupua }) => {
+    // Narrow date range: ~5 days should give roughly 400-800 results
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    const { total } = await kupua.getStoreState();
+
+    // Skip if the date range doesn't produce a small enough set
+    test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
+    test.skip(total < 10, `Total ${total} too small to be meaningful`);
+
+    // Wait for scroll-mode fill to complete
+    await kupua.waitForScrollMode();
+
+    const state = await kupua.getStoreState();
+    expect(state.resultsLength).toBe(state.total);
+    expect(state.bufferOffset).toBe(0);
+  });
+
+  test("scrubber works in scroll mode (no seek, direct scroll)", async ({ kupua }) => {
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    const { total } = await kupua.getStoreState();
+    test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
+    test.skip(total < 50, `Total ${total} too small`);
+
+    await kupua.waitForScrollMode();
+
+    // Click scrubber at 50% — should scroll content without a seek
+    await kupua.clickScrubberAt(0.5);
+    await kupua.page.waitForTimeout(300);
+
+    // bufferOffset should still be 0 (no seek happened, just scroll)
+    const stateAfter = await kupua.getStoreState();
+    expect(stateAfter.bufferOffset).toBe(0);
+    expect(stateAfter.resultsLength).toBe(stateAfter.total);
+
+    // Content should have scrolled
+    const scrollTop = await kupua.getScrollTop();
+    expect(scrollTop).toBeGreaterThan(0);
+  });
+});
+
+test.describe("Scroll mode — scrubber sync (Bug F regression)", () => {
+  /**
+   * Helper: navigate with date filter, wait for scroll mode, skip if not activated.
+   * The date filter may take a moment to apply after navigation — waitForScrollMode
+   * handles the async wait. If scroll mode doesn't activate within 10s (total > threshold
+   * or too few results), the test is skipped via the try/catch.
+   */
+  async function gotoScrollMode(kupua: any, density: "table" | "grid") {
+    await kupua.gotoWithParams(`since=2026-03-15&until=2026-03-20&density=${density}`);
+    try {
+      await kupua.waitForScrollMode(10_000);
+    } catch {
+      // waitForScrollMode timed out — scroll mode didn't activate
+      const { total, resultsLength } = await kupua.getStoreState();
+      return { activated: false, total, resultsLength };
+    }
+    const { total, resultsLength } = await kupua.getStoreState();
+    return { activated: true, total, resultsLength };
+  }
+
+  test("scrubber thumb tracks scroll position after PgDown (table)", async ({ kupua }) => {
+    const { activated, total } = await gotoScrollMode(kupua, "table");
+    test.skip(!activated, `Scroll mode not activated (total=${total})`);
+
+    // Initial state: thumb at top, scrollTop at 0
+    const thumbBefore = await kupua.getScrubberThumbTop();
+    const scrollBefore = await kupua.getScrollTop();
+    expect(scrollBefore).toBe(0);
+
+    // PgDown — scroll content
+    await kupua.pageDown();
+    const scrollAfter = await kupua.getScrollTop();
+    expect(scrollAfter).toBeGreaterThan(0);
+
+    // Bug F: thumb should have moved too (not stayed at 0)
+    const thumbAfter = await kupua.getScrubberThumbTop();
+    expect(thumbAfter).toBeGreaterThan(thumbBefore);
+  });
+
+  test("scrubber thumb tracks scroll position after PgDown (grid)", async ({ kupua }) => {
+    const { activated, total } = await gotoScrollMode(kupua, "grid");
+    test.skip(!activated, `Scroll mode not activated (total=${total})`);
+
+    const thumbBefore = await kupua.getScrubberThumbTop();
+    await kupua.pageDown();
+
+    const thumbAfter = await kupua.getScrubberThumbTop();
+    expect(thumbAfter).toBeGreaterThan(thumbBefore);
+  });
+
+  test("scrubber thumb reaches bottom when content is fully scrolled (table)", async ({ kupua }) => {
+    const { activated, total } = await gotoScrollMode(kupua, "table");
+    test.skip(!activated, `Scroll mode not activated (total=${total})`);
+
+    // Scroll all the way to the bottom via End key
+    await kupua.page.keyboard.press("End");
+    await kupua.page.waitForTimeout(500);
+
+    const scrollRatio = await kupua.getScrollRatio();
+    // Should be at or very near the bottom
+    expect(scrollRatio).toBeGreaterThan(0.95);
+
+    // Now scroll back to top
+    await kupua.page.keyboard.press("Home");
+    await kupua.page.waitForTimeout(500);
+
+    const thumbAtTop = await kupua.getScrubberThumbTop();
+    const scrollTopAfterHome = await kupua.getScrollTop();
+    expect(scrollTopAfterHome).toBe(0);
+    // Thumb should be at or very near 0
+    expect(thumbAtTop).toBeLessThan(2);
+  });
+
+  test("scrubber and scroll ratio stay proportional through PgDown sequence", async ({ kupua }) => {
+    const { activated, total } = await gotoScrollMode(kupua, "table");
+    test.skip(!activated, `Scroll mode not activated (total=${total})`);
+
+    // Get the track height for computing scrubber ratio
+    const trackHeight = await kupua.page.evaluate(() => {
+      const track = document.querySelector('[role="slider"][aria-label="Result set position"]') as HTMLElement;
+      return track ? track.clientHeight : 0;
+    });
+    expect(trackHeight).toBeGreaterThan(0);
+
+    // PgDown several times, checking sync at each step
+    for (let i = 0; i < 5; i++) {
+      await kupua.pageDown();
+
+      const scrollRatio = await kupua.getScrollRatio();
+      const thumbTop = await kupua.getScrubberThumbTop();
+
+      // Compute approximate scrubber ratio (thumb position / max possible)
+      // This is approximate because thumbHeight varies, but the ratios
+      // should be in the same ballpark
+      if (scrollRatio > 0.01 && scrollRatio < 0.99) {
+        // thumb should have moved proportionally — allow 15% tolerance
+        const thumbRatio = thumbTop / trackHeight;
+        expect(thumbRatio).toBeGreaterThan(scrollRatio * 0.5);
+        expect(thumbRatio).toBeLessThan(scrollRatio * 2.0);
+      }
+    }
+  });
+});

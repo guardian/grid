@@ -114,10 +114,13 @@ html {
    * but replaces the vertical scrollbar with the custom scrubber.
    * The `:vertical` pseudo-class targets only the vertical scrollbar in
    * WebKit/Blink. Firefox doesn't support per-axis scrollbar hiding via
-   * CSS, so we fall back to hiding both (scrollbar-width: none) and rely
-   * on `overflow-x: auto` to show the horizontal one.
+   * CSS, so we hide both axes (scrollbar-width: none). This means Firefox
+   * loses the horizontal scrollbar too — acceptable trade-off since
+   * horizontal overflow is rare (most column sets fit the viewport).
    */
   .hide-scrollbar-y {
+    scrollbar-width: none;           /* Firefox — hides both axes (no per-axis control) */
+    -ms-overflow-style: none;        /* IE / Edge legacy */
     contain: strict;
     &::-webkit-scrollbar:vertical {
       display: none;                 /* Chrome / Safari / Opera — vertical only */

@@ -176,15 +176,250 @@ Full implementation of `search_after` + PIT windowed scroll + custom scrubber. R
 - **Bug #15:** Grid twitch on sort change — three root causes: (1) initial search at position 0 exposed wrong results before `_findAndFocusImage` replaced the buffer; (2) `_findAndFocusImage` bumped both `_seekGeneration` and `sortAroundFocusGeneration`, triggering two conflicting scroll effects; (3) scroll-reset effect fired on URL change before search completed, resetting scrollTop on old buffer. Fixes: store keeps old buffer visible (loading=true) until `_findAndFocusImage` replaces it in one shot; `_findAndFocusImage` no longer bumps `_seekGeneration` (`sortAroundFocusGeneration` is sole scroll trigger); scroll-reset skipped for sort-only changes with focused image. 3 new E2E tests: single buffer transition assertion (Zustand subscriber tracking `results.length` changes), no scroll-to-0 flash (60fps scrollTop polling during toggle), table regression guard.
 - **4 global→local index bugs** in `FocusedImageMetadata`, density-switch unmount, scroll anchoring — all needed `bufferOffset` subtraction.
 
-### E2E Tests (57 tests, all passing)
+### E2E Tests (64 tests, all passing)
 
 - `scripts/run-e2e.sh` orchestrates Docker ES + data + Playwright
 - `e2e/global-setup.ts` auto-starts Docker ES, verifies data
 - `KupuaHelpers` fixture class: `seekTo()`, `dragScrubberTo()`, `assertPositionsConsistent()`, `getStoreState()`, `startConsoleCapture()`, etc.
-- 8 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`) — S1–S5 pass as of 2026-03-28. Auto-skip on local ES.
-- Coverage: ARIA, seek accuracy, drag, scroll, buffer extension, density switch, sort change, sort tooltip, sort-around-focus, keyboard, metadata panel, 3 full workflows, bug regressions (#1, #3, #7, #9, #11–15)
+- 10 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`) — S1–S5, S9–S10 pass as of 2026-03-29. Auto-skip on local ES.
+- Coverage: ARIA, seek accuracy, drag, scroll, buffer extension, density switch, sort change, sort tooltip, sort-around-focus, keyboard, metadata panel, 3 full workflows, bug regressions (#1, #3, #7, #9, #11–15, #18)
 
 ### List Scroll Smoothness — Tried and Reverted
 
 Goal: make table view feel as smooth as grid. Tried: page size 50→100, throttle, overscan 100. No improvement, introduced hover-colour regression. Reverted. Bottleneck may be React reconciliation or placeholder flash — needs profiling.
+
+### Scrubber Scroll Mode — Bug Fixes and Buffer Fill (2026-03-28)
+
+**Problem:** The scrubber has two interaction modes — "scroll mode" (all data in
+buffer, drag scrolls content directly) and "seek mode" (windowed buffer, seek on
+pointer-up). Three bugs made scroll mode broken:
+
+- **Bug A (thumb runs away):** `positionFromDragY()` mapped pixel→position using
+  `ratio * (total - 1)` but `thumbTopFromPosition()` reversed it using
+  `position / total`. The `102 vs 103` asymmetry meant the thumb drifted from the
+  pointer. Worse with fewer results (bigger thumb).
+- **Bug B (thumb dances):** The inline JSX `style={{ top: thumbTop }}` fought with
+  direct DOM writes from `applyThumbPosition()` during drag. Every content scroll
+  triggered a React re-render that overwrote the direct DOM position. Rounding
+  differences between React state (`trackHeight`) and live DOM reads
+  (`clientHeight`) created jitter.
+- **Bug C (broken activation):** Scroll mode required `total <= bufferLength`, but
+  the initial search only fetched 200 results. For 201–1000 results, scroll mode
+  only activated after the user manually scrolled enough to trigger extends. For
+  1001+ results, it never activated. A user with 700 results could grab the
+  scrubber and nothing would happen.
+
+**Fixes:**
+
+1. **Bug C — scroll-mode fill:** Added `SCROLL_MODE_THRESHOLD` env var (default
+   1000). After the initial search, if `total <= threshold` and not all results are
+   loaded, `_fillBufferForScrollMode()` fetches remaining results in PAGE_SIZE
+   chunks using `searchAfter`. Two-phase: user sees first 200 instantly, scroll mode
+   activates ~200–500ms later. Sets `_extendForwardInFlight` during fill to prevent
+   concurrent extends from racing. Clears the flag on all exit paths (success,
+   abort, error). `search()` also clears extend-in-flight flags when aborting
+   previous operations (prevents stale flag from aborted fill blocking
+   sort-around-focus).
+
+2. **Bug A — symmetric position mapping:** Changed `thumbTopFromPosition()` to use
+   `position / (total - 1)` and map to `ratio * maxTop` (instead of
+   `position / total * th`). Now matches `positionFromDragY()` which uses
+   `ratio * (total - 1)`. Forward and reverse mappings are symmetric.
+
+3. **Bug B — removed inline top from JSX:** The thumb `<div>` no longer sets `top`
+   in its inline style. Thumb position is controlled exclusively by: (a) the
+   `useEffect` sync (for non-drag, non-pending states), (b) direct DOM writes in
+   `applyThumbPosition()` (during drag/click). Callback ref on thumb sets initial
+   position on mount to prevent one-frame flash at top=0. The React reconciler can
+   no longer fight with direct DOM writes.
+
+4. **Bug D — thumb height fluctuates during drag:** `thumbHeight` was computed from
+   the live `visibleCount` (number of items visible in the viewport), which changes
+   on every scroll as rows enter/leave. During scroll-mode drag, this made the thumb
+   grow/shrink constantly (bottom edge jumping) and overflow the track near the
+   bottom. Fix: added `thumbVisibleCount` — in scroll mode, `visibleCount` is frozen
+   when scroll mode first activates (via `stableVisibleCountRef`). Reset only when
+   `total` changes (new search). In seek mode, the live value is used as before.
+   The drag handler also captures `dragVisibleCount` at pointer-down for the
+   duration of the drag. This matches native scrollbar behavior where thumb size
+   only changes when content size changes, not when you scroll.
+
+**Design doc:** `exploration/docs/scrubber-dual-mode-ideation.md` — full analysis of
+the two-soul problem, 5 approaches considered, data demand analysis per view,
+visual philosophy (scroll mode should look like a native scrollbar).
+
+**Testing:** 145 unit tests (144 pass, 1 pre-existing failure in
+`sort-around-focus bumps _seekGeneration` — test expects `_seekGeneration` but code
+intentionally uses `sortAroundFocusGeneration`). 61 E2E tests all pass.
+
+### Scrubber Visual Polish — Unified Scrollbar Look (2026-03-28)
+
+Harmonised the scrubber's visual appearance across both scroll mode and seek mode.
+Instead of looking like two different controls (a blue accent widget vs a native
+scrollbar), it now looks like one clean, modern scrollbar everywhere.
+
+**Changes:**
+- **Track:** Always transparent background. No grey highlight on hover. The 14px
+  width is a generous hit target, but the visible thumb is narrower.
+- **Thumb:** 8px wide pill shape (3px inset each side within 14px track), fully
+  rounded (`borderRadius: 4`). Semi-transparent white on the dark Grid background:
+  idle `rgba(255,255,255,0.25)`, hover `0.45`, active/dragging `0.6`. Replaces the
+  previous blue accent / grey colors.
+- **No cursor change:** Removed `grab`/`grabbing` cursors — native scrollbars don't
+  show them, and they scream "custom widget."
+- **No opacity change on track:** Track doesn't dim/brighten on hover (the thumb
+  color change is sufficient feedback).
+- **Tooltip:** Unchanged — still shows position and sort context on drag/click in
+  both modes. The tooltip is useful in both modes and doesn't make the scrubber
+  look like a "control panel."
+- Removed unused `active` variable.
+
+### Bug E — Scrubber Desync at Top/Bottom (2026-03-28)
+
+**Problem:** When PgDown/PgUp-ing through a small result set (~760 items), the
+scrubber thumb desynchronised with the content: content reached the bottom but the
+thumb stayed short of the track bottom. Grabbing the thumb to the bottom shifted
+results to where it was, requiring more scrolling.
+
+**Root cause:** The position-to-pixel mapping used `position / (total - 1)` as the
+ratio. But `currentPosition` is the first visible item, which maxes at
+`total - visibleCount` (not `total - 1`). For 760 results with 20 visible, the
+max position is 740, giving ratio `740/759 = 0.975` — the thumb never reaches 1.0.
+
+**Fix:** Changed all position mappings to use `total - visibleCount` as the max
+position, matching native scrollbar behavior (`scrollTop / (scrollHeight - clientHeight)`).
+Applied consistently to:
+- `thumbTopFromPosition()` — position → pixel
+- Render-time `thumbTop` computation
+- `positionFromY()` — track click pixel → position
+- `positionFromDragY()` — drag pixel → position
+- `scrollContentTo()` ratios in click, drag move, and drag end handlers
+
+When position = total - visibleCount, ratio = 1.0 and the thumb touches the bottom
+of the track — exactly when the last item is visible. Symmetric at top: position = 0,
+ratio = 0.0, thumb at top.
+
+### 2026-03-29 — Scrubber tooltip fixes and keyword distribution
+
+**Table view native scrollbar:** The `hide-scrollbar-y` CSS class was missing
+`scrollbar-width: none` (Firefox) and `-ms-overflow-style: none` (IE/Edge legacy).
+Firefox showed a native vertical scrollbar alongside the custom scrubber in table view.
+Fixed by adding both declarations. Firefox trade-off: horizontal scrollbar is also
+hidden (no per-axis control in CSS), acceptable since most column sets fit the viewport.
+
+**Tooltip bottom-edge clipping:** The tooltip disappeared partially below the window
+edge when scrolled to the end of results. Root cause: tooltip top position was clamped
+using a hardcoded `28px` magic number as assumed tooltip height. Actual height is ~29px
+without sort label and ~42px with one (two lines + padding). Fixed all four clamping
+sites (applyThumbPosition, seek-mode sync effect, scroll-mode sync effect, JSX initial
+render) to use `tooltipEl.offsetHeight` (measured) with `|| 28` fallback for unmounted
+state.
+
+**Keyword distribution for scrubber tooltip:** Previously, keyword sorts (credit,
+source, category, imageType, mimeType, uploadedBy) showed the same frozen value from
+the nearest buffer edge when dragging the scrubber outside the loaded buffer. Now uses
+a pre-fetched keyword distribution for accurate position-to-value mapping:
+
+- **DAL:** `getKeywordDistribution()` on `ElasticsearchDataSource` — composite
+  aggregation that fetches all unique values with doc counts in sort order. Capped at
+  5 pages (50k unique values). Returns `KeywordDistribution` with cumulative start
+  positions. ~5–30ms for typical fields.
+- **sort-context.ts:** `lookupKeywordDistribution()` — O(log n) binary search over
+  the cumulative buckets. `resolveKeywordSortInfo()` resolves orderBy to ES field path
+  + direction for keyword sorts. `interpolateSortLabel()` now accepts an optional
+  `KeywordDistribution` and uses it instead of the nearest-edge fallback.
+- **search-store.ts:** `keywordDistribution` state + `_kwDistCacheKey` (query params +
+  orderBy). `fetchKeywordDistribution()` action — checks if current sort is keyword,
+  checks cache freshness, fetches via DAL. Cleared on new search.
+- **search.tsx:** Wires distribution into `getSortLabel` callback. Lazy fetch triggered
+  via `onFirstInteraction` Scrubber prop — distribution only fetched when user actually
+  touches the scrubber with a keyword sort active.
+- **Scrubber.tsx:** `onFirstInteraction` prop, fired once on first click/drag/keyboard.
+  `notifyFirstInteraction()` helper with ref-tracked `hasInteractedRef`, reset when
+  prop transitions from defined→undefined (sort change away from keyword).
+- **Excluded:** `filename` (too high cardinality, values not useful as context),
+  `dimensions` (script sort, can't aggregate).
+
+### 2026-03-29 — Bug #18: Keyword sort seek drift + PIT race + binary search refinement
+
+**Problem:** Clicking the scrubber at 75% under Credit sort on TEST (~1.3M docs) either
+didn't move results at all (thumb stuck at ~50%) or took 46 seconds to complete.
+Local E2E tests didn't catch it because 10k docs with 5 cycling credits don't expose
+the scale issues.
+
+**Three bugs discovered via smoke test S10:**
+
+1. **PIT race condition** — `seek()` read a stale PIT ID from the store that had already
+   been closed by a concurrent `search()` triggered by `selectSort("Credit")`. The
+   `search()` hadn't finished storing the new PIT before the scrubber click fired
+   `seek()`. ES returned 404 on the `_search` request with the stale PIT.
+
+   **Fix:** PIT 404/410 fallback in `es-adapter.ts` `searchAfter()` — when a PIT-based
+   request fails with 404 or 410, retries the same request without PIT, using the
+   index-prefixed path instead. This makes `seek()` resilient to PIT lifecycle races
+   without requiring tight coupling between search() and seek() timing.
+
+2. **46-second seek (brute-force skip loop)** — After `findKeywordSortValue` correctly
+   identified "PA" as the credit at position 881k, `search_after(["PA", ""])` landed at
+   the START of the PA bucket (position 533k) because `""` sorts before all real IDs.
+   The refinement loop issued 5 × `search_after(size=100k, noSource=true)` hops through
+   the SSH tunnel, transferring ~50MB of sort values. Each hop took ~9s over the tunnel.
+
+   **Fix:** Replaced the brute-force skip loop with **binary search on the `id`
+   tiebreaker**. Since image IDs are SHA-1 hashes (40-char hex, uniformly distributed),
+   binary search between `0x000000000000` and `0xffffffffffff` converges in ~11
+   iterations. Each iteration is a single `_count` query (~500 bytes). Total network:
+   ~6KB vs ~50MB. Total time: ~4s vs ~46s (99.99% network reduction).
+
+   **Implementation** (in `search-store.ts` `seek()`):
+   ```
+   let loNum = 0;
+   let hiNum = 0xffffffffffff;
+   for (step 0..MAX_BISECT) {
+     midNum = floor((loNum + hiNum) / 2)
+     mid = midNum.toString(16).padStart(12, "0")
+     probeCursor = [...searchAfterValues]; probeCursor[last] = mid
+     count = countBefore(params, probeCursor, sortClause)
+     if (count <= target) loNum = midNum else hiNum = midNum
+     if (|count - target| <= PAGE_SIZE) break
+   }
+   ```
+
+   Benefits ALL keyword sorts: Credit, Source, Category, Image Type, MIME Type,
+   Uploaded By. Any field where a keyword bucket is larger than PAGE_SIZE triggers
+   the binary search. Filename (high cardinality) and Dimensions (script sort) don't
+   need it.
+
+3. **Hex upper bound bug ("g" is not valid hex)** — The first binary search
+   implementation used string bounds `"0"` to `"g"`. But `"g"` is not a valid hex
+   digit. `parseInt("g...", 16)` returns `NaN`, so every iteration computed
+   `mid = "NaN"`. `countBefore(id < "NaN")` counted everything (lexicographically
+   `"N" > all hex chars`), so `bestOffset` never updated. The binary search silently
+   did nothing — `actualOffset` stayed at 533k (bucket start ≈ 40%).
+
+   **Fix:** Changed from string bounds to numeric: `loNum = 0`, `hiNum = 0xffffffffffff`.
+   `midNum.toString(16).padStart(12, "0")` always produces valid hex.
+
+**Smoke test S10 confirmation:** After all three fixes, S10 shows convergence in 11
+steps, ~4 seconds total, landing within 45 docs of target (ratio 0.7498 for 75% seek).
+
+**E2E test changes:**
+
+- **Bug #7 strengthened:** Credit 50% test now includes composite-agg telemetry check
+  (absorbed from Bug #13). Source 50% test strengthened with ratio assertion (0.35–0.65).
+  Dimensions test kept with weak assertion (`> 0`) — it's a script sort with inherently
+  lower accuracy on small datasets.
+- **Bug #18 regression guard added** (line 898): Seeks to 75% under Credit sort, asserts
+  ratio 0.65–0.85, verifies binary search console log was emitted. With 10k local docs
+  and 5 credits cycling (~2k per bucket), drift ≈ 1800 > PAGE_SIZE → binary search kicks
+  in. Guards against regressions in the hex interpolation code.
+- **Bug #13 culled:** Entire `test.describe("Bug #13")` block removed (4 tests).
+  Bug #13.1 (Credit seek + telemetry) merged into Bug #7.1. Bug #13.2 (drag under
+  Credit) redundant with generic drag tests. Bug #13.3 (two positions differ) duplicate
+  of Bug #7.4. Bug #13.4 (timing) redundant with test-level timeout.
+- **Smoke test S10 added:** Full diagnostic for keyword sort seek on TEST. Polls store
+  state during seek, captures `[seek]`/`[ES]` console logs, checks grid scroll position,
+  compares 75% vs 50% seeks, 15s performance gate.
+- **Net test count:** 68 → 64 e2e tests (4 removed from Bug #13), 8 → 10 smoke tests
+  (S9 + S10 added).
 
