@@ -1,13 +1,10 @@
 import {SQSClient, CreateQueueCommand, PurgeQueueCommand, ReceiveMessageCommand} from '@aws-sdk/client-sqs';
-import {EventBridgeEvent, Context} from 'aws-lambda';
 import * as fs from 'fs';
 import * as path from 'path';
+import {backfillOneBatch} from "../../../src/backfiller/backfiller.ts";
 
 
-const LOCALSTACK_ENDPOINT =
-  process.env.LOCALSTACK_ENDPOINT ?? 'http://localhost:4566';
-const ELASTIC_SEARCH_URL =
-  process.env.ELASTIC_SEARCH_URL ?? 'http://localhost:9200';
+const ELASTIC_SEARCH_URL = 'http://localhost:9200';
 
 // We create a fresh queue and index for each test run to avoid cross-contamination.
 const TEST_QUEUE_NAME = `backfiller-integration-test-${Date.now()}`;
@@ -54,24 +51,6 @@ async function tearDownElasticSearchIndex(elasticSearchUrl: string): Promise<voi
   await fetch(`${elasticSearchUrl}/${TEST_INDEX_NAME}`, {method: 'DELETE'});
 }
 
-function makeContext(): Context {
-  return {} as Context;
-}
-
-function makeEvent(): EventBridgeEvent<'Scheduled Event', {}> {
-  return {
-    version: '0',
-    id: 'integration-test-event',
-    source: 'aws.events',
-    account: '000000000000',
-    time: new Date().toISOString(),
-    region: 'eu-west-1',
-    resources: [],
-    'detail-type': 'Scheduled Event',
-    detail: {},
-  };
-}
-
 describe('Backfiller integration tests', () => {
   let sqsClient: SQSClient;
   let queueUrl: string;
@@ -79,7 +58,7 @@ describe('Backfiller integration tests', () => {
   beforeAll(async () => {
     sqsClient = new SQSClient({
       region: 'eu-west-1',
-      endpoint: LOCALSTACK_ENDPOINT,
+      endpoint: 'http://localhost:4566',
       credentials: {
         accessKeyId: 'test',
         secretAccessKey: 'test',
@@ -91,12 +70,6 @@ describe('Backfiller integration tests', () => {
       new CreateQueueCommand({QueueName: TEST_QUEUE_NAME}),
     );
     queueUrl = createResult.QueueUrl!;
-
-    // Point the handler at our local infrastructure
-    process.env.LOCALSTACK_ENDPOINT = LOCALSTACK_ENDPOINT;
-    process.env.BACKFILL_SQS_QUEUE = queueUrl;
-    process.env.ELASTIC_SEARCH_URL = ELASTIC_SEARCH_URL;
-    process.env.IMAGE_INDEX_NAME = TEST_INDEX_NAME;
 
     await seedElasticSearch(ELASTIC_SEARCH_URL);
   });
@@ -111,10 +84,8 @@ describe('Backfiller integration tests', () => {
   });
 
   it('sends SQS messages for images that have no embedding', async () => {
-    // Import handler AFTER setting env vars (module-level env is read at import time)
-    const {handler} = await import('../../../src/backfiller/backfiller.ts');
 
-    await handler(makeEvent(), makeContext());
+    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient);
 
     // Give SQS a moment to make messages visible
     const received = await sqsClient.send(
@@ -140,8 +111,6 @@ describe('Backfiller integration tests', () => {
   });
 
   it('does not send any messages when the queue is already crowded (>20)', async () => {
-    const {handler} = await import('../../../src/backfiller/backfiller.ts');
-
     // Flood the queue with 21 placeholder messages so the backfiller considers it crowded.
     // We use a separate queue with a known message count rather than trying to trick the
     // real queue, since purging + re-seeding would be racy.
@@ -172,7 +141,7 @@ describe('Backfiller integration tests', () => {
 
     console.log('Queue seeded, approximate count check done, invoking handler...');
 
-    await handler(makeEvent(), makeContext());
+    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient);
 
     // The handler should have detected the crowded queue and returned early,
     // so the message count should be unchanged (still 21 seed messages).

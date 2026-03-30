@@ -5,38 +5,8 @@ import {SQSMessageBody} from "../shared/sqsMessageBody";
 import {queryElasticSearch, ElasticSearchSuccess} from "./elasticSearch";
 import {EmbedderQueue} from "./embedderQueue";
 
-const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL;
-const BACKFILL_SQS_QUEUE = process.env.BACKFILL_SQS_QUEUE;
-const IMAGE_INDEX_NAME = process.env.IMAGE_INDEX_NAME ?? 'Images_Current';
-
-if (!ELASTIC_SEARCH_URL) {
-  throw new Error('Missing required environment variable: ELASTIC_SEARCH_URL');
-}
-if (!BACKFILL_SQS_QUEUE) {
-  throw new Error('Missing required environment variable: BACKFILL_SQS_QUEUE');
-}
-
 const BATCH_SIZE = 100;
 const CROWDED_QUEUE = 20;
-
-const LOCALSTACK_ENDPOINT = process.env.LOCALSTACK_ENDPOINT;
-
-const localStackConfig = LOCALSTACK_ENDPOINT
-  ? {
-    endpoint: LOCALSTACK_ENDPOINT,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: 'test',
-      secretAccessKey: 'test',
-    },
-  }
-  : {};
-
-const sqsClient = new SQSClient({
-  region: 'eu-west-1',
-  ...localStackConfig,
-});
-const embedderQueue = new EmbedderQueue(sqsClient);
 
 const elasticSearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): SQSMessageBody[] => {
   console.debug("EsResponse", JSON.stringify(esResponse));
@@ -57,14 +27,17 @@ const elasticSearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): S
   });
 }
 
-export const handler = async (
-  event: EventBridgeEvent<"Scheduled Event", {}>,
-  context: Context,
+export const backfillOneBatch = async (
+  sqsQueueUrl: string,
+  elasticSearchUrl: string,
+  imageIndexName: string,
+  sqsClient: SQSClient,
 ): Promise<void> => {
   console.log(`Starting handler embedding pipeline`);
+  const embedderQueue = new EmbedderQueue(sqsClient);
 
   console.log("Checking queue size");
-  const queueSize = await embedderQueue.checkQueueSize(BACKFILL_SQS_QUEUE!);
+  const queueSize = await embedderQueue.checkQueueSize(sqsQueueUrl!);
   if (queueSize > CROWDED_QUEUE) {
     console.log(`Backfill SQS queue has ${queueSize} messages, skipping this run to avoid overloading the queue`);
     return;
@@ -72,7 +45,7 @@ export const handler = async (
     console.log(`Queue size has ${queueSize} messages, proceeding.`);
   }
 
-  const esResults = await queryElasticSearch(BATCH_SIZE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME);
+  const esResults = await queryElasticSearch(BATCH_SIZE, elasticSearchUrl, imageIndexName);
   if (esResults.kind === 'error') {
     console.error(`Error querying ElasticSearch`, esResults);
     return;
@@ -82,9 +55,31 @@ export const handler = async (
   console.log(`Found ${sqsMessages.length} images to process`);
   console.debug(`3 sampled sqs messages:`, sqsMessages.slice(0, Math.min(sqsMessages.length, 3)));
   if (sqsMessages.length > 0) {
-    await embedderQueue.sendSqsMessages(sqsMessages, BACKFILL_SQS_QUEUE);
-    console.log(`Sent ${sqsMessages.length} messages to SQS queue ${BACKFILL_SQS_QUEUE}`);
+    await embedderQueue.sendSqsMessages(sqsMessages, sqsQueueUrl);
+    console.log(`Sent ${sqsMessages.length} messages to SQS queue ${sqsQueueUrl}`);
   }
 
   console.log(`Done queuing ${sqsMessages.length} messages`);
+}
+
+const sqsClient = new SQSClient({
+  region: 'eu-west-1',
+});
+
+export const handler = async (
+  event: EventBridgeEvent<"Scheduled Event", {}>,
+  context: Context,
+): Promise<void> => {
+  const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL;
+  const BACKFILL_SQS_QUEUE = process.env.BACKFILL_SQS_QUEUE;
+  const IMAGE_INDEX_NAME = process.env.IMAGE_INDEX_NAME ?? 'Images_Current';
+
+  if (!ELASTIC_SEARCH_URL) {
+    throw new Error('Missing required environment variable: ELASTIC_SEARCH_URL');
+  }
+  if (!BACKFILL_SQS_QUEUE) {
+    throw new Error('Missing required environment variable: BACKFILL_SQS_QUEUE');
+  }
+
+  return backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClient);
 }
