@@ -9,6 +9,8 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
+      "GuVpcParameter",
+      "GuSubnetListParameter",
       "GuScheduledLambda",
       "GuS3Bucket",
     ],
@@ -24,6 +26,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Default": "/TEST/media-service/elasticsearch/url",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
+    "PrivateSubnets": {
+      "Default": "/account/vpc/primary/subnets/private",
+      "Description": "A list of private subnets",
+      "Type": "AWS::SSM::Parameter::Value<List<AWS::EC2::Subnet::Id>>",
+    },
     "ThrallKmsKeyArn": {
       "Default": "/TEST/media-service/thrall/kms-key-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
@@ -31,6 +38,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "ThrallMessageStreamArn": {
       "Default": "/TEST/media-service/thrall/message-stream-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "VpcId": {
+      "Default": "/account/vpc/primary/id",
+      "Description": "Virtual Private Cloud to run EC2 instances within. Should NOT be the account default VPC.",
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::VPC::Id>",
     },
   },
   "Resources": {
@@ -134,6 +146,19 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         ],
         "Timeout": 60,
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::GetAtt": [
+                "ImageEmbedderBackfillerSecurityGroup93958CDD",
+                "GroupId",
+              ],
+            },
+          ],
+          "SubnetIds": {
+            "Ref": "PrivateSubnets",
+          },
+        },
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -197,6 +222,44 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::Lambda::Permission",
     },
+    "ImageEmbedderBackfillerSecurityGroup93958CDD": {
+      "Properties": {
+        "GroupDescription": "Automatic security group for Lambda Function ImageEmbedderLambdaImageEmbedderBackfiller35B59D3A",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-backfill-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VpcId": {
+          "Ref": "VpcId",
+        },
+      },
+      "Type": "AWS::EC2::SecurityGroup",
+    },
     "ImageEmbedderBackfillerServiceRole2C5388A7": {
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -221,6 +284,18 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                   "Ref": "AWS::Partition",
                 },
                 ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
               ],
             ],
           },

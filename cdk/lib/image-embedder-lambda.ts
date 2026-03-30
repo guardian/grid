@@ -2,6 +2,7 @@ import {GuScheduledLambda} from "@guardian/cdk";
 import type {GuStackProps} from '@guardian/cdk/lib/constructs/core';
 import {GuStack} from '@guardian/cdk/lib/constructs/core';
 import {GuParameter} from '@guardian/cdk/lib/constructs/core';
+import {GuVpc} from "@guardian/cdk/lib/constructs/ec2";
 import {GuLambdaFunction} from '@guardian/cdk/lib/constructs/lambda';
 import {GuS3Bucket} from '@guardian/cdk/lib/constructs/s3';
 import type {App} from 'aws-cdk-lib';
@@ -43,6 +44,7 @@ export class ImageEmbedder extends GuStack {
       default: `/${this.stage}/${this.stack}/elasticsearch/url`,
       type: 'String',
     });
+
 
     const imageEmbedderDLQ = new Queue(this, 'imageEmbedderDLQ', {
       queueName: `${appName}-DLQ-${this.stage}`,
@@ -92,6 +94,9 @@ export class ImageEmbedder extends GuStack {
       },
     );
 
+    const vpc = GuVpc.fromIdParameter(this, "AccountVPC");
+    const subnets = GuVpc.subnetsFromParameter(this);
+
     const backfiller = new GuScheduledLambda(
       this,
       'ImageEmbedderBackfiller',
@@ -116,9 +121,13 @@ export class ImageEmbedder extends GuStack {
         monitoringConfiguration: {
           noMonitoring: true,
         },
+        vpc: vpc,
+        vpcSubnets: {
+          subnets: subnets,
+        }
       },
     );
-    
+
     backfillQueue.grantSendMessages(backfiller);
     backfiller.role?.addToPrincipalPolicy(
       new PolicyStatement({
@@ -126,6 +135,7 @@ export class ImageEmbedder extends GuStack {
         resources: [backfillQueue.queueArn],
       }),
     );
+
 
     imageEmbedderLambda.addEventSource(
       new SqsEventSource(imageEmbedderQueue, {
