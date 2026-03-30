@@ -89,6 +89,41 @@ export function FacetFilters() {
   const updateSearch = useUpdateSearchParams();
   const currentQuery = searchParams.query ?? "";
 
+  // Scroll-anchor ref: when a facet value is clicked, we snapshot the
+  // clicked button's viewport offset. After React re-renders with new agg
+  // results (buckets may appear/disappear above), we restore the element's
+  // position so the user doesn't experience a scroll jump.
+  const scrollAnchorRef = useRef<{
+    fieldPath: string;
+    bucketKey: string;
+    viewportY: number;
+  } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // After aggregations change, restore scroll anchor if one was set.
+  useEffect(() => {
+    const anchor = scrollAnchorRef.current;
+    if (!anchor) return;
+    scrollAnchorRef.current = null;
+
+    const container = containerRef.current;
+    if (!container) return;
+    const scroller = findScrollParent(container);
+    if (!scroller) return;
+
+    // Find the button that was clicked by its data attributes
+    const btn = container.querySelector<HTMLElement>(
+      `[data-facet-field="${CSS.escape(anchor.fieldPath)}"][data-facet-key="${CSS.escape(anchor.bucketKey)}"]`,
+    );
+    if (!btn) return;
+
+    const currentY = btn.getBoundingClientRect().top;
+    const drift = currentY - anchor.viewportY;
+    if (Math.abs(drift) > 1) {
+      scroller.scrollTop += drift;
+    }
+  }, [aggregations]);
+
   // Fetch aggregations when Filters section is expanded and cache is stale.
   // Also re-fetches when search params change (total is a cheap proxy —
   // it changes on every new search).
@@ -99,7 +134,15 @@ export function FacetFilters() {
   }, [filtersExpanded, fetchAggregations, total, currentQuery]);
 
   const handleFacetClick = useCallback(
-    (cqlKey: string, value: string, e: React.MouseEvent) => {
+    (fieldPath: string, cqlKey: string, value: string, bucketKey: string, e: React.MouseEvent) => {
+      // Snapshot the clicked button's viewport position for scroll anchoring
+      const btn = e.currentTarget as HTMLElement;
+      scrollAnchorRef.current = {
+        fieldPath,
+        bucketKey,
+        viewportY: btn.getBoundingClientRect().top,
+      };
+
       const negated = e.altKey; // Alt+click to exclude
       const existing = findFieldTerm(currentQuery, cqlKey, value);
 
@@ -132,7 +175,7 @@ export function FacetFilters() {
   // ------------------------------------------------------------------
 
   return (
-    <div className="py-1">
+    <div ref={containerRef} className="py-1">
       {FACET_FIELDS.map((field) => (
         <FacetSection
           key={field.id}
@@ -176,7 +219,7 @@ interface FacetSectionProps {
   onShowMore: () => void;
   onCollapse: () => void;
   currentQuery: string;
-  onFacetClick: (cqlKey: string, value: string, e: React.MouseEvent) => void;
+  onFacetClick: (fieldPath: string, cqlKey: string, value: string, bucketKey: string, e: React.MouseEvent) => void;
 }
 
 function FacetSection({
@@ -237,6 +280,8 @@ function FacetSection({
           return (
             <button
               key={bucket.key}
+              data-facet-field={field.esSearchPath as string}
+              data-facet-key={bucket.key}
               className={`flex items-center justify-between gap-2 px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-left ${
                 isActive
                   ? "bg-grid-accent/20 text-grid-accent"
@@ -244,7 +289,7 @@ function FacetSection({
                     ? "bg-red-500/15 text-red-400 line-through"
                     : "text-grid-text hover:bg-grid-hover/30"
               }`}
-              onClick={(e) => onFacetClick(cqlKey, displayValue, e)}
+              onClick={(e) => onFacetClick(field.esSearchPath as string, cqlKey, displayValue, bucket.key, e)}
               title={`${displayValue} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
             >
               <span className="truncate min-w-0">{displayValue}</span>

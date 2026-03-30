@@ -438,6 +438,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 200,
     fieldType: "list",
     isList: true,
+    aggregatable: true,
   },
   {
     id: "people",
@@ -490,6 +491,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 250,
     fieldType: "list",
     isList: true,
+    aggregatable: true,
   },
 
   // -- Technical ------------------------------------------------------------
