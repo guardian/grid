@@ -44,7 +44,7 @@ const MIN_CELL_WIDTH = 280;
 const ROW_HEIGHT = 303;
 
 /** Gap between cells in pixels. */
-const CELL_GAP = 4;
+const CELL_GAP = 8;
 
 // ---------------------------------------------------------------------------
 // Tooltip helpers
@@ -101,7 +101,7 @@ const GridCell = memo(function GridCell({
     // Placeholder skeleton
     return (
       <div
-        className="shrink-0 bg-grid-panel/30 rounded"
+        className="shrink-0 bg-grid-cell/30 rounded"
         style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
       />
     );
@@ -115,7 +115,7 @@ const GridCell = memo(function GridCell({
 
   return (
     <div
-      className={`shrink-0 flex flex-col bg-grid-panel rounded overflow-hidden cursor-pointer transition-shadow ${
+      className={`shrink-0 flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
           : "hover:bg-grid-hover/15"
@@ -532,15 +532,16 @@ export function ImageGrid() {
     const id = focusedImageId;
     if (!id) return;
 
-    const idx = findImageIndex(id);
+    const saved = consumeFocusRatio();
+    // Prefer the saved localIndex (immune to imagePositions eviction)
+    const idx = saved != null ? saved.localIndex : findImageIndex(id);
     if (idx < 0) return;
 
     const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
     const rowTop = Math.floor(idx / cols) * ROW_HEIGHT;
 
-    const ratio = consumeFocusRatio();
-    if (ratio != null) {
-      const targetScroll = rowTop - ratio * el.clientHeight;
+    if (saved != null) {
+      const targetScroll = rowTop - saved.ratio * el.clientHeight;
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
       virtualizer.scrollToOffset(clamped);
     } else {
@@ -565,7 +566,7 @@ export function ImageGrid() {
       if (localIdx < 0) return;
       const c = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
       const fRowTop = Math.floor(localIdx / c) * ROW_HEIGHT;
-      saveFocusRatio((fRowTop - el.scrollTop) / el.clientHeight);
+      saveFocusRatio((fRowTop - el.scrollTop) / el.clientHeight, localIdx);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
   }, []);

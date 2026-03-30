@@ -580,8 +580,7 @@ the table's content width during column resizes and visibility toggles.
   `group: "technical"` (after File type). The `"upload"` group was removed entirely.
 
 **Files changed:** `field-registry.ts` (reordered, 3 new fields, 4 new FieldDefinition
-properties, alias splice, sort dropdown rewrite), `ImageMetadata.tsx` (full rewrite to
-registry-driven), `ImageTable.tsx` (horizontal scrollbar proxy, single-line pills),
+properties, alias splice, sort dropdown rewrite), `ImageMetadata.tsx` (horizontal scrollbar proxy, single-line pills),
 `index.css` (`.hide-scrollbar-y` rewritten).
 
 **Docs updated:** AGENTS.md (KAD #26, #29, table view, panels), changelog.
@@ -684,3 +683,100 @@ the details panel — only sorting is removed.
 **Files changed:** `field-registry.ts`, `es-adapter.ts`, `es-adapter.test.ts`.
 
 **Docs updated:** changelog.
+
+### Bug #18 — Scrubber thumb stuck at top in scroll mode after density switch (30 Mar 2026)
+
+**Symptom:** With ~700 images (all data in buffer = scroll mode), pressing End scrolls
+content correctly but the scrubber thumb stays at top. Persists after switching density
+(grid ↔ table) and pressing End/Home again. Seek mode (large datasets) unaffected.
+
+**Root cause:** The scroll-mode continuous sync effect (`Scrubber.tsx`, line ~416) finds
+the scroll container via `findScrollContainer()` (DOM query for `[role='region']` or
+`.overflow-auto`) and attaches a scroll listener. When density switches, React unmounts
+ImageGrid and mounts ImageTable (or vice versa), replacing the scroll container DOM
+element. But none of the effect's dependencies (`allDataInBuffer`, `isDragging`,
+`maxThumbTop`, `trackHeight`, `findScrollContainer`) change on density switch — so the
+effect doesn't re-run and the listener stays attached to the stale (removed) element.
+
+**Fix:** Added a `MutationObserver` inside the scroll-mode sync effect that watches the
+content column (`trackRef.current.previousElementSibling`) for direct child changes
+(`childList: true`, no subtree — avoids excessive firing from virtualizer DOM churn).
+When children change (density switch replaces ImageGrid ↔ ImageTable), the observer
+callback calls `attach()` which detaches the old scroll listener, re-finds the current
+scroll container via `findScrollContainer()`, and attaches a fresh listener. Immediate
+sync on attach ensures the thumb position is correct right after the switch.
+
+The `MutationObserver` only fires on direct children of the content column — not on
+virtualizer row additions/removals (which are deeper in the subtree). Density switches
+replace the top-level child element (ImageGrid root ↔ ImageTable wrapper div), which
+is a direct child mutation.
+
+**Files changed:** `Scrubber.tsx` (scroll-mode sync effect rewritten with inner
+`attach()` helper + MutationObserver).
+
+**Docs updated:** AGENTS.md (Scrubber description), changelog.
+
+### Colour token consolidation — grid-panel → grid-bg/grid-cell (30 Mar 2026)
+
+Removed four colour tokens (`grid-panel`, `grid-panel-dark`, `grid-panel-hover`,
+`grid-overlay`) that had drifted from their original purpose. The UI now uses:
+- `grid-bg` (#333333) — all chrome surfaces (toolbar, status bar, panels, popups,
+  table header, scrubber tooltip, error boundary, date filter, search input, etc.)
+- `grid-cell` (#393939) — grid view image cells and placeholder skeletons
+- `grid-cell-hover` (#555555) — pill hover backgrounds (SearchPill, DataSearchPill)
+
+Every component that previously used `bg-grid-panel` was audited and switched to
+the appropriate token. No visual change in most places (`grid-panel` was #444444 —
+the intent was always to match the background, and #333333 is correct for chrome).
+
+**Files changed:** `index.css` (token definitions + `.popup-menu`), `SearchBar.tsx`,
+`StatusBar.tsx`, `PanelLayout.tsx` (both panels), `ImageTable.tsx` (header),
+`ImageDetail.tsx` (header), `DateFilter.tsx` (dropdown + inputs), `SearchFilters.tsx`
+(checkbox), `ErrorBoundary.tsx` (stack trace), `Scrubber.tsx` (tooltip),
+`SearchPill.tsx` (both pill components), `ImageGrid.tsx` (cells + placeholders).
+
+### Escape to blur search box (30 Mar 2026)
+
+Pressing Escape in the CQL search input now blurs the search box (removing
+focus), but only when the CQL typeahead popup is not visible. When suggestions
+are showing, CQL's internal handler dismisses the popup — we don't interfere.
+Uses capture phase on keydown to check `data-isvisible` before CQL flips it.
+
+**Files changed:** `CqlSearchInput.tsx`.
+
+### Grid cell gap increased 4→8px (30 Mar 2026)
+
+Slightly more breathing room between grid view image cells. Matches kahuna's
+visual density more closely.
+
+**Files changed:** `ImageGrid.tsx` (`CELL_GAP` constant).
+
+### Density-focus saves localIndex (30 Mar 2026)
+
+`saveFocusRatio` now stores the buffer-local index alongside the viewport ratio.
+This prevents a stale lookup when `imagePositions` evicts the focused image between
+the unmount click and the new density's mount (async extend can complete in between).
+Both `ImageGrid` and `ImageTable` updated to save/consume the new shape.
+
+**Files changed:** `density-focus.ts`, `density-focus.test.ts`, `ImageGrid.tsx`,
+`ImageTable.tsx`.
+
+### Native input guard for keyboard navigation (30 Mar 2026)
+
+`useListNavigation` now checks `isNativeInputTarget()` and bails out when focus
+is inside a native `<input>`, `<textarea>`, or `<select>` (e.g. the date filter's
+`<input type="date">`). Previously, arrow keys inside the date picker would also
+move the grid/table focus. The CQL custom element is deliberately excluded from
+this guard — it already lets navigation keys propagate by design.
+
+**Files changed:** `keyboard-shortcuts.ts` (new `isNativeInputTarget` export),
+`useListNavigation.ts` (guard added to bubble handler).
+
+### Browser theme-color meta tag (30 Mar 2026)
+
+Added `<meta name="theme-color" content="#333333">` to `index.html` to tint the
+browser tab bar / status bar on Chrome (desktop + Android), Safari 15+ (iOS + macOS),
+and Edge. Firefox ignores it — harmless. Matches `--color-grid-bg`.
+
+**Files changed:** `index.html`.
+

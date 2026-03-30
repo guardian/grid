@@ -53,7 +53,7 @@ export function StatusBar() {
   }, [leftVisible, filtersExpanded, fetchAggregations]);
 
   return (
-    <div className="flex items-stretch gap-0 h-7 bg-grid-panel border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative">
+    <div className="flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative">
       {/* Left panel toggle — full-height strip; when active, extends below
           the border to visually merge with the panel beneath */}
       <button
@@ -61,7 +61,7 @@ export function StatusBar() {
         onMouseEnter={handleBrowseHover}
         className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
           leftVisible
-            ? "text-grid-accent -mb-px bg-grid-panel z-10"
+            ? "text-grid-accent -mb-px bg-grid-bg z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
         title={`${leftVisible ? "Hide" : "Show"} Browse panel  ${shortcutTooltip("[")}`}
@@ -149,17 +149,17 @@ export function StatusBar() {
         onClick={() => togglePanel("right")}
         className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
           rightVisible
-            ? "text-grid-accent -mb-px bg-grid-panel z-10"
+            ? "text-grid-accent -mb-px bg-grid-bg z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
         title={`${rightVisible ? "Hide" : "Show"} Details panel  ${shortcutTooltip("]")}`}
         aria-label={`${rightVisible ? "Hide" : "Show"} Details panel`}
         aria-pressed={rightVisible}
       >
+        <span className="text-sm">Details</span>
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M21 4a2 2 0 00-2-2H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V4zm-2 0v16h-4V4h4zm-6 0v16H5V4h8z" />
         </svg>
-        <span className="text-sm">Details</span>
       </button>
     </div>
   );

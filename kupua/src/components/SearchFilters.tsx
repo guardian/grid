@@ -48,7 +48,7 @@ function FilterControls() {
           type="checkbox"
           checked={params.nonFree !== "true"}
           onChange={handleFreeOnlyToggle}
-          className="rounded border-grid-border bg-grid-panel text-grid-accent focus:ring-grid-accent focus:ring-offset-0 w-3.5 h-3.5"
+          className="rounded border-grid-border bg-grid-bg text-grid-accent focus:ring-grid-accent focus:ring-offset-0 w-3.5 h-3.5"
         />
         Free to use only
       </label>
@@ -142,7 +142,7 @@ function SortControls() {
       <button
         onClick={handleToggleDirection}
         aria-label={sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
-        className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer"
+        className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer select-none"
         title={sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
       >
         <span aria-hidden="true">{sortDesc ? "↓" : "↑"}</span>

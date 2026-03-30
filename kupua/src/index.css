@@ -8,11 +8,9 @@
 @theme {
   /* Backgrounds */
   --color-grid-bg: #333333;
-  --color-grid-panel: #444444;
-  --color-grid-panel-dark: #333333;
-  --color-grid-panel-hover: #555555;
+  --color-grid-cell: #393939;
+  --color-grid-cell-hover: #555555;
   --color-grid-hover: #666666;
-  --color-grid-overlay: #393939;
 
   /* Text */
   --color-grid-text: #cccccc;
@@ -80,7 +78,7 @@ html {
  */
 @layer components {
   .popup-menu {
-    @apply py-1 bg-grid-panel border border-grid-border rounded shadow-lg z-50;
+    @apply py-1 bg-grid-bg border border-grid-border rounded shadow-lg z-50;
   }
   .popup-item {
     @apply flex items-center gap-2 px-3 py-1 text-sm text-grid-text

@@ -201,7 +201,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
         <>
           <div
             ref={leftPanelRef}
-            className="shrink-0 overflow-y-scroll bg-grid-panel border-r border-grid-separator"
+            className="shrink-0 overflow-y-auto bg-grid-bg border-r border-grid-separator"
             style={{ width: leftWidth, overflowAnchor: "none" }}
           >
             {leftPanel}
@@ -227,7 +227,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
           <ResizeHandle side="right" panelRef={rightPanelRef} />
           <div
             ref={rightPanelRef}
-            className="shrink-0 overflow-y-scroll bg-grid-panel border-l border-grid-separator"
+            className="shrink-0 overflow-y-auto bg-grid-bg border-l border-grid-separator"
             style={{ width: rightWidth }}
           >
             {rightPanel}

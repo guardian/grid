@@ -177,6 +177,26 @@ export function CqlSearchInput({
     };
     el.addEventListener("queryChange", handleQueryChange);
 
+    // Escape blurs the search box — but only when the CQL typeahead popup
+    // is not visible. When suggestions are showing, CQL handles Escape
+    // internally (hides the popup via ProseMirror keydown inside the shadow
+    // DOM). We use capture phase so we see data-isvisible BEFORE CQL's
+    // handler flips it to "false".
+    const handleEscape = (e: Event) => {
+      if ((e as KeyboardEvent).key !== "Escape") return;
+
+      // If the typeahead popup is visible, CQL will dismiss it — don't blur
+      const popover = el.shadowRoot?.querySelector('[data-isvisible="true"]');
+      if (popover) return;
+
+      (document.activeElement as HTMLElement | null)?.blur();
+      el.blur();
+      // Also try to blur inside the shadow root
+      el.shadowRoot?.activeElement instanceof HTMLElement &&
+        el.shadowRoot.activeElement.blur();
+    };
+    el.addEventListener("keydown", handleEscape, true);
+
     // Prevent keyboard events from bubbling (matches kahuna).
     // Navigation keys propagate so the ImageTable keyboard handler can
     // scroll the results — even when the caret is in the search box.
@@ -203,6 +223,7 @@ export function CqlSearchInput({
 
     return () => {
       el.removeEventListener("queryChange", handleQueryChange);
+      el.removeEventListener("keydown", handleEscape, true);
       for (const type of ["keydown", "keyup", "keypress"]) {
         el.removeEventListener(type, stopUnhandled);
       }

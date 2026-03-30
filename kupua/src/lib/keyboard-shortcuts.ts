@@ -79,7 +79,7 @@ export function unregisterShortcut(shortcut: Shortcut): void {
 // Editable field detection
 // ---------------------------------------------------------------------------
 
-function isEditableTarget(e: KeyboardEvent): boolean {
+export function isEditableTarget(e: KeyboardEvent): boolean {
   const target = e.target as HTMLElement | null;
   if (!target) return false;
 
@@ -92,6 +92,20 @@ function isEditableTarget(e: KeyboardEvent): boolean {
   if (target.shadowRoot != null) return true;
   const composed = e.composedPath?.();
   return composed?.some((el) => (el as HTMLElement)?.tagName === "CQL-INPUT") ?? false;
+}
+
+/**
+ * Detect native form inputs (input, textarea, select) but NOT the CQL custom
+ * element. The CQL search box deliberately lets navigation keys (arrows,
+ * PageUp/Down) propagate so useListNavigation can handle them. Native inputs
+ * (e.g. <input type="date">) need those keys for their own UI.
+ */
+export function isNativeInputTarget(e: KeyboardEvent): boolean {
+  const target = e.target as HTMLElement | null;
+  if (!target) return false;
+
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 // ---------------------------------------------------------------------------

@@ -813,15 +813,16 @@ export function ImageTable() {
     const id = focusedImageId;
     if (!id) return;
 
-    const idx = findImageIndex(id);
+    const saved = consumeFocusRatio();
+    // Prefer the saved localIndex (immune to imagePositions eviction)
+    const idx = saved != null ? saved.localIndex : findImageIndex(id);
     if (idx < 0) return;
 
-    const ratio = consumeFocusRatio();
-    if (ratio != null) {
+    if (saved != null) {
       const el = parentRef.current;
       if (el) {
         const rowTop = idx * ROW_HEIGHT;
-        const targetScroll = rowTop - ratio * el.clientHeight;
+        const targetScroll = rowTop - saved.ratio * el.clientHeight;
         const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
         virtualizer.scrollToOffset(clamped);
       }
@@ -843,7 +844,7 @@ export function ImageTable() {
       if (globalIdx < 0) return;
       const localIdx = globalIdx - bufferOffset;
       if (localIdx < 0) return;
-      saveFocusRatio((localIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight);
+      saveFocusRatio((localIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight, localIdx);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
   }, []);
@@ -1252,7 +1253,7 @@ export function ImageTable() {
         <div
           data-table-header
           role="row"
-          className="sticky top-0 z-10 inline-flex bg-grid-panel border-b border-grid-separator h-11"
+          className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-11"
           onContextMenu={(e) => handleHeaderContextMenu(e)}
         >
           {table.getHeaderGroups().map((headerGroup) =>

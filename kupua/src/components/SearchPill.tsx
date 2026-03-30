@@ -33,7 +33,7 @@ export function SearchPill({ value, cqlKey, onSearch }: SearchPillProps) {
     <button
       type="button"
       className="inline-flex items-center px-1.5 py-0 rounded-sm text-xs
-                 bg-grid-panel-hover/60 text-grid-text
+                 bg-grid-cell-hover/60 text-grid-text
                  hover:bg-grid-accent/20 hover:text-grid-accent
                  cursor-pointer transition-colors leading-snug"
       onClick={(e) => onSearch(cqlKey, value, e)}
@@ -64,7 +64,7 @@ export function DataSearchPill({ value, cqlKey }: DataSearchPillProps) {
       data-cql-key={cqlKey}
       data-cql-value={value}
       className="inline-flex items-center shrink-0 px-1.5 py-0 rounded-sm text-xs
-                 bg-grid-panel-hover/60 text-grid-text
+                 bg-grid-cell-hover/60 text-grid-text
                  hover:bg-grid-accent/20 hover:text-grid-accent
                  cursor-pointer transition-colors leading-snug"
     >

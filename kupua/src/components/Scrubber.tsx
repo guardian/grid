@@ -416,32 +416,63 @@ export function Scrubber({
   useEffect(() => {
     if (!allDataInBuffer) return; // seek mode — handled by the discrete sync above
 
-    const scrollEl = findScrollContainer();
-    if (!scrollEl) return;
+    const contentCol = trackRef.current?.previousElementSibling;
 
-    const syncFromScroll = () => {
-      if (isDragging) return; // drag handler controls thumb during drag
-      const thumbEl = thumbRef.current;
-      if (!thumbEl) return;
+    // --- inner helper: attach scroll listener to the current scroll container ---
+    let currentScrollEl: Element | null = null;
+    let currentHandler: (() => void) | null = null;
 
-      const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-      const ratio = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
-      const clampedRatio = Math.max(0, Math.min(1, ratio));
-      const top = clampedRatio * maxThumbTop;
-
-      thumbEl.style.top = `${top}px`;
-      const tipEl = tooltipRef.current;
-      if (tipEl) {
-        const tipH = tipEl.offsetHeight || 28;
-        tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, top))}px`;
+    const attach = () => {
+      // Detach previous listener if any
+      if (currentScrollEl && currentHandler) {
+        currentScrollEl.removeEventListener("scroll", currentHandler);
       }
+
+      currentScrollEl = findScrollContainer();
+      if (!currentScrollEl) { currentHandler = null; return; }
+
+      const scrollEl = currentScrollEl; // capture for closure
+      currentHandler = () => {
+        if (isDragging) return; // drag handler controls thumb during drag
+        const thumbEl = thumbRef.current;
+        if (!thumbEl) return;
+
+        const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+        const ratio = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
+        const clampedRatio = Math.max(0, Math.min(1, ratio));
+        const top = clampedRatio * maxThumbTop;
+
+        thumbEl.style.top = `${top}px`;
+        const tipEl = tooltipRef.current;
+        if (tipEl) {
+          const tipH = tipEl.offsetHeight || 28;
+          tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, top))}px`;
+        }
+      };
+
+      // Sync immediately (covers programmatic scroll resets, buffer changes)
+      currentHandler();
+
+      scrollEl.addEventListener("scroll", currentHandler, { passive: true });
     };
 
-    // Sync immediately (covers programmatic scroll resets, buffer changes)
-    syncFromScroll();
+    attach();
 
-    scrollEl.addEventListener("scroll", syncFromScroll, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", syncFromScroll);
+    // Watch the content column for child changes (density switch swaps
+    // ImageGrid ↔ ImageTable, replacing the scroll container element).
+    // When that happens, re-find and re-attach the scroll listener.
+    let mo: MutationObserver | undefined;
+    if (contentCol) {
+      mo = new MutationObserver(() => attach());
+      mo.observe(contentCol, { childList: true });
+    }
+
+    return () => {
+      if (currentScrollEl && currentHandler) {
+        currentScrollEl.removeEventListener("scroll", currentHandler);
+      }
+      mo?.disconnect();
+    };
   }, [allDataInBuffer, isDragging, maxThumbTop, trackHeight, findScrollContainer]);
 
   // -------------------------------------------------------------------------
@@ -946,7 +977,7 @@ export function Scrubber({
         style={{
           top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
           textAlign: "right",
-          backgroundColor: "var(--color-grid-panel)",
+          backgroundColor: "var(--color-grid-bg)",
           border: "1px solid var(--color-grid-border)",
           opacity: tooltipVisible && !(allDataInBuffer && thumbHeight >= trackHeight * 0.8) ? 1 : 0,
           transition: "opacity 150ms ease-in",

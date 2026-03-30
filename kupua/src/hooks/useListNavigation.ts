@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
+import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -244,6 +245,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const handleBubble = (e: KeyboardEvent) => {
       const c = configRef.current;
       if (c.imageParam) return;
+      if (isNativeInputTarget(e)) return;
 
       const cols = c.columnsPerRow;
       switch (e.key) {

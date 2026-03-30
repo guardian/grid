@@ -15,6 +15,7 @@
 | 4 | S3 proxy — read-only | `scripts/s3-proxy.mjs` | ✅ Active |
 | 5 | imgproxy — read-only | docker compose + Vite proxy | ✅ Active |
 | 6 | Aggregation load control | `search-store.ts` + `FacetFilters.tsx` | ✅ Active |
+| 7 | E2E test real-cluster gate | `e2e/global-setup.ts` | ✅ Active |
 
 ---
 
@@ -214,6 +215,32 @@ naively running aggs on every keystroke could strain the cluster.
 
 ---
 
+## 7. E2E test real-cluster gate — refuse to run against non-local ES
+
+**Problem:** Playwright's `reuseExistingServer: true` means `npx playwright test`
+will happily use an already-running Vite dev server on port 3000. If the developer
+previously ran `start.sh --use-TEST`, that server is proxying to a real ES cluster.
+Running 63 e2e tests against TEST fires hundreds of search/count/agg requests,
+triggers CloudWatch alarms, and produces meaningless test failures (the tests expect
+10k local docs, not 1.3M).
+
+**Safeguard:** `e2e/global-setup.ts` runs a pre-flight check before any test
+execution. It queries the Vite proxy (`/es/images/_count` then `/es/_count`) and
+checks the document count. If the count exceeds `LOCAL_MAX_DOCS` (50,000), the
+test run is aborted with a clear error message explaining the cause and fix.
+
+The check runs as the very first step of `globalSetup()`, before Docker ES
+auto-start or index verification. If Vite is not running on port 3000, the
+check silently passes (Playwright will start its own Vite instance later,
+which defaults to local ES on port 9220).
+
+**Why doc count, not env var:** The `VITE_ES_IS_LOCAL` flag exists in the app
+code but is a build-time Vite env var — not accessible to the Playwright global
+setup (which runs in Node.js, not in the browser). Querying the actual data
+through the Vite proxy is the only reliable way to detect the connection target.
+
+---
+
 ## Configuration
 
 ### Environment variables
@@ -282,4 +309,3 @@ VITE_ES_IS_LOCAL=true
 - **Query complexity limits:** Could add a max clause count or query
   depth check to prevent accidentally complex CQL from generating
   expensive ES queries. Not needed yet.
-

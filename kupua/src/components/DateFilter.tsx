@@ -354,7 +354,7 @@ export function DateFilter() {
 
       {/* Dropdown overlay */}
       {open && (
-        <div className="absolute top-full right-0 mt-1 z-50 bg-grid-panel border border-grid-border rounded shadow-lg w-80 p-4">
+        <div className="absolute top-full right-0 mt-1 z-50 bg-grid-bg border border-grid-border rounded shadow-lg w-80 p-4">
           {/* Field selector */}
           <h3 className="text-sm font-bold text-grid-text-bright mb-2">
             Field
@@ -421,7 +421,7 @@ export function DateFilter() {
                 value={toDateInputValue(draftSince)}
                 max={toDateInputValue(draftUntil)}
                 onChange={handleFromChange}
-                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
+                className="w-full px-2 py-1 bg-grid-bg border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button
                 type="button"
@@ -442,7 +442,7 @@ export function DateFilter() {
                 value={toDateInputValue(draftUntil)}
                 min={toDateInputValue(draftSince)}
                 onChange={handleToChange}
-                className="w-full px-2 py-1 bg-grid-panel border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
+                className="w-full px-2 py-1 bg-grid-bg border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button
                 type="button"

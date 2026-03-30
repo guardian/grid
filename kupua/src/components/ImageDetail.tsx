@@ -361,7 +361,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     <>
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <header className="flex items-center px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11 shrink-0">
+        <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
           {/* Logo + separator + back button — flush together, no gaps */}
           <div className="flex items-center shrink-0 -ml-3">
             {/* Logo — resets everything (query, filters, sort, scroll), same as SearchBar.

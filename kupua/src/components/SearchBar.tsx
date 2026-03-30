@@ -112,7 +112,7 @@ export function SearchBar() {
     <header
       role="toolbar"
       aria-label="Search and filter controls"
-      className="flex items-center gap-3 px-3 py-1.5 bg-grid-panel border-b border-grid-separator h-11"
+      className="flex items-center gap-3 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
     >
       {/* Logo — always visible, resets state and focuses search box.
            Hit area is a square matching the full bar height (h-11 = 44px).
@@ -140,7 +140,7 @@ export function SearchBar() {
       </Link>
 
       {/* CQL search input with chips — grows to fill available space */}
-      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-panel">
+      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
         {/* Search icon — non-selectable, matches Grid's magnifier */}
         <svg
           className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
