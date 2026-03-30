@@ -8,9 +8,8 @@
  * ║                                                                    ║
  * ║  How to run:                                                       ║
  * ║    Terminal 1: ./scripts/start.sh --use-TEST                       ║
- * ║    Terminal 2: npx playwright test --config playwright.smoke.config.ts \  ║
- * ║                e2e/rendering-perf-smoke.spec.ts                    ║
- * ║            or: node scripts/run-smoke.mjs (if registered there)    ║
+ * ║    Terminal 2: node e2e-perf/run-audit.mjs --label "..."           ║
+ * ║            or: node scripts/run-perf-smoke.mjs [P<N>]              ║
  * ║                                                                    ║
  * ║  All tests auto-skip if total < 100k (local ES).                  ║
  * ╚══════════════════════════════════════════════════════════════════════╝
@@ -25,20 +24,134 @@
  * Each scenario runs a user workflow (scroll, seek, density switch, panel
  * toggle, sort change) and dumps a detailed performance report to the
  * console for the human + agent to analyse.
+ *
+ * Result set is pinned via until=PERF_STABLE_UNTIL (env var set by
+ * run-audit.mjs) so metric fluctuations track code changes, not data growth.
  */
 
-import { test, expect, KupuaHelpers } from "./helpers";
+import { appendFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { test, expect } from "../e2e/helpers";
+import {
+  GRID_ROW_HEIGHT,
+  GRID_MIN_CELL_WIDTH,
+  TABLE_ROW_HEIGHT,
+} from "@/constants/layout";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const METRICS_FILE = resolve(__dirname, "results/.metrics-tmp.jsonl");
+
+// ---------------------------------------------------------------------------
+// Stable result set pinning
+// ---------------------------------------------------------------------------
+
+const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
+
+/**
+ * Navigate to the perf-stable result set (frozen corpus).
+ *
+ * `until` pins the corpus to a fixed point in time so metrics track code
+ * changes, not data growth.  It is essential on real ES (STABLE_UNTIL is
+ * always set by run-audit.mjs — requireRealData() enforces this).  It is
+ * omitted for local ES where the total is tiny and date-filtering would
+ * likely return zero results anyway.
+ */
+async function gotoPerfSearch(kupua: any, extraParams?: string) {
+  const untilParam = STABLE_UNTIL ? `&until=${encodeURIComponent(STABLE_UNTIL)}` : "";
+  const extra = extraParams ? `&${extraParams}` : "";
+  await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
+  await kupua.waitForResults();
+}
 
 // ---------------------------------------------------------------------------
 // Guard: skip all tests if not connected to a real cluster
 // ---------------------------------------------------------------------------
 
-async function requireRealData(kupua: KupuaHelpers): Promise<number> {
+async function requireRealData(kupua: any): Promise<number> {
   const store = await kupua.getStoreState();
   if (store.total < 100_000) {
     test.skip(true, `Skipping: connected to local ES (total=${store.total}). These tests require --use-TEST.`);
   }
+  // On real data, PERF_STABLE_UNTIL MUST be set — otherwise the result corpus
+  // grows with every new upload and metrics drift between runs.
+  // Always invoke via run-audit.mjs (or scripts/run-perf-smoke.mjs), which
+  // computes and injects this env var automatically.
+  if (!STABLE_UNTIL) {
+    throw new Error(
+      "PERF_STABLE_UNTIL env var is not set but you are connected to a real ES cluster " +
+      `(total=${store.total}). Run via: node e2e-perf/run-audit.mjs  OR  ` +
+      "node scripts/run-perf-smoke.mjs — never invoke Playwright directly for perf tests.",
+    );
+  }
   return store.total;
+}
+
+// ---------------------------------------------------------------------------
+// Focus position measurement — shared by P4, P6, P12
+// ---------------------------------------------------------------------------
+
+interface FocusPos {
+  viewportY: number;
+  viewportRatio: number;
+  visible: boolean;
+  view: "grid" | "table";
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+  localIdx: number;
+  bufferOffset: number;
+  resultsLength: number;
+}
+
+/**
+ * Read the focused image's exact viewport position.
+ * Returns pixel offset from viewport top, ratio (0=top, 1=bottom),
+ * visibility flag, and buffer/scroll metadata.
+ */
+async function getFocusedViewportPos(kupua: any): Promise<FocusPos | null> {
+  return kupua.page.evaluate(
+    ({ GRID_ROW, GRID_COLS, TABLE_ROW }: { GRID_ROW: number; GRID_COLS: number; TABLE_ROW: number }) => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      const fid = s.focusedImageId;
+      if (!fid) return null;
+      const gIdx = s.imagePositions.get(fid);
+      if (gIdx == null) return null;
+      const localIdx = gIdx - s.bufferOffset;
+      if (localIdx < 0 || localIdx >= s.results.length) return null;
+
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = (grid ?? table) as HTMLElement;
+      if (!el) return null;
+
+      const isGrid = !!grid;
+      let rowTop: number;
+      if (isGrid) {
+        const cols = Math.max(1, Math.floor(el.clientWidth / GRID_COLS));
+        rowTop = Math.floor(localIdx / cols) * GRID_ROW;
+      } else {
+        rowTop = localIdx * TABLE_ROW;
+      }
+
+      const viewportY = rowTop - el.scrollTop;
+      return {
+        viewportY: Math.round(viewportY),
+        viewportRatio: Math.round((viewportY / el.clientHeight) * 1000) / 1000,
+        visible: viewportY >= -GRID_ROW && viewportY <= el.clientHeight + GRID_ROW,
+        view: isGrid ? "grid" : "table",
+        scrollTop: Math.round(el.scrollTop),
+        scrollHeight: Math.round(el.scrollHeight),
+        clientHeight: Math.round(el.clientHeight),
+        localIdx,
+        bufferOffset: s.bufferOffset,
+        resultsLength: s.results.length,
+      };
+    },
+    { GRID_ROW: GRID_ROW_HEIGHT, GRID_COLS: GRID_MIN_CELL_WIDTH, TABLE_ROW: TABLE_ROW_HEIGHT },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +162,7 @@ async function requireRealData(kupua: KupuaHelpers): Promise<number> {
  * Inject all performance observers into the page. Call once after navigation.
  * Returns a handle to read accumulated metrics.
  */
-async function injectPerfProbes(kupua: KupuaHelpers) {
+async function injectPerfProbes(kupua: any) {
   await kupua.page.evaluate(() => {
     // ── Layout Shift (CLS) ──────────────────────────────────────────
     const layoutShifts: Array<{
@@ -219,7 +332,7 @@ interface PerfSnapshot {
   paints: { count: number };
 }
 
-async function collectPerfSnapshot(kupua: KupuaHelpers, _label?: string): Promise<PerfSnapshot> {
+async function collectPerfSnapshot(kupua: any, _label?: string): Promise<PerfSnapshot> {
   const snapshot = await kupua.page.evaluate(() => {
     const p = (window as any).__perfProbes;
     if (!p) return null;
@@ -248,7 +361,7 @@ async function collectPerfSnapshot(kupua: KupuaHelpers, _label?: string): Promis
         total: clsTotal,
         maxSingle: clsMax,
         unexpectedShifts: unexpectedShifts.length,
-        shiftDetails: unexpectedShifts.slice(0, 10), // cap for console
+        shiftDetails: unexpectedShifts.slice(0, 10),
       },
       loaf: {
         count: p.longFrames.length,
@@ -270,7 +383,7 @@ async function collectPerfSnapshot(kupua: KupuaHelpers, _label?: string): Promis
         removals: p.mutationStats.removals,
         attributeChanges: p.mutationStats.attributeChanges,
         totalChurn: p.mutationStats.additions + p.mutationStats.removals + p.mutationStats.attributeChanges,
-        bursts: p.mutationStats.bursts.slice(-20), // last 20 bursts
+        bursts: p.mutationStats.bursts.slice(-20),
       },
       paints: {
         count: p.paintEntries.length,
@@ -287,7 +400,6 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
   console.log(`  PERF REPORT: ${label}`);
   console.log(`${"═".repeat(70)}`);
 
-  // CLS
   console.log(`\n  ── Layout Shifts (CLS) ──`);
   console.log(`  Total CLS:             ${snap.cls.total.toFixed(4)} ${snap.cls.total > 0.1 ? "⚠️  POOR" : snap.cls.total > 0.05 ? "🟡 NEEDS WORK" : "✅ GOOD"}`);
   console.log(`  Max single shift:      ${snap.cls.maxSingle.toFixed(4)}`);
@@ -300,7 +412,6 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
     }
   }
 
-  // Long frames
   console.log(`\n  ── Long Animation Frames ──`);
   console.log(`  Count:                 ${snap.loaf.count}`);
   console.log(`  Total blocking:        ${snap.loaf.totalBlockingMs.toFixed(0)}ms`);
@@ -314,7 +425,6 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
     }
   }
 
-  // Frame jank
   console.log(`\n  ── Frame Timing ──`);
   console.log(`  Total frames:          ${snap.jank.frameCount}`);
   console.log(`  Avg frame:             ${snap.jank.avgFrameMs.toFixed(1)}ms`);
@@ -324,7 +434,6 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
   console.log(`  Janky (>33ms):         ${snap.jank.jankyFrames33ms}`);
   console.log(`  Severe (>50ms):        ${snap.jank.jankyFrames50ms}`);
 
-  // DOM churn
   console.log(`\n  ── DOM Mutations ──`);
   console.log(`  Additions:             ${snap.dom.additions}`);
   console.log(`  Removals:              ${snap.dom.removals}`);
@@ -338,7 +447,6 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
     }
   }
 
-  // Paints
   console.log(`\n  ── Paint entries:      ${snap.paints.count}`);
   console.log(`${"═".repeat(70)}\n`);
 }
@@ -346,7 +454,7 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
 /**
  * Reset the accumulated metrics for a fresh measurement window.
  */
-async function resetPerfProbes(kupua: KupuaHelpers) {
+async function resetPerfProbes(kupua: any) {
   await kupua.page.evaluate(() => {
     const p = (window as any).__perfProbes;
     if (!p) return;
@@ -363,11 +471,36 @@ async function resetPerfProbes(kupua: KupuaHelpers) {
 }
 
 // ---------------------------------------------------------------------------
+// Structured metric emission — read by run-audit.mjs harness
+// ---------------------------------------------------------------------------
+
+function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unknown>) {
+  const line = JSON.stringify({
+    id,
+    timestamp: new Date().toISOString(),
+    cls: Number(snap.cls.total.toFixed(4)),
+    clsMax: Number(snap.cls.maxSingle.toFixed(4)),
+    maxFrame: Math.round(snap.jank.maxFrameMs),
+    severe: snap.jank.jankyFrames50ms,
+    p95Frame: Math.round(snap.jank.p95FrameMs),
+    domChurn: snap.dom.totalChurn,
+    loafBlocking: Math.round(snap.loaf.totalBlockingMs),
+    frameCount: snap.jank.frameCount,
+    ...(extra ?? {}),
+  }) + "\n";
+  try {
+    appendFileSync(METRICS_FILE, line);
+  } catch {
+    // METRICS_FILE may not exist if running outside the harness — that's fine.
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Smoke tests
 // ---------------------------------------------------------------------------
 
 test.describe("Rendering Performance Smoke", () => {
-  test.describe.configure({ timeout: 180_000 });
+  test.describe.configure({ timeout: 240_000 });
 
   test.afterEach(async ({ kupua }) => {
     // Stop probes to prevent rAF leak
@@ -378,33 +511,34 @@ test.describe("Rendering Performance Smoke", () => {
 
   // ─── P1: Initial load + settle ─────────────────────────────────────
   test("P1: initial load — CLS and frame jank during first render", async ({ kupua }) => {
-    await kupua.page.goto("/search?nonFree=true");
+    await kupua.page.goto(
+      STABLE_UNTIL
+        ? `/search?nonFree=true&until=${encodeURIComponent(STABLE_UNTIL)}`
+        : "/search?nonFree=true",
+    );
     await injectPerfProbes(kupua);
     await kupua.waitForResults();
-    // Let the page fully settle (images load, scrubber appears, etc.)
     await kupua.page.waitForTimeout(3000);
 
     const total = await requireRealData(kupua);
-    console.log(`  [P1] total=${total}`);
+    console.log(`  [P1] total=${total}${STABLE_UNTIL ? `, stable_until=${STABLE_UNTIL}` : ""}`);
 
     const snap = await collectPerfSnapshot(kupua, "P1: Initial Load");
     logPerfReport("P1: Initial Load", snap);
+    emitMetric("P1", snap);
 
-    // CLS should be near zero on initial load
-    expect(snap.cls.total).toBeLessThan(0.25); // generous for first load
+    expect(snap.cls.total).toBeLessThan(0.25);
   });
 
   // ─── P2: Mousewheel scroll ────────────────────────────────────────
   test("P2: mousewheel scroll — jank, CLS, DOM churn during fast scroll", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await injectPerfProbes(kupua);
-    // Let probes stabilize
     await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    // Fast mousewheel scroll (simulates real user scrolling aggressively)
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
     const gridBox = await gridEl.boundingBox();
     expect(gridBox).not.toBeNull();
@@ -417,107 +551,170 @@ test.describe("Rendering Performance Smoke", () => {
     console.log(`  [P2] Starting fast scroll (30 wheel events)...`);
     for (let i = 0; i < 30; i++) {
       await kupua.page.mouse.wheel(0, 800);
-      await kupua.page.waitForTimeout(50); // ~20fps scroll pace
+      await kupua.page.waitForTimeout(50);
     }
-    // Let extends/evictions settle
     await kupua.page.waitForTimeout(2000);
 
     const snap = await collectPerfSnapshot(kupua, "P2: Fast Scroll");
     logPerfReport("P2: Mousewheel Fast Scroll", snap);
+    emitMetric("P2", snap);
 
-    // Scroll should NOT produce layout shifts — content is absolutely positioned
     expect(snap.cls.total).toBeLessThan(0.1);
   });
 
-  // ─── P3: Scrubber seek ────────────────────────────────────────────
+  // ─── P3: Seek buffer replacement (date sort) ─────────────────────
   test("P3: scrubber seek to 50% — reflow and instability during buffer replacement", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    console.log(`  [P3] Seeking to 50%...`);
+    console.log(`  [P3] Seeking to 50% (date sort / percentile path)...`);
     const seekStart = Date.now();
     await kupua.seekTo(0.5, 30_000);
     const seekMs = Date.now() - seekStart;
     console.log(`  [P3] Seek completed in ${seekMs}ms`);
 
-    // Wait for thumbnails to fully load and reflow to settle (4s)
     await kupua.page.waitForTimeout(4000);
 
     const snap = await collectPerfSnapshot(kupua, "P3: Seek to 50%");
-    logPerfReport("P3: Scrubber Seek to 50%", snap);
+    logPerfReport("P3: Scrubber Seek to 50% (date sort)", snap);
+    emitMetric("P3", snap, { seekMs });
 
     const store = await kupua.getStoreState();
     console.log(`  [P3] Post-seek: offset=${store.bufferOffset}, len=${store.resultsLength}`);
   });
 
-  // ─── P4: Density switch (grid → table → grid) ────────────────────
-  test("P4: density switch — CLS and DOM churn during grid↔table", async ({ kupua }) => {
-    await kupua.goto();
+  // ─── P3b: Seek under keyword sort ────────────────────────────────
+  // Exercises the completely different composite-agg + binary-search seek
+  // path. P3 only tests date sort (percentile). This is the other major branch.
+  test("P3b: keyword sort seek to 50% — composite-agg + binary-search path", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
-    // Focus an image so we test the "Never Lost" path
-    await kupua.focusNthItem(5);
-    const focusedId = await kupua.getFocusedImageId();
-    console.log(`  [P4] Focused: ${focusedId}`);
+    // Switch to Credit sort (keyword field — composite agg path)
+    await kupua.selectSort("Credit");
+    await kupua.page.waitForTimeout(1500);
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    // Grid → Table
-    console.log(`  [P4] Switching to table...`);
+    console.log(`  [P3b] Seeking to 50% (Credit sort / composite-agg path)...`);
+    const seekStart = Date.now();
+    await kupua.seekTo(0.5, 60_000);
+    const seekMs = Date.now() - seekStart;
+    console.log(`  [P3b] Seek completed in ${seekMs}ms`);
+
+    await kupua.page.waitForTimeout(4000);
+
+    const snap = await collectPerfSnapshot(kupua, "P3b: Seek to 50% (keyword sort)");
+    logPerfReport("P3b: Scrubber Seek to 50% (Credit/keyword sort)", snap);
+    emitMetric("P3b", snap, { seekMs });
+
+    const store = await kupua.getStoreState();
+    console.log(`  [P3b] Post-seek: offset=${store.bufferOffset}, len=${store.resultsLength}`);
+  });
+
+  // ─── P4a: Grid → Table density switch ────────────────────────────
+  test("P4a: density switch grid→table — CLS and DOM churn", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    await kupua.focusNthItem(5);
+    const focusedId = await kupua.getFocusedImageId();
+    const posBefore = await getFocusedViewportPos(kupua);
+    console.log(`  [P4a] Focused: ${focusedId}, before: vY=${posBefore?.viewportY}px ratio=${posBefore?.viewportRatio}`);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(500);
+    await resetPerfProbes(kupua);
+
+    console.log(`  [P4a] Switching grid → table...`);
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(1000);
 
-    const snapToTable = await collectPerfSnapshot(kupua, "P4a: Grid→Table");
-    logPerfReport("P4a: Grid → Table", snapToTable);
+    const snap = await collectPerfSnapshot(kupua, "P4a: Grid→Table");
+    const posAfter = await getFocusedViewportPos(kupua);
+    const drift = posBefore && posAfter ? posAfter.viewportY - posBefore.viewportY : null;
+    const ratioDrift = posBefore && posAfter ? Math.round((posAfter.viewportRatio - posBefore.viewportRatio) * 1000) / 1000 : null;
+    console.log(`  [P4a] After: vY=${posAfter?.viewportY}px ratio=${posAfter?.viewportRatio}, drift=${drift}px, ratioDrift=${ratioDrift}`);
 
+    logPerfReport("P4a: Grid → Table", snap);
+    emitMetric("P4a", snap, {
+      focusDriftPx: drift,
+      focusDriftRatio: ratioDrift,
+      focusVisible: posAfter?.visible ?? false,
+    });
+
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+  });
+
+  // ─── P4b: Table → Grid density switch ────────────────────────────
+  test("P4b: density switch table→grid — CLS and DOM churn", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+    await kupua.focusNthItem(5);
+    const focusedId = await kupua.getFocusedImageId();
+    const posBefore = await getFocusedViewportPos(kupua);
+    console.log(`  [P4b] Focused: ${focusedId}, before: vY=${posBefore?.viewportY}px ratio=${posBefore?.viewportRatio}`);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    // Table → Grid
-    console.log(`  [P4] Switching back to grid...`);
+    console.log(`  [P4b] Switching table → grid...`);
     await kupua.switchToGrid();
     await kupua.page.waitForTimeout(1000);
 
-    const snapToGrid = await collectPerfSnapshot(kupua, "P4b: Table→Grid");
-    logPerfReport("P4b: Table → Grid", snapToGrid);
+    const snap = await collectPerfSnapshot(kupua, "P4b: Table→Grid");
+    const posAfter = await getFocusedViewportPos(kupua);
+    const drift = posBefore && posAfter ? posAfter.viewportY - posBefore.viewportY : null;
+    const ratioDrift = posBefore && posAfter ? Math.round((posAfter.viewportRatio - posBefore.viewportRatio) * 1000) / 1000 : null;
+    console.log(`  [P4b] After: vY=${posAfter?.viewportY}px ratio=${posAfter?.viewportRatio}, drift=${drift}px, ratioDrift=${ratioDrift}`);
 
-    // Focus should survive both switches
+    logPerfReport("P4b: Table → Grid", snap);
+    emitMetric("P4b", snap, {
+      focusDriftPx: drift,
+      focusDriftRatio: ratioDrift,
+      focusVisible: posAfter?.visible ?? false,
+    });
+
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
   });
 
   // ─── P5: Panel toggle — layout reflow ─────────────────────────────
   test("P5: panel toggle — CLS during left/right panel open/close", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    // Open left panel (Alt+[)
     console.log(`  [P5] Opening left panel...`);
     await kupua.page.keyboard.press("Alt+[");
     await kupua.page.waitForTimeout(800);
 
     const snapLeft = await collectPerfSnapshot(kupua, "P5a: Left panel open");
     logPerfReport("P5a: Left Panel Open", snapLeft);
+    emitMetric("P5a", snapLeft);
     await resetPerfProbes(kupua);
 
-    // Open right panel (Alt+])
     console.log(`  [P5] Opening right panel...`);
     await kupua.page.keyboard.press("Alt+]");
     await kupua.page.waitForTimeout(800);
 
     const snapRight = await collectPerfSnapshot(kupua, "P5b: Right panel open");
     logPerfReport("P5b: Right Panel Open", snapRight);
+    emitMetric("P5b", snapRight);
     await resetPerfProbes(kupua);
 
-    // Close both — the scroll anchoring should prevent CLS
     console.log(`  [P5] Closing both panels...`);
     await kupua.page.keyboard.press("Alt+[");
     await kupua.page.waitForTimeout(300);
@@ -526,29 +723,39 @@ test.describe("Rendering Performance Smoke", () => {
 
     const snapClose = await collectPerfSnapshot(kupua, "P5c: Both panels closed");
     logPerfReport("P5c: Both Panels Closed", snapClose);
+    emitMetric("P5c", snapClose);
   });
 
   // ─── P6: Sort change with focus — "Never Lost" path ───────────────
   test("P6: sort change — CLS and jank during sort-around-focus", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await kupua.focusNthItem(5);
     const focusedId = await kupua.getFocusedImageId();
-    console.log(`  [P6] Focused: ${focusedId}`);
+    const posBefore = await getFocusedViewportPos(kupua);
+    console.log(`  [P6] Focused: ${focusedId}, before: vY=${posBefore?.viewportY}px ratio=${posBefore?.viewportRatio}`);
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
     await resetPerfProbes(kupua);
 
-    // Toggle sort direction — triggers sort-around-focus
     console.log(`  [P6] Toggling sort direction (sort-around-focus)...`);
     await kupua.toggleSortDirection();
-    // Sort-around-focus can take several seconds on 1M+ docs
     await kupua.page.waitForTimeout(5000);
 
     const snap = await collectPerfSnapshot(kupua, "P6: Sort Direction Toggle");
+    const posAfter = await getFocusedViewportPos(kupua);
+    const drift = posBefore && posAfter ? posAfter.viewportY - posBefore.viewportY : null;
+    const ratioDrift = posBefore && posAfter ? Math.round((posAfter.viewportRatio - posBefore.viewportRatio) * 1000) / 1000 : null;
+    console.log(`  [P6] After: vY=${posAfter?.viewportY}px ratio=${posAfter?.viewportRatio}, drift=${drift}px, ratioDrift=${ratioDrift}`);
+
     logPerfReport("P6: Sort Direction Toggle (Never Lost)", snap);
+    emitMetric("P6", snap, {
+      focusDriftPx: drift,
+      focusDriftRatio: ratioDrift,
+      focusVisible: posAfter?.visible ?? false,
+    });
 
     const store = await kupua.getStoreState();
     console.log(`  [P6] Post-sort: focused=${store.focusedImageId}, offset=${store.bufferOffset}`);
@@ -557,7 +764,7 @@ test.describe("Rendering Performance Smoke", () => {
 
   // ─── P7: Scrubber drag — continuous DOM writes ────────────────────
   test("P7: scrubber drag — frame rate during continuous thumb tracking", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await injectPerfProbes(kupua);
@@ -576,27 +783,25 @@ test.describe("Rendering Performance Smoke", () => {
     await kupua.page.mouse.move(startX, startY);
     await kupua.page.mouse.down();
 
-    // Drag slowly from top to bottom
     const steps = 40;
     for (let i = 1; i <= steps; i++) {
       const y = trackBox!.y + (trackBox!.height * i) / steps;
       await kupua.page.mouse.move(startX, y);
-      await kupua.page.waitForTimeout(30); // ~33fps drag pace
+      await kupua.page.waitForTimeout(30);
     }
     await kupua.page.mouse.up();
-    // Wait for seek after drag-release
     await kupua.page.waitForTimeout(3000);
 
     const snap = await collectPerfSnapshot(kupua, "P7: Scrubber Drag");
     logPerfReport("P7: Scrubber Drag (top → bottom)", snap);
+    emitMetric("P7", snap);
 
-    // During drag, CLS should be zero (only tooltip moves, via direct DOM writes)
     expect(snap.cls.total).toBeLessThan(0.05);
   });
 
   // ─── P8: Table view scroll with extend/evict ──────────────────────
   test("P8: table scroll — jank during extend + evict cycles", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await kupua.switchToTable();
@@ -620,19 +825,19 @@ test.describe("Rendering Performance Smoke", () => {
       await kupua.page.mouse.wheel(0, 1500);
       await kupua.page.waitForTimeout(60);
     }
-    // Let extends/evictions settle
     await kupua.page.waitForTimeout(3000);
 
     const snap = await collectPerfSnapshot(kupua, "P8: Table Fast Scroll");
     logPerfReport("P8: Table Fast Scroll with Extend/Evict", snap);
+    emitMetric("P8", snap);
 
     const store = await kupua.getStoreState();
     console.log(`  [P8] Post-scroll: offset=${store.bufferOffset}, len=${store.resultsLength}`);
   });
 
-  // ─── P9: Sort change (field change) ───────────────────────────────
+  // ─── P9: Sort field change ───────────────────────────────────────
   test("P9: sort field change — CLS during full result set replacement", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
     await injectPerfProbes(kupua);
@@ -645,22 +850,28 @@ test.describe("Rendering Performance Smoke", () => {
 
     const snap = await collectPerfSnapshot(kupua, "P9: Sort Change to Credit");
     logPerfReport("P9: Sort Field Change (date → Credit)", snap);
+    emitMetric("P9", snap);
   });
 
-  // ─── P10: Comprehensive workflow ──────────────────────────────────
+  // ─── P10: Comprehensive workflow (report: false) ──────────────────
+  // Kept for stress-test value but excluded from audit diff tables.
+  // It duplicates P1–P9 with accumulated noise from prior phases.
+  // The harness records it but marks report=false.
   test("P10: full workflow — load, scroll, seek, switch, panel, sort", async ({ kupua }) => {
-    await kupua.page.goto("/search?nonFree=true");
+    await kupua.page.goto(
+      STABLE_UNTIL
+        ? `/search?nonFree=true&until=${encodeURIComponent(STABLE_UNTIL)}`
+        : "/search?nonFree=true",
+    );
     await injectPerfProbes(kupua);
     await kupua.waitForResults();
     await requireRealData(kupua);
 
-    // Phase 1: settle
     await kupua.page.waitForTimeout(2000);
     const snapLoad = await collectPerfSnapshot(kupua, "P10-load");
     logPerfReport("P10 Phase 1: Load", snapLoad);
     await resetPerfProbes(kupua);
 
-    // Phase 2: scroll
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
     const gridBox = await gridEl.boundingBox();
     await kupua.page.mouse.move(gridBox!.x + 200, gridBox!.y + 200);
@@ -673,14 +884,12 @@ test.describe("Rendering Performance Smoke", () => {
     logPerfReport("P10 Phase 2: Scroll", snapScroll);
     await resetPerfProbes(kupua);
 
-    // Phase 3: seek
     await kupua.seekTo(0.3, 30_000);
     await kupua.page.waitForTimeout(1500);
     const snapSeek = await collectPerfSnapshot(kupua, "P10-seek");
     logPerfReport("P10 Phase 3: Seek to 30%", snapSeek);
     await resetPerfProbes(kupua);
 
-    // Phase 4: focus + density switch
     await kupua.focusNthItem(3);
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(1000);
@@ -688,13 +897,11 @@ test.describe("Rendering Performance Smoke", () => {
     logPerfReport("P10 Phase 4: Focus + Grid→Table", snapDensity);
     await resetPerfProbes(kupua);
 
-    // Phase 5: sort change with focus
     await kupua.toggleSortDirection();
     await kupua.page.waitForTimeout(4000);
     const snapSort = await collectPerfSnapshot(kupua, "P10-sort");
     logPerfReport("P10 Phase 5: Sort Toggle (Never Lost)", snapSort);
 
-    // Summary
     console.log(`\n${"═".repeat(70)}`);
     console.log("  P10 SUMMARY");
     console.log(`${"═".repeat(70)}`);
@@ -704,124 +911,86 @@ test.describe("Rendering Performance Smoke", () => {
     console.log(`  Switch CLS: ${snapDensity.cls.total.toFixed(4)}, max-frame: ${snapDensity.jank.maxFrameMs.toFixed(0)}ms, DOM churn: ${snapDensity.dom.totalChurn}`);
     console.log(`  Sort   CLS: ${snapSort.cls.total.toFixed(4)}, max-frame: ${snapSort.jank.maxFrameMs.toFixed(0)}ms, DOM churn: ${snapSort.dom.totalChurn}`);
     console.log(`${"═".repeat(70)}\n`);
+
+    // Emit with report:false — harness records but excludes from diff table
+    const composite: PerfSnapshot = {
+      cls: { total: snapLoad.cls.total + snapScroll.cls.total + snapSeek.cls.total + snapDensity.cls.total + snapSort.cls.total, maxSingle: Math.max(snapLoad.cls.maxSingle, snapScroll.cls.maxSingle, snapSeek.cls.maxSingle, snapDensity.cls.maxSingle, snapSort.cls.maxSingle), unexpectedShifts: 0, shiftDetails: [] },
+      loaf: { count: 0, totalBlockingMs: snapLoad.loaf.totalBlockingMs + snapScroll.loaf.totalBlockingMs + snapSeek.loaf.totalBlockingMs + snapDensity.loaf.totalBlockingMs + snapSort.loaf.totalBlockingMs, worst: null },
+      jank: { frameCount: 0, droppedFrames: 0, jankyFrames16ms: 0, jankyFrames33ms: 0, jankyFrames50ms: snapLoad.jank.jankyFrames50ms + snapScroll.jank.jankyFrames50ms + snapSeek.jank.jankyFrames50ms + snapDensity.jank.jankyFrames50ms + snapSort.jank.jankyFrames50ms, maxFrameMs: Math.max(snapLoad.jank.maxFrameMs, snapScroll.jank.maxFrameMs, snapSeek.jank.maxFrameMs, snapDensity.jank.maxFrameMs, snapSort.jank.maxFrameMs), p95FrameMs: 0, avgFrameMs: 0 },
+      dom: { additions: 0, removals: 0, attributeChanges: 0, totalChurn: snapLoad.dom.totalChurn + snapScroll.dom.totalChurn + snapSeek.dom.totalChurn + snapDensity.dom.totalChurn + snapSort.dom.totalChurn, bursts: [] },
+      paints: { count: 0 },
+    };
+    emitMetric("P10", composite, { report: false });
   });
 
-  // ─── P11: Thumbnail reflow after seek ──────────────────────────────
-  // Reproduces: "clicking scrubber randomly, wherever I land the thumbnails
-  // load in two or three stages (they reflow)."
-  // Measures CLS from images loading, counts how many distinct compositions
-  // (layout-shift bursts) happen after a seek lands.
-  test("P11: thumbnail reflow — CLS from image loading after seek", async ({ kupua }) => {
-    await kupua.goto();
+  // ─── P11: Thumbnail reflow — 3 seeks, simplified ──────────────────
+  // Measures CLS from images loading after seek lands.
+  // Reduced to 3 seek positions (was 5). Credit sort variant → P11b.
+  test("P11: thumbnail reflow — CLS from image loading after seek (3 positions)", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
     const total = await requireRealData(kupua);
-
-    const viewportInfo = await kupua.page.evaluate(() => ({
-      innerWidth: window.innerWidth,
-      innerHeight: window.innerHeight,
-      dpr: window.devicePixelRatio,
-    }));
-    console.log(`  [P11] Viewport: ${viewportInfo.innerWidth}x${viewportInfo.innerHeight} @${viewportInfo.dpr}x DPR`);
     console.log(`  [P11] total=${total}`);
 
-    // Test both Uploaded sort (default, date) and Credit sort (keyword)
-    const sortConfigs = [
-      { label: "Uploaded (default)", setup: async () => { /* already default */ } },
-      { label: "Credit", setup: async () => { await kupua.selectSort("Credit"); } },
-    ];
+    const seekPositions = [0.2, 0.6, 0.85];
 
-    for (const sortConfig of sortConfigs) {
-      console.log(`\n  [P11] ── Sort: ${sortConfig.label} ──`);
-      await sortConfig.setup();
-      await kupua.page.waitForTimeout(1000);
+    for (const pos of seekPositions) {
+      await injectPerfProbes(kupua);
+      await kupua.page.waitForTimeout(300);
+      await resetPerfProbes(kupua);
 
-      const seekPositions = [0.2, 0.6, 0.35, 0.8, 0.15];
-      const seekResults: Array<{ pos: number; cls: number; shifts: number; maxShift: number; compositions: number; maxFrame: number; severeFrames: number }> = [];
+      console.log(`  [P11] Seeking to ${(pos * 100).toFixed(0)}%...`);
+      await kupua.seekTo(pos, 30_000);
+      await kupua.page.waitForTimeout(4000);
 
-      for (const pos of seekPositions) {
-        await injectPerfProbes(kupua);
-        await kupua.page.waitForTimeout(300);
-        await resetPerfProbes(kupua);
+      const snap = await collectPerfSnapshot(kupua);
+      emitMetric(`P11@${Math.round(pos * 100)}`, snap, { seekPos: pos });
 
-        console.log(`  [P11] Seeking to ${(pos * 100).toFixed(0)}%...`);
-        await kupua.seekTo(pos, 30_000);
-
-        // Wait 4s for thumbnails to fully load — reflow happens in stages
-        await kupua.page.waitForTimeout(4000);
-
-        const snap = await collectPerfSnapshot(kupua);
-
-        // Count distinct shift compositions (bursts separated by >200ms)
-        const shiftTimings = snap.cls.shiftDetails.map((s: any) => Math.round(s.time));
-        let compositions = 0;
-        if (shiftTimings.length > 0) {
-          compositions = 1;
-          const sorted = [...shiftTimings].sort((a, b) => a - b);
-          for (let i = 1; i < sorted.length; i++) {
-            if (sorted[i] - sorted[i - 1] > 200) compositions++;
-          }
+      const shiftTimings = snap.cls.shiftDetails.map((s: any) => Math.round(s.time));
+      let compositions = 0;
+      if (shiftTimings.length > 0) {
+        compositions = 1;
+        const sorted = [...shiftTimings].sort((a, b) => a - b);
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i] - sorted[i - 1] > 200) compositions++;
         }
-
-        seekResults.push({
-          pos,
-          cls: snap.cls.total,
-          shifts: snap.cls.unexpectedShifts,
-          maxShift: snap.cls.maxSingle,
-          compositions,
-          maxFrame: snap.jank.maxFrameMs,
-          severeFrames: snap.jank.jankyFrames50ms,
-        });
-
-        console.log(`  [P11] pos=${(pos * 100).toFixed(0)}%: CLS=${snap.cls.total.toFixed(4)}, shifts=${snap.cls.unexpectedShifts}, compositions=${compositions}, maxFrame=${snap.jank.maxFrameMs.toFixed(0)}ms, severe=${snap.jank.jankyFrames50ms}`);
-
-        if (snap.cls.shiftDetails.length > 0) {
-          const imgShifts = snap.cls.shiftDetails.filter((s: any) =>
-            s.sources.some((src: any) => src.tagName === "IMG")
-          ).length;
-          const nonImgShifts = snap.cls.shiftDetails.length - imgShifts;
-          console.log(`    IMG shifts: ${imgShifts}, non-IMG: ${nonImgShifts}`);
-          const sorted = [...shiftTimings].sort((a, b) => a - b);
-          if (sorted.length > 1) {
-            console.log(`    Time span: ${sorted[sorted.length - 1] - sorted[0]}ms (${sorted[0]}ms → ${sorted[sorted.length - 1]}ms)`);
-          }
-          for (const s of snap.cls.shiftDetails.filter((s: any) => !s.sources.some((src: any) => src.tagName === "IMG")).slice(0, 3)) {
-            console.log(`    non-IMG: value=${s.value.toFixed(4)} [${s.sources.map((src: any) => `${src.tagName}.${src.className.slice(0, 40)}`).join(", ")}]`);
-          }
-        }
-
-        // Log LoAF if any — these are the "app freezes" during thumbnail load
-        if (snap.loaf.worst) {
-          console.log(`    LoAF: ${snap.loaf.worst.duration.toFixed(0)}ms (blocking ${snap.loaf.worst.blockingDuration.toFixed(0)}ms)`);
-          for (const s of (snap.loaf.worst.scripts ?? []).slice(0, 2)) {
-            console.log(`      ${s.invoker} (${s.duration.toFixed(0)}ms) ${s.sourceURL}`);
-          }
-        }
-
-        await kupua.page.evaluate(() => { (window as any).__perfProbes?.stop(); });
       }
 
-      // Per-sort summary
-      const totalCLS = seekResults.reduce((s, r) => s + r.cls, 0);
-      const avgCLS = totalCLS / seekResults.length;
-      const maxCLS = Math.max(...seekResults.map(r => r.cls));
-      const avgMaxFrame = seekResults.reduce((s, r) => s + r.maxFrame, 0) / seekResults.length;
-      const totalSevere = seekResults.reduce((s, r) => s + r.severeFrames, 0);
-      console.log(`\n  [P11] ── ${sortConfig.label} SUMMARY ──`);
-      console.log(`  Avg CLS/seek:       ${avgCLS.toFixed(4)}`);
-      console.log(`  Max CLS/seek:       ${maxCLS.toFixed(4)}`);
-      console.log(`  Avg max frame:      ${avgMaxFrame.toFixed(0)}ms`);
-      console.log(`  Total severe frames: ${totalSevere}`);
-      console.log(`  Seeks with shifts:  ${seekResults.filter(r => r.shifts > 0).length}/5`);
-      console.log(`  Multi-composition:  ${seekResults.filter(r => r.compositions > 1).length}/5`);
+      console.log(`  [P11] pos=${(pos * 100).toFixed(0)}%: CLS=${snap.cls.total.toFixed(4)}, shifts=${snap.cls.unexpectedShifts}, compositions=${compositions}, maxFrame=${snap.jank.maxFrameMs.toFixed(0)}ms, severe=${snap.jank.jankyFrames50ms}`);
+      await kupua.page.evaluate(() => { (window as any).__perfProbes?.stop(); });
     }
   });
 
-  // ─── P12: Density switch focus drift + buffer boundary freeze ─────
-  // Tests two user-reported issues:
-  // 1. "Focused image slowly travels out of view" after density switches
-  // 2. "App freezes at buffer boundary" — hole at the end during scroll
-  // Also tests under Credit sort (reported as worse).
+  // ─── P11b: Thumbnail reflow — Credit sort variant ─────────────────
+  // Optional. Tests keyword sort seek path for CLS comparison.
+  test("P11b: thumbnail reflow — keyword sort (Credit) 3 seeks", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    await kupua.selectSort("Credit");
+    await kupua.page.waitForTimeout(1500);
+
+    const seekPositions = [0.2, 0.6, 0.85];
+
+    for (const pos of seekPositions) {
+      await injectPerfProbes(kupua);
+      await kupua.page.waitForTimeout(300);
+      await resetPerfProbes(kupua);
+
+      console.log(`  [P11b] Seeking to ${(pos * 100).toFixed(0)}% (Credit sort)...`);
+      await kupua.seekTo(pos, 60_000);
+      await kupua.page.waitForTimeout(4000);
+
+      const snap = await collectPerfSnapshot(kupua);
+      emitMetric(`P11b@${Math.round(pos * 100)}`, snap, { seekPos: pos, sort: "credit" });
+
+      console.log(`  [P11b] pos=${(pos * 100).toFixed(0)}%: CLS=${snap.cls.total.toFixed(4)}, shifts=${snap.cls.unexpectedShifts}, maxFrame=${snap.jank.maxFrameMs.toFixed(0)}ms, severe=${snap.jank.jankyFrames50ms}`);
+      await kupua.page.evaluate(() => { (window as any).__perfProbes?.stop(); });
+    }
+  });
+
+  // ─── P12: Density drift + buffer boundary ─────────────────────────
   test("P12: density switch focus drift — image travels out of view", async ({ kupua }) => {
-    await kupua.goto();
+    await gotoPerfSearch(kupua);
     const total = await requireRealData(kupua);
 
     const viewportInfo = await kupua.page.evaluate(() => ({
@@ -832,57 +1001,9 @@ test.describe("Rendering Performance Smoke", () => {
     console.log(`  [P12] Viewport: ${viewportInfo.innerWidth}x${viewportInfo.innerHeight} @${viewportInfo.dpr}x DPR`);
     console.log(`  [P12] total=${total}`);
 
-    // Helper: get focused image viewport position
-    async function getFocusedViewportPos() {
-      return kupua.page.evaluate(() => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return null;
-        const s = store.getState();
-        const fid = s.focusedImageId;
-        if (!fid) return null;
-        const gIdx = s.imagePositions.get(fid);
-        if (gIdx == null) return null;
-        const localIdx = gIdx - s.bufferOffset;
-        if (localIdx < 0 || localIdx >= s.results.length) return null;
-
-        const grid = document.querySelector('[aria-label="Image results grid"]');
-        const table = document.querySelector('[aria-label="Image results table"]');
-        const el = (grid ?? table) as HTMLElement;
-        if (!el) return null;
-
-        const isGrid = !!grid;
-        let rowTop: number;
-        if (isGrid) {
-          const cols = Math.max(1, Math.floor(el.clientWidth / 280));
-          rowTop = Math.floor(localIdx / cols) * 303;
-        } else {
-          rowTop = localIdx * 32;
-        }
-
-        const viewportY = rowTop - el.scrollTop;
-        return {
-          viewportY: Math.round(viewportY),
-          viewportRatio: Math.round((viewportY / el.clientHeight) * 1000) / 1000,
-          visible: viewportY >= -303 && viewportY <= el.clientHeight + 303,
-          view: isGrid ? "grid" : "table",
-          scrollTop: Math.round(el.scrollTop),
-          scrollHeight: Math.round(el.scrollHeight),
-          clientHeight: Math.round(el.clientHeight),
-          localIdx,
-          bufferOffset: s.bufferOffset,
-          resultsLength: s.results.length,
-        };
-      });
-    }
-
-    // Helper: run drift test for a given sort config
     async function runDriftTest(label: string) {
       console.log(`\n  [P12] == ${label} ==`);
 
-      // Scroll PAST buffer boundary using aggressive mousewheel.
-      // Buffer is 1000 entries. At ~7 cols, ~143 rows * 303px = 43k px.
-      // 60 wheels * 2000px = 120k px — well past boundary. This triggers
-      // extend + evict cycles, which is where the freeze + hole appear.
       const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
       const gridBox = await gridEl.boundingBox();
       if (!gridBox) { console.log(`  [P12] No grid element found`); return; }
@@ -893,7 +1014,6 @@ test.describe("Rendering Performance Smoke", () => {
 
       console.log(`  [P12] Scrolling aggressively (60 wheels, past buffer boundary)...`);
 
-      // Inject perf probes to catch the buffer-boundary freeze
       await injectPerfProbes(kupua);
       await kupua.page.waitForTimeout(300);
       await resetPerfProbes(kupua);
@@ -902,33 +1022,27 @@ test.describe("Rendering Performance Smoke", () => {
         await kupua.page.mouse.wheel(0, 2000);
         await kupua.page.waitForTimeout(80);
       }
-      // Wait for extends/evictions to fully settle
       await kupua.page.waitForTimeout(3000);
 
       const scrollSnap = await collectPerfSnapshot(kupua);
       const scrollState = await kupua.getStoreState();
       console.log(`  [P12] After scroll: offset=${scrollState.bufferOffset}, len=${scrollState.resultsLength}`);
       console.log(`  [P12] Scroll jank: maxFrame=${scrollSnap.jank.maxFrameMs.toFixed(0)}ms, severe=${scrollSnap.jank.jankyFrames50ms}, CLS=${scrollSnap.cls.total.toFixed(4)}`);
-      if (scrollSnap.loaf.worst) {
-        console.log(`  [P12] Scroll LoAF: ${scrollSnap.loaf.worst.duration.toFixed(0)}ms (blocking ${scrollSnap.loaf.worst.blockingDuration.toFixed(0)}ms)`);
-      }
+      emitMetric("P12-scroll", scrollSnap, { sort: label });
       await kupua.page.evaluate(() => { (window as any).__perfProbes?.stop(); });
 
-      // Should have scrolled past buffer boundary (offset > 0)
       if (scrollState.bufferOffset < 500) {
         console.log(`  [P12] WARNING: only reached offset=${scrollState.bufferOffset}, wanted >500`);
       }
 
-      // Focus an image near the middle of the viewport
       await kupua.focusNthItem(5);
       const focusedId = await kupua.getFocusedImageId();
       if (!focusedId) { console.log(`  [P12] Could not focus image`); return; }
       console.log(`  [P12] Focused: ${focusedId}`);
 
-      const initial = await getFocusedViewportPos();
+      const initial = await getFocusedViewportPos(kupua);
       console.log(`  [P12] Initial: ${JSON.stringify(initial)}`);
 
-      // Do 8 density switches
       type PosEntry = { cycle: number; view: string; viewportY: number; viewportRatio: number; visible: boolean };
       const positions: PosEntry[] = [];
       if (initial) {
@@ -943,7 +1057,6 @@ test.describe("Rendering Performance Smoke", () => {
           await kupua.switchToGrid();
           await kupua.page.waitForSelector('[aria-label="Image results grid"]', { timeout: 5000 });
         }
-        // Long settle for scroll restoration
         await kupua.page.waitForTimeout(1500);
 
         const fid = await kupua.getFocusedImageId();
@@ -951,27 +1064,15 @@ test.describe("Rendering Performance Smoke", () => {
           console.log(`  [P12] FOCUS LOST at cycle ${cycle}! Was ${focusedId}, now ${fid}`);
         }
 
-        const pos = await getFocusedViewportPos();
+        const pos = await getFocusedViewportPos(kupua);
         if (pos) {
           positions.push({ cycle, view: pos.view, viewportY: pos.viewportY, viewportRatio: pos.viewportRatio, visible: pos.visible });
-          console.log(`  [P12] Cycle ${cycle} (${pos.view}): vY=${pos.viewportY}px, ratio=${pos.viewportRatio}, visible=${pos.visible}, sT=${pos.scrollTop}, sH=${pos.scrollHeight}, cH=${pos.clientHeight}, lIdx=${pos.localIdx}`);
+          console.log(`  [P12] Cycle ${cycle} (${pos.view}): vY=${pos.viewportY}px, ratio=${pos.viewportRatio}, visible=${pos.visible}, lIdx=${pos.localIdx}`);
         } else {
-          const diag = await kupua.page.evaluate(() => {
-            const store = (window as any).__kupua_store__;
-            if (!store) return "no store";
-            const s = store.getState();
-            const fid = s.focusedImageId;
-            const gIdx = fid ? s.imagePositions.get(fid) : undefined;
-            const lIdx = gIdx != null ? gIdx - s.bufferOffset : "N/A";
-            const hasGrid = !!document.querySelector('[aria-label="Image results grid"]');
-            const hasTable = !!document.querySelector('[aria-label="Image results table"]');
-            return `fid=${fid}, gIdx=${gIdx}, lIdx=${lIdx}, bufOff=${s.bufferOffset}, resLen=${s.results.length}, grid=${hasGrid}, table=${hasTable}`;
-          });
-          console.log(`  [P12] Cycle ${cycle}: NULL -- ${diag}`);
+          console.log(`  [P12] Cycle ${cycle}: NULL position`);
         }
       }
 
-      // Analysis
       console.log(`\n  [P12] -- DRIFT ANALYSIS (${label}) --`);
       if (positions.length >= 2) {
         const first = positions[0];
@@ -985,33 +1086,287 @@ test.describe("Rendering Performance Smoke", () => {
         console.log(`  Avg drift/switch:   ${(totalDrift / (positions.length - 1)).toFixed(1)}px`);
         console.log(`  Still visible:      ${last.visible}`);
         console.log(`  Per-switch deltas:  [${deltas.join(", ")}]`);
-        console.log(`  Null cycles:        ${8 - (positions.length - 1)}`);
-
-        const allPos = deltas.every(d => d >= 0);
-        const allNeg = deltas.every(d => d <= 0);
-        if (allPos && totalDrift > 10) console.log(`  PATTERN: monotonic DOWN drift`);
-        else if (allNeg && totalDrift < -10) console.log(`  PATTERN: monotonic UP drift`);
-        else if (Math.abs(totalDrift) > 100) console.log(`  PATTERN: large drift (${totalDrift}px)`);
-        else console.log(`  PATTERN: stable/oscillating (${totalDrift}px)`);
       } else {
         console.log(`  Only ${positions.length} valid positions -- cannot analyse drift`);
       }
     }
 
-    // Test 1: Uploaded sort (default, date)
     await runDriftTest("Uploaded sort (default)");
 
-    // Test 2: Credit sort (keyword - reported as worse)
     await kupua.goto();
     await kupua.selectSort("Credit");
     await kupua.page.waitForTimeout(1500);
     await runDriftTest("Credit sort");
 
-    // Final visibility check
-    const finalPos = await getFocusedViewportPos();
+    const finalPos = await getFocusedViewportPos(kupua);
     if (finalPos) {
       console.log(`\n  [P12] Final: visible=${finalPos.visible}, viewportY=${finalPos.viewportY}px`);
     }
   });
+
+  // ─── P13: Image detail enter/exit ─────────────────────────────────
+  // Tests the opacity-0 overlay pattern. Measures: transition jank,
+  // scroll position restoration accuracy, CLS on return.
+  test("P13: image detail enter/exit — overlay transition and scroll restoration", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    // Scroll down a bit so we have a non-trivial scroll position to restore
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    await kupua.page.mouse.move(gridBox!.x + 200, gridBox!.y + 200);
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, 600);
+      await kupua.page.waitForTimeout(50);
+    }
+    await kupua.page.waitForTimeout(500);
+
+    // Note scroll position before entering detail
+    const scrollBefore = await kupua.getScrollTop();
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    console.log(`  [P13] Focused: ${focusedId}, scrollTop=${scrollBefore}`);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+    await resetPerfProbes(kupua);
+
+    // Double-click to open image detail
+    console.log(`  [P13] Opening image detail...`);
+    if (await kupua.isGridView()) {
+      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+      await cells.nth(2).dblclick();
+    } else {
+      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+      await rows.nth(2).dblclick();
+    }
+    await kupua.page.waitForTimeout(1500);
+
+    const snapEnter = await collectPerfSnapshot(kupua, "P13: Enter detail");
+    logPerfReport("P13a: Enter Image Detail", snapEnter);
+    emitMetric("P13a", snapEnter);
+    await resetPerfProbes(kupua);
+
+    // Exit via Backspace
+    console.log(`  [P13] Exiting image detail via Backspace...`);
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForTimeout(1000);
+
+    const snapExit = await collectPerfSnapshot(kupua, "P13: Exit detail");
+    logPerfReport("P13b: Exit Image Detail", snapExit);
+    emitMetric("P13b", snapExit);
+
+    // Check scroll position was restored
+    const scrollAfter = await kupua.getScrollTop();
+    const scrollDelta = Math.abs(scrollAfter - scrollBefore);
+    console.log(`  [P13] Scroll before=${scrollBefore}, after=${scrollAfter}, delta=${scrollDelta}px`);
+    // Scroll position should be restored to within ~1 row height
+    expect(scrollDelta).toBeLessThan(GRID_ROW_HEIGHT * 2);
+  });
+
+  // ─── P14: Image traversal (prev/next) ─────────────────────────────
+  // Three realistic traversal patterns:
+  //   P14a — Normal browsing:  10 images forward at ~2/s (500ms gap).
+  //          User is looking at each image briefly.
+  //   P14b — Fast breeze-through: 15 images forward at ~5/s (200ms gap),
+  //          then STOP and wait 3s. The app must cancel/deprioritise
+  //          intermediate image loads and render the final image cleanly.
+  //   P14c — Second burst + settle: 10 images backward at ~5/s (200ms gap),
+  //          then STOP and wait 3s. Tests the same settle behaviour in
+  //          the reverse direction (prefetch behind vs ahead).
+  //
+  // The settle period is the critical measurement: CLS and jank during
+  // the 3s after stopping reveal whether the app is thrashing on stale
+  // prefetch results or cleanly loading only the landed-on image.
+  test("P14: image traversal — normal, fast+settle, reverse fast+settle", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    // Enter detail on the 3rd image
+    await kupua.focusNthItem(3);
+    if (await kupua.isGridView()) {
+      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+      await cells.nth(3).dblclick();
+    } else {
+      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+      await rows.nth(3).dblclick();
+    }
+    await kupua.page.waitForTimeout(1500);
+
+    // ── P14a: Normal speed — 10 forward at ~2/s ──────────────────────
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+    await resetPerfProbes(kupua);
+
+    console.log(`  [P14a] Normal browsing: 10 images forward at ~2/s...`);
+    for (let i = 0; i < 10; i++) {
+      await kupua.page.keyboard.press("ArrowRight");
+      await kupua.page.waitForTimeout(500);
+    }
+
+    const snapNormal = await collectPerfSnapshot(kupua, "P14a: Normal speed");
+    logPerfReport("P14a: Normal Browsing (10 fwd @ 2/s)", snapNormal);
+    emitMetric("P14a", snapNormal, { traversals: 10, speed: "normal", direction: "forward" });
+
+    // ── P14b: Fast burst forward — 15 at ~5/s, then settle 3s ───────
+    await resetPerfProbes(kupua);
+
+    console.log(`  [P14b] Fast burst: 15 images forward at ~5/s, then settle...`);
+    for (let i = 0; i < 15; i++) {
+      await kupua.page.keyboard.press("ArrowRight");
+      await kupua.page.waitForTimeout(200);
+    }
+    // Settle — the app should load only the final image, not the 14 skipped
+    console.log(`  [P14b] Stopped. Waiting 3s for settle...`);
+    await kupua.page.waitForTimeout(3000);
+
+    const snapFastFwd = await collectPerfSnapshot(kupua, "P14b: Fast forward + settle");
+    logPerfReport("P14b: Fast Forward + Settle (15 fwd @ 5/s + 3s)", snapFastFwd);
+    emitMetric("P14b", snapFastFwd, { traversals: 15, speed: "fast", direction: "forward" });
+
+    // ── P14c: Fast burst backward — 10 at ~5/s, then settle 3s ──────
+    await resetPerfProbes(kupua);
+
+    console.log(`  [P14c] Fast burst backward: 10 images at ~5/s, then settle...`);
+    for (let i = 0; i < 10; i++) {
+      await kupua.page.keyboard.press("ArrowLeft");
+      await kupua.page.waitForTimeout(200);
+    }
+    console.log(`  [P14c] Stopped. Waiting 3s for settle...`);
+    await kupua.page.waitForTimeout(3000);
+
+    const snapFastBack = await collectPerfSnapshot(kupua, "P14c: Fast backward + settle");
+    logPerfReport("P14c: Fast Backward + Settle (10 back @ 5/s + 3s)", snapFastBack);
+    emitMetric("P14c", snapFastBack, { traversals: 10, speed: "fast", direction: "backward" });
+
+    // Exit
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForTimeout(500);
+  });
+
+  // ─── P15: Image detail fullscreen persistence ─────────────────────
+  // Tests fullscreen persistence across image changes (Fullscreen API).
+  // Measures: jank during fullscreen toggle, CLS during image swap in fullscreen.
+  test("P15: image detail fullscreen — persists across image traversal", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    // Enter detail
+    await kupua.focusNthItem(3);
+    if (await kupua.isGridView()) {
+      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+      await cells.nth(3).dblclick();
+    } else {
+      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+      await rows.nth(3).dblclick();
+    }
+    await kupua.page.waitForTimeout(1500);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+    await resetPerfProbes(kupua);
+
+    // Enter fullscreen
+    console.log(`  [P15] Entering fullscreen...`);
+    await kupua.page.keyboard.press("f");
+    await kupua.page.waitForTimeout(800);
+
+    const snapFsEnter = await collectPerfSnapshot(kupua, "P15: Enter fullscreen");
+    logPerfReport("P15a: Enter Fullscreen", snapFsEnter);
+    emitMetric("P15a", snapFsEnter);
+    await resetPerfProbes(kupua);
+
+    // Traverse 2 images while fullscreen — should stay fullscreen
+    console.log(`  [P15] Traversing in fullscreen...`);
+    await kupua.page.keyboard.press("ArrowRight");
+    await kupua.page.waitForTimeout(600);
+    await kupua.page.keyboard.press("ArrowRight");
+    await kupua.page.waitForTimeout(600);
+
+    const snapFsTraverse = await collectPerfSnapshot(kupua, "P15: Fullscreen traverse");
+    logPerfReport("P15b: Traverse in Fullscreen", snapFsTraverse);
+    emitMetric("P15b", snapFsTraverse, { traversals: 2 });
+    await resetPerfProbes(kupua);
+
+    // Exit fullscreen (Escape only exits fullscreen, not the detail view)
+    console.log(`  [P15] Exiting fullscreen...`);
+    await kupua.page.keyboard.press("Escape");
+    await kupua.page.waitForTimeout(800);
+
+    const snapFsExit = await collectPerfSnapshot(kupua, "P15: Exit fullscreen");
+    logPerfReport("P15c: Exit Fullscreen", snapFsExit);
+    emitMetric("P15c", snapFsExit);
+
+    // Exit detail
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForTimeout(500);
+  });
+
+  // ─── P16: Table column resize ─────────────────────────────────────
+  // Tests CSS-variable width path + canvas measurement.
+  // Frame rate during drag should show near-zero React re-renders.
+  test("P16: table column resize — drag and double-click fit", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await requireRealData(kupua);
+
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+    await resetPerfProbes(kupua);
+
+    // Find a column resize handle
+    const resizeHandles = kupua.page.locator('[data-column-resize-handle="true"], [class*="cursor-col-resize"]');
+    const handleCount = await resizeHandles.count();
+    console.log(`  [P16] Found ${handleCount} resize handles`);
+
+    if (handleCount === 0) {
+      console.log(`  [P16] No resize handles found — skipping drag test`);
+    } else {
+      const handle = resizeHandles.first();
+      const handleBox = await handle.boundingBox();
+      if (handleBox) {
+        const startX = handleBox.x + handleBox.width / 2;
+        const startY = handleBox.y + handleBox.height / 2;
+
+        console.log(`  [P16] Dragging column resize handle...`);
+        await kupua.page.mouse.move(startX, startY);
+        await kupua.page.mouse.down();
+
+        // Drag 100px to the right
+        const steps = 20;
+        for (let i = 1; i <= steps; i++) {
+          await kupua.page.mouse.move(startX + (100 * i) / steps, startY);
+          await kupua.page.waitForTimeout(15);
+        }
+        await kupua.page.mouse.up();
+        await kupua.page.waitForTimeout(500);
+      }
+    }
+
+    const snapDrag = await collectPerfSnapshot(kupua, "P16: Column resize drag");
+    logPerfReport("P16a: Column Resize Drag", snapDrag);
+    emitMetric("P16a", snapDrag);
+    await resetPerfProbes(kupua);
+
+    // Test double-click to auto-fit
+    const headers = kupua.page.locator('[role="columnheader"]');
+    const headerCount = await headers.count();
+    console.log(`  [P16] Found ${headerCount} column headers`);
+
+    if (headerCount > 1) {
+      console.log(`  [P16] Double-clicking header for auto-fit...`);
+      await headers.nth(1).dblclick();
+      await kupua.page.waitForTimeout(500);
+
+      const snapAutoFit = await collectPerfSnapshot(kupua, "P16: Column auto-fit");
+      logPerfReport("P16b: Column Double-Click Auto-Fit", snapAutoFit);
+      emitMetric("P16b", snapAutoFit);
+    }
+  });
 });
+
+
+
 

@@ -41,6 +41,10 @@ import {
   getFieldRawValue,
   type FieldDefinition,
 } from "@/lib/field-registry";
+import {
+  TABLE_ROW_HEIGHT as ROW_HEIGHT,
+  TABLE_HEADER_HEIGHT as HEADER_HEIGHT,
+} from "@/constants/layout";
 
 const columnHelper = createColumnHelper<Image>();
 
@@ -164,11 +168,6 @@ const allColumns: ColumnDef<Image, any>[] = [
   ...registryColumnDefs,
 ];
 
-const ROW_HEIGHT = 32;
-/** Sticky table header height including border (h-11 + 1px border-b).
- *  Used as scrollPaddingStart so the virtualizer's scrollToIndex doesn't
- *  consider rows behind the header as "visible". */
-const HEADER_HEIGHT = 45;
 
 /**
  * Fields whose natural first-sort direction is descending (newest first).

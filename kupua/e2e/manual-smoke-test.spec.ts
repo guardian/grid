@@ -24,6 +24,7 @@
  */
 
 import { test, expect, KupuaHelpers } from "./helpers";
+import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Guard: skip all tests if not connected to a real cluster
@@ -320,7 +321,7 @@ test.describe("Smoke — real ES", () => {
     console.log(`  [S9] Focused: id=${focusedId}, globalPos=${globalPos}`);
 
     // Capture table scroll diagnostics before switch
-    const tableDiag = await kupua.page.evaluate(() => {
+    const tableDiag = await kupua.page.evaluate(({ ROW_HEIGHT }) => {
       const el = document.querySelector('[aria-label="Image results table"]');
       if (!el) return null;
       const store = (window as any).__kupua_store__;
@@ -333,9 +334,9 @@ test.describe("Smoke — real ES", () => {
         scrollHeight: el.scrollHeight,
         clientHeight: el.clientHeight,
         localIdx,
-        rowTop: localIdx != null ? localIdx * 32 : null,
+        rowTop: localIdx != null ? localIdx * ROW_HEIGHT : null,
       };
-    });
+    }, { ROW_HEIGHT: TABLE_ROW_HEIGHT });
     console.log(`  [S9] Table diag:`, JSON.stringify(tableDiag));
 
     // Capture console logs from the density switch
@@ -355,39 +356,42 @@ test.describe("Smoke — real ES", () => {
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
 
     // Check visibility
-    const gridDiag = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return null;
-      const s = store.getState();
-      const fid = s.focusedImageId;
-      if (!fid) return { error: "no focused image" };
-      const gIdx = s.imagePositions.get(fid);
-      if (gIdx == null) return { error: "not in imagePositions" };
-      const localIdx = gIdx - s.bufferOffset;
-      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+    const gridDiag = await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return null;
+        const s = store.getState();
+        const fid = s.focusedImageId;
+        if (!fid) return { error: "no focused image" };
+        const gIdx = s.imagePositions.get(fid);
+        if (gIdx == null) return { error: "not in imagePositions" };
+        const localIdx = gIdx - s.bufferOffset;
+        const inBuffer = localIdx >= 0 && localIdx < s.results.length;
 
-      const el = document.querySelector('[aria-label="Image results grid"]');
-      if (!el) return { error: "no grid element", inBuffer, localIdx };
-      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
-      const rowIdx = Math.floor(localIdx / cols);
-      const rowTop = rowIdx * 303;
-      const scrollTop = el.scrollTop;
-      const viewportHeight = el.clientHeight;
-      const scrollHeight = el.scrollHeight;
-      const visible = rowTop >= scrollTop - 303 && rowTop <= scrollTop + viewportHeight + 303;
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        if (!el) return { error: "no grid element", inBuffer, localIdx };
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const rowIdx = Math.floor(localIdx / cols);
+        const rowTop = rowIdx * ROW_HEIGHT;
+        const scrollTop = el.scrollTop;
+        const viewportHeight = el.clientHeight;
+        const scrollHeight = el.scrollHeight;
+        const visible = rowTop >= scrollTop - ROW_HEIGHT && rowTop <= scrollTop + viewportHeight + ROW_HEIGHT;
 
-      // What IS the first visible image?
-      const firstVisibleRow = Math.floor(scrollTop / 303);
-      const firstVisibleImageIdx = firstVisibleRow * cols;
-      const firstVisibleGlobalPos = firstVisibleImageIdx + s.bufferOffset;
+        // What IS the first visible image?
+        const firstVisibleRow = Math.floor(scrollTop / ROW_HEIGHT);
+        const firstVisibleImageIdx = firstVisibleRow * cols;
+        const firstVisibleGlobalPos = firstVisibleImageIdx + s.bufferOffset;
 
-      return {
-        inBuffer, localIdx, cols, rowIdx, rowTop,
-        scrollTop, viewportHeight, scrollHeight,
-        visible, firstVisibleGlobalPos,
-        bufferOffset: s.bufferOffset, resultsLength: s.results.length,
-      };
-    });
+        return {
+          inBuffer, localIdx, cols, rowIdx, rowTop,
+          scrollTop, viewportHeight, scrollHeight,
+          visible, firstVisibleGlobalPos,
+          bufferOffset: s.bufferOffset, resultsLength: s.results.length,
+        };
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
     console.log(`  [S9] Grid diag:`, JSON.stringify(gridDiag));
 
     expect(gridDiag).not.toBeNull();
@@ -476,27 +480,30 @@ test.describe("Smoke — real ES", () => {
     console.log(`  seekTargetLocalIndex in bounds: ${targetInBounds} (${after.seekTargetLocalIndex} < ${after.resultsLength})`);
 
     // Check grid scroll position
-    const gridDiag = await kupua.page.evaluate(() => {
-      const el = document.querySelector('[aria-label="Image results grid"]');
-      if (!el) return null;
-      const store = (window as any).__kupua_store__;
-      const s = store.getState();
-      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
-      const firstVisibleRow = Math.floor(el.scrollTop / 303);
-      const firstVisibleLocalIdx = firstVisibleRow * cols;
-      const firstVisibleGlobalPos = firstVisibleLocalIdx + s.bufferOffset;
-      return {
-        scrollTop: el.scrollTop,
-        scrollHeight: el.scrollHeight,
-        clientHeight: el.clientHeight,
-        cols,
-        firstVisibleRow,
-        firstVisibleLocalIdx,
-        firstVisibleGlobalPos,
-        bufferOffset: s.bufferOffset,
-        resultsLength: s.results.length,
-      };
-    });
+    const gridDiag = await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }) => {
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        if (!el) return null;
+        const store = (window as any).__kupua_store__;
+        const s = store.getState();
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const firstVisibleRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+        const firstVisibleLocalIdx = firstVisibleRow * cols;
+        const firstVisibleGlobalPos = firstVisibleLocalIdx + s.bufferOffset;
+        return {
+          scrollTop: el.scrollTop,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+          cols,
+          firstVisibleRow,
+          firstVisibleLocalIdx,
+          firstVisibleGlobalPos,
+          bufferOffset: s.bufferOffset,
+          resultsLength: s.results.length,
+        };
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
     console.log(`  [S10] Grid diag:`, JSON.stringify(gridDiag, null, 2));
 
     // Compute actual position ratio

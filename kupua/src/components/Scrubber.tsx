@@ -45,12 +45,6 @@ const THUMB_COLOR_IDLE = "rgba(255, 255, 255, 0.25)";
 const THUMB_COLOR_HOVER = "rgba(255, 255, 255, 0.45)";
 const THUMB_COLOR_ACTIVE = "rgba(255, 255, 255, 0.6)";
 
-/** Arrow key step size (number of results to move per press). */
-const ARROW_STEP = 50;
-
-/** Shift+Arrow key step size (larger jump). */
-const ARROW_STEP_LARGE = 500;
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -628,45 +622,6 @@ export function Scrubber({
     [currentPosition, total, thumbVisibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
   );
 
-  // -------------------------------------------------------------------------
-  // Keyboard accessibility
-  // -------------------------------------------------------------------------
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      notifyFirstInteraction();
-      let newPos: number | null = null;
-      const step = e.shiftKey ? ARROW_STEP_LARGE : ARROW_STEP;
-      switch (e.key) {
-        case "ArrowUp":
-          e.preventDefault();
-          newPos = Math.max(0, currentPosition - step);
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          newPos = Math.min(total - 1, currentPosition + step);
-          break;
-        // Home/End/PageUp/PageDown: prevent the browser from applying
-        // default behaviour (e.g. selection highlight) on the focused
-        // track element. The actual seek is handled by useListNavigation
-        // via its document-level capture listener, but we need
-        // preventDefault here to suppress the visual glitch.
-        case "Home":
-        case "End":
-        case "PageUp":
-        case "PageDown":
-          e.preventDefault();
-          break;
-      }
-      if (newPos != null) {
-        pendingSeekPosRef.current = newPos;
-        onSeekRef.current(newPos);
-        flashTooltip();
-        applyThumbPosition(newPos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(newPos));
-      }
-    },
-    [currentPosition, total, thumbVisibleCount, flashTooltip],
-  );
 
   // -------------------------------------------------------------------------
   // Hover preview — tooltip follows cursor on the track, showing the

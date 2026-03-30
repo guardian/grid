@@ -780,3 +780,134 @@ and Edge. Firefox ignores it — harmless. Matches `--color-grid-bg`.
 
 **Files changed:** `index.html`.
 
+### Phase 0: Measurement infrastructure + shared constants (30 Mar 2026)
+
+Executed the plan in `exploration/docs/phase0-measurement-infra-plan.md`. No app
+behaviour changes — pure infrastructure + refactor.
+
+**Part A — Shared pixel constants (`src/constants/layout.ts`)**
+
+Created `src/constants/layout.ts` as the single source of truth for all pixel
+values that appear in both app code and tests:
+
+- `TABLE_ROW_HEIGHT = 32` — table data row height (h-8 Tailwind class)
+- `TABLE_HEADER_HEIGHT = 45` — sticky header height including 1px border-b
+- `GRID_ROW_HEIGHT = 303` — grid cell height (matches kahuna)
+- `GRID_MIN_CELL_WIDTH = 280` — minimum cell width for column calculation
+- `GRID_CELL_GAP = 8` — cell gap
+
+`ImageTable.tsx` previously declared `const ROW_HEIGHT = 32` and `const HEADER_HEIGHT = 45`
+as file-local constants. `ImageGrid.tsx` had its own `const MIN_CELL_WIDTH = 280`,
+`const ROW_HEIGHT = 303`, `const CELL_GAP = 8`. Both now import from `@/constants/layout`
+using aliased names (so internal code is unchanged). Store tests (`search-store.test.ts`,
+`search-store-extended.test.ts`) imported `TABLE_ROW_HEIGHT` instead of redeclaring
+`const ROW_HEIGHT = 32` locally.
+
+All raw pixel literals (280/303/32) in `e2e/scrubber.spec.ts` and
+`e2e/manual-smoke-test.spec.ts` inside `page.evaluate()` closures were replaced
+with passed arguments (`evaluate(({ ROW_HEIGHT }) => { ... }, { ROW_HEIGHT: TABLE_ROW_HEIGHT })`).
+This ensures E2E tests stay in sync with source automatically.
+
+**Part B — Perf test infrastructure**
+
+`e2e/rendering-perf-smoke.spec.ts` moved to `e2e-perf/perf.spec.ts`. Major changes:
+
+1. **Structured metric emission** — `emitMetric(id, snap, extra?)` writes JSONL to
+   `e2e-perf/results/.metrics-tmp.jsonl`. Every test body calls it after `logPerfReport()`.
+   P10 emits with `{ report: false }` — harness records but excludes from diff table.
+
+2. **Result-set pinning** — all navigations use `gotoPerfStable()` (new `KupuaHelpers`
+   method) which appends `&until=${PERF_STABLE_UNTIL}` if the env var is set. The
+   harness sets it to yesterday midnight. Prevents metric drift from new image ingestion
+   between runs.
+
+3. **P4 split** — P4 was one test doing grid→table→grid. Now P4a (grid→table) and
+   P4b (table→grid) are separate tests with separate metric entries.
+
+4. **P11 simplified** — reduced from 5 seek positions to 3 (0.2, 0.6, 0.85). Credit
+   sort variant moved to separate P11b test.
+
+5. **New tests added:**
+   - **P3b** — keyword sort seek (Credit → seek to 50%) — exercises the composite-agg +
+     binary-search seek path that P3 (date/percentile) doesn't cover.
+   - **P13** — image detail enter/exit — double-click opens overlay, Backspace returns.
+     Checks scroll position is restored within one row height.
+   - **P14** — image traversal — arrow-key prev/next 20+10 images. Tests prefetch and
+     fullscreen-survives-between-images code path.
+   - **P15** — fullscreen persistence — enter detail → f → next → next → Escape.
+     Tests the Fullscreen API doesn't exit on image swap.
+   - **P16** — table column resize — drag handle 100px + double-click auto-fit.
+     Tests CSS-variable width path with near-zero React re-renders.
+
+**Part C — Audit harness (`e2e-perf/run-audit.mjs`)**
+
+New script. Computes `STABLE_UNTIL`, runs Playwright with it as env var, reads
+`.metrics-tmp.jsonl`, aggregates median across `--runs N` runs, diffs against prior
+run from `audit-log.json`, writes both `audit-log.json` and `audit-log.md`.
+
+Interface:
+```
+node e2e-perf/run-audit.mjs --label "Phase 1: shared constants"
+node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
+node e2e-perf/run-audit.mjs P8
+```
+
+`scripts/run-perf-smoke.mjs` replaced with a thin wrapper that delegates to
+`e2e-perf/run-audit.mjs` — preserves backward compatibility for old muscle memory.
+
+**Part D — Config split**
+
+`playwright.smoke.config.ts` (root) narrowed to only `manual-smoke-test.spec.ts`.
+New `e2e-perf/playwright.perf.config.ts` covers `e2e-perf/perf.spec.ts` with
+same viewport/DPR settings + JSON reporter. `run-smoke.mjs` updated to remove
+the now-deleted `rendering-perf-smoke.spec.ts` reference.
+
+**Part E — @types/node**
+
+Added `@types/node` as devDependency. Updated `e2e/tsconfig.json` and
+`e2e-perf/tsconfig.json` with `"types": ["node"]`. This fixes pre-existing
+type errors in `e2e/global-setup.ts` (`process`, `child_process`, etc.) and
+enables Node built-ins in new perf spec.
+
+**Verification:** All 152 vitest tests pass. `tsc --project e2e/tsconfig.json --noEmit`
+and `tsc --project e2e-perf/tsconfig.json --noEmit` both clean. Main `tsc --noEmit`
+shows same 3 pre-existing errors (unrelated: `handleKeyDown` in Scrubber,
+`isDecade` in sort-context, `smallMock` in test).
+
+**Files created:** `src/constants/layout.ts`, `e2e-perf/perf.spec.ts`,
+`e2e-perf/playwright.perf.config.ts`, `e2e-perf/run-audit.mjs`,
+`e2e-perf/tsconfig.json`, `e2e-perf/results/.gitkeep`,
+`e2e-perf/results/.gitignore`.
+
+**Files modified:** `src/components/ImageTable.tsx` (import constants),
+`src/components/ImageGrid.tsx` (import constants),
+`src/stores/search-store.test.ts` (import TABLE_ROW_HEIGHT),
+`src/stores/search-store-extended.test.ts` (import TABLE_ROW_HEIGHT),
+`e2e/helpers.ts` (add gotoPerfStable()),
+`e2e/tsconfig.json` (add @types/node),
+`e2e/scrubber.spec.ts` (pass constants to evaluate()),
+`e2e/manual-smoke-test.spec.ts` (pass constants to evaluate()),
+`playwright.smoke.config.ts` (narrow testMatch),
+`scripts/run-perf-smoke.mjs` (thin wrapper),
+`scripts/run-smoke.mjs` (remove deleted spec reference),
+`package.json` (add @types/node devDep),
+`AGENTS.md` (reflect new structure).
+
+**Files deleted:** `e2e/rendering-perf-smoke.spec.ts` (moved to e2e-perf/perf.spec.ts).
+
+**Next step (human):** Run `node e2e-perf/run-audit.mjs --label "Baseline (pre-coupling-fixes)"`
+with `--use-TEST` to establish the first baseline entry in `audit-log.json`/`audit-log.md`.
+
+**Fix: hardcode STABLE_UNTIL in run-audit.mjs (30 Mar 2026)**
+
+`computeStableUntil()` was computing "yesterday midnight" dynamically, meaning the
+`PERF_STABLE_UNTIL` value (and therefore the pinned result corpus) changed every day.
+That defeats the purpose of pinning — comparisons between runs on different days would
+be comparing different document sets.
+
+Replaced the dynamic computation with the fixed literal `"2026-02-15T00:00:00.000Z"`.
+Any future corpus update (e.g. when new photos make the old cutoff too stale) requires
+a deliberate, reviewed change to this constant — which is the correct behaviour.
+
+**File modified:** `e2e-perf/run-audit.mjs` (remove `computeStableUntil()`, replace with
+literal), `AGENTS.md` (update description).

@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { interpolateSortLabel, getSortContextLabel } from "@/lib/sort-context";
 import { buildSortClause, reverseSortClause } from "@/dal/es-adapter";
 
@@ -468,7 +469,7 @@ describe("sort-around-focus — different sorts", () => {
 // ---------------------------------------------------------------------------
 
 describe("density-switch viewport ratio — comprehensive", () => {
-  const ROW_HEIGHT = 32;
+  const ROW_HEIGHT = TABLE_ROW_HEIGHT;
   const CLIENT_HEIGHT = 600;
 
   it("ratio is small and reasonable for focused image at various scroll positions", async () => {

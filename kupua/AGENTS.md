@@ -97,7 +97,7 @@ port 9200 when tunnelling to TEST, so don't run both in `--use-TEST` mode simult
 
 **Performance:** 36 findings documented. All 5 fix-now items done. Windowed buffer resolved memory/depth issues. Lighthouse: Perf 61 (dev), A11y 94, BP 96. Imgproxy benchmark confirms prefetch is correct mitigation. **Rendering perf experiments (29 Mar 2026):** P8 table scroll improved significantly — reduced virtualizer overscan (20→5, -61% severe frames, -49% P95), added `contain: layout` + `overflow-hidden` on gridcell divs. Combined: max frame 300→217ms, severe 36→14, P95 67→34ms, DOM churn 76k→42k. CLS 0.041 accepted as inherent to virtualiser recycling (SPAN pill shifts during row recycle — false positive, invisible during scroll). `content-visibility: auto` on rows (no effect — virtualiser already manages DOM), `contain: strict` on cells (broke flex height), PAGE_SIZE 200→100 (more frequent extends = more jank), `startTransition` on density toggle (broke P12 drift) — all tried and reverted. See `rendering-perf-plan.md` for full experiment data.
 
-**E2E tests:** 64 Playwright tests (all pass, none skipped). `run-e2e.sh` orchestrates Docker ES + data + cleanup. `KupuaHelpers` fixture class. 10 smoke tests for TEST cluster (manual-only, auto-skip on local). Console telemetry capture for algorithmic assertions. Bug #13 tests culled (absorbed into Bug #7 with tighter assertions). Width sort test uses percentile path with tight ratio tolerance (0.35–0.65). **Safety gate:** `global-setup.ts` refuses to run if the Vite dev server is proxying to a real cluster (>50k docs detected via `/es/images/_count`).
+**E2E tests:** 64 Playwright tests (all pass, none skipped). `run-e2e.sh` orchestrates Docker ES + data + cleanup. `KupuaHelpers` fixture class (shared by `e2e/` and `e2e-perf/`). 10 smoke tests for TEST cluster (manual-only, auto-skip on local). Console telemetry capture for algorithmic assertions. Bug #13 tests culled (absorbed into Bug #7 with tighter assertions). Width sort test uses percentile path with tight ratio tolerance (0.35–0.65). **Safety gate:** `global-setup.ts` refuses to run if the Vite dev server is proxying to a real cluster (>50k docs detected via `/es/images/_count`). **Perf test infrastructure (Phase 0, 30 Mar 2026):** `rendering-perf-smoke.spec.ts` moved to `e2e-perf/perf.spec.ts` (renamed + extended); tests now emit structured JSON metrics via `emitMetric()` to `results/.metrics-tmp.jsonl`; `e2e-perf/run-audit.mjs` harness reads them, diffs against prior run, writes `audit-log.json` + `audit-log.md`; result set pinned via `PERF_STABLE_UNTIL` env var (fixed at `2026-02-15T00:00:00Z` — hardcoded so the corpus never changes between runs). 16 tests (P1–P16): P3b (keyword sort seek), P4 split into P4a/P4b, P11 simplified (3 seeks), P11b (Credit sort variant), P13 (image detail enter/exit), P14 (image traversal), P15 (fullscreen persistence), P16 (column resize). P10 marked `report:false` in harness. Raw pixel literals (280/303/32) replaced with shared constants from `src/constants/layout.ts`.
 
 ### What's Next
 
@@ -270,13 +270,15 @@ kupua/
     start.sh                   # One-command startup (ES + data + deps + S3 proxy + imgproxy + dev server)
     run-e2e.sh                 # E2E test orchestration (Docker ES + data check + stale-process cleanup + Playwright)
     run-smoke.mjs              # Interactive runner for manual smoke tests. Lists tests, prompts for selection, runs headed. MANUAL ONLY.
-    run-perf-smoke.mjs         # Runner for rendering perf smoke tests. Optional P<N> arg for single test. MANUAL ONLY.
+    run-perf-smoke.mjs         # Thin wrapper → e2e-perf/run-audit.mjs. MANUAL ONLY.
     load-sample-data.sh        # Index creation + bulk load
     s3-proxy.mjs               # Local S3 thumbnail proxy (uses dev AWS creds, temporary)
   src/                         # ~16,300 lines total
     main.tsx                   # React entry point — mounts RouterProvider
     router.ts                  # TanStack Router setup — custom plain-string URL serialisation
     index.css                  # Tailwind CSS import + Open Sans font + Grid colour theme + shared component classes (popup-menu, popup-item)
+    constants/
+      layout.ts                # Shared pixel constants: TABLE_ROW_HEIGHT (32), TABLE_HEADER_HEIGHT (45), GRID_ROW_HEIGHT (303), GRID_MIN_CELL_WIDTH (280), GRID_CELL_GAP (8)
     routes/
       __root.tsx               # Root route — minimal shell (bg + flex column), no header
       index.tsx                # Index route — redirects `/` → `/search?nonFree=true`
@@ -329,11 +331,19 @@ kupua/
       image.ts                 # Image document types from ES mapping
   e2e/
     global-setup.ts            # Playwright global setup — safety gate (refuses to run against real ES via Vite proxy >50k docs), verifies ES health + sample data before tests run (fail-fast)
-    helpers.ts                 # Playwright test fixtures + KupuaHelpers class (scrubber interaction, store state access, sort/density helpers)
+    helpers.ts                 # Playwright test fixtures + KupuaHelpers class (shared by e2e/ and e2e-perf/). gotoPerfStable() for corpus pinning. Scrubber, store, sort, density, focus helpers.
     scrubber.spec.ts           # E2E tests: scrubber seek/drag, scroll position after seek, density switch preservation, sort change, sort-around-focus, full workflows
     manual-smoke-test.spec.ts  # Smoke tests against real ES (TEST cluster). MANUAL ONLY — agent must never run. Auto-skips on local ES (total < 100k). Run via: node scripts/run-smoke.mjs
-    rendering-perf-smoke.spec.ts # Rendering performance smoke tests (12 tests, P1–P12). Browser probes: CLS, LoAF, frame jank, DOM mutations, paint. MANUAL ONLY via: node scripts/run-perf-smoke.mjs
-    tsconfig.json              # TypeScript config for e2e directory (ES2022, bundler resolution)
+    tsconfig.json              # TypeScript config for e2e directory (ES2022, bundler resolution, @types/node)
+  e2e-perf/
+    perf.spec.ts               # Rendering performance smoke tests (16 tests P1–P16). Structured emitMetric() output. Corpus pinned via PERF_STABLE_UNTIL. MANUAL ONLY via: node e2e-perf/run-audit.mjs
+    playwright.perf.config.ts  # Playwright config for perf tests (testDir: e2e-perf, JSON reporter, list reporter, Retina viewport)
+    run-audit.mjs              # Audit harness: runs perf.spec.ts, reads metrics, diffs vs prior run, writes audit-log.json + audit-log.md
+    tsconfig.json              # TypeScript config for e2e-perf (ES2022, bundler resolution, @types/node)
+    results/
+      audit-log.json           # Machine-readable: every audit run's metrics (keyed by label + git SHA)
+      audit-log.md             # Human-readable: diff tables per run
+      .gitkeep
     hooks/
       useDataWindow.ts       # Data window hook — shared interface between search store and view components (table, grid, detail). Buffer-aware: exposes bufferOffset, reportVisibleRange (triggers extend at edges), seek, getImage (buffer-local), findImageIndex (global→local translation). Exports useVisibleRange() via useSyncExternalStore for Scrubber position tracking. Virtualizer count = buffer length. (~215 lines).
       useListNavigation.ts   # Shared keyboard navigation hook — moveFocus, pageFocus, home, end. Parameterised by geometry (columnsPerRow, flatIndexToRow). Used by ImageTable and ImageGrid (327 lines).

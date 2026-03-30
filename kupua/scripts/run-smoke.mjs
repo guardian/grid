@@ -29,7 +29,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SPEC_FILES = [
   resolve(ROOT, "e2e/manual-smoke-test.spec.ts"),
-  resolve(ROOT, "e2e/rendering-perf-smoke.spec.ts"),
+  // Perf smoke tests moved to e2e-perf/perf.spec.ts — use run-perf-smoke.mjs
 ];
 
 // ---------------------------------------------------------------------------
@@ -107,9 +107,10 @@ async function main() {
   // Build grep pattern
   let grepPattern;
   if (selection.toLowerCase() === "all") {
-    grepPattern = "Smoke — real ES|Rendering Performance Smoke";
+    grepPattern = "Smoke — real ES";
   } else if (selection.toLowerCase() === "perf") {
-    grepPattern = "Rendering Performance Smoke";
+    console.log('  ℹ️  Perf smoke tests moved to e2e-perf/. Use: node scripts/run-perf-smoke.mjs');
+    process.exit(0);
   } else if (selection.toLowerCase() === "smoke") {
     grepPattern = "Smoke — real ES";
   } else {

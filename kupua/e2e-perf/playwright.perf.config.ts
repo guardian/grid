@@ -1,36 +1,46 @@
 /**
- * Playwright config for manual smoke tests against real ES.
+ * Playwright config for rendering performance smoke tests.
  *
- * This is a separate config that ONLY runs the manual smoke test file.
- * It's used by scripts/run-smoke.mjs — never invoked directly.
+ * Runs ONLY perf.spec.ts — narrowed from the old playwright.smoke.config.ts
+ * which ran both manual-smoke-test.spec.ts and rendering-perf-smoke.spec.ts.
  *
  * Key differences from the main playwright.config.ts:
- * - testMatch targets only manual-smoke-test.spec.ts
- * - No testIgnore (the main config ignores this file)
- * - No globalSetup (real ES doesn't need the local ES health check)
- * - Always headed
+ * - testDir is ./e2e-perf (this directory)
+ * - No globalSetup — real ES doesn't need the local ES health check
+ * - Always headed (so the developer can watch)
  * - Longer timeouts (real cluster + SSH tunnel)
+ * - JSON reporter + list reporter (JSON feed the audit harness)
+ *
+ * Invoked by:
+ *   node e2e-perf/run-audit.mjs --label "..."
+ * or directly:
+ *   npx playwright test --config=e2e-perf/playwright.perf.config.ts
+ *
+ * MANUAL ONLY — never invoked by CI.
  */
 
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e",
-  testMatch: ["**/manual-smoke-test.spec.ts"],
+  testDir: ".",
+  testMatch: ["**/perf.spec.ts"],
 
   /* No globalSetup — we don't want the local ES health check.
-   * The smoke tests themselves check total > 100k and skip if local. */
+   * The perf tests themselves check total > 100k and skip if local. */
 
   /* Generous timeouts for real cluster + SSH tunnel */
-  timeout: 120_000,
-  globalTimeout: 10 * 60_000,
+  timeout: 240_000,
+  globalTimeout: 60 * 60_000,
 
-  /* No retries — we want to see the real failure */
+  /* No retries — we want to see real failure */
   retries: 0,
 
   workers: 1,
 
-  reporter: [["list"]],
+  reporter: [
+    ["list"],
+    ["json", { outputFile: "e2e-perf/results/.playwright-report.json" }],
+  ],
 
   use: {
     baseURL: "http://localhost:3000",
@@ -42,7 +52,7 @@ export default defineConfig({
     /* MacBook Pro Retina — measured from the developer's actual browser:
        window.innerWidth=1987, innerHeight=1110, devicePixelRatio=1.25.
        The Desktop Chrome device preset is NOT used because it overrides
-       viewport and DPR with its own defaults (1280×720). */
+       viewport and DPR with its own defaults (1280x720). */
     viewport: { width: 1987, height: 1110 },
     deviceScaleFactor: 1.25,
   },

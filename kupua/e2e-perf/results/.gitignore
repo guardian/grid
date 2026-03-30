@@ -1,0 +1,4 @@
+# Ignore the temp metrics file written by perf tests during a run.
+# audit-log.json and audit-log.md are tracked (they are the persistent record).
+.metrics-tmp.jsonl
+

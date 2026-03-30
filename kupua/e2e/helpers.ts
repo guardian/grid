@@ -40,15 +40,37 @@ export class KupuaHelpers {
   // Navigation & waiting
   // -------------------------------------------------------------------------
 
-  /** Navigate to the search page and wait for initial data to load. */
+  /** Navigate to the search page and wait for initial data to load.
+   *  Respects PERF_STABLE_UNTIL when set (perf audit runs) so the corpus
+   *  is pinned even when called mid-test (e.g. P12 reset before Credit sort).
+   */
   async goto() {
-    await this.page.goto("/search?nonFree=true");
+    const stableUntil = process.env["PERF_STABLE_UNTIL"];
+    const untilParam = stableUntil ? `&until=${encodeURIComponent(stableUntil)}` : "";
+    await this.page.goto(`/search?nonFree=true${untilParam}`);
     await this.waitForResults();
   }
 
   /** Navigate with custom search params (merged with nonFree=true). */
   async gotoWithParams(extraParams: string) {
     await this.page.goto(`/search?nonFree=true&${extraParams}`);
+    await this.waitForResults();
+  }
+
+  /**
+   * Navigate to the perf-stable result set.
+   * Uses until=PERF_STABLE_UNTIL from env (set by run-audit.mjs harness)
+   * to freeze the corpus at a known date — prevents metric drift from
+   * new images being ingested between runs on a live cluster.
+   *
+   * Falls back to plain /search if the env var is not set
+   * (local data is static — no until= filter needed).
+   */
+  async gotoPerfStable(extraParams?: string) {
+    const stableUntil = process.env["PERF_STABLE_UNTIL"];
+    const untilParam = stableUntil ? `&until=${encodeURIComponent(stableUntil)}` : "";
+    const extra = extraParams ? `&${extraParams}` : "";
+    await this.page.goto(`/search?nonFree=true${untilParam}${extra}`);
     await this.waitForResults();
   }
 
@@ -541,5 +563,164 @@ export class KupuaHelpers {
   getConsoleLogs(pattern?: RegExp): string[] {
     if (!pattern) return [...this._consoleLogs];
     return this._consoleLogs.filter((line) => pattern.test(line));
+  }
+
+  // -------------------------------------------------------------------------
+  // Buffer capacity helpers — shared by Bug #16, #17, and image-detail tests
+  // -------------------------------------------------------------------------
+
+  /**
+   * Scroll the current view to near-bottom repeatedly to trigger
+   * extend+evict cycles until the buffer reaches capacity or we give up.
+   * Seeks to `seekRatio` first to ensure there is data ahead.
+   *
+   * Returns the store state after scrolling settles.
+   */
+  async scrollToBufferCapacity(seekRatio = 0.15) {
+    await this.seekTo(seekRatio);
+    for (let i = 0; i < 8; i++) {
+      await this.page.evaluate(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+      await this.page.waitForTimeout(400);
+    }
+    await this.page.waitForTimeout(1000);
+    return this.getStoreState();
+  }
+
+  /**
+   * Scroll to near-bottom repeatedly (without an initial seek) to trigger
+   * extend+evict cycles starting from the current scroll position.
+   * Used when already at a deep offset (e.g. after a density switch test).
+   */
+  async scrollDeep(iterations = 8) {
+    for (let i = 0; i < iterations; i++) {
+      await this.page.evaluate(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+      await this.page.waitForTimeout(400);
+    }
+    await this.page.waitForTimeout(1000);
+    return this.getStoreState();
+  }
+
+  // -------------------------------------------------------------------------
+  // Image detail helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Open image detail for the Nth visible item (double-click in grid,
+   * double-click row in table). Returns the image ID that was opened.
+   */
+  async openDetailForNthItem(n: number): Promise<string> {
+    await this.focusNthItem(n);
+    const id = await this.getFocusedImageId();
+    if (!id) throw new Error(`No image at index ${n}`);
+
+    if (await this.isGridView()) {
+      const cells = this.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+      await cells.nth(n).dblclick();
+    } else {
+      const rows = this.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+      await rows.nth(n).dblclick();
+    }
+    // Wait for the detail overlay to appear (URL gets ?image=...)
+    await this.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    return id;
+  }
+
+  /** Wait for the image detail overlay to be gone (URL no longer has ?image). */
+  async waitForDetailClosed(timeout = 5000) {
+    await this.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout },
+    );
+  }
+
+  /** Close image detail via Backspace key. */
+  async closeDetailViaBackspace() {
+    await this.page.keyboard.press("Backspace");
+    await this.waitForDetailClosed();
+  }
+
+  /** Close image detail via the "Back to search" button. */
+  async closeDetailViaButton() {
+    await this.page.locator("button", { hasText: "Back to search" }).click();
+    await this.waitForDetailClosed();
+  }
+
+  /** Get the image ID currently shown in the detail overlay from the URL. */
+  async getDetailImageId(): Promise<string | null> {
+    return this.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+  }
+
+  /**
+   * Navigate to previous image in detail via ArrowLeft.
+   * Does NOT wait for image to load — use for rapid traversal.
+   */
+  async detailPrev() {
+    await this.page.keyboard.press("ArrowLeft");
+  }
+
+  /**
+   * Navigate to next image in detail via ArrowRight.
+   * Does NOT wait for image to load — use for rapid traversal.
+   */
+  async detailNext() {
+    await this.page.keyboard.press("ArrowRight");
+  }
+
+  /**
+   * Navigate to next image and wait for the URL ?image= param to change.
+   * Use for normal-speed traversal where you want to confirm each step.
+   */
+  async detailNextAndWait(timeout = 5000) {
+    const before = await this.getDetailImageId();
+    await this.page.keyboard.press("ArrowRight");
+    await this.page.waitForFunction(
+      (prev) => new URL(window.location.href).searchParams.get("image") !== prev,
+      before,
+      { timeout },
+    );
+  }
+
+  /**
+   * Navigate to previous image and wait for the URL ?image= param to change.
+   */
+  async detailPrevAndWait(timeout = 5000) {
+    const before = await this.getDetailImageId();
+    await this.page.keyboard.press("ArrowLeft");
+    await this.page.waitForFunction(
+      (prev) => new URL(window.location.href).searchParams.get("image") !== prev,
+      before,
+      { timeout },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // CQL search helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Navigate to a search with a CQL query via the URL.
+   * This is the reliable way to set the CQL input — the web component
+   * syncs from the `value` attribute which is set from the URL param.
+   */
+  async gotoWithQuery(query: string) {
+    await this.page.goto(
+      `/search?nonFree=true&query=${encodeURIComponent(query)}`,
+    );
+    await this.waitForResults();
   }
 }

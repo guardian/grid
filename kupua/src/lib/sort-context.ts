@@ -647,11 +647,10 @@ export function computeTrackTicks(
             label: isJan ? `${yr}` : MONTH_ABBRS[d.getUTCMonth()],
           });
         } else {
-          // Long span: decade hierarchy — label only at yr%5, major at yr%10.
+          // Long span: half-decade hierarchy — label only at yr%5, major at yr%5.
           // All January ticks still carry a year label so the Scrubber's
           // label-decimation can show them when there's enough pixel space
           // (e.g. an isolated year in the middle of the track).
-          const isDecade = yr % 10 === 0;
           const isHalfDecade = yr % 5 === 0;
           ticks.push({
             position: pos,

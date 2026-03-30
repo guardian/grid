@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { TABLE_ROW_HEIGHT } from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -590,7 +591,8 @@ describe("density-switch viewport ratio", () => {
    * This validates the exact calculation that was buggy (global index used as row index).
    */
 
-  const ROW_HEIGHT = 32;
+  // TABLE_ROW_HEIGHT from shared constants — same value used in the real component
+  const ROW_HEIGHT = TABLE_ROW_HEIGHT;
 
   it("correct ratio uses buffer-local index", async () => {
     await actions().search();
@@ -727,7 +729,7 @@ describe("scroll mode — buffer fill", () => {
   }
 
   it("fills the entire buffer for datasets ≤ threshold", async () => {
-    const smallMock = setupSmallDataset(500);
+    setupSmallDataset(500);
     await actions().search();
 
     // After search, the fill runs in the background — wait for it

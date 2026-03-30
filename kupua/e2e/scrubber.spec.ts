@@ -17,6 +17,70 @@
  */
 
 import { test, expect } from "./helpers";
+import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
+
+// ---------------------------------------------------------------------------
+// Safety gate — refuse to run against a real ES cluster.
+//
+// globalSetup.ts already checks this, but only at suite startup. If an agent
+// bypasses the main playwright.config.ts (wrong --config flag, --no-deps,
+// etc.) or if a Vite server with --use-TEST is already running, globalSetup
+// may not have guarded correctly. This in-test check is the second line of
+// defence: it fires per-test, is impossible to bypass without modifying this
+// file, and gives a clear failure message instead of mysterious assertion
+// errors caused by real-data shapes.
+//
+// Threshold: local sample data is ~10k docs. Real clusters have 100k+.
+// 50k gives headroom for larger local samples.
+// ---------------------------------------------------------------------------
+
+const LOCAL_MAX_DOCS = 50_000;
+
+// Cached result — fetched once per worker process, not once per test.
+let _realEsCheckResult: { count: number } | null | "unchecked" = "unchecked";
+
+async function assertNotRealEs() {
+  if (_realEsCheckResult === null) return; // already checked and was fine
+  if (_realEsCheckResult !== "unchecked") {
+    // Previously found real ES — re-throw immediately without another fetch
+    throw new Error(
+      `🛑 Refusing to run: real ES detected (${(_realEsCheckResult as { count: number }).count.toLocaleString()} docs). Stop --use-TEST and re-run.`,
+    );
+  }
+
+  let count: number | undefined;
+  for (const path of ["http://localhost:3000/es/images/_count", "http://localhost:3000/es/_count"]) {
+    try {
+      const res = await fetch(path, { signal: AbortSignal.timeout(2000) });
+      if (!res.ok) continue;
+      const data = await res.json() as { count?: number };
+      if (data.count !== undefined) { count = data.count; break; }
+    } catch { continue; }
+  }
+
+  if (count !== undefined && count > LOCAL_MAX_DOCS) {
+    _realEsCheckResult = { count };
+    throw new Error(
+      `\n\n` +
+      `═══════════════════════════════════════════════════════════════\n` +
+      `  🛑 LOCAL E2E TESTS REFUSED — REAL ES DETECTED IN TEST\n` +
+      `\n` +
+      `  ES doc count = ${count.toLocaleString()} (threshold: ${LOCAL_MAX_DOCS.toLocaleString()})\n` +
+      `  These tests are written for local sample data (~10k docs).\n` +
+      `  Running them against a real cluster produces wrong assertions.\n` +
+      `\n` +
+      `  You probably have 'start.sh --use-TEST' running on port 3000.\n` +
+      `  Stop it, then re-run tests — the runner will start local ES.\n` +
+      `═══════════════════════════════════════════════════════════════\n`,
+    );
+  }
+
+  _realEsCheckResult = null; // safe — mark as checked
+}
+
+test.beforeEach(async () => {
+  await assertNotRealEs();
+});
 
 // ---------------------------------------------------------------------------
 // Scrubber — basic visibility and ARIA semantics
@@ -1440,40 +1504,11 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
 // The fix: views adjust scrollTop -= evictCount * ROW_HEIGHT after eviction.
 
 test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction", () => {
-  /**
-   * Helper: scroll to buffer bottom and wait for buffer to reach near-capacity.
-   * Returns the current bufferOffset after stabilisation.
-   */
-  async function scrollToBufferCapacity(kupua: any) {
-    // Seek to a position with plenty of data ahead (15% of dataset).
-    // This gives us ~8500 items ahead (in 10k dataset) — enough for the
-    // buffer to fill to capacity and start evicting.
-    await kupua.seekTo(0.15);
-
-    // Repeatedly scroll to near-bottom of the scroll container, triggering
-    // extendForward. Each extend adds 200 items. After 5 extends the buffer
-    // should be at or near 1000 (capacity).
-    for (let i = 0; i < 8; i++) {
-      await kupua.page.evaluate(() => {
-        const grid = document.querySelector('[aria-label="Image results grid"]');
-        const table = document.querySelector('[aria-label="Image results table"]');
-        const el = grid ?? table;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
-      await kupua.page.waitForTimeout(400);
-    }
-
-    // Wait a bit for any in-flight extends to complete
-    await kupua.page.waitForTimeout(1000);
-
-    return kupua.getStoreState();
-  }
-
   test("table: bufferOffset stabilises after forward-extend eviction", async ({ kupua }) => {
     await kupua.goto();
     await kupua.switchToTable();
 
-    const afterFill = await scrollToBufferCapacity(kupua);
+    const afterFill = await kupua.scrollToBufferCapacity();
 
     // At this point the buffer should be at or near capacity.
     // If it's not (e.g. dataset too small), skip — the bug doesn't manifest.
@@ -1505,7 +1540,7 @@ test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction"
     await kupua.goto();
     await kupua.switchToGrid();
 
-    const afterFill = await scrollToBufferCapacity(kupua);
+    const afterFill = await kupua.scrollToBufferCapacity();
 
     if (afterFill.resultsLength < 800) {
       test.skip();
@@ -1596,27 +1631,30 @@ test.describe("Bug #17 — density switch after deep scroll preserves focus visi
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
 
     // The focused image must be VISIBLE in the viewport
-    const visible = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return { inBuffer: false, scrolledToIt: false };
-      const s = store.getState();
-      const fid = s.focusedImageId;
-      if (!fid) return { inBuffer: false, scrolledToIt: false };
-      const globalIdx = s.imagePositions.get(fid);
-      if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
-      const localIdx = globalIdx - s.bufferOffset;
-      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+    const visible = await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return { inBuffer: false, scrolledToIt: false };
+        const s = store.getState();
+        const fid = s.focusedImageId;
+        if (!fid) return { inBuffer: false, scrolledToIt: false };
+        const globalIdx = s.imagePositions.get(fid);
+        if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
+        const localIdx = globalIdx - s.bufferOffset;
+        const inBuffer = localIdx >= 0 && localIdx < s.results.length;
 
-      const el = document.querySelector('[aria-label="Image results grid"]');
-      if (!el) return { inBuffer, scrolledToIt: false };
-      const cols = Math.max(1, Math.floor(el.clientWidth / 280));
-      const rowIdx = Math.floor(localIdx / cols);
-      const rowTop = rowIdx * 303;
-      const scrollTop = el.scrollTop;
-      const viewportHeight = el.clientHeight;
-      const scrolledToIt = rowTop >= scrollTop - 303 && rowTop <= scrollTop + viewportHeight + 303;
-      return { inBuffer, scrolledToIt, localIdx, cols, rowTop, scrollTop, viewportHeight };
-    });
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        if (!el) return { inBuffer, scrolledToIt: false };
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const rowIdx = Math.floor(localIdx / cols);
+        const rowTop = rowIdx * ROW_HEIGHT;
+        const scrollTop = el.scrollTop;
+        const viewportHeight = el.clientHeight;
+        const scrolledToIt = rowTop >= scrollTop - ROW_HEIGHT && rowTop <= scrollTop + viewportHeight + ROW_HEIGHT;
+        return { inBuffer, scrolledToIt, localIdx, cols, rowTop, scrollTop, viewportHeight };
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
 
     expect(visible.inBuffer).toBe(true);
     // This is the actual Bug #17 assertion: without the fix, the grid
@@ -1649,25 +1687,28 @@ test.describe("Bug #17 — density switch after deep scroll preserves focus visi
 
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
 
-    const visible = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return { inBuffer: false, scrolledToIt: false };
-      const s = store.getState();
-      const fid = s.focusedImageId;
-      if (!fid) return { inBuffer: false, scrolledToIt: false };
-      const globalIdx = s.imagePositions.get(fid);
-      if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
-      const localIdx = globalIdx - s.bufferOffset;
-      const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+    const visible = await kupua.page.evaluate(
+      ({ ROW_HEIGHT }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return { inBuffer: false, scrolledToIt: false };
+        const s = store.getState();
+        const fid = s.focusedImageId;
+        if (!fid) return { inBuffer: false, scrolledToIt: false };
+        const globalIdx = s.imagePositions.get(fid);
+        if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
+        const localIdx = globalIdx - s.bufferOffset;
+        const inBuffer = localIdx >= 0 && localIdx < s.results.length;
 
-      const el = document.querySelector('[aria-label="Image results table"]');
-      if (!el) return { inBuffer, scrolledToIt: false };
-      const rowTop = localIdx * 32;
-      const scrollTop = el.scrollTop;
-      const viewportHeight = el.clientHeight;
-      const scrolledToIt = rowTop >= scrollTop - 32 && rowTop <= scrollTop + viewportHeight + 32;
-      return { inBuffer, scrolledToIt, localIdx, rowTop, scrollTop, viewportHeight };
-    });
+        const el = document.querySelector('[aria-label="Image results table"]');
+        if (!el) return { inBuffer, scrolledToIt: false };
+        const rowTop = localIdx * ROW_HEIGHT;
+        const scrollTop = el.scrollTop;
+        const viewportHeight = el.clientHeight;
+        const scrolledToIt = rowTop >= scrollTop - ROW_HEIGHT && rowTop <= scrollTop + viewportHeight + ROW_HEIGHT;
+        return { inBuffer, scrolledToIt, localIdx, rowTop, scrollTop, viewportHeight };
+      },
+      { ROW_HEIGHT: TABLE_ROW_HEIGHT },
+    );
 
     expect(visible.inBuffer).toBe(true);
     expect(visible.scrolledToIt).toBe(true);

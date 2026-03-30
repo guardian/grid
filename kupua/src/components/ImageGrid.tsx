@@ -32,19 +32,11 @@ import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
-
-// ---------------------------------------------------------------------------
-// Layout constants
-// ---------------------------------------------------------------------------
-
-/** Minimum cell width in pixels — columns = floor(containerWidth / MIN_CELL_WIDTH). */
-const MIN_CELL_WIDTH = 280;
-
-/** Fixed row height (thumbnail area + metadata). Matches kahuna's 303px. */
-const ROW_HEIGHT = 303;
-
-/** Gap between cells in pixels. */
-const CELL_GAP = 8;
+import {
+  GRID_ROW_HEIGHT as ROW_HEIGHT,
+  GRID_MIN_CELL_WIDTH as MIN_CELL_WIDTH,
+  GRID_CELL_GAP as CELL_GAP,
+} from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Tooltip helpers
