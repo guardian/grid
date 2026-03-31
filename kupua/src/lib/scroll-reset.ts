@@ -16,6 +16,7 @@
 
 import { resetVisibleRange } from "@/hooks/useDataWindow";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { fireScrollReset } from "@/lib/scroll-reset-ref";
 
 export function resetScrollAndFocusSearch() {
   const scrollContainer = getScrollContainer();
@@ -24,6 +25,12 @@ export function resetScrollAndFocusSearch() {
     scrollContainer.scrollLeft = 0;
     scrollContainer.dispatchEvent(new Event("scroll"));
   }
+
+  // Also reset the virtualizer's internal scrollOffset — setting DOM scrollTop
+  // alone is insufficient because TanStack Virtual syncs asynchronously via
+  // scroll events. During rapid state transitions (deep seek → Home click),
+  // the virtualizer can lag behind the DOM.
+  fireScrollReset();
 
   // Immediately reset the visible range so the Scrubber thumb reflects
   // position 0 without waiting for the scroll handler to fire.

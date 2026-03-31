@@ -497,7 +497,7 @@ the per-cell approach calls `getSize()` 300+ times per render.  Each call
 walks TanStack Table's state tree.  The CSS-variable approach calls
 `buildColumnSizeVars()` once per render to build a CSS string, and the
 browser applies the variable values to all cells via CSS — no JS per cell.
-This is the pattern used in TanStack Table's official "performant
+This is the pattern used in TanStack's official "performant
 column-resizing" example.
 
 **Trade-off:** Column widths are no longer directly readable from the
@@ -872,3 +872,24 @@ only fires during seek(), which replaces the entire buffer anyway;
 staring at stale data) is worse. The fallback is logged as a console
 warning for diagnostics.
 
+### 26. Sort-around-focus uses ratio preservation, not centre alignment
+
+When the user changes sort order with a focused image, kupua's
+sort-around-focus finds the image at its new position and scrolls to it.
+TanStack Virtual's `scrollToIndex(idx, { align: "center" })` would be
+the obvious choice — but it always places the item dead-centre,
+regardless of where it was before the sort.
+
+Kupua instead captures the focused item's **viewport ratio** (0 = top,
+1 = bottom) before the sort change, and restores it after the image is
+found at its new position. This is the same "Never Lost" ratio
+preservation used for density switches.
+
+**Implementation:** `sort-focus.ts` (same module-level bridge pattern as
+`density-focus.ts`). The scroll-reset `useLayoutEffect` captures the
+ratio at the sort-only skip point; the `sortAroundFocusGeneration`
+effect consumes it. Falls back to `align: "start"` if no ratio was saved.
+
+**Trade-off:** Centre alignment is predictable; ratio preservation can
+place the item near the edge of the viewport if it was near the edge
+before the sort. Edge clamping ensures the item is always visible.

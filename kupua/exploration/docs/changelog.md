@@ -1132,3 +1132,69 @@ of the measurement data was conducted. Key findings:
 - `exploration/docs/fix-ui-docs-eval.md` — Part 5 added + corrected (see "Phase C re-run + Harness Fix" entry above).
 - `exploration/docs/focus-drift-and-scroll-handoff.md` — new handoff doc for next two work items.
 - `AGENTS.md` — "Known Performance Issues" section + docs table correction.
+
+## Post-Perf Regression Fixes (31 Mar 2026)
+
+Three regressions from the Phase A-C perf commit (`3dac9ff5e`) identified in
+`exploration/docs/post-perf-fixes.md` and fixed in this session:
+
+### Issue 1 (CRITICAL): Home button after deep seek
+
+**Symptom:** After a deep seek (scrubber click at ~50%), clicking the Home logo
+didn't scroll to position 0 -- the view landed ~200 items from the top. Also
+affected click-to-search from image detail metadata.
+
+**Root cause:** `resetScrollAndFocusSearch()` set `scrollContainer.scrollTop = 0`
+and dispatched a synthetic scroll event, but TanStack Virtual's internal
+`scrollOffset` state wasn't reset. After A.1 stabilised `handleScroll` (fewer
+re-registrations, fewer sync opportunities), the virtualizer lagged behind the
+DOM `scrollTop` during rapid state transitions.
+
+**Fix:** New `src/lib/scroll-reset-ref.ts` -- same module-level registration
+pattern as `scroll-container-ref.ts`. Both ImageTable and ImageGrid register
+`() => virtualizer.scrollToOffset(0)` on mount. `resetScrollAndFocusSearch()`
+calls `fireScrollReset()` alongside the existing DOM `scrollTop = 0`. This
+guarantees the virtualizer's internal state is always zeroed.
+
+### Issue 3: Visual reordering during seeks and sort changes
+
+**Symptom:** Images visibly shuffled/reordered for one frame before settling into
+final positions after seeks, searches, and sort changes.
+
+**Root cause:** A.4 changed GridCell key from positional (`key={imageIdx}`) to
+content-based (`key={image?.id}`). Content keys in a positional virtualizer cause
+React's reconciler to reuse component instances from old virtual positions, fighting
+TanStack Virtual's layout model. The 14-18% domChurn reduction on backward extends
+was not worth the user-visible reordering regression.
+
+**Fix:** Reverted A.4 -- GridCell key back to positional `key={imageIdx}`. Comment
+explains the rationale and documents the revert history. Expect P3/P11 domChurn
+to increase back to pre-A.4 levels.
+
+### Issue 2: Focus drift -- sort-around-focus (P6) and density switch (P4b)
+
+**P6 fix:** Created `src/lib/sort-focus.ts` (same bridge pattern as
+`density-focus.ts`). The scroll-reset `useLayoutEffect` in both ImageTable and
+ImageGrid now captures the focused item's viewport ratio before the sort-only
+skip (synchronous, before async search). The `sortAroundFocusGeneration` effect
+consumes the saved ratio and restores the item at the same viewport position
+instead of always centring. Edge clamping ensures the item stays on screen.
+Deviation 26 added.
+
+**P4b fix:** Table unmount save now includes `HEADER_HEIGHT` in the viewport
+ratio calculation: `(rowTop + HEADER_HEIGHT - scrollTop) / clientHeight`. Table
+mount restore uses the symmetric formula: `scrollTop = rowTop + HEADER_HEIGHT -
+ratio * clientHeight`. Previously the table's 45px sticky header was not accounted
+for, causing the ratio to be off by `HEADER_HEIGHT / clientHeight` -- which
+manifested as a drift when restoring in the headerless grid view.
+
+**Files changed:**
+- New: `src/lib/scroll-reset-ref.ts`, `src/lib/sort-focus.ts`
+- Modified: `src/lib/scroll-reset.ts`, `src/components/ImageGrid.tsx`,
+  `src/components/ImageTable.tsx`
+- Docs: `exploration/docs/deviations.md` (section 26), `AGENTS.md`, this changelog
+
+**Awaiting validation:** E2E tests could not run (live data mode active). Run
+`npx playwright test` when local ES is available. Perf harness validation for
+P4b/P6 drift measurements should be run by the human.
+

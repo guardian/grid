@@ -31,9 +31,11 @@ import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
+import { registerScrollReset } from "@/lib/scroll-reset-ref";
 import type { Image } from "@/types/image";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
+import { saveSortFocusRatio, consumeSortFocusRatio } from "@/lib/sort-focus";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH as MIN_CELL_WIDTH,
@@ -293,6 +295,14 @@ export function ImageGrid() {
     overscan: 5,
   });
 
+  // Register a virtualizer-level scroll-reset callback so imperative callers
+  // (Home logo click) can reset BOTH DOM scrollTop AND virtualizer internal
+  // state. Without this, the virtualizer can lag behind after deep seeks.
+  useEffect(() => {
+    registerScrollReset(() => virtualizer.scrollToOffset(0));
+    return () => registerScrollReset(null);
+  }, [virtualizer]);
+
   // -------------------------------------------------------------------------
   // Scroll anchoring: restore position after column count change.
   // Runs before paint (useLayoutEffect) so there's no visible jump.
@@ -476,6 +486,9 @@ export function ImageGrid() {
     // changes sort with a focused image, sort-around-focus handles scroll
     // positioning. Resetting scrollTop here would flash wrong content
     // (old buffer at position 0) before sort-around-focus corrects it.
+    // Capture the focused item's viewport ratio BEFORE the sort — the
+    // sortAroundFocusGeneration effect will restore it after the async
+    // search places the image at its new position.
     const isSortOnlyChange =
       prev.orderBy !== searchParams.orderBy &&
       Object.keys({ ...prev, ...searchParams }).every(
@@ -484,11 +497,41 @@ export function ImageGrid() {
           URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) ||
           prev[key as keyof typeof prev] === searchParams[key as keyof typeof searchParams]
       );
-    if (isSortOnlyChange && focusedImageId) return;
+    if (isSortOnlyChange && focusedImageId) {
+      const store = useSearchStore.getState();
+      const gIdx = store.imagePositions.get(focusedImageId);
+      if (gIdx != null) {
+        const localIdx = gIdx - store.bufferOffset;
+        if (localIdx >= 0) {
+          const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+          const rowTop = Math.floor(localIdx / cols) * ROW_HEIGHT;
+          saveSortFocusRatio((rowTop - el.scrollTop) / el.clientHeight);
+        }
+      }
+      return;
+    }
 
     el.scrollTop = 0;
     virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer, focusedImageId]);
+
+  // Belt-and-suspenders: when bufferOffset transitions to 0 from a non-zero
+  // value (search completed after Home click / logo click / new query), force
+  // scroll to top. This catches cases where searchParams didn't change (Home
+  // click from default state) so the above effect doesn't fire, but the
+  // buffer was repositioned by store.search().
+  const prevBufferOffsetRef = useRef(bufferOffset);
+  useLayoutEffect(() => {
+    const prev = prevBufferOffsetRef.current;
+    prevBufferOffsetRef.current = bufferOffset;
+    if (prev > 0 && bufferOffset === 0) {
+      const el = parentRef.current;
+      if (el && el.scrollTop > 0) {
+        el.scrollTop = 0;
+        virtualizer.scrollToOffset(0);
+      }
+    }
+  }, [bufferOffset, virtualizer]);
 
   // -------------------------------------------------------------------------
   // Ref for focused image — used by captureAnchor (scroll anchoring).
@@ -519,9 +562,27 @@ export function ImageGrid() {
     const id = useSearchStore.getState().focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
-    if (idx >= 0) {
+    if (idx < 0) return;
+
+    const el = parentRef.current;
+    const saved = consumeSortFocusRatio();
+    if (el && saved) {
+      // Restore the focused item at the same viewport ratio it had before
+      // the sort change — "Never Lost" ratio preservation.
+      const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+      const rowTop = Math.floor(idx / cols) * ROW_HEIGHT;
+      let target = rowTop - saved.ratio * el.clientHeight;
+      // Edge clamping: ensure item stays on screen
+      const itemY = rowTop - target;
+      if (itemY < 0) target = rowTop;
+      else if (itemY > el.clientHeight - ROW_HEIGHT)
+        target = rowTop - el.clientHeight + ROW_HEIGHT;
+      const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+      virtualizer.scrollToOffset(clamped);
+    } else {
+      // No saved ratio (edge case) — fall back to start alignment
       const rowIdx = Math.floor(idx / columns);
-      virtualizer.scrollToIndex(rowIdx, { align: "center" });
+      virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
   }, [sortAroundFocusGeneration, findImageIndex, virtualizer, columns]);
 
@@ -652,15 +713,17 @@ export function ImageGrid() {
                 const imageIdx = startIdx + colIdx;
                 if (imageIdx >= virtualizerCount) return null;
                 const image = getImage(imageIdx);
-                // A.4: Key by image ID (stable across buffer mutations) instead
-                // of by flat index. When bufferOffset changes (backward extend),
-                // imageIdx values shift for all visible cells — React unmounts
-                // and remounts every GridCell even though the image is the same.
-                // image?.id is stable; fall back to empty-cell sentinel for
-                // placeholder slots (image=undefined).
+                // Positional key: TanStack Virtual uses positional rendering
+                // (row N at top: N * estimateSize). Content-based keys
+                // (image.id) cause visible reordering during seeks/searches
+                // because React reuses component instances from old virtual
+                // positions, fighting the virtualizer's layout. Positional
+                // keys match the virtualizer's model. (A.4 tried content
+                // keys for -14% domChurn on extends, but the visual
+                // reordering on seeks was a worse regression — reverted.)
                 return (
                   <GridCell
-                    key={image?.id ?? `empty-${imageIdx}`}
+                    key={imageIdx}
                     image={image}
                     isFocused={!!image && image.id === focusedImageId}
                     cellWidth={cellWidth}

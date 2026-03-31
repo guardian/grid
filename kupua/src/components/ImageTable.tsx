@@ -25,6 +25,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
+import { registerScrollReset } from "@/lib/scroll-reset-ref";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
@@ -34,6 +35,7 @@ import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { DataSearchPill } from "./SearchPill";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
+import { saveSortFocusRatio, consumeSortFocusRatio } from "@/lib/sort-focus";
 import {
   FIELD_REGISTRY,
   FIELDS_BY_ID,
@@ -503,6 +505,14 @@ export function ImageTable() {
     scrollPaddingEnd: ROW_HEIGHT * 2,
   });
 
+  // Register a virtualizer-level scroll-reset callback so imperative callers
+  // (Home logo click) can reset BOTH DOM scrollTop AND virtualizer internal
+  // state. Without this, the virtualizer can lag behind after deep seeks.
+  useEffect(() => {
+    registerScrollReset(() => virtualizer.scrollToOffset(0));
+    return () => registerScrollReset(null);
+  }, [virtualizer]);
+
   // TanStack Table only receives images visible in the current virtualizer
   // window. This keeps getCoreRowModel at O(~60 visible rows) instead of
   // O(all loaded images), preventing the 246ms → 2920ms → OOM stalls that
@@ -787,7 +797,21 @@ export function ImageTable() {
     // changes sort with a focused image, sort-around-focus handles scroll
     // positioning. Resetting scrollTop here would flash wrong content
     // (old buffer at position 0) before sort-around-focus corrects it.
-    if (sortOnly && focusedImageId) return;
+    // Capture the focused item's viewport ratio BEFORE the sort — the
+    // sortAroundFocusGeneration effect will restore it after the async
+    // search places the image at its new position.
+    if (sortOnly && focusedImageId) {
+      const store = useSearchStore.getState();
+      const gIdx = store.imagePositions.get(focusedImageId);
+      if (gIdx != null) {
+        const localIdx = gIdx - store.bufferOffset;
+        if (localIdx >= 0) {
+          const rowTop = localIdx * ROW_HEIGHT;
+          saveSortFocusRatio((rowTop - el.scrollTop) / el.clientHeight);
+        }
+      }
+      return;
+    }
 
     el.scrollTop = 0;
     if (!sortOnly) {
@@ -799,6 +823,24 @@ export function ImageTable() {
     // updates the virtualizer's internal scroll state.
     virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer, focusedImageId]);
+
+  // Belt-and-suspenders: when bufferOffset transitions to 0 from a non-zero
+  // value (search completed after Home click / logo click / new query), force
+  // scroll to top. This catches cases where searchParams didn't change (Home
+  // click from default state) so the above effect doesn't fire, but the
+  // buffer was repositioned by store.search().
+  const prevBufferOffsetRef = useRef(bufferOffset);
+  useLayoutEffect(() => {
+    const prev = prevBufferOffsetRef.current;
+    prevBufferOffsetRef.current = bufferOffset;
+    if (prev > 0 && bufferOffset === 0) {
+      const el = parentRef.current;
+      if (el && el.scrollTop > 0) {
+        el.scrollTop = 0;
+        virtualizer.scrollToOffset(0);
+      }
+    }
+  }, [bufferOffset, virtualizer]);
 
   // Restore focus and scroll when returning from image detail overlay.
   useReturnFromDetail({
@@ -823,8 +865,25 @@ export function ImageTable() {
     const id = useSearchStore.getState().focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
-    if (idx >= 0) {
-      virtualizer.scrollToIndex(idx, { align: "center" });
+    if (idx < 0) return;
+
+    const el = parentRef.current;
+    const saved = consumeSortFocusRatio();
+    if (el && saved) {
+      // Restore the focused item at the same viewport ratio it had before
+      // the sort change — "Never Lost" ratio preservation.
+      const rowTop = idx * ROW_HEIGHT;
+      let target = rowTop - saved.ratio * el.clientHeight;
+      // Edge clamping: ensure item stays on screen
+      const itemY = rowTop - target;
+      if (itemY < 0) target = rowTop;
+      else if (itemY > el.clientHeight - ROW_HEIGHT)
+        target = rowTop - el.clientHeight + ROW_HEIGHT;
+      const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+      virtualizer.scrollToOffset(clamped);
+    } else {
+      // No saved ratio (edge case) — fall back to start alignment
+      virtualizer.scrollToIndex(idx, { align: "start" });
     }
   }, [sortAroundFocusGeneration, findImageIndex, virtualizer]);
 
@@ -855,8 +914,10 @@ export function ImageTable() {
     if (saved != null) {
       const el = parentRef.current;
       if (el) {
+        // Reverse the save formula: saved.ratio = (rowTop + HEADER_HEIGHT - scrollTop) / clientHeight
+        // So scrollTop = rowTop + HEADER_HEIGHT - saved.ratio * clientHeight
         const rowTop = idx * ROW_HEIGHT;
-        const targetScroll = rowTop - saved.ratio * el.clientHeight;
+        const targetScroll = rowTop + HEADER_HEIGHT - saved.ratio * el.clientHeight;
         const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
         virtualizer.scrollToOffset(clamped);
       }
@@ -878,7 +939,13 @@ export function ImageTable() {
       if (globalIdx < 0) return;
       const localIdx = globalIdx - bufferOffset;
       if (localIdx < 0) return;
-      saveFocusRatio((localIdx * ROW_HEIGHT - el.scrollTop) / el.clientHeight, localIdx);
+      // The table has a sticky header (HEADER_HEIGHT) inside the scroll
+      // container. The row's visual position in the viewport is
+      // (rowTop + HEADER_HEIGHT - scrollTop), not (rowTop - scrollTop).
+      // Without the header offset, table→grid switches place the item
+      // too high because the grid has no header.
+      const rowTop = localIdx * ROW_HEIGHT;
+      saveFocusRatio((rowTop + HEADER_HEIGHT - el.scrollTop) / el.clientHeight, localIdx);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
   }, []);
