@@ -36,7 +36,12 @@ const parseElasticSearchResponse = (response: any): ElasticSearchResponse => {
 }
 
 
-export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: string, elasticSearchIndexName: string): Promise<ElasticSearchResponse> => {
+export const queryElasticSearch = async (
+  batchSize: number,
+  elasticSearchUrl: string,
+  elasticSearchIndexName: string,
+  seed: string = 'test-seed'
+): Promise<ElasticSearchResponse> => {
   const query = {
     query: {
       function_score: {
@@ -48,7 +53,7 @@ export const queryElasticSearch = async (batchSize: number, elasticSearchUrl: st
             ]
           }
         },
-        random_score: {seed: "<lambda_invocation_id>", field: "_seq_no"},
+        random_score: {seed: seed, field: "_seq_no"},
         boost_mode: "replace"
       }
     },

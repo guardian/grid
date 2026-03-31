@@ -40,9 +40,7 @@ function makeEvent(): EventBridgeEvent<'Scheduled Event', {}> {
   };
 }
 
-function makeContext(): Context {
-  return {} as Context;
-}
+const context = {awsRequestId: 'test'} as Context;
 
 // A valid ElasticSearch hit for an image that lives at a well-formed S3 URL
 function makeEsHit(
@@ -77,7 +75,7 @@ describe('handler – queue is too crowded', () => {
       Attributes: {ApproximateNumberOfMessages: '21'},
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     expect(mockQueryElasticSearch).not.toHaveBeenCalled();
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
@@ -90,7 +88,7 @@ describe('handler – queue is too crowded', () => {
     });
     mockQueryElasticSearch.mockResolvedValue({kind: 'success', hits: {hits: []}});
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     expect(mockQueryElasticSearch).toHaveBeenCalledTimes(1);
   });
@@ -114,7 +112,7 @@ describe('handler – ElasticSearch error', () => {
       status: 404,
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     expect(sendCalls).toHaveLength(0);
@@ -146,7 +144,7 @@ describe('handler – happy path', () => {
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     expect(sendCalls).toHaveLength(1);
@@ -173,7 +171,7 @@ describe('handler – happy path', () => {
       hits: {hits: []},
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     expect(sendCalls).toHaveLength(0);
@@ -208,7 +206,7 @@ describe('handler – message mapping (elasticSearchResponseToSqsMessages)', () 
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     expect(sendCalls).toHaveLength(1);
@@ -236,7 +234,7 @@ describe('handler – message mapping (elasticSearchResponseToSqsMessages)', () 
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     const entries = sendCalls[0].args[0].input.Entries!;
@@ -263,7 +261,7 @@ describe('handler – message mapping (elasticSearchResponseToSqsMessages)', () 
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     const entries = sendCalls[0].args[0].input.Entries!;
@@ -284,7 +282,7 @@ describe('handler – message mapping (elasticSearchResponseToSqsMessages)', () 
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     const entry = JSON.parse(
@@ -305,7 +303,7 @@ describe('handler – message mapping (elasticSearchResponseToSqsMessages)', () 
       },
     });
 
-    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock);
+    await backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClientMock, context);
 
     const sendCalls = sqsMock.commandCalls(SendMessageBatchCommand);
     const entry = JSON.parse(

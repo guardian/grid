@@ -2,6 +2,7 @@ import {SQSClient, CreateQueueCommand, PurgeQueueCommand, ReceiveMessageCommand}
 import * as fs from 'fs';
 import * as path from 'path';
 import {backfillOneBatch} from "../../../src/backfiller/backfiller.ts";
+import {Context} from "aws-lambda";
 
 
 const ELASTIC_SEARCH_URL = 'http://localhost:9200';
@@ -14,6 +15,8 @@ const ES_SEED_FILE = path.resolve(
   __dirname,
   'test-data/input/es-documents.jsonl',
 );
+
+const context = {awsRequestId: 'test'} as Context;
 
 async function seedElasticSearch(elasticSearchUrl: string): Promise<void> {
   const lines = fs
@@ -85,7 +88,7 @@ describe('Backfiller integration tests', () => {
 
   it('sends SQS messages for images that have no embedding', async () => {
 
-    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient);
+    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient, context);
 
     // Give SQS a moment to make messages visible
     const received = await sqsClient.send(
@@ -141,7 +144,7 @@ describe('Backfiller integration tests', () => {
 
     console.log('Queue seeded, approximate count check done, invoking handler...');
 
-    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient);
+    await backfillOneBatch(queueUrl, ELASTIC_SEARCH_URL, TEST_INDEX_NAME, sqsClient, context);
 
     // The handler should have detected the crowded queue and returned early,
     // so the message count should be unchanged (still 21 seed messages).

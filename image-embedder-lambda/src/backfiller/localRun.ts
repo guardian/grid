@@ -2,6 +2,7 @@
 
 import {SQSClient} from "@aws-sdk/client-sqs";
 import {backfillOneBatch} from "./backfiller.ts";
+import {Context} from "aws-lambda";
 
 const QUEUE_URL = process.env.QUEUE_URL || 'http://localhost:4566/000000000000/image-embedder-DEV';
 const ELASTIC_SEARCH_URL = process.env.ELASTIC_SEARCH_URL || 'http://localhost:9200';
@@ -20,8 +21,10 @@ const sqsClient = new SQSClient({
   ...localStackConfig,
 });
 
+const context = {awsRequestId: 'test'} as Context;
+
 async function main() {
-  await backfillOneBatch(QUEUE_URL, ELASTIC_SEARCH_URL, 'Images_Current', sqsClient);
+  await backfillOneBatch(QUEUE_URL, ELASTIC_SEARCH_URL, 'Images_Current', sqsClient, context);
   console.log('✓ Handler completed');
 }
 

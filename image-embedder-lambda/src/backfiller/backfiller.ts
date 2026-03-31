@@ -32,6 +32,7 @@ export const backfillOneBatch = async (
   elasticSearchUrl: string,
   imageIndexName: string,
   sqsClient: SQSClient,
+  context: Context,
 ): Promise<void> => {
   console.log(`Starting handler embedding pipeline`);
   const embedderQueue = new EmbedderQueue(sqsClient);
@@ -45,7 +46,9 @@ export const backfillOneBatch = async (
     console.log(`Queue size has ${queueSize} messages, proceeding.`);
   }
 
-  const esResults = await queryElasticSearch(BATCH_SIZE, elasticSearchUrl, imageIndexName);
+  const randomSeed = context.awsRequestId;
+
+  const esResults = await queryElasticSearch(BATCH_SIZE, elasticSearchUrl, imageIndexName, randomSeed);
   if (esResults.kind === 'error') {
     console.error(`Error querying ElasticSearch`, esResults);
     return;
@@ -81,5 +84,5 @@ export const handler = async (
     throw new Error('Missing required environment variable: BACKFILL_SQS_QUEUE');
   }
 
-  return backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClient);
+  return backfillOneBatch(BACKFILL_SQS_QUEUE, ELASTIC_SEARCH_URL, IMAGE_INDEX_NAME, sqsClient, context);
 }
