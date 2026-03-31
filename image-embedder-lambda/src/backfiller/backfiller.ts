@@ -8,7 +8,7 @@ import {EmbedderQueue} from "./embedderQueue";
 const BATCH_SIZE = 100;
 const CROWDED_QUEUE = 20;
 
-const elasticSearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): SQSMessageBody[] => {
+const mapElasticsearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): SQSMessageBody[] => {
   console.debug("EsResponse", JSON.stringify(esResponse));
   return esResponse.hits?.hits?.filter((hit) => {
     return hit._id && hit._source?.source?.file && hit._source?.source?.mimeType
@@ -34,7 +34,7 @@ export const backfillOneBatch = async (
   sqsClient: SQSClient,
   context: Context,
 ): Promise<void> => {
-  console.log(`Starting handler embedding pipeline`);
+  console.log(`Starting backfilling one batch of images`);
   const embedderQueue = new EmbedderQueue(sqsClient);
 
   console.log("Checking queue size");
@@ -51,10 +51,10 @@ export const backfillOneBatch = async (
   const esResults = await queryElasticSearch(BATCH_SIZE, elasticSearchUrl, imageIndexName, randomSeed);
   if (esResults.kind === 'error') {
     console.error(`Error querying ElasticSearch`, esResults);
-    return;
+    throw new Error(`Error querying ElasticSearch: ${esResults.error}`);
   }
 
-  const sqsMessages = elasticSearchResponseToSqsMessages(esResults)
+  const sqsMessages = mapElasticsearchResponseToSqsMessages(esResults)
   console.log(`Found ${sqsMessages.length} images to process`);
   console.debug(`3 sampled sqs messages:`, sqsMessages.slice(0, Math.min(sqsMessages.length, 3)));
   if (sqsMessages.length > 0) {

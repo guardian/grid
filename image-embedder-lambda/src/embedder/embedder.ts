@@ -118,7 +118,6 @@ export const computeEmbeddingForSQSEvent = async (
   event: SQSEvent,
   environment: Environment,
 ): Promise<SQSBatchResponse> => {
-  console.log(`Starting handler embedding pipeline`);
   const thrallEventPublisher = new ThrallEventPublisher(
     clients.kinesis,
     environment.thrallKinesisStreamArn,
@@ -159,6 +158,7 @@ export const handler = async (
   event: SQSEvent,
   context: Context,
 ): Promise<SQSBatchResponse> => {
+  console.log(`Starting handler embedding pipeline`);
 
   if (!process.env.DOWNSCALED_IMAGE_BUCKET) {
     console.error('DOWNSCALED_IMAGE_BUCKET environment variable is not set. Caching of downscaled images will be disabled.');
