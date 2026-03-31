@@ -375,6 +375,8 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                 // Force useUrlSearchSync to re-search even if params haven't
                 // changed (e.g. was already at ?nonFree=true before opening image).
                 resetSearchSync();
+                // resetScrollAndFocusSearch calls abortExtends() internally to
+                // prevent rogue extendBackward from corrupting the buffer.
                 resetScrollAndFocusSearch();
                 const store = useSearchStore.getState();
                 store.setParams({ query: undefined, offset: 0 });

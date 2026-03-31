@@ -247,6 +247,13 @@ interface SearchState {
    */
   extendBackward: () => Promise<void>;
   /**
+   * Abort all in-flight extends and set a cooldown so no new extends fire
+   * for 2 seconds. Call this before any action that resets scroll on a
+   * deep buffer (logo click, metadata click-to-search) to prevent a rogue
+   * extendBackward from prepending stale data.
+   */
+  abortExtends: () => void;
+  /**
    * Seek to a global offset — clear buffer and refill at the target position.
    * Used by scrubber drags and sort-around-focus.
    */
@@ -735,9 +742,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { dataSource, params, pitId: oldPitId } = get();
     set({ loading: true, error: null, sortAroundFocusStatus: null });
 
-    // Abort all in-flight extends from the previous search
+    // Abort all in-flight extends from the previous search and set a
+    // cooldown. The cooldown prevents extends triggered by scroll-reset
+    // effects (useLayoutEffect in ImageGrid/ImageTable) that fire between
+    // the search() call and the results arriving — during this window the
+    // buffer is still at the old deep offset, and extendBackward would
+    // prepend stale data.
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
+    _seekCooldownUntil = Date.now() + 2000;
     const signal = _rangeAbortController.signal;
 
     // Abort any in-flight sort distribution fetch
@@ -955,6 +968,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         error: e instanceof Error ? e.message : "Extend forward failed",
       });
     }
+  },
+
+  abortExtends: () => {
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+    _seekCooldownUntil = Date.now() + 2000;
+    set({
+      _extendForwardInFlight: false,
+      _extendBackwardInFlight: false,
+    });
   },
 
   extendBackward: async () => {
@@ -1406,11 +1429,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ? result.sortValues[result.sortValues.length - 1]
         : null;
 
-      // Note: the cooldown was set synchronously at seek start and should
-      // NOT be refreshed here. By the time data arrives, the initial 500ms
-      // cooldown has likely expired — the virtualizer has had time to render
-      // at the correct scroll position, and extend operations should be
-      // allowed immediately so the user can scroll past the buffer boundary.
+      // Refresh cooldown from data arrival — the virtualizer needs time to
+      // render at the new scroll position before edge-detection kicks in.
+      // Without this, extendBackward can fire during a logo-click scroll
+      // reset (scrollTop=0 on a deep buffer), corrupting the buffer.
+      _seekCooldownUntil = Date.now() + 500;
 
       // Compute the buffer-local target index so views can scroll there.
       const targetLocalIdx = Math.max(0, clampedOffset - actualOffset);

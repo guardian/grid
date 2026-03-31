@@ -127,6 +127,8 @@ export function SearchBar() {
           // changed (e.g. already at ?nonFree=true). Without this, clicking
           // the logo when already at the default state would be a no-op.
           resetSearchSync();
+          // resetScrollAndFocusSearch calls abortExtends() internally to
+          // prevent rogue extendBackward from corrupting the buffer.
           resetScrollAndFocusSearch();
           // Explicitly fire a fresh search — the URL sync effect won't re-run
           // if the URL params are already at the default state, but the buffer

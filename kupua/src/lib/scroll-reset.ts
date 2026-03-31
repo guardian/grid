@@ -12,13 +12,25 @@
  * Dispatches a synthetic `scroll` event after resetting `scrollTop` because
  * programmatic scrollTop changes on hidden (`opacity-0`) containers may not
  * fire a native scroll event in all browsers, and the virtualizer needs it.
+ *
+ * IMPORTANT: calls abortExtends() BEFORE resetting scrollTop. The synthetic
+ * scroll event fires synchronously and triggers the scroll handler →
+ * reportVisibleRange → extendBackward. If the buffer is at a deep offset
+ * (e.g. after a scrubber seek), extendBackward would prepend stale data
+ * and corrupt the buffer. abortExtends() sets a 2-second cooldown that
+ * blocks extendBackward at its synchronous guard.
  */
 
 import { resetVisibleRange } from "@/hooks/useDataWindow";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { fireScrollReset } from "@/lib/scroll-reset-ref";
+import { useSearchStore } from "@/stores/search-store";
 
 export function resetScrollAndFocusSearch() {
+  // Abort in-flight extends and set cooldown BEFORE the synthetic scroll
+  // event can trigger extendBackward on a stale deep-offset buffer.
+  useSearchStore.getState().abortExtends();
+
   const scrollContainer = getScrollContainer();
   if (scrollContainer) {
     scrollContainer.scrollTop = 0;
@@ -48,4 +60,3 @@ export function resetScrollAndFocusSearch() {
     if (cqlInput instanceof HTMLElement) cqlInput.focus();
   });
 }
-

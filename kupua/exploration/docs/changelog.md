@@ -525,260 +525,434 @@ percentile estimation path (~200ms for any depth).
 
 **Docs updated:** AGENTS.md, deviations.md §10 (reversed), §16 (resolved), changelog.
 
-### Field Registry Canonical Ordering + Registry-Driven Details Panel + Horizontal Scrollbar Fix (29 Mar 2026)
+### Phase 0: Measurement infrastructure + shared constants (30 Mar 2026)
 
-**Problem:** Field ordering was hardcoded in four separate places (sort dropdown,
-facet filters, table columns, details panel) with three different ordering strategies.
-The details panel was entirely hand-crafted JSX — ~170 lines of per-field rendering
-that didn't use the field registry at all. Additionally, the table view's horizontal
-scrollbar was broken in both Chrome 146+ and Firefox 148+ because modern Chrome now
-supports `scrollbar-width` (standard CSS), which disables `::-webkit-scrollbar`
-pseudo-elements — making CSS-only per-axis scrollbar hiding impossible.
+Executed the plan in `exploration/docs/phase0-measurement-infra-plan.md`. No app
+behaviour changes — pure infrastructure + refactor.
 
-**Solution — Canonical Field Ordering:**
+**Part A — Shared pixel constants (`src/constants/layout.ts`)**
 
-Established `HARDCODED_FIELDS` array order in `field-registry.ts` as the single source
-of truth for field ordering across all five surfaces: table columns, column chooser,
-facet filters, sort dropdown, and details panel. The sort dropdown promotes dates to
-the top in a fixed order (Uploaded → Taken → Modified), then follows registry order
-for the rest. All other surfaces use registry order directly.
+Created `src/constants/layout.ts` as the single source of truth for all pixel
+values that appear in both app code and tests:
 
-Added three new fields to the registry: Keywords (list, default visible), File size
-(integer, detail-only via `defaultHidden + detailHidden: false`), Image ID (keyword,
-detail-only). Alias fields are now spliced in after Byline title (not appended at
-the end) so they appear in the correct position.
+- `TABLE_ROW_HEIGHT = 32` — table data row height (h-8 Tailwind class)
+- `TABLE_HEADER_HEIGHT = 45` — sticky header height including 1px border-b
+- `GRID_ROW_HEIGHT = 303` — grid cell height (matches kahuna)
+- `GRID_MIN_CELL_WIDTH = 280` — minimum cell width for column calculation
+- `GRID_CELL_GAP = 8` — cell gap
 
-**Solution — Registry-Driven Details Panel:**
+`ImageTable.tsx` previously declared `const ROW_HEIGHT = 32` and `const HEADER_HEIGHT = 45`
+as file-local constants. `ImageGrid.tsx` had its own `const MIN_CELL_WIDTH = 280`,
+`const ROW_HEIGHT = 303`, `const CELL_GAP = 8`. Both now import from `@/constants/layout`
+using aliased names (so internal code is unchanged). Store tests (`search-store.test.ts`,
+`search-store-extended.test.ts`) imported `TABLE_ROW_HEIGHT` instead of redeclaring
+`const ROW_HEIGHT = 32` locally.
 
-Rewrote `ImageMetadata.tsx` to iterate `DETAIL_PANEL_FIELDS` (derived from registry,
-excluding `detailHidden` fields). Added four new `FieldDefinition` properties:
-- `detailLayout: "stacked" | "inline"` — controls label-above vs side-by-side
-- `detailHidden: boolean` — excludes from details panel (Width/Height hidden,
-  Dimensions shown instead)
-- `detailGroup: string` — overrides `group` for section break logic in the panel
-  only, without affecting sort dropdown inclusion
-- `detailClickable: boolean` — when false, renders plain text even if `cqlKey`
-  exists (Description, Special instructions, Filename)
+All raw pixel literals (280/303/32) in `e2e/scrubber.spec.ts` and
+`e2e/manual-smoke-test.spec.ts` inside `page.evaluate()` closures were replaced
+with passed arguments (`evaluate(({ ROW_HEIGHT }) => { ... }, { ROW_HEIGHT: TABLE_ROW_HEIGHT })`).
+This ensures E2E tests stay in sync with source automatically.
 
-Section breaks are inserted whenever `detailGroup ?? group` changes between
-consecutive fields. File type is now a clickable search link. Alias fields are
-displayed with their labels and are clickable.
+**Part B — Perf test infrastructure**
 
-**Solution — Horizontal Scrollbar:**
+`e2e/rendering-perf-smoke.spec.ts` moved to `e2e-perf/perf.spec.ts`. Major changes:
 
-Replaced the broken `.hide-scrollbar-y` CSS (which relied on `::-webkit-scrollbar:vertical`)
-with a structural approach: hide ALL native scrollbars via `scrollbar-width: none` +
-`::-webkit-scrollbar { display: none }`, then add a proxy `<div>` at the bottom of the
-table that syncs `scrollLeft` bidirectionally with the main scroll container. A
-`ResizeObserver` on the `data-table-root` element keeps the proxy width in sync with
-the table's content width during column resizes and visibility toggles.
+1. **Structured metric emission** — `emitMetric(id, snap, extra?)` writes JSONL to
+   `e2e-perf/results/.metrics-tmp.jsonl`. Every test body calls it after `logPerfReport()`.
+   P10 emits with `{ report: false }` — harness records but excludes from diff table.
 
-**Other fixes:**
-- Table list pills (People, Keywords, Subjects) now render single-line with
-  `flex-nowrap overflow-hidden` — no more row height overflow from multi-line wrapping.
-- Uploader moved from `group: "upload"` to `group: "core"`, Filename moved to
-  `group: "technical"` (after File type). The `"upload"` group was removed entirely.
+2. **Result-set pinning** — all navigations use `gotoPerfStable()` (new `KupuaHelpers`
+   method) which appends `&until=${PERF_STABLE_UNTIL}` if the env var is set. The
+   harness sets it to yesterday midnight. Prevents metric drift from new image ingestion
+   between runs.
 
-**Files changed:** `field-registry.ts` (reordered, 3 new fields, 4 new FieldDefinition
-properties, alias splice, sort dropdown rewrite), `ImageMetadata.tsx` (horizontal scrollbar proxy, single-line pills),
-`index.css` (`.hide-scrollbar-y` rewritten).
+3. **P4 split** — P4 was one test doing grid→table→grid. Now P4a (grid→table) and
+   P4b (table→grid) are separate tests with separate metric entries.
 
-**Docs updated:** AGENTS.md (KAD #26, #29, table view, panels), changelog.
+4. **P11 simplified** — reduced from 5 seek positions to 3 (0.2, 0.6, 0.85). Credit
+   sort variant moved to separate P11b test.
 
-### Scrubber tick visual polish + isolation-based promotion (29 Mar 2026)
+5. **New tests added:**
+   - **P3b** — keyword sort seek (Credit → seek to 50%) — exercises the composite-agg +
+     binary-search seek path that P3 (date/percentile) doesn't cover.
+   - **P13** — image detail enter/exit — double-click opens overlay, Backspace returns.
+     Checks scroll position is restored within one row height.
+   - **P14** — image traversal — arrow-key prev/next 20+10 images. Tests prefetch and
+     fullscreen-survives-between-images code path.
+   - **P15** — fullscreen persistence — enter detail → f → next → next → Escape.
+     Tests the Fullscreen API doesn't exit on image swap.
+   - **P16** — table column resize — drag handle 100px + double-click auto-fit.
+     Tests CSS-variable width path with near-zero React re-renders.
 
-**Major tick visual differentiation:** Major ticks now have distinct visual weight
-from minor ticks — wider extent (extend further left/right, including beyond the
-track edges on hover) and brighter opacity. On hover, all ticks extend further to
-the left for better visibility. Height is uniform at 1px (2px was tried for majors
-but reverted — width and opacity provide enough differentiation).
+**Part C — Audit harness (`e2e-perf/run-audit.mjs`)**
 
-**Long-span year labels:** In the long-span path (≥15 years), all January ticks
-now carry a year label (previously only yr%5 got labels, leaving years like 2022
-with no label even when isolated). The Scrubber's label decimation controls which
-labels are actually shown based on available pixel space — so clustered years at
-the top/bottom still get decimated, but an isolated year in the middle of the track
-gets its label shown.
+New script. Computes `STABLE_UNTIL`, runs Playwright with it as env var, reads
+`.metrics-tmp.jsonl`, aggregates median across `--runs N` runs, diffs against prior
+run from `audit-log.json`, writes both `audit-log.json` and `audit-log.md`.
 
-**Half-decade promotion:** In the long-span path, half-decade Januaries (yr%5==0)
-are now promoted to major type (previously only yr%10 was major). This gives
-2025, 2015, etc. the same visual weight as decade boundaries.
+Interface:
+```
+node e2e-perf/run-audit.mjs --label "Phase 1: shared constants"
+node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
+node e2e-perf/run-audit.mjs P8
+```
 
-**Isolation-based tick promotion:** New algorithm in Scrubber.tsx — after computing
-tick pixel positions, a promotion pass checks each minor tick with a 4-digit year
-label (e.g. "2022"). If its nearest major tick is ≥80px away (ISOLATION_THRESHOLD),
-it's added to a `promoted` Set and rendered with major visual treatment (wider,
-bolder, brighter label). Month abbreviation ticks ("Mar", "Apr") are never
-candidates for promotion — only year-boundary ticks. Promoted ticks also get
-priority in the label decimation pass (included alongside real majors in the
-first pass). This handles the common case where a year like 2022 sits alone in
-the middle of a density-skewed track (e.g. source:PA — most data recent, sparse
-in the middle) and deserves landmark treatment.
+`scripts/run-perf-smoke.mjs` replaced with a thin wrapper that delegates to
+`e2e-perf/run-audit.mjs` — preserves backward compatibility for old muscle memory.
 
-**Files changed:** `Scrubber.tsx` (tick insets, height, isolation promotion),
-`sort-context.ts` (long-span year labels, half-decade major promotion, updated
-TrackTick docstrings).
+**Part D — Config split**
 
-### Width/Height sort tooltip fix — distribution-based labels (29 Mar 2026)
+`playwright.smoke.config.ts` (root) narrowed to only `manual-smoke-test.spec.ts`.
+New `e2e-perf/playwright.perf.config.ts` covers `e2e-perf/perf.spec.ts` with
+same viewport/DPR settings + JSON reporter. `run-smoke.mjs` updated to remove
+the now-deleted `rendering-perf-smoke.spec.ts` reference.
 
-**Bug:** When sorting by Width or Height, the scrubber tooltip showed the same
-stale value across the entire track. Dragging from top to bottom showed e.g.
-"4,000px" everywhere because width/height had no distribution and the tooltip
-fell back to the nearest buffer edge value.
+**Part E — @types/node**
 
-**Root cause:** Width and height were typed as `"keyword"` in `SORT_LABEL_MAP`
-but were NOT registered in `KEYWORD_SORT_ES_FIELDS`. This meant
-`resolveKeywordSortInfo()` returned null for them, so `fetchSortDistribution()`
-never fired. The tooltip fell back to `findBufferEdges()` which returned the
-same value for all out-of-buffer positions.
+Added `@types/node` as devDependency. Updated `e2e/tsconfig.json` and
+`e2e-perf/tsconfig.json` with `"types": ["node"]`. This fixes pre-existing
+type errors in `e2e/global-setup.ts` (`process`, `child_process`, etc.) and
+enables Node built-ins in new perf spec.
 
-Additionally, the accessor returned pre-formatted strings (`"4,000px"` via
-`toLocaleString()`) while the distribution pipeline applies `mapping.format`
-to both in-buffer accessor values and raw distribution keys. This would have
-caused double-formatting if a format function were added naively.
+**Verification:** All 152 vitest tests pass. `tsc --project e2e/tsconfig.json --noEmit`
+and `tsc --project e2e-perf/tsconfig.json --noEmit` both clean. Main `tsc --noEmit`
+shows same 3 pre-existing errors (unrelated: `handleKeyDown` in Scrubber,
+`isDecade` in sort-context, `smallMock` in test).
 
-**Fix:**
-1. Added `width: "source.dimensions.width"` and `height: "source.dimensions.height"`
-   to `KEYWORD_SORT_ES_FIELDS`. The composite agg now fetches the distribution
-   for these sorts — ES composite `terms` works on numeric fields, returning
-   each unique integer value as a bucket (typically ~4000–8000 unique widths,
-   well within the 50k composite cap, single page).
-2. Changed width/height accessors to return raw number strings (`"4000"` instead
-   of `"4,000px"`), added `format: (v) => \`${Number(v).toLocaleString()}px\``
-   to both entries. This ensures both paths (in-buffer accessor → formatKeywordLabel
-   and distribution key → formatKeywordLabel) produce consistent `"4,000px"` output.
+**Files created:** `src/constants/layout.ts`, `e2e-perf/perf.spec.ts`,
+`e2e-perf/playwright.perf.config.ts`, `e2e-perf/run-audit.mjs`,
+`e2e-perf/tsconfig.json`, `e2e-perf/results/.gitkeep`,
+`e2e-perf/results/.gitignore`.
 
-**No ticks for numeric sorts** — `computeTrackTicks()` still returns `[]` for
-non-date sorts. Adding tick marks for width/height would require a "nice number"
-algorithm for round boundaries (1000px, 2000px, etc.) — deferred as low priority
-given the niche usage of these sorts.
+**Files modified:** `src/components/ImageTable.tsx` (import constants),
+`src/components/ImageGrid.tsx` (import constants),
+`src/stores/search-store.test.ts` (import TABLE_ROW_HEIGHT),
+`src/stores/search-store-extended.test.ts` (import TABLE_ROW_HEIGHT),
+`e2e/helpers.ts` (add gotoPerfStable()),
+`e2e/tsconfig.json` (add @types/node),
+`e2e/scrubber.spec.ts` (pass constants to evaluate()),
+`e2e/manual-smoke-test.spec.ts` (pass constants to evaluate()),
+`playwright.smoke.config.ts` (narrow testMatch),
+`scripts/run-perf-smoke.mjs` (thin wrapper),
+`scripts/run-smoke.mjs` (remove deleted spec reference),
+`package.json` (add @types/node devDep),
+`AGENTS.md` (reflect new structure).
 
-**Files changed:** `sort-context.ts` (KEYWORD_SORT_ES_FIELDS, width/height
-accessor+format).
+**Files deleted:** `e2e/rendering-perf-smoke.spec.ts` (moved to e2e-perf/perf.spec.ts).
 
-**Docs updated:** AGENTS.md (DAL methods, Scrubber description, tooltip), changelog.
+**Next step (human):** Run `node e2e-perf/run-audit.mjs --label "Baseline (pre-coupling-fixes)"`
+with `--use-TEST` to establish the first baseline entry in `audit-log.json`/`audit-log.md`.
 
-### Removed Filename sort (29 Mar 2026)
+**Fix: hardcode STABLE_UNTIL in run-audit.mjs (30 Mar 2026)**
 
-**Problem:** Sorting by Filename was glacially slow on real data (~1.3M docs).
-The initial ES query sorts 1.3M strings (byte-by-byte comparison, heavier than
-numeric/date). Deep seek uses the keyword composite-agg walk path — but filename
-has ~1.3M unique values (nearly every image has a unique filename), requiring 65+
-paged composite requests to reach 50%. The 8s time cap returns an approximate
-result but that's still 8 painful seconds of waiting. Filename is the worst-case
-field for the keyword seek strategy: maximum cardinality with doc_count=1 per
-bucket (no density benefit from binary search refinement).
+`computeStableUntil()` was computing "yesterday midnight" dynamically, meaning the
+`PERF_STABLE_UNTIL` value (and therefore the pinned result corpus) changed every day.
+That defeats the purpose of pinning — comparisons between runs on different days would
+be comparing different document sets.
 
-**Fix:** Removed sorting capability from Filename entirely:
-1. `field-registry.ts` — removed `sortKey: "filename"` from the Filename field
-   definition. This removes it from the sort dropdown and makes the table column
-   header non-sortable (no click-to-sort).
-2. `es-adapter.ts` — removed `filename: "uploadInfo.filename"` from the sort
-   alias map (dead code now).
-3. `es-adapter.test.ts` — removed the filename alias expansion test.
+Replaced the dynamic computation with the fixed literal `"2026-02-15T00:00:00.000Z"`.
+Any future corpus update (e.g. when new photos make the old cutoff too stale) requires
+a deliberate, reviewed change to this constant — which is the correct behaviour.
 
-Filename remains fully functional for display, CQL search (`filename:...`), and
-the details panel — only sorting is removed.
+**File modified:** `e2e-perf/run-audit.mjs` (remove `computeStableUntil()`, replace with
+literal), `AGENTS.md` (update description).
 
-**Files changed:** `field-registry.ts`, `es-adapter.ts`, `es-adapter.test.ts`.
+**Phase A: Performance Micro-Optimisations — A.1–A.5 (30 Mar 2026)**
 
-**Docs updated:** changelog.
+Five independent micro-optimisations from `coupling-fix-handoff.md` Phase A. All 152
+unit tests and all 63 E2E tests pass after the combined changes.
 
-### Bug #18 — Scrubber thumb stuck at top in scroll mode after density switch (30 Mar 2026)
+**A.1 — Stabilise `handleScroll` callback (C19)**
 
-**Symptom:** With ~700 images (all data in buffer = scroll mode), pressing End scrolls
-content correctly but the scrubber thumb stays at top. Persists after switching density
-(grid ↔ table) and pressing End/Home again. Seek mode (large datasets) unaffected.
+Both `ImageTable.tsx` and `ImageGrid.tsx` had `handleScroll` in a `useCallback` whose
+dependency array included `virtualizer`. TanStack Virtual returns a **new virtualizer
+object on every render**, so `handleScroll` re-created every render → `useEffect` tore
+down and re-registered the scroll listener on every render. Under fast scroll this could
+mean dozens of pointless listener re-registrations per second.
 
-**Root cause:** The scroll-mode continuous sync effect (`Scrubber.tsx`, line ~416) finds
-the scroll container via `findScrollContainer()` (DOM query for `[role='region']` or
-`.overflow-auto`) and attaches a scroll listener. When density switches, React unmounts
-ImageGrid and mounts ImageTable (or vice versa), replacing the scroll container DOM
-element. But none of the effect's dependencies (`allDataInBuffer`, `isDragging`,
-`maxThumbTop`, `trackHeight`, `findScrollContainer`) change on density switch — so the
-effect doesn't re-run and the listener stays attached to the stale (removed) element.
+Fix: store `virtualizer` in a ref (`virtualizerRef`), updated unconditionally every
+render. `handleScroll` reads `virtualizerRef.current` — always fresh, but the callback
+identity is stable. Removed `virtualizer` and `loadMore` from the dep array in both
+components (both now use `loadMoreRef` as well).
 
-**Fix:** Added a `MutationObserver` inside the scroll-mode sync effect that watches the
-content column (`trackRef.current.previousElementSibling`) for direct child changes
-(`childList: true`, no subtree — avoids excessive firing from virtualizer DOM churn).
-When children change (density switch replaces ImageGrid ↔ ImageTable), the observer
-callback calls `attach()` which detaches the old scroll listener, re-finds the current
-scroll container via `findScrollContainer()`, and attaches a fresh listener. Immediate
-sync on attach ensures the thumb position is correct right after the switch.
+In `ImageTable.tsx`: dep array reduced from `[virtualizer, reportVisibleRange, loadMore]`
+to `[reportVisibleRange]`. In `ImageGrid.tsx`: from
+`[virtualizer, reportVisibleRange, columns, loadMore]` to `[reportVisibleRange, columns]`.
 
-The `MutationObserver` only fires on direct children of the content column — not on
-virtualizer row additions/removals (which are deeper in the subtree). Density switches
-replace the top-level child element (ImageGrid root ↔ ImageTable wrapper div), which
-is a direct child mutation.
+Expected effect: fewer DevTools "Event Listeners" entries during scroll, marginal
+improvement in scroll-path P95 frame time (eliminates redundant addEventListener /
+removeEventListener churn).
 
-**Files changed:** `Scrubber.tsx` (scroll-mode sync effect rewritten with inner
-`attach()` helper + MutationObserver).
+**A.2 — Memoize column index array in `ImageGrid.tsx` (C20)**
 
-**Docs updated:** AGENTS.md (Scrubber description), changelog.
+The render loop used `Array.from({ length: columns }, (_, i) => i)` inside the
+`virtualItems.map()` — this allocated a new array **per virtual row per render**.
+At 6 columns × 15 visible rows × 60fps = **5,400 short-lived array allocations/sec**,
+all immediately GC-able.
 
-### Colour token consolidation — grid-panel → grid-bg/grid-cell (30 Mar 2026)
+Fix: `const columnIndices = useMemo(() => Array.from(...), [columns])` — array computed
+once when `columns` changes (rare), reused every render. The dep is only `columns`.
 
-Removed four colour tokens (`grid-panel`, `grid-panel-dark`, `grid-panel-hover`,
-`grid-overlay`) that had drifted from their original purpose. The UI now uses:
-- `grid-bg` (#333333) — all chrome surfaces (toolbar, status bar, panels, popups,
-  table header, scrubber tooltip, error boundary, date filter, search input, etc.)
-- `grid-cell` (#393939) — grid view image cells and placeholder skeletons
-- `grid-cell-hover` (#555555) — pill hover backgrounds (SearchPill, DataSearchPill)
+**A.3 — Cache Canvas font in `measureText` (C21)**
 
-Every component that previously used `bg-grid-panel` was audited and switched to
-the appropriate token. No visual change in most places (`grid-panel` was #444444 —
-the intent was always to match the background, and #333333 is correct for chrome).
+`measureText` in `ImageTable.tsx` called `ctx.font = font` on every invocation. Canvas
+font assignment triggers font-string parsing even when the value is unchanged. During
+column auto-fit, `measureText` is called ~600 times for two distinct fonts (CELL_FONT
+and HEADER_FONT). That's ~600 redundant parse operations per auto-fit.
 
-**Files changed:** `index.css` (token definitions + `.popup-menu`), `SearchBar.tsx`,
-`StatusBar.tsx`, `PanelLayout.tsx` (both panels), `ImageTable.tsx` (header),
-`ImageDetail.tsx` (header), `DateFilter.tsx` (dropdown + inputs), `SearchFilters.tsx`
-(checkbox), `ErrorBoundary.tsx` (stack trace), `Scrubber.tsx` (tooltip),
-`SearchPill.tsx` (both pill components), `ImageGrid.tsx` (cells + placeholders).
+Fix: added `lastFontRef` that tracks the last-set font string. `ctx.font = font` is only
+executed when `font !== lastFontRef.current`. Now matches `positionFromDragY()` which uses
+`ratio * (total - 1)`. Forward and reverse mappings are symmetric.
 
-### Escape to blur search box (30 Mar 2026)
+3. **Bug B — removed inline top from JSX:** The thumb `<div>` no longer sets `top`
+   in its inline style. Thumb position is controlled exclusively by: (a) the
+   `useEffect` sync (for non-drag, non-pending states), (b) direct DOM writes in
+   `applyThumbPosition()` (during drag/click). Callback ref on thumb sets initial
+   position on mount to prevent one-frame flash at top=0. The React reconciler can
+   no longer fight with direct DOM writes.
 
-Pressing Escape in the CQL search input now blurs the search box (removing
-focus), but only when the CQL typeahead popup is not visible. When suggestions
-are showing, CQL's internal handler dismisses the popup — we don't interfere.
-Uses capture phase on keydown to check `data-isvisible` before CQL flips it.
+4. **Bug D — thumb height fluctuates during drag:** `thumbHeight` was computed from
+   the live `visibleCount` (number of items visible in the viewport), which changes
+   on every scroll as rows enter/leave. During scroll-mode drag, this made the thumb
+   grow/shrink constantly (bottom edge jumping) and overflow the track near the
+   bottom. Fix: added `thumbVisibleCount` — in scroll mode, `visibleCount` is frozen
+   when scroll mode first activates (via `stableVisibleCountRef`). Reset only when
+   `total` changes (new search). In seek mode, the live value is used as before.
+   The drag handler also captures `dragVisibleCount` at pointer-down for the
+   duration of the drag. This matches native scrollbar behavior where thumb size
+   only changes when content size changes, not when you scroll.
 
-**Files changed:** `CqlSearchInput.tsx`.
+**Design doc:** `exploration/docs/scrubber-dual-mode-ideation.md` — full analysis of
+the two-soul problem, 5 approaches considered, data demand analysis per view,
+visual philosophy (scroll mode should look like a native scrollbar).
 
-### Grid cell gap increased 4→8px (30 Mar 2026)
+**Testing:** 145 unit tests (144 pass, 1 pre-existing failure in
+`sort-around-focus bumps _seekGeneration` — test expects `_seekGeneration` but code
+intentionally uses `sortAroundFocusGeneration`). 61 E2E tests all pass.
 
-Slightly more breathing room between grid view image cells. Matches kahuna's
-visual density more closely.
+### Scrubber Visual Polish — Unified Scrollbar Look (2026-03-28)
 
-**Files changed:** `ImageGrid.tsx` (`CELL_GAP` constant).
+Harmonised the scrubber's visual appearance across both scroll mode and seek mode.
+Instead of looking like two different controls (a blue accent widget vs a native
+scrollbar), it now looks like one clean, modern scrollbar everywhere.
 
-### Density-focus saves localIndex (30 Mar 2026)
+**Changes:**
+- **Track:** Always transparent background. No grey highlight on hover. The 14px
+  width is a generous hit target, but the visible thumb is narrower.
+- **Thumb:** 8px wide pill shape (3px inset each side within 14px track), fully
+  rounded (`borderRadius: 4`). Semi-transparent white on the dark Grid background:
+  idle `rgba(255,255,255,0.25)`, hover `0.45`, active/dragging `0.6`. Replaces the
+  previous blue accent / grey colors.
+- **No cursor change:** Removed `grab`/`grabbing` cursors — native scrollbars don't
+  show them, and they scream "custom widget."
+- **No opacity change on track:** Track doesn't dim/brighten on hover (the thumb
+  color change is sufficient feedback).
+- **Tooltip:** Unchanged — still shows position and sort context on drag/click in
+  both modes. The tooltip is useful in both modes and doesn't make the scrubber
+  look like a "control panel."
+- Removed unused `active` variable.
 
-`saveFocusRatio` now stores the buffer-local index alongside the viewport ratio.
-This prevents a stale lookup when `imagePositions` evicts the focused image between
-the unmount click and the new density's mount (async extend can complete in between).
-Both `ImageGrid` and `ImageTable` updated to save/consume the new shape.
+### Bug E — Scrubber Desync at Top/Bottom (2026-03-28)
 
-**Files changed:** `density-focus.ts`, `density-focus.test.ts`, `ImageGrid.tsx`,
-`ImageTable.tsx`.
+**Problem:** When PgDown/PgUp-ing through a small result set (~760 items), the
+scrubber thumb desynchronised with the content: content reached the bottom but the
+thumb stayed short of the track bottom. Grabbing the thumb to the bottom shifted
+results to where it was, requiring more scrolling.
 
-### Native input guard for keyboard navigation (30 Mar 2026)
+**Root cause:** The position-to-pixel mapping used `position / (total - 1)` as the
+ratio. But `currentPosition` is the first visible item, which maxes at
+`total - visibleCount` (not `total - 1`). For 760 results with 20 visible, the
+max position is 740, giving ratio `740/759 = 0.975` — the thumb never reaches 1.0.
 
-`useListNavigation` now checks `isNativeInputTarget()` and bails out when focus
-is inside a native `<input>`, `<textarea>`, or `<select>` (e.g. the date filter's
-`<input type="date">`). Previously, arrow keys inside the date picker would also
-move the grid/table focus. The CQL custom element is deliberately excluded from
-this guard — it already lets navigation keys propagate by design.
+**Fix:** Changed all position mappings to use `total - visibleCount` as the max
+position, matching native scrollbar behavior (`scrollTop / (scrollHeight - clientHeight)`).
+Applied consistently to:
+- `thumbTopFromPosition()` — position → pixel
+- Render-time `thumbTop` computation
+- `positionFromY()` — track click pixel → position
+- `positionFromDragY()` — drag pixel → position
+- `scrollContentTo()` ratios in click, drag move, and drag end handlers
 
-**Files changed:** `keyboard-shortcuts.ts` (new `isNativeInputTarget` export),
-`useListNavigation.ts` (guard added to bubble handler).
+When position = total - visibleCount, ratio = 1.0 and the thumb touches the bottom
+of the track — exactly when the last item is visible. Symmetric at top: position = 0,
+ratio = 0.0, thumb at top.
 
-### Browser theme-color meta tag (30 Mar 2026)
+### 2026-03-29 — Scrubber tooltip fixes and keyword distribution
 
-Added `<meta name="theme-color" content="#333333">` to `index.html` to tint the
-browser tab bar / status bar on Chrome (desktop + Android), Safari 15+ (iOS + macOS),
-and Edge. Firefox ignores it — harmless. Matches `--color-grid-bg`.
+**Table view native scrollbar:** The `hide-scrollbar-y` CSS class was missing
+`scrollbar-width: none` (Firefox) and `-ms-overflow-style: none` (IE/Edge legacy).
+Firefox showed a native vertical scrollbar alongside the custom scrubber in table view.
+Fixed by adding both declarations. Firefox trade-off: horizontal scrollbar is also
+hidden (no per-axis control in CSS), acceptable since most column sets fit the viewport.
 
-**Files changed:** `index.html`.
+**Tooltip bottom-edge clipping:** The tooltip disappeared partially below the window
+edge when scrolled to the end of results. Root cause: tooltip top position was clamped
+using a hardcoded `28px` magic number as assumed tooltip height. Actual height is ~29px
+without sort label and ~42px with one (two lines + padding). Fixed all four clamping
+sites (applyThumbPosition, seek-mode sync effect, scroll-mode sync effect, JSX initial
+render) to use `tooltipEl.offsetHeight` (measured) with `|| 28` fallback for unmounted
+state.
+
+**Keyword distribution for scrubber tooltip:** Previously, keyword sorts (credit,
+source, category, imageType, mimeType, uploadedBy) showed the same frozen value from
+the nearest buffer edge when dragging the scrubber outside the loaded buffer. Now uses
+a pre-fetched keyword distribution for accurate position-to-value mapping:
+
+- **DAL:** `getKeywordDistribution()` on `ElasticsearchDataSource` — composite
+  aggregation that fetches all unique values with doc counts in sort order. Capped at
+  5 pages (50k unique values). Returns `KeywordDistribution` with cumulative start
+  positions. ~5–30ms for typical fields.
+- **sort-context.ts:** `lookupKeywordDistribution()` — O(log n) binary search over
+  the cumulative buckets. `resolveKeywordSortInfo()` resolves orderBy to ES field path
+  + direction for keyword sorts. `interpolateSortLabel()` now accepts an optional
+  `KeywordDistribution` and uses it instead of the nearest-edge fallback.
+- **search-store.ts:** `keywordDistribution` state + `_kwDistCacheKey` (query params +
+  orderBy). `fetchKeywordDistribution()` action — checks if current sort is keyword,
+  checks cache freshness, fetches via DAL. Cleared on new search.
+- **search.tsx:** Wires distribution into `getSortLabel` callback. Lazy fetch triggered
+  via `onFirstInteraction` Scrubber prop — distribution only fetched when user actually
+  touches the scrubber with a keyword sort active.
+- **Scrubber.tsx:** `onFirstInteraction` prop, fired once on first click/drag/keyboard.
+  `notifyFirstInteraction()` helper with ref-tracked `hasInteractedRef`, reset when
+  prop transitions from defined→undefined (sort change away from keyword).
+- **Excluded:** `filename` (too high cardinality, values not useful as context),
+  `dimensions` (script sort, can't aggregate).
+
+### 2026-03-29 — Bug #18: Keyword sort seek drift + PIT race + binary search refinement
+
+**Problem:** Clicking the scrubber at 75% under Credit sort on TEST (~1.3M docs) either
+didn't move results at all (thumb stuck at ~50%) or took 46 seconds to complete.
+Local E2E tests didn't catch it because 10k docs with 5 cycling credits don't expose
+the scale issues.
+
+**Three bugs discovered via smoke test S10:**
+
+1. **PIT race condition** — `seek()` read a stale PIT ID from the store that had already
+   been closed by a concurrent `search()` triggered by `selectSort("Credit")`. The
+   `search()` hadn't finished storing the new PIT before the scrubber click fired
+   `seek()`. ES returned 404 on the `_search` request with the stale PIT.
+
+   **Fix:** PIT 404/410 fallback in `es-adapter.ts` `searchAfter()` — when a PIT-based
+   request fails with 404 or 410, retries the same request without PIT, using the
+   index-prefixed path instead. This makes `seek()` resilient to PIT lifecycle races
+   without requiring tight coupling between search() and seek() timing.
+
+2. **46-second seek (brute-force skip loop)** — After `findKeywordSortValue` correctly
+   identified "PA" as the credit at position 881k, `search_after(["PA", ""])` landed at
+   the START of the PA bucket (position 533k) because `""` sorts before all real IDs.
+   The refinement loop issued 5 × `search_after(size=100k, noSource=true)` hops through
+   the SSH tunnel, transferring ~50MB of sort values. Each hop took ~9s over the tunnel.
+
+   **Fix:** Replaced the brute-force skip loop with **binary search on the `id`
+   tiebreaker**. Since image IDs are SHA-1 hashes (40-char hex, uniformly distributed),
+   binary search between `0x000000000000` and `0xffffffffffff` converges in ~11
+   iterations. Each iteration is a single `_count` query (~500 bytes). Total network:
+   ~6KB vs ~50MB. Total time: ~4s vs ~46s (99.99% network reduction).
+
+   **Implementation** (in `search-store.ts` `seek()`):
+   ```
+   let loNum = 0;
+   let hiNum = 0xffffffffffff;
+   for (step 0..MAX_BISECT) {
+     midNum = floor((loNum + hiNum) / 2)
+     mid = midNum.toString(16).padStart(12, "0")
+     probeCursor = [...searchAfterValues]; probeCursor[last] = mid
+     count = countBefore(params, probeCursor, sortClause)
+     if (count <= target) loNum = midNum else hiNum = midNum
+     if (|count - target| <= PAGE_SIZE) break
+   }
+   ```
+
+   Benefits ALL keyword sorts: Credit, Source, Category, Image Type, MIME Type,
+   Uploaded By. Any field where a keyword bucket is larger than PAGE_SIZE triggers
+   the binary search. Filename (high cardinality) and Dimensions (script sort) don't
+   need it.
+
+3. **Hex upper bound bug ("g" is not valid hex)** — The first binary search
+   implementation used string bounds `"0"` to `"g"`. But `"g"` is not a valid hex
+   digit. `parseInt("g...", 16)` returns `NaN`, so every iteration computed
+   `mid = "NaN"`. `countBefore(id < "NaN")` counted everything (lexicographically
+   `"N" > all hex chars`), so `bestOffset` never updated. The binary search silently
+   did nothing — `actualOffset` stayed at 533k (bucket start ≈ 40%).
+
+   **Fix:** Changed from string bounds to numeric: `loNum = 0`, `hiNum = 0xffffffffffff`.
+   `midNum.toString(16).padStart(12, "0")` always produces valid hex.
+
+**Smoke test S10 confirmation:** After all three fixes, S10 shows convergence in 11
+steps, ~4 seconds total, landing within 45 docs of target (ratio 0.7498 for 75% seek).
+
+**E2E test changes:**
+
+- **Bug #7 strengthened:** Credit 50% test now includes composite-agg telemetry check
+  (absorbed from Bug #13). Source 50% test strengthened with ratio assertion (0.35–0.65).
+  Dimensions test kept with weak assertion (`> 0`) — it's a script sort with inherently
+  lower accuracy on small datasets.
+- **Bug #18 regression guard added** (line 898): Seeks to 75% under Credit sort, asserts
+  ratio 0.65–0.85, verifies binary search console log was emitted. With 10k local docs
+  and 5 credits cycling (~2k per bucket), drift ≈ 1800 > PAGE_SIZE → binary search kicks
+  in. Guards against regressions in the hex interpolation code.
+- **Bug #13 culled:** Entire `test.describe("Bug #13")` block removed (4 tests).
+  Bug #13.1 (Credit seek + telemetry) merged into Bug #7.1. Bug #13.2 (drag under
+  Credit) redundant with generic drag tests. Bug #13.3 (two positions differ) duplicate
+  of Bug #7.4. Bug #13.4 (timing) redundant with test-level timeout.
+- **Smoke test S10 added:** Full diagnostic for keyword sort seek on TEST. Polls store
+  state during seek, captures `[seek]`/`[ES]` console logs, checks grid scroll position,
+  compares 75% vs 50% seeks, 15s performance gate.
+- **Net test count:** 68 → 64 e2e tests (4 removed from Bug #13), 8 → 10 smoke tests
+  (S9 + S10 added).
+
+### Width/Height replace Dimensions script sort (2026-03-29)
+
+**Problem:** Dimensions sort used a Painless script (`w × h`) which forced the slow
+Strategy B (iterative `search_after` skip loop) for deep seeks. Through SSH tunnels,
+seeking to position 500k required ~40 sequential 10k-chunk requests, taking ~60 seconds.
+The `MAX_SKIP_ITERATIONS` increase from 20 → 200 (in the "Polish" commit) made it
+worse — the old 20-iteration cap degraded gracefully at ~20s; the new cap doggedly
+completed all iterations.
+
+**Root cause:** Script sorts cannot use percentile estimation (ES `percentiles` agg
+only works on indexed field values, not computed expressions). They also can't use
+`countBefore` correctly (can't build range queries on computed values). This forced
+the brute-force iterative skip path.
+
+**Solution — Option Nuclear:** Replaced the single Dimensions script sort with two
+plain integer field sorts: **Width** (`source.dimensions.width`) and **Height**
+(`source.dimensions.height`). Both are native ES integer fields that get the fast
+percentile estimation path (~200ms for any depth).
+
+**Changes:**
+
+1. **`field-registry.ts`**: Dimensions field is now display-only (no `sortKey`).
+   Added `source_width` (Width) and `source_height` (Height) as separate sortable
+   integer fields with `descByDefault: true`.
+
+2. **`es-adapter.ts`**: Removed `scriptSorts` map entirely. Added `width` →
+   `source.dimensions.width` and `height` → `source.dimensions.height` aliases.
+   Simplified `reverseSortClause` (no more `_script` branch), `countBefore` (no
+   more script field skips), `parseSortField` (removed `isScript` property),
+   `searchAfter` missingFirst handler (no more `isScript` check).
+
+3. **`search-store.ts`**: Removed Strategy B entirely (~80 lines of iterative
+   search_after skip loop). Removed `primaryField !== "_script"` guard from
+   percentile estimation. Width/Height now take the fast path.
+
+4. **`sort-context.ts`**: Added `width` and `height` entries for scrubber tooltip
+   labels (shows "4,000px" etc.).
+
+5. **Tests**: Replaced script sort tests with width/height alias tests. Removed
+   `reverseSortClause handles script sorts`. Changed e2e "Dimensions" test to
+   "Width" with tighter accuracy tolerance (0.35–0.65 ratio).
+
+**Net code deleted:** ~120 lines of script sort infrastructure.
+
+**Why Width/Height is better than Dimensions (w×h):**
+- Fast: percentile estimation → ~200ms deep seek vs ~60s
+- More powerful: users can sort by Width alone, Height alone, or both (shift-click)
+- Simpler: no Painless scripts, no Strategy B, no `isScript` branches
+- Media-api compatible: plain `fieldSort()`, no upstream changes needed
+- Display preserved: Dimensions column still shows "4,000 × 3,000" in table/metadata
+
+**Docs updated:** AGENTS.md, deviations.md §10 (reversed), §16 (resolved), changelog.
 
 ### Phase 0: Measurement infrastructure + shared constants (30 Mar 2026)
 
@@ -956,245 +1130,243 @@ column auto-fit, `measureText` is called ~600 times for two distinct fonts (CELL
 and HEADER_FONT). That's ~600 redundant parse operations per auto-fit.
 
 Fix: added `lastFontRef` that tracks the last-set font string. `ctx.font = font` is only
-executed when `font !== lastFontRef.current`. Column fit now triggers exactly 2 font
-parses regardless of row count.
+executed when `font !== lastFontRef.current`. Now matches `positionFromDragY()` which uses
+`ratio * (total - 1)`. Forward and reverse mappings are symmetric.
 
-**A.4 — Fix `GridCell` key: index → image ID (eval doc item 3)**
+3. **Bug B — removed inline top from JSX:** The thumb `<div>` no longer sets `top`
+   in its inline style. Thumb position is controlled exclusively by: (a) the
+   `useEffect` sync (for non-drag, non-pending states), (b) direct DOM writes in
+   `applyThumbPosition()` (during drag/click). Callback ref on thumb sets initial
+   position on mount to prevent one-frame flash at top=0. The React reconciler can
+   no longer fight with direct DOM writes.
 
-`GridCell` was keyed by `imageIdx` (flat buffer index). When `bufferOffset` changes
-(backward extend prepends items), all `imageIdx` values shift by `lastPrependCount`.
-React unmounted and remounted **every visible GridCell** even though the image data was
-the same — just the index changed.
+4. **Bug D — thumb height fluctuates during drag:** `thumbHeight` was computed from
+   the live `visibleCount` (number of items visible in the viewport), which changes
+   on every scroll as rows enter/leave. During scroll-mode drag, this made the thumb
+   grow/shrink constantly (bottom edge jumping) and overflow the track near the
+   bottom. Fix: added `thumbVisibleCount` — in scroll mode, `visibleCount` is frozen
+   when scroll mode first activates (via `stableVisibleCountRef`). Reset only when
+   `total` changes (new search). In seek mode, the live value is used as before.
+   The drag handler also captures `dragVisibleCount` at pointer-down for the
+   duration of the drag. This matches native scrollbar behavior where thumb size
+   only changes when content size changes, not when you scroll.
 
-Fix: `key={image?.id ?? \`empty-${imageIdx}\`}`. Stable image IDs survive buffer
-mutations. Empty/placeholder cells still key by index (they're position-dependent
-anyway). This eliminates spurious full-grid reconciliation on every backward extend.
+**Design doc:** `exploration/docs/scrubber-dual-mode-ideation.md` — full analysis of
+the two-soul problem, 5 approaches considered, data demand analysis per view,
+visual philosophy (scroll mode should look like a native scrollbar).
 
-**A.5 — Replace `ids.join(",")` with O(1) sentinel (eval doc item 7)**
+**Testing:** 145 unit tests (144 pass, 1 pre-existing failure in
+`sort-around-focus bumps _seekGeneration` — test expects `_seekGeneration` but code
+intentionally uses `sortAroundFocusGeneration`). 61 E2E tests all pass.
 
-`visibleImages` in `ImageTable.tsx` used `ids.join(",")` as a cache key to detect
-whether the visible image set had changed. This is O(N) string concatenation at up to
-60 visible rows × every render during fast scroll.
+### Scrubber Visual Polish — Unified Scrollbar Look (2026-03-28)
 
-Fix: `\`${ids[0] ?? ""}|${ids[ids.length - 1] ?? ""}|${ids.length}\`` — first ID,
-last ID, and count. Detects window shifts, resizes, and content changes at O(1). The
-only theoretical miss (swapping two middle IDs while keeping first/last/count constant)
-cannot happen with a contiguous virtualizer window.
+Harmonised the scrubber's visual appearance across both scroll mode and seek mode.
+Instead of looking like two different controls (a blue accent widget vs a native
+scrollbar), it now looks like one clean, modern scrollbar everywhere.
 
-**Files modified:**
-- `src/components/ImageGrid.tsx`: added `useMemo` import; `virtualizerRef` + `loadMoreRef`
-  stabilisation (A.1); `columnIndices` useMemo (A.2); `image?.id` key (A.4)
-- `src/components/ImageTable.tsx`: `virtualizerRef` + `loadMoreRef` stabilisation (A.1);
-  `lastFontRef` font cache (A.3); O(1) sentinel key (A.5)
+**Changes:**
+- **Track:** Always transparent background. No grey highlight on hover. The 14px
+  width is a generous hit target, but the visible thumb is narrower.
+- **Thumb:** 8px wide pill shape (3px inset each side within 14px track), fully
+  rounded (`borderRadius: 4`). Semi-transparent white on the dark Grid background:
+  idle `rgba(255,255,255,0.25)`, hover `0.45`, active/dragging `0.6`. Replaces the
+  previous blue accent / grey colors.
+- **No cursor change:** Removed `grab`/`grabbing` cursors — native scrollbars don't
+  show them, and they scream "custom widget."
+- **No opacity change on track:** Track doesn't dim/brighten on hover (the thumb
+  color change is sufficient feedback).
+- **Tooltip:** Unchanged — still shows position and sort context on drag/click in
+  both modes. The tooltip is useful in both modes and doesn't make the scrubber
+  look like a "control panel."
+- Removed unused `active` variable.
 
-**Perf run required (human):** After these changes are in place, request:
-```
-node e2e-perf/run-audit.mjs --label "Phase A: perf micro-opts (C19,C20,C21,GridCell key,ids.join)" --runs 1
-```
-Expected improvements: P2/P8 (scroll jank), P4a/P4b (density switch), P16b (column fit).
+### Bug E — Scrubber Desync at Top/Bottom (2026-03-28)
 
-**Measured results (Phase A run, 30 Mar 2026):**
+**Problem:** When PgDown/PgUp-ing through a small result set (~760 items), the
+scrubber thumb desynchronised with the content: content reached the bottom but the
+thumb stayed short of the track bottom. Grabbing the thumb to the bottom shifted
+results to where it was, requiring more scrolling.
 
-| Test | Key metric | Baseline | Phase A | Δ | Notes |
-|------|-----------|---------|---------|---|-------|
-| P3 (seek) | Max frame | 117ms | 82ms | −30% | A.1 eliminates listener churn during seek+settle |
-| P3 (seek) | DOM churn | 928 | 437 | −53% | |
-| P3 (seek) | LoAF | 161ms | 65ms | −40% | |
-| P7 (scrubber drag) | Max frame | 116ms | 83ms | −29% | A.1 — drag loop no longer re-attaches listener |
-| P7 (scrubber drag) | LoAF | 133ms | 50ms | −38% | |
-| P8 (table scroll) | Max frame | 217ms | 183ms | −16% | A.1 on table scroll path |
-| P8 (table scroll) | LoAF | 912ms | 782ms | −14% | |
-| P11 (seek+reflow) | DOM churn | ~1200 avg | ~1000 avg | −17% | A.4 GridCell key — fewer remounts on buffer shift |
-| P13a (detail enter) | Max frame | 117ms | 99ms | −15% | |
-| P14a/c (traversal) | Max frame | 67ms | 51ms | −24% | |
+**Root cause:** The position-to-pixel mapping used `position / (total - 1)` as the
+ratio. But `currentPosition` is the first visible item, which maxes at
+`total - visibleCount` (not `total - 1`). For 760 results with 20 visible, the
+max position is 740, giving ratio `740/759 = 0.975` — the thumb never reaches 1.0.
 
-Harness flagged 4 "regressions" — all confirmed noise:
-- **P1 maxFrame +20%** (83→100ms): load path unchanged; single-run CPU variance. CLS/P95/severe all flat.
-- **P12-scroll severe +22%** (9→11): 2 frames difference across 350, network-dominated test.
-- **P14b/c severe +1–2**: absolute counts of 2→3 and 2→4; meaningless at this scale.
-- **P16b**: column auto-fit was already sub-18ms (quantisation floor); A.3 wins at "fit all columns" which the test doesn't exercise.
+**Fix:** Changed all position mappings to use `total - visibleCount` as the max
+position, matching native scrollbar behavior (`scrollTop / (scrollHeight - clientHeight)`).
+Applied consistently to:
+- `thumbTopFromPosition()` — position → pixel
+- Render-time `thumbTop` computation
+- `positionFromY()` — track click pixel → position
+- `positionFromDragY()` — drag pixel → position
+- `scrollContentTo()` ratios in click, drag move, and drag end handlers
 
-P4a/P4b (density switch) showed no change — expected. A.4 helps backward extend reconciliation, not the initial switch which is network+ES dominated.
+When position = total - visibleCount, ratio = 1.0 and the thumb touches the bottom
+of the track — exactly when the last item is visible. Symmetric at top: position = 0,
+ratio = 0.0, thumb at top.
 
-## Phase C: DOM-Measured Header Height — C1 (31 Mar 2026)
+### 2026-03-29 — Scrubber tooltip fixes and keyword distribution
 
-Replaced the `TABLE_HEADER_HEIGHT = 45` hardcoded constant in `ImageTable.tsx` with a live-measured value via a new `useHeaderHeight` hook.
+**Table view native scrollbar:** The `hide-scrollbar-y` CSS class was missing
+`scrollbar-width: none` (Firefox) and `-ms-overflow-style: none` (IE/Edge legacy).
+Firefox showed a native vertical scrollbar alongside the custom scrubber in table view.
+Fixed by adding both declarations. Firefox trade-off: horizontal scrollbar is also
+hidden (no per-axis control in CSS), acceptable since most column sets fit the viewport.
 
-**Why:** C1 from the coupling audit — the JS constant `HEADER_HEIGHT = 45` must match the CSS-rendered height of the sticky header (`h-11` = 44px + `border-b` = 1px). If either changes (font scaling, responsive breakpoints, an added filter row), the scroll padding and keyboard-focus visibility calculations would silently break. This replaces a manual sync obligation with an automatic one.
+**Tooltip bottom-edge clipping:** The tooltip disappeared partially below the window
+edge when scrolled to the end of results. Root cause: tooltip top position was clamped
+using a hardcoded `28px` magic number as assumed tooltip height. Actual height is ~29px
+without sort label and ~42px with one (two lines + padding). Fixed all four clamping
+sites (applyThumbPosition, seek-mode sync effect, scroll-mode sync effect, JSX initial
+render) to use `tooltipEl.offsetHeight` (measured) with `|| 28` fallback for unmounted
+state.
 
-**New file: `src/hooks/useHeaderHeight.ts`**
+**Keyword distribution for scrubber tooltip:** Previously, keyword sorts (credit,
+source, category, imageType, mimeType, uploadedBy) showed the same frozen value from
+the nearest buffer edge when dragging the scrubber outside the loaded buffer. Now uses
+a pre-fetched keyword distribution for accurate position-to-value mapping:
 
-A callback-ref + ResizeObserver hook. Returns `[callbackRef, measuredHeight]`. Implementation notes:
+- **DAL:** `getKeywordDistribution()` on `ElasticsearchDataSource` — composite
+  aggregation that fetches all unique values with doc counts in sort order. Capped at
+  5 pages (50k unique values). Returns `KeywordDistribution` with cumulative start
+  positions. ~5–30ms for typical fields.
+- **sort-context.ts:** `lookupKeywordDistribution()` — O(log n) binary search over
+  the cumulative buckets. `resolveKeywordSortInfo()` resolves orderBy to ES field path
+  + direction for keyword sorts. `interpolateSortLabel()` now accepts an optional
+  `KeywordDistribution` and uses it instead of the nearest-edge fallback.
+- **search-store.ts:** `keywordDistribution` state + `_kwDistCacheKey` (query params +
+  orderBy). `fetchKeywordDistribution()` action — checks if current sort is keyword,
+  checks cache freshness, fetches via DAL. Cleared on new search.
+- **search.tsx:** Wires distribution into `getSortLabel` callback. Lazy fetch triggered
+  via `onFirstInteraction` Scrubber prop — distribution only fetched when user actually
+  touches the scrubber with a keyword sort active.
+- **Scrubber.tsx:** `onFirstInteraction` prop, fired once on first click/drag/keyboard.
+  `notifyFirstInteraction()` helper with ref-tracked `hasInteractedRef`, reset when
+  prop transitions from defined→undefined (sort change away from keyword).
+- **Excluded:** `filename` (too high cardinality, values not useful as context),
+  `dimensions` (script sort, can't aggregate).
 
-- Uses a callback ref (not `useEffect`) — fires synchronously on element mount, so the initial height is available immediately via `getBoundingClientRect()`, not on the next tick.
-- Observes `box: "border-box"` so the 1px `border-b` is included in the measurement.
-- Falls back to the `fallback` argument (= `TABLE_HEADER_HEIGHT = 45`) on the first frame before DOM is ready — identical to the old constant, so no visible jump or miscalculation.
-- Stores the observer in `observerRef` to disconnect on element removal / component unmount.
-- Zero deps on `useCallback` — `setHeight` is stable per React guarantee.
+### 2026-03-29 — Bug #18: Keyword sort seek drift + PIT race + binary search refinement
 
-**ResizeObserver fires at most:** once on mount, plus optionally on font load or browser resize. Never fires during scroll (ResizeObserver observes border-box, not scroll position). Zero scroll-path cost.
+**Problem:** Clicking the scrubber at 75% under Credit sort on TEST (~1.3M docs) either
+didn't move results at all (thumb stuck at ~50%) or took 46 seconds to complete.
+Local E2E tests didn't catch it because 10k docs with 5 cycling credits don't expose
+the scale issues.
 
-**Changes to `ImageTable.tsx`:**
+**Three bugs discovered via smoke test S10:**
 
-1. Added `import { useHeaderHeight }` from hooks.
-2. Added `const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT)` after `parentRef`.
-3. Added `ref={headerCallbackRef}` to the sticky header div (`data-table-header`).
-4. Replaced `scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT` with `scrollPaddingStart: headerHeight - ROW_HEIGHT`.
-5. Replaced `headerHeight: HEADER_HEIGHT` with `headerHeight` in `useListNavigation`.
-6. `HEADER_HEIGHT` import kept as fallback — unchanged value.
+1. **PIT race condition** — `seek()` read a stale PIT ID from the store that had already
+   been closed by a concurrent `search()` triggered by `selectSort("Credit")`. The
+   `search()` hadn't finished storing the new PIT before the scrubber click fired
+   `seek()`. ES returned 404 on the `_search` request with the stale PIT.
 
-**Phase D assessment:** All three D items deferred. D.1 (density-focus ref): module-level `let saved` is safe — components never co-render, lifecycle is serial. Prop-threading adds complexity with no practical benefit. D.2 (font strings from CSS): compile-time constants, no sync obligation, low value. D.3 (panel constraints): UX decision, requires design discussion.
+   **Fix:** PIT 404/410 fallback in `es-adapter.ts` `searchAfter()` — when a PIT-based
+   request fails with 404 or 410, retries the same request without PIT, using the
+   index-prefixed path instead. This makes `seek()` resilient to PIT lifecycle races
+   without requiring tight coupling between search() and seek() timing.
 
-**Validation:** 152 unit tests pass. 63 E2E tests pass (keyboard nav, density switch, scrubber all green).
+2. **46-second seek (brute-force skip loop)** — After `findKeywordSortValue` correctly
+   identified "PA" as the credit at position 881k, `search_after(["PA", ""])` landed at
+   the START of the PA bucket (position 533k) because `""` sorts before all real IDs.
+   The refinement loop issued 5 × `search_after(size=100k, noSource=true)` hops through
+   the SSH tunnel, transferring ~50MB of sort values. Each hop took ~9s over the tunnel.
 
-## Post-Phase-C: Phase C Re-run + Harness Fix + Handoff Docs (31 Mar 2026)
+   **Fix:** Replaced the brute-force skip loop with **binary search on the `id`
+   tiebreaker**. Since image IDs are SHA-1 hashes (40-char hex, uniformly distributed),
+   binary search between `0x000000000000` and `0xffffffffffff` converges in ~11
+   iterations. Each iteration is a single `_count` query (~500 bytes). Total network:
+   ~6KB vs ~50MB. Total time: ~4s vs ~46s (99.99% network reduction).
 
-### Phase C re-run (full — 31 tests)
+   **Implementation** (in `search-store.ts` `seek()`):
+   ```
+   let loNum = 0;
+   let hiNum = 0xffffffffffff;
+   for (step 0..MAX_BISECT) {
+     midNum = floor((loNum + hiNum) / 2)
+     mid = midNum.toString(16).padStart(12, "0")
+     probeCursor = [...searchAfterValues]; probeCursor[last] = mid
+     count = countBefore(params, probeCursor, sortClause)
+     if (count <= target) loNum = midNum else hiNum = midNum
+     if (|count - target| <= PAGE_SIZE) break
+   }
+   ```
 
-The first Phase C run lost P4a/P4b/P5/P6/P7/P9 to ES tunnel instability (20 of 30
-test variants recorded). A full re-run was done later in the same session with a stable
-tunnel. All 31 tests completed. This entry ("Phase C re-run (full)") supersedes entry
-3 ("Phase C: measured header height") in `audit-log.json`. It is the authoritative
-Phase C result used in all analysis below.
+   Benefits ALL keyword sorts: Credit, Source, Category, Image Type, MIME Type,
+   Uploaded By. Any field where a keyword bucket is larger than PAGE_SIZE triggers
+   the binary search. Filename (high cardinality) and Dimensions (script sort) don't
+   need it.
 
-Key result: P8 maxFrame=183ms, LoAF=748ms, severe=15 — best across all phases. P7
-LoAF=138ms — the Phase A/B win (47ms) appears gone; likely tunnel variance but
-needs `--runs 3` to confirm. P12-scroll.severe=10 — the "monotone trend" (9→11→12→14
-across partial runs) was noise; C-full is near baseline.
+3. **Hex upper bound bug ("g" is not valid hex)** — The first binary search
+   implementation used string bounds `"0"` to `"g"`. But `"g"` is not a valid hex
+   digit. `parseInt("g...", 16)` returns `NaN`, so every iteration computed
+   `mid = "NaN"`. `countBefore(id < "NaN")` counted everything (lexicographically
+   `"N" > all hex chars`), so `bestOffset` never updated. The binary search silently
+   did nothing — `actualOffset` stayed at 533k (bucket start ≈ 40%).
 
-### Harness bug fix: focusDrift fields were always recorded but stripped
+   **Fix:** Changed from string bounds to numeric: `loNum = 0`, `hiNum = 0xffffffffffff`.
+   `midNum.toString(16).padStart(12, "0")` always produces valid hex.
 
-`run-audit.mjs`'s `aggregateMetrics()` function maintained a hardcoded list of
-field names to persist. `focusDriftPx`, `focusDriftRatio`, and `focusVisible` were
-not in that list — so they were recorded to `.metrics-tmp.jsonl` on every run but
-silently dropped when writing to `audit-log.json`. Fixed: the function now preserves
-all fields present in the metrics object, not just the hardcoded list.
+**Smoke test S10 confirmation:** After all three fixes, S10 shows convergence in 11
+steps, ~4 seconds total, landing within 45 docs of target (ratio 0.7498 for 75% seek).
 
-This meant the "Critical measurement gap" called out in the original post-phase-C
-analysis was wrong. The data was always there. Reading `.metrics-tmp.jsonl` directly
-from the Phase C re-run revealed:
-- P4a (grid→table): focusDriftPx=**0**, perfect
-- P4b (table→grid): focusDriftPx=**−160px** (image appears ~5 rows above expected)
-- P6 (sort change): focusDriftPx=**428px**, ratio=0.412 (image ~41% viewport below expected)
+**E2E test changes:**
 
-P6's 428px drift is the most actionable finding in the entire dataset. Sort-around-focus
-does not preserve the focused item's viewport position — it always re-centres via
-`scrollToIndex(idx, "center")`. P4b's −160px asymmetry (P4a is 0) points to the
-`density-focus.ts` table→grid restore path. These are real, visible bugs.
+- **Bug #7 strengthened:** Credit 50% test now includes composite-agg telemetry check
+  (absorbed from Bug #13). Source 50% test strengthened with ratio assertion (0.35–0.65).
+  Dimensions test kept with weak assertion (`> 0`) — it's a script sort with inherently
+  lower accuracy on small datasets.
+- **Bug #18 regression guard added** (line 898): Seeks to 75% under Credit sort, asserts
+  ratio 0.65–0.85, verifies binary search console log was emitted. With 10k local docs
+  and 5 credits cycling (~2k per bucket), drift ≈ 1800 > PAGE_SIZE → binary search kicks
+  in. Guards against regressions in the hex interpolation code.
+- **Bug #13 culled:** Entire `test.describe("Bug #13")` block removed (4 tests).
+  Bug #13.1 (Credit seek + telemetry) merged into Bug #7.1. Bug #13.2 (drag under
+  Credit) redundant with generic drag tests. Bug #13.3 (two positions differ) duplicate
+  of Bug #7.4. Bug #13.4 (timing) redundant with test-level timeout.
+- **Smoke test S10 added:** Full diagnostic for keyword sort seek on TEST. Polls store
+  state during seek, captures `[seek]`/`[ES]` console logs, checks grid scroll position,
+  compares 75% vs 50% seeks, 15s performance gate.
+- **Net test count:** 68 → 64 e2e tests (4 removed from Bug #13), 8 → 10 smoke tests
+  (S9 + S10 added).
 
-### Documentation session
+### Buffer Corruption Fix (31 March 2026)
 
-`exploration/docs/fix-ui-docs-eval.md` Part 5 updated:
-- Replaced the "Critical measurement gap" bullet (which said `focusDriftPx` was
-  always null) with the corrected finding, plus a table of the actual Phase C values.
-- Updated "Overall assessment" forward pointer to reference `focus-drift-and-scroll-handoff.md`.
+**Bug:** After seeking deep via scrubber, any action that resets scroll to top
+(logo click, metadata click, CQL query change) landed at ~index 170–190 instead
+of index 1. Buffer contained 400 items (200 stale + 200 correct). Cross-browser.
 
-New `exploration/docs/focus-drift-and-scroll-handoff.md` created — self-contained
-handoff for the next agent session covering:
-1. Focus drift elimination (P6 428px, P4b −160px, add P17 test)
-2. P8 table fast scroll investigation (~57k DOM churn)
+**Root cause:** Synchronous→async race. `resetScrollAndFocusSearch()` dispatches a
+synthetic scroll event that triggers `extendBackward` on the stale deep buffer
+BEFORE `search()` can abort it. The PIT-404 retry in `es-adapter.ts` escapes the
+abort signal due to microtask ordering — the 404 response resolves before the
+abort signal propagates, creating a new fetch that returns stale data.
 
-Includes source file map, code-level diagnosis of both bugs, investigation approaches
-for P8, validation sequences, and architecture decisions not to change without discussion.
+**Introduced by:** commit `3fca3d676` ("Windowed scroll + Scrubber — Polish, not
+Russian") which removed `_seekCooldownUntil = Date.now() + 500` from the seek
+data-arrival path.
 
-`AGENTS.md` docs table: corrected stale `perf-measurement-report` description.
+**Fix:** 5-layer defense in depth:
+1. `resetScrollAndFocusSearch()` calls `abortExtends()` before scroll reset (primary)
+2. `search()` sets a 2-second extend cooldown
+3. Seek cooldown refreshed at data arrival (restores removed line)
+4. Abort check before PIT-404 retry in `es-adapter.ts`
+5. `abortExtends()` exposed on the store for imperative callers
 
-## Post-Phase-C: Perf Measurement Analysis and Honest Assessment (31 Mar 2026)
+**Tests:** 9 regression tests in `e2e/buffer-corruption.spec.ts`. All 9 fail without
+the fix, all pass with it. One test (metadata click) was adjusted for local sample
+data: the original `waitForResults()` timed out when a metadata click matched only
+1 image (the DOM check required >4 grid cells); replaced with store-level wait.
+Standalone config `playwright.run-manually-on-TEST.config.ts` for manual validation
+against real ES clusters.
 
-After all four phases (Baseline, A, B, C) were run against TEST ES, a full analysis
-of the measurement data was conducted. Key findings:
-
-**What actually improved (genuine, consistent gains):**
-- P7 LoAF 133→50ms (−62%) — scrubber drag seeks are faster. `handleScroll` stabilisation (A.1).
-- P2 LoAF 104→68ms (−35%) — scroll initiation smoother. Same cause.
-- P3/P7/P11 domChurn down 14–53% — fewer DOM mutations on buffer extends. GridCell `id` key (A.4).
-
-**What did not improve:**
-- P8 (table fast scroll): p95=50ms, domChurn=~57k — completely flat across all phases. The coupling fixes did not touch this path's root cause. This is the primary user-facing bottleneck.
-
-**Suspected regression:**
-- P12-scroll.severe: 9→11→12→14. Monotone upward across all four phases. Started at Phase A. Likely related to `virtualizerRef.current` being one render stale during rapid scroll, causing different `range` readings and more `loadMore` calls. Needs `--runs 3` confirmation.
-
-**focusDrift data (corrected — harness bug fixed in same session):**
-- `focusDriftPx`/`focusDriftRatio`/`focusVisible` were always recorded in `.metrics-tmp.jsonl`
-  but stripped by `aggregateMetrics()` before writing to `audit-log.json`. Initially
-  misdiagnosed as "getFocusedViewportPos() returns null". The data was there all along —
-  reading `.metrics-tmp.jsonl` directly gave: P4a=0px (perfect), P4b=−160px, P6=428px.
-  The "Never Lost" density switch does have quantitative data; it just wasn't surfacing
-  through the harness. Fix applied to `run-audit.mjs` same session. See "Phase C re-run"
-  entry above.
-
-**Phase C (header height) specifically:**
-- 20 of 30 test variants recorded; P4a/P4b/P5a/b/c/P6/P7/P9 absent (ES tunnel timeouts during that run — not a harness failure; the diff table only shows changed tests, which made it appear fewer ran). Phase C adds one ResizeObserver callback on mount. Zero scroll-path cost. No perf regression on the 20 tests that did run. The missing tests (density switch, scrubber drag) should be re-run with a stable tunnel.
-
-**Deliverables created:**
-- `exploration/docs/perf-measurement-report.md` — full scannable report with all raw data, per-test analysis, and recommended next steps for fresh agent. Updated in same session with Phase C re-run data and corrected focusDrift findings.
-- `exploration/docs/fix-ui-docs-eval.md` — Part 5 added + corrected (see "Phase C re-run + Harness Fix" entry above).
-- `exploration/docs/focus-drift-and-scroll-handoff.md` — new handoff doc for next two work items.
-- `AGENTS.md` — "Known Performance Issues" section + docs table correction.
-
-## Post-Perf Regression Fixes (31 Mar 2026)
-
-Three regressions from the Phase A-C perf commit (`3dac9ff5e`) identified in
-`exploration/docs/post-perf-fixes.md` and fixed in this session:
-
-### Issue 1 (CRITICAL): Home button after deep seek
-
-**Symptom:** After a deep seek (scrubber click at ~50%), clicking the Home logo
-didn't scroll to position 0 -- the view landed ~200 items from the top. Also
-affected click-to-search from image detail metadata.
-
-**Root cause:** `resetScrollAndFocusSearch()` set `scrollContainer.scrollTop = 0`
-and dispatched a synthetic scroll event, but TanStack Virtual's internal
-`scrollOffset` state wasn't reset. After A.1 stabilised `handleScroll` (fewer
-re-registrations, fewer sync opportunities), the virtualizer lagged behind the
-DOM `scrollTop` during rapid state transitions.
-
-**Fix:** New `src/lib/scroll-reset-ref.ts` -- same module-level registration
-pattern as `scroll-container-ref.ts`. Both ImageTable and ImageGrid register
-`() => virtualizer.scrollToOffset(0)` on mount. `resetScrollAndFocusSearch()`
-calls `fireScrollReset()` alongside the existing DOM `scrollTop = 0`. This
-guarantees the virtualizer's internal state is always zeroed.
-
-### Issue 3: Visual reordering during seeks and sort changes
-
-**Symptom:** Images visibly shuffled/reordered for one frame before settling into
-final positions after seeks, searches, and sort changes.
-
-**Root cause:** A.4 changed GridCell key from positional (`key={imageIdx}`) to
-content-based (`key={image?.id}`). Content keys in a positional virtualizer cause
-React's reconciler to reuse component instances from old virtual positions, fighting
-TanStack Virtual's layout model. The 14-18% domChurn reduction on backward extends
-was not worth the user-visible reordering regression.
-
-**Fix:** Reverted A.4 -- GridCell key back to positional `key={imageIdx}`. Comment
-explains the rationale and documents the revert history. Expect P3/P11 domChurn
-to increase back to pre-A.4 levels.
-
-### Issue 2: Focus drift -- sort-around-focus (P6) and density switch (P4b)
-
-**P6 fix:** Created `src/lib/sort-focus.ts` (same bridge pattern as
-`density-focus.ts`). The scroll-reset `useLayoutEffect` in both ImageTable and
-ImageGrid now captures the focused item's viewport ratio before the sort-only
-skip (synchronous, before async search). The `sortAroundFocusGeneration` effect
-consumes the saved ratio and restores the item at the same viewport position
-instead of always centring. Edge clamping ensures the item stays on screen.
-Deviation 26 added.
-
-**P4b fix:** Table unmount save now includes `HEADER_HEIGHT` in the viewport
-ratio calculation: `(rowTop + HEADER_HEIGHT - scrollTop) / clientHeight`. Table
-mount restore uses the symmetric formula: `scrollTop = rowTop + HEADER_HEIGHT -
-ratio * clientHeight`. Previously the table's 45px sticky header was not accounted
-for, causing the ratio to be off by `HEADER_HEIGHT / clientHeight` -- which
-manifested as a drift when restoring in the headerless grid view.
+**Validation:** 70 E2E tests pass locally (2 pre-existing skips in Bug #17 density
+switch tests). Full suite run: 2.8 minutes.
 
 **Files changed:**
-- New: `src/lib/scroll-reset-ref.ts`, `src/lib/sort-focus.ts`
-- Modified: `src/lib/scroll-reset.ts`, `src/components/ImageGrid.tsx`,
-  `src/components/ImageTable.tsx`
-- Docs: `exploration/docs/deviations.md` (section 26), `AGENTS.md`, this changelog
-
-**Awaiting validation:** E2E tests could not run (live data mode active). Run
-`npx playwright test` when local ES is available. Perf harness validation for
-P4b/P6 drift measurements should be run by the human.
-
+- Modified: `src/stores/search-store.ts` (Layers 2, 3, 5), `src/lib/scroll-reset.ts`
+  (Layer 1), `src/dal/es-adapter.ts` (Layer 4), `src/components/SearchBar.tsx` (comments),
+  `src/components/ImageDetail.tsx` (comments)
+- New: `e2e/buffer-corruption.spec.ts`, `playwright.run-manually-on-TEST.config.ts`
+- Docs: `exploration/docs/buffer-corruption-fix.md`, `exploration/docs/home-logo-bug-research.md`,
+  `AGENTS.md`, this changelog

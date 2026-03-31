@@ -627,6 +627,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
       // Retry without PIT using the index-prefixed path. This loses snapshot
       // isolation but is far better than failing the seek entirely.
       if (pitId && e instanceof Error && /40[04]/.test(e.message)) {
+        // If the caller has already aborted (e.g. search() closed the PIT
+        // and started a new search), don't retry — the result would corrupt
+        // the buffer by prepending stale data after the fresh search lands.
+        if (signal?.aborted) return { hits: [], total: 0, sortValues: [] };
         console.warn("[ES] searchAfter: PIT expired/closed, retrying without PIT");
         delete body.pit;
         try {
