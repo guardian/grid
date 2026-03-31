@@ -253,6 +253,11 @@ object MappingTest {
       isInferred = true
     )),
     userMetadataLastModified = Some(imageModified),
-    embedding = Some(Embedding(cohereEmbedEnglishV3= CohereV3Embedding(image = (0 to 1023).map(_ * 0.001).toList)))
+    embedding = Some(
+      Embedding(
+        cohereEmbedEnglishV3 = Some(CohereV3Embedding(image = (0 until 1024).map(_ * 0.001).toList)),
+        cohereEmbedV4 = Some(CohereV4Embedding(image = (0 until 256).map(_ * 0.001).toList))
+      )
+    )
   )
 }
