@@ -18,11 +18,13 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { useHeaderHeight } from "@/hooks/useHeaderHeight";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useSearchStore } from "@/stores/search-store";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
@@ -412,6 +414,21 @@ export function ImageTable() {
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  // C.1: Measure the actual rendered header height via ResizeObserver.
+  // Falls back to TABLE_HEADER_HEIGHT (45) on the first frame before the DOM
+  // is ready — same value as the constant, so no visible jump. Fires at most
+  // once per session (mount) plus optionally on font load or resize.
+  // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
+  const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
+
+  // B.1: Register this component's scroll container so Scrubber can find it
+  // without DOM archaeology. Runs once on mount; clears on unmount.
+  useEffect(() => {
+    registerScrollContainer(parentRef.current);
+    return () => registerScrollContainer(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
+  }, []);
+
   // Single-click a row → set focus (sticky highlight).
   const handleRowClick = useCallback(
     (imageId: string) => {
@@ -477,7 +494,10 @@ export function ImageTable() {
     // rows behind the header as "visible" and won't scroll to them.
     // Subtract one ROW_HEIGHT because the padding is additive with the
     // virtualizer's own item-boundary snapping.
-    scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT,
+    // C.1: headerHeight is the ResizeObserver-measured value (falls back to
+    // TABLE_HEADER_HEIGHT = 45 on first frame). Stays accurate if the header
+    // ever changes size (e.g. font scale, added filter row).
+    scrollPaddingStart: headerHeight - ROW_HEIGHT,
     // Buffer at the bottom so the focused row is never clipped by the
     // viewport edge at any zoom level.
     scrollPaddingEnd: ROW_HEIGHT * 2,
@@ -513,10 +533,13 @@ export function ImageTable() {
       }
     }
 
-    // Fast path: if the same image IDs in the same order, reuse the old array.
-    // This is the common case during off-screen load — visible rows are
-    // unchanged, only distant indices were filled.
-    const key = ids.join(",");
+    // A.5: O(1) sentinel instead of ids.join(","). The join is O(N) string
+    // concatenation executed at up to 60fps during fast scroll (60 visible
+    // rows × every render). First ID + last ID + count detects all meaningful
+    // changes: window shift, resize, content change. The only theoretical
+    // miss is swapping two *middle* IDs while keeping first/last/count the
+    // same — impossible with a contiguous virtualizer window.
+    const key = `${ids[0] ?? ""}|${ids[ids.length - 1] ?? ""}|${ids.length}`;
     if (key === prevVisibleKeyRef.current) {
       return prevVisibleImagesRef.current;
     }
@@ -609,6 +632,18 @@ export function ImageTable() {
   const totalRef = useRef(total);
   totalRef.current = total;
 
+  // A.1: Stabilise virtualizer ref — TanStack Virtual returns a new object
+  // every render, so putting `virtualizer` directly in the useCallback dep
+  // array creates a new handleScroll every render → useEffect tears down and
+  // re-attaches the scroll listener every render. Store it in a ref; the
+  // callback always reads the latest virtualizer without causing churn.
+  const virtualizerRef = useRef(virtualizer);
+  virtualizerRef.current = virtualizer;
+
+  // Stable ref for loadMore (store-bound, but we want zero-dep callback)
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -618,7 +653,7 @@ export function ImageTable() {
     // overscan items, which creates a dead zone at the top: start stays 0
     // for `overscan` rows of scroll because max(0, visibleStart - overscan) = 0.
     // virtualizer.range gives the true visible range from calculateRange().
-    const range = virtualizer.range;
+    const range = virtualizerRef.current.range;
     if (range) {
       reportVisibleRange(range.startIndex, range.endIndex);
     }
@@ -627,9 +662,9 @@ export function ImageTable() {
     // datasets where sparse scroll isn't needed)
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
-      loadMore();
+      loadMoreRef.current();
     }
-  }, [virtualizer, reportVisibleRange, loadMore]);
+  }, [reportVisibleRange]);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -857,7 +892,7 @@ export function ImageTable() {
     virtualizer,
     scrollRef: parentRef,
     rowHeight: ROW_HEIGHT,
-    headerHeight: HEADER_HEIGHT,
+    headerHeight, // C.1: ResizeObserver-measured; same value as HEADER_HEIGHT on steady state
     focusedImageId,
     setFocusedImageId,
     virtualizerCount,
@@ -893,13 +928,21 @@ export function ImageTable() {
   // Measure the pixel width needed to display a string at the table's
   // font.  Uses an off-screen canvas (cached) for speed.
   const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  // A.3: Cache last-set font string. ctx.font assignment triggers font-string
+  // parsing even when the value is unchanged — expensive at ~600 calls per
+  // column-fit. Skipping the assignment when the font hasn't changed avoids
+  // re-parsing entirely (column-fit typically uses only 2 distinct fonts).
+  const lastFontRef = useRef<string>("");
   const measureText = useCallback((text: string, font: string): number => {
     if (!measureCtxRef.current) {
       const canvas = document.createElement("canvas");
       measureCtxRef.current = canvas.getContext("2d");
     }
     const ctx = measureCtxRef.current!;
-    ctx.font = font;
+    if (font !== lastFontRef.current) {
+      ctx.font = font;
+      lastFontRef.current = font;
+    }
     return Math.ceil(ctx.measureText(text).width);
   }, []);
 
@@ -1250,6 +1293,7 @@ export function ImageTable() {
         {/* Header: inline-flex so the browser sizes it from its children
             — no JS-computed width, correct at any browser zoom level. */}
         <div
+          ref={headerCallbackRef}
           data-table-header
           role="row"
           className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-11"

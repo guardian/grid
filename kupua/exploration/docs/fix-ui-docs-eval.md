@@ -394,13 +394,13 @@ report, ordered by impact:
 
 | Priority | Action | Impact | Effort | Why now |
 |---|---|---|---|---|
-| **1** | Phase 1: Shared `layout.ts` constants + E2E arg-passing (C2, C3, C4, C13) | Brittleness, test correctness | 2 h | Zero risk; unblocks everything else |
-| **2** | Phase 4: Stable `handleScroll` (C19) + memoised column array (C20) + Canvas font cache (C21) | Performance | 2 h | Highest perf ROI; independent of other phases |
-| **3** | Fix `key={imageIdx}` → `key={image?.id ?? imageIdx}` in `ImageGrid` render loop | Performance / correctness | 30 min | Eliminates full cell remount on every backward extend |
-| **4** | Phase 3: Scrubber receives `scrollContainerRef` prop; remove `findScrollContainer` (C6, C7, C22) | Brittleness, extensibility | 2 h | Prerequisite for any future multi-scroll-container density |
+| **1** ✅ | Phase 1: Shared `layout.ts` constants + E2E arg-passing (C2, C3, C4, C13) | Brittleness, test correctness | 2 h | Zero risk; unblocks everything else |
+| **2** ✅ | Phase 4: Stable `handleScroll` (C19) + memoised column array (C20) + Canvas font cache (C21) | Performance | 2 h | Highest perf ROI; independent of other phases |
+| **3** ✅ | Fix `key={imageIdx}` → `key={image?.id ?? imageIdx}` in `ImageGrid` render loop | Performance / correctness | 30 min | Eliminates full cell remount on every backward extend |
+| **4** ✅ | Phase 3: Scrubber receives `scrollContainerRef` prop; remove `findScrollContainer` (C6, C7, C22) | Brittleness, extensibility | 2 h | Done via module-level ref pattern (scroll-container-ref.ts). P7 LoAF: 133→47ms. |
 | **5** | Move `density-focus.ts` module-level `saved` into a stable parent `useRef` | Correctness (React concurrent mode) | 1 h | Low risk now; high risk when concurrent rendering activates |
 | **6** | Phase 2: `useHeaderHeight` ResizeObserver replacing `HEADER_HEIGHT = 45` (C1) | Correctness (keyboard nav) | 1.5 h | Fixes silent keyboard navigation bug under sticky header |
-| **7** | Replace `ids.join(",")` key with O(1) sentinel in `visibleImages` memo | Performance | 15 min | Free win; trivial change |
+| **7** ✅ | Replace `ids.join(",")` key with O(1) sentinel in `visibleImages` memo | Performance | 15 min | Free win; trivial change |
 | **8** | Implement "Never Lost" adjacency algorithm in `search()` | UX fidelity to philosophy | 3–4 h | Most concrete unfulfilled philosophical commitment |
 | **9** | Add `selectedImageIds: Set<string>` to search store + density-switch survival | Missing feature | 4–6 h | Non-negotiable per philosophy; blocks batch metadata editing |
 | **10** | Phase 5: Font strings from CSS custom properties (C5) | Brittleness | 1 h | Nice-to-have; no functional impact today |
@@ -437,4 +437,71 @@ archaeology) rather than structural, and the two documents correctly address tho
 weaknesses. The one structural improvement worth acting on now is moving the
 `density-focus.ts` module-level variable into a parent-component ref before React
 concurrent mode creates non-deterministic unmount/mount ordering.
+
+---
+
+## Part 5 — Measured Results After Execution (Added 31 March 2026)
+
+> Phases 0–C were implemented and measured. **See `exploration/docs/perf-measurement-report.md`
+> for the full scannable data and honest assessment.** Key findings summarised here.
+
+### What actually improved
+
+- **P7 (scrubber drag) LoAF: 133→50ms (−62%).** Phase A's `handleScroll` stabilisation (A.1) is a
+  genuine win on the seek path. Consistent across Phase B and C — not noise.
+- **P3/P11 domChurn: ~920→~450 (−50%).** The GridCell `id` key fix (A.4) meaningfully reduces
+  React reconciliation on backward buffer extends.
+- **P2 LoAF: 104→68ms (−35%).** Scroll initiation smoother — also A.1.
+
+### What did not improve
+
+- **P8 (table fast scroll): p95=50ms, domChurn=~57k — unchanged across all phases.**
+  This is the primary user-facing bottleneck. The coupling fixes did not address it and
+  were never going to. Its root cause is the virtualiser's DOM churn rate (~57k mutations
+  per scroll session), which requires a different approach entirely.
+
+### Suspected regression
+
+- **P12-scroll.severe: 9→11→12→14 across all four phases.** Monotone upward trend,
+  started in Phase A with the `handleScroll` stabilisation. P12 measures aggressive
+  scroll past the buffer boundary — the path most affected by how `handleScroll`
+  triggers `loadMore`. Likely cause: `virtualizerRef.current` can be one render stale
+  during rapid scroll, causing slightly different `range` readings and potentially more
+  `loadMore` calls per session. This needs a `--runs 3` confirmation and root-cause
+  investigation before it can be called confirmed.
+
+### Focus drift — data was always there (harness bug, now fixed)
+
+~~Critical measurement gap: focusDriftPx always null.~~ **This was wrong.**
+
+`focusDriftPx`, `focusDriftRatio`, and `focusVisible` were being collected in
+`.metrics-tmp.jsonl` all along. The harness's `aggregateMetrics()` function only
+preserved a hardcoded field list and silently dropped the drift fields before writing
+to `audit-log.json`. This has been fixed. Data from the Phase C re-run:
+
+| Test | focusDriftPx | focusDriftRatio | focusVisible | Verdict |
+|---|---|---|---|---|
+| P4a (grid→table) | **0px** | 0.000 | ✅ true | Perfect |
+| P4b (table→grid) | **−160px** | −0.156 | ✅ true | Item 160px above expected position (~5 rows) |
+| P6 (sort change) | **428px** | 0.412 | ✅ true | ⚠️ Item ~41% of viewport below expected |
+
+P6's 428px drift is the most actionable finding: sort-around-focus is supposed to
+restore the focused item to its pre-sort viewport position. It does not — it lands
+nearly half a viewport below. P4b's −160px asymmetry (P4a is perfect) points to the
+`density-focus.ts` table→grid restore path specifically. These are real, visible bugs
+confirmed by measurement.
+
+### Overall assessment of the programme
+
+The coupling fixes delivered real but narrow wins on non-critical paths (scrubber,
+seek). The critical path (table scroll, density switch correctness) is unchanged.
+P8 domChurn (~57k) is the root bottleneck for table fast-scroll and was never going to
+be addressed by coupling fixes. P12-scroll.severe "monotone trend" was noise —
+C-full shows 10, near baseline.
+
+**Next two work items (see `focus-drift-and-scroll-handoff.md`):**
+1. **Focus drift elimination** — fix P6 (428px) and P4b (−160px); add P17 (density
+   switch from deep position); get drift to zero or near-zero on all paths.
+2. **P8 table fast scroll** — investigate and reduce the ~57k DOM churn that keeps
+   p95=50ms regardless of all other optimisations.
 

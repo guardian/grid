@@ -179,7 +179,7 @@ function aggregateMetrics(allRunMetrics) {
 
   const result = {};
   for (const [id, entries] of byId) {
-    result[id] = {
+    const agg = {
       cls: median(entries.map((e) => e.cls)),
       clsMax: median(entries.map((e) => e.clsMax)),
       maxFrame: Math.round(median(entries.map((e) => e.maxFrame))),
@@ -190,6 +190,16 @@ function aggregateMetrics(allRunMetrics) {
       frameCount: Math.round(median(entries.map((e) => e.frameCount))),
       report: entries[0].report !== false, // default true
     };
+    // Preserve focus drift fields when present (P4a, P4b, P6).
+    // These measure "Never Lost" accuracy — how far the focused item drifts
+    // in the viewport during density switches and sort changes.
+    const driftValues = entries.map((e) => e.focusDriftPx).filter((v) => v != null);
+    if (driftValues.length > 0) agg.focusDriftPx = Math.round(median(driftValues));
+    const ratioValues = entries.map((e) => e.focusDriftRatio).filter((v) => v != null);
+    if (ratioValues.length > 0) agg.focusDriftRatio = Math.round(median(ratioValues) * 1000) / 1000;
+    const visValues = entries.map((e) => e.focusVisible).filter((v) => v != null);
+    if (visValues.length > 0) agg.focusVisible = visValues.filter(Boolean).length >= visValues.length / 2;
+    result[id] = agg;
   }
   return result;
 }
@@ -419,5 +429,4 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-
 

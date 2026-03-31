@@ -391,7 +391,13 @@ The tooltip is always in the DOM (opacity-controlled), so `offsetHeight` is vali
 
 ---
 
-### Phase C: DOM-Measured Header Height (~1.5h)
+### Phase C: DOM-Measured Header Height (~1.5h) — ✅ DONE (31 Mar 2026)
+
+> **Approach used:** `src/hooks/useHeaderHeight.ts` — callback-ref + ResizeObserver hook.
+> `ImageTable` calls it with `TABLE_HEADER_HEIGHT` as fallback; the returned `headerHeight`
+> replaces the constant in `scrollPaddingStart` and `useListNavigation`. `ref={headerCallbackRef}`
+> attached to the sticky header div. Fires once on mount, never during scroll. Zero perf cost.
+> All 63 E2E tests pass. Phase D items deferred (see changelog for rationale).
 
 **Goal:** Replace `TABLE_HEADER_HEIGHT = 45` (manual CSS↔JS sync) with a
 ResizeObserver-measured value.

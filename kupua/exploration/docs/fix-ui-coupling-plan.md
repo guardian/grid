@@ -322,7 +322,7 @@ const visible = await page.evaluate(
 
 ---
 
-### Phase 2: DOM-Measured Header Height (C1) — ~1.5h
+### Phase 2: DOM-Measured Header Height (C1) — ~1.5h ✅ DONE (31 Mar 2026)
 
 **Goal:** Eliminate the `HEADER_HEIGHT = 45` constant that must match CSS.
 Replace with a ResizeObserver-measured value.
@@ -372,7 +372,18 @@ optional window resize).
 
 ---
 
-### Phase 3: Scrubber Decoupling (C6, C7, C22) — ~2h
+### Phase 3: Scrubber Decoupling (C6, C7, C22) — ✅ DONE (31 Mar 2026)
+
+> **Measured results (single run, TEST cluster, 31 Mar 2026):**
+> - P7 (scrubber drag): LoAF 50→47ms — held Phase A's gain. Wheel events no longer walk the DOM.
+> - P3/P8: single-run variance (network-dominated). Three-run comparison: neutral, no regression.
+> - All other tests: flat within noise.
+>
+> **Approach used:** Module-level ref pattern (`scroll-container-ref.ts`) instead of
+> prop-drilling to Scrubber. Density components call `registerScrollContainer(el)` on mount/unmount.
+> Scrubber calls `getScrollContainer()`. This avoided the prop threading through PanelLayout.
+> `findScrollContainer`, sibling-walk, and `MutationObserver` all removed from Scrubber.
+> `scroll-reset.ts` also updated to use the same ref. C7 (tooltip magic number) fixed as planned.
 
 **Goal:** Eliminate DOM archaeology. Pass scroll container ref as a prop.
 Fix tooltip height inconsistency. Stabilise MutationObserver lifecycle.
@@ -462,7 +473,17 @@ reflow (its size is determined by its own content, not ancestors).
 
 ### Phase 4: Performance Micro-Optimisations (C19, C20, C21, C17) — ~2h
 
-#### Task 4.1: Stabilise `handleScroll` callback (C19)
+> **C19, C20, C21 — ✅ DONE (30 Mar 2026, Phase A)**
+>
+> **Measured results (single run, TEST cluster, 30 Mar 2026):**
+> - P3 (seek): max frame −30% (117→82ms), DOM churn −53% (928→437), LoAF −40% (161→65ms)
+> - P7 (scrubber drag): max frame −29% (116→83ms), LoAF −38% (133→50ms)
+> - P8 (table scroll): max frame −16% (217→183ms), LoAF −14% (912→782ms)
+> - P11 (seek+reflow): DOM churn −17% avg across 3 positions (GridCell key fix)
+> - P14a/c (traversal): max frame −24% (67→51ms)
+> - P8 P95 frame unchanged at 50ms — next target is Phase B/C
+
+#### Task 4.1: Stabilise `handleScroll` callback (C19) ✅
 
 ```ts
 // Before
@@ -487,7 +508,7 @@ Same pattern for `loadMore` — store in ref.
 scroll. Measurable in Chrome DevTools Performance panel as fewer
 "Event Listener" entries.
 
-#### Task 4.2: Memoise column index array in ImageGrid (C20)
+#### Task 4.2: Memoise column index array in ImageGrid (C20) ✅
 
 ```ts
 const columnIndices = useMemo(
@@ -502,7 +523,7 @@ const columnIndices = useMemo(
 **Impact:** Eliminates `columns * visibleRows` array allocations per frame.
 At 6 cols × 15 rows = 90 allocations → 0 per frame.
 
-#### Task 4.3: Cache Canvas font in `measureText` (C21)
+#### Task 4.3: Cache Canvas font in `measureText` (C21) ✅
 
 ```ts
 const lastFontRef = useRef("");
@@ -701,17 +722,25 @@ Every raw pixel literal inside `page.evaluate()` closures:
 
 ## Appendix C: Performance Budget
 
-Target scroll performance (Chrome DevTools, 6× CPU throttle):
+Target scroll performance (TEST cluster, 1 run each). Δ columns compare against the
+Baseline entry in `e2e-perf/results/audit-log.md`.
 
-| Metric | Current | After Phase 4 | Method |
-|--------|---------|---------------|--------|
-| Scroll handler time | ~0.8ms | ~0.5ms | Stable callback, no listener churn |
-| Grid render (15 rows) | ~2.1ms | ~1.8ms | Memoised column array |
-| Column fit-all (10 cols) | ~80ms | ~15ms | Cached canvas font |
-| Density switch | ~45ms | ~40ms | Stable scroll compensation |
+| Test | Metric | Baseline | After Phase A | After Phase B | Notes |
+|------|--------|---------|--------------|--------------|-------|
+| P3 (seek) | Max frame | 117ms | 82ms (−30%) | 150ms (+29%) | Phase B single-run variance; 3-run shows bounce 82↔150. Neutral. |
+| P3 (seek) | LoAF | 161ms | 65ms (−40%) | 172ms | Variance on network-dominated path |
+| P7 (scrubber drag) | Max frame | 116ms | 83ms (−29%) | 84ms | Phase B held Phase A's gain ✅ |
+| P7 (scrubber drag) | LoAF | 133ms | 50ms (−38%) | 47ms | Phase B improved slightly (no DOM walk) ✅ |
+| P8 (table scroll) | Max frame | 217ms | 183ms (−16%) | 217ms | Phase A win on listener churn; Phase B neutral (doesn't touch table path) |
+| P8 (table scroll) | LoAF | 912ms | 782ms (−14%) | 875ms | Single-run variance |
+| P11 (seek+reflow) | DOM churn | ~1200 avg | ~1000 avg (−17%) | ~1020 avg | A.4 GridCell key wins |
+| P2 (grid scroll) | Max frame | 117ms | 117ms | 100ms | Slight improvement Phase B |
 
-These are estimates based on profiling patterns. Actual measurements should
-be taken before/after each phase.
+**Summary:**
+- Phase A (A.1–A.5): real measurable wins on seek (P3), scrubber drag (P7), table scroll (P8), DOM churn
+- Phase B (C6,C7,C22): correctness win, neutral on performance. P7 held Phase A's drag improvement.
+- Remaining target: P8 P95 frame (50ms) and P8 LoAF (~875ms) — these are the next bottlenecks.
+  Phase C (measured header height) unlikely to move these. Would need virtualizer/React profiling.
 
 ---
 

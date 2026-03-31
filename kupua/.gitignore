@@ -27,3 +27,7 @@ Thumbs.db
 # Playwright test artifacts
 playwright-report/
 test-results/
+
+# Perf harness scratch file — overwritten on every run, not for git
+e2e-perf/results/.metrics-tmp.jsonl
+

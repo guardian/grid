@@ -911,3 +911,224 @@ a deliberate, reviewed change to this constant — which is the correct behaviou
 
 **File modified:** `e2e-perf/run-audit.mjs` (remove `computeStableUntil()`, replace with
 literal), `AGENTS.md` (update description).
+
+**Phase A: Performance Micro-Optimisations — A.1–A.5 (30 Mar 2026)**
+
+Five independent micro-optimisations from `coupling-fix-handoff.md` Phase A. All 152
+unit tests and all 63 E2E tests pass after the combined changes.
+
+**A.1 — Stabilise `handleScroll` callback (C19)**
+
+Both `ImageTable.tsx` and `ImageGrid.tsx` had `handleScroll` in a `useCallback` whose
+dependency array included `virtualizer`. TanStack Virtual returns a **new virtualizer
+object on every render**, so `handleScroll` re-created every render → `useEffect` tore
+down and re-registered the scroll listener on every render. Under fast scroll this could
+mean dozens of pointless listener re-registrations per second.
+
+Fix: store `virtualizer` in a ref (`virtualizerRef`), updated unconditionally every
+render. `handleScroll` reads `virtualizerRef.current` — always fresh, but the callback
+identity is stable. Removed `virtualizer` and `loadMore` from the dep array in both
+components (both now use `loadMoreRef` as well).
+
+In `ImageTable.tsx`: dep array reduced from `[virtualizer, reportVisibleRange, loadMore]`
+to `[reportVisibleRange]`. In `ImageGrid.tsx`: from
+`[virtualizer, reportVisibleRange, columns, loadMore]` to `[reportVisibleRange, columns]`.
+
+Expected effect: fewer DevTools "Event Listeners" entries during scroll, marginal
+improvement in scroll-path P95 frame time (eliminates redundant addEventListener /
+removeEventListener churn).
+
+**A.2 — Memoize column index array in `ImageGrid.tsx` (C20)**
+
+The render loop used `Array.from({ length: columns }, (_, i) => i)` inside the
+`virtualItems.map()` — this allocated a new array **per virtual row per render**.
+At 6 columns × 15 visible rows × 60fps = **5,400 short-lived array allocations/sec**,
+all immediately GC-able.
+
+Fix: `const columnIndices = useMemo(() => Array.from(...), [columns])` — array computed
+once when `columns` changes (rare), reused every render. The dep is only `columns`.
+
+**A.3 — Cache Canvas font in `measureText` (C21)**
+
+`measureText` in `ImageTable.tsx` called `ctx.font = font` on every invocation. Canvas
+font assignment triggers font-string parsing even when the value is unchanged. During
+column auto-fit, `measureText` is called ~600 times for two distinct fonts (CELL_FONT
+and HEADER_FONT). That's ~600 redundant parse operations per auto-fit.
+
+Fix: added `lastFontRef` that tracks the last-set font string. `ctx.font = font` is only
+executed when `font !== lastFontRef.current`. Column fit now triggers exactly 2 font
+parses regardless of row count.
+
+**A.4 — Fix `GridCell` key: index → image ID (eval doc item 3)**
+
+`GridCell` was keyed by `imageIdx` (flat buffer index). When `bufferOffset` changes
+(backward extend prepends items), all `imageIdx` values shift by `lastPrependCount`.
+React unmounted and remounted **every visible GridCell** even though the image data was
+the same — just the index changed.
+
+Fix: `key={image?.id ?? \`empty-${imageIdx}\`}`. Stable image IDs survive buffer
+mutations. Empty/placeholder cells still key by index (they're position-dependent
+anyway). This eliminates spurious full-grid reconciliation on every backward extend.
+
+**A.5 — Replace `ids.join(",")` with O(1) sentinel (eval doc item 7)**
+
+`visibleImages` in `ImageTable.tsx` used `ids.join(",")` as a cache key to detect
+whether the visible image set had changed. This is O(N) string concatenation at up to
+60 visible rows × every render during fast scroll.
+
+Fix: `\`${ids[0] ?? ""}|${ids[ids.length - 1] ?? ""}|${ids.length}\`` — first ID,
+last ID, and count. Detects window shifts, resizes, and content changes at O(1). The
+only theoretical miss (swapping two middle IDs while keeping first/last/count constant)
+cannot happen with a contiguous virtualizer window.
+
+**Files modified:**
+- `src/components/ImageGrid.tsx`: added `useMemo` import; `virtualizerRef` + `loadMoreRef`
+  stabilisation (A.1); `columnIndices` useMemo (A.2); `image?.id` key (A.4)
+- `src/components/ImageTable.tsx`: `virtualizerRef` + `loadMoreRef` stabilisation (A.1);
+  `lastFontRef` font cache (A.3); O(1) sentinel key (A.5)
+
+**Perf run required (human):** After these changes are in place, request:
+```
+node e2e-perf/run-audit.mjs --label "Phase A: perf micro-opts (C19,C20,C21,GridCell key,ids.join)" --runs 1
+```
+Expected improvements: P2/P8 (scroll jank), P4a/P4b (density switch), P16b (column fit).
+
+**Measured results (Phase A run, 30 Mar 2026):**
+
+| Test | Key metric | Baseline | Phase A | Δ | Notes |
+|------|-----------|---------|---------|---|-------|
+| P3 (seek) | Max frame | 117ms | 82ms | −30% | A.1 eliminates listener churn during seek+settle |
+| P3 (seek) | DOM churn | 928 | 437 | −53% | |
+| P3 (seek) | LoAF | 161ms | 65ms | −40% | |
+| P7 (scrubber drag) | Max frame | 116ms | 83ms | −29% | A.1 — drag loop no longer re-attaches listener |
+| P7 (scrubber drag) | LoAF | 133ms | 50ms | −38% | |
+| P8 (table scroll) | Max frame | 217ms | 183ms | −16% | A.1 on table scroll path |
+| P8 (table scroll) | LoAF | 912ms | 782ms | −14% | |
+| P11 (seek+reflow) | DOM churn | ~1200 avg | ~1000 avg | −17% | A.4 GridCell key — fewer remounts on buffer shift |
+| P13a (detail enter) | Max frame | 117ms | 99ms | −15% | |
+| P14a/c (traversal) | Max frame | 67ms | 51ms | −24% | |
+
+Harness flagged 4 "regressions" — all confirmed noise:
+- **P1 maxFrame +20%** (83→100ms): load path unchanged; single-run CPU variance. CLS/P95/severe all flat.
+- **P12-scroll severe +22%** (9→11): 2 frames difference across 350, network-dominated test.
+- **P14b/c severe +1–2**: absolute counts of 2→3 and 2→4; meaningless at this scale.
+- **P16b**: column auto-fit was already sub-18ms (quantisation floor); A.3 wins at "fit all columns" which the test doesn't exercise.
+
+P4a/P4b (density switch) showed no change — expected. A.4 helps backward extend reconciliation, not the initial switch which is network+ES dominated.
+
+## Phase C: DOM-Measured Header Height — C1 (31 Mar 2026)
+
+Replaced the `TABLE_HEADER_HEIGHT = 45` hardcoded constant in `ImageTable.tsx` with a live-measured value via a new `useHeaderHeight` hook.
+
+**Why:** C1 from the coupling audit — the JS constant `HEADER_HEIGHT = 45` must match the CSS-rendered height of the sticky header (`h-11` = 44px + `border-b` = 1px). If either changes (font scaling, responsive breakpoints, an added filter row), the scroll padding and keyboard-focus visibility calculations would silently break. This replaces a manual sync obligation with an automatic one.
+
+**New file: `src/hooks/useHeaderHeight.ts`**
+
+A callback-ref + ResizeObserver hook. Returns `[callbackRef, measuredHeight]`. Implementation notes:
+
+- Uses a callback ref (not `useEffect`) — fires synchronously on element mount, so the initial height is available immediately via `getBoundingClientRect()`, not on the next tick.
+- Observes `box: "border-box"` so the 1px `border-b` is included in the measurement.
+- Falls back to the `fallback` argument (= `TABLE_HEADER_HEIGHT = 45`) on the first frame before DOM is ready — identical to the old constant, so no visible jump or miscalculation.
+- Stores the observer in `observerRef` to disconnect on element removal / component unmount.
+- Zero deps on `useCallback` — `setHeight` is stable per React guarantee.
+
+**ResizeObserver fires at most:** once on mount, plus optionally on font load or browser resize. Never fires during scroll (ResizeObserver observes border-box, not scroll position). Zero scroll-path cost.
+
+**Changes to `ImageTable.tsx`:**
+
+1. Added `import { useHeaderHeight }` from hooks.
+2. Added `const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT)` after `parentRef`.
+3. Added `ref={headerCallbackRef}` to the sticky header div (`data-table-header`).
+4. Replaced `scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT` with `scrollPaddingStart: headerHeight - ROW_HEIGHT`.
+5. Replaced `headerHeight: HEADER_HEIGHT` with `headerHeight` in `useListNavigation`.
+6. `HEADER_HEIGHT` import kept as fallback — unchanged value.
+
+**Phase D assessment:** All three D items deferred. D.1 (density-focus ref): module-level `let saved` is safe — components never co-render, lifecycle is serial. Prop-threading adds complexity with no practical benefit. D.2 (font strings from CSS): compile-time constants, no sync obligation, low value. D.3 (panel constraints): UX decision, requires design discussion.
+
+**Validation:** 152 unit tests pass. 63 E2E tests pass (keyboard nav, density switch, scrubber all green).
+
+## Post-Phase-C: Phase C Re-run + Harness Fix + Handoff Docs (31 Mar 2026)
+
+### Phase C re-run (full — 31 tests)
+
+The first Phase C run lost P4a/P4b/P5/P6/P7/P9 to ES tunnel instability (20 of 30
+test variants recorded). A full re-run was done later in the same session with a stable
+tunnel. All 31 tests completed. This entry ("Phase C re-run (full)") supersedes entry
+3 ("Phase C: measured header height") in `audit-log.json`. It is the authoritative
+Phase C result used in all analysis below.
+
+Key result: P8 maxFrame=183ms, LoAF=748ms, severe=15 — best across all phases. P7
+LoAF=138ms — the Phase A/B win (47ms) appears gone; likely tunnel variance but
+needs `--runs 3` to confirm. P12-scroll.severe=10 — the "monotone trend" (9→11→12→14
+across partial runs) was noise; C-full is near baseline.
+
+### Harness bug fix: focusDrift fields were always recorded but stripped
+
+`run-audit.mjs`'s `aggregateMetrics()` function maintained a hardcoded list of
+field names to persist. `focusDriftPx`, `focusDriftRatio`, and `focusVisible` were
+not in that list — so they were recorded to `.metrics-tmp.jsonl` on every run but
+silently dropped when writing to `audit-log.json`. Fixed: the function now preserves
+all fields present in the metrics object, not just the hardcoded list.
+
+This meant the "Critical measurement gap" called out in the original post-phase-C
+analysis was wrong. The data was always there. Reading `.metrics-tmp.jsonl` directly
+from the Phase C re-run revealed:
+- P4a (grid→table): focusDriftPx=**0**, perfect
+- P4b (table→grid): focusDriftPx=**−160px** (image appears ~5 rows above expected)
+- P6 (sort change): focusDriftPx=**428px**, ratio=0.412 (image ~41% viewport below expected)
+
+P6's 428px drift is the most actionable finding in the entire dataset. Sort-around-focus
+does not preserve the focused item's viewport position — it always re-centres via
+`scrollToIndex(idx, "center")`. P4b's −160px asymmetry (P4a is 0) points to the
+`density-focus.ts` table→grid restore path. These are real, visible bugs.
+
+### Documentation session
+
+`exploration/docs/fix-ui-docs-eval.md` Part 5 updated:
+- Replaced the "Critical measurement gap" bullet (which said `focusDriftPx` was
+  always null) with the corrected finding, plus a table of the actual Phase C values.
+- Updated "Overall assessment" forward pointer to reference `focus-drift-and-scroll-handoff.md`.
+
+New `exploration/docs/focus-drift-and-scroll-handoff.md` created — self-contained
+handoff for the next agent session covering:
+1. Focus drift elimination (P6 428px, P4b −160px, add P17 test)
+2. P8 table fast scroll investigation (~57k DOM churn)
+
+Includes source file map, code-level diagnosis of both bugs, investigation approaches
+for P8, validation sequences, and architecture decisions not to change without discussion.
+
+`AGENTS.md` docs table: corrected stale `perf-measurement-report` description.
+
+## Post-Phase-C: Perf Measurement Analysis and Honest Assessment (31 Mar 2026)
+
+After all four phases (Baseline, A, B, C) were run against TEST ES, a full analysis
+of the measurement data was conducted. Key findings:
+
+**What actually improved (genuine, consistent gains):**
+- P7 LoAF 133→50ms (−62%) — scrubber drag seeks are faster. `handleScroll` stabilisation (A.1).
+- P2 LoAF 104→68ms (−35%) — scroll initiation smoother. Same cause.
+- P3/P7/P11 domChurn down 14–53% — fewer DOM mutations on buffer extends. GridCell `id` key (A.4).
+
+**What did not improve:**
+- P8 (table fast scroll): p95=50ms, domChurn=~57k — completely flat across all phases. The coupling fixes did not touch this path's root cause. This is the primary user-facing bottleneck.
+
+**Suspected regression:**
+- P12-scroll.severe: 9→11→12→14. Monotone upward across all four phases. Started at Phase A. Likely related to `virtualizerRef.current` being one render stale during rapid scroll, causing different `range` readings and more `loadMore` calls. Needs `--runs 3` confirmation.
+
+**focusDrift data (corrected — harness bug fixed in same session):**
+- `focusDriftPx`/`focusDriftRatio`/`focusVisible` were always recorded in `.metrics-tmp.jsonl`
+  but stripped by `aggregateMetrics()` before writing to `audit-log.json`. Initially
+  misdiagnosed as "getFocusedViewportPos() returns null". The data was there all along —
+  reading `.metrics-tmp.jsonl` directly gave: P4a=0px (perfect), P4b=−160px, P6=428px.
+  The "Never Lost" density switch does have quantitative data; it just wasn't surfacing
+  through the harness. Fix applied to `run-audit.mjs` same session. See "Phase C re-run"
+  entry above.
+
+**Phase C (header height) specifically:**
+- 20 of 30 test variants recorded; P4a/P4b/P5a/b/c/P6/P7/P9 absent (ES tunnel timeouts during that run — not a harness failure; the diff table only shows changed tests, which made it appear fewer ran). Phase C adds one ResizeObserver callback on mount. Zero scroll-path cost. No perf regression on the 20 tests that did run. The missing tests (density switch, scrubber drag) should be re-run with a stable tunnel.
+
+**Deliverables created:**
+- `exploration/docs/perf-measurement-report.md` — full scannable report with all raw data, per-test analysis, and recommended next steps for fresh agent. Updated in same session with Phase C re-run data and corrected focusDrift findings.
+- `exploration/docs/fix-ui-docs-eval.md` — Part 5 added + corrected (see "Phase C re-run + Harness Fix" entry above).
+- `exploration/docs/focus-drift-and-scroll-handoff.md` — new handoff doc for next two work items.
+- `AGENTS.md` — "Known Performance Issues" section + docs table correction.

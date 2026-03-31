@@ -15,11 +15,10 @@
  */
 
 import { resetVisibleRange } from "@/hooks/useDataWindow";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
 
 export function resetScrollAndFocusSearch() {
-  const scrollContainer = document.querySelector<HTMLElement>(
-    '[role="region"][aria-label="Image results table"], [role="region"][aria-label="Image results grid"]',
-  );
+  const scrollContainer = getScrollContainer();
   if (scrollContainer) {
     scrollContainer.scrollTop = 0;
     scrollContainer.scrollLeft = 0;

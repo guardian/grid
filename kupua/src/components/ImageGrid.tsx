@@ -18,6 +18,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -29,6 +30,7 @@ import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import type { Image } from "@/types/image";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
@@ -171,6 +173,14 @@ export function ImageGrid() {
   const searchParams = useSearch({ from: "/search" });
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // B.1: Register this component's scroll container so Scrubber can find it
+  // without DOM archaeology. Runs once on mount; clears on unmount.
+  useEffect(() => {
+    registerScrollContainer(parentRef.current);
+    return () => registerScrollContainer(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
+  }, []);
 
   // -------------------------------------------------------------------------
   // Responsive column count + cell width via ResizeObserver
@@ -339,6 +349,18 @@ export function ImageGrid() {
   const totalRef = useRef(total);
   totalRef.current = total;
 
+  // A.1: Stabilise virtualizer ref — TanStack Virtual returns a new object
+  // every render, so putting `virtualizer` directly in the useCallback dep
+  // array creates a new handleScroll every render → useEffect tears down and
+  // re-attaches the scroll listener every render. Store it in a ref instead;
+  // the callback always reads the latest virtualizer without causing churn.
+  const virtualizerRef = useRef(virtualizer);
+  virtualizerRef.current = virtualizer;
+
+  // Stable ref for loadMore (store-bound, but we want zero-dep callback)
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -346,7 +368,7 @@ export function ImageGrid() {
     // Report the *actual* visible range (without overscan) — see ImageTable
     // handleScroll for detailed rationale. For the grid, overscan rows are
     // converted to flat image indices.
-    const range = virtualizer.range;
+    const range = virtualizerRef.current.range;
     if (range) {
       const firstRowIdx = range.startIndex;
       const lastRowIdx = range.endIndex;
@@ -357,9 +379,9 @@ export function ImageGrid() {
     // Fallback loadMore near bottom
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
-      loadMore();
+      loadMoreRef.current();
     }
-  }, [virtualizer, reportVisibleRange, columns, loadMore]);
+  }, [reportVisibleRange, columns]);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -594,6 +616,14 @@ export function ImageGrid() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
+  // A.2: Memoize the column index array. Without this, Array.from allocates a
+  // new array on every virtual row during every render pass — at 6 cols × 15
+  // rows × 60fps that's ~5,400 short-lived GC-able arrays per second.
+  const columnIndices = useMemo(
+    () => Array.from({ length: columns }, (_, i) => i),
+    [columns],
+  );
+
   return (
     <div
       ref={parentRef}
@@ -618,13 +648,19 @@ export function ImageGrid() {
                 padding: `0 ${CELL_GAP}px`,
               }}
             >
-              {Array.from({ length: columns }, (_, colIdx) => {
+              {columnIndices.map((colIdx) => {
                 const imageIdx = startIdx + colIdx;
                 if (imageIdx >= virtualizerCount) return null;
                 const image = getImage(imageIdx);
+                // A.4: Key by image ID (stable across buffer mutations) instead
+                // of by flat index. When bufferOffset changes (backward extend),
+                // imageIdx values shift for all visible cells — React unmounts
+                // and remounts every GridCell even though the image is the same.
+                // image?.id is stable; fall back to empty-cell sentinel for
+                // placeholder slots (image=undefined).
                 return (
                   <GridCell
-                    key={imageIdx}
+                    key={image?.id ?? `empty-${imageIdx}`}
                     image={image}
                     isFocused={!!image && image.id === focusedImageId}
                     cellWidth={cellWidth}

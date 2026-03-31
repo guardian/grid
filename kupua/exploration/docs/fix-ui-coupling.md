@@ -129,54 +129,24 @@ from a shared constants module, use in both CSS theme and JS).
 
 ---
 
-## 🟡 C6: Scrubber `findScrollContainer` — DOM structure coupling
+## ✅ C6: Scrubber `findScrollContainer` — DOM structure coupling — RESOLVED (31 Mar 2026)
 
 **File:** `Scrubber.tsx:409-413`, `scroll-reset.ts:20-22`
 
-```ts
-const contentCol = trackRef.current?.previousElementSibling;
-return contentCol.querySelector("[role='region']")
-    ?? contentCol.querySelector(".overflow-auto");
-```
-
-And in `scroll-reset.ts`:
-```ts
-document.querySelector('[role="region"][aria-label="Image results table"], [role="region"][aria-label="Image results grid"]')
-```
-
-The Scrubber finds its scroll container by walking the DOM tree
-(`previousElementSibling`) and querying for `[role='region']`. The scroll reset finds
-it by ARIA label string matching. Both break if:
-
-- The DOM order of PanelLayout children changes
-- The ARIA role/label strings change
-- A wrapper div is added between the content column and the scroll container
-
-This is a fragile sibling-position coupling. The Scrubber doesn't receive a ref to
-the scroll container — it discovers it by DOM archaeology.
-
-**Fix direction:** Pass a `scrollContainerRef` prop from the parent layout to the
-Scrubber. The Scrubber should never need to know its position in the DOM tree.
+**Fix applied:** New module `src/lib/scroll-container-ref.ts`. Density components
+(`ImageTable`, `ImageGrid`) call `registerScrollContainer(el)` on mount/unmount.
+`Scrubber.tsx` calls `getScrollContainer()` — `findScrollContainer` function and all
+sibling-walking code removed. `scroll-reset.ts` updated to use same ref.
+`MutationObserver` also removed (no longer needed — density mount/unmount updates the ref).
 
 ---
 
-## 🟡 C7: Scrubber tooltip `trackHeight - 48` magic number
+## ✅ C7: Scrubber tooltip `trackHeight - 48` magic number — RESOLVED (31 Mar 2026)
 
 **File:** `Scrubber.tsx:979`
 
-```ts
-top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
-```
-
-The `48` is a guess at tooltip height for bottom-edge clamping. Other clamping sites
-(lines ~89, ~130, ~449, ~459) correctly use `tooltipEl.offsetHeight || 28`. This one
-in the JSX render path uses a **different** hardcoded value (`48` instead of `28`).
-Changing tooltip font size, padding, or adding a third line would make this stale.
-
-**The design flaw:** Inconsistency — four clamping sites use measured height, one uses
-a magic number. The JSX path can't easily measure because it's during render (before
-DOM commit). But the discrepancy (`48` vs `28`) is suspicious — looks like it grew
-from the initial single-line tooltip to the two-line version and was bumped manually.
+**Fix applied:** `trackHeight - 48` replaced with `trackHeight - (tooltipRef.current?.offsetHeight || 28)`.
+Now consistent with all other clamping sites.
 
 ---
 
@@ -368,8 +338,8 @@ or `max-w-full` would fix it.
 | C3 | 🔴 | Scroll anchoring, E2E tests | 5 | High — cell height responsive to screen |
 | C4 | 🔴 | E2E column calculations | 4 | High — different breakpoints |
 | C5 | 🟡 | Auto-fit column widths | 1 | Low |
-| C6 | 🟡 | Scrubber sync, scroll reset | 2 | Med — layout structure may differ |
-| C7 | 🟡 | Tooltip clipping at track bottom | 1 | Low |
+| C6 | ✅ | Scrubber sync, scroll reset — RESOLVED | 2 | Med — layout structure may differ |
+| C7 | ✅ | Tooltip clipping at track bottom — RESOLVED | 1 | Low |
 | C8 | 🟡 | Search input sizing | 1 | Med — input height may change |
 | C9 | 🟡→🟢 | (False alarm — ratio-based, actually OK) | 2 | Low |
 | C10 | 🟡 | Panel constraints on small screens | 1 | **Critical for mobile** |

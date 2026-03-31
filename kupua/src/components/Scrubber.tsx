@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -324,12 +325,11 @@ export function Scrubber({
     observerRef.current = observer;
     setTrackHeight(el.clientHeight);
 
-    // Forward wheel events to the adjacent content scroll container.
+    // Forward wheel events to the active content scroll container.
     // No explicit teardown — the element is removed from the DOM when the
     // component returns null (total <= 0), and the listener is GC'd.
     el.addEventListener("wheel", (e: WheelEvent) => {
-      const scrollContainer = el.previousElementSibling?.querySelector("[role='region']")
-        ?? el.previousElementSibling?.querySelector(".overflow-auto");
+      const scrollContainer = getScrollContainer();
       if (scrollContainer) {
         const before = scrollContainer.scrollTop;
         scrollContainer.scrollTop += e.deltaY;
@@ -399,21 +399,11 @@ export function Scrubber({
   // This exactly matches native scrollbar behavior — pixel-perfect.
   // -------------------------------------------------------------------------
 
-  /** Find the scroll container adjacent to the scrubber track. */
-  const findScrollContainer = useCallback((): Element | null => {
-    const contentCol = trackRef.current?.previousElementSibling;
-    if (!contentCol) return null;
-    return contentCol.querySelector("[role='region']")
-      ?? contentCol.querySelector(".overflow-auto");
-  }, []);
-
   useEffect(() => {
     if (!allDataInBuffer) return; // seek mode — handled by the discrete sync above
 
-    const contentCol = trackRef.current?.previousElementSibling;
-
     // --- inner helper: attach scroll listener to the current scroll container ---
-    let currentScrollEl: Element | null = null;
+    let currentScrollEl: HTMLElement | null = null;
     let currentHandler: (() => void) | null = null;
 
     const attach = () => {
@@ -422,7 +412,7 @@ export function Scrubber({
         currentScrollEl.removeEventListener("scroll", currentHandler);
       }
 
-      currentScrollEl = findScrollContainer();
+      currentScrollEl = getScrollContainer();
       if (!currentScrollEl) { currentHandler = null; return; }
 
       const scrollEl = currentScrollEl; // capture for closure
@@ -452,33 +442,29 @@ export function Scrubber({
 
     attach();
 
-    // Watch the content column for child changes (density switch swaps
-    // ImageGrid ↔ ImageTable, replacing the scroll container element).
-    // When that happens, re-find and re-attach the scroll listener.
-    let mo: MutationObserver | undefined;
-    if (contentCol) {
-      mo = new MutationObserver(() => attach());
-      mo.observe(contentCol, { childList: true });
-    }
+    // Re-attach whenever allDataInBuffer re-enters true (e.g. after a new search
+    // that loads a small result set, the density component remounts and the module
+    // ref updates). The effect re-runs because allDataInBuffer is in the dep array.
+    // No MutationObserver needed — the density component registers the new scroll
+    // container via registerScrollContainer() on its mount effect, but that happens
+    // before this effect runs (React processes child effects before parent-sibling
+    // effects in the same render). The getScrollContainer() call in attach() picks
+    // up the freshly-registered element.
 
     return () => {
       if (currentScrollEl && currentHandler) {
         currentScrollEl.removeEventListener("scroll", currentHandler);
       }
-      mo?.disconnect();
     };
-  }, [allDataInBuffer, isDragging, maxThumbTop, trackHeight, findScrollContainer]);
+  }, [allDataInBuffer, isDragging, maxThumbTop, trackHeight]);
 
   // -------------------------------------------------------------------------
   // Position → offset and back
   // -------------------------------------------------------------------------
 
-  /** Scroll the adjacent content container to a position ratio (0–1). */
+  /** Scroll the content container to a position ratio (0–1). */
   const scrollContentTo = useCallback((ratio: number) => {
-    const contentCol = trackRef.current?.previousElementSibling;
-    if (!contentCol) return;
-    const scrollContainer = contentCol.querySelector("[role='region']")
-      ?? contentCol.querySelector(".overflow-auto");
+    const scrollContainer = getScrollContainer();
     if (scrollContainer) {
       scrollContainer.scrollTop = Math.round(
         ratio * (scrollContainer.scrollHeight - scrollContainer.clientHeight),
@@ -930,7 +916,7 @@ export function Scrubber({
         ref={tooltipRef}
         className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
         style={{
-          top: Math.max(0, Math.min(trackHeight - 48, thumbTop)),
+          top: Math.max(0, Math.min(trackHeight - (tooltipRef.current?.offsetHeight || 28), thumbTop)),
           textAlign: "right",
           backgroundColor: "var(--color-grid-bg)",
           border: "1px solid var(--color-grid-border)",
