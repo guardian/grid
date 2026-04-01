@@ -34,6 +34,9 @@ lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
 )
 
+val nettyOverrides = Seq(
+  "io.netty" % "netty-codec-http2" %  "4.1.132.Final"
+)
 val commonSettings = Seq(
   scalaVersion := "2.13.18",
   description := "grid",
@@ -54,7 +57,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides ++= jacksonOverrides,
+  dependencyOverrides ++= jacksonOverrides ++ nettyOverrides,
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
