@@ -34,9 +34,6 @@ lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
 )
 
-val nettyOverrides = Seq(
-  "io.netty" % "netty-codec-http2" %  "4.1.132.Final"
-)
 val commonSettings = Seq(
   scalaVersion := "2.13.18",
   description := "grid",
@@ -57,7 +54,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides ++= jacksonOverrides ++ nettyOverrides,
+  dependencyOverrides ++= jacksonOverrides,
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -104,6 +101,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
+    "io.netty" % "netty-codec-http2" %  "4.1.132.Final",
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
