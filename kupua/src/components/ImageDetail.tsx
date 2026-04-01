@@ -40,7 +40,7 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
-import { resetScrollAndFocusSearch } from "@/lib/scroll-reset";
+import { resetScrollAndFocusSearch } from "@/hooks/useScrollEffects";
 import { storeImageOffset, getImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";

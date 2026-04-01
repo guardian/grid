@@ -5,7 +5,7 @@
  * container element here on mount. The Scrubber reads it instead of
  * doing DOM archaeology (previousElementSibling + querySelector).
  *
- * Same pattern as density-focus.ts — module-level mutable ref, zero React,
+ * Module-level mutable ref, zero React,
  * zero prop-drilling across PanelLayout.
  *
  * Registration contract:

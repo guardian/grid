@@ -5,7 +5,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
-import { resetScrollAndFocusSearch } from "@/lib/scroll-reset";
+import { resetScrollAndFocusSearch } from "@/hooks/useScrollEffects";
 
 // ---------------------------------------------------------------------------
 // Module-level debounce cancellation

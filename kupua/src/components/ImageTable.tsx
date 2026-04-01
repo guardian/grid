@@ -2,7 +2,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
@@ -21,11 +20,9 @@ import { useDataWindow } from "@/hooks/useDataWindow";
 import { useHeaderHeight } from "@/hooks/useHeaderHeight";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
-import { useSearchStore } from "@/stores/search-store";
+import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useColumnStore } from "@/stores/column-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
-import { registerScrollContainer } from "@/lib/scroll-container-ref";
-import { registerScrollReset } from "@/lib/scroll-reset-ref";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
@@ -33,9 +30,6 @@ import { cancelSearchDebounce } from "./SearchBar";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
 import { DataSearchPill } from "./SearchPill";
-import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
-import { saveFocusRatio, consumeFocusRatio } from "@/lib/density-focus";
-import { saveSortFocusRatio, consumeSortFocusRatio } from "@/lib/sort-focus";
 import {
   FIELD_REGISTRY,
   FIELDS_BY_ID,
@@ -423,14 +417,6 @@ export function ImageTable() {
   // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
   const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
 
-  // B.1: Register this component's scroll container so Scrubber can find it
-  // without DOM archaeology. Runs once on mount; clears on unmount.
-  useEffect(() => {
-    registerScrollContainer(parentRef.current);
-    return () => registerScrollContainer(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only
-  }, []);
-
   // Single-click a row → set focus (sticky highlight).
   const handleRowClick = useCallback(
     (imageId: string) => {
@@ -505,13 +491,32 @@ export function ImageTable() {
     scrollPaddingEnd: ROW_HEIGHT * 2,
   });
 
-  // Register a virtualizer-level scroll-reset callback so imperative callers
-  // (Home logo click) can reset BOTH DOM scrollTop AND virtualizer internal
-  // state. Without this, the virtualizer can lag behind after deep seeks.
-  useEffect(() => {
-    registerScrollReset(() => virtualizer.scrollToOffset(0));
-    return () => registerScrollReset(null);
-  }, [virtualizer]);
+  // -------------------------------------------------------------------------
+  // Shared scroll effects (scroll container registration, scroll handler,
+  // scroll compensation, seek, search-params reset, density/sort focus, etc.)
+  // -------------------------------------------------------------------------
+
+  useScrollEffects({
+    virtualizer,
+    parentRef,
+    geometry: useMemo(
+      () => ({
+        rowHeight: ROW_HEIGHT,
+        columns: 1,
+        headerOffset: HEADER_HEIGHT,
+        preserveScrollLeftOnSort: true,
+      }),
+      [],
+    ),
+    reportVisibleRange,
+    resultsLength: results.length,
+    total,
+    bufferOffset,
+    loadMore,
+    focusedImageId,
+    findImageIndex,
+  });
+
 
   // TanStack Table only receives images visible in the current virtualizer
   // window. This keeps getCoreRowModel at O(~60 visible rows) instead of
@@ -630,218 +635,6 @@ export function ImageTable() {
     cachedVirtualItemsRef.current = virtualItems;
   }
 
-  // Scroll handler: report the visible index range to useDataWindow for
-  // gap detection + range loading. Also keeps the old loadMore fallback
-  // for sequential scroll near the bottom of loaded data.
-  //
-  // results.length and total are read from refs to keep the callback stable —
-  // without this, every loadRange/loadMore creates a new callback → the
-  // useEffect tears down and re-registers the scroll listener.
-  const resultsLengthRef = useRef(results.length);
-  resultsLengthRef.current = results.length;
-  const totalRef = useRef(total);
-  totalRef.current = total;
-
-  // A.1: Stabilise virtualizer ref — TanStack Virtual returns a new object
-  // every render, so putting `virtualizer` directly in the useCallback dep
-  // array creates a new handleScroll every render → useEffect tears down and
-  // re-attaches the scroll listener every render. Store it in a ref; the
-  // callback always reads the latest virtualizer without causing churn.
-  const virtualizerRef = useRef(virtualizer);
-  virtualizerRef.current = virtualizer;
-
-  // Stable ref for loadMore (store-bound, but we want zero-dep callback)
-  const loadMoreRef = useRef(loadMore);
-  loadMoreRef.current = loadMore;
-
-  const handleScroll = useCallback(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    // Report the *actual* visible range (without overscan) so the Scrubber
-    // thumb tracks content position precisely. getVirtualItems() includes
-    // overscan items, which creates a dead zone at the top: start stays 0
-    // for `overscan` rows of scroll because max(0, visibleStart - overscan) = 0.
-    // virtualizer.range gives the true visible range from calculateRange().
-    const range = virtualizerRef.current.range;
-    if (range) {
-      reportVisibleRange(range.startIndex, range.endIndex);
-    }
-
-    // Fallback: append-only loadMore when near the bottom (for small
-    // datasets where sparse scroll isn't needed)
-    const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
-      loadMoreRef.current();
-    }
-  }, [reportVisibleRange]);
-
-  useEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
-
-  // After buffer changes (seek / search / extend), the virtualizer re-renders
-  // but scrollTop may not change, so no scroll event fires. Manually refresh
-  // the visible range so the Scrubber thumb stays in sync.
-  useEffect(() => {
-    handleScroll();
-  }, [bufferOffset, results.length, handleScroll]);
-
-  // Backward extend scroll compensation: when items are prepended to the
-  // buffer, the virtualizer count grows but scrollTop doesn't change, so
-  // the visible content shifts down (user sees different images). Adjust
-  // scrollTop by the pixel height of the prepended items to keep the
-  // viewport stable. Without this, a cascade of backward extends fires
-  // (the shifted viewport still shows near-start indices → another extend).
-  // Uses useLayoutEffect to adjust before paint — prevents visible flicker.
-  const prependGeneration = useSearchStore((s) => s._prependGeneration);
-  const lastPrependCount = useSearchStore((s) => s._lastPrependCount);
-  const prevPrependGenRef = useRef(prependGeneration);
-  useLayoutEffect(() => {
-    if (prependGeneration === prevPrependGenRef.current) return;
-    prevPrependGenRef.current = prependGeneration;
-    const el = parentRef.current;
-    if (!el || lastPrependCount <= 0) return;
-    // Adjust scrollTop by the pixel height of prepended rows
-    el.scrollTop += lastPrependCount * ROW_HEIGHT;
-  }, [prependGeneration, lastPrependCount]);
-
-  // Forward extend scroll compensation (Bug #16): when extendForward evicts
-  // items from the start of the buffer, the data shifts under the viewport
-  // but scrollTop stays the same. Without adjustment, the visible indices
-  // remain near the buffer end → triggers another extendForward → infinite
-  // loop that makes the table "scroll by itself". Subtract the evicted rows'
-  // pixel height so the viewport points at the same data after eviction.
-  const forwardEvictGeneration = useSearchStore((s) => s._forwardEvictGeneration);
-  const lastForwardEvictCount = useSearchStore((s) => s._lastForwardEvictCount);
-  const prevForwardEvictGenRef = useRef(forwardEvictGeneration);
-  useLayoutEffect(() => {
-    if (forwardEvictGeneration === prevForwardEvictGenRef.current) return;
-    prevForwardEvictGenRef.current = forwardEvictGeneration;
-    const el = parentRef.current;
-    if (!el || lastForwardEvictCount <= 0) return;
-    el.scrollTop -= lastForwardEvictCount * ROW_HEIGHT;
-  }, [forwardEvictGeneration, lastForwardEvictCount]);
-
-  // Scroll to target position after seek: when _seekGeneration bumps,
-  // the buffer has been replaced. Scroll the virtualizer to the buffer-local
-  // index that corresponds to the user's target position. Without this,
-  // the scroll container retains its old scrollTop after buffer replacement,
-  // leaving the user at a random position within the new buffer.
-  const seekGeneration = useSearchStore((s) => s._seekGeneration);
-  const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
-  const prevSeekGenRef = useRef(seekGeneration);
-  useLayoutEffect(() => {
-    if (seekGeneration === prevSeekGenRef.current) return;
-    prevSeekGenRef.current = seekGeneration;
-    const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
-    virtualizer.scrollToIndex(targetIdx, { align: "start" });
-    // Dispatch a deferred scroll event after the seek cooldown (500ms) has
-    // expired. This triggers reportVisibleRange → extendForward/Backward,
-    // ensuring the buffer extends if the seek landed near a buffer edge.
-    // Without this, the user would be stuck at the bottom of a short buffer
-    // with no way to scroll further until a manual scroll event fires.
-    const el = parentRef.current;
-    if (el) {
-      const timer = setTimeout(() => {
-        el.dispatchEvent(new Event("scroll"));
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [seekGeneration, seekTargetLocalIndex, virtualizer]);
-
-  // Reset scroll position when search params change.  loadMore doesn't
-  // change URL params, so this only fires on genuinely new searches.
-  //
-  // All param changes (query, filters, sort, logo click) reset scrollTop.
-  // Sort currently resets to top because search() returns only the first
-  // page — keeping scroll at row N when only rows 0–49 have data causes
-  // an infinite gap-detect → loadRange → placeholder pulsing loop.
-  // See performance-analysis.md finding #11.
-  //
-  // Horizontal scroll (scrollLeft) is preserved on sort-only changes.
-  // The user may have scrolled right to reach the column header they
-  // clicked to sort; resetting scrollLeft would lose that context.
-  const prevSearchParamsRef = useRef(searchParams);
-  useLayoutEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    const prev = prevSearchParamsRef.current;
-    prevSearchParamsRef.current = searchParams;
-
-    // If only display-only keys changed, don't reset scroll at all
-    const onlyDisplayKeysChanged = Object.keys({ ...prev, ...searchParams }).every(
-      (key) =>
-        URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) ||
-        prev[key as keyof typeof prev] === searchParams[key as keyof typeof searchParams]
-    );
-    if (onlyDisplayKeysChanged) return;
-
-    // Detect sort-only change: orderBy changed, nothing else did.
-    // "Sort action" = orderBy was set (not cleared by logo click).
-    const orderByChanged = prev.orderBy !== searchParams.orderBy;
-    const isSortAction = orderByChanged && searchParams.orderBy != null;
-    const nonSortChanged = Object.keys({ ...prev, ...searchParams }).some(
-      (key) =>
-        key !== "orderBy" &&
-        !URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams) &&
-        prev[key as keyof typeof prev] !== searchParams[key as keyof typeof searchParams]
-    );
-    const sortOnly = isSortAction && !nonSortChanged;
-
-    // Skip scroll-reset when sort-around-focus is active. When the user
-    // changes sort with a focused image, sort-around-focus handles scroll
-    // positioning. Resetting scrollTop here would flash wrong content
-    // (old buffer at position 0) before sort-around-focus corrects it.
-    // Capture the focused item's viewport ratio BEFORE the sort — the
-    // sortAroundFocusGeneration effect will restore it after the async
-    // search places the image at its new position.
-    if (sortOnly && focusedImageId) {
-      const store = useSearchStore.getState();
-      const gIdx = store.imagePositions.get(focusedImageId);
-      if (gIdx != null) {
-        const localIdx = gIdx - store.bufferOffset;
-        if (localIdx >= 0) {
-          const rowTop = localIdx * ROW_HEIGHT;
-          saveSortFocusRatio((rowTop - el.scrollTop) / el.clientHeight);
-        }
-      }
-      return;
-    }
-
-    el.scrollTop = 0;
-    if (!sortOnly) {
-      el.scrollLeft = 0;
-    }
-    // Also tell the virtualizer — programmatic scrollTop changes on
-    // hidden (opacity-0) containers may not fire a scroll event, leaving
-    // the virtualizer rendering stale rows. scrollToOffset(0) directly
-    // updates the virtualizer's internal scroll state.
-    virtualizer.scrollToOffset(0);
-  }, [searchParams, virtualizer, focusedImageId]);
-
-  // Belt-and-suspenders: when bufferOffset transitions to 0 from a non-zero
-  // value (search completed after Home click / logo click / new query), force
-  // scroll to top. This catches cases where searchParams didn't change (Home
-  // click from default state) so the above effect doesn't fire, but the
-  // buffer was repositioned by store.search().
-  const prevBufferOffsetRef = useRef(bufferOffset);
-  useLayoutEffect(() => {
-    const prev = prevBufferOffsetRef.current;
-    prevBufferOffsetRef.current = bufferOffset;
-    if (prev > 0 && bufferOffset === 0) {
-      const el = parentRef.current;
-      if (el && el.scrollTop > 0) {
-        el.scrollTop = 0;
-        virtualizer.scrollToOffset(0);
-      }
-    }
-  }, [bufferOffset, virtualizer]);
-
   // Restore focus and scroll when returning from image detail overlay.
   useReturnFromDetail({
     imageParam: searchParams.image,
@@ -852,103 +645,6 @@ export function ImageTable() {
     flatIndexToRow: (idx) => idx,
   });
 
-  // ---------------------------------------------------------------------------
-  // Sort-around-focus: scroll to the focused image after sort-around-focus
-  // finds its new position and optionally seeks to it.
-  // ---------------------------------------------------------------------------
-
-  const sortAroundFocusGeneration = useSearchStore(
-    (s) => s.sortAroundFocusGeneration,
-  );
-  useLayoutEffect(() => {
-    if (sortAroundFocusGeneration === 0) return;
-    const id = useSearchStore.getState().focusedImageId;
-    if (!id) return;
-    const idx = findImageIndex(id);
-    if (idx < 0) return;
-
-    const el = parentRef.current;
-    const saved = consumeSortFocusRatio();
-    if (el && saved) {
-      // Restore the focused item at the same viewport ratio it had before
-      // the sort change — "Never Lost" ratio preservation.
-      const rowTop = idx * ROW_HEIGHT;
-      let target = rowTop - saved.ratio * el.clientHeight;
-      // Edge clamping: ensure item stays on screen
-      const itemY = rowTop - target;
-      if (itemY < 0) target = rowTop;
-      else if (itemY > el.clientHeight - ROW_HEIGHT)
-        target = rowTop - el.clientHeight + ROW_HEIGHT;
-      const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
-      virtualizer.scrollToOffset(clamped);
-    } else {
-      // No saved ratio (edge case) — fall back to start alignment
-      virtualizer.scrollToIndex(idx, { align: "start" });
-    }
-  }, [sortAroundFocusGeneration, findImageIndex, virtualizer]);
-
-  // ---------------------------------------------------------------------------
-  // Preserve focused item's viewport position across density switches.
-  //
-  // Mount: scroll so the focused row appears at the same relative viewport
-  // position it occupied in the previous density. Falls back to center.
-  //
-  // Unmount: save the focused row's viewport ratio for the next density.
-  // These are SEPARATE effects because the unmount save must always register
-  // a cleanup — even when focusedImageId is null at mount time. If they were
-  // one effect with an early return, focusing an image AFTER mount would
-  // leave no cleanup registered → no saveFocusRatio → density switch loses
-  // the scroll position (Bug #17).
-  // ---------------------------------------------------------------------------
-
-  // Mount: restore scroll position for focused image
-  useLayoutEffect(() => {
-    const id = focusedImageId;
-    if (!id) return;
-
-    const saved = consumeFocusRatio();
-    // Prefer the saved localIndex (immune to imagePositions eviction)
-    const idx = saved != null ? saved.localIndex : findImageIndex(id);
-    if (idx < 0) return;
-
-    if (saved != null) {
-      const el = parentRef.current;
-      if (el) {
-        // Reverse the save formula: saved.ratio = (rowTop + HEADER_HEIGHT - scrollTop) / clientHeight
-        // So scrollTop = rowTop + HEADER_HEIGHT - saved.ratio * clientHeight
-        const rowTop = idx * ROW_HEIGHT;
-        const targetScroll = rowTop + HEADER_HEIGHT - saved.ratio * el.clientHeight;
-        const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
-        virtualizer.scrollToOffset(clamped);
-      }
-    } else {
-      virtualizer.scrollToIndex(idx, { align: "center" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
-  }, []);
-
-  // Unmount: ALWAYS save the focused image's viewport ratio.
-  // Separate from mount so the cleanup is registered unconditionally.
-  useLayoutEffect(() => {
-    return () => {
-      const el = parentRef.current;
-      if (!el) return;
-      const { focusedImageId: fid, imagePositions, bufferOffset } = useSearchStore.getState();
-      if (!fid) return;
-      const globalIdx = imagePositions.get(fid) ?? -1;
-      if (globalIdx < 0) return;
-      const localIdx = globalIdx - bufferOffset;
-      if (localIdx < 0) return;
-      // The table has a sticky header (HEADER_HEIGHT) inside the scroll
-      // container. The row's visual position in the viewport is
-      // (rowTop + HEADER_HEIGHT - scrollTop), not (rowTop - scrollTop).
-      // Without the header offset, table→grid switches place the item
-      // too high because the grid has no header.
-      const rowTop = localIdx * ROW_HEIGHT;
-      saveFocusRatio((rowTop + HEADER_HEIGHT - el.scrollTop) / el.clientHeight, localIdx);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Keyboard navigation — delegated to shared hook
