@@ -860,35 +860,6 @@ This solves the "is flashes=0 because nothing flashed, or because the probe is b
 No "max speed" (0ms interval) tier — Playwright dispatches without physics, so 0ms intervals measure virtualizer pathology rather than real UX. E1 and E2 now run all three tiers sequentially (3 result JSONs per experiment), giving slow/normal/fast jank profiles for every knob value. Documented in README "Scroll Speed Tiers" table.
 
 **Files changed:**
-- `e2e-perf/experiments.spec.ts` — all four changes (speed tiers, traversal scenarios, render timing probe)
-- `e2e-perf/results/experiments/README.md` — updated speed tables, added traversal tiers + render timing glossary
-- `playwright.experiments.config.ts` — viewport 1987×1110, DPR 1.25
-- `AGENTS.md` — updated experiment descriptions
-- `exploration/docs/changelog.md` — this entry
-
-### Experiment speed tier v2 recalibration (1 Apr 2026)
-
-**Motivation:** After running all 23 v1 scenarios against TEST (1.3M docs), two problems surfaced: (1) middle speed tiers (normal) produced results too close to slow to be actionable — they didn't reveal different behaviour; (2) the fastest tiers weren't fast enough to trigger extend/evict cycles in E6 (only 5s duration), meaning we couldn't observe the buffer management oddities the user sees when browsing locally.
-
-**Also:** Severe jank counts were misleading across speed tiers because slow scenarios record ~3× more rAF frames than fast ones (9s vs 3s of measurement). Raw severe count 20 (slow) vs 13 (fast) looks like slow is jankier, but it's just measuring for longer.
-
-**Changes:**
-
-1. **Wheel scroll tiers (E1, E2):** Dropped `normal` (100px/150ms). Kept `slow` (100px/300ms). Kept `fast` (200px/100ms). Added `turbo` (400px/50ms, ~8,000 px/s). Within safety bounds (delta < 5000, interval ≥ 30ms). Turbo is designed to push past the buffer edge.
-
-2. **Smooth autoscroll tiers (E6):** Dropped `moderate` (8px/frame). Also dropped `crawl` (1px/frame, scrolls ~900px in 15s) and `gentle` (3px/frame, ~2,700px) — both are below the extend threshold (~4,800px for table, ~7,500px for grid) so they can never trigger extends and produce uniformly smooth data. Kept brisk/fast/turbo (3 tiers). Added `turbo` (100px/frame, ~6,000 px/s). Duration increased from 5s → 15s — at turbo speed this scrolls ~90,000px in 15s, enough to exhaust a 1000-item buffer multiple times and force extend/evict cycles. Timeout increased to 300s.
-
-3. **Traversal tiers (E4, E5):** Dropped `normal` (1000ms). Added `rapid` (80ms, ~12 images/sec — held-down arrow key). At 80ms almost no image will render; this is a pure cancellation stress test. Steps increased for rapid (20 images vs 12 for fast).
-
-4. **Jank normalisation:** Added `severePerKFrames` — severe frames per 1000 rAF frames. Computed in `collectSnapshot` (persisted in JSON) and logged to console for all experiments. A `severePerKFrames()` helper function avoids repeating the math. This gives a directly comparable rate across speed tiers regardless of measurement duration.
-
-5. **Baseline archived:** v1 JSON results moved to `v1-baseline/` subdirectory. `experiments-log.md` renamed to `experiments-log-v1-baseline.md`. Fresh `experiments-log.md` created for v2.
-
-6. **E5 cache clearing:** Browser cache cleared via CDP (`Network.clearBrowserCache`) before E5 runs. E4 traverses images in detail view and warms the browser cache; without clearing, E5 fullscreen render times would be cache hits (~80ms) instead of real imgproxy latency (~456ms). Results tagged with `cacheCleared: true`.
-
-**Total v2 scenarios: 19** (down from 23 — dropped 4 slow tiers that couldn't trigger extends).
-
-**Files changed:**
 - `e2e-perf/experiments.spec.ts` — speed tier definitions, test names, E6 duration, normalised jank output, timeout
 - `e2e-perf/results/experiments/README.md` — speed tier tables, signals glossary (severePerKFrames), JSON schema example
 - `e2e-perf/results/experiments/experiments-log.md` — fresh v2 log
@@ -896,3 +867,66 @@ No "max speed" (0ms interval) tier — Playwright dispatches without physics, so
 - `e2e-perf/results/experiments/v1-baseline/` — archived v1 JSON results
 - `AGENTS.md` — updated experiment infrastructure description
 - `exploration/docs/changelog.md` — this entry
+
+### Image traversal prefetch pipeline fix — 1 Apr 2026
+
+**Problem:** User reported image traversal (arrow keys in detail/fullscreen) felt
+slower than it used to be. Investigated and found a regression: Era 3 (commit
+`85673c0d4`) replaced Era 2's fire-and-forget `new Image().src` prefetch with
+`fetch()` + `AbortController` debounced at 400ms. The 400ms debounce killed the
+rolling pipeline at any browsing speed faster than ~500ms/image.
+
+**Investigation (traversal-perf-investigation.md):**
+- Researched 3 eras of prefetch logic in the codebase
+- Studied PhotoSwipe (24k★) and immich (65k★) for prior art
+- Built instrumentation: imgproxy request tracking, per-tier browser cache clearing,
+  per-image render timing, landing image cache-hit detection
+- Ran 3 baseline experiments against TEST (1.3M docs) with slow/moderate/fast/rapid
+  speed tiers, identifying the debounce cliff: 0ms landing at slow (1000ms/step),
+  500ms+ at fast (200ms/step)
+
+**Fix applied to `ImageDetail.tsx`:**
+1. Replaced Era 3 debounced `fetch()` + `AbortController` with fire-and-forget
+   `new Image().src` on every navigation (Era 2 approach, no debounce)
+2. Direction-aware allocation (PhotoSwipe model): 4 ahead + 1 behind, direction
+   tracked via `directionRef`
+3. `fetchPriority="high"` on the main `<img>` element
+4. T=150ms throttle gate: suppresses prefetch batches during held-key rapid traversal
+   (<150ms/step) to reduce imgproxy contention. Never fires at ≥200ms/step (fast
+   browsing and slower). Mathematical proof in the investigation doc that T=150ms
+   never hurts: suppressed batches at <150ms/step can't complete in time to be
+   useful anyway, and the 4-ahead reach ensures the landing image is always covered.
+
+**Results (2 runs against TEST, all 8 tiers valid):**
+
+| Tier | Interval | E4 Landing (before→after) | E5 Landing (before→after) |
+|------|----------|--------------------------|--------------------------|
+| slow | 1000ms | 0ms → 0ms | 0ms → 0ms |
+| moderate | 500ms | 120ms → **0ms** | 109ms → **0ms** |
+| fast | 200ms | 500ms → **0ms** | 519ms → **0ms** |
+| rapid | 80ms | 410ms → **0ms** | 413ms → **290ms** |
+
+E5-rapid (fullscreen + 80ms/step) shows 290ms landing due to imgproxy contention
+(avg latency 608ms, 0 cache hits). All other tiers: 0ms. The throttle gate was added
+as insurance against future larger images (AVIF, DPR-aware sizing) pushing the
+contention cliff to slower speeds.
+
+**E4/E5 experiment enhancements:**
+- Added slow (1000ms) and moderate (500ms) speed tiers to E4/E5
+- Added per-tier browser cache clearing via CDP `Network.clearBrowserCache`
+- Added imgproxy request tracking (count, bytes, cache hits, avg duration)
+- Added `scripts/read-results.py` utility for quick experiment result inspection
+
+**Directive added:** "Dev server conflict" — agent must warn user to stop any running
+dev server on port 3000 before running `npx playwright test`.
+
+**Files changed:**
+- `src/components/ImageDetail.tsx` — prefetch pipeline: fire-and-forget + direction-aware + throttle gate
+- `e2e-perf/experiments.spec.ts` — slow/moderate tiers, per-tier cache clearing, imgproxy tracking
+- `exploration/docs/traversal-perf-investigation.md` — full investigation (768 lines)
+- `exploration/docs/deviations.md` — §17: prefetch pipeline deviation
+- `exploration/docs/copilot-instructions-copy-for-humans.md` — dev server conflict directive
+- `scripts/read-results.py` — experiment result inspector utility
+- `AGENTS.md` — updated image detail, experiments, docs table, project structure
+- `exploration/docs/changelog.md` — this entry
+

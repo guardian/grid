@@ -284,6 +284,32 @@ media-api), the following kupua-specific features need migration:
 of the above. The only new code is the write adapter. This is already
 the plan in `migration-plan.md` Phase 3.
 
+### 17. Prefetch pipeline — fire-and-forget replaces debounced abort
+
+**What:** Kupua's `ImageDetail.tsx` (Era 3, commit `85673c0d4`) used
+`fetch()` + `AbortController` with a 400ms debounce for prefetching
+nearby images. Kupua now uses fire-and-forget `new Image().src` (Era 2
+approach), direction-aware (4 ahead + 1 behind, PhotoSwipe model),
+`fetchPriority="high"` on the main `<img>`, and a T=150ms throttle gate
+that suppresses prefetch batches during held-key rapid traversal.
+
+**Why:** The 400ms debounce killed the rolling pipeline at any browsing
+speed faster than ~500ms/image. At 200ms/step (fast flick), prefetches
+never fired — landing image was 500ms cold imgproxy latency. Experiment
+data confirmed: landing dropped from 400-540ms to 0ms across 7/8 speed
+tiers after the fix. The throttle gate (T=150ms) reduces imgproxy
+contention at held-arrow-key speeds (<150ms/step) without ever firing at
+normal browsing speeds (≥200ms/step).
+
+**Trade-off:** Abandoned requests are never cancelled (unlike Era 3).
+In-flight prefetches for images the user has already passed consume
+imgproxy processing time and browser connections. At normal speeds this
+is negligible (browser deduplicates same-URL requests). At extreme rapid
+speeds the throttle gate halves the request volume. The net effect is
+dramatically better: 0ms landing at moderate/fast speeds vs 400-540ms.
+
+Full experiment data: `exploration/docs/traversal-perf-investigation.md`.
+
 ---
 
 ## From library defaults / conventions

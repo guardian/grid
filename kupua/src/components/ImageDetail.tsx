@@ -171,11 +171,19 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   const nextImageRef = useRef(nextImage);
   nextImageRef.current = nextImage;
 
+  // Track movement direction for direction-aware prefetch.
+  // Updated on every prev/next navigation. Default "forward" because
+  // entering detail view from the grid is conceptually "going into" the
+  // list — the user's next action is more likely → than ←.
+  const directionRef = useRef<"forward" | "backward">("forward");
+
   const goToPrev = useCallback(() => {
+    directionRef.current = "backward";
     if (prevImageRef.current) goToImage(prevImageRef.current.id);
   }, [goToImage]);
 
   const goToNext = useCallback(() => {
+    directionRef.current = "forward";
     if (nextImageRef.current) goToImage(nextImageRef.current.id);
   }, [goToImage]);
 
@@ -257,57 +265,61 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   const imageUrl = imgLoadFailed ? undefined : (fullUrl ?? thumbUrl);
 
-  // ── Prefetch nearby images ──────────────────────────────────────
+  // ── Prefetch nearby images (direction-aware pipeline) ─────────
   //
-  // 2 prev + 3 next (asymmetric: users flick forward more).  Uses
-  // fetch() + AbortController so prefetches are cancelled when the user
-  // navigates away — no more zombie requests clogging the connection pool.
+  // Fire-and-forget: on every navigation, prefetch 4 images in the
+  // movement direction + 1 behind (for "oops, went one too far").
+  // Uses `new Image().src` — the browser fetches and caches the
+  // response. Completed prefetches are never cancelled — they warm
+  // the browser's HTTP cache for future navigation.
   //
-  // Debounced: only fires after the user has stayed on an image for
-  // PREFETCH_SETTLE_MS.  During rapid flicking, zero prefetches fire.
-  // When the user settles, prefetch kicks in and warms the browser cache.
-  // Completed prefetches are left in the browser's HTTP cache (we do NOT
-  // abort completed fetches — they warm the cache for future navigation).
+  // Throttle gate (T=150ms): at held-arrow-key speeds (<150ms/step),
+  // skip prefetch batches to reduce imgproxy contention. The main
+  // <img> request still fires every step (browser-managed). At ≥200ms
+  // /step (fast tier and slower), 200 > 150 → throttle never triggers
+  // → pipeline runs at full capacity. See traversal-perf-investigation.md
+  // "Throttle analysis" section for the full mathematical proof that
+  // T=150ms never hurts: suppressed batches at <150ms/step can't
+  // complete in time to be useful anyway, and the 4-ahead reach ensures
+  // the landing image is always covered by an earlier unsuppressed batch.
+  //
+  // Direction-aware allocation (PhotoSwipe model):
+  //   Forward  → [i+1, i+2, i+3, i+4, i-1]
+  //   Backward → [i-1, i-2, i-3, i-4, i+1]
+  // Fired in distance order so the nearest image wins any connection
+  // scheduling tie.
+  const lastPrefetchRef = useRef(0);
   useEffect(() => {
     if (currentIndex < 0) return;
 
-    const PREFETCH_SETTLE_MS = 400;
-    let abortController: AbortController | null = null;
+    const now = performance.now();
+    if (now - lastPrefetchRef.current < 150) return;
+    lastPrefetchRef.current = now;
 
-    const timer = setTimeout(() => {
-      abortController = new AbortController();
-      const signal = abortController.signal;
+    const dir = directionRef.current;
+    const ahead = dir === "forward" ? 1 : -1;
+    const prefetchIndices: number[] = [];
 
-      const prefetchIndices: number[] = [];
-      // 2 backward
-      for (let i = 1; i <= 2; i++) {
-        if (currentIndex - i >= 0) prefetchIndices.push(currentIndex - i);
+    // 4 in movement direction (nearest first)
+    for (let i = 1; i <= 4; i++) {
+      const idx = currentIndex + ahead * i;
+      if (idx >= 0 && idx < results.length) prefetchIndices.push(idx);
+    }
+    // 1 behind
+    const behindIdx = currentIndex - ahead;
+    if (behindIdx >= 0 && behindIdx < results.length) prefetchIndices.push(behindIdx);
+
+    for (const idx of prefetchIndices) {
+      const prefetchImage = results[idx];
+      if (!prefetchImage) continue;
+      const url =
+        getFullImageUrl(prefetchImage, imgproxyOpts) ??
+        getThumbnailUrl(prefetchImage);
+      if (url) {
+        const img = new Image();
+        img.src = url;
       }
-      // 3 forward
-      for (let i = 1; i <= 3; i++) {
-        if (currentIndex + i < results.length) prefetchIndices.push(currentIndex + i);
-      }
-
-      for (const idx of prefetchIndices) {
-        const prefetchImage = results[idx];
-        if (!prefetchImage) continue;
-        const url =
-          getFullImageUrl(prefetchImage, imgproxyOpts) ??
-          getThumbnailUrl(prefetchImage);
-        if (url) {
-          // Fire and forget — but cancellable via the shared controller.
-          // We intentionally don't await or store the blob — the purpose
-          // is to warm the browser's HTTP cache so the main fetch (above)
-          // gets a cache hit when the user arrives at this image.
-          fetch(url, { signal }).catch(() => {/* aborted or failed — fine */});
-        }
-      }
-    }, PREFETCH_SETTLE_MS);
-
-    return () => {
-      clearTimeout(timer);
-      abortController?.abort();
-    };
+    }
   }, [currentIndex, results, imgproxyOpts]);
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
@@ -442,6 +454,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           {imageUrl ? (
             <img
               src={imageUrl}
+              fetchPriority="high"
               alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
               className={
                 isFullscreen

@@ -174,15 +174,24 @@ type SmoothScrollSpeed = keyof typeof SMOOTH_SCROLL_SPEEDS;
 // ---------------------------------------------------------------------------
 
 const TRAVERSAL_SPEEDS = {
-  /** Studying each image — 2.5s per image. NOT USED in v2 experiments
+  /** Studying each image — 2.5s per image. NOT USED in experiments
    *  (every image renders trivially at this speed — measures imgproxy, not app).
-   *  Kept as a reference value for potential future cold-cache experiments. */
-  slow:   { intervalMs: 2500 },
+   *  Kept as a reference value. */
+  glacial:  { intervalMs: 2500 },
+  /** Deliberate browsing — reading captions, looking at each one. ~1/sec.
+   *  At 1000ms, the 400ms debounced prefetch fires every step. Tests
+   *  whether the prefetch pipeline actually works when it has time. */
+  slow:     { intervalMs: 1000 },
+  /** Moderate browsing — picture editor scanning carefully. ~2/sec.
+   *  This is the speed where the prefetch pipeline matters most:
+   *  fast enough that you want the next image pre-loaded, slow enough
+   *  that a 400ms imgproxy fetch can complete between steps. */
+  moderate: { intervalMs: 500 },
   /** Fast flick — scanning through to find a specific image. ~5/sec. */
-  fast:   { intervalMs: 200  },
+  fast:     { intervalMs: 200  },
   /** Rapid — holding down the arrow key. ~12/sec.
    *  Most images won't render; tests cancellation and final-image accuracy. */
-  rapid:  { intervalMs: 80   },
+  rapid:    { intervalMs: 80   },
 } as const;
 
 type TraversalSpeed = keyof typeof TRAVERSAL_SPEEDS;
@@ -351,6 +360,7 @@ async function injectProbes(page: any) {
 
     // ── Network payload ──
     const esRequests: any[] = [];
+    const imgproxyRequests: any[] = [];
     try {
       const resObs = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
@@ -362,6 +372,14 @@ async function injectProbes(page: any) {
               duration: re.duration,
             });
           }
+          if (re.name.includes("/imgproxy/") || re.name.includes("/insecure/")) {
+            imgproxyRequests.push({
+              url: re.name.slice(-80),
+              transferSize: re.transferSize ?? 0,
+              duration: re.duration,
+              cacheHit: (re.transferSize ?? -1) === 0,
+            });
+          }
         }
       });
       resObs.observe({ type: "resource", buffered: true });
@@ -369,7 +387,7 @@ async function injectProbes(page: any) {
 
     (window as any).__expProbes = {
       layoutShifts, longFrames, frameTimes, scrollVelocities,
-      mutationStats, blankFlashes, esRequests,
+      mutationStats, blankFlashes, esRequests, imgproxyRequests,
       stop: () => { _rafRunning = false; mutObs.disconnect(); },
     };
   });
@@ -392,6 +410,7 @@ async function resetProbes(page: any) {
     p.blankFlashes.maxDurationMs = 0;
     p.blankFlashes._pending.clear();
     p.esRequests.length = 0;
+    p.imgproxyRequests.length = 0;
   });
 }
 
@@ -403,6 +422,7 @@ interface ExpSnapshot {
   scroll: { maxVelocity: number; avgVelocity: number; samples: number };
   flashes: { count: number; totalDurationMs: number; maxDurationMs: number; pendingCount: number };
   network: { requestCount: number; totalBytes: number; avgBytes: number; avgDurationMs: number };
+  imgproxy: { requestCount: number; totalBytes: number; cacheHits: number; avgDurationMs: number };
 }
 
 async function collectSnapshot(page: any): Promise<ExpSnapshot> {
@@ -426,6 +446,10 @@ async function collectSnapshot(page: any): Promise<ExpSnapshot> {
 
     const reqs = p.esRequests as any[];
     const totalBytes = reqs.reduce((s: number, r: any) => s + r.transferSize, 0);
+
+    const iReqs = p.imgproxyRequests as any[];
+    const iTotalBytes = iReqs.reduce((s: number, r: any) => s + r.transferSize, 0);
+    const iCacheHits = iReqs.filter((r: any) => r.cacheHit).length;
 
     return {
       cls: { total: clsTotal, maxSingle: clsMax },
@@ -457,6 +481,12 @@ async function collectSnapshot(page: any): Promise<ExpSnapshot> {
         totalBytes,
         avgBytes: reqs.length > 0 ? totalBytes / reqs.length : 0,
         avgDurationMs: reqs.length > 0 ? reqs.reduce((s: number, r: any) => s + r.duration, 0) / reqs.length : 0,
+      },
+      imgproxy: {
+        requestCount: iReqs.length,
+        totalBytes: iTotalBytes,
+        cacheHits: iCacheHits,
+        avgDurationMs: iReqs.length > 0 ? iReqs.reduce((s: number, r: any) => s + r.duration, 0) / iReqs.length : 0,
       },
     };
   });
@@ -530,6 +560,15 @@ function diagnoseProbes(snap: ExpSnapshot, scenario: string): ProbeDiag[] {
     detail: snap.network.requestCount > 0
       ? `${snap.network.requestCount} ES requests (${(snap.network.totalBytes / 1024).toFixed(0)}KB)`
       : "0 ES requests — scenario didn't trigger extends (buffer was sufficient)",
+  });
+
+  // Imgproxy: log for traversal experiments
+  diags.push({
+    probe: "network/imgproxy",
+    ok: true,
+    detail: snap.imgproxy.requestCount > 0
+      ? `${snap.imgproxy.requestCount} imgproxy requests (${snap.imgproxy.cacheHits} cache hits, avg ${snap.imgproxy.avgDurationMs.toFixed(0)}ms)`
+      : "0 imgproxy requests — no image loads during scenario",
   });
 
   return diags;
@@ -940,6 +979,8 @@ interface LandingImageTiming {
   networkMs: number;
   /** Was the image fully rendered within the timeout? */
   rendered: boolean;
+  /** Was the image served from browser cache? (transferSize === 0 in PerformanceResourceTiming) */
+  cacheHit: boolean;
   /** Final img src (last 60 chars) for debugging. */
   finalSrc: string;
 }
@@ -972,7 +1013,7 @@ async function waitForLandingImage(
   });
 
   if (initial.complete && initial.hasSize) {
-    return { alreadyRendered: true, renderMs: 0, networkMs: 0, rendered: true, finalSrc: initial.src.slice(-60) };
+    return { alreadyRendered: true, renderMs: 0, networkMs: 0, rendered: true, cacheHit: true, finalSrc: initial.src.slice(-60) };
   }
 
   // Capture the src we're waiting for (it may change during polling if React
@@ -996,12 +1037,13 @@ async function waitForLandingImage(
     if (status.complete && status.hasSize) {
       const renderMs = Date.now() - t0;
       // Now grab network timing for this specific image URL
-      const networkMs = await getImageNetworkMs(page, landingSrc, t0);
+      const netInfo = await getImageNetworkInfo(page, landingSrc, t0);
       return {
         alreadyRendered: false,
         renderMs,
-        networkMs,
+        networkMs: netInfo.networkMs,
         rendered: true,
+        cacheHit: netInfo.cacheHit,
         finalSrc: landingSrc.slice(-60),
       };
     }
@@ -1012,27 +1054,29 @@ async function waitForLandingImage(
     const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
     return img?.src ?? "";
   });
-  return { alreadyRendered: false, renderMs: maxWaitMs, networkMs: 0, rendered: false, finalSrc: finalSrc.slice(-60) };
+  return { alreadyRendered: false, renderMs: maxWaitMs, networkMs: 0, rendered: false, cacheHit: false, finalSrc: finalSrc.slice(-60) };
 }
 
 /**
- * Extract network duration for a specific image URL from PerformanceResourceTiming.
- * Returns the time from t0 until the response finished, or 0 if not found.
+ * Extract network duration and cache-hit status for a specific image URL from PerformanceResourceTiming.
+ * Returns the time from t0 until the response finished, and whether it was a cache hit.
  */
-async function getImageNetworkMs(page: any, imgSrc: string, t0: number): Promise<number> {
+async function getImageNetworkInfo(page: any, imgSrc: string, t0: number): Promise<{ networkMs: number; cacheHit: boolean }> {
   return page.evaluate(({ src, originTime }: { src: string; originTime: number }) => {
     // PerformanceResourceTiming entries use performance.now() timebase
     const entries = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
     // Find the most recent entry matching this URL
     const matching = entries.filter(e => src.includes(e.name) || e.name.includes(src.split("?")[0]));
-    if (matching.length === 0) return 0;
+    if (matching.length === 0) return { networkMs: 0, cacheHit: false };
     const latest = matching[matching.length - 1];
     // responseEnd is in performance.now() timebase (ms since page load)
     // We need time relative to our measurement start (t0 in Date.now() timebase)
     // Convert: performance.timeOrigin + responseEnd = absolute time
     const responseAbsoluteMs = performance.timeOrigin + latest.responseEnd;
     const relativeMs = responseAbsoluteMs - originTime;
-    return Math.max(0, Math.round(relativeMs));
+    // transferSize === 0 means served from browser cache (no network transfer)
+    const cacheHit = (latest.transferSize ?? -1) === 0;
+    return { networkMs: Math.max(0, Math.round(relativeMs)), cacheHit };
   }, { src: imgSrc, originTime: t0 });
 }
 
@@ -1332,7 +1376,7 @@ test.describe("Tuning Experiments", () => {
   });
 
   /**
-   * E4: Image detail traversal — fast/rapid.
+   * E4: Image detail traversal — slow/moderate/fast/rapid.
    *
    * Measures per-image render timing in the detail (non-fullscreen) view.
    * Key questions: does the app correctly cancel intermediate loads? And
@@ -1342,15 +1386,34 @@ test.describe("Tuning Experiments", () => {
    * slow tier dropped — at 2500ms interval every image renders trivially;
    * it measures imgproxy latency, not app behaviour.
    *
+   * moderate tier (500ms) added to capture the prefetch pipeline effect:
+   * at this speed, a prefetch has ~500ms to complete between steps.
+   * If the pipeline is working, images should be cache hits.
+   *
    * Records per-step timing: srcChangeMs (React commits URL) and renderMs
    * (image bytes decoded + painted). Landing image timing recorded
    * separately with a generous 5s timeout.
+   *
+   * Browser cache is cleared before EACH speed tier to prevent cross-tier
+   * contamination. Without this, moderate warms the cache for fast, and
+   * fast warms it for rapid — making later tiers appear artificially fast.
+   * See exploration/docs/traversal-perf-investigation.md for the full
+   * analysis that motivated this (Phase 1 baseline showed 100% cache hits
+   * on E4-fast because E4-moderate had warmed the same images).
    */
-  test("E4: image detail traversal — fast/rapid", async ({ kupua }) => {
+  test("E4: image detail traversal — slow/moderate/fast/rapid", async ({ kupua }) => {
     const git = getGitState();
 
-    for (const speed of ["fast", "rapid"] as (keyof typeof TRAVERSAL_SPEEDS)[]) {
-      const steps = speed === "fast" ? 12 : 20;
+    for (const speed of ["slow", "moderate", "fast", "rapid"] as (keyof typeof TRAVERSAL_SPEEDS)[]) {
+      // Clear browser cache before each tier so results are independent.
+      // Speed tiers traverse overlapping images (all start near image 3),
+      // so without this, earlier tiers warm the cache for later ones.
+      const cdp = await kupua.page.context().newCDPSession(kupua.page);
+      await cdp.send("Network.clearBrowserCache");
+      await cdp.detach();
+      console.log(`  🧹 Browser cache cleared before E4-${speed}`);
+
+      const steps = speed === "rapid" ? 20 : speed === "slow" ? 8 : speed === "moderate" ? 10 : 12;
 
       console.log(`\n  ── E4: Image Detail Traversal (${speed}, ${steps} images forward) ──`);
       console.log(`  Interval: ${TRAVERSAL_SPEEDS[speed].intervalMs}ms per image`);
@@ -1360,10 +1423,11 @@ test.describe("Tuning Experiments", () => {
       );
       const es = await getEsInfo(kupua);
 
+      const cacheTag = result.landingImage.cacheHit ? " [CACHE HIT]" : "";
       const landingStr = result.landingImage.alreadyRendered
-        ? "already rendered when traversal stopped"
+        ? "already rendered when traversal stopped [CACHE HIT]"
         : result.landingImage.rendered
-          ? `${result.landingImage.renderMs}ms total (network: ${result.landingImage.networkMs}ms, decode+paint: ${Math.max(0, result.landingImage.renderMs - result.landingImage.networkMs)}ms)`
+          ? `${result.landingImage.renderMs}ms total (network: ${result.landingImage.networkMs}ms, decode+paint: ${Math.max(0, result.landingImage.renderMs - result.landingImage.networkMs)}ms)${cacheTag}`
           : "NOT rendered (5s timeout)";
 
       console.log(`  Summary:`);
@@ -1374,6 +1438,7 @@ test.describe("Tuning Experiments", () => {
       console.log(`    Swapped but not rendered: ${result.swappedButNotRendered}`);
       console.log(`    Jank severe:   ${result.snapshot.jank.severe} (${severePerKFrames(result.snapshot)}/1k frames)`);
       console.log(`    CLS:           ${result.snapshot.cls.total.toFixed(4)}`);
+      console.log(`    Imgproxy:      ${result.snapshot.imgproxy.requestCount} requests (${result.snapshot.imgproxy.cacheHits} cache hits, avg ${result.snapshot.imgproxy.avgDurationMs.toFixed(0)}ms)`);
 
       // Probe self-test
       const diags = diagnoseProbes(result.snapshot, `detail-${speed}-traverse`);
@@ -1408,28 +1473,28 @@ test.describe("Tuning Experiments", () => {
   });
 
   /**
-   * E5: Fullscreen traversal — fast/rapid.
+   * E5: Fullscreen traversal — slow/moderate/fast/rapid.
    *
    * Same as E4 but in fullscreen mode. Images are larger (full viewport)
    * so render time may differ. Also tests that fullscreen persists across
    * image changes (no exit/re-enter flicker).
    *
-   * Browser cache is cleared before E5 so render times are independent
-   * from E4 (which traverses similar images and warms the cache).
+   * Browser cache is cleared before EACH speed tier — same rationale as E4.
+   * See exploration/docs/traversal-perf-investigation.md.
    *
    * slow tier dropped — same rationale as E4.
    */
-  test("E5: fullscreen traversal — fast/rapid", async ({ kupua }) => {
-    // Clear browser cache so E5 render times aren't tainted by E4's cache
-    const cdp = await kupua.page.context().newCDPSession(kupua.page);
-    await cdp.send("Network.clearBrowserCache");
-    await cdp.detach();
-    console.log("  🧹 Browser cache cleared before E5");
-
+  test("E5: fullscreen traversal — slow/moderate/fast/rapid", async ({ kupua }) => {
     const git = getGitState();
 
-    for (const speed of ["fast", "rapid"] as (keyof typeof TRAVERSAL_SPEEDS)[]) {
-      const steps = speed === "fast" ? 12 : 20;
+    for (const speed of ["slow", "moderate", "fast", "rapid"] as (keyof typeof TRAVERSAL_SPEEDS)[]) {
+      // Clear browser cache before each tier (same as E4 — see doc reference above)
+      const cdp = await kupua.page.context().newCDPSession(kupua.page);
+      await cdp.send("Network.clearBrowserCache");
+      await cdp.detach();
+      console.log(`  🧹 Browser cache cleared before E5-${speed}`);
+
+      const steps = speed === "rapid" ? 20 : speed === "slow" ? 8 : speed === "moderate" ? 10 : 12;
 
       console.log(`\n  ── E5: Fullscreen Traversal (${speed}, ${steps} images forward) ──`);
       console.log(`  Interval: ${TRAVERSAL_SPEEDS[speed].intervalMs}ms per image`);
@@ -1439,10 +1504,11 @@ test.describe("Tuning Experiments", () => {
       );
       const es = await getEsInfo(kupua);
 
+      const cacheTag = result.landingImage.cacheHit ? " [CACHE HIT]" : "";
       const landingStr = result.landingImage.alreadyRendered
-        ? "already rendered when traversal stopped"
+        ? "already rendered when traversal stopped [CACHE HIT]"
         : result.landingImage.rendered
-          ? `${result.landingImage.renderMs}ms total (network: ${result.landingImage.networkMs}ms, decode+paint: ${Math.max(0, result.landingImage.renderMs - result.landingImage.networkMs)}ms)`
+          ? `${result.landingImage.renderMs}ms total (network: ${result.landingImage.networkMs}ms, decode+paint: ${Math.max(0, result.landingImage.renderMs - result.landingImage.networkMs)}ms)${cacheTag}`
           : "NOT rendered (5s timeout)";
 
       console.log(`  Summary:`);
@@ -1453,6 +1519,7 @@ test.describe("Tuning Experiments", () => {
       console.log(`    Swapped but not rendered: ${result.swappedButNotRendered}`);
       console.log(`    Jank severe:   ${result.snapshot.jank.severe} (${severePerKFrames(result.snapshot)}/1k frames)`);
       console.log(`    CLS:           ${result.snapshot.cls.total.toFixed(4)}`);
+      console.log(`    Imgproxy:      ${result.snapshot.imgproxy.requestCount} requests (${result.snapshot.imgproxy.cacheHits} cache hits, avg ${result.snapshot.imgproxy.avgDurationMs.toFixed(0)}ms)`);
 
       // Probe self-test
       const diags = diagnoseProbes(result.snapshot, `fullscreen-${speed}-traverse`);

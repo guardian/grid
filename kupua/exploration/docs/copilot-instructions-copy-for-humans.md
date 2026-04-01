@@ -98,6 +98,13 @@ that would have caught (or would in the future catch) the same bug class locally
 particular failure truly cannot be reproduced locally (e.g. requires 1M+ docs), document
 why in the test comments and ensure the smoke test itself covers it permanently.
 
+**Directive: Dev server conflict.** Before running `npx playwright test` (any config),
+warn the user if port 3000 might be in use. The local test suite starts its own Vite
+dev server — if the user's manual `npm run dev` or `./scripts/start.sh` is still
+running on port 3000, tests will fail with `ERR_CONNECTION_REFUSED` or bind errors.
+Say: "I need to run the test suite — please stop any running dev server on port 3000
+first." Wait for confirmation before proceeding.
+
 **Directive: Visualise experiment results.** When presenting perf experiment findings
 (from `e2e-perf/results/experiments/`), generate a standalone HTML dashboard with
 Chart.js and open it in the browser. Include: grouped bar charts for key metrics,
