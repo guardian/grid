@@ -481,50 +481,11 @@ When starting a new session on this work, say:
 ## Follow-up: Fix Bug #17 Tests (Density Switch at Deep Scroll)
 
 > **Discovered:** 1 Apr 2026, during Part A Step 1.
-> **Status:** Understood, not yet fixed.
+> **Status:** ✅ Fixed (1 Apr 2026). See changelog for full details.
 
-The 2 skipped tests in `e2e/scrubber.spec.ts` (Bug #17 — "density switch
-after deep scroll preserves focus visibility") were never actually
-exercising the bug they were designed to catch. Two independent issues:
-
-### Issue 1: `scrollDeep` helper doesn't trigger extends
-
-The helper sets `el.scrollTop = el.scrollHeight` in a loop, expecting the
-buffer to extend past eviction threshold (`bufferOffset ≥ 100`). But in
-headless Chromium, **programmatic `scrollTop` assignment doesn't reliably
-fire native scroll events**, so the scroll handler never runs,
-`reportVisibleRange` never fires, and `extendForward` never triggers. The
-buffer stays at 200 items with offset 0 → skip guard activates.
-
-**Fix:** Add `el.dispatchEvent(new Event("scroll"))` after each
-`scrollTop` assignment. Also change the fixed 8-iteration loop to an
-early-exit loop that checks the threshold each iteration (grid rows at
-303px need ~3× more iterations than table rows at 32px to cover the same
-buffer distance).
-
-### Issue 2: Density-focus at deep scroll doesn't preserve position
-
-Once Issue 1 is fixed and the tests actually run, they expose a **real bug
-in the density-focus save/restore logic at deep scroll positions**. The
-focused image is in the buffer (`inBuffer: true`) but the viewport is NOT
-scrolled to show it after the density switch (`scrolledToIt: false`). This
-fails consistently on both pre-refactor and post-refactor code — it is not
-a regression from the scroll consolidation.
-
-The test's `focusNthItem(3)` also needs replacing: after deep scroll the
-table rows shift during extends/evictions, making Playwright's click
-target unstable (timeout or wrong row). Programmatic focus via
-`store.getState().setFocusedImageId(id)` + scrolling the focused image
-into view before the density switch is more reliable.
-
-**Root cause hypothesis:** The density-focus unmount save computes the
-ratio when the focused image is at buffer-local index ~500, but the grid's
-`scrollHeight` after mount (with fewer rows due to multi-column layout) is
-much smaller than the table's. The clamping in the mount restore may pin
-`scrollTop` to `scrollHeight - clientHeight`, which is nowhere near the
-focused row's pixel position. Needs investigation.
-
-**When to fix:** During Part A Step 2 (absorb density-focus into the
-hook) — the density-focus logic will be right in front of us, and the
-fixed tests become the regression guard.
+Root causes were: (1) `scrollDeep` helper didn't dispatch synthetic scroll events,
+(2) React Strict Mode double-mount consumed density-focus state and overwrote it
+with wrong geometry, (3) mount restore used wrong column count from useState default,
+(4) `virtualizer.scrollToOffset()` doesn't work at mount time (spacer not measured).
+All fixed. 72 E2E tests pass, 0 skipped.
 

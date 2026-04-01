@@ -297,6 +297,7 @@ export function ImageGrid() {
         columns,
         headerOffset: 0,
         preserveScrollLeftOnSort: false,
+        minCellWidth: MIN_CELL_WIDTH,
       }),
       [columns],
     ),

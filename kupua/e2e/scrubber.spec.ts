@@ -17,7 +17,7 @@
  */
 
 import { test, expect } from "./helpers";
-import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
+import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT, TABLE_HEADER_HEIGHT } from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Safety gate — refuse to run against a real ES cluster.
@@ -1586,132 +1586,193 @@ test.describe("Bug #17 — density switch after deep scroll preserves focus visi
   /**
    * Helper: scroll deep in the current view to get past buffer capacity.
    * Returns the store state after scrolling.
+   *
+   * Bug #17 fix (Issue 1): dispatches a synthetic scroll event after each
+   * programmatic scrollTop assignment — headless Chromium doesn't reliably
+   * fire native scroll events for programmatic scrollTop changes, so the
+   * scroll handler never runs and extends never trigger.
+   *
+   * Uses a threshold-checking loop instead of fixed iterations because
+   * grid rows (303px) need more iterations than table rows (32px) to
+   * scroll through the same buffer distance.
    */
   async function scrollDeep(kupua: any) {
-    // Scroll to near-bottom repeatedly to trigger extends + evictions
-    for (let i = 0; i < 8; i++) {
+    const MAX_ITERATIONS = 30;
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
       await kupua.page.evaluate(() => {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
         const el = grid ?? table;
-        if (el) el.scrollTop = el.scrollHeight;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          el.dispatchEvent(new Event("scroll"));
+        }
       });
       await kupua.page.waitForTimeout(400);
+
+      // Check if we've scrolled deep enough
+      const state = await kupua.getStoreState();
+      if (state.bufferOffset >= 100 && state.resultsLength >= 800) break;
     }
     // Let extends settle
     await kupua.page.waitForTimeout(1000);
     return kupua.getStoreState();
   }
 
-  test("table→grid: focused image visible after deep scroll + density switch", async ({ kupua }) => {
+
+  // -------------------------------------------------------------------------
+  // Density-focus drift: multi-toggle stability
+  //
+  // The single-switch tests above (table→grid, grid→table) pass because the
+  // first 1-2 toggles don't accumulate enough drift. The actual bug manifests
+  // after 3+ toggles at deep scroll: post-restore prepend compensation
+  // pushes scrollTop past maxScroll, the browser clamps, and pixels are lost
+  // each cycle. By the 4th-5th toggle the image has drifted out of view.
+  //
+  // Geometric trigger (table): 1000 items × 32px = 32,000px scroll height.
+  // Focused image at localIdx=800 → rowTop=25,600. Prepend compensation
+  // adds 6,400px → target=32,000 but maxScroll ≈ 31,000. Clamped. Each
+  // cycle that clamps loses ~1,000px. After 3 clamped cycles the image is
+  // off-screen.
+  //
+  // Strategy: start in table (small rows → tight scroll range), seek to 0.8
+  // (deep), focus, then toggle density 5 times. Assert visibility after EACH
+  // toggle, not just the last — drift is cumulative and we want to know
+  // exactly which toggle broke.
+  // -------------------------------------------------------------------------
+
+  test("density-focus survives 5+ toggles at deep scroll without drift", async ({ kupua }) => {
     await kupua.goto();
     await kupua.switchToTable();
 
+    // Seek deep — 0.8 puts us well into the buffer
+    await kupua.seekTo(0.8);
+    await kupua.page.waitForTimeout(500);
+
+    // Scroll deeper via extend cycles to grow the buffer and increase localIdx
     const afterScroll = await scrollDeep(kupua);
 
-    // Skip if buffer didn't reach capacity (dataset too small)
-    if (afterScroll.resultsLength < 800 || afterScroll.bufferOffset < 100) {
+    // Skip if the dataset or buffer isn't large enough to trigger clamping
+    if (afterScroll.resultsLength < 800 || afterScroll.bufferOffset < 50) {
       test.skip();
       return;
     }
 
-    // Focus an image that's visible in the viewport
-    await kupua.focusNthItem(3);
-    const focusedId = await kupua.getFocusedImageId();
+    // Focus an image near the end of the buffer — high localIdx maximises
+    // the chance of hitting the clamping boundary after prepend compensation.
+    // Use 75th percentile of the buffer (not 50th) to push closer to maxScroll.
+    const focusIdx = Math.floor(afterScroll.resultsLength * 0.75);
+    const focusedId = await kupua.page.evaluate((idx: number) => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const id = s.results[idx]?.id;
+      if (id) store.getState().setFocusedImageId(id);
+      return id ?? null;
+    }, focusIdx);
     expect(focusedId).not.toBeNull();
 
-    const globalPosBefore = await kupua.getFocusedGlobalPosition();
-    expect(globalPosBefore).toBeGreaterThan(0);
+    // Scroll the focused image into view in table
+    await kupua.page.evaluate(({ idx, ROW_HEIGHT }: { idx: number; ROW_HEIGHT: number }) => {
+      const table = document.querySelector('[aria-label="Image results table"]');
+      if (table) {
+        table.scrollTop = idx * ROW_HEIGHT;
+        table.dispatchEvent(new Event("scroll"));
+      }
+    }, { idx: focusIdx, ROW_HEIGHT: TABLE_ROW_HEIGHT });
+    await kupua.page.waitForTimeout(300);
 
-    // Switch to grid — this is where the bug manifested
-    await kupua.switchToGrid();
-    await kupua.page.waitForTimeout(500);
+    /**
+     * Check whether the focused image is visible in the current view.
+     * Works for both grid and table.
+     */
+    async function assertFocusedImageVisible(toggleNum: number) {
+      const vis = await kupua.page.evaluate(
+        ({ MIN_CELL_WIDTH, GRID_RH, TABLE_RH, TABLE_HH }) => {
+          const store = (window as any).__kupua_store__;
+          if (!store) return { ok: false, reason: "no store" };
+          const s = store.getState();
+          const fid = s.focusedImageId;
+          if (!fid) return { ok: false, reason: "no focusedImageId" };
+          const globalIdx = s.imagePositions.get(fid);
+          if (globalIdx == null) return { ok: false, reason: "image not in positions map" };
+          const localIdx = globalIdx - s.bufferOffset;
+          if (localIdx < 0 || localIdx >= s.results.length) {
+            return { ok: false, reason: `localIdx ${localIdx} out of buffer [0, ${s.results.length})` };
+          }
 
-    // Focused image must still be set
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+          const grid = document.querySelector('[aria-label="Image results grid"]');
+          const table = document.querySelector('[aria-label="Image results table"]');
+          const el = (grid ?? table) as HTMLElement | null;
+          if (!el) return { ok: false, reason: "no scroll container" };
 
-    // The focused image must be VISIBLE in the viewport
-    const visible = await kupua.page.evaluate(
-      ({ MIN_CELL_WIDTH, ROW_HEIGHT }) => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return { inBuffer: false, scrolledToIt: false };
-        const s = store.getState();
-        const fid = s.focusedImageId;
-        if (!fid) return { inBuffer: false, scrolledToIt: false };
-        const globalIdx = s.imagePositions.get(fid);
-        if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
-        const localIdx = globalIdx - s.bufferOffset;
-        const inBuffer = localIdx >= 0 && localIdx < s.results.length;
+          const isGrid = !!grid;
+          const rowHeight = isGrid ? GRID_RH : TABLE_RH;
+          const headerOff = isGrid ? 0 : TABLE_HH;
+          const cols = isGrid
+            ? Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH))
+            : 1;
+          const rowTop = Math.floor(localIdx / cols) * rowHeight;
+          const scrollTop = el.scrollTop;
+          const viewportHeight = el.clientHeight;
 
-        const el = document.querySelector('[aria-label="Image results grid"]');
-        if (!el) return { inBuffer, scrolledToIt: false };
-        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
-        const rowIdx = Math.floor(localIdx / cols);
-        const rowTop = rowIdx * ROW_HEIGHT;
-        const scrollTop = el.scrollTop;
-        const viewportHeight = el.clientHeight;
-        const scrolledToIt = rowTop >= scrollTop - ROW_HEIGHT && rowTop <= scrollTop + viewportHeight + ROW_HEIGHT;
-        return { inBuffer, scrolledToIt, localIdx, cols, rowTop, scrollTop, viewportHeight };
-      },
-      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
-    );
+          // The image is "visible" if its row is within one row-height of the
+          // visible area (accounting for sticky header in table)
+          const visibleTop = scrollTop - rowHeight - headerOff;
+          const visibleBottom = scrollTop + viewportHeight + rowHeight;
+          const visible = rowTop >= visibleTop && rowTop <= visibleBottom;
 
-    expect(visible.inBuffer).toBe(true);
-    // This is the actual Bug #17 assertion: without the fix, the grid
-    // scrolled to the wrong position because the ResizeObserver anchor
-    // was computed with columns=4 instead of the real column count.
-    expect(visible.scrolledToIt).toBe(true);
-  });
+          return {
+            ok: visible,
+            isGrid,
+            localIdx,
+            cols,
+            rowTop,
+            scrollTop: Math.round(scrollTop),
+            viewportHeight,
+            maxScroll: el.scrollHeight - el.clientHeight,
+            bufferLen: s.results.length,
+            bufferOffset: s.bufferOffset,
+          };
+        },
+        {
+          MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH,
+          GRID_RH: GRID_ROW_HEIGHT,
+          TABLE_RH: TABLE_ROW_HEIGHT,
+          TABLE_HH: TABLE_HEADER_HEIGHT,
+        },
+      );
 
-  test("grid→table: focused image visible after deep scroll + density switch", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.switchToGrid();
+      expect(
+        vis.ok,
+        `Toggle ${toggleNum}: focused image not visible — ` +
+        `${vis.ok === false && "reason" in vis ? (vis as any).reason : ""} ` +
+        `localIdx=${(vis as any).localIdx} rowTop=${(vis as any).rowTop} ` +
+        `scrollTop=${(vis as any).scrollTop} maxScroll=${(vis as any).maxScroll} ` +
+        `bufferLen=${(vis as any).bufferLen} bo=${(vis as any).bufferOffset} ` +
+        `isGrid=${(vis as any).isGrid}`,
+      ).toBe(true);
 
-    const afterScroll = await scrollDeep(kupua);
-
-    if (afterScroll.resultsLength < 800 || afterScroll.bufferOffset < 100) {
-      test.skip();
-      return;
+      // Also verify the focused image ID hasn't changed
+      expect(await kupua.getFocusedImageId()).toBe(focusedId);
     }
 
-    await kupua.focusNthItem(3);
-    const focusedId = await kupua.getFocusedImageId();
-    expect(focusedId).not.toBeNull();
+    // Toggle density 5 times, asserting visibility after each.
+    // Start from table → grid → table → grid → table → grid.
+    const TOGGLE_COUNT = 5;
+    for (let i = 1; i <= TOGGLE_COUNT; i++) {
+      if (await kupua.isTableView()) {
+        await kupua.switchToGrid();
+      } else {
+        await kupua.switchToTable();
+      }
+      // Wait for the density-focus restore to settle (rAF1 + rAF2 + buffer)
+      await kupua.page.waitForTimeout(600);
 
-    const globalPosBefore = await kupua.getFocusedGlobalPosition();
-    expect(globalPosBefore).toBeGreaterThan(0);
+      await assertFocusedImageVisible(i);
+    }
 
-    // Switch to table
-    await kupua.switchToTable();
-    await kupua.page.waitForTimeout(500);
-
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-
-    const visible = await kupua.page.evaluate(
-      ({ ROW_HEIGHT }) => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return { inBuffer: false, scrolledToIt: false };
-        const s = store.getState();
-        const fid = s.focusedImageId;
-        if (!fid) return { inBuffer: false, scrolledToIt: false };
-        const globalIdx = s.imagePositions.get(fid);
-        if (globalIdx == null) return { inBuffer: false, scrolledToIt: false };
-        const localIdx = globalIdx - s.bufferOffset;
-        const inBuffer = localIdx >= 0 && localIdx < s.results.length;
-
-        const el = document.querySelector('[aria-label="Image results table"]');
-        if (!el) return { inBuffer, scrolledToIt: false };
-        const rowTop = localIdx * ROW_HEIGHT;
-        const scrollTop = el.scrollTop;
-        const viewportHeight = el.clientHeight;
-        const scrolledToIt = rowTop >= scrollTop - ROW_HEIGHT && rowTop <= scrollTop + viewportHeight + ROW_HEIGHT;
-        return { inBuffer, scrolledToIt, localIdx, rowTop, scrollTop, viewportHeight };
-      },
-      { ROW_HEIGHT: TABLE_ROW_HEIGHT },
-    );
-
-    expect(visible.inBuffer).toBe(true);
-    expect(visible.scrolledToIt).toBe(true);
+    // Final: positions must be internally consistent
+    await kupua.assertPositionsConsistent();
   });
 });
 

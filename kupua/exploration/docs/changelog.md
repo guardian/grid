@@ -577,7 +577,7 @@ of these bridges (verified via grep) — no other file imported them after Step 
 - Updated `AGENTS.md`: scroll effects description, performance section, D.1 resolved,
   project structure (removed deleted files), stale `density-focus.ts` references.
 
-**Validation:** 70 E2E tests pass (2 pre-existing skips — Bug #17). TypeScript clean.
+**Validation:** 70 E2E tests pass (2 pre-existing skips). TypeScript clean.
 Hook grew from ~440 → ~490 lines (inlined bridge state + doc comments).
 
 **Risk:** Low — pure mechanical inlining of module-level state. The save/consume pattern
@@ -637,4 +637,170 @@ and no scroll concerns — its cooldown management is purely a buffer protection
 - `src/lib/sort-focus.ts` (Step 2)
 - `src/lib/scroll-reset.ts` (Step 3)
 - `src/lib/scroll-reset-ref.ts` (Step 3)
+
+### Bug #17 fix: Density switch at deep scroll (1 Apr 2026)
+
+**Problem:** Density switch (table↔grid) after deep scroll left the viewport at scrollTop=0
+instead of showing the focused image. The 2 E2E tests covering this were skipped because
+they never triggered deep scroll (headless Chromium doesn't fire native scroll events from
+programmatic scrollTop assignment).
+
+**Root causes (all three needed fixing):**
+
+1. **Test helper `scrollDeep` didn't dispatch synthetic scroll events.** Programmatic
+   `el.scrollTop = el.scrollHeight` in headless Chromium doesn't fire native `scroll`
+   events, so `reportVisibleRange` never fires, extends never trigger, buffer stays at
+   200 items with offset 0 → skip guard activates. **Fix:** Add
+   `el.dispatchEvent(new Event("scroll"))` after each scrollTop assignment. Changed from
+   fixed 8-iteration loop to threshold-checking loop (grid rows at 303px need more
+   iterations than table rows at 32px).
+
+2. **React Strict Mode double-mount consumed density-focus state twice.** In dev mode,
+   React fires mount effects twice: mount → cleanup → mount. The first mount consumed the
+   saved density-focus state via `consumeDensityFocusRatio()` (destructive read), cleanup
+   cancelled the rAF (so scroll never happened), and the second mount got null. **Fix:**
+   Split into `peekDensityFocusRatio()` (non-destructive read) + `clearDensityFocusRatio()`
+   (clear inside rAF callback after scroll is applied).
+
+3. **Strict Mode phantom-mount cleanup overwrote valid save.** The real table unmounts and
+   saves correctly (ratio≈0.045). Then the grid phantom-mounts (Strict Mode), immediately
+   unmounts (cleanup), and saves with wrong geometry (columns=4 useState default,
+   scrollTop=0, headerOffset=0) → ratio=37.57, overwriting the valid save. **Fix:** Guard
+   `saveDensityFocusRatio` to skip when a pending unconsumed state already exists
+   (`if (_densityFocusSaved == null)`).
+
+4. **Mount restore used wrong column count.** Grid useState default is 4 columns, but the
+   real column count (from ResizeObserver) might be 6. The mount-restore `useLayoutEffect`
+   ran with columns=4, computing the wrong pixel position. **Fix:** Added `minCellWidth` to
+   `ScrollGeometry`. Mount restore computes real columns from `el.clientWidth / minCellWidth`
+   instead of using `geo.columns`.
+
+5. **`virtualizer.scrollToOffset()` doesn't work at mount time.** The virtualizer's spacer
+   element hasn't been measured yet, so scrollHeight is wrong and the clamping pins scrollTop
+   to 0. **Fix:** Use double-`requestAnimationFrame` to defer until: frame 1 (ResizeObserver
+   fires, React re-renders), frame 2 (virtualizer spacer has correct totalSize). Then set
+   `el.scrollTop` directly on the DOM.
+
+**Test changes:**
+- `scrollDeep` helper: synthetic scroll events + threshold-checking loop
+- Programmatic focus via `store.setFocusedImageId(id)` instead of `focusNthItem(3)` (click
+  targets are unstable after deep scroll)
+- Scroll focused image into view before density switch (unmount save needs reasonable ratio)
+- Grid→table visibility check: tolerance includes `TABLE_HEADER_HEIGHT` (row behind sticky
+  header is still "in view")
+
+**Result:** 72 E2E tests pass (was 70 + 2 skipped). Zero regressions on existing tests.
+
+### Density-focus drift fix — multi-toggle stability (1 Apr 2026)
+
+**Bug:** Focused image drifts out of the viewport after 3+ density toggles at deep scroll.
+Survives the first 1-2 toggles, then progressively drifts until it's off-screen.
+
+**Root cause:** The density-focus mount restore (effect #10 in `useScrollEffects.ts`)
+dispatched a synthetic scroll event (`el.dispatchEvent(new Event("scroll"))`) after setting
+`scrollTop`. This triggered: scroll handler → `reportVisibleRange` → `extendBackward`
+(because the focused image is deep, the visible range hits the backward-extend threshold).
+The extend prepends ~200 items to the buffer. Prepend compensation then adds
+`prependedRows × rowHeight` to `scrollTop`. But when the compensated value exceeds
+`scrollHeight - clientHeight`, the browser clamps silently — losing pixels. Each
+density-switch cycle that triggers a prepend-then-clamp loses ~1,000px in table view
+(32px rows × ~31 rows). After 3 clamped cycles the image is off-screen.
+
+**Geometric proof (table):** 1000 items × 32px = 32,000px total scroll height. Focused image
+at localIdx=800 → rowTop=25,600. Prepend compensation adds 200 × 32 = 6,400px → target
+32,000 but maxScroll ≈ 31,000. Clamped by ~1,000px.
+
+**Fix (two changes):**
+1. **Removed `el.dispatchEvent(new Event("scroll"))`** from the rAF2 callback in the
+   density-focus mount restore. This was the root cause trigger — it fired
+   `reportVisibleRange` → `extendBackward` → prepend compensation → clamping. The event
+   was always redundant: the scrubber thumb syncs via effect #3 (buffer-change re-fire on
+   `bufferOffset`/`resultsLength` change) and the next real user scroll.
+2. **Added `abortExtends()` call** at the start of the mount restore (before the rAF chain).
+   Belt-and-suspenders: sets a 2-second cooldown on both `extendForward` and
+   `extendBackward`, blocking them at their synchronous guards. This prevents any other path
+   (buffer-change re-fire, virtualizer measurement events) from triggering extends during the
+   density-switch settle window. Same mechanism used by `resetScrollAndFocusSearch()` and
+   scrubber `seek()`.
+
+**Performance impact:** Net positive — removes one synthetic event dispatch, one async extend
+network call, and one prepend compensation layout shift per density switch. The 2-second
+extend cooldown matches the existing post-seek behaviour; with 1000 items in the buffer
+(50+ screenfuls in grid) there's ample headroom.
+
+**Test added:** `density-focus survives 5+ toggles at deep scroll without drift` — seeks to
+0.8, scrolls deep to grow the buffer, focuses an image at 75th percentile of buffer
+(maximises clamping chance), then toggles density 5 times. Asserts visibility after EACH
+toggle (drift is cumulative). Designed to trigger actual scroll clamping on local 10k data
+via table geometry: 32px rows make the scroll range tight enough for compensation to exceed
+maxScroll.
+
+**Files changed:**
+- `src/hooks/useScrollEffects.ts` — removed synthetic scroll dispatch, added `abortExtends()`,
+  added edge clamping on restore
+- `e2e/scrubber.spec.ts` — added multi-toggle drift test
+
+### Density-focus edge clamping — partially-clipped images become fully visible (1 Apr 2026)
+
+**Problem (UX):** The density-focus save/restore faithfully preserved the focused image's
+viewport-relative position (ratio), but this meant a partially clipped image stayed
+partially clipped after the switch. If you focus an image in grid view where only 78px of
+its 303px height is visible above the top edge (ratio ≈ −0.22), the table view places the
+row at the same viewport-relative position — just barely peeking in from above.
+
+**Evidence from logs (1.3M docs on TEST):**
+- Top-edge image `8af8a...`: ratio −0.217, `rowTop=19998, scrollTop=20223` — 225px above
+  viewport top, only 78px visible (of 303px). Stable across 6 toggles but always clipped.
+- Bottom-edge image `bc24a...`: ratio 0.951, `rowTop=21210, scrollTop=20222, clientH=1039` —
+  row starts at 988px in a 1039px viewport, only 51px visible (of 303px grid row). In table
+  (32px row), it fits because 32px < 51px remaining space.
+
+**Fix:** Added edge clamping to the density-focus mount restore, after computing `rawTarget`
+from the saved ratio. Same pattern already used by sort-around-focus (effect #9, lines
+516-520), adapted for `headerOffset`:
+- `itemY = rowTop + headerOffset - rawTarget` (where item sits in viewport)
+- If `itemY < headerOffset` → top-clipped → `targetNow = rowTop` (flush below header)
+- If `itemY + rowHeight > clientHeight` → bottom-clipped → `targetNow = rowTop + headerOffset - clientHeight + rowHeight` (flush at bottom)
+
+**Behaviour change:** Images that were partially off-screen now "snap in" to the nearest
+edge on density switch. The snap is one-directional: the SAVE still records the raw ratio,
+so the snap only applies on RESTORE. When switching back, the image (now fully visible in
+the source density) gets a new ratio that doesn't trigger clamping — it naturally stabilises
+at a fully-visible position within 1-2 toggles.
+
+**No complexity concern for the "switch back" case:** The user's original worry was that
+coming back to the source density would need to re-adjust the image. It doesn't — because
+the SAVE on the intermediate density records a ratio where the image IS fully visible (the
+edge clamp made it so), the RESTORE back uses that good ratio. No second-order correction
+needed.
+
+**Performance impact:** Zero. Three comparisons and potentially one assignment, inside an
+already-deferred rAF2 callback.
+
+**DIAG log updated:** `[density-focus RESTORE]` now includes `rawTarget` (before edge clamp)
+and `edgeClamp=top|bottom|none` fields for manual validation.
+
+**Files changed:** `src/hooks/useScrollEffects.ts` only.
+
+### Test deduplication — Bug #17 single-switch tests removed (1 Apr 2026)
+
+Removed the two single-switch Bug #17 tests (`table→grid: focused image visible after
+deep scroll + density switch` and `grid→table: focused image visible after deep scroll +
+density switch`). Both are fully subsumed by the new multi-toggle test (`density-focus
+survives 5+ toggles at deep scroll without drift`) which:
+- Tests both directions (table→grid AND grid→table) across 5 toggles
+- Asserts visibility after each toggle, not just one
+- Uses a deeper seek (0.8 vs mousewheel scrolling) and higher localIdx (75th% vs 50th%)
+- Starts from table (tighter scroll geometry, easier to trigger clamping)
+
+Tests kept (not subsumed):
+- `focused image ID survives grid→table→grid` (350) — shallow, tests ID preservation only
+- `density switch after deep seek preserves focused image` (364) — tests globalPosition, not visibility
+- `rapid density toggling doesn't corrupt state` (391) — tests state consistency at 0.3 seek, not visibility
+
+**Validation:** The multi-toggle test was verified to **fail without the fix** (stash/pop of
+`useScrollEffects.ts`). Without the fix: `rowTop=19998 scrollTop=28993` — image 9,000px
+off-screen at toggle 1. Both runs consistent. With the fix: passes every time.
+
+**Net test count:** 62 scrubber + 9 buffer corruption = 71 total (was 64 + 9 = 73 — removed 2).
 
