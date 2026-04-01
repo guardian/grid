@@ -234,15 +234,30 @@ async function injectPerfProbes(kupua: any) {
       loafObserver.observe({ type: "long-animation-frame", buffered: true });
     } catch { /* LoAF not supported — Chrome 123+ only */ }
 
-    // ── Frame timing (rAF jank detector) ────────────────────────────
+    // ── Frame timing (rAF jank detector) + scroll velocity ──────────
     const frameTimes: number[] = [];
+    const scrollVelocities: number[] = []; // px/s per frame
     let _rafRunning = true;
     let _lastFrameTime = performance.now();
+    let _lastScrollTop = -1;
 
     function rafLoop(now: number) {
       if (!_rafRunning) return;
       const delta = now - _lastFrameTime;
       frameTimes.push(delta);
+
+      // Sample scroll position for velocity calculation
+      const el = document.querySelector('[aria-label="Image results grid"]') ??
+                 document.querySelector('[aria-label="Image results table"]');
+      if (el && delta > 0) {
+        const y = el.scrollTop;
+        if (_lastScrollTop >= 0) {
+          const velocity = Math.abs(y - _lastScrollTop) / (delta / 1000); // px/s
+          if (velocity > 0) scrollVelocities.push(velocity);
+        }
+        _lastScrollTop = y;
+      }
+
       _lastFrameTime = now;
       requestAnimationFrame(rafLoop);
     }
@@ -308,13 +323,120 @@ async function injectPerfProbes(kupua: any) {
       paintObserver.observe({ type: "paint", buffered: true });
     } catch { /* paint entries not always available */ }
 
+    // ── Blank flash detection ─────────────────────────────────────
+    // Detects virtualizer rows that enter the viewport before React has
+    // rendered their content. An IntersectionObserver watches for rows
+    // becoming visible; a MutationObserver on the scroll container
+    // detects when new rows are added and registers them for observation.
+    //
+    // A "flash" is counted when a row becomes visible (intersecting) but
+    // has no meaningful content (no <img>, no text nodes >10 chars).
+    // The flash duration is the time from visibility to the first
+    // mutation that adds content to that row.
+    const blankFlashes = {
+      count: 0,
+      totalDurationMs: 0,
+      maxDurationMs: 0,
+      /** Rows currently visible but content-empty, awaiting content */
+      _pending: new Map<Element, number>(), // element → timestamp entered viewport
+    };
+
+    function hasContent(row: Element): boolean {
+      // Grid: has an <img> or a text node with meaningful content
+      if (row.querySelector("img")) return true;
+      // Table: has cell text content
+      const text = row.textContent?.trim() ?? "";
+      return text.length > 10;
+    }
+
+    try {
+      const scrollEl = document.querySelector('[aria-label="Image results grid"]') ??
+                       document.querySelector('[aria-label="Image results table"]');
+      if (scrollEl) {
+        const flashObserver = new IntersectionObserver((entries) => {
+          const now = performance.now();
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              // Row entered viewport — check if it has content
+              if (!hasContent(entry.target)) {
+                blankFlashes._pending.set(entry.target, now);
+              }
+            } else {
+              // Row left viewport — if still pending, it was a flash
+              // that never resolved (user scrolled past). Count it.
+              if (blankFlashes._pending.has(entry.target)) {
+                blankFlashes.count++;
+                blankFlashes._pending.delete(entry.target);
+              }
+            }
+          }
+        }, { root: scrollEl, threshold: 0 });
+
+        // Watch for content arriving in pending rows
+        const flashMutObs = new MutationObserver(() => {
+          if (blankFlashes._pending.size === 0) return;
+          const now = performance.now();
+          for (const [row, enteredAt] of blankFlashes._pending) {
+            if (hasContent(row)) {
+              const duration = now - enteredAt;
+              blankFlashes.count++;
+              blankFlashes.totalDurationMs += duration;
+              blankFlashes.maxDurationMs = Math.max(blankFlashes.maxDurationMs, duration);
+              blankFlashes._pending.delete(row);
+            }
+          }
+        });
+        flashMutObs.observe(scrollEl, { childList: true, subtree: true, characterData: true });
+
+        // Observe existing rows and future rows via MutationObserver
+        const observeRows = () => {
+          const rows = scrollEl.querySelectorAll('[role="row"]');
+          rows.forEach((row) => flashObserver.observe(row));
+        };
+        observeRows();
+
+        // Re-observe when new rows are added (virtualizer recycling)
+        const rowWatcher = new MutationObserver(() => observeRows());
+        rowWatcher.observe(scrollEl, { childList: true });
+      }
+    } catch { /* blank flash detection not critical */ }
+
+    // ── Network payload tracking ──────────────────────────────────
+    // Tracks transfer size and duration of ES requests via Resource Timing.
+    const esRequests: Array<{
+      url: string;
+      transferSize: number;
+      duration: number;
+      startTime: number;
+    }> = [];
+
+    try {
+      const resourceObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const re = entry as PerformanceResourceTiming;
+          if (re.name.includes("/es/")) {
+            esRequests.push({
+              url: re.name.split("/es/").pop() ?? re.name,
+              transferSize: re.transferSize ?? 0,
+              duration: re.duration,
+              startTime: re.startTime,
+            });
+          }
+        }
+      });
+      resourceObserver.observe({ type: "resource", buffered: true });
+    } catch { /* resource timing not always available */ }
+
     // ── Expose on window for later extraction ───────────────────────
     (window as any).__perfProbes = {
       layoutShifts,
       longFrames,
       frameTimes,
+      scrollVelocities,
       mutationStats,
       paintEntries,
+      blankFlashes,
+      esRequests,
       stop: () => { _rafRunning = false; mutObserver.disconnect(); },
     };
   });
@@ -330,6 +452,9 @@ interface PerfSnapshot {
   jank: { frameCount: number; droppedFrames: number; jankyFrames16ms: number; jankyFrames33ms: number; jankyFrames50ms: number; maxFrameMs: number; p95FrameMs: number; avgFrameMs: number };
   dom: { additions: number; removals: number; attributeChanges: number; totalChurn: number; bursts: any[] };
   paints: { count: number };
+  scroll: { maxVelocity: number; avgVelocity: number; samples: number };
+  flashes: { count: number; totalDurationMs: number; maxDurationMs: number; pendingCount: number };
+  network: { requestCount: number; totalBytes: number; avgBytes: number; avgDurationMs: number; requests: any[] };
 }
 
 async function collectPerfSnapshot(kupua: any, _label?: string): Promise<PerfSnapshot> {
@@ -388,6 +513,34 @@ async function collectPerfSnapshot(kupua: any, _label?: string): Promise<PerfSna
       paints: {
         count: p.paintEntries.length,
       },
+      scroll: (() => {
+        const sv = p.scrollVelocities as number[];
+        const sortedV = [...sv].sort((a, b) => a - b);
+        return {
+          maxVelocity: sortedV.length > 0 ? sortedV[sortedV.length - 1] : 0,
+          avgVelocity: sv.length > 0 ? sv.reduce((s: number, v: number) => s + v, 0) / sv.length : 0,
+          samples: sv.length,
+        };
+      })(),
+      flashes: {
+        count: p.blankFlashes.count,
+        totalDurationMs: p.blankFlashes.totalDurationMs,
+        maxDurationMs: p.blankFlashes.maxDurationMs,
+        pendingCount: p.blankFlashes._pending.size,
+      },
+      network: (() => {
+        const reqs = p.esRequests as Array<{ url: string; transferSize: number; duration: number; startTime: number }>;
+        const totalBytes = reqs.reduce((s: number, r) => s + r.transferSize, 0);
+        const avgBytes = reqs.length > 0 ? totalBytes / reqs.length : 0;
+        const avgDuration = reqs.length > 0 ? reqs.reduce((s: number, r) => s + r.duration, 0) / reqs.length : 0;
+        return {
+          requestCount: reqs.length,
+          totalBytes,
+          avgBytes,
+          avgDurationMs: avgDuration,
+          requests: reqs.slice(-10), // last 10 for debugging
+        };
+      })(),
     };
   });
 
@@ -448,6 +601,24 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
   }
 
   console.log(`\n  ── Paint entries:      ${snap.paints.count}`);
+
+  console.log(`\n  ── Scroll Velocity ──`);
+  console.log(`  Samples:               ${snap.scroll.samples}`);
+  console.log(`  Max velocity:          ${Math.round(snap.scroll.maxVelocity)} px/s`);
+  console.log(`  Avg velocity:          ${Math.round(snap.scroll.avgVelocity)} px/s`);
+
+  console.log(`\n  ── Blank Flashes ──`);
+  console.log(`  Flash count:           ${snap.flashes.count} ${snap.flashes.count > 20 ? "⚠️  HIGH" : snap.flashes.count > 5 ? "🟡" : "✅"}`);
+  console.log(`  Total duration:        ${snap.flashes.totalDurationMs.toFixed(0)}ms`);
+  console.log(`  Max duration:          ${snap.flashes.maxDurationMs.toFixed(0)}ms`);
+  console.log(`  Still pending:         ${snap.flashes.pendingCount}`);
+
+  console.log(`\n  ── Network (ES requests) ──`);
+  console.log(`  Request count:         ${snap.network.requestCount}`);
+  console.log(`  Total transferred:     ${(snap.network.totalBytes / 1024).toFixed(0)} KB`);
+  console.log(`  Avg per request:       ${(snap.network.avgBytes / 1024).toFixed(0)} KB`);
+  console.log(`  Avg duration:          ${snap.network.avgDurationMs.toFixed(0)}ms`);
+
   console.log(`${"═".repeat(70)}\n`);
 }
 
@@ -461,12 +632,18 @@ async function resetPerfProbes(kupua: any) {
     p.layoutShifts.length = 0;
     p.longFrames.length = 0;
     p.frameTimes.length = 0;
+    p.scrollVelocities.length = 0;
     p.mutationStats.additions = 0;
     p.mutationStats.removals = 0;
     p.mutationStats.attributeChanges = 0;
     p.mutationStats.textChanges = 0;
     p.mutationStats.bursts.length = 0;
     p.paintEntries.length = 0;
+    p.blankFlashes.count = 0;
+    p.blankFlashes.totalDurationMs = 0;
+    p.blankFlashes.maxDurationMs = 0;
+    p.blankFlashes._pending.clear();
+    p.esRequests.length = 0;
   });
 }
 
@@ -486,6 +663,12 @@ function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unkno
     domChurn: snap.dom.totalChurn,
     loafBlocking: Math.round(snap.loaf.totalBlockingMs),
     frameCount: snap.jank.frameCount,
+    scrollMaxVelocity: Math.round(snap.scroll.maxVelocity),
+    scrollAvgVelocity: Math.round(snap.scroll.avgVelocity),
+    blankFlashes: snap.flashes.count,
+    blankFlashMaxMs: Math.round(snap.flashes.maxDurationMs),
+    esRequests: snap.network.requestCount,
+    esBytes: snap.network.totalBytes,
     ...(extra ?? {}),
   }) + "\n";
   try {

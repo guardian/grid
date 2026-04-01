@@ -58,11 +58,15 @@ in the shell — special characters and line breaks get mangled by zsh quoting. 
 write the message to a temp file (e.g. via a heredoc or the file-creation tool), then
 run `git commit -F <file>`, then delete the temp file and `git commit --amend --no-edit`.
 
-**Directive: Directive sync rule.** The directives exist in two places that must stay
-identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
-`kupua/exploration/docs/copilot-instructions-copy-for-humans.md` (for humans and
-fresh clones where `.github/` may be missing). If you add, remove, or change a
-directive in one place, copy the change to the other.
+**Directive: Directive sync rule.** The directives exist in two places:
+`.github/copilot-instructions.md` (what Copilot auto-loads) and
+`kupua/exploration/docs/copilot-instructions-copy-for-humans.md` (the
+committed copy for humans and fresh clones). If you add, remove, or change
+a directive, update BOTH files to keep them identical. **However:**
+`.github/copilot-instructions.md` is gitignored and must **NEVER** be
+staged or committed — it lives outside `kupua/` and is the user's local
+config. Only `copilot-instructions-copy-for-humans.md` (inside `kupua/`)
+is committed. When committing, **never `git add` anything in `.github/`**.
 
 **Directive: Run tests in the foreground.** When running `npx playwright test`,
 `./scripts/run-e2e.sh`, or any test command, run it in the **foreground** (blocking
@@ -94,4 +98,10 @@ that would have caught (or would in the future catch) the same bug class locally
 particular failure truly cannot be reproduced locally (e.g. requires 1M+ docs), document
 why in the test comments and ensure the smoke test itself covers it permanently.
 
+**Directive: Visualise experiment results.** When presenting perf experiment findings
+(from `e2e-perf/results/experiments/`), generate a standalone HTML dashboard with
+Chart.js and open it in the browser. Include: grouped bar charts for key metrics,
+a scatter plot if there are two continuous variables, a raw data table, and a written
+verdict. The dashboard is **disposable** — don't keep it in the repo or build generic
+scaffolding. Generate it fresh each time from the JSON data. The user likes pictures.
 

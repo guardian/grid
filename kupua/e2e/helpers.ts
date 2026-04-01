@@ -122,6 +122,11 @@ export class KupuaHelpers {
     error: string | null;
     firstImageId: string | null;
     lastImageId: string | null;
+    // Buffer mutation counters — for asserting extend/evict behaviour
+    prependGeneration: number;
+    forwardEvictGeneration: number;
+    lastPrependCount: number;
+    lastForwardEvictCount: number;
   }> {
     return this.page.evaluate(() => {
       // Access the Zustand store via the window — we'll expose it
@@ -141,6 +146,10 @@ export class KupuaHelpers {
         error: s.error,
         firstImageId: s.results[0]?.id ?? null,
         lastImageId: s.results[s.results.length - 1]?.id ?? null,
+        prependGeneration: s._prependGeneration,
+        forwardEvictGeneration: s._forwardEvictGeneration,
+        lastPrependCount: s._lastPrependCount,
+        lastForwardEvictCount: s._lastForwardEvictCount,
       };
     });
   }

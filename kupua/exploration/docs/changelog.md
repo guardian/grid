@@ -502,8 +502,7 @@ data: the original `waitForResults()` timed out when a metadata click matched on
 Standalone config `playwright.run-manually-on-TEST.config.ts` for manual validation
 against real ES clusters.
 
-**Validation:** 70 E2E tests pass locally (2 pre-existing skips in Bug #17 density
-switch tests). Full suite run: 2.8 minutes.
+**Validation:** 70 E2E tests pass locally (2 pre-existing skips in Bug #17). Full suite run: 2.8 minutes.
 
 **Files changed:**
 - Modified: `src/stores/search-store.ts` (Layers 2, 3, 5), `src/lib/scroll-reset.ts`
@@ -669,8 +668,8 @@ programmatic scrollTop assignment).
    `saveDensityFocusRatio` to skip when a pending unconsumed state already exists
    (`if (_densityFocusSaved == null)`).
 
-4. **Mount restore used wrong column count.** Grid useState default is 4 columns, but the
-   real column count (from ResizeObserver) might be 6. The mount-restore `useLayoutEffect`
+4. **Mount restore used wrong column count.** Grid useState default is 4 columns, but the real
+   column count (from ResizeObserver) might be 6. The mount-restore `useLayoutEffect`
    ran with columns=4, computing the wrong pixel position. **Fix:** Added `minCellWidth` to
    `ScrollGeometry`. Mount restore computes real columns from `el.clientWidth / minCellWidth`
    instead of using `geo.columns`.
@@ -765,8 +764,7 @@ from the saved ratio. Same pattern already used by sort-around-focus (effect #9,
 **Behaviour change:** Images that were partially off-screen now "snap in" to the nearest
 edge on density switch. The snap is one-directional: the SAVE still records the raw ratio,
 so the snap only applies on RESTORE. When switching back, the image (now fully visible in
-the source density) gets a new ratio that doesn't trigger clamping — it naturally stabilises
-at a fully-visible position within 1-2 toggles.
+the source density) gets a new ratio that doesn't trigger clamping — it naturally stabilises at a fully-visible position within 1-2 toggles.
 
 **No complexity concern for the "switch back" case:** The user's original worry was that
 coming back to the source density would need to re-adjust the image. It doesn't — because
@@ -804,3 +802,97 @@ off-screen at toggle 1. Both runs consistent. With the fix: passes every time.
 
 **Net test count:** 62 scrubber + 9 buffer corruption = 71 total (was 64 + 9 = 73 — removed 2).
 
+### Experiments Infrastructure (1 Apr 2026)
+
+Built agent-driven A/B testing infrastructure for tuning knob experiments.
+
+**Files created:**
+- `playwright.experiments.config.ts` — separate Playwright config (headed browser, no safety gate, long timeouts, no auto-start webServer)
+- `e2e-perf/experiments.spec.ts` — experiment scenarios E1–E3 with full probe collection
+- `e2e-perf/results/experiments/` — JSON result directory + README + experiments-log.md
+- `.gitignore` updated — `exp-*.json` files excluded (machine-local results)
+
+**Design:**
+- Each experiment records: git commit hash + dirty flag, ES source (local vs real) + total, knob values under test, full perf snapshot, store state
+- Probe suite: CLS, LoAF, frame timing, scroll velocity, DOM mutations, blank flash detection (IntersectionObserver + MutationObserver), ES network payload (PerformanceObserver for resource timing)
+- Probes are injected per-test (not globally) — `injectProbes()` / `resetProbes()` / `collectSnapshot()`
+- Three baseline scenarios: E1 (table fast scroll, 30×800px), E2 (grid fast scroll, 30×1500px), E3 (density switch at seek 0.5)
+
+**Workflow for knob experiments:**
+1. Agent runs baseline (current values)
+2. Agent modifies source file (e.g. overscan in ImageTable.tsx)
+3. Vite HMR reloads
+4. Agent runs same experiment with env var tagging the knob value
+5. Agent reverts source change
+6. Agent compares JSON results and writes comparison to experiments-log.md
+
+**Initial baseline run (against TEST, 1.3M docs):**
+- E1 (table scroll): 12 severe jank, max 133ms, P95 67ms, 37k DOM churn, 0 flashes, 3 ES requests (875KB)
+- E2 (grid scroll): 1 severe jank, max 50ms, 402 DOM churn, 0 flashes, 0 ES requests
+- E3 (density switch): CLS 0.0000, 4 severe jank, max 133ms, 2.3k DOM churn, 0 flashes
+
+**Observation:** Zero blank flashes across all scenarios. The flash detector's `hasContent()` check (text >10 chars OR `<img>` present) may be too lenient — table rows have text immediately, grid cells have structural elements. Future refinement: detect image *placeholder* vs *loaded image* specifically.
+
+**Documented in:** `exploration/docs/tuning-knobs.md` (new "Experiments Infrastructure" section with workflow, experiment catalogue, and results schema).
+
+### Experiment framework improvements (1 Apr 2026)
+
+Five improvements to experiment infrastructure reliability and documentation:
+
+**1. Signals Glossary:** Added comprehensive signal definitions to `e2e-perf/results/experiments/README.md`. Every metric in `ExpSnapshot` now has a table with unit, meaning, good/bad thresholds. Grouped by probe type (CLS, LoAF, jank, DOM churn, scroll velocity, blank flashes, network). This is the reference for interpreting experiment JSON results.
+
+**2. Corpus pinning via STABLE_UNTIL:** Experiments now hardcode `STABLE_UNTIL = "2026-02-15T00:00:00.000Z"` (same value as perf tests) and all scenarios navigate with `until=` parameter via a dedicated `gotoExperiment()` helper. Previously experiments used `kupua.goto()` which only respects `PERF_STABLE_UNTIL` when set as an env var — and experiments don't use `run-audit.mjs` so the env var was never set. This means prior experiment runs on TEST had an unstable corpus (new uploads between runs would change results). Now fixed.
+
+**3. Probe self-test diagnostics:** New `diagnoseProbes()` + `logProbeDiagnostics()` functions run after every experiment. For each probe, they verify it gathered data and log a clear ✓/✗ line. Key diagnostics:
+- rAF loop: frameCount must be > 0
+- Scroll velocity: samples must be > 0 for scroll scenarios
+- DOM mutations: totalChurn must be > 0
+- Blank flashes: 0 is genuinely OK (overscan prevents blank rows) — but the diagnostic explains *why* it's 0 (overscan vs pending vs actually zero)
+- Network: context log (0 requests means buffer was sufficient)
+This solves the "is flashes=0 because nothing flashed, or because the probe is broken?" question.
+
+**4. Safety bounds for agent experiments:** Added a prominent safety banner in the experiment spec header with explicit ranges for all tunable knobs (PAGE_SIZE 50–500, overscan 1–30, BUFFER_CAPACITY 500–3000, EXTEND_THRESHOLD < BUFFER_CAPACITY/2, wheel delta 100–3000, interval ≥30ms). Matching "Safety: Experiment Value Bounds" section in the README. This prevents the agent from setting values that could freeze the browser or trip ES circuit breakers.
+
+**5. Named scroll speed tiers:** Replaced hardcoded `wheel(0, 800)` / `wheel(0, 1500)` with named `SCROLL_SPEEDS` constant:
+- `slow`: 300px delta, 120ms interval (~2,500 px/s) — gentle browsing
+- `normal`: 800px delta, 80ms interval (~10,000 px/s) — purposeful scrolling
+- `fast`: 1500px delta, 50ms interval (~30,000 px/s) — power-user flicking
+No "max speed" (0ms interval) tier — Playwright dispatches without physics, so 0ms intervals measure virtualizer pathology rather than real UX. E1 and E2 now run all three tiers sequentially (3 result JSONs per experiment), giving slow/normal/fast jank profiles for every knob value. Documented in README "Scroll Speed Tiers" table.
+
+**Files changed:**
+- `e2e-perf/experiments.spec.ts` — all four changes (speed tiers, traversal scenarios, render timing probe)
+- `e2e-perf/results/experiments/README.md` — updated speed tables, added traversal tiers + render timing glossary
+- `playwright.experiments.config.ts` — viewport 1987×1110, DPR 1.25
+- `AGENTS.md` — updated experiment descriptions
+- `exploration/docs/changelog.md` — this entry
+
+### Experiment speed tier v2 recalibration (1 Apr 2026)
+
+**Motivation:** After running all 23 v1 scenarios against TEST (1.3M docs), two problems surfaced: (1) middle speed tiers (normal) produced results too close to slow to be actionable — they didn't reveal different behaviour; (2) the fastest tiers weren't fast enough to trigger extend/evict cycles in E6 (only 5s duration), meaning we couldn't observe the buffer management oddities the user sees when browsing locally.
+
+**Also:** Severe jank counts were misleading across speed tiers because slow scenarios record ~3× more rAF frames than fast ones (9s vs 3s of measurement). Raw severe count 20 (slow) vs 13 (fast) looks like slow is jankier, but it's just measuring for longer.
+
+**Changes:**
+
+1. **Wheel scroll tiers (E1, E2):** Dropped `normal` (100px/150ms). Kept `slow` (100px/300ms). Kept `fast` (200px/100ms). Added `turbo` (400px/50ms, ~8,000 px/s). Within safety bounds (delta < 5000, interval ≥ 30ms). Turbo is designed to push past the buffer edge.
+
+2. **Smooth autoscroll tiers (E6):** Dropped `moderate` (8px/frame). Also dropped `crawl` (1px/frame, scrolls ~900px in 15s) and `gentle` (3px/frame, ~2,700px) — both are below the extend threshold (~4,800px for table, ~7,500px for grid) so they can never trigger extends and produce uniformly smooth data. Kept brisk/fast/turbo (3 tiers). Added `turbo` (100px/frame, ~6,000 px/s). Duration increased from 5s → 15s — at turbo speed this scrolls ~90,000px in 15s, enough to exhaust a 1000-item buffer multiple times and force extend/evict cycles. Timeout increased to 300s.
+
+3. **Traversal tiers (E4, E5):** Dropped `normal` (1000ms). Added `rapid` (80ms, ~12 images/sec — held-down arrow key). At 80ms almost no image will render; this is a pure cancellation stress test. Steps increased for rapid (20 images vs 12 for fast).
+
+4. **Jank normalisation:** Added `severePerKFrames` — severe frames per 1000 rAF frames. Computed in `collectSnapshot` (persisted in JSON) and logged to console for all experiments. A `severePerKFrames()` helper function avoids repeating the math. This gives a directly comparable rate across speed tiers regardless of measurement duration.
+
+5. **Baseline archived:** v1 JSON results moved to `v1-baseline/` subdirectory. `experiments-log.md` renamed to `experiments-log-v1-baseline.md`. Fresh `experiments-log.md` created for v2.
+
+6. **E5 cache clearing:** Browser cache cleared via CDP (`Network.clearBrowserCache`) before E5 runs. E4 traverses images in detail view and warms the browser cache; without clearing, E5 fullscreen render times would be cache hits (~80ms) instead of real imgproxy latency (~456ms). Results tagged with `cacheCleared: true`.
+
+**Total v2 scenarios: 19** (down from 23 — dropped 4 slow tiers that couldn't trigger extends).
+
+**Files changed:**
+- `e2e-perf/experiments.spec.ts` — speed tier definitions, test names, E6 duration, normalised jank output, timeout
+- `e2e-perf/results/experiments/README.md` — speed tier tables, signals glossary (severePerKFrames), JSON schema example
+- `e2e-perf/results/experiments/experiments-log.md` — fresh v2 log
+- `e2e-perf/results/experiments/experiments-log-v1-baseline.md` — archived v1 log
+- `e2e-perf/results/experiments/v1-baseline/` — archived v1 JSON results
+- `AGENTS.md` — updated experiment infrastructure description
+- `exploration/docs/changelog.md` — this entry
