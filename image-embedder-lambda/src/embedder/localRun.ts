@@ -16,6 +16,8 @@ import {AWSClients, computeEmbeddingForSQSEvent, Environment} from "./embedder.t
 import {S3Client} from "@aws-sdk/client-s3";
 import {S3VectorsClient} from "@aws-sdk/client-s3vectors";
 
+process.env.AWS_PROFILE = process.env.AWS_PROFILE || 'media-service';
+
 const LOCALSTACK_ENDPOINT =
   process.env.LOCALSTACK_ENDPOINT || 'http://localhost:4566';
 const QUEUE_URL =
@@ -94,7 +96,8 @@ function initializeHandlerAwsClients(): AWSClients {
   return {
     kinesis: new KinesisClient({region: 'eu-west-1', ...localStack}),
     s3: new S3Client({region: 'eu-west-1', ...localStack}),
-    s3VectorsClient: new S3VectorsClient({region: 'eu-central-1', ...localStack}),
+    // S3 Vectors is not supported by LocalStack, so we connect directly to real AWS
+    s3VectorsClient: new S3VectorsClient({region: 'eu-central-1'}),
   };
 }
 
