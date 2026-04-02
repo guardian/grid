@@ -77,7 +77,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val awsSdkV2Version = "2.32.33"
+val awsSdkV2Version = "2.42.25"
 val elastic4sVersion = "8.18.2"
 val okHttpVersion = "3.12.1"
 

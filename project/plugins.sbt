@@ -23,3 +23,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-gzip" % "1.0.2")
     versions of `scala-xml`).
  */
 libraryDependencySchemes += "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
+
+addDependencyTreePlugin
