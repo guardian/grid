@@ -162,66 +162,6 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7": {
-      "Properties": {
-        "Description": "Frequency of execution of the backfiller",
-        "ScheduleExpression": "rate(1 day)",
-        "State": "ENABLED",
-        "Tags": [
-          {
-            "Key": "App",
-            "Value": "image-embedder-backfill-lambda",
-          },
-          {
-            "Key": "gu:cdk:version",
-            "Value": "TEST",
-          },
-          {
-            "Key": "gu:repo",
-            "Value": "guardian/grid",
-          },
-          {
-            "Key": "Stack",
-            "Value": "media-service",
-          },
-          {
-            "Key": "Stage",
-            "Value": "TEST",
-          },
-        ],
-        "Targets": [
-          {
-            "Arn": {
-              "Fn::GetAtt": [
-                "ImageEmbedderBackfillerC6D20164",
-                "Arn",
-              ],
-            },
-            "Id": "Target0",
-          },
-        ],
-      },
-      "Type": "AWS::Events::Rule",
-    },
-    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day0AllowEventRuleImageEmbedderLambdaImageEmbedderBackfiller35B59D3AB0582810": {
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "ImageEmbedderBackfillerC6D20164",
-            "Arn",
-          ],
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": {
-          "Fn::GetAtt": [
-            "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::Lambda::Permission",
-    },
     "ImageEmbedderBackfillerSecurityGroup93958CDD": {
       "Properties": {
         "GroupDescription": "Automatic security group for Lambda Function ImageEmbedderLambdaImageEmbedderBackfiller35B59D3A",
