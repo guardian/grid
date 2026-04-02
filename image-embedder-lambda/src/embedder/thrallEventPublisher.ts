@@ -42,19 +42,14 @@ export class ThrallEventPublisher {
     imageIdToMessageId: Map<string, string>,
     batchItemFailures: SQSBatchItemFailure[],
   ) {
-    // Send embeddings to Kinesis for Thrall to write to Elasticsearch
-    if (this.stage === 'PROD') {
-      console.log(`Not writing embeddings to Kinesis yet whilst we test on TEST`);
-    } else {
-      const failedImageIds = await this.putRecordsToKinesis(vectors);
-      for (const imageId of failedImageIds) {
-        const messageId = imageIdToMessageId.get(imageId);
-        if (messageId) {
-          console.log(
-            `Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
-          );
-          batchItemFailures.push({ itemIdentifier: messageId });
-        }
+    const failedImageIds = await this.putRecordsToKinesis(vectors);
+    for (const imageId of failedImageIds) {
+      const messageId = imageIdToMessageId.get(imageId);
+      if (messageId) {
+        console.log(
+          `Error writing image with ID ${imageId} to Kinesis, adding as batchItemFailure`,
+        );
+        batchItemFailures.push({ itemIdentifier: messageId });
       }
     }
   }
