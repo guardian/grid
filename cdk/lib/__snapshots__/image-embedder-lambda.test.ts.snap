@@ -650,18 +650,32 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             {
               "Action": "bedrock:InvokeModel",
               "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:bedrock:",
-                    {
-                      "Ref": "AWS::Region",
-                    },
-                    "::foundation-model/cohere.embed-english-v3",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:bedrock:",
+                      {
+                        "Ref": "AWS::Region",
+                      },
+                      "::foundation-model/cohere.embed-english-v3",
+                    ],
                   ],
-                ],
-              },
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:bedrock:",
+                      {
+                        "Ref": "AWS::Region",
+                      },
+                      "::foundation-model/cohere.embed-v4:0",
+                    ],
+                  ],
+                },
+              ],
             },
             {
               "Action": [

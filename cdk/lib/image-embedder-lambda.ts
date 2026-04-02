@@ -170,6 +170,7 @@ export class ImageEmbedder extends GuStack {
         actions: ['bedrock:InvokeModel'],
         resources: [
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-english-v3`,
+          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-v4:0`
         ],
       }),
     );
