@@ -192,7 +192,7 @@ class MessageProcessor(
     })
   }
 
-  private def updateEmbedding(message: UpdateEmbeddingMessage, logMarker: LogMarker)(implicit ec: ExecutionContext)= {
+  private def updateEmbedding(message: UpdateEmbeddingMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     Future.sequence(es.updateEmbedding(message.id, message.embedding, message.lastModified)(ec, logMarker))
   }
 
