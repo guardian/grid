@@ -98,26 +98,84 @@ function orientationToRotation(exifOrientation: number | undefined): number {
   }
 }
 
+/**
+ * Detect the effective DPR multiplier for image requests.
+ *
+ * Two-tier step function:
+ *   DPR ≤ 1.3  →  1   (request CSS pixels — don't over-serve 1× displays)
+ *   DPR > 1.3  →  1.5 (sharper on Retina, but not full 2× which would be
+ *                       4× pixel count and ~2× file size / imgproxy time)
+ *
+ * Why 1.3 as the threshold: it's above 1× (so slight sub-pixel scaling
+ * doesn't trigger the bump) and below common HiDPI ratios (1.5, 2, 3).
+ * Some Windows laptops report 1.25 — those are closer to 1× perceptually,
+ * so they stay in the 1× tier.
+ *
+ * Why 1.5 as the HiDPI multiplier: for photographic content, 1.5× is
+ * visually indistinguishable from 2× for most viewers — the brain fills
+ * in the gap via subpixel rendering and natural-image frequency content.
+ * This is well-documented in display research. 1.5× is 56% more pixels
+ * than 1× (vs 300% more for 2×).
+ *
+ * This is a deviation from kahuna, which uses full screen.width × screen.height
+ * (but only for Firefox — see kahuna/public/js/imgops/service.js lines 14-20).
+ */
+function detectDpr(): number {
+  if (typeof window === "undefined") return 1;
+  return window.devicePixelRatio > 1.3 ? 1.5 : 1;
+}
+
 /** Default imgproxy processing options, matching eelpie fork's approach. */
 const IMGPROXY_DEFAULTS = {
-  /** Max dimension — fits within this box, preserving aspect ratio */
+  /**
+   * Max dimension — fits within this box, preserving aspect ratio.
+   * Callers should pass screen.width/height instead of relying on this
+   * fallback. 1200 is a safe default for SSR or missing dimensions.
+   */
   width: 1200,
   height: 1200,
-  /** JPEG/WebP quality (1–100) */
-  quality: 80,
-  /** Output format — WebP for good compression + wide browser support */
-  format: "webp",
+  /**
+   * JPEG/WebP/AVIF quality (1–100).
+   * Omitted by default — imgproxy uses its own per-format default
+   * (WebP 79, AVIF 63, JXL 77). Pass explicitly to override.
+   */
+  quality: undefined as number | undefined,
+  /** Output format — AVIF for compression + correct colour (embedded ICC) */
+  format: "avif",
+  /**
+   * Device pixel ratio multiplier — detected at module load time.
+   * See {@link detectDpr} for the two-tier logic and rationale.
+   */
+  dpr: detectDpr(),
 } as const;
 
 export interface FullImageOptions {
-  /** Max width in pixels (default: 1200) */
+  /** Max width in CSS pixels (default: 1200) */
   width?: number;
-  /** Max height in pixels (default: 1200) */
+  /** Max height in CSS pixels (default: 1200) */
   height?: number;
   /** Quality 1–100 (default: 80) */
   quality?: number;
-  /** Output format (default: "webp") */
-  format?: "webp" | "avif" | "jpg" | "png";
+  /**
+   * Output format (default: "webp"). JPEG is excluded because it doesn't
+   * support alpha channels — Grid stores PNGs/TIFFs with transparency.
+   * WebP, AVIF, and JXL all handle alpha natively.
+   */
+  format?: "webp" | "avif" | "jxl";
+  /**
+   * Device pixel ratio multiplier. The requested pixel dimensions are
+   * `width × dpr` and `height × dpr`, capped at the image's native resolution.
+   * Default: auto-detected via {@link detectDpr} — 1 on standard displays,
+   * 1.5 on HiDPI (devicePixelRatio > 1.3). Pass 1 to disable DPR scaling.
+   */
+  dpr?: number;
+  /**
+   * Native image dimensions — used to cap the request so we never upscale.
+   * When provided, the requested size is `min(width × dpr, nativeWidth)`.
+   * If omitted, no cap is applied (imgproxy handles upscale prevention internally).
+   */
+  nativeWidth?: number;
+  nativeHeight?: number;
 }
 
 /**
@@ -136,10 +194,20 @@ export function getFullImageUrl(
   if (!IMGPROXY_ENABLED || !IMAGE_BUCKET) return undefined;
   if (!image.id) return undefined;
 
-  const w = options?.width ?? IMGPROXY_DEFAULTS.width;
-  const h = options?.height ?? IMGPROXY_DEFAULTS.height;
+  const cssW = options?.width ?? IMGPROXY_DEFAULTS.width;
+  const cssH = options?.height ?? IMGPROXY_DEFAULTS.height;
+  const dpr = options?.dpr ?? IMGPROXY_DEFAULTS.dpr;
   const q = options?.quality ?? IMGPROXY_DEFAULTS.quality;
   const ext = options?.format ?? IMGPROXY_DEFAULTS.format;
+
+  // Apply DPR multiplier, then cap at native resolution to avoid upscaling.
+  // imgproxy itself won't upscale, but requesting smaller saves bandwidth.
+  const rawW = Math.round(cssW * dpr);
+  const rawH = Math.round(cssH * dpr);
+  const nativeW = options?.nativeWidth;
+  const nativeH = options?.nativeHeight;
+  const w = nativeW ? Math.min(rawW, nativeW) : rawW;
+  const h = nativeH ? Math.min(rawH, nativeH) : rawH;
 
   const s3Key = idToS3Key(image.id);
   const s3Source = `s3://${IMAGE_BUCKET}/${s3Key}`;
@@ -159,8 +227,13 @@ export function getFullImageUrl(
     "strip_metadata:true",
     "strip_color_profile:true",
     `resize:fit:${w}:${h}`,
-    `quality:${q}`,
   ];
+
+  // Only pass quality if explicitly set — otherwise imgproxy uses its
+  // per-format default (WebP 79, AVIF 63, JXL 77).
+  if (q != null) {
+    segments.push(`quality:${q}`);
+  }
 
   if (rotation !== 0) {
     segments.push(`rotate:${rotation}`);

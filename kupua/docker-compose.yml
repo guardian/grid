@@ -51,6 +51,14 @@ services:
       IMGPROXY_MAX_SRC_RESOLUTION: "550"
       # Default download timeout is 5s — the 510MP test image takes ~5.1s.
       IMGPROXY_DOWNLOAD_TIMEOUT: "15"
+      # Progressive JPEG — enables interlaced encoding so images render
+      # low-quality-first during download. No effect on WebP/AVIF/JXL.
+      # Costs ~5-10% more encode time for JPEG but improves perceived speed.
+      IMGPROXY_JPEG_PROGRESSIVE: "true"
+      # Encode effort/speed: using imgproxy defaults (AVIF speed 8, JXL effort 4).
+      # Benchmarked 2026-04-02 (see image-optimisation-research.md):
+      # JXL effort ≥5 is catastrophically slower (+78%); AVIF speed 7 is marginal.
+      # Not worth overriding — defaults are the sweet spot.
     # AWS credentials are passed via env_file (not inline environment) so that
     # `docker inspect` shows only variable names, not their values.
     # start.sh writes ~/.kupua-imgproxy.env and deletes it immediately after

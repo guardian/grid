@@ -248,11 +248,22 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   }, [closeDetail, goToPrev, goToNext]);
 
   // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
-  // Request viewport-sized image so it looks sharp at the current screen
-  // resolution (CSS pixels — DPR scaling deferred to later).
+  // Request screen-sized image (not window-sized) so a single request covers
+  // both windowed and fullscreen display. Uses detectDpr() — 1× on standard
+  // displays, 1.5× on HiDPI (DPR > 1.3). See image-urls.ts for rationale.
+  // Capped at native resolution to avoid upscaling.
+  // screen.width/height are CSS pixels of the monitor — stable regardless of
+  // window size or fullscreen state. No re-request on resize/fullscreen toggle.
   const imgproxyOpts = useMemo(
-    () => ({ width: window.innerWidth, height: window.innerHeight }),
-    [],
+    () => ({
+      width: window.screen.width,
+      height: window.screen.height,
+      // Native dimensions cap — prevents requesting larger than the original
+      nativeWidth: image?.source?.dimensions?.width,
+      nativeHeight: image?.source?.dimensions?.height,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally stable per image
+    [image?.id],
   );
   const fullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
   const thumbUrl = image ? getThumbnailUrl(image) : undefined;

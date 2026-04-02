@@ -132,7 +132,10 @@ Default options (can be overridden per-call):
   `strip_color_profile:true` (matches eelpie fork)
 
 AVIF is also supported (`format: "avif"`) — much smaller files but slower to
-generate. Can be swapped in later once we have a lightbox to optimise.
+generate. AVIF quality is currently tuned with `AOM_TUNE_SSIM` (libheif's
+default); SSIM is better than PSNR, but nowhere near `AOM_TUNE_IQ` — see
+[AVIF encoding deep-dive](#avif-encoding-deep-dive--library-archaeology) below.
+Can be swapped in later once we have a lightbox to optimise.
 
 ### Why imgproxy for full images
 
@@ -152,10 +155,109 @@ generate. Can be swapped in later once we have a lightbox to optimise.
 - **`insecure` not `no-signature`** — same effect (no HMAC), different syntax
   (imgproxy's `plain` source URL encoding vs base64url in the fork)
 
+---
 
+## AVIF encoding deep-dive — library archaeology
 
+> **Date:** 2026-04-02
+> **Investigated from:** live `darthsim/imgproxy:latest` container
 
+### Library versions in the container
 
+| Library | Version | Notes |
+|---------|---------|-------|
+| imgproxy | 3.31.1 | |
+| libvips | 8.16.0 (soname 42.20.0) | |
+| libheif | 1.21.2 | |
+| libaom | 3.13.1 | |
+| libjxl | 0.11.2 | |
+
+### The AVIF encoding call chain
+
+**imgproxy** (`vips/vips.c:1103`) calls libvips with minimal parameters:
+
+```c
+// imgproxy → libvips
+vips_heifsave_buffer(in, buf, len,
+    "Q", quality,
+    "compression", VIPS_FOREIGN_HEIF_COMPRESSION_AV1,
+    "effort", 9 - speed,
+    NULL);
+```
+
+No tune, no chroma override, no encoder selection.
+
+**libvips 8.16** (`heifsave.c`) then passes to libheif:
+
+1. `heif_encoder_set_lossy_quality(Q)`
+2. `heif_encoder_set_lossless(false)`
+3. `heif_encoder_set_parameter_integer("speed", 9 - effort)`
+4. `heif_encoder_set_parameter_string("chroma", ...)` — `"444"` if Q ≥ 90, else `"420"`
+5. `heif_encoder_set_parameter_integer("threads", ...)` — capped to vips concurrency
+6. `heif_encoder_set_parameter_boolean("auto-tiles", TRUE)` — parallelism
+
+**libvips 8.16 does NOT pass a `tune` parameter.** The `tune` param was added
+in libvips 8.18.0 (Dec 2025) as an optional string defaulting to `NULL` (let
+libheif decide).
+
+**libheif 1.21.2** (`encoder_aom.cc:313`) defaults to:
+
+```c
+p->string.default_value = "ssim";  // since libheif v1.9.0, Sep 2020
+```
+
+…which results in:
+
+```c
+aom_codec_control(&codec, AOME_SET_TUNING, AOM_TUNE_SSIM);
+```
+
+**Bottom line:** despite libaom defaulting to `AOM_TUNE_PSNR`, our AVIF images
+are encoded with **`AOM_TUNE_SSIM`** because libheif overrides the default and
+neither libvips 8.16 nor imgproxy override it further.
+
+### The `--tune=iq` / `AOM_TUNE_IQ` timeline
+
+libaom's `AOME_SET_TUNING` default has **always** been `AOM_TUNE_PSNR`. The
+newer tune modes were added as opt-in values, not default changes:
+
+| Date | libaom version | What happened |
+|------|---------------|---------------|
+| forever | all | `AOM_TUNE_PSNR` = 0 (default), `AOM_TUNE_SSIM` = 1 |
+| Nov 2024 | v3.12.0 | `AOM_TUNE_SSIMULACRA2` added (enum 10) — image quality mode guided by SSIMULACRA 2 + subjective checks |
+| Jan 2025 | v3.12.0 | **Renamed** to `AOM_TUNE_IQ` (enum 10) — "IQ" = Image Quality / Intra Quality. The old name was misleading because it didn't purely maximise SSIMULACRA 2 |
+| Mar 2025 | v3.13.0 | `AOM_TUNE_SSIMULACRA2` **(re-)added** as enum 11 — a separate mode that purely optimises for max SSIMULACRA 2 scores |
+
+There is no `--tune-iq` flag — it's `--tune=iq` (a value to the `--tune` arg).
+
+### Can we use `tune=iq` today?
+
+**libheif 1.21.2 already accepts `"iq"`** — the code is:
+
+```c
+#if defined(AOM_HAVE_TUNE_IQ)     // defined in libaom ≥ 3.12.0
+    else if (strcmp(value, "iq") == 0) {
+      encoder->tune = AOM_TUNE_IQ;
+```
+
+Since we have libaom 3.13.1, the `AOM_HAVE_TUNE_IQ` guard is satisfied.
+
+**Blockers preventing use right now:**
+
+1. **libvips 8.16** doesn't expose the `tune` parameter → need ≥ 8.18.0
+2. **imgproxy 3.31.1** doesn't pass `tune` in its C wrapper (`vips_avifsave_go`)
+   → needs upstream change to pass it through to `vips_heifsave_buffer()`
+
+**imgproxy v4 branch (`origin/version/4`) checked 2026-04-02:** no tune support
+either. The `ImgproxySaveOptions` struct adds only `AvifSpeed` (int) for AVIF —
+no tune field. The C wrapper is identical: `Q`, `compression=AV1`, `effort`,
+`NULL`. The v3.31.0 changelog added `avif_options` and `IMGPROXY_AVIF_SUBSAMPLE`
+but both are **Pro-only** and only expose subsampling — no tune. No issues or
+PRs requesting tune exist on GitHub.
+
+When imgproxy ships with libvips ≥ 8.18 **and** adds a `tune` parameter to its
+C wrapper, the full chain (imgproxy → libvips → libheif → libaom) is ready for
+`tune=iq`. There is no indication this is being worked on.
 
 
 

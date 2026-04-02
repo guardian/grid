@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-03-29
+Last updated: 2026-04-02
 
 ---
 
@@ -919,3 +919,46 @@ effect consumes it. Falls back to `align: "start"` if no ratio was saved.
 **Trade-off:** Centre alignment is predictable; ratio preservation can
 place the item near the edge of the viewport if it was near the edge
 before the sort. Edge clamping ensures the item is always visible.
+
+---
+
+### DPR-aware image sizing uses a two-tier step function, not raw `devicePixelRatio`
+
+**What:** `detectDpr()` in `image-urls.ts` returns 1 for DPR ≤1.3 and 1.5 for
+DPR >1.3. This multiplier is applied to the CSS pixel dimensions when requesting
+images from imgproxy. Kahuna uses `screen.width × screen.height` directly (but
+only in Firefox — Chrome/Safari/Edge get no DPR scaling at all).
+
+**Why:** Full 2× DPR means 4× pixel count → ~2× file size → ~2× imgproxy
+processing time. This would push the prefetch contention cliff from the rapid
+tier (80ms/step) into moderate (500ms/step), undoing the prefetch pipeline's work.
+1.5× is visually indistinguishable from 2× for photographic content. Kupua's
+approach is actually more DPR-aware than kahuna for most browsers (where kahuna
+sends no DPR scaling at all).
+
+**Trade-off:** Images on 2× Retina are 0.75× physical pixels (1800/2400) instead
+of 1:1. For a DAM management tool this is acceptable — text overlaid on images
+would look soft, but kupua doesn't overlay text on images.
+
+---
+
+### Single output format for all source types (no JPEG fallback)
+
+**What:** Kupua serves all images in AVIF (imgproxy default q63, speed 8)
+regardless of the source format. PNGs and TIFFs with transparency are handled
+by AVIF's native alpha channel support — no special-casing.
+
+Kahuna detects the source format and serves PNG for transparent images and JPEG
+for everything else (via the eelpie imgops fork / nginx).
+
+**Why:** AVIF (and WebP, JXL) supports alpha channels natively. JPEG doesn't.
+Kahuna's format-switching logic exists because it uses JPEG as the primary format,
+which can't represent transparency. AVIF was chosen over WebP (9-15% smaller at
+DPR 1.5×, embeds sRGB ICC profile for correct colour on all monitors/browsers)
+and JXL (Chrome's JXL decoder is immature — 2-4× worse jank, client-side decode
+too slow for rapid image traversal; revisit when jxl-rs lands in stable Chrome).
+See `image-optimisation-research.md` for full format comparison data.
+
+**Trade-off:** None meaningful. The only downside is if we ever needed JPEG output
+for compatibility (e.g. downloading images for external use) — but that's a
+different feature (export/download) not a display concern.

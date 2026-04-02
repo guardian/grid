@@ -930,3 +930,74 @@ dev server on port 3000 before running `npx playwright test`.
 - `AGENTS.md` — updated image detail, experiments, docs table, project structure
 - `exploration/docs/changelog.md` — this entry
 
+### Image optimisation research + DPR-aware sizing (1 Apr 2026)
+
+**Image format research:** Analysed WebP, AVIF, JPEG XL, and progressive JPEG as
+image format options for imgproxy. Key findings:
+
+- **AVIF:** 20-30% smaller than WebP but 2-5× slower encode. Would worsen the E5-rapid
+  contention problem. Deferred until imgproxy caching or faster encoders are available.
+- **JPEG XL non-progressive:** Works today (`@jxl` suffix). Verified in Chrome Canary.
+- **JPEG XL progressive:** Blocked at two levels. (1) libvips 8.16 (in
+  `darthsim/imgproxy:latest`) does not pass progressive encoder flags (`PROGRESSIVE_DC`,
+  `QPROGRESSIVE_AC`, `RESPONSIVE`, `GROUP_ORDER`) to libjxl — only `effort`, `tier`,
+  `distance`, `lossless`. (2) imgproxy (even v4-beta branch) does not expose the
+  `interlace` parameter that libvips 8.19 (unreleased master) adds. Both need to ship.
+  Confirmed by cloning imgproxy `chore/v4-changelog` branch, libvips v8.16.0 tag, and
+  libvips master — reading `vips/vips.c` (imgproxy), `libvips/foreign/jxlsave.c` (both
+  versions). libvips 8.19 master adds `interlace` and `progressive` params that set all
+  four libjxl progressive settings. libjxl 0.11.2 (in Docker image) fully supports
+  progressive at the library level.
+- **Progressive JPEG:** Available today via `IMGPROXY_JPEG_PROGRESSIVE=true`. Worth
+  benchmarking as a progressive fallback.
+
+**DPR-aware sizing implemented:** Changed `getFullImageUrl()` from a static `dpr: 1.5`
+multiplier to a runtime two-tier step function `detectDpr()`:
+- `window.devicePixelRatio ≤ 1.3` → multiplier 1 (CSS pixels only)
+- `window.devicePixelRatio > 1.3` → multiplier 1.5 (HiDPI bump)
+
+This respects 1× users (who were getting unnecessarily large 1800px images) and gives
+HiDPI users a meaningful sharpness improvement without the 4× pixel count of full 2×.
+DPR parameter remains overridable per-call. Result capped at native resolution via
+`nativeWidth`/`nativeHeight` options.
+
+**Files changed:**
+- `src/lib/image-urls.ts` — `detectDpr()` function, updated `IMGPROXY_DEFAULTS.dpr`
+- `exploration/docs/image-optimisation-research.md` — JXL progressive blocker analysis, DPR section update, benchmark methodology
+- `exploration/docs/deviations.md` — DPR deviation entry
+- `docker-compose.yml` — added `IMGPROXY_JPEG_PROGRESSIVE: "true"` (harmless default, in case we ever test JPEG visual quality)
+- `scripts/bench-formats.sh` — new benchmark script: WebP vs AVIF vs JXL, curated by size (tiny/normal/large/monster/PNG), JPEG excluded (no alpha channel)
+- `src/lib/image-urls.ts` — format type updated: `"webp" | "avif" | "jxl"` (JPEG removed — no alpha support for PNGs/TIFFs with transparency)
+- `AGENTS.md` — image optimisation doc reference, DPR note in image detail section, bench-formats in project structure
+- `exploration/docs/changelog.md` — this entry
+
+### Format comparison experiments + AVIF confirmed (2 Apr 2026)
+
+**Format A/B testing via E4/E5 traversal experiments:** Used the existing
+E4 (detail view) and E5 (fullscreen) traversal experiments to compare three
+image formats at DPR 1.5×, all against TEST ES (1.3M docs) via imgproxy.
+
+Four experiment runs:
+1. **AVIF q63/s7 + DPR 1.5×** — initial run, tainted by stale
+   `IMGPROXY_AVIF_SPEED=7` override left from bench-formats tuning. E5-fast
+   regressed from 0ms to 243ms. Diagnosed via `docker inspect`.
+2. **WebP q79 + DPR 1.5×** — new DPR-aware baseline. All tiers 0ms except
+   E4-rapid (233ms). Decode gaps (max 226-392ms) present in WebP too —
+   disproved the AVIF decode bottleneck hypothesis.
+3. **AVIF q63/s8 + DPR 1.5×** — correct config. Fast tier recovered to 0ms.
+   9-15% smaller bytes than WebP. Chosen config confirmed.
+4. **JXL q77/e4 + DPR 1.5×** — Chrome 145 with `--enable-features=JXLDecoding`.
+   Disqualified: worst jank (severe/kf 53-60), worst decode gaps (442ms max),
+   largest files. Chrome's `libjxl` decoder immature; jxl-rs in development.
+
+**Decode gap analysis:** `renderMs - srcMs` per-step showed sporadic 200-500ms
+spikes on one specific image at DPR 1.5× — present in all three formats.
+Confirmed gaps are DPR-resolution-driven, not format-specific.
+
+**Files changed:**
+- `src/lib/image-urls.ts` — format toggled during experiments; restored to `"avif"`
+- `playwright.experiments.config.ts` — temporary `--enable-features=JXLDecoding`; removed
+- `exploration/docs/image-optimisation-research.md` — four experiment run entries + JXL verdict update
+- `exploration/docs/deviations.md` — single-format deviation updated to reflect AVIF chosen
+- `AGENTS.md` — format comparison experiments note added
+- `exploration/docs/changelog.md` — this entry
