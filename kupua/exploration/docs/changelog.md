@@ -8,6 +8,100 @@
 
 ## Phase 2 — Live Elasticsearch (Read-Only)
 
+### 2 April 2026 — Unit tests for image-offset-cache + dead code cleanup
+
+**Unit tests (15):** Added `image-offset-cache.test.ts` covering:
+- `buildSearchKey` — deterministic regardless of param order, strips `image`/`density`
+  params, strips null/empty values (3 tests).
+- `extractSortValues` — default sort (uploadTime + id), `width` sort (nested dot-path
+  `source.dimensions.width`), `credit` sort (metadata.credit), sparse image with missing
+  nested fields (null values), tiebreaker always last (5 tests).
+- `storeImageOffset` / `getImageOffset` round-trip — full cursor, mismatched searchKey,
+  unknown image, null cursor, old cache format without cursor field, malformed offset,
+  negative offset (7 tests).
+
+All pure functions with zero mocking. Tests run in ~8ms.
+
+**Dead code removal:** Deleted `loadRange` from store interface and implementation — zero
+call sites after `restoreAroundCursor` replaced it. Updated comments in `es-adapter.ts`
+and `types.ts` that referenced `loadRange`.
+
+Clean `tsc --noEmit`, all 161 vitest unit tests pass (3 pre-existing extendForward
+timing failures unrelated to this change).
+
+### 2 April 2026 — Extract `_loadBufferAroundImage` shared helper
+
+**Problem:** `_findAndFocusImage` (sort-around-focus) and `restoreAroundCursor`
+(image-detail reload) both contained identical ~40-line blocks: forward
+`searchAfter` + backward `searchAfter` + combine hits + compute cursors +
+compute `bufferStart`. The two copies had diverged slightly in comment style
+but were semantically identical. A bug fix in one would need to be duplicated.
+
+**Fix:** Extracted `_loadBufferAroundImage()` — a pure async helper that takes
+`(targetHit, sortValues, exactOffset, params, pitId, signal, dataSource)` and
+returns a `BufferAroundImage` result object (combinedHits, bufferStart,
+startCursor, endCursor, total, pitId, targetLocalIdx). Both callers now invoke
+the helper and set their caller-specific store state from its return value.
+
+Minor improvement in `restoreAroundCursor`: the target image fetch-by-ID was
+moved earlier (before the bidirectional fetch), so we bail immediately if the
+image no longer matches the query — saving two wasted `searchAfter` calls.
+
+Net: ~30 lines of duplicated logic eliminated, tricky buffer assembly code
+exists in exactly one place. All 71 E2E tests pass, clean `tsc --noEmit`.
+
+### 2 April 2026 — Image detail position restore (cursor-based)
+
+**Bug:** The image detail counter (`[x] of [total]`) and prev/next navigation
+were lost on page reload for images at deep offsets (>10k). The offset cache
+(`image-offset-cache.ts`, introduced 27 Mar) stored a global numeric offset
+and restored via `loadRange` → `seek`. This worked in the pre-windowed-buffer
+world where `loadRange` did exact `from/size`. The next day (28 Mar), the
+windowed buffer rewrite changed `loadRange` to delegate to `seek()`, which for
+deep offsets uses percentile estimation — landing *near* the target but not
+*exactly* on it. The specific image wasn't in the loaded buffer, so
+`findImageIndex` returned -1. Shallow offsets (<10k) still worked because
+`seek` uses exact `from/size` at those depths.
+
+The `search-after-plan.md` (§6, line 2100) had explicitly noted this gap:
+*"With the windowed buffer, we need both the offset AND the cursor. Recommendation:
+Extend the cache to store `{ offset, cursor, searchKey }`."* — but it was never
+implemented.
+
+**Fix — 5 files:**
+
+1. `image-offset-cache.ts` — Extended stored object from `{ offset, searchKey }`
+   to `{ offset, cursor, searchKey }` where `cursor` is `SortValues` (the ES
+   `search_after` cursor). Added `extractSortValues(image, orderBy)` which builds
+   the cursor by reading sort field values from the in-memory image object using
+   `buildSortClause` + `parseSortField` + dot-path field resolution. Zero ES calls.
+   `getImageOffset` now returns `{ offset, cursor }`. Backward-compatible — old
+   cache entries without cursor return `cursor: null`.
+
+2. `search-store.ts` — Added `restoreAroundCursor(imageId, cursor, offset)` action.
+   With cursor: `countBefore` for exact global offset → forward + backward
+   `search_after` from cursor → fetch target image by ID → combine into buffer.
+   Structurally similar to the second half of `_findAndFocusImage` (sort-around-focus).
+   Without cursor: falls back to `seek(offset)` (works for shallow depths).
+   Error fallback also degrades to `seek`.
+
+3. `ImageDetail.tsx` — Restore effect calls `restoreAroundCursor` instead of
+   `loadRange`. `goToImage` (prev/next) stores cursor via `extractSortValues`.
+
+4. `ImageGrid.tsx` — `handleCellDoubleClick` stores cursor via `extractSortValues`.
+
+5. `ImageTable.tsx` — `handleRowDoubleClick` stores cursor via `extractSortValues`.
+
+**Why not `imagePositions`:** Considered putting sort values in the centralised
+`imagePositions` Map, but it's the wrong place — `imagePositions` is a runtime
+buffer index (rebuilt on every search/seek/extend), while the offset cache is a
+persistent cross-reload mechanism in `sessionStorage`. Different lifecycles,
+different concerns. `useScrollEffects` is also unrelated — it handles viewport
+positioning *after* data is in the buffer; this fix is about getting the right
+data *into* the buffer.
+
+**Tests:** 71/71 e2e passed. TypeScript compiles clean.
+
 ### Infrastructure & Data
 
 - ✅ Sample data (10k docs, 115MB) from CODE ES in `exploration/mock/sample-data.ndjson` (NOT in git — also in `s3://<sample-data-backup-bucket>/`)
@@ -127,7 +221,7 @@
 - ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageGrid (default) or ImageTable (`density=table`). When `image` is in URL params, makes search UI invisible (`opacity-0 pointer-events-none`) and renders `ImageDetail` overlay.
 - ✅ Image detail as overlay (not a separate route) — renders within search route when `image` URL param present. Push on open, replace on prev/next, back to dismiss. All search context preserved.
 - ✅ Image detail standalone fetch — when `image` points to an ID not in results, fetches by ID from ES. Prev/next unavailable in standalone mode.
-- ✅ Image detail offset cache — `sessionStorage` cache for image offset + search fingerprint. Survives page reload.
+- ✅ Image detail offset cache — `sessionStorage` cache for image position + sort cursor + search fingerprint. Survives page reload. Cursor-based `search_after` restore at any depth (see 2 April 2026 entry).
 - ✅ Image detail shows `[x] of [total]`. Auto-loads more results when within 5 images of loaded edge.
 - ✅ Debounced cancellable prefetch — 2 prev + 3 next images, 400ms debounce, abort on navigation.
 - ✅ Image redirect route (`image.tsx`) at `/images/$imageId` → `/search?image=:imageId&nonFree=true`
@@ -719,8 +813,7 @@ at localIdx=800 → rowTop=25,600. Prepend compensation adds 200 × 32 = 6,400px
    Belt-and-suspenders: sets a 2-second cooldown on both `extendForward` and
    `extendBackward`, blocking them at their synchronous guards. This prevents any other path
    (buffer-change re-fire, virtualizer measurement events) from triggering extends during the
-   density-switch settle window. Same mechanism used by `resetScrollAndFocusSearch()` and
-   scrubber `seek()`.
+   density-switch settle window. Same mechanism used by `resetScrollAndFocusSearch()` and scrubber `seek()`.
 
 **Performance impact:** Net positive — removes one synthetic event dispatch, one async extend
 network call, and one prepend compensation layout shift per density switch. The 2-second

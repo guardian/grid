@@ -41,7 +41,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { resetSearchSync } from "@/hooks/useUrlSearchSync";
 import { resetScrollAndFocusSearch } from "@/hooks/useScrollEffects";
-import { storeImageOffset, getImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
+import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
 
@@ -52,7 +52,7 @@ interface ImageDetailProps {
 export function ImageDetail({ imageId }: ImageDetailProps) {
   const { results, total, bufferOffset, loadMore, findImageIndex } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
-  const loadRange = useSearchStore((s) => s.loadRange);
+  const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
   const navigate = useNavigate();
   const searchParams = useSearch({ from: "/search" });
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
@@ -68,14 +68,13 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   );
   const imageFromResults = currentIndex >= 0 ? results[currentIndex] : undefined;
 
-  // ── Restore search context from cached offset ─────────────────────
+  // ── Restore search context from cached cursor ──────────────────────
   //
   // On page reload, the image may not be in the first page of results.
-  // If we have a cached offset (stored when entering image detail or
-  // navigating prev/next), load a range around it so findImageIndex
-  // resolves → counter + prev/next work.  The load is a no-op if the
-  // range is already populated.  If the image isn't at the expected
-  // offset (data changed), we just fall back to standalone mode.
+  // If we have a cached cursor (stored when entering image detail or
+  // navigating prev/next), use search_after to load a page centered on
+  // the image. With a cursor this is exact at any depth. Without one
+  // (old cache format) falls back to approximate seek.
   const offsetRestoreAttempted = useRef(false);
   useEffect(() => {
     if (currentIndex >= 0) {
@@ -84,17 +83,14 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
       return;
     }
     // Don't attempt restore until the initial search has returned —
-    // loadRange clamps to `total` which is 0 before search completes.
+    // restoreAroundCursor needs total > 0 for countBefore to clamp correctly.
     if (total === 0) return;
     if (offsetRestoreAttempted.current) return; // already tried
-    const cachedOffset = getImageOffset(imageId, searchKey);
-    if (cachedOffset == null) return; // no cached offset — standalone mode
+    const cached = getImageOffset(imageId, searchKey);
+    if (cached == null) return; // no cached position — standalone mode
     offsetRestoreAttempted.current = true;
-    // Load a window around the cached offset (±50 for buffer)
-    const rangeStart = Math.max(0, cachedOffset - 50);
-    const rangeEnd = cachedOffset + 50;
-    loadRange(rangeStart, rangeEnd);
-  }, [imageId, currentIndex, loadRange, searchKey, total]);
+    restoreAroundCursor(imageId, cached.cursor, cached.offset);
+  }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);
 
   // Standalone fetch — when the imageId isn't in the search results
   // (e.g. direct URL navigation, bookmark, /images/:id redirect),
@@ -149,18 +145,23 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   // Navigate to prev/next image — replaces current history entry so browser
   // back always returns to the table, not through every viewed image.
-  // Stores the target image's offset in sessionStorage so it survives reload.
+  // Stores the target image's offset + sort cursor in sessionStorage so
+  // the counter and prev/next survive page reload.
   const goToImage = useCallback(
     (id: string) => {
       const idx = findImageIndex(id);
-      if (idx >= 0) storeImageOffset(id, bufferOffset + idx, searchKey);
+      if (idx >= 0) {
+        const img = results[idx];
+        const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
+        storeImageOffset(id, bufferOffset + idx, searchKey, cursor);
+      }
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: id }),
         replace: true,
       });
     },
-    [navigate, findImageIndex, searchKey, bufferOffset],
+    [navigate, findImageIndex, searchKey, bufferOffset, results, searchParams.orderBy],
   );
 
   // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on

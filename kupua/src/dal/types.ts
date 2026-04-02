@@ -164,10 +164,8 @@ export interface ImageDataSource {
 
   /**
    * Search without cancelling in-flight requests.
-   * Used by loadRange — range loads are additive and shouldn't abort
-   * each other or other searches. Accepts an optional AbortSignal so the
-   * store can cancel all in-flight ranges when a new search starts
-   * (generation-based abort).
+   * Range loads are additive and shouldn't abort each other or other
+   * searches. Accepts an optional AbortSignal so the caller can cancel.
    */
   searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult>;
 

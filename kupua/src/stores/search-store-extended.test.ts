@@ -24,7 +24,7 @@ import { buildSortClause, reverseSortClause } from "@/dal/es-adapter";
 const state = () => useSearchStore.getState();
 const actions = () => useSearchStore.getState();
 const flush = () => new Promise((r) => setTimeout(r, 0));
-const waitPastCooldown = () => new Promise((r) => setTimeout(r, 550));
+const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
 
 async function waitFor(
   predicate: () => boolean,

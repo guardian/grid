@@ -259,11 +259,26 @@ interface SearchState {
    */
   seek: (globalOffset: number) => Promise<void>;
 
-  // Legacy compatibility — thin wrappers over extend/seek
+  /**
+   * Restore the buffer around a specific image using its cached sort cursor.
+   * Used by ImageDetail on page reload to recover the counter + prev/next.
+   *
+   * With a cursor: `search_after` forward + backward from the cursor, then
+   * `countBefore` for exact bufferOffset. Guaranteed to land the image in
+   * the buffer regardless of depth.
+   *
+   * Without a cursor (old cache, missing fields): falls back to `seek(offset)`
+   * which works for shallow offsets (<10k) and degrades gracefully for deep ones.
+   */
+  restoreAroundCursor: (
+    imageId: string,
+    cursor: SortValues | null,
+    cachedOffset: number,
+  ) => Promise<void>;
+
+  // Legacy compatibility — thin wrapper over extendForward
   /** @deprecated Use extendForward instead. Kept for view compatibility during migration. */
   loadMore: () => Promise<void>;
-  /** @deprecated Use seek instead. Kept for ImageDetail offset restore during migration. */
-  loadRange: (start: number, end: number) => Promise<void>;
 
   setFocusedImageId: (id: string | null) => void;
   fetchAggregations: (force?: boolean) => Promise<void>;
@@ -501,6 +516,99 @@ async function _fillBufferForScrollMode(
 }
 
 // ---------------------------------------------------------------------------
+// Shared buffer-loading helper — "load a page centered on a known image"
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of loading a buffer centered on a target image.
+ * Callers use this to set the store state with caller-specific extras
+ * (e.g. sort-around-focus sets focusedImageId + sortAroundFocusGeneration;
+ * restore-around-cursor sets _seekGeneration + _seekTargetLocalIndex).
+ */
+interface BufferAroundImage {
+  combinedHits: (Image | undefined)[];
+  bufferStart: number;
+  startCursor: SortValues | null;
+  endCursor: SortValues | null;
+  total: number;
+  pitId: string | null;
+  /** Buffer-local index of the target image. */
+  targetLocalIdx: number;
+}
+
+/**
+ * Given a target image, its sort values, and its exact global offset,
+ * fetch a buffer page centered on the image via bidirectional search_after.
+ *
+ * This is the shared core of sort-around-focus (_findAndFocusImage) and
+ * image-detail reload restore (restoreAroundCursor). Both need to load a
+ * buffer around a specific image at any depth — the only difference is how
+ * they discover the image's sort values and what store state they set
+ * afterwards.
+ *
+ * Returns null if aborted.
+ */
+async function _loadBufferAroundImage(
+  targetHit: Image,
+  sortValues: SortValues,
+  exactOffset: number,
+  params: SearchParams,
+  pitId: string | null,
+  signal: AbortSignal,
+  dataSource: SearchState["dataSource"],
+): Promise<BufferAroundImage | null> {
+  // Forward page: items after the target image
+  const forwardResult = await dataSource.searchAfter(
+    { ...params, length: Math.floor(PAGE_SIZE / 2) },
+    sortValues,
+    pitId,
+    signal,
+  );
+  if (signal.aborted) return null;
+
+  // Backward page: items before the target image
+  const backwardResult = await dataSource.searchAfter(
+    { ...params, length: Math.floor(PAGE_SIZE / 2) },
+    sortValues,
+    pitId,
+    signal,
+    true, // reverse
+  );
+  if (signal.aborted) return null;
+
+  // Combine: backward hits + target image + forward hits
+  // The target image itself is NOT in either result (search_after is exclusive).
+  const combinedHits: (Image | undefined)[] = [
+    ...backwardResult.hits,
+    targetHit,
+    ...forwardResult.hits,
+  ];
+  const combinedSortValues: SortValues[] = [
+    ...backwardResult.sortValues,
+    sortValues,
+    ...forwardResult.sortValues,
+  ];
+
+  const bufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
+  const startCursor = combinedSortValues.length > 0
+    ? combinedSortValues[0]
+    : null;
+  const endCursor = combinedSortValues.length > 0
+    ? combinedSortValues[combinedSortValues.length - 1]
+    : null;
+
+  return {
+    combinedHits,
+    bufferStart,
+    startCursor,
+    endCursor,
+    total: forwardResult.total,
+    pitId: forwardResult.pitId ?? pitId,
+    targetLocalIdx: backwardResult.hits.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Sort-around-focus — async find-and-seek after sort change
 // ---------------------------------------------------------------------------
 
@@ -514,10 +622,7 @@ async function _fillBufferForScrollMode(
  * 1. Fetch image by ID with current sort to get its sort[] values.
  * 2. countBefore query → exact global offset.
  * 3. If offset is within the current buffer → just focus + scroll. Done.
- * 4. If outside → use searchAfter directly with the image's sort values
- *    (NOT seek(), which uses imprecise percentile estimation for deep
- *    positions). This guarantees the image is near the start of the
- *    fetched page.
+ * 4. If outside → _loadBufferAroundImage (bidirectional search_after).
  * 5. Graceful degradation: any failure → stay at top, clear status.
  */
 async function _findAndFocusImage(
@@ -585,10 +690,7 @@ async function _findAndFocusImage(
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
       });
     } else {
-      // Outside buffer — fetch a page directly using the image's sort
-      // values as the search_after cursor. This lands us right after
-      // the target image (search_after is exclusive). We'll also fetch
-      // backward to get items before it, centering the image in the buffer.
+      // Outside buffer — load a page centered on the image
       set({ sortAroundFocusStatus: "Seeking…" });
 
       // Abort any in-flight extends from the previous search and create
@@ -599,45 +701,11 @@ async function _findAndFocusImage(
       _rangeAbortController = new AbortController();
       const seekSignal = _rangeAbortController.signal;
 
-      // Forward page: items after the target image
-      const forwardResult = await dataSource.searchAfter(
-        { ...params, length: Math.floor(PAGE_SIZE / 2) },
-        imageSortValues,
-        get().pitId,
-        seekSignal,
+      const buf = await _loadBufferAroundImage(
+        targetHit, imageSortValues, offset, params,
+        get().pitId, seekSignal, dataSource,
       );
-      if (seekSignal.aborted) return;
-
-      // Backward page: items before the target image
-      const backwardResult = await dataSource.searchAfter(
-        { ...params, length: Math.floor(PAGE_SIZE / 2) },
-        imageSortValues,
-        get().pitId,
-        seekSignal,
-        true, // reverse
-      );
-      if (seekSignal.aborted) return;
-
-      // Combine: backward hits + target image + forward hits
-      // The target image itself is NOT in either result (search_after is exclusive).
-      const combinedHits: (Image | undefined)[] = [
-        ...backwardResult.hits,
-        targetHit,
-        ...forwardResult.hits,
-      ];
-      const combinedSortValues: SortValues[] = [
-        ...backwardResult.sortValues,
-        imageSortValues,
-        ...forwardResult.sortValues,
-      ];
-
-      const bufferStart = Math.max(0, offset - backwardResult.hits.length);
-      const startCursor = combinedSortValues.length > 0
-        ? combinedSortValues[0]
-        : null;
-      const endCursor = combinedSortValues.length > 0
-        ? combinedSortValues[combinedSortValues.length - 1]
-        : null;
+      if (!buf) return; // aborted
 
       _seekCooldownUntil = Date.now() + 500;
 
@@ -648,14 +716,14 @@ async function _findAndFocusImage(
       // "start") in the same layout pass, causing two conflicting
       // scroll positions and a visible grid-cell recomposition twitch.
       set({
-        results: combinedHits,
-        bufferOffset: bufferStart,
-        total: forwardResult.total,
+        results: buf.combinedHits,
+        bufferOffset: buf.bufferStart,
+        total: buf.total,
         loading: false,
-        imagePositions: buildPositions(combinedHits, bufferStart),
-        startCursor,
-        endCursor,
-        pitId: forwardResult.pitId ?? get().pitId,
+        imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
+        startCursor: buf.startCursor,
+        endCursor: buf.endCursor,
+        pitId: buf.pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         focusedImageId: imageId,
@@ -1481,18 +1549,98 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     return get().extendForward();
   },
 
-  loadRange: async (start: number, end: number) => {
-    // loadRange is used by ImageDetail's offset restore (loads a window
-    // around a cached offset). With the windowed buffer, this is a seek.
-    const { bufferOffset, results } = get();
-    const bufferEnd = bufferOffset + results.length;
+  restoreAroundCursor: async (
+    imageId: string,
+    cursor: SortValues | null,
+    cachedOffset: number,
+  ) => {
+    // Without a cursor, fall back to the approximate seek. This covers
+    // old cache entries and images with missing sort fields. Shallow
+    // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
+    if (!cursor) {
+      return get().seek(cachedOffset);
+    }
 
-    // If the requested range is already within the buffer, no-op
-    if (start >= bufferOffset && end < bufferEnd) return;
+    const { dataSource, params, pitId } = get();
 
-    // Otherwise seek to center the requested range in the buffer
-    const center = Math.floor((start + end) / 2);
-    return get().seek(center);
+    // Abort in-flight extends and previous restores
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+    const signal = _rangeAbortController.signal;
+    _seekCooldownUntil = Date.now() + 500;
+
+    set({ loading: true, error: null });
+
+    try {
+      const sortClause = buildSortClause(params.orderBy);
+
+      // Step 1: countBefore to get the exact global offset of the cursor.
+      // This is cheap (~5-10ms) and gives us the precise bufferOffset.
+      const exactOffset = await dataSource.countBefore(
+        params, cursor, sortClause, signal,
+      );
+      if (signal.aborted) return;
+
+      // Step 2: Fetch the target image by ID — we need the hit object and
+      // its current sort values (which may differ from the cached cursor if
+      // the sort field was updated between store & reload).
+      const targetResult = await dataSource.searchAfter(
+        { ...params, ids: imageId, length: 1 },
+        null, null, signal,
+      );
+      if (signal.aborted) return;
+
+      const targetHit = targetResult.hits[0];
+      if (!targetHit) {
+        // Image no longer matches the query — degrade to standalone mode
+        console.warn("[restoreAroundCursor] Image not found in results, falling back");
+        set({ loading: false });
+        return;
+      }
+
+      // Use fresh sort values if available, fall back to cached cursor
+      const targetSortValues = targetResult.sortValues[0] ?? cursor;
+
+      // Step 3: Load a buffer centered on the target image
+      const buf = await _loadBufferAroundImage(
+        targetHit, targetSortValues, exactOffset,
+        params, pitId, signal, dataSource,
+      );
+      if (!buf) return; // aborted
+
+      _seekCooldownUntil = Date.now() + 500;
+
+      set({
+        results: buf.combinedHits,
+        bufferOffset: buf.bufferStart,
+        total: buf.total,
+        loading: false,
+        imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
+        startCursor: buf.startCursor,
+        endCursor: buf.endCursor,
+        pitId: buf.pitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        _seekGeneration: get()._seekGeneration + 1,
+        _seekTargetLocalIndex: buf.targetLocalIdx,
+      });
+
+      console.log(
+        `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, ` +
+        `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIdx}, ` +
+        `hits=${buf.combinedHits.length}`,
+      );
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      console.warn("[restoreAroundCursor] Failed, falling back to seek:", e);
+      // Fall back to approximate seek on any error
+      set({ loading: false });
+      try {
+        return get().seek(cachedOffset);
+      } catch {
+        // Both paths failed — standalone mode
+      }
+    }
   },
 
   // -------------------------------------------------------------------------

@@ -28,7 +28,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/lib/cql-query-edit";
 import { cancelSearchDebounce } from "./SearchBar";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
-import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
+import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { DataSearchPill } from "./SearchPill";
 import {
   FIELD_REGISTRY,
@@ -433,13 +433,17 @@ export function ImageTable() {
     (imageId: string) => {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
-      if (idx >= 0) storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParamsRef.current));
+      if (idx >= 0) {
+        const img = results[idx];
+        const cursor = img ? extractSortValues(img, searchParamsRef.current.orderBy) : null;
+        storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParamsRef.current), cursor);
+      }
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, bufferOffset],
+    [navigate, setFocusedImageId, findImageIndex, bufferOffset, results],
   );
 
   // Column context menu — imperative handle; the component manages its own

@@ -30,7 +30,7 @@ import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
-import { storeImageOffset, buildSearchKey } from "@/lib/image-offset-cache";
+import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -346,13 +346,17 @@ export function ImageGrid() {
     (imageId: string) => {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
-      if (idx >= 0) storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParams));
+      if (idx >= 0) {
+        const img = results[idx];
+        const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
+        storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParams), cursor);
+      }
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, searchParams, bufferOffset],
+    [navigate, setFocusedImageId, findImageIndex, searchParams, bufferOffset, results],
   );
 
   // -------------------------------------------------------------------------

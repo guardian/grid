@@ -37,10 +37,12 @@ const actions = () => useSearchStore.getState();
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 /**
- * Wait past the seek cooldown (500ms) so extends aren't suppressed.
- * The cooldown is a module-level var in search-store — persists across tests.
+ * Wait past the longest cooldown (2000ms from search, 500ms from seek)
+ * so extends aren't suppressed. The cooldown is a module-level var in
+ * search-store — persists across tests. Bumped from 550→2100 after
+ * 8720085a1 added a 2s cooldown inside search() for buffer corruption fix.
  */
-const waitPastCooldown = () => new Promise((r) => setTimeout(r, 550));
+const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
 
 /**
  * Wait for a condition to become true, with a timeout.
