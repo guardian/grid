@@ -24,7 +24,7 @@ export class S3ImageResolver implements ImageResolver {
   // For TIFFs and PNGs, try the optimised PNG first — it's smaller and always a supported format.
   // Essential for TIFFs (Cohere rejects them), nice-to-have for PNGs (less downscaling).
   async fetchImage(
-    message: SQSMessageBody,
+    message: SQSMessageBody
   ): Promise<FetchedImage> {
     const isAlreadyOptimised = message.s3Key.startsWith('optimised/');
     const shouldCheckForOptimised =
@@ -86,6 +86,7 @@ export class CachedImageResolver implements ImageResolver {
 
   async fetchCachedDownscaledImage(
     imageId: string,
+    maxImageSizeBytes: number,
   ): Promise<Uint8Array | undefined> {
     if (!this.downScaledImageBucket) {
       console.log(`No downscaled image bucket configured, skipping cache lookup`);
@@ -94,20 +95,20 @@ export class CachedImageResolver implements ImageResolver {
 
     const key = this.toPartitionedKey(imageId);
     const bytes = await this.s3Fetcher.fetch(this.downScaledImageBucket, key);
-    if (bytes) {
+    if (bytes && bytes.length <= maxImageSizeBytes) {
       console.log(
         `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
       );
-    } else {
-      console.log(`Cache miss: no downscaled image for ${imageId}`);
+      return bytes;
     }
-    return bytes;
+    console.log(`Cache miss: no downscaled image for ${imageId}`);
+    return undefined;
   }
 
   async cacheDownscaledImage(
     imageId: string,
     imageBytes: Uint8Array,
-    mimeType: string,
+    mimeType: string
   ): Promise<void> {
     if (!this.downScaledImageBucket) {
       console.log(
@@ -135,16 +136,29 @@ export class CachedImageResolver implements ImageResolver {
   }
 
   async fetchImage(
-    message: SQSMessageBody
+    message: SQSMessageBody,
   ): Promise<FetchedImage> {
     // The mimeType of fully-processed (downscaled/converted) images is deterministic:
     // TIFFs are always served as their optimised PNG, all others keep their original format.
     const processedMimeType =
       message.fileType === 'image/tiff' ? 'image/png' : message.fileType;
 
-    const cachedBytes = await this.fetchCachedDownscaledImage(message.imageId);
+    const cachedBytes = await this.fetchCachedDownscaledImage(message.imageId, MAX_IMAGE_SIZE_BYTES);
     if (cachedBytes) {
-      return { bytes: cachedBytes, mimeType: processedMimeType };
+      // Validate cached image against current pixel limits in case limits have changed
+      const revalidated = await downscaleImageIfNeeded(
+        cachedBytes,
+        processedMimeType,
+        MAX_IMAGE_SIZE_BYTES,
+        MAX_PIXELS_COHERE_V4,
+      );
+
+      // If revalidation downscaled the image, update the cache with the new version
+      if (revalidated !== cachedBytes) {
+        await this.cacheDownscaledImage(message.imageId, revalidated, processedMimeType);
+      }
+
+      return { bytes: revalidated, mimeType: processedMimeType };
     }
 
     const { bytes, mimeType } = await this.s3ImageResolver.fetchImage(message);
