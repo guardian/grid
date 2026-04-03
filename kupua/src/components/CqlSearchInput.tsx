@@ -89,9 +89,6 @@ function ensureRegistered(typeahead: LazyTypeahead) {
     theme,
     lang: cqlParserSettings,
   });
-  // @ts-expect-error — upstream: @guardian/cql's createCqlInput return type
-  // is missing HTMLElement properties that TS DOM types require for
-  // CustomElementConstructor. The class works fine at runtime.
   customElements.define("cql-input", CqlInput);
   registered = true;
 }
@@ -161,7 +158,15 @@ export function CqlSearchInput({
     const el = document.createElement("cql-input");
     el.setAttribute("placeholder", placeholder);
     el.setAttribute("value", value);
-    el.setAttribute("autofocus", "");
+    // Only autofocus when not in image detail view. The CQL input is part of
+    // the layout even when image detail is open (hidden behind the overlay).
+    // If autofocus fires on reload in image detail view, the hidden search box
+    // steals focus — breaking keyboard shortcuts (e.g. 'f' for fullscreen)
+    // because the shortcut system sees an editable target.
+    const imageDetailOpen = new URL(window.location.href).searchParams.has("image");
+    if (!imageDetailOpen) {
+      el.setAttribute("autofocus", "");
+    }
 
     // Style the element to fill its container
     el.style.width = "100%";

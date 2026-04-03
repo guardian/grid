@@ -39,6 +39,7 @@ import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
+import { prefetchNearbyImages } from "@/lib/image-prefetch";
 import { resetToHome } from "@/lib/reset-to-home";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
@@ -279,59 +280,21 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // ── Prefetch nearby images (direction-aware pipeline) ─────────
   //
   // Fire-and-forget: on every navigation, prefetch 4 images in the
-  // movement direction + 1 behind (for "oops, went one too far").
-  // Uses `new Image().src` — the browser fetches and caches the
-  // response. Completed prefetches are never cancelled — they warm
-  // the browser's HTTP cache for future navigation.
+  // movement direction + 1 behind. Uses shared pipeline from
+  // image-prefetch.ts (also used by FullscreenPreview).
   //
   // Throttle gate (T=150ms): at held-arrow-key speeds (<150ms/step),
-  // skip prefetch batches to reduce imgproxy contention. The main
-  // <img> request still fires every step (browser-managed). At ≥200ms
-  // /step (fast tier and slower), 200 > 150 → throttle never triggers
-  // → pipeline runs at full capacity. See traversal-perf-investigation.md
-  // "Throttle analysis" section for the full mathematical proof that
-  // T=150ms never hurts: suppressed batches at <150ms/step can't
-  // complete in time to be useful anyway, and the 4-ahead reach ensures
-  // the landing image is always covered by an earlier unsuppressed batch.
-  //
-  // Direction-aware allocation (PhotoSwipe model):
-  //   Forward  → [i+1, i+2, i+3, i+4, i-1]
-  //   Backward → [i-1, i-2, i-3, i-4, i+1]
-  // Fired in distance order so the nearest image wins any connection
-  // scheduling tie.
+  // skip prefetch batches to reduce imgproxy contention.
   const lastPrefetchRef = useRef(0);
   useEffect(() => {
     if (currentIndex < 0) return;
-
-    const now = performance.now();
-    if (now - lastPrefetchRef.current < 150) return;
-    lastPrefetchRef.current = now;
-
-    const dir = directionRef.current;
-    const ahead = dir === "forward" ? 1 : -1;
-    const prefetchIndices: number[] = [];
-
-    // 4 in movement direction (nearest first)
-    for (let i = 1; i <= 4; i++) {
-      const idx = currentIndex + ahead * i;
-      if (idx >= 0 && idx < results.length) prefetchIndices.push(idx);
-    }
-    // 1 behind
-    const behindIdx = currentIndex - ahead;
-    if (behindIdx >= 0 && behindIdx < results.length) prefetchIndices.push(behindIdx);
-
-    for (const idx of prefetchIndices) {
-      const prefetchImage = results[idx];
-      if (!prefetchImage) continue;
-      const url =
-        getFullImageUrl(prefetchImage, imgproxyOpts) ??
-        getThumbnailUrl(prefetchImage);
-      if (url) {
-        const img = new Image();
-        img.src = url;
-      }
-    }
-  }, [currentIndex, results, imgproxyOpts]);
+    prefetchNearbyImages(
+      currentIndex,
+      results,
+      directionRef.current,
+      lastPrefetchRef,
+    );
+  }, [currentIndex, results]);
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
   // (tab reload, cached ES responses).  Only appears after 500ms of waiting.

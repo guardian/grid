@@ -8,6 +8,70 @@
 
 ## Phase 2 — Live Elasticsearch (Read-Only)
 
+### 3 April 2026 — FullscreenPreview feature + prefetch extraction + scroll-to-focused
+
+**New feature: Fullscreen Preview (`f` key from grid/table).** Press `f` with an image focused
+in grid or table view to enter true fullscreen (Fullscreen API, edge-to-edge, no browser chrome).
+Arrow keys traverse images, Esc/Backspace/f exits. No route change, no metadata loading, no
+ImageDetail mount — just the image on a black background. `FullscreenPreview.tsx` is always
+mounted (hidden empty div until activated), so the `f` keyboard shortcut is always registered
+via the shortcut stack. When ImageDetail is mounted, its `f` registration pushes on top.
+
+**Prefetch extraction.** The direction-aware prefetch pipeline (4-ahead + 1-behind, T=150ms
+throttle, PhotoSwipe model) was extracted from `ImageDetail.tsx` into `lib/image-prefetch.ts`.
+Both `ImageDetail` and `FullscreenPreview` now call `prefetchNearbyImages()`. FullscreenPreview
+fires prefetch on enter (no throttle — `null` for lastPrefetchTime) and on every arrow-key
+navigation (with throttle). Zero cost until the user actually presses `f`.
+
+**Scroll-to-focused on exit.** Added `registerScrollToFocused()` / `scrollFocusedIntoView()`
+to `lib/orchestration/search.ts` (same registration pattern as `registerVirtualizerReset`).
+Registered by `useScrollEffects`, called by `FullscreenPreview` on exit (both explicit exit
+and browser-native Esc via `fullscreenchange` listener). Uses `align: "center"` — consistent
+with `useReturnFromDetail`, which uses center for the same reason: user has been in a focused
+view and needs reorientation, not minimal disruption.
+
+**Consistency fix:** Changed `scrollToFocused` from `align: "auto"` to `align: "center"` after
+spotting the inconsistency with `useReturnFromDetail`. Both are "returning from a focused view"
+— same user mental model, same scroll behaviour.
+
+**Architecture observation:** FullscreenPreview validates the "one ordered list, many densities"
+philosophy. It's conceptually another density that reads/writes `focusedImageId`, shares the
+prefetch pipeline, and on exit uses the same scroll-to-focused mechanism. The feature required
+near-zero new architecture — everything was reusable from the existing density infrastructure.
+
+Files changed:
+- `src/components/FullscreenPreview.tsx` — new component
+- `src/lib/image-prefetch.ts` — new shared prefetch pipeline
+- `src/lib/orchestration/search.ts` — added `registerScrollToFocused` / `scrollFocusedIntoView`
+- `src/hooks/useScrollEffects.ts` — registers scroll-to-focused callback (effect 2b)
+- `src/components/ImageDetail.tsx` — replaced inline prefetch with shared `prefetchNearbyImages()`
+- `src/routes/search.tsx` — mounted `<FullscreenPreview />`
+
+### 3 April 2026 — Post-session: f-key bug fix
+
+**Bug: `f` fullscreen shortcut broken in image detail view.** After Session 2 extracted
+`resetScrollAndFocusSearch()` to `lib/orchestration/search.ts`, the function became more
+broadly callable. On page reload in image detail view, two code paths focused the hidden
+CQL search input: (1) `resetScrollAndFocusSearch()` unconditionally focused it via
+`requestAnimationFrame`, and (2) `CqlSearchInput.tsx` set `autofocus=""` on the `<cql-input>`
+web component at mount time. The CQL input exists in the DOM even when image detail is
+showing (it's part of the layout, hidden behind the overlay). With focus on the hidden
+search input, the keyboard shortcut system (`keyboard-shortcuts.ts`) saw `isEditableTarget()
+=== true` and required Alt+f instead of bare f. Bare f typed into the hidden search box,
+triggering `query=f`.
+
+**Fix (two sites):**
+- `lib/orchestration/search.ts` line 126–134: `requestAnimationFrame` callback now checks
+  `new URL(window.location.href).searchParams.has("image")` before focusing CQL input.
+- `components/CqlSearchInput.tsx` line 164: `autofocus` attribute only set when
+  `!new URL(window.location.href).searchParams.has("image")` at mount time.
+
+Both use the same pattern: check URL for `image` param at the moment focus would be applied.
+Latent pre-Session-2 bug, surfaced by the extraction making the function more broadly callable.
+
+**Also cleaned up:** Removed stale `@ts-expect-error` directive in `CqlSearchInput.tsx` line 92
+— upstream `@guardian/cql` types were fixed, the suppression was now flagging as unused.
+
 ### 3 April 2026 — Session 3: DAL boundary cleanup
 
 Moved ES-specific code into a dedicated `dal/adapters/elasticsearch/` directory. Extracted

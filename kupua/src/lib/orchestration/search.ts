@@ -84,6 +84,36 @@ export function registerVirtualizerReset(fn: (() => void) | null) {
   _virtualizerReset = fn;
 }
 
+// ---------------------------------------------------------------------------
+// Scroll-to-focused orchestration (FullscreenPreview exit)
+// ---------------------------------------------------------------------------
+
+let _scrollToFocused: (() => void) | null = null;
+
+/**
+ * Register a callback that scrolls the virtualizer to bring the currently
+ * focused image into view. Called by useScrollEffects on mount; cleared on
+ * unmount.
+ *
+ * Used by FullscreenPreview on exit — after traversing images in fullscreen,
+ * the focused image may have moved outside the table/grid viewport.
+ */
+export function registerScrollToFocused(fn: (() => void) | null) {
+  _scrollToFocused = fn;
+}
+
+/**
+ * Scroll the active grid/table virtualizer to bring the focused image into
+ * view. No-op if no virtualizer is registered or no image is focused.
+ *
+ * Uses `align: "center"` — same as useReturnFromDetail — because the user
+ * has been in a focused view (fullscreen preview) and needs reorientation
+ * with equal context above and below.
+ */
+export function scrollFocusedIntoView(): void {
+  _scrollToFocused?.();
+}
+
 /**
  * Imperatively reset scroll position to top — called by SearchBar logo,
  * ImageDetail logo, and metadata clicks. Orchestrates:
@@ -123,7 +153,14 @@ export function resetScrollAndFocusSearch(): void {
   const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
   if (thumb) thumb.style.top = "0px";
 
+  // Focus CQL input — but only if we're in search/results view, not image
+  // detail view. The CQL input exists in the DOM even when image detail is
+  // open (it's part of the layout) — focusing it there steals keyboard
+  // shortcuts (the 'f' fullscreen shortcut sees an editable target and
+  // requires Alt, while bare 'f' types into the hidden search box).
   requestAnimationFrame(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("image")) return;
     const cqlInput = document.querySelector("cql-input");
     if (cqlInput instanceof HTMLElement) cqlInput.focus();
   });

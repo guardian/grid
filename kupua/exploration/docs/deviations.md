@@ -207,12 +207,13 @@ half the time.
 Kupua uses a universal pattern: bare key when focus is not in an editable
 field, `Alt+key` when it is. Both combos work when not editing. This
 means `[`/`]` (panels) always have a way to fire regardless of focus state.
-`f` (fullscreen) uses the same system but is only registered in image
-detail view — on the search page it does nothing. Fullscreening a
-search-page image was considered (open image detail + fullscreen in one
-key) but rejected: ambiguous when nothing is focused, surprising when the
-wrong image is focused, and likely to be obsoleted by quicklook or a
-navigation paradigm change.
+`f` (fullscreen) uses the same system and is registered in both contexts:
+in image detail view it toggles the detail container's fullscreen (via
+`useFullscreen`), and in grid/table view it activates `FullscreenPreview`
+— a lightweight true-fullscreen peek via the Fullscreen API. The shortcut
+stack ensures only one handler is active: when ImageDetail mounts, its `f`
+registration pushes on top and FullscreenPreview's becomes dormant. When
+no image is focused in grid/table, `f` is a no-op (no ambiguity).
 
 `Alt` was chosen over `Cmd`/`Ctrl` because:
 - `Cmd+F` is browser Find — sacred, never intercept

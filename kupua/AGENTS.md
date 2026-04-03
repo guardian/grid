@@ -77,7 +77,9 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 
 **Panels** (`PanelLayout.tsx`): Left (facet filters) / right (focused-image metadata). Resize handles, `[`/`]` keyboard shortcuts, `AccordionSection` with persisted state. Facet filters: batched aggs, click/alt-click for CQL chips, "Show more" per field. Right panel: registry-driven `ImageMetadata`.
 
-**Image detail** (`ImageDetail.tsx`): Overlay within search route (search page stays mounted with `opacity-0`). Counter, prev/next, direction-aware prefetch pipeline (T=150ms throttle gate), fullscreen survives between images. Position cache in sessionStorage (offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. AVIF format, DPR-aware sizing.
+**Image detail** (`ImageDetail.tsx`): Overlay within search route (search page stays mounted with `opacity-0`). Counter, prev/next, direction-aware prefetch pipeline (shared `image-prefetch.ts`, T=150ms throttle gate), fullscreen survives between images. Position cache in sessionStorage (offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. AVIF format, DPR-aware sizing.
+
+**Fullscreen preview** (`FullscreenPreview.tsx`): Lightweight fullscreen peek from grid/table — press `f` to view focused image edge-to-edge via Fullscreen API. No route change, no metadata. Arrow keys traverse images, updating `focusedImageId`; exit (Esc/Backspace/f) scrolls list to centered focused image. Shares prefetch pipeline with ImageDetail. Another density of the same ordered list.
 
 **Field registry** (`field-registry.ts`): Single source of truth for all image fields. 23 hardcoded + config-driven aliases. Drives table columns, sort dropdown, facet filters, detail panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display.
 
@@ -132,7 +134,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 
 4. **sample-data.ndjson not in git** — 115MB, kept locally or in S3.
 
-5. **All views are one page** — table, grid, detail are density levels of the same ordered list. URL reflects full state. Browser back/forward restores position.
+5. **All views are one page** — table, grid, image detail, and fullscreen preview are density levels of the same ordered list. URL reflects full state. Browser back/forward restores position.
 
 6. **Routes match kahuna** — `/search?query=...`, `/images/:imageId`, `/upload`, `/` → `/search?nonFree=true`.
 
@@ -169,6 +171,8 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 21. **Auto-reveal hidden columns on sort** — column auto-shown via `toggleVisibility()`.
 
 22. **Fullscreen survives between images** — React reconciles same `ImageDetail` component, fullscreened DOM element persists.
+
+22b. **Fullscreen preview as a density** — `FullscreenPreview` is conceptually another density of the same ordered list. It reads/writes `focusedImageId`, shares the prefetch pipeline (`image-prefetch.ts`), and on exit calls `scrollFocusedIntoView()` (registered by `useScrollEffects`) with `align: "center"` — same as `useReturnFromDetail`. The "one list, many densities" philosophy means new viewing modes reuse existing infrastructure with near-zero new architecture. Current densities: table, grid, image detail, fullscreen preview.
 
 23. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved. `image` is display-only URL param excluded from store sync.
 
@@ -232,6 +236,7 @@ kupua/
       keyboard-shortcuts.ts   # Centralised shortcut registry (single document listener, Alt+key in editable fields)
       sort-context.ts         # Sort-context labels for scrubber tooltip (~795 lines). Adaptive date granularity, keyword binary search, track tick generation.
       image-urls.ts           # URL builders — thumbnails via S3 proxy, full via imgproxy
+      image-prefetch.ts       # Direction-aware prefetch pipeline (shared by ImageDetail + FullscreenPreview)
       image-offset-cache.ts   # sessionStorage cache for image position (offset + sort cursor + search fingerprint)
       image-offset-cache.test.ts # 15 tests
       typeahead-fields.ts     # CQL typeahead field definitions from DAL
@@ -257,6 +262,7 @@ kupua/
       ImageGrid.tsx            # Thumbnail grid (~520 lines)
       Scrubber.tsx             # Position scrubber (~1,010 lines)
       ImageDetail.tsx          # Single-image overlay with fullscreen + prev/next
+      FullscreenPreview.tsx    # Fullscreen peek from grid/table (f key, Fullscreen API)
       ImageMetadata.tsx        # Registry-driven metadata display (~325 lines)
       PanelLayout.tsx          # Panel system: flex row, resize, AccordionSection
       FacetFilters.tsx         # Facet filter panel (~275 lines)

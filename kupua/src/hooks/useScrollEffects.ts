@@ -27,7 +27,7 @@ import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
-import { registerVirtualizerReset } from "@/lib/orchestration/search";
+import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 
 // ---------------------------------------------------------------------------
@@ -207,6 +207,33 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     registerVirtualizerReset(() => virtualizer.scrollToOffset(0));
     return () => { registerVirtualizerReset(null); };
   }, [virtualizer]);
+
+  // -------------------------------------------------------------------------
+  // 2b. Register scroll-to-focused callback (FullscreenPreview exit)
+  // -------------------------------------------------------------------------
+  //
+  // When exiting FullscreenPreview after traversing images, the focused item
+  // may be off-screen. This callback scrolls it into view using align: "center"
+  // — same as useReturnFromDetail, because the user has been in a focused view
+  // and has no memory of where this image sits in the list. Centering gives
+  // equal context above and below for reorientation.
+  // Uses refs and getState() to always have fresh values without re-registering.
+
+  useEffect(() => {
+    registerScrollToFocused(() => {
+      const { focusedImageId: fid, imagePositions, bufferOffset: bo } =
+        useSearchStore.getState();
+      if (!fid) return;
+      const globalIdx = imagePositions.get(fid);
+      if (globalIdx == null) return;
+      const localIdx = globalIdx - bo;
+      if (localIdx < 0) return;
+      const geo = geometryRef.current;
+      const rowIdx = Math.floor(localIdx / geo.columns);
+      virtualizerRef.current.scrollToIndex(rowIdx, { align: "center" });
+    });
+    return () => { registerScrollToFocused(null); };
+  }, []);
 
   // -------------------------------------------------------------------------
   // 3. handleScroll — report visible range + fallback loadMore

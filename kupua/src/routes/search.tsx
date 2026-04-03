@@ -28,6 +28,7 @@ import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { Scrubber } from "@/components/Scrubber";
 import { FacetFilters, AggTiming } from "@/components/FacetFilters";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
@@ -161,6 +162,10 @@ function SearchPage() {
 
       {/* Image detail overlay — rendered when image is in URL */}
       {showImageDetail && <ImageDetail imageId={image} />}
+
+      {/* Fullscreen preview — always mounted (hidden until activated by `f` key).
+          Uses the Fullscreen API for true edge-to-edge display. */}
+      <FullscreenPreview />
     </>
   );
 }
