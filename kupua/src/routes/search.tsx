@@ -34,6 +34,7 @@ import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
 import { interpolateSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicks } from "@/lib/sort-context";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -46,6 +47,9 @@ function SearchPage() {
   const { image, density } = useSearch({ from: "/search" });
   const showImageDetail = !!image;
   const isGrid = density !== "table";
+
+  // Keep document.title in sync with the search query
+  useDocumentTitle();
 
   // Scrubber data — subscribed at this level so the scrubber re-renders
   // when the buffer moves without re-rendering the views.

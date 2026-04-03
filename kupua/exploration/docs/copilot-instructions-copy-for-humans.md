@@ -120,3 +120,11 @@ scaffolding. Generate it fresh each time from the JSON data. The user likes pict
 - Never run perf tests (`run-audit.mjs`) or smoke tests (`run-smoke.mjs`)
   habitually — those are manual, purpose-driven.
 
+**Directive: Ask rather than spiral.** If the agent has attempted a fix or approach and
+it didn't work, or if there are multiple plausible interpretations of a request with
+meaningfully different implementation costs, **ask the user** instead of guessing and
+iterating. One clarifying question is almost always cheaper than two wrong attempts.
+This does NOT mean ask before starting — take action when the path is clear. It means:
+when you're uncertain between approaches that diverge significantly, or when a first
+attempt failed and the next one requires assumptions about user intent, stop and ask.
+

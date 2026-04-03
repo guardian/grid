@@ -70,6 +70,23 @@ function buildDateTooltip(image: Image): string {
   return `Uploaded: ${formatDate(image.uploadTime)}\n      Taken: ${formatDate(image.metadata?.dateTaken)}\n  Modified: ${formatDate(image.lastModified)}`;
 }
 
+/**
+ * Pick the date label + value to show on the grid cell based on the primary
+ * sort field. Matches kahuna behaviour: when sorting by date taken, show
+ * "Taken: …"; when sorting by last modified, show "Modified: …"; otherwise
+ * default to "Uploaded: …".
+ */
+function getCellDateLine(image: Image, orderBy: string | undefined): string {
+  const primary = (orderBy ?? "-uploadTime").split(",")[0].replace(/^-/, "");
+  if (primary === "taken") {
+    return `Taken: ${formatDate(image.metadata?.dateTaken)}`;
+  }
+  if (primary === "lastModified") {
+    return `Modified: ${formatDate(image.lastModified)}`;
+  }
+  return `Uploaded: ${formatDate(image.uploadTime)}`;
+}
+
 // ---------------------------------------------------------------------------
 // GridCell — memoised individual cell
 // ---------------------------------------------------------------------------
@@ -78,6 +95,7 @@ interface GridCellProps {
   image: Image | undefined;
   isFocused: boolean;
   cellWidth: number;
+  dateLine?: string;
   onCellClick: (imageId: string) => void;
   onCellDoubleClick: (imageId: string) => void;
 }
@@ -86,6 +104,7 @@ const GridCell = memo(function GridCell({
   image,
   isFocused,
   cellWidth,
+  dateLine,
   onCellClick,
   onCellDoubleClick,
 }: GridCellProps) {
@@ -103,7 +122,6 @@ const GridCell = memo(function GridCell({
   const descTooltip = buildDescriptionTooltip(image);
   const dateTooltip = buildDateTooltip(image);
   const description = image.metadata?.description || image.metadata?.title || "";
-  const uploadDate = formatDate(image.uploadTime);
 
   return (
     <div
@@ -151,7 +169,7 @@ const GridCell = memo(function GridCell({
           className="text-2xs text-grid-text-dim truncate"
           title={dateTooltip}
         >
-          Uploaded: {uploadDate}
+          {dateLine}
         </p>
       </div>
     </div>
@@ -460,6 +478,7 @@ export function ImageGrid() {
                     image={image}
                     isFocused={!!image && image.id === focusedImageId}
                     cellWidth={cellWidth}
+                    dateLine={image ? getCellDateLine(image, searchParams.orderBy) : undefined}
                     onCellClick={handleCellClick}
                     onCellDoubleClick={handleCellDoubleClick}
                   />

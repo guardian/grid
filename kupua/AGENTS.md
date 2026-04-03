@@ -59,13 +59,13 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 
 **State** (`src/stores/search-store.ts`, ~1,810 lines): Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek). Scroll-mode fill for small result sets. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle, new-images ticker. Aggregation cache + circuit breaker. Separate `column-store` + `panel-store` (localStorage-persisted).
 
-**URL sync:** Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params. `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation.
+**URL sync:** Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params. `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation. `useDocumentTitle` hook sets `document.title` to `{query} | the Grid` (mirrors kahuna's `ui-title` directive), with `(N new)` prefix from the new-images ticker.
 
 **CQL:** `@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` for non-blocking suggestions. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`.
 
 **Table view** (`ImageTable.tsx`, ~1,260 lines): TanStack Table + Virtual. Column defs from field-registry (23 hardcoded + config-driven alias fields). Resize, auto-fit, visibility context menu, sort on header click (shift for secondary), auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip). Row focus, double-click to detail. ARIA roles. Horizontal scrollbar via proxy div; vertical hidden (Scrubber replaces it).
 
-**Grid view** (`ImageGrid.tsx`, ~520 lines): Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav, scroll anchoring on column count change.
+**Grid view** (`ImageGrid.tsx`, ~520 lines): Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav, scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field).
 
 **Scroll effects** (`useScrollEffects.ts`, ~640 lines): Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descriptor. Handles: scroll reset orchestration, prepend/forward-evict compensation, seek scroll-to-target, sort-around-focus scroll, density-focus save/restore (with edge clamping), bufferOffset→0 guard. Module-level bridges for density-focus and sort-focus.
 
@@ -255,8 +255,8 @@ kupua/
     components/
       SearchBar.tsx            # Toolbar: logo + CQL input + clear (no imperative exports — those are in lib/orchestration/search.ts)
       CqlSearchInput.tsx       # @guardian/cql <cql-input> wrapper
-      SearchFilters.tsx        # FilterControls + SortControls
-      DateFilter.tsx           # Date range filter dropdown
+      SearchFilters.tsx        # FilterControls + SortControls (non-default indicator badges)
+      DateFilter.tsx           # Date range filter dropdown (preset matching via tolerance, non-default badge)
       StatusBar.tsx            # Count + ticker + timing + density toggle
       ImageTable.tsx           # TanStack Table + Virtual (~1,260 lines)
       ImageGrid.tsx            # Thumbnail grid (~520 lines)
@@ -285,6 +285,7 @@ kupua/
       useKeyboardShortcut.ts   # React hook for keyboard-shortcuts.ts
       useHeaderHeight.ts       # ResizeObserver for table header height
       useReturnFromDetail.ts   # Scroll-to-focused on return from image detail
+      useDocumentTitle.ts      # Dynamic page title: "{query} | the Grid", with "(N new)" ticker prefix
   e2e/
     global-setup.ts            # Safety gate + ES health check
     helpers.ts                 # KupuaHelpers fixture class

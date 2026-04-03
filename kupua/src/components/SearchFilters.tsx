@@ -78,6 +78,10 @@ function SortControls() {
   const currentLabel =
     SORTABLE_FIELDS.find((f) => f.value === sortField)?.label ?? sortField;
 
+  // Default sort is "Upload time, descending" — show an indicator dot when
+  // the user has changed it, same as DateFilter does for non-default dates.
+  const isNonDefaultSort = orderBy !== "-uploadTime";
+
   const handleSelectField = useCallback(
     (value: string) => {
       const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
@@ -126,7 +130,7 @@ function SortControls() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Sort by: ${currentLabel}`}
-        className={`flex items-center gap-1 px-2 py-1 border border-grid-border rounded-l text-sm transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
+        className={`relative flex items-center gap-1 px-2 py-1 border border-grid-border rounded-l text-sm transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
           open
             ? "text-grid-text-bright border-grid-text-muted"
             : "text-grid-text-muted"
@@ -136,6 +140,10 @@ function SortControls() {
         <svg className="w-3 h-3 shrink-0" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
           <path d={open ? "M3 8l3-3 3 3" : "M3 4l3 3 3-3"} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        {/* Non-default sort indicator — positioned as a badge to avoid layout shift */}
+        {isNonDefaultSort && (
+          <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-grid-accent" />
+        )}
       </button>
 
       {/* Direction toggle */}

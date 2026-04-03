@@ -61,6 +61,46 @@ function makePresets(): PresetOption[] {
   ];
 }
 
+/**
+ * Determine which preset (if any) matches a stored `since` value.
+ *
+ * "Today" uses exact comparison (startOfToday is stable within a day).
+ * Relative presets ("Past 24 hours", "Past week", …) drift every second,
+ * so we allow a tolerance window — the stored value was computed at click
+ * time and may be minutes/hours old. We check in order and return the
+ * first match so that "Today" (exact) is never confused with "Past 24
+ * hours" (tolerance).
+ */
+function findMatchingPreset(
+  since: string | undefined,
+  until: string | undefined,
+  presets: PresetOption[],
+): string | undefined {
+  // A preset only sets `since` — if `until` is set it's a custom range.
+  if (until) return undefined;
+  if (!since) return "Anytime";
+
+  const sinceMs = new Date(since).getTime();
+  if (isNaN(sinceMs)) return undefined;
+
+  // 2-hour tolerance — generous enough to survive leaving a tab open for a
+  // while, but far smaller than the gap between adjacent presets (24h → 7d).
+  const TOLERANCE_MS = 2 * 60 * 60 * 1000;
+
+  for (const preset of presets) {
+    if (preset.value === undefined) continue; // skip "Anytime"
+    const presetMs = new Date(preset.value).getTime();
+    if (preset.label === "Today") {
+      // Today = startOfToday — a fixed value. Exact match only.
+      if (sinceMs === presetMs) return preset.label;
+    } else {
+      // Relative preset — allow tolerance for clock drift since click time.
+      if (Math.abs(sinceMs - presetMs) <= TOLERANCE_MS) return preset.label;
+    }
+  }
+  return undefined;
+}
+
 // ── Calendar icon (Material Icons "event" — inline SVG) ────────────────────
 
 function CalendarIcon({ className = "" }: { className?: string }) {
@@ -243,12 +283,12 @@ export function DateFilter() {
   );
 
   const handlePreset = useCallback(
-    (presetValue: string | undefined) => {
+    (preset: PresetOption) => {
       // Presets only set "since" (from that moment to now); "until" is cleared
-      setDraftSince(presetValue);
+      setDraftSince(preset.value);
       setDraftUntil(undefined);
 
-      if (presetValue === undefined) {
+      if (preset.value === undefined) {
         // "Anytime" — clear everything, reset field to default, and close
         setDraftField("uploaded");
         updateSearch({
@@ -265,7 +305,7 @@ export function DateFilter() {
       }
 
       // Apply preset immediately (same as kahuna)
-      applyDateFilter(draftField, presetValue, undefined);
+      applyDateFilter(draftField, preset.value, undefined);
       setOpen(false);
     },
     [draftField, updateSearch, applyDateFilter]
@@ -318,6 +358,7 @@ export function DateFilter() {
   const isActive = !!(active.since || active.until);
   const buttonLabel = buildButtonLabel(active.field, active.since, active.until);
   const presets = makePresets();
+  const matchedPreset = findMatchingPreset(draftSince, draftUntil, presets);
 
   // Check if draft state differs from URL state (to disable Filter button when unchanged)
   const draftMatchesUrl =
@@ -333,7 +374,7 @@ export function DateFilter() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm border transition-colors cursor-pointer select-none whitespace-nowrap border-grid-border hover:text-grid-text-bright hover:border-grid-text-muted ${
+        className={`relative flex items-center gap-1.5 px-2 py-1 rounded text-sm border transition-colors cursor-pointer select-none whitespace-nowrap border-grid-border hover:text-grid-text-bright hover:border-grid-text-muted ${
           open
             ? "text-grid-text-bright border-grid-text-muted"
             : "text-grid-text-muted"
@@ -342,14 +383,14 @@ export function DateFilter() {
       >
         <CalendarIcon className="w-4 h-4 shrink-0" />
         <span>{buttonLabel}</span>
-        {/* Active indicator dot — always visible when a date filter is set */}
-        {isActive && (
-          <span className="w-1.5 h-1.5 rounded-full bg-grid-accent shrink-0" />
-        )}
         {/* Chevron — matches the native <select> dropdown arrow */}
         <svg className="w-3 h-3 shrink-0 ml-0.5" viewBox="0 0 12 12" fill="currentColor">
           <path d={open ? "M3 8l3-3 3 3" : "M3 4l3 3 3-3"} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        {/* Non-default indicator — positioned as a badge to avoid layout shift */}
+        {isActive && (
+          <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-grid-accent" />
+        )}
       </button>
 
       {/* Dropdown overlay */}
@@ -383,19 +424,12 @@ export function DateFilter() {
           </h3>
           <div className="flex flex-wrap gap-1.5 mb-4">
             {presets.map((preset) => {
-              // A preset is "active" when it matches the current draft state
-              const isPresetActive =
-                draftUntil === undefined &&
-                ((preset.value === undefined && draftSince === undefined) ||
-                  (preset.value !== undefined &&
-                    draftSince !== undefined &&
-                    toDateInputValue(preset.value) ===
-                      toDateInputValue(draftSince)));
+              const isPresetActive = preset.label === matchedPreset;
               return (
                 <button
                   key={preset.label}
                   type="button"
-                  onClick={() => handlePreset(preset.value)}
+                  onClick={() => handlePreset(preset)}
                   className={[
                     "px-2.5 py-1 text-sm rounded border transition-colors cursor-pointer",
                     isPresetActive
