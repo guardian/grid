@@ -33,8 +33,8 @@
 import { useCallback } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
-import { cancelSearchDebounce } from "@/components/SearchBar";
-import { upsertFieldTerm } from "@/lib/cql-query-edit";
+import { cancelSearchDebounce } from "@/lib/orchestration/search";
+import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import type { Image } from "@/types/image";
 import { SearchPill } from "./SearchPill";

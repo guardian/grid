@@ -18,5 +18,6 @@ export type {
   SortDistBucket,
 } from "./types";
 
-export { ElasticsearchDataSource, buildSortClause, reverseSortClause, parseSortField } from "./es-adapter";
+export { ElasticsearchDataSource } from "./es-adapter";
+export { buildSortClause, reverseSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
 

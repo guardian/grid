@@ -13,6 +13,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import {
+  _prevParamsSerialized,
+  setPrevParamsSerialized,
+  _prevSearchOnly,
+  setPrevSearchOnly,
+} from "@/lib/orchestration/search";
 
 /** Default search params applied when the URL has none at all. */
 const DEFAULT_SEARCH: Partial<UrlSearchParams> = { nonFree: "true" };
@@ -40,25 +46,6 @@ function cleanParams(
  * (e.g. in SearchBar or at the route component level).
  */
 
-/** Module-level ref for the dedup comparison string. Shared between
- *  useUrlSearchSync (writes on every sync) and resetSearchSync (clears
- *  to force a re-search on the next URL change or re-render). */
-let _prevParamsSerialized = "";
-
-/** Previous search-only params (not serialized) for sort-only change detection. */
-let _prevSearchOnly: Record<string, unknown> = {};
-
-/**
- * Reset the search sync dedup state so the next render cycle of
- * useUrlSearchSync will treat the current params as "new" and trigger
- * a fresh search. Call this from logo onClick handlers (both SearchBar
- * and ImageDetail) to ensure "reset everything" always works, even
- * when the URL search params haven't actually changed.
- */
-export function resetSearchSync() {
-  _prevParamsSerialized = "";
-  _prevSearchOnly = {};
-}
 
 export function useUrlSearchSync() {
   const searchParams = useSearch({ from: "/search" });
@@ -123,8 +110,8 @@ export function useUrlSearchSync() {
     const sortAroundFocusId =
       isSortOnly ? useSearchStore.getState().focusedImageId : null;
 
-    _prevParamsSerialized = serialized;
-    _prevSearchOnly = { ...searchOnly };
+    setPrevParamsSerialized(serialized);
+    setPrevSearchOnly({ ...searchOnly });
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed

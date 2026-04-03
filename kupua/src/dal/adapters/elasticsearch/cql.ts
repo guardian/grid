@@ -14,7 +14,7 @@ import {
   type CqlField,
   type CqlStr,
 } from "@guardian/cql";
-import { gridConfig } from "./grid-config";
+import { gridConfig } from "@/lib/grid-config";
 
 // ---------------------------------------------------------------------------
 // CQL Parser instance — configure shortcuts like kahuna does

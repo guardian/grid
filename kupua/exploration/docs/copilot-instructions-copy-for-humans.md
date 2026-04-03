@@ -112,3 +112,11 @@ a scatter plot if there are two continuous variables, a raw data table, and a wr
 verdict. The dashboard is **disposable** — don't keep it in the repo or build generic
 scaffolding. Generate it fresh each time from the JSON data. The user likes pictures.
 
+**Directive: Habitual testing.** After any code change to `src/`:
+- Run `npm test` (unit + integration, ~5 seconds). This is non-negotiable.
+- After changing component structure, hooks, store subscriptions, or anything
+  that affects rendering: run `npx playwright test` (E2E, ~70 seconds). Ask
+  the user to stop any running dev server on port 3000 first.
+- Never run perf tests (`run-audit.mjs`) or smoke tests (`run-smoke.mjs`)
+  habitually — those are manual, purpose-driven.
+

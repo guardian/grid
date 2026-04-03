@@ -559,6 +559,59 @@ test.describe("Sort-around-focus", () => {
     expect(store.error).toBeNull();
     expect(store.resultsLength).toBeGreaterThan(0);
   });
+
+  test("focused image is within viewport after sort field change", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Focus an image
+    await kupua.focusNthItem(5);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Change sort to Credit — triggers sort-around-focus
+    await kupua.selectSort("Credit");
+    await kupua.waitForSortAroundFocus(15_000);
+    // Extra settle for scroll positioning
+    await kupua.page.waitForTimeout(500);
+
+    // Same image still focused
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Assert: the focused image's DOM element is within the viewport
+    const isVisible = await kupua.page.evaluate((fid) => {
+      // Find the focused row/cell by checking the store for its local index,
+      // then checking if the virtualised element is in view
+      const store = (window as any).__kupua_store__;
+      if (!store) return false;
+      const s = store.getState();
+      const globalPos = s.imagePositions.get(fid);
+      if (globalPos == null) return false;
+      const localIdx = globalPos - s.bufferOffset;
+      if (localIdx < 0 || localIdx >= s.results.length) return false;
+
+      // Check the scroll container: is the row/cell for this index visible?
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = (grid ?? table) as HTMLElement | null;
+      if (!el) return false;
+
+      const viewportTop = el.scrollTop;
+      const viewportBottom = viewportTop + el.clientHeight;
+
+      // Estimate element position (grid: row = floor(localIdx/cols) * 303,
+      // table: row = localIdx * 32 + headerHeight)
+      if (grid) {
+        const cols = Math.max(1, Math.floor(el.clientWidth / 280));
+        const rowTop = Math.floor(localIdx / cols) * 303;
+        return rowTop >= viewportTop - 303 && rowTop <= viewportBottom;
+      } else {
+        const rowTop = localIdx * 32 + 45;
+        return rowTop >= viewportTop - 32 && rowTop <= viewportBottom;
+      }
+    }, focusedId);
+
+    expect(isVisible).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

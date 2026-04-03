@@ -26,8 +26,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
-import { registerScrollContainer, getScrollContainer } from "@/lib/scroll-container-ref";
-import { resetVisibleRange } from "@/hooks/useDataWindow";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
+import { registerVirtualizerReset } from "@/lib/orchestration/search";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 
 // ---------------------------------------------------------------------------
@@ -83,69 +83,6 @@ function consumeSortFocusRatio(): number | null {
   return r;
 }
 
-// ---------------------------------------------------------------------------
-// Scroll-reset orchestration (previously src/lib/scroll-reset.ts +
-// src/lib/scroll-reset-ref.ts)
-//
-// The hook registers the virtualizer's scrollToOffset(0) callback and the
-// scroll container. This exported function is called imperatively by
-// SearchBar (logo click) and ImageDetail (logo click, metadata click) —
-// it is NOT a hook, just a plain function that accesses module-level state.
-//
-// IMPORTANT: calls abortExtends() BEFORE resetting scrollTop. The synthetic
-// scroll event fires synchronously and triggers the scroll handler →
-// reportVisibleRange → extendBackward. If the buffer is at a deep offset
-// (e.g. after a scrubber seek), extendBackward would prepend stale data
-// and corrupt the buffer. abortExtends() sets a 2-second cooldown that
-// blocks extendBackward at its synchronous guard.
-// ---------------------------------------------------------------------------
-
-let _virtualizerReset: (() => void) | null = null;
-
-/**
- * Imperatively reset scroll position to top — called by SearchBar logo,
- * ImageDetail logo, and metadata clicks. Orchestrates:
- * 1. Abort in-flight extends (buffer corruption prevention)
- * 2. DOM scrollTop/scrollLeft reset
- * 3. Virtualizer internal offset reset
- * 4. Visible range reset (Scrubber thumb sync)
- * 5. Direct scrubber thumb DOM reset
- * 6. Focus CQL input (next frame)
- */
-export function resetScrollAndFocusSearch(): void {
-  // Abort in-flight extends and set cooldown BEFORE the synthetic scroll
-  // event can trigger extendBackward on a stale deep-offset buffer.
-  useSearchStore.getState().abortExtends();
-
-  const scrollContainer = getScrollContainer();
-  if (scrollContainer) {
-    scrollContainer.scrollTop = 0;
-    scrollContainer.scrollLeft = 0;
-    scrollContainer.dispatchEvent(new Event("scroll"));
-  }
-
-  // Also reset the virtualizer's internal scrollOffset — setting DOM scrollTop
-  // alone is insufficient because TanStack Virtual syncs asynchronously via
-  // scroll events. During rapid state transitions (deep seek → Home click),
-  // the virtualizer can lag behind the DOM.
-  _virtualizerReset?.();
-
-  // Immediately reset the visible range so the Scrubber thumb reflects
-  // position 0 without waiting for the scroll handler to fire.
-  resetVisibleRange();
-
-  // Directly reset the scrubber thumb and tooltip DOM positions to top.
-  // This bypasses React's render cycle for instant visual feedback — the
-  // React-computed position will catch up on the next render after search
-  // completes with bufferOffset: 0.
-  const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
-  if (thumb) thumb.style.top = "0px";
-
-  requestAnimationFrame(() => {
-    const cqlInput = document.querySelector("cql-input");
-    if (cqlInput instanceof HTMLElement) cqlInput.focus();
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Geometry descriptor — captures grid vs table structural differences
@@ -267,8 +204,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    _virtualizerReset = () => virtualizer.scrollToOffset(0);
-    return () => { _virtualizerReset = null; };
+    registerVirtualizerReset(() => virtualizer.scrollToOffset(0));
+    return () => { registerVirtualizerReset(null); };
   }, [virtualizer]);
 
   // -------------------------------------------------------------------------

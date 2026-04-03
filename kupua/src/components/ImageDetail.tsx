@@ -39,8 +39,7 @@ import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
-import { resetSearchSync } from "@/hooks/useUrlSearchSync";
-import { resetScrollAndFocusSearch } from "@/hooks/useScrollEffects";
+import { resetToHome } from "@/lib/reset-to-home";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
@@ -396,15 +395,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
               title="Grid — clear all filters"
               className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
               onClick={() => {
-                // Force useUrlSearchSync to re-search even if params haven't
-                // changed (e.g. was already at ?nonFree=true before opening image).
-                resetSearchSync();
-                // resetScrollAndFocusSearch calls abortExtends() internally to
-                // prevent rogue extendBackward from corrupting the buffer.
-                resetScrollAndFocusSearch();
-                const store = useSearchStore.getState();
-                store.setParams({ query: undefined, offset: 0 });
-                store.search();
+                resetToHome();
               }}
             >
               <img

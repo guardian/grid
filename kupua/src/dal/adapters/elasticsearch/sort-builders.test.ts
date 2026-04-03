@@ -1,12 +1,14 @@
 /**
- * Tests for the ES adapter's sort clause builder and countBefore query builder.
+ * Tests for the ES sort clause builder.
  *
  * These tests validate the tiebreaker sort behaviour (Step 1 of search_after plan)
  * and the sort value handling without requiring a running ES instance.
+ *
+ * Moved from dal/es-adapter.test.ts during DAL boundary cleanup.
  */
 
 import { describe, it, expect } from "vitest";
-import { buildSortClause } from "./es-adapter";
+import { buildSortClause } from "./sort-builders";
 
 describe("buildSortClause", () => {
   it("returns default sort with tiebreaker when no orderBy", () => {

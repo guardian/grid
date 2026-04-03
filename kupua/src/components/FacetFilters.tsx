@@ -17,7 +17,7 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
-import { findFieldTerm, upsertFieldTerm } from "@/lib/cql-query-edit";
+import { findFieldTerm, upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import type { AggregationBucket } from "@/dal";
 

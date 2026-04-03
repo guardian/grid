@@ -15,7 +15,7 @@ import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { interpolateSortLabel, getSortContextLabel } from "@/lib/sort-context";
-import { buildSortClause, reverseSortClause } from "@/dal/es-adapter";
+import { buildSortClause, reverseSortClause } from "@/dal/adapters/elasticsearch/sort-builders";
 
 // ---------------------------------------------------------------------------
 // Helpers (shared with search-store.test.ts)

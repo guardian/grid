@@ -504,5 +504,50 @@ test.describe("Seek data arrival — no rogue extends", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Scenario H: Reset to home from deep scrubber position
+//
+// Regression test: seeking to ~80% via the scrubber, then clicking the
+// Grid logo must reset cleanly — bufferOffset=0, no console errors.
+// This guards against the buffer corruption bug where scroll compensation
+// after a deep seek interfered with the logo-click reset sequence.
+// ---------------------------------------------------------------------------
+
+test.describe("Reset to home from deep scrubber position", () => {
+
+  test("logo click after 80% seek resets bufferOffset to 0 with no errors", async ({ kupua, page }) => {
+    await kupua.goto();
+    const initial = await kupua.getStoreState();
+    test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
+
+    // Capture console errors
+    const consoleErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+
+    // Seek to ~80% — deep into the result set
+    await kupua.seekTo(0.8);
+    const afterSeek = await kupua.getStoreState();
+    expect(afterSeek.bufferOffset).toBeGreaterThan(0);
+    expect(afterSeek.error).toBeNull();
+
+    // Click the Grid logo to reset to home
+    await page.locator('a[title="Grid — clear all filters"]').first().click();
+    await kupua.waitForResults();
+
+    await assertCleanTopState(kupua, "reset-to-home from 80%");
+
+    // No console errors during the sequence
+    const relevantErrors = consoleErrors.filter(
+      (e) => !e.includes("favicon") && !e.includes("net::ERR_"),
+    );
+    expect(
+      relevantErrors,
+      `Console errors during reset: ${relevantErrors.join("; ")}`,
+    ).toHaveLength(0);
+  });
+});
+
 
 
