@@ -990,30 +990,25 @@ test.describe("Bug #7 — Keyword sort seek", () => {
     await kupua.assertPositionsConsistent();
   });
 
-  // Bug #18 — Regression guard for binary search refinement.
+  // Bug #18 — Keyword sort seek accuracy.
   //
-  // Context: when a keyword bucket is much larger than PAGE_SIZE,
-  // search_after lands at the bucket START. The binary search on the `id`
-  // tiebreaker refines the cursor to reach the target position.
+  // Context: keyword seek uses findKeywordSortValue (composite agg) to find
+  // the keyword value at the target position, then search_after from there.
+  // When a keyword bucket is much larger than PAGE_SIZE (e.g. 400k "PA" docs
+  // on TEST), binary search on the `id` tiebreaker refines the cursor —
+  // but that path only triggers when drift > PAGE_SIZE.
   //
-  // The ORIGINAL problem (46s seek on TEST via SSH) was pure performance —
-  // the old skip loop transferred 100k+ sort values per hop. That can't be
-  // reproduced locally (local ES is instant). The old loop would have passed
-  // this test just fine.
-  //
-  // This test guards against regressions in the NEW binary search code:
-  //   - The "g" hex upper bound bug (NaN in parseInt → search did nothing)
-  //   - Any future breakage where refinement silently fails and the buffer
-  //     stays at the bucket start (~40-60% instead of 75%)
-  //
-  // With 10k local docs and 5 credits cycling, each credit has ~2k docs.
-  // Seeking to 75% targets position ~7500, inside a ~2k-doc bucket.
-  // Drift ≈ 1800 > PAGE_SIZE (200) → binary search kicks in.
+  // The local sample data has ~769 unique credits (high cardinality), so
+  // each bucket is small (~13 docs average). findKeywordSortValue lands
+  // within PAGE_SIZE of the target, and binary search refinement is NOT
+  // needed. This is fine — the test validates seek accuracy via the ratio
+  // assertion, which is the user-visible outcome. Binary search refinement
+  // is covered by smoke test S10 on TEST (where large buckets exist).
   //
   // NOTE: PIT race condition (stale PIT from concurrent search) is NOT
   // testable locally — local ES skips PIT entirely. That bug class is
   // covered by the PIT fallback in es-adapter.ts and smoke test S10.
-  test("seek to 75% under Credit sort lands near 75% (binary search refinement)", async ({ kupua }) => {
+  test("seek to 75% under Credit sort lands near 75%", async ({ kupua }) => {
     await kupua.goto();
     await kupua.selectSort("Credit");
 
@@ -1025,14 +1020,12 @@ test.describe("Bug #7 — Keyword sort seek", () => {
     expect(store.resultsLength).toBeGreaterThan(0);
 
     // The buffer must be near 75% — within 10% tolerance.
-    // Without the binary search refinement, it would land at ~40-60%
-    // (the start of whatever keyword bucket contains position 75%).
     const ratio = store.bufferOffset / store.total;
     expect(ratio).toBeGreaterThan(0.65);
     expect(ratio).toBeLessThan(0.85);
 
-    // Verify the binary search path was actually taken
-    const logs = kupua.getConsoleLogs(/binary search/);
+    // Verify keyword seek path was taken (composite agg + countBefore)
+    const logs = kupua.getConsoleLogs(/keyword strategy/);
     expect(logs.length).toBeGreaterThan(0);
 
     await kupua.assertPositionsConsistent();
@@ -1327,8 +1320,8 @@ test.describe("Bug #14 — End key under non-date sort", () => {
     expect(afterEnd.error).toBeNull();
 
     // End key should have moved us to the end of the result set.
-    // On local ES (no missing credits), this lands exactly at total.
-    // On TEST (with missing credits), the reverse fallback handles the gap.
+    // The fast-path reverse search_after guarantees the buffer covers
+    // the absolute last items.
     const endOfBuffer = afterEnd.bufferOffset + afterEnd.resultsLength;
     expect(endOfBuffer).toBeGreaterThanOrEqual(afterEnd.total - 1);
 
@@ -1484,9 +1477,6 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
       const el = document.querySelector('[aria-label="Image results grid"]');
       const positions: number[] = [];
       if (el) {
-        const obs = new MutationObserver(() => {
-          positions.push(el.scrollTop);
-        });
         // scrollTop changes don't fire MutationObserver, so use a polling approach
         const id = setInterval(() => {
           positions.push(el.scrollTop);
@@ -1510,11 +1500,28 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
       return [];
     });
 
-    // scrollTop should never have been 0 during the transition (unless we
-    // started at 0, which we didn't — we seeked to 50%).
-    // Allow a small tolerance: if scrollTop briefly dipped, that's the bug.
-    const droppedToZero = scrollData.some((s: number) => s === 0);
-    expect(droppedToZero).toBe(false);
+    // The original Bug #15 was: scrollTop dropped to 0 mid-transition
+    // because the scroll-reset effect fired on URL change before data arrived,
+    // flashing position-0 content. The fix skips scroll-reset for sort-only
+    // changes with a focused image.
+    //
+    // After the deferred-scroll-reset fix (Home/logo flash elimination),
+    // scrollBefore may legitimately be 0 — the seek target lands at the top
+    // of the buffer window (scrollTop=0, bufferOffset=~5000). That's fine.
+    // The bug was scrollTop DROPPING to 0 from a non-zero position.
+    //
+    // Guard: if we started at scrollTop > 0, it must never have touched 0.
+    // If we started at 0, sort-around-focus must produce a final scrollTop > 0
+    // (the focused image moved to a new position in the reversed sort).
+    if (scrollBefore > 0) {
+      const droppedToZero = scrollData.some((s: number) => s === 0);
+      expect(droppedToZero).toBe(false);
+    } else {
+      // Started at 0 — after sort-around-focus, the focused image should be
+      // scrolled into view at its new position (non-zero in reversed sort).
+      const scrollAfter = await kupua.getScrollTop();
+      expect(scrollAfter).toBeGreaterThan(0);
+    }
 
     // Focused image preserved
     expect(await kupua.getFocusedImageId()).toBe(focusedId);

@@ -16,6 +16,7 @@
 import type { Image } from "@/types/image";
 import type { SortDistribution } from "@/dal/types";
 import { format } from "date-fns";
+import { FIELD_REGISTRY } from "@/lib/field-registry";
 
 /**
  * Maps orderBy sort keys to image field accessors and display formatters.
@@ -90,6 +91,34 @@ const SORT_LABEL_MAP: Record<
 /** Aliases are no longer needed — all keys in SORT_LABEL_MAP are now short form. */
 const SORT_KEY_ALIASES: Record<string, string> = {};
 
+/**
+ * Look up the human-readable display name for a sort key from the field registry.
+ * Returns a lowercase label suitable for "No {label}" boundary tick phrases.
+ * Some fields have short overrides because the registry label reads awkwardly
+ * (e.g. "No last modified" → "No modified", "No taken on" → "No date taken").
+ */
+const NULL_ZONE_LABEL_OVERRIDES: Record<string, string> = {
+  lastModified: "modified",
+  taken: "date taken",
+};
+
+function getSortFieldDisplayName(sortKey: string): string {
+  if (NULL_ZONE_LABEL_OVERRIDES[sortKey]) return NULL_ZONE_LABEL_OVERRIDES[sortKey];
+  const field = FIELD_REGISTRY.find((f) => f.sortKey === sortKey);
+  return field ? field.label.toLowerCase() : sortKey;
+}
+
+/**
+ * Resolve the primary sort key from orderBy (strip "-", take first part).
+ * Returns the bare key (e.g. "lastModified") or null if unresolvable.
+ */
+export function resolvePrimarySortKey(orderBy: string | undefined): string | null {
+  const effective = orderBy || DEFAULT_ORDER_BY;
+  const primary = effective.split(",")[0].trim();
+  const bare = primary.startsWith("-") ? primary.slice(1) : primary;
+  return (SORT_KEY_ALIASES[bare] ?? bare) || null;
+}
+
 /** Format + truncate a keyword value for tooltip display. */
 function formatKeywordLabel(value: string, format?: (v: string) => string): string {
   const formatted = format ? format(value) : value;
@@ -123,16 +152,17 @@ const DAY_SPAN_STYLE = 'display:inline-block;width:1.2em;text-align:right';
 // Two simple rules:
 //
 // 1. **Always show year.** It's 4 characters and never hurts orientation.
-//    The only exception: total result set spans < 28 days AND local
-//    viewport density is sub-day → year is dropped (you're within a
-//    single month, the year is obvious from context, and you need the
-//    space for time).
+//    The only exception: total result set spans < 28 days → year is
+//    dropped and time is shown instead. You're within a single month,
+//    the year is obvious from context, and you need the space for time.
 //
-// 2. **Show time (H:mm) only when the total result set spans < 28 days.**
+// 2. **Show time (H:mm) whenever the total result set spans < 28 days.**
 //    If the set spans months or years, hours race uselessly during scrub
 //    and provide zero orientation value. Time only matters when you're
 //    exploring a narrow window (a day, a week) where hours differentiate
-//    positions.
+//    positions. The decision is based solely on totalSpanMs (not localSpanMs)
+//    to prevent format twitching when local density varies at distribution
+//    edges.
 //
 // 3. **Drop day when each viewport covers > 28 days** (optional, rare).
 //    This only happens with very large sets over many years where each
@@ -143,8 +173,7 @@ const DAY_SPAN_STYLE = 'display:inline-block;width:1.2em;text-align:right';
 // |---------------|--------------|------------------|--------------------|
 // | any           | > 28 days    | Mon yyyy         | Mar 2024           |
 // | ≥ 28 days     | ≤ 28 days    | d Mon yyyy       | 14 Mar 2024        |
-// | < 28 days     | > 1 day      | d Mon yyyy       | 14 Mar 2024        |
-// | < 28 days     | ≤ 1 day      | d Mon, H:mm      | 14 Mar, 15:42      |
+// | < 28 days     | any          | d Mon H:mm       | 14 Mar 15:42       |
 //
 // Width stability: each component uses a fixed-width <span>. Format
 // level changes rarely during a single drag (driven by smooth density
@@ -183,10 +212,11 @@ function formatSortDateAdaptive(
       return `${month} ${year}`;
     }
 
-    // Rule 2: show time only when the entire result set spans < 28 days
-    // Comma inside the month span so it hugs the text, not the padding.
-    if (absTotal < MS_PER_MONTH && absLocal <= MS_PER_DAY) {
-      return `${day} ${monthAbbr}, ${time}`;
+    // Rule 2: show time when the entire result set spans < 28 days.
+    // Decision based solely on totalSpanMs — NOT localSpanMs — to prevent
+    // format twitching when local density varies at distribution edges.
+    if (absTotal < MS_PER_MONTH) {
+      return `${day} ${monthAbbr} ${time}`;
     }
 
     // Default: day + month + year
@@ -322,6 +352,24 @@ export function lookupSortDistribution(
     } else {
       hi = mid - 1;
     }
+  }
+
+  // --- Debug instrumentation (DEV only) ---
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    const bucket = buckets[lo];
+    (window as any).__sort_context_debug__ = {
+      ts: Date.now(),
+      inputPosition: globalPosition,
+      coveredCount: dist.coveredCount,
+      totalBuckets: buckets.length,
+      bucketIndex: lo,
+      bucketKey: bucket.key,
+      bucketStartPosition: bucket.startPosition,
+      bucketCount: bucket.count,
+      bucketEndPosition: bucket.startPosition + bucket.count - 1,
+      firstBucketKey: buckets[0].key,
+      lastBucketKey: buckets[buckets.length - 1].key,
+    };
   }
 
   return buckets[lo].key;
@@ -567,6 +615,12 @@ export interface TrackTick {
    *  - Hour resolution: major = "00:00"/"06:00"/…, midnight = "14 Mar";
    *    minor = "09:00", "10:00", … */
   label?: string;
+  /** Optional override colour for the tick line + label text.
+   *  Used by the null-zone boundary tick to visually separate zones. */
+  color?: string;
+  /** True only for the null-zone boundary tick — gets special rendering
+   *  (vertical label, force-visible). Regular null-zone ticks are false. */
+  boundary?: boolean;
 }
 
 /**
@@ -615,7 +669,11 @@ export function computeTrackTicks(
     const intervalMs = Math.abs(d1.getTime() - d0.getTime());
     const isMonthly = intervalMs > 20 * MS_PER_DAY; // ~28–31 days
     const isDaily = !isMonthly && intervalMs > 12 * 3600_000; // ~24h
-    // Otherwise: hourly
+    const isHourly = !isMonthly && !isDaily && intervalMs >= 3600_000; // 1h
+    // Otherwise: sub-hour (30m, 10m, 5m, etc.)
+    const intervalMinutes = !isMonthly && !isDaily && !isHourly
+      ? Math.round(intervalMs / 60_000)
+      : 0;
 
     // For monthly buckets: compute span in years to decide label density.
     // Short spans (< ~15 years): every January gets a year label and major
@@ -624,7 +682,7 @@ export function computeTrackTicks(
     // overcrowding — only yr%5==0 gets a label, only yr%10==0 is major.
     const dFirst = new Date(sortDist.buckets[0].key);
     const dLast = new Date(sortDist.buckets[sortDist.buckets.length - 1].key);
-    const spanYears = Math.abs(dLast.getUTCFullYear() - dFirst.getUTCFullYear());
+    const spanYears = Math.abs(dLast.getFullYear() - dFirst.getFullYear());
     const shortSpan = spanYears < 15;
 
     for (const bucket of sortDist.buckets) {
@@ -636,15 +694,15 @@ export function computeTrackTicks(
       if (isMonthly) {
         // Monthly buckets: Jan = major (year label), other months = minor (month abbr).
         // Label/major strategy adapts to span length — see shortSpan above.
-        const isJan = d.getUTCMonth() === 0;
-        const yr = d.getUTCFullYear();
+        const isJan = d.getMonth() === 0;
+        const yr = d.getFullYear();
         if (shortSpan) {
           // Short span: every January is major with a year label.
           // Non-January months are minor with month abbreviation.
           ticks.push({
             position: pos,
             type: isJan ? "major" : "minor",
-            label: isJan ? `${yr}` : MONTH_ABBRS[d.getUTCMonth()],
+            label: isJan ? `${yr}` : MONTH_ABBRS[d.getMonth()],
           });
         } else {
           // Long span: half-decade hierarchy — label only at yr%5, major at yr%5.
@@ -657,24 +715,43 @@ export function computeTrackTicks(
             type: isJan && isHalfDecade ? "major" : "minor",
             label: isJan
               ? `${yr}`
-              : MONTH_ABBRS[d.getUTCMonth()],
+              : MONTH_ABBRS[d.getMonth()],
           });
         }
       } else if (isDaily) {
-        // Daily buckets: 1st of month = major (month label), others = minor
-        const isMajor = d.getUTCDate() === 1;
+        // Daily buckets: 1st of month = major (month label), others = minor (day number).
+        // The Scrubber's label decimation controls how many day labels are visible
+        // based on available pixel space — sparse months show most days, dense months
+        // show fewer. Week boundaries (Mondays) could be promoted to major but that
+        // adds complexity for marginal value — day numbers alone orient well enough.
+        const isMajor = d.getDate() === 1;
         ticks.push({
           position: pos,
           type: isMajor ? "major" : "minor",
-          label: isMajor ? MONTH_ABBRS[d.getUTCMonth()] : undefined,
+          label: isMajor ? MONTH_ABBRS[d.getMonth()] : `${d.getDate()}`,
         });
-      } else {
+      } else if (isHourly) {
         // Hourly buckets: 6-hour marks = major, midnight = day+month label
-        const h = d.getUTCHours();
+        const h = d.getHours();
         const isMajor = h % 6 === 0;
         const label = h === 0
-          ? `${d.getUTCDate()} ${MONTH_ABBRS[d.getUTCMonth()]}`
+          ? `${d.getDate()} ${MONTH_ABBRS[d.getMonth()]}`
           : `${String(h).padStart(2, "0")}:00`;
+        ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
+      } else {
+        // Sub-hour buckets (30m, 10m, 5m): full hours = major, others = minor.
+        // Midnight gets day+month label; other hours get HH:00; sub-hour
+        // buckets get HH:MM. Label decimation in the Scrubber hides labels
+        // that are too close together.
+        const h = d.getHours();
+        const m = d.getMinutes();
+        const isMajor = m === 0;
+        let label: string;
+        if (h === 0 && m === 0) {
+          label = `${d.getDate()} ${MONTH_ABBRS[d.getMonth()]}`;
+        } else {
+          label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        }
         ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
       }
     }
@@ -766,7 +843,8 @@ export function computeTrackTicks(
       }
       cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
     }
-  } else {
+  } else if (spanMs > 3 * 3600_000) {
+    // > 3 hours: hourly ticks (major every 6h, midnight = day label)
     const startHour = Math.ceil(earlier.getHours());
     let cursor = new Date(earlier.getFullYear(), earlier.getMonth(), earlier.getDate(), startHour);
     if (cursor.getTime() <= earlierMs) {
@@ -784,11 +862,177 @@ export function computeTrackTicks(
       }
       cursor = new Date(cursor.getTime() + 3600_000);
     }
+  } else {
+    // ≤ 3 hours: 5-minute ticks (major on full hours, minor every 5m)
+    const subHourIntervalMs = 300_000; // 5m
+    // Round start up to the next 5-minute boundary
+    const startMs_ = Math.ceil(earlierMs / subHourIntervalMs) * subHourIntervalMs;
+    let cursor = new Date(startMs_);
+    if (cursor.getTime() <= earlierMs) {
+      cursor = new Date(cursor.getTime() + subHourIntervalMs);
+    }
+    while (cursor.getTime() <= laterMs) {
+      const pos = toPosition(cursor.getTime());
+      if (pos != null) {
+        const h = cursor.getHours();
+        const m = cursor.getMinutes();
+        const isMajor = m === 0;
+        let label: string;
+        if (h === 0 && m === 0) {
+          label = `${cursor.getDate()} ${MONTH_ABBRS[cursor.getMonth()]}`;
+        } else {
+          label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        }
+        ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
+      }
+      cursor = new Date(cursor.getTime() + subHourIntervalMs);
+    }
   }
 
   return ticks;
 }
 
+// ---------------------------------------------------------------------------
+// Null-zone aware label + tick generation
+// ---------------------------------------------------------------------------
 
+/**
+ * Interpolate a sort label for any position, with null-zone awareness.
+ *
+ * For positions in the covered zone (primary field has a value), delegates
+ * to `interpolateSortLabel` as before.
+ *
+ * For positions in the null zone (primary field missing), uses the
+ * `nullZoneDist` (uploadTime distribution) to produce a label like:
+ *   "<i>Not modified</i><br>Uploaded: 14 Mar 2024"
+ * The italic first line follows the kahuna pattern for missing/mixed fields.
+ * The second line shows the uploadTime-based date — the actual sort order
+ * within the null zone.
+ *
+ * Returns null only when no data is available at all (no distribution, no buffer).
+ */
+export function interpolateNullZoneSortLabel(
+  orderBy: string | undefined,
+  globalPosition: number,
+  total: number,
+  bufferOffset: number,
+  results: (Image | undefined)[],
+  sortDist: SortDistribution | null | undefined,
+  nullZoneDist: SortDistribution | null | undefined,
+  visibleCount?: number,
+): string | null {
+  // No null zone, or position is in the covered zone → standard label
+  const coveredCount = sortDist?.coveredCount ?? total;
+  const inNullZone = !!nullZoneDist && globalPosition >= coveredCount;
 
+  // Debug instrumentation (DEV only)
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    (window as any).__null_zone_debug__ = {
+      ts: Date.now(),
+      globalPosition,
+      total,
+      coveredCount,
+      nullZoneSize: total - coveredCount,
+      hasNullZoneDist: !!nullZoneDist,
+      inNullZone,
+      nullZoneLocalPos: inNullZone ? globalPosition - coveredCount : null,
+      nullZoneBuckets: nullZoneDist?.buckets.length ?? 0,
+      nullZoneCoveredCount: nullZoneDist?.coveredCount ?? 0,
+    };
+  }
 
+  if (!inNullZone) {
+    return interpolateSortLabel(
+      orderBy, globalPosition, total, bufferOffset, results, sortDist, visibleCount,
+    );
+  }
+
+  // --- Null-zone position: use uploadTime distribution ---
+
+  // Map global position into the null-zone distribution's local space.
+  // The null zone starts at `coveredCount` in global space, but the
+  // nullZoneDist starts at position 0.
+  const nullZoneLocalPos = globalPosition - coveredCount;
+
+  const isoDate = lookupSortDistribution(nullZoneDist, nullZoneLocalPos);
+  if (!isoDate) {
+    // Distribution loaded but no bucket at this position — return null
+    // (tooltip will show only "X of Y", boundary tick on the track provides context)
+    return null;
+  }
+
+  // Format the uploadTime date with adaptive granularity.
+  // Use the distribution's total span for overall context, but DON'T use
+  // computeLocalSpanFromDist for the local span — the scaled null-zone
+  // distribution has compressed positions that make density estimates
+  // unreliable, causing the day to randomly disappear (absLocal > MS_PER_MONTH
+  // triggers "drop day" rule). A safe default of 2 * MS_PER_DAY always shows day.
+  const totalSpanMs = computeDistributionSpanMs(nullZoneDist);
+  const localSpanMs = 2 * MS_PER_DAY;
+  const dateLabel = formatSortDateAdaptive(isoDate, totalSpanMs, localSpanMs);
+
+  return `<i><span style="opacity:0.7">Uploaded:</span> ${dateLabel}</i>`;
+}
+
+/**
+ * Compute track ticks that include null-zone ticks from a secondary
+ * (uploadTime) distribution, plus a boundary marker.
+ *
+ * Returns the combined tick array: covered-zone ticks from `sortDist`,
+ * a boundary tick at `coveredCount`, and null-zone ticks from `nullZoneDist`
+ * (positions offset by `coveredCount`).
+ */
+export function computeTrackTicksWithNullZone(
+  orderBy: string | undefined,
+  total: number,
+  bufferOffset: number,
+  results: (Image | undefined)[],
+  sortDist: SortDistribution | null | undefined,
+  nullZoneDist: SortDistribution | null | undefined,
+): TrackTick[] {
+  // Start with covered-zone ticks (existing logic)
+  const coveredTicks = computeTrackTicks(orderBy, total, bufferOffset, results, sortDist);
+
+  const coveredCount = sortDist?.coveredCount;
+  if (coveredCount == null || coveredCount <= 0 || coveredCount >= total) {
+    // No null zone — return covered ticks as-is
+    return coveredTicks;
+  }
+
+  // --- Boundary tick ---
+  const sortKey = resolvePrimarySortKey(orderBy);
+  const fieldName = sortKey ? getSortFieldDisplayName(sortKey) : "value";
+  const boundaryTick: TrackTick = {
+    position: coveredCount,
+    type: "major",
+    label: `No ${fieldName}`,
+    color: "rgba(255, 140, 140, 0.9)",
+    boundary: true,
+  };
+
+  if (!nullZoneDist || nullZoneDist.buckets.length < 2) {
+    // No null-zone distribution yet — just add the boundary marker
+    return [...coveredTicks, boundaryTick];
+  }
+
+  // --- Null-zone ticks from uploadTime distribution ---
+  // Reuse computeTrackTicks by passing the nullZoneDist as if it were the
+  // primary distribution, then offset all positions by coveredCount.
+  const nullZoneTicks = computeTrackTicks(
+    "-uploadTime",  // uploadTime is what the null zone is sorted by
+    nullZoneDist.coveredCount,  // total for the null zone sub-range
+    0,     // buffer offset irrelevant — distribution mode doesn't use buffer
+    [],    // buffer irrelevant — distribution mode
+    nullZoneDist,
+  );
+
+  // Offset null-zone tick positions into global space and colour them red
+  const NULL_ZONE_TICK_COLOR = "rgba(255, 140, 140, 0.55)";
+  const offsetTicks = nullZoneTicks.map((tick) => ({
+    ...tick,
+    position: tick.position + coveredCount,
+    color: NULL_ZONE_TICK_COLOR,
+  }));
+
+  return [...coveredTicks, boundaryTick, ...offsetTicks];
+}

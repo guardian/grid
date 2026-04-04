@@ -236,6 +236,10 @@ export interface ImageDataSource {
     reverse?: boolean,
     noSource?: boolean,
     missingFirst?: boolean,
+    /** Override the sort clause (instead of deriving from params.orderBy). */
+    sortOverride?: Record<string, unknown>[],
+    /** Extra ES filter clause appended to the query (e.g. must_not:exists). */
+    extraFilter?: Record<string, unknown>,
   ): Promise<SearchAfterResult>;
 
   /**
@@ -338,6 +342,7 @@ export interface ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
+    extraFilter?: Record<string, unknown>,
   ): Promise<SortDistribution | null>;
 }
 

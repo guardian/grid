@@ -69,22 +69,21 @@ describe("extractSortValues", () => {
     expect(sv).toEqual(["2026-03-20T14:30:00.000Z", "test-img-001"]);
   });
 
-  it("extracts width sort (source.dimensions.width asc, id asc)", () => {
+  it("extracts width sort (source.dimensions.width asc, uploadTime desc, id asc)", () => {
     const sv = extractSortValues(IMAGE, "width");
-    expect(sv).toEqual([4000, "test-img-001"]);
+    expect(sv).toEqual([4000, "2026-03-20T14:30:00.000Z", "test-img-001"]);
   });
 
-  it("extracts credit sort (metadata.credit asc, id asc)", () => {
+  it("extracts credit sort (metadata.credit asc, uploadTime desc, id asc)", () => {
     const sv = extractSortValues(IMAGE, "credit");
-    expect(sv).toEqual(["Getty Images", "test-img-001"]);
+    expect(sv).toEqual(["Getty Images", "2026-03-20T14:30:00.000Z", "test-img-001"]);
   });
 
   it("returns null values for missing nested fields", () => {
-    // SPARSE_IMAGE has no metadata.dateTaken, no uploadTime in taken alias
-    // taken → metadata.dateTaken,-uploadTime
+    // SPARSE_IMAGE has no metadata.dateTaken
+    // taken → metadata.dateTaken, then uploadTime fallback (asc for date sort), id
     const sv = extractSortValues(SPARSE_IMAGE, "taken");
-    // dateTaken is missing → null, uploadTime present (but negated direction
-    // doesn't affect value extraction), id present
+    // dateTaken is missing → null, uploadTime present, id present
     expect(sv).toEqual([null, "2026-01-01T00:00:00Z", "sparse-001"]);
   });
 

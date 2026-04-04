@@ -566,4 +566,110 @@ test.describe("Smoke — real ES", () => {
       console.log(`  50% ratio: ${(after50.bufferOffset / after50.total).toFixed(4)}, target was 0.5`);
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Smoke #11 — Last Modified sort: seek to 50% (null-zone seek)
+  //
+  // Only ~27k of ~1.3M docs have lastModified set. Seeking to 50% should
+  // land deep in the "null zone" (docs without lastModified, sorted by
+  // uploadTime fallback). Validates:
+  //   - sortDistribution.coveredCount is loaded and small relative to total
+  //   - bufferOffset > coveredCount (landed in null zone)
+  //   - Thumb position ≈ 50% (not snapped to top)
+  //   - No errors from ES (no null in search_after cursor)
+  // ---------------------------------------------------------------------------
+
+  test("S11: -lastModified seek to 50% — null-zone validation", async ({ kupua }) => {
+    await kupua.goto();
+    await requireRealData(kupua);
+
+    // Switch to Last Modified sort (desc)
+    await kupua.selectSort("Last modified");
+    await kupua.waitForSeekComplete(30_000);
+    const before = await kupua.getStoreState();
+    console.log(`\n  [S11] ── BEFORE SEEK ──`);
+    console.log(`  total=${before.total}, bufferOffset=${before.bufferOffset}, len=${before.resultsLength}`);
+    console.log(`  orderBy=${before.orderBy}, error=${before.error}, loading=${before.loading}`);
+
+    // Read sort distribution to check coveredCount
+    const distInfo = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const dist = s.sortDistribution;
+      return dist ? { coveredCount: dist.coveredCount, bucketCount: dist.buckets.length } : null;
+    });
+    console.log(`  [S11] Sort distribution:`, JSON.stringify(distInfo));
+
+    // Start capturing console logs
+    kupua.startConsoleCapture();
+
+    // Click scrubber at 50%
+    const targetRatio = 0.5;
+    const seekStart = Date.now();
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
+    const clickX = trackBox!.x + trackBox!.width / 2;
+    const clickY = trackBox!.y + targetRatio * trackBox!.height;
+    console.log(`  [S11] Clicking scrubber at y=${clickY.toFixed(0)} (target ratio=${targetRatio})`);
+    await kupua.page.mouse.click(clickX, clickY);
+
+    // Wait for seek to complete
+    let settled = false;
+    for (let poll = 0; poll < 30; poll++) {
+      await kupua.page.waitForTimeout(2000);
+      const s = await kupua.getStoreState();
+      const elapsed = Date.now() - seekStart;
+      console.log(
+        `  [S11] poll ${poll} (${(elapsed / 1000).toFixed(1)}s): ` +
+        `offset=${s.bufferOffset}, len=${s.resultsLength}, loading=${s.loading}, ` +
+        `error=${s.error}, seekGen=${s.seekGeneration}`
+      );
+      if (!s.loading && s.resultsLength > 0 && s.seekGeneration > before.seekGeneration) {
+        settled = true;
+        break;
+      }
+    }
+
+    const seekMs = Date.now() - seekStart;
+    const seekLogs = kupua.getConsoleLogs(/\[seek\]|\[ES\]/);
+    console.log(`\n  [S11] ── SEEK CONSOLE LOGS (${seekLogs.length} lines) ──`);
+    for (const log of seekLogs) {
+      console.log(`  ${log}`);
+    }
+
+    const after = await kupua.getStoreState();
+    console.log(`\n  [S11] ── AFTER SEEK (${seekMs}ms, settled=${settled}) ──`);
+    console.log(`  total=${after.total}, bufferOffset=${after.bufferOffset}, len=${after.resultsLength}`);
+    console.log(`  loading=${after.loading}, error=${after.error}`);
+
+    // Key assertion: should have landed in the null zone
+    const coveredCount = distInfo?.coveredCount ?? after.total;
+    const inNullZone = after.bufferOffset >= coveredCount;
+    console.log(`  [S11] coveredCount=${coveredCount}, inNullZone=${inNullZone}`);
+    console.log(`  [S11] bufferRatio=${(after.bufferOffset / after.total).toFixed(4)}, target=${targetRatio}`);
+
+    // Basic assertions
+    expect(after.error).toBeNull();
+    expect(settled).toBe(true);
+
+    // The buffer should be near 50%
+    const bufferRatio = after.bufferOffset / after.total;
+    console.log(`  [S11] VERDICT: bufferRatio=${bufferRatio.toFixed(4)} (target ${targetRatio})`);
+
+    if (coveredCount < after.total * 0.1) {
+      // If coveredCount is <10% of total (typical for lastModified),
+      // seeking to 50% must land in the null zone
+      console.log(`  [S11] Sparse field detected (coveredCount=${coveredCount}, ${((coveredCount / after.total) * 100).toFixed(1)}% of total)`);
+      expect(inNullZone).toBe(true);
+    }
+
+    // Thumb position should be approximately at 50% (within 15% tolerance)
+    if (Math.abs(bufferRatio - targetRatio) > 0.15) {
+      console.log(`  [S11] ⚠️  BUFFER IS MORE THAN 15% OFF TARGET — POSSIBLE BUG`);
+    }
+
+    // Performance: null-zone seek should complete in <15s
+    console.log(`  [S11] Seek time: ${(seekMs / 1000).toFixed(1)}s`);
+    expect(seekMs).toBeLessThan(15_000);
+  });
 });

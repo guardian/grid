@@ -32,8 +32,8 @@ import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback, useRef } from "react";
-import { interpolateSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicks } from "@/lib/sort-context";
+import { useCallback, useEffect, useRef } from "react";
+import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export const searchRoute = createRoute({
@@ -67,49 +67,65 @@ function SearchPage() {
   // Uses the pre-fetched sort distribution (keyword or date) for accurate
   // position→value mapping via binary search (no network during drag).
   // Falls back to buffer interpolation before the distribution loads.
+  // Null-zone aware: shows "Not [field]" + uploadTime date in the null zone.
   const orderBy = useSearchStore((s) => s.params.orderBy);
   const results = useSearchStore((s) => s.results);
   const sortDistribution = useSearchStore((s) => s.sortDistribution);
+  const nullZoneDistribution = useSearchStore((s) => s.nullZoneDistribution);
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
-      return interpolateSortLabel(
+      return interpolateNullZoneSortLabel(
         store.params.orderBy,
         globalPosition,
         store.total,
         store.bufferOffset,
         store.results,
         store.sortDistribution,
+        store.nullZoneDistribution,
         visibleCount,
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orderBy, results, sortDistribution, visibleCount],
+    [orderBy, results, sortDistribution, nullZoneDistribution, visibleCount],
   );
 
   // Lazy fetch: trigger sort distribution on first scrubber interaction.
   // Fires for both keyword sorts (composite agg) and date sorts (date_histogram).
   const fetchSortDistribution = useSearchStore((s) => s.fetchSortDistribution);
+  const fetchNullZoneDistribution = useSearchStore((s) => s.fetchNullZoneDistribution);
   const hasDistributableSort = !!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy);
   const onScrubberInteraction = useCallback(() => {
     if (hasDistributableSort) fetchSortDistribution();
   }, [hasDistributableSort, fetchSortDistribution]);
 
+  // When the primary distribution arrives and reveals a null zone
+  // (coveredCount < total), automatically fetch the null-zone (uploadTime)
+  // distribution. This runs once per distribution load — no user interaction needed
+  // beyond the initial scrubber touch that triggered fetchSortDistribution.
+  useEffect(() => {
+    if (sortDistribution && sortDistribution.coveredCount < total) {
+      fetchNullZoneDistribution();
+    }
+  }, [sortDistribution, total, fetchNullZoneDistribution]);
+
   // Track tick marks — date boundary positions for scrubber orientation.
   // In scroll mode (all data in buffer): computed from buffer data (exact).
   // In seek mode: computed from the sort distribution when available (accurate).
   // Without distribution in seek mode: empty (linear extrapolation is unreliable).
+  // Null-zone aware: includes boundary tick + uploadTime-based ticks in the null zone.
   const allDataInBuffer = total <= bufferLength;
-  const ticksCacheRef = useRef<{ key: string; ticks: ReturnType<typeof computeTrackTicks> }>({ key: "", ticks: [] });
+  const ticksCacheRef = useRef<{ key: string; ticks: ReturnType<typeof computeTrackTicksWithNullZone> }>({ key: "", ticks: [] });
+  const nzDistBucketCount = nullZoneDistribution?.buckets.length ?? 0;
   const ticksCacheKey = allDataInBuffer
     ? `buffer:${orderBy ?? ""}:${total}`
     : sortDistribution
-      ? `dist:${orderBy ?? ""}:${total}:${sortDistribution.buckets.length}`
+      ? `dist:${orderBy ?? ""}:${total}:${sortDistribution.buckets.length}:nz${nzDistBucketCount}`
       : "";
   if (ticksCacheKey && ticksCacheRef.current.key !== ticksCacheKey) {
     ticksCacheRef.current = {
       key: ticksCacheKey,
-      ticks: computeTrackTicks(orderBy, total, bufferOffset, results, sortDistribution),
+      ticks: computeTrackTicksWithNullZone(orderBy, total, bufferOffset, results, sortDistribution, nullZoneDistribution),
     };
   } else if (!ticksCacheKey) {
     ticksCacheRef.current = { key: "", ticks: [] };

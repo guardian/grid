@@ -31,7 +31,8 @@ import type {
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
-import { resolveKeywordSortInfo, resolveDateSortInfo } from "@/lib/sort-context";
+import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
+import { devLog } from "@/lib/dev-log";
 import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
@@ -159,6 +160,13 @@ interface SearchState {
   /** Cache key: query params + orderBy. Null = not fetched. */
   _sortDistCacheKey: string | null;
 
+  // --- Null-zone distribution (uploadTime) for scrubber null-zone labels + ticks ---
+  /** Pre-fetched uploadTime distribution for null-zone docs. Only set when
+   *  the primary sort has a null zone (coveredCount < total). */
+  nullZoneDistribution: SortDistribution | null;
+  /** Cache key for null-zone distribution. */
+  _nullZoneDistCacheKey: string | null;
+
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
   /**
@@ -220,6 +228,13 @@ interface SearchState {
    * Lazy — called on first scrubber interaction, cached until query/sort changes.
    */
   fetchSortDistribution: () => Promise<void>;
+
+  /**
+   * Fetch the uploadTime distribution for null-zone docs. Only does work when
+   * the primary sort has coveredCount < total (meaning a null zone exists).
+   * Lazy — triggered when the primary distribution reveals a null zone.
+   */
+  fetchNullZoneDistribution: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +266,9 @@ let _aggAbortController: AbortController | null = null;
 
 /** Abort controller for the sort distribution request (keyword or date). */
 let _sortDistAbortController: AbortController | null = null;
+
+/** Abort controller for the null-zone (uploadTime) distribution request. */
+let _nullZoneDistAbortController: AbortController | null = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -351,6 +369,160 @@ function evictPositions(
 }
 
 // ---------------------------------------------------------------------------
+// search_after anchor helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build search_after anchor values for secondary sort fields.
+ *
+ * When seeking to a position via search_after, we have the primary sort value
+ * (estimated or from keyword lookup) but need "neutral" anchors for the
+ * remaining sort fields. These anchors must be positioned so that
+ * search_after returns docs starting from the BEGINNING of the primary
+ * sort bucket.
+ *
+ * Key insight: search_after returns docs strictly AFTER the cursor,
+ * following each field's sort direction independently. For a desc field,
+ * "after" means "less than". So:
+ *   - Ascending field → anchor at minimum (0) → returns docs where value > 0 (all)
+ *   - Descending field → anchor at maximum → returns docs where value < MAX (all)
+ *   - `id` field (always asc keyword) → anchor at "" → returns all docs
+ *
+ * Without direction-aware anchors, a desc-sorted secondary field with
+ * anchor 0 would require docs with value < 0 — excluding everything and
+ * causing search_after to skip the entire primary bucket.
+ */
+function buildSeekCursorAnchors(
+  sortClause: Record<string, unknown>[],
+  primaryValue: string | number,
+): SortValues {
+  const cursor: SortValues = [primaryValue];
+  for (let i = 1; i < sortClause.length; i++) {
+    const clause = sortClause[i];
+    const { field, direction } = parseSortField(clause);
+    if (field === "id") {
+      cursor.push("");
+    } else if (direction === "desc") {
+      // For desc-sorted fields, "after" means "less than the anchor".
+      // Use MAX_SAFE_INTEGER so all real values (< MAX) are included.
+      cursor.push(Number.MAX_SAFE_INTEGER);
+    } else {
+      // For asc-sorted fields, "after" means "greater than the anchor".
+      // Use 0 so all real positive values (> 0) are included.
+      cursor.push(0);
+    }
+  }
+  return cursor;
+}
+
+// ---------------------------------------------------------------------------
+// Null-zone cursor helpers — shared by seek, extend, and buffer-around-image
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect whether a cursor lives in the "null zone" (primary sort field value
+ * is `null`). When it does, ES cannot accept the cursor directly — it rejects
+ * `null` in `search_after` with a 500. Instead, callers must narrow the query
+ * to docs missing the primary field, override the sort to the fallback sort
+ * (uploadTime + id), and strip the null from the cursor.
+ *
+ * Returns `null` if the cursor is not in the null zone (no override needed).
+ */
+interface NullZoneOverride {
+  /** Stripped cursor without the null primary value — matches sortOverride shape. */
+  strippedCursor: SortValues;
+  /** Override sort: [uploadTime desc, id asc]. */
+  sortOverride: Record<string, unknown>[];
+  /** Extra filter: must_not { exists { field: primaryField } }. */
+  extraFilter: Record<string, unknown>;
+  /** The primary field name (for remapping response sort values). */
+  primaryField: string;
+  /** The full sort clause (for remapping). */
+  sortClause: Record<string, unknown>[];
+}
+
+function detectNullZoneCursor(
+  cursor: SortValues,
+  orderBy: string | undefined,
+): NullZoneOverride | null {
+  const sortClause = buildSortClause(orderBy);
+  if (sortClause.length === 0) return null;
+
+  const { field: primaryField } = parseSortField(sortClause[0]);
+  if (!primaryField) return null;
+
+  // Check if the primary field's position in the cursor is null.
+  // The cursor structure mirrors the sort clause: [primary, uploadTime, id].
+  if (cursor.length === 0 || cursor[0] !== null) return null;
+
+  // Derive the uploadTime fallback direction from the sort clause.
+  // buildSortClause already computed the correct direction: date primary sorts
+  // inherit the primary direction (e.g. `taken` asc → uploadTime asc),
+  // keyword/numeric sorts get desc. We read it from the clause directly
+  // instead of hardcoding, so the null-zone override matches the real sort.
+  let uploadTimeDir: "asc" | "desc" = "desc";
+  for (const clause of sortClause) {
+    const { field, direction } = parseSortField(clause);
+    if (field === "uploadTime") {
+      uploadTimeDir = direction;
+      break;
+    }
+  }
+
+  // Strip the null value(s) from the cursor — keep only the non-primary fields.
+  // The cursor is [null, uploadTimeValue, idValue] → [uploadTimeValue, idValue].
+  const strippedCursor: SortValues = [];
+  for (let i = 0; i < sortClause.length; i++) {
+    const { field } = parseSortField(sortClause[i]);
+    if (field === primaryField) continue; // skip null primary
+    if (i < cursor.length) {
+      strippedCursor.push(cursor[i]);
+    }
+  }
+
+  return {
+    strippedCursor,
+    sortOverride: [
+      { uploadTime: uploadTimeDir },
+      { id: "asc" },
+    ],
+    extraFilter: {
+      bool: { must_not: { exists: { field: primaryField } } },
+    },
+    primaryField,
+    sortClause,
+  };
+}
+
+/**
+ * Remap sort values from null-zone shape [uploadTime, id] back to the full
+ * sort clause shape [null, uploadTime, id]. Without this, cursors stored in
+ * the buffer (startCursor/endCursor) would have the wrong length and break
+ * subsequent extend calls.
+ */
+function remapNullZoneSortValues(
+  sortValues: SortValues[],
+  sortClause: Record<string, unknown>[],
+  primaryField: string,
+): SortValues[] {
+  return sortValues.map((sv) => {
+    const remapped: SortValues = [];
+    let svIdx = 0;
+    for (const clause of sortClause) {
+      const { field } = parseSortField(clause);
+      if (field === primaryField) {
+        remapped.push(null);
+      } else if (svIdx < sv.length) {
+        remapped.push(sv[svIdx++]);
+      } else {
+        remapped.push(null);
+      }
+    }
+    return remapped;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Scroll-mode buffer fill — eagerly load all results for small sets
 // ---------------------------------------------------------------------------
 
@@ -377,7 +549,7 @@ async function _fillBufferForScrollMode(
   let currentCursor = cursor;
   let fetched = loadedSoFar;
 
-  console.log(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
+  devLog(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
 
   // Suppress forward extends while filling — prevents the virtualizer's
   // reportVisibleRange from firing overlapping searchAfter requests.
@@ -393,11 +565,19 @@ async function _fillBufferForScrollMode(
     const chunkSize = Math.min(PAGE_SIZE, remaining);
 
     try {
+      // Detect null-zone cursor — same logic as extend paths.
+      const nz = detectNullZoneCursor(currentCursor, params.orderBy);
+
       const result = await dataSource.searchAfter(
         { ...params, length: chunkSize },
-        currentCursor,
+        nz ? nz.strippedCursor : currentCursor,
         pitId,
         signal,
+        false, // reverse
+        false, // noSource
+        false, // missingFirst
+        nz?.sortOverride,
+        nz?.extraFilter,
       );
 
       if (signal.aborted) {
@@ -405,6 +585,13 @@ async function _fillBufferForScrollMode(
         return;
       }
       if (result.hits.length === 0) break;
+
+      // Remap sort values from null-zone shape back to full sort clause shape
+      if (nz && result.sortValues.length > 0) {
+        result.sortValues = remapNullZoneSortValues(
+          result.sortValues, nz.sortClause, nz.primaryField,
+        );
+      }
 
       // Update cursor for next iteration
       const newEndCursor = result.sortValues.length > 0
@@ -425,7 +612,9 @@ async function _fillBufferForScrollMode(
           results: newBuffer,
           imagePositions: newPositions,
           endCursor: newEndCursor,
-          total: result.total, // may have changed
+          // When a null-zone filter was used, result.total is the filtered
+          // count, not the full corpus total. Keep existing total.
+          total: nz ? state.total : result.total, // may have changed
         };
       });
 
@@ -442,7 +631,7 @@ async function _fillBufferForScrollMode(
     }
   }
 
-  console.log(`[scroll-mode-fill] Complete — buffer now has ${get().results.length} results`);
+  devLog(`[scroll-mode-fill] Complete — buffer now has ${get().results.length} results`);
   set({ _extendForwardInFlight: false });
 }
 
@@ -488,24 +677,51 @@ async function _loadBufferAroundImage(
   signal: AbortSignal,
   dataSource: SearchState["dataSource"],
 ): Promise<BufferAroundImage | null> {
+  // Detect null-zone cursor — same logic as extend paths.
+  const nz = detectNullZoneCursor(sortValues, params.orderBy);
+  const effectiveCursor = nz ? nz.strippedCursor : sortValues;
+
   // Forward page: items after the target image
   const forwardResult = await dataSource.searchAfter(
     { ...params, length: Math.floor(PAGE_SIZE / 2) },
-    sortValues,
+    effectiveCursor,
     pitId,
     signal,
+    false, // reverse
+    false, // noSource
+    false, // missingFirst
+    nz?.sortOverride,
+    nz?.extraFilter,
   );
   if (signal.aborted) return null;
 
   // Backward page: items before the target image
   const backwardResult = await dataSource.searchAfter(
     { ...params, length: Math.floor(PAGE_SIZE / 2) },
-    sortValues,
+    effectiveCursor,
     pitId,
     signal,
     true, // reverse
+    false, // noSource
+    false, // missingFirst
+    nz?.sortOverride,
+    nz?.extraFilter,
   );
   if (signal.aborted) return null;
+
+  // Remap sort values from null-zone shape back to full sort clause shape
+  if (nz) {
+    if (forwardResult.sortValues.length > 0) {
+      forwardResult.sortValues = remapNullZoneSortValues(
+        forwardResult.sortValues, nz.sortClause, nz.primaryField,
+      );
+    }
+    if (backwardResult.sortValues.length > 0) {
+      backwardResult.sortValues = remapNullZoneSortValues(
+        backwardResult.sortValues, nz.sortClause, nz.primaryField,
+      );
+    }
+  }
 
   // Combine: backward hits + target image + forward hits
   // The target image itself is NOT in either result (search_after is exclusive).
@@ -729,6 +945,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   sortDistribution: null,
   _sortDistCacheKey: null,
 
+  // --- Null-zone distribution (uploadTime) for scrubber null-zone labels + ticks ---
+  /** Pre-fetched uploadTime distribution for null-zone docs. Only set when
+   *  the primary sort has a null zone (coveredCount < total). */
+  nullZoneDistribution: null,
+  /** Cache key for null-zone distribution. */
+  _nullZoneDistCacheKey: null,
+
   setParams: (newParams) => {
     set((state) => ({
       params: { ...state.params, ...newParams, offset: 0 },
@@ -754,6 +977,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     // Abort any in-flight sort distribution fetch
     if (_sortDistAbortController) _sortDistAbortController.abort();
+    if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
 
     // Clear extend-in-flight flags — the abort above cancels any in-flight
     // extends or scroll-mode fill from the previous search. Without this,
@@ -762,6 +986,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({
       _extendForwardInFlight: false, _extendBackwardInFlight: false,
       sortDistribution: null, _sortDistCacheKey: null,
+      nullZoneDistribution: null, _nullZoneDistCacheKey: null,
     });
 
     // Close old PIT (fire-and-forget)
@@ -898,12 +1123,30 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ _extendForwardInFlight: true });
 
     try {
+      // Detect null-zone cursor — if the primary sort value is null,
+      // we need the same sortOverride + extraFilter + cursor stripping
+      // that the null-zone seek uses. Without this, ES receives
+      // search_after: [null, ...] and returns 500.
+      const nz = detectNullZoneCursor(endCursor, params.orderBy);
+
       const result = await dataSource.searchAfter(
         { ...params, length: PAGE_SIZE },
-        endCursor,
+        nz ? nz.strippedCursor : endCursor,
         pitId,
         _rangeAbortController.signal,
+        false, // reverse
+        false, // noSource
+        false, // missingFirst
+        nz?.sortOverride,
+        nz?.extraFilter,
       );
+
+      // Remap sort values from null-zone shape back to full sort clause shape
+      if (nz && result.sortValues.length > 0) {
+        result.sortValues = remapNullZoneSortValues(
+          result.sortValues, nz.sortClause, nz.primaryField,
+        );
+      }
 
       if (result.hits.length === 0) {
         set({ _extendForwardInFlight: false });
@@ -944,7 +1187,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return {
           results: newBuffer,
           bufferOffset: newOffset,
-          total: result.total,
+          // When a null-zone filter was used, result.total is the filtered
+          // count (only docs missing the field), not the full corpus total.
+          total: nz ? state.total : result.total,
           endCursor: newEndCursor,
           startCursor: newStartCursor ?? state.startCursor,
           pitId: result.pitId ?? state.pitId,
@@ -999,13 +1244,28 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Reverse search_after: flip sort, use startCursor as anchor,
       // results come back in reversed order (adapter reverses them).
       // Works at any depth — no from/size offset limit.
+      //
+      // Detect null-zone cursor — same logic as extendForward.
+      const nz = detectNullZoneCursor(startCursor, params.orderBy);
+
       const result = await dataSource.searchAfter(
         { ...params, length: fetchCount },
-        startCursor,
+        nz ? nz.strippedCursor : startCursor,
         pitId,
         _rangeAbortController.signal,
         true, // reverse
+        false, // noSource
+        false, // missingFirst
+        nz?.sortOverride,
+        nz?.extraFilter,
       );
+
+      // Remap sort values from null-zone shape back to full sort clause shape
+      if (nz && result.sortValues.length > 0) {
+        result.sortValues = remapNullZoneSortValues(
+          result.sortValues, nz.sortClause, nz.primaryField,
+        );
+      }
 
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
@@ -1044,7 +1304,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           bufferOffset: newOffset,
           startCursor: newStartCursor,
           endCursor: newEndCursor ?? state.endCursor,
-          total: result.total,
+          // When a null-zone filter was used, result.total is the filtered
+          // count (only docs missing the field), not the full corpus total.
+          total: nz ? state.total : result.total,
           imagePositions: newPositions,
           _extendBackwardInFlight: false,
           _lastPrependCount: result.hits.length,
@@ -1098,8 +1360,32 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       let result;
       let actualOffset = fetchStart;
+      let usedNullZoneFilter = false;
 
-      if (fetchStart < DEEP_SEEK_THRESHOLD) {
+      // ---------------------------------------------------------------
+      // Fast path: End key — target is within PAGE_SIZE of the end.
+      // Use reverse search_after (no cursor = last PAGE_SIZE results)
+      // to guarantee the buffer covers the absolute last items.
+      // Without this, the keyword/percentile estimation path may land
+      // slightly short of the end and the buffer won't reach total.
+      // ---------------------------------------------------------------
+      if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
+        const sortClause = buildSortClause(params.orderBy);
+        result = await dataSource.searchAfter(
+          { ...params, length: PAGE_SIZE },
+          null,
+          pitId,
+          signal,
+          true,  // reverse
+          false, // noSource
+          true,  // missingFirst — nulls come first in reversed order
+          undefined, // sortOverride
+          undefined, // extraFilter
+        );
+        if (result.hits.length > 0) {
+          actualOffset = Math.max(0, total - result.hits.length);
+        }
+      } else if (fetchStart < DEEP_SEEK_THRESHOLD) {
         // ---------------------------------------------------------------
         // Shallow seek — from/size is fast at small offsets (<10k)
         // ---------------------------------------------------------------
@@ -1127,42 +1413,272 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // For desc sort: position 0 = highest value. To find the value at
         // position P in N results, we need percentile (100 - P/N * 100).
         // For asc sort: position 0 = lowest value → percentile P/N * 100.
-        const positionRatio = clampedOffset / Math.max(1, total);
-        const percentile =
-          primaryDir === "desc"
-            ? (1 - positionRatio) * 100
-            : positionRatio * 100;
+        //
+        // CRITICAL: When a field has null values (e.g. lastModified — many
+        // images never modified), ES puts nulls at the END of the sort
+        // (missing: "_last" for both asc and desc). The percentile agg
+        // only covers docs WITH the field. If we use `total` as the
+        // denominator, we compute a percentile that's too conservative:
+        // e.g. position 50k out of 1.3M = 3.8% ratio, but if only 100k
+        // docs have the field, position 50k is actually at the 50th
+        // percentile of those docs. Use coveredCount when available
+        // (from the sort distribution), falling back to total.
+        //
+        // For desc: positions 0..(coveredCount-1) have values,
+        //           positions coveredCount..(total-1) are nulls (sorted
+        //           by the uploadTime fallback, then id tiebreaker).
+        // For asc:  positions 0..(total-coveredCount-1) are nulls,
+        //           positions (total-coveredCount)..(total-1) have values.
+        // Ensure sortDistribution is loaded before we rely on coveredCount.
+        // On first scrubber click, fetchSortDistribution fires in parallel
+        // with seek — but seek needs coveredCount to detect the null zone.
+        // Without it, seek treats the entire corpus as having values for the
+        // primary field, and the percentile maps to the wrong position.
+        // One extra round-trip on first click only (cached after that).
+        let dist = get().sortDistribution;
+        if (!dist && primaryField !== "uploadTime") {
+          await get().fetchSortDistribution();
+          dist = get().sortDistribution;
+        }
+        if (signal.aborted) return;
+        const coveredCount = dist?.coveredCount ?? total;
 
-        // Clamp percentile to avoid 0/100 edge cases (ES returns -Inf/+Inf)
-        const clampedPercentile = Math.max(0.01, Math.min(99.99, percentile));
+        // Determine if the target position is in the "null zone" — beyond
+        // the docs that have the primary sort field value. In the null zone
+        // all docs tie on the primary field (null), so they're ordered by
+        // the uploadTime fallback and id tiebreaker. Percentile estimation
+        // on the primary field is useless here.
+        const inNullZone = primaryDir === "desc"
+          ? clampedOffset >= coveredCount
+          : clampedOffset < (total - coveredCount);
+
+        devLog(
+          `[seek-diag] target=${clampedOffset}, total=${total}, coveredCount=${coveredCount}, ` +
+          `primaryField=${primaryField}, primaryDir=${primaryDir}, inNullZone=${inNullZone}, ` +
+          `distLoaded=${!!dist}, distBuckets=${dist?.buckets.length ?? 0}`,
+        );
+
 
         let estimatedValue: number | null = null;
-        if (primaryField) {
-          estimatedValue = await dataSource.estimateSortValue(
-            params,
-            primaryField,
-            clampedPercentile,
-            signal,
-          );
-        }
 
-        if (estimatedValue != null) {
-          // Use search_after with the estimated sort value. Secondary sort
-          // fields get type-appropriate anchors so ES doesn't reject the
-          // cursor (e.g. "" is not valid for a date field like uploadTime).
-          const searchAfterValues: SortValues = [estimatedValue];
-          for (let i = 1; i < sortClause.length; i++) {
-            const clause = sortClause[i];
-            const { field } = parseSortField(clause);
-            // The last field is always `id` (keyword) → "".
-            // Date/numeric fields → 0 (epoch zero for dates, zero for numbers).
-            // Unknown fields → 0 (safer than "" for non-keyword types).
-            if (field === "id") {
-              searchAfterValues.push("");
+        if (inNullZone) {
+          // Target is in the null-value zone. All docs here have null for
+          // the primary sort field, so they're ordered by the uploadTime
+          // fallback. Estimate the uploadTime at the target position within
+          // the null zone, then search_after with [null, uploadTime, ""].
+
+          const nullZoneSize = total - coveredCount;
+          const posInNullZone = primaryDir === "desc"
+            ? clampedOffset - coveredCount
+            : clampedOffset; // asc: nulls are at the start
+
+          // Null zone is sorted by the uploadTime fallback (direction matches
+          // buildSortClause's logic — desc for date desc, asc for date asc).
+          // Derive fallback direction from the sort clause.
+          let fallbackDir: "asc" | "desc" = "desc";
+          for (const clause of sortClause) {
+            const { field, direction } = parseSortField(clause);
+            if (field === "uploadTime") { fallbackDir = direction; break; }
+          }
+
+          // --- Estimate uploadTime at the target position ---
+          //
+          // Strategy 1 (preferred): use the null-zone distribution if loaded.
+          // This is the same data the tooltip uses — binary search on bucket
+          // startPositions gives the exact bucket for this position. Much more
+          // accurate than percentile over all docs, because it only covers
+          // null-zone docs with their actual uploadTime distribution.
+          //
+          // Strategy 2 (fallback): percentile over all docs via ES aggregation.
+          // Inaccurate because the non-null docs have different uploadTime
+          // distributions than the null-zone docs.
+          const nullZoneDist = get().nullZoneDistribution;
+          let uploadTimeEstimate: number | null = null;
+
+          if (nullZoneDist && nullZoneDist.buckets.length >= 2) {
+            // Binary search the distribution for the bucket at posInNullZone
+            const buckets = nullZoneDist.buckets;
+            let lo = 0;
+            let hi = buckets.length - 1;
+            while (lo < hi) {
+              const mid = (lo + hi + 1) >>> 1;
+              if (buckets[mid].startPosition <= posInNullZone) {
+                lo = mid;
+              } else {
+                hi = mid - 1;
+              }
+            }
+            const bucket = buckets[lo];
+            // Interpolate within the bucket for sub-bucket precision.
+            // The bucket covers positions [startPosition, nextStartPosition).
+            // Linear interpolation between this bucket's date and the next.
+            const bucketDate = new Date(bucket.key).getTime();
+            if (lo + 1 < buckets.length) {
+              const nextBucket = buckets[lo + 1];
+              const nextDate = new Date(nextBucket.key).getTime();
+              const posInBucket = posInNullZone - bucket.startPosition;
+              const bucketSize = nextBucket.startPosition - bucket.startPosition;
+              const frac = bucketSize > 0 ? posInBucket / bucketSize : 0;
+              uploadTimeEstimate = bucketDate + frac * (nextDate - bucketDate);
             } else {
-              searchAfterValues.push(0);
+              uploadTimeEstimate = bucketDate;
+            }
+            devLog(
+              `[seek-diag] NULL ZONE: posInNullZone=${posInNullZone}, nullZoneSize=${nullZoneSize}, ` +
+              `using DISTRIBUTION bucket[${lo}] key=${bucket.key}, ` +
+              `estimate=${new Date(uploadTimeEstimate).toISOString()}`,
+            );
+          } else {
+            // Fallback: percentile over all docs (inaccurate for null zone)
+            const nullRatio = posInNullZone / Math.max(1, nullZoneSize);
+            const uploadPercentile = Math.max(0.01, Math.min(99.99,
+              fallbackDir === "desc"
+                ? (1 - nullRatio) * 100
+                : nullRatio * 100,
+            ));
+            devLog(
+              `[seek-diag] NULL ZONE: posInNullZone=${posInNullZone}, nullZoneSize=${nullZoneSize}, ` +
+              `nullRatio=${nullRatio.toFixed(4)}, fallbackDir=${fallbackDir}, ` +
+              `using PERCENTILE=${uploadPercentile.toFixed(2)} (no null-zone distribution)`,
+            );
+            uploadTimeEstimate = await dataSource.estimateSortValue(
+              params,
+              "uploadTime",
+              uploadPercentile,
+              signal,
+            );
+          }
+
+
+          if (uploadTimeEstimate != null) {
+            devLog(
+              `[seek-diag] NULL ZONE estimate: uploadTime=${uploadTimeEstimate} ` +
+              `(${new Date(uploadTimeEstimate).toISOString()})`,
+            );
+            // Null zone strategy: filter to docs where the primary field is
+            // missing, sort by [uploadTime dir, id asc] (the fallback sort
+            // that ES actually uses within the null partition), and seek via
+            // search_after with [uploadTimeEstimate, ""].
+            //
+            // We can NOT pass null in search_after — ES rejects it with 500.
+            // Instead, we narrow the query and change the sort so the cursor
+            // only contains concrete values.
+            //
+            // Direction: derived from the sort clause's uploadTime fallback
+            // (set by buildSortClause — date sorts inherit primary direction,
+            // keyword/numeric sorts get desc).
+            let nullZoneUploadDir: "asc" | "desc" = "desc";
+            for (const clause of sortClause) {
+              const { field, direction } = parseSortField(clause);
+              if (field === "uploadTime") { nullZoneUploadDir = direction; break; }
+            }
+            const nullZoneSort: Record<string, unknown>[] = [
+              { uploadTime: nullZoneUploadDir },
+              { id: "asc" },
+            ];
+            const nullZoneFilter: Record<string, unknown> = {
+              bool: { must_not: { exists: { field: primaryField! } } },
+            };
+            const nullZoneCursor: SortValues = [uploadTimeEstimate, ""];
+
+            usedNullZoneFilter = true;
+            result = await dataSource.searchAfter(
+              { ...params, length: PAGE_SIZE },
+              nullZoneCursor,
+              pitId,
+              signal,
+              false, // reverse
+              false, // noSource
+              false, // missingFirst
+              nullZoneSort,
+              nullZoneFilter,
+            );
+
+            // Find where we actually landed. The countBefore for the null
+            // zone is: coveredCount (all docs with values sort before any
+            // null doc) + position within the null zone. We count within
+            // the null zone by asking "how many null-zone docs sort before
+            // the landed position" on the uploadTime+id sort.
+            if (result.hits.length > 0 && result.sortValues.length > 0) {
+              if (signal.aborted) return;
+              const landedSortValues = result.sortValues[0];
+              const landedUploadTime = landedSortValues[0]; // first sort value = uploadTime
+              devLog(
+                `[seek-diag] NULL ZONE landed: uploadTime=${landedUploadTime} ` +
+                `(${new Date(landedUploadTime as number).toISOString()}), ` +
+                `firstHitUploadTime=${result.hits[0]?.uploadTime}`,
+              );
+
+              // Re-derive the full sort values for countBefore: the first
+              // hit has sort values from the nullZoneSort [uploadTime, id].
+              // We need to express this in the full sort clause terms:
+              // [null (lastModified), uploadTime, id].
+              const fullSortValues = remapNullZoneSortValues(
+                [landedSortValues], sortClause, primaryField!,
+              )[0];
+
+              const countBefore = await dataSource.countBefore(
+                params,
+                fullSortValues,
+                sortClause,
+                signal,
+              );
+              devLog(
+                `[seek-diag] NULL ZONE countBefore=${countBefore}, ` +
+                `expected≈${clampedOffset}, coveredCount=${coveredCount}, ` +
+                `impliedNullZonePos=${countBefore - coveredCount}, ` +
+                `targetNullZonePos=${posInNullZone}, ` +
+                `drift=${countBefore - clampedOffset}, ` +
+                `fullSortValues=${JSON.stringify(fullSortValues)}`,
+              );
+              actualOffset = countBefore;
+            }
+
+            // Remap sort values from null-zone shape [uploadTime, id] to
+            // full sort clause shape [null, uploadTime, id]. Without this,
+            // startCursor/endCursor would be 2-element arrays that break
+            // subsequent extendForward/extendBackward calls.
+            if (result && result.sortValues.length > 0) {
+              result = {
+                ...result,
+                sortValues: remapNullZoneSortValues(
+                  result.sortValues, sortClause, primaryField!,
+                ),
+              };
             }
           }
+          // If uploadTimeEstimate is null, fall through to the keyword/fallback path below.
+        }
+
+        if (!inNullZone) {
+          // Compute percentile for the covered range (docs WITH the field).
+          const posInCovered = primaryDir === "desc"
+            ? clampedOffset
+            : clampedOffset - (total - coveredCount);
+          const positionRatio = posInCovered / Math.max(1, coveredCount);
+          const percentile =
+            primaryDir === "desc"
+              ? (1 - positionRatio) * 100
+              : positionRatio * 100;
+
+          const clampedPercentile = Math.max(0.01, Math.min(99.99, percentile));
+
+
+          if (primaryField) {
+            estimatedValue = await dataSource.estimateSortValue(
+              params,
+              primaryField,
+              clampedPercentile,
+              signal,
+            );
+          }
+        }
+
+        // Skip percentile/keyword paths if the null zone path already handled the seek.
+        if (!result && estimatedValue != null) {
+          // Use search_after with the estimated sort value. Secondary sort
+          // fields get direction-aware anchors (see buildSeekCursorAnchors).
+          const searchAfterValues = buildSeekCursorAnchors(sortClause, estimatedValue);
 
           result = await dataSource.searchAfter(
             { ...params, length: PAGE_SIZE },
@@ -1185,7 +1701,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             );
             actualOffset = countBefore;
           }
-        } else {
+        } else if (!result) {
           // Keyword sorts — percentile estimation unavailable.
           // Composite aggregation to walk unique values and find the
           // value at the target position. O(unique_values/1000) ES
@@ -1193,7 +1709,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           const { field: pField } = parseSortField(sortClause[0]);
 
           if (pField && dataSource.findKeywordSortValue) {
-            console.log(
+            devLog(
               `[seek] keyword strategy: field=${pField}, target=${fetchStart}, ` +
               `dir=${primaryDir}, total=${total}`,
             );
@@ -1207,24 +1723,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
             if (signal.aborted) return;
 
-            console.log(
+            devLog(
               `[seek] findKeywordSortValue returned: ${JSON.stringify(keywordValue)}`,
             );
 
             if (keywordValue != null) {
-              // Build search_after cursor from the keyword value
-              const searchAfterValues: SortValues = [keywordValue];
-              for (let i = 1; i < sortClause.length; i++) {
-                const clause = sortClause[i];
-                const { field } = parseSortField(clause);
-                if (field === "id") {
-                  searchAfterValues.push("");
-                } else {
-                  searchAfterValues.push(0);
-                }
-              }
+              // Build search_after cursor with direction-aware anchors
+              const searchAfterValues = buildSeekCursorAnchors(sortClause, keywordValue);
 
-              console.log(
+              devLog(
                 `[seek] search_after cursor: ${JSON.stringify(searchAfterValues)}`,
               );
 
@@ -1246,7 +1753,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   signal,
                 );
                 actualOffset = countBefore;
-                console.log(
+                devLog(
                   `[seek] countBefore=${countBefore}, landedSortValues=${JSON.stringify(landedSortValues)}, ` +
                   `target was ${fetchStart}, drift=${Math.abs(countBefore - fetchStart)}`,
                 );
@@ -1263,13 +1770,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               // ~20 binary search steps → ~200ms total.
               // -----------------------------------------------------------------
               const drift = fetchStart - actualOffset;
-              if (drift > PAGE_SIZE && result.hits.length > 0 && result.sortValues.length > 0) {
+              if (Math.abs(drift) > PAGE_SIZE && result.hits.length > 0 && result.sortValues.length > 0) {
                 // Identify the tiebreaker field (last sort clause — always `id`)
                 const lastClause = sortClause[sortClause.length - 1];
                 const { field: tiebreakerField } = parseSortField(lastClause);
 
                 if (tiebreakerField === "id") {
-                  console.log(
+                  devLog(
                     `[seek] large bucket drift=${drift}, refining via binary search on id...`,
                   );
 
@@ -1302,7 +1809,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                     );
 
                     if (step < 5 || step % 5 === 0) {
-                      console.log(
+                      devLog(
                         `[seek] bisect step ${step}: mid=${mid}, count=${count}, ` +
                         `target=${fetchStart}, gap=${count - fetchStart}`,
                       );
@@ -1322,7 +1829,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                     if (Math.abs(count - fetchStart) <= PAGE_SIZE) {
                       bestOffset = count;
                       bestCursor = probeCursor;
-                      console.log(
+                      devLog(
                         `[seek] binary search converged at step ${step + 1}: ` +
                         `count=${count}, target=${fetchStart}, gap=${Math.abs(count - fetchStart)}`,
                       );
@@ -1343,7 +1850,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   if (refinedResult.hits.length > 0) {
                     result = refinedResult;
                     actualOffset = bestOffset;
-                    console.log(
+                    devLog(
                       `[seek] binary search refinement complete: ` +
                       `actualOffset=${actualOffset}, target=${fetchStart}`,
                     );
@@ -1432,15 +1939,40 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // render at the new scroll position before edge-detection kicks in.
       // Without this, extendBackward can fire during a logo-click scroll
       // reset (scrollTop=0 on a deep buffer), corrupting the buffer.
-      _seekCooldownUntil = Date.now() + 500;
+      //
+      // 700ms: must outlast the 600ms deferred scroll timer in useScrollEffects
+      // (effect #6). That timer fires a synthetic scroll event to sync the
+      // Scrubber after seek. If the cooldown expires before the timer fires,
+      // the scroll event triggers reportVisibleRange → extendBackward, which
+      // prepends items and causes visible "swimming" (content shifts down as
+      // items are prepended above). 700ms > 600ms guarantees the deferred
+      // scroll fires while extends are still blocked.
+      _seekCooldownUntil = Date.now() + 700;
 
       // Compute the buffer-local target index so views can scroll there.
-      const targetLocalIdx = Math.max(0, clampedOffset - actualOffset);
+      // Clamp to buffer bounds — the percentile estimate may drift, landing
+      // the buffer offset far enough from the target that the target falls
+      // outside the fetched page. Without clamping, the view would try to
+      // scroll to index 10000+ in a 200-item buffer → wild jump.
+      const targetLocalIdx = Math.max(0, Math.min(
+        clampedOffset - actualOffset,
+        result.hits.length - 1,
+      ));
+
+      devLog(
+        `[seek-diag] FINAL: actualOffset=${actualOffset}, result.total=${result.total}, ` +
+        `hits=${result.hits.length}, usedNullZoneFilter=${usedNullZoneFilter}, ` +
+        `storeTotal=${get().total}, writingTotal=${usedNullZoneFilter ? get().total : result.total}, ` +
+        `startCursor=${JSON.stringify(startCursor)}, endCursor=${JSON.stringify(endCursor)}`,
+      );
 
       set({
         results: result.hits,
         bufferOffset: actualOffset,
-        total: result.total,
+        // When a null-zone filter was used, result.total is the filtered
+        // count (docs missing the field), not the full corpus. Don't
+        // overwrite — keep the existing total from the initial search.
+        total: usedNullZoneFilter ? get().total : result.total,
         loading: false,
         imagePositions: buildPositions(result.hits, actualOffset),
         startCursor,
@@ -1453,10 +1985,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         seekTime: Date.now() - seekStartTime,
       });
 
-      console.log(
+      const writtenTotal = usedNullZoneFilter ? get().total : result.total;
+
+      devLog(
         `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
         `hits=${result.hits.length}, targetLocalIdx=${targetLocalIdx}, ` +
-        `ratio=${(actualOffset / (result.total || 1)).toFixed(4)}`,
+        `ratio=${(actualOffset / (writtenTotal || 1)).toFixed(4)}` +
+        (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : ''),
       );
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -1556,7 +2091,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _seekTargetLocalIndex: buf.targetLocalIdx,
       });
 
-      console.log(
+      devLog(
         `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, ` +
         `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIdx}, ` +
         `hits=${buf.combinedHits.length}`,
@@ -1710,6 +2245,74 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       console.warn("[search-store] fetchSortDistribution failed:", e);
+    }
+  },
+
+  fetchNullZoneDistribution: async () => {
+    const { dataSource, params, sortDistribution, _nullZoneDistCacheKey } = get();
+
+    // Only fetch if there's a null zone (coveredCount < total)
+    if (!sortDistribution || sortDistribution.coveredCount >= get().total) return;
+    // Only relevant for non-uploadTime sorts (uploadTime is universal — no null zone)
+    const sortKey = resolvePrimarySortKey(params.orderBy);
+    if (!sortKey || sortKey === "uploadTime") return;
+    if (!dataSource.getDateDistribution) return;
+
+    // Cache key: same query params, always uploadTime, direction from sort
+    const dateInfo = resolveDateSortInfo(params.orderBy);
+    const direction = dateInfo?.direction ?? "desc";
+    const key = aggCacheKey(params) + `|nullzone:uploadTime:${direction}`;
+    if (key === _nullZoneDistCacheKey) return;
+
+    // Abort previous in-flight
+    if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
+    _nullZoneDistAbortController = new AbortController();
+
+    try {
+      // Fetch the uploadTime distribution for NULL-ZONE DOCS ONLY.
+      // The extra filter narrows to docs where the primary sort field is
+      // missing — exactly the null-zone population. This gives accurate
+      // bucket positions (no scaling needed). Without this filter, the
+      // distribution covers all docs and positions are linearly scaled
+      // by nullZoneSize/total — wildly inaccurate because null-zone docs
+      // have a different uploadTime distribution than non-null docs.
+      const sortKey = resolvePrimarySortKey(params.orderBy);
+      const dateInfo = resolveDateSortInfo(params.orderBy);
+      const kwInfo = resolveKeywordSortInfo(params.orderBy);
+      const primaryField = dateInfo?.field ?? kwInfo?.field ?? null;
+      const nullZoneFilter = primaryField
+        ? { bool: { must_not: { exists: { field: primaryField } } } }
+        : undefined;
+
+      const dist = await dataSource.getDateDistribution(
+        params, "uploadTime", direction,
+        _nullZoneDistAbortController.signal,
+        nullZoneFilter,
+      );
+
+      // Guard: params may have changed while awaiting
+      if (aggCacheKey(get().params) + `|nullzone:uploadTime:${direction}` !== key) return;
+
+      if (dist) {
+        const nullZoneSize = get().total - (get().sortDistribution?.coveredCount ?? 0);
+
+        if (nullZoneSize > 0 && dist.coveredCount > 0) {
+          // The distribution is already filtered to null-zone docs only,
+          // so bucket positions are accurate — no scaling needed.
+          set({
+            nullZoneDistribution: {
+              buckets: dist.buckets,
+              coveredCount: dist.coveredCount,
+            },
+            _nullZoneDistCacheKey: key,
+          });
+        } else {
+          set({ nullZoneDistribution: null, _nullZoneDistCacheKey: key });
+        }
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      console.warn("[search-store] fetchNullZoneDistribution failed:", e);
     }
   },
 }));

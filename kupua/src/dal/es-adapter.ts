@@ -24,6 +24,7 @@ import type {
   SortDistBucket,
 } from "./types";
 import { parseCql } from "./adapters/elasticsearch/cql";
+import { devLog } from "@/lib/dev-log";
 import {
   buildSortClause,
   reverseSortClause,
@@ -445,8 +446,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
         "DELETE",
       );
     } catch (e) {
-      // Fire-and-forget — PIT will expire on its own if close fails.
-      // Log for debugging but don't propagate.
+      // 404/410 = PIT already closed or expired — that's fine, not an error.
+      // Only warn on genuinely unexpected failures.
+      if (e instanceof Error && (/404/.test(e.message) || /410/.test(e.message))) return;
       console.warn("[ES] Failed to close PIT:", e);
     }
   }
@@ -459,8 +461,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
     reverse?: boolean,
     noSource?: boolean,
     missingFirst?: boolean,
+    sortOverride?: Record<string, unknown>[],
+    extraFilter?: Record<string, unknown>,
   ): Promise<SearchAfterResult> {
-    const sortClause = buildSortClause(params.orderBy);
+    const sortClause = sortOverride ?? buildSortClause(params.orderBy);
     let effectiveSort = reverse ? reverseSortClause(sortClause) : sortClause;
 
     // missingFirst: override the primary sort field to use missing: "_first".
@@ -474,8 +478,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
       });
     }
 
+    const baseQuery = buildQuery(params);
+    const query = extraFilter
+      ? { bool: { must: [baseQuery], filter: [extraFilter] } }
+      : baseQuery;
+
     const body: Record<string, unknown> = {
-      query: buildQuery(params),
+      query,
       sort: effectiveSort,
       size: params.length ?? 200,
       track_total_hits: true,
@@ -595,6 +604,16 @@ export class ElasticsearchDataSource implements ImageDataSource {
     //   OR (uploadTime == T AND id < I)  (asc → "before" means less)
     //
     // This generalises to N sort fields via nested should clauses.
+    //
+    // NULL HANDLING (missing: "_last"):
+    // ES puts docs with missing values at the END of the sort (both asc
+    // and desc). So for desc sort:
+    //   - Non-null values come first (sorted descending)
+    //   - Null values come last
+    // A doc with null sorts AFTER all non-null docs. So "before" a null
+    // doc means: all non-null docs (exists), plus null docs whose
+    // subsequent sort values are "less". For equality on null fields,
+    // we use must_not:exists (both are null → "equal").
 
     const baseQuery = buildQuery(params);
     const should: Record<string, unknown>[] = [];
@@ -605,10 +624,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
       // Extract field name and direction from the sort clause
       const { field, direction } = parseSortField(clause);
-      if (!field || value == null) continue;
-
-      // "Before" in desc order means >, in asc order means <
-      const rangeOp = direction === "desc" ? "gt" : "lt";
+      if (!field) continue;
 
       // Build the equality conditions for all preceding fields
       const equalityConditions: Record<string, unknown>[] = [];
@@ -616,27 +632,63 @@ export class ElasticsearchDataSource implements ImageDataSource {
         const prevClause = sortClause[j];
         const prevValue = sortValues[j];
         const prev = parseSortField(prevClause);
-        if (!prev.field || prevValue == null) continue;
+        if (!prev.field) continue;
 
-
-        equalityConditions.push({
-          range: { [prev.field]: { gte: prevValue, lte: prevValue } },
-        });
+        if (prevValue == null) {
+          // Previous field is null → "equal" means the other doc also has
+          // null for this field → must_not exists
+          equalityConditions.push({
+            bool: { must_not: { exists: { field: prev.field } } },
+          });
+        } else {
+          equalityConditions.push({
+            range: { [prev.field]: { gte: prevValue, lte: prevValue } },
+          });
+        }
       }
 
+      if (value == null) {
+        // Current field is null. With missing: "_last", ALL docs that have
+        // a value for this field sort before any null doc — regardless of
+        // the sort direction. So "strictly before" = field exists.
+        //
+        // But only within the partition defined by preceding equalities.
+        // E.g. for sort [lastModified desc, uploadTime desc, id asc]:
+        //   Level 0 (lastModified=null): all docs with lastModified exists
+        //   Level 1 (uploadTime=X, given lastModified=null): impossible —
+        //     if we're at level 1, lastModified equality already narrowed
+        //     to null docs, and uploadTime is non-null (value != null
+        //     would be the next iteration).
+        const existsCondition: Record<string, unknown> = {
+          exists: { field },
+        };
 
-      const rangeCondition = {
-        range: { [field]: { [rangeOp]: value } },
-      };
-
-      if (equalityConditions.length === 0) {
-        should.push(rangeCondition);
+        if (equalityConditions.length === 0) {
+          should.push(existsCondition);
+        } else {
+          should.push({
+            bool: {
+              must: [...equalityConditions, existsCondition],
+            },
+          });
+        }
       } else {
-        should.push({
-          bool: {
-            must: [...equalityConditions, rangeCondition],
-          },
-        });
+        // Non-null value: standard range comparison
+        // "Before" in desc order means >, in asc order means <
+        const rangeOp = direction === "desc" ? "gt" : "lt";
+        const rangeCondition = {
+          range: { [field]: { [rangeOp]: value } },
+        };
+
+        if (equalityConditions.length === 0) {
+          should.push(rangeCondition);
+        } else {
+          should.push({
+            bool: {
+              must: [...equalityConditions, rangeCondition],
+            },
+          });
+        }
       }
     }
 
@@ -786,7 +838,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           // Return the last known value — search_after from there lands at
           // the boundary between valued and null docs, then countBefore
           // determines the exact offset.
-          console.log(
+          devLog(
             `[ES] findKeywordSortValue: exhausted (empty) at page ${page} ` +
             `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
             `target=${targetPosition}). Returning lastKeywordValue.`,
@@ -799,7 +851,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           if (nextCumulative > targetPosition) {
             // Target position falls within this bucket.
             const value = String(bucket.key._sort_field);
-            console.log(
+            devLog(
               `[ES] findKeywordSortValue: found "${value}" at page ${page} ` +
               `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
               `target=${targetPosition}).`,
@@ -817,7 +869,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           // docs have null/missing values for this keyword field (composite
           // agg skips nulls). Return the last keyword value — search_after
           // from there puts us at the valued→null boundary, close to target.
-          console.log(
+          devLog(
             `[ES] findKeywordSortValue: no more pages at page ${page} ` +
             `(${Date.now() - startTime}ms, cumulative=${cumulative}, ` +
             `target=${targetPosition}). Returning lastKeywordValue.`,
@@ -914,7 +966,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     if (buckets.length === 0) return null;
 
-    console.log(
+    devLog(
       `[ES] getKeywordDistribution: ${field} ${direction} — ` +
       `${buckets.length} unique values, ${cumulative} docs covered ` +
       `(${Date.now() - startTime}ms)`,
@@ -929,9 +981,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
    * aggregations (BKD tree interval counting, no per-doc evaluation).
    *
    * Interval adapts to the total time span:
-   *   > 2 years  → month buckets (~180 for 15 years)
-   *   2–60 days  → day buckets
-   *   < 2 days   → hour buckets
+   *   > 2 years   → month buckets (~180 for 15 years)
+   *   2d–730d     → day buckets
+   *   25h–2d      → hour buckets (~48 for 2 days)
+   *   12h–25h     → 30-minute buckets (~48 for 24 hours)
+   *   3h–12h      → 10-minute buckets (~72 for 12 hours)
+   *   < 3h        → 5-minute buckets (~36 for 3 hours)
    *
    * Returns buckets in sort order (asc or desc) with cumulative start
    * positions, matching the SortDistribution structure used by keyword sorts.
@@ -941,34 +996,48 @@ export class ElasticsearchDataSource implements ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
+    extraFilter?: Record<string, unknown>,
   ): Promise<SortDistribution | null> {
     const startTime = Date.now();
 
     // First, get the min/max of the field to choose the right interval.
     // stats agg is very cheap on date fields (~5ms).
+    const baseQuery = buildQuery(params);
+    const query = extraFilter
+      ? { bool: { must: [baseQuery], filter: [extraFilter] } }
+      : baseQuery;
     const statsBody: Record<string, unknown> = {
       size: 0,
-      query: buildQuery(params),
+      query,
       aggs: { range: { stats: { field } } },
       track_total_hits: false,
     };
 
     let interval: string;
+    let spanMs: number;
+    let statsTimeMs: number;
     try {
       const statsResult = (await this.esRequest("_search", statsBody, signal)) as {
         aggregations?: { range?: { min: number; max: number; count: number } };
       };
+      statsTimeMs = Date.now() - startTime;
       const stats = statsResult.aggregations?.range;
       if (!stats || stats.count === 0) return null;
 
-      const spanMs = Math.abs(stats.max - stats.min);
+      spanMs = Math.abs(stats.max - stats.min);
       const MS_PER_DAY = 86_400_000;
       if (spanMs > 2 * 365 * MS_PER_DAY) {
-        interval = "month";
+        interval = "month";          // ~180 buckets for 15 years
       } else if (spanMs > 2 * MS_PER_DAY) {
-        interval = "day";
+        interval = "day";            // ~60 buckets for 2 months
+      } else if (spanMs > 25 * 3600_000) {
+        interval = "hour";           // ~48 buckets for 2 days
+      } else if (spanMs > 12 * 3600_000) {
+        interval = "30m";            // ~48 buckets for 24 hours
+      } else if (spanMs > 3 * 3600_000) {
+        interval = "10m";            // ~72 buckets for 12 hours
       } else {
-        interval = "hour";
+        interval = "5m";             // ~36 buckets for 3 hours
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;
@@ -976,18 +1045,26 @@ export class ElasticsearchDataSource implements ImageDataSource {
       return null;
     }
 
-    // Now fetch the histogram
+    // Now fetch the histogram.
+    // calendar_interval for month/day/hour (variable-length);
+    // fixed_interval for sub-hour (30m, 10m, 5m — calendar_interval doesn't support these).
+    const isCalendar = ["month", "day", "hour"].includes(interval);
+    const histogramConfig: Record<string, unknown> = {
+      field,
+      min_doc_count: 1, // skip empty buckets
+      order: { _key: direction },
+    };
+    if (isCalendar) {
+      histogramConfig.calendar_interval = interval;
+    } else {
+      histogramConfig.fixed_interval = interval;
+    }
     const body: Record<string, unknown> = {
       size: 0,
-      query: buildQuery(params),
+      query,
       aggs: {
         timeline: {
-          date_histogram: {
-            field,
-            calendar_interval: interval,
-            min_doc_count: 1, // skip empty buckets
-            order: { _key: direction },
-          },
+          date_histogram: histogramConfig,
         },
       },
       track_total_hits: false,
@@ -1016,10 +1093,18 @@ export class ElasticsearchDataSource implements ImageDataSource {
         cumulative += b.doc_count;
       }
 
-      console.log(
+      const histTimeMs = Date.now() - startTime - statsTimeMs;
+      // Rough payload estimate: ~60 bytes per bucket (key_as_string + doc_count JSON)
+      const payloadEstKB = Math.round(esBuckets.length * 60 / 1024);
+      const spanDesc = spanMs > 86_400_000
+        ? `${(spanMs / 86_400_000).toFixed(1)}d`
+        : `${(spanMs / 3_600_000).toFixed(1)}h`;
+
+      devLog(
         `[ES] getDateDistribution: ${field} ${direction} ${interval} — ` +
-        `${buckets.length} buckets, ${cumulative} docs covered ` +
-        `(${Date.now() - startTime}ms)`,
+        `${buckets.length} buckets, ${cumulative} docs covered, ` +
+        `span ${spanDesc}. Stats ${statsTimeMs}ms + hist ${histTimeMs}ms = ${Date.now() - startTime}ms total. ` +
+        `~${payloadEstKB}KB payload.`,
       );
 
       return { buckets, coveredCount: cumulative };

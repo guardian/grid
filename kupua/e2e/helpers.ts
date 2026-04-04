@@ -587,12 +587,20 @@ export class KupuaHelpers {
    */
   async scrollToBufferCapacity(seekRatio = 0.15) {
     await this.seekTo(seekRatio);
-    for (let i = 0; i < 8; i++) {
+    // Grid rows are tall (303px) so we may need more iterations than table
+    // (32px) to scroll far enough to trigger extend+evict cycles.
+    // We also dispatch a synthetic scroll event because headless Chromium
+    // doesn't reliably fire native scroll events for programmatic scrollTop
+    // changes (same fix as Bug #17's scrollDeep).
+    for (let i = 0; i < 15; i++) {
       await this.page.evaluate(() => {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
         const el = grid ?? table;
-        if (el) el.scrollTop = el.scrollHeight;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          el.dispatchEvent(new Event("scroll"));
+        }
       });
       await this.page.waitForTimeout(400);
     }
@@ -611,7 +619,10 @@ export class KupuaHelpers {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
         const el = grid ?? table;
-        if (el) el.scrollTop = el.scrollHeight;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          el.dispatchEvent(new Event("scroll"));
+        }
       });
       await this.page.waitForTimeout(400);
     }

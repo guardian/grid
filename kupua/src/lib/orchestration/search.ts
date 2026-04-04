@@ -15,7 +15,6 @@
  */
 
 import { useSearchStore } from "@/stores/search-store";
-import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { resetVisibleRange } from "@/hooks/useDataWindow";
 
 // ===========================================================================
@@ -115,41 +114,30 @@ export function scrollFocusedIntoView(): void {
 }
 
 /**
- * Imperatively reset scroll position to top — called by SearchBar logo,
+ * Imperatively prepare for a "go home" transition — called by SearchBar logo,
  * ImageDetail logo, and metadata clicks. Orchestrates:
  * 1. Abort in-flight extends (buffer corruption prevention)
- * 2. DOM scrollTop/scrollLeft reset
- * 3. Virtualizer internal offset reset
- * 4. Visible range reset (Scrubber thumb sync)
- * 5. Direct scrubber thumb DOM reset
- * 6. Focus CQL input (next frame)
+ * 2. Reset visible range (Scrubber thumb sync)
+ * 3. Direct scrubber thumb DOM reset (instant visual signal)
+ * 4. Focus CQL input (next frame)
+ *
+ * **Does NOT touch scrollTop or the virtualizer.** The old content stays
+ * visible during the async fetch — no flash of wrong content. When the
+ * search/seek completes and sets bufferOffset: 0, effect #8 in
+ * useScrollEffects (BufferOffset→0 guard) resets scrollTop in the same
+ * render frame as the data swap.
  */
 export function resetScrollAndFocusSearch(): void {
-  // Abort in-flight extends and set cooldown BEFORE the synthetic scroll
-  // event can trigger extendBackward on a stale deep-offset buffer.
+  // Abort in-flight extends and set cooldown — prevents stale
+  // extendBackward from corrupting the buffer during the transition.
   useSearchStore.getState().abortExtends();
 
-  const scrollContainer = getScrollContainer();
-  if (scrollContainer) {
-    scrollContainer.scrollTop = 0;
-    scrollContainer.scrollLeft = 0;
-    scrollContainer.dispatchEvent(new Event("scroll"));
-  }
-
-  // Also reset the virtualizer's internal scrollOffset — setting DOM scrollTop
-  // alone is insufficient because TanStack Virtual syncs asynchronously via
-  // scroll events. During rapid state transitions (deep seek → Home click),
-  // the virtualizer can lag behind the DOM.
-  _virtualizerReset?.();
-
-  // Immediately reset the visible range so the Scrubber thumb reflects
-  // position 0 without waiting for the scroll handler to fire.
+  // Reset the visible range so the Scrubber thumb reflects position 0
+  // without waiting for the scroll handler to fire.
   resetVisibleRange();
 
-  // Directly reset the scrubber thumb and tooltip DOM positions to top.
-  // This bypasses React's render cycle for instant visual feedback — the
-  // React-computed position will catch up on the next render after search
-  // completes with bufferOffset: 0.
+  // Directly reset the scrubber thumb DOM position to top — instant
+  // visual signal that "I'm going home" without flashing wrong images.
   const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
   if (thumb) thumb.style.top = "0px";
 

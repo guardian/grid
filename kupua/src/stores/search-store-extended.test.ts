@@ -544,14 +544,15 @@ describe("density-switch viewport ratio — comprehensive", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildSortClause + reverseSortClause", () => {
-  it("taken alias expands to dateTaken + uploadTime", () => {
+  it("taken alias expands to dateTaken + uploadTime fallback + id tiebreaker", () => {
     const sort = buildSortClause("-taken");
-    // -taken → -metadata.dateTaken, uploadTime (flipped uploadTime back to desc? Let's check)
-    // taken → "metadata.dateTaken,-uploadTime"
-    // -taken: outer neg=true, inner "metadata.dateTaken" → neg, inner "-uploadTime" → neg XOR neg = no neg → asc
-    // So: metadata.dateTaken desc, uploadTime asc, id asc
-    expect(sort.length).toBe(3); // dateTaken + uploadTime + tiebreaker
-    expect(sort[sort.length - 1]).toEqual({ id: "asc" }); // tiebreaker
+    // -taken → metadata.dateTaken desc. Date sort → uploadTime fallback
+    // inherits primary direction (desc). Then id tiebreaker.
+    expect(sort).toEqual([
+      { "metadata.dateTaken": "desc" },
+      { uploadTime: "desc" },
+      { id: "asc" },
+    ]);
   });
 
   it("reverseSortClause flips all directions", () => {
@@ -751,3 +752,209 @@ describe("ES request count", () => {
 });
 
 
+// ---------------------------------------------------------------------------
+// Null-zone seek + extend — sparse field tests
+// ---------------------------------------------------------------------------
+
+describe("null-zone seek (sparse lastModified)", () => {
+  // 50,000 images, 20% have lastModified (10,000 with the field).
+  // With -lastModified sort: positions 0–9,999 = covered zone (have field),
+  // positions 10,000–49,999 = null zone (no field, sorted by uploadTime fallback).
+  // DEEP_SEEK_THRESHOLD is 10,000 in .env.test, so seeking to 25,000
+  // triggers the deep path + null-zone detection.
+  const TOTAL = 50_000;
+  const RATIO = 0.2;
+  const COVERED = TOTAL * RATIO; // 10,000
+
+  let sparseMock: MockDataSource;
+
+  beforeEach(() => {
+    sparseMock = new MockDataSource(TOTAL, [{ field: "lastModified", ratio: RATIO }]);
+    useSearchStore.setState({
+      dataSource: sparseMock,
+      params: {
+        query: undefined,
+        offset: 0,
+        length: 200,
+        orderBy: "-lastModified",
+        nonFree: "true",
+      },
+    });
+  });
+
+  it("seek to 50% lands in the null zone with no error", async () => {
+    await actions().search();
+    await flush();
+    expect(state().total).toBe(TOTAL);
+    expect(state().error).toBeNull();
+
+    // Seek to 50% — well into the null zone (position 25,000 > coveredCount 10,000)
+    await actions().seek(Math.floor(TOTAL / 2));
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(state().results.length).toBeGreaterThan(0);
+    // bufferOffset should be in the null zone (past covered count)
+    expect(state().bufferOffset).toBeGreaterThanOrEqual(COVERED);
+    assertPositionsConsistent("after null-zone seek");
+  });
+
+  it("endCursor after null-zone seek has null in primary field position", async () => {
+    await actions().search();
+    await actions().seek(Math.floor(TOTAL / 2));
+    await flush();
+
+    const { endCursor } = state();
+    expect(endCursor).not.toBeNull();
+    // Sort clause for -lastModified: [lastModified desc, uploadTime desc, id asc]
+    // Null-zone remapping puts null at position 0 (the primary field)
+    expect(endCursor![0]).toBeNull();
+    // uploadTime and id should be concrete values
+    expect(endCursor![1]).not.toBeNull();
+    expect(endCursor![2]).not.toBeNull();
+  });
+
+  it("extendForward after null-zone seek succeeds (no ES 500)", async () => {
+    await actions().search();
+    await actions().seek(Math.floor(TOTAL / 2));
+    await waitPastCooldown();
+
+    const beforeLen = state().results.length;
+    const beforeOffset = state().bufferOffset;
+
+    await actions().extendForward();
+    await flush();
+
+    expect(state().error).toBeNull();
+    // Buffer should have grown (or stayed same if at end — but 25k is not at end)
+    expect(state().results.length).toBeGreaterThanOrEqual(beforeLen);
+    assertPositionsConsistent("after null-zone extendForward");
+  });
+
+  it("extendBackward after null-zone seek succeeds", async () => {
+    await actions().search();
+    await actions().seek(Math.floor(TOTAL / 2));
+    await waitPastCooldown();
+
+    const beforeOffset = state().bufferOffset;
+
+    await actions().extendBackward();
+    await flush();
+
+    expect(state().error).toBeNull();
+    // bufferOffset should have decreased (prepend)
+    expect(state().bufferOffset).toBeLessThanOrEqual(beforeOffset);
+    assertPositionsConsistent("after null-zone extendBackward");
+  });
+
+  it("seek + extend chain across null zone maintains consistency", async () => {
+    await actions().search();
+    await actions().seek(Math.floor(TOTAL / 2));
+    await waitPastCooldown();
+
+    // Extend forward 3 times
+    for (let i = 0; i < 3; i++) {
+      await actions().extendForward();
+      await flush();
+      expect(state().error).toBeNull();
+    }
+    assertPositionsConsistent("after 3x extendForward in null zone");
+
+    // Extend backward 2 times
+    for (let i = 0; i < 2; i++) {
+      await actions().extendBackward();
+      await flush();
+      expect(state().error).toBeNull();
+    }
+    assertPositionsConsistent("after 2x extendBackward in null zone");
+  });
+
+  it("null-zone images have no lastModified field", async () => {
+    await actions().search();
+    await actions().seek(Math.floor(TOTAL / 2));
+    await flush();
+
+    // All images in the buffer should lack lastModified (we're deep in null zone)
+    const { results } = state();
+    const nullZoneImages = results.filter(Boolean);
+    expect(nullZoneImages.length).toBeGreaterThan(0);
+
+    for (const img of nullZoneImages) {
+      const imgAny = img as unknown as Record<string, unknown>;
+      expect(imgAny.lastModified).toBeUndefined();
+    }
+  });
+
+  it("seek to covered zone (position 0) works normally", async () => {
+    await actions().search();
+    await actions().seek(0);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(state().bufferOffset).toBe(0);
+
+    // First image should have lastModified (covered zone)
+    const img = state().results[0] as unknown as Record<string, unknown>;
+    expect(img?.lastModified).toBeDefined();
+    assertPositionsConsistent("seek to covered zone");
+  });
+
+  it("null-zone seek preserves total (regression: 45k bug)", async () => {
+    // The 45k bug: seeking into the null zone used a filtered query
+    // (must_not:exists), whose result.total is the filtered count (null-zone
+    // size), not the full corpus. extendForward/extendBackward also wrote
+    // result.total from filtered queries. All must preserve the original total.
+    await actions().search();
+    await flush();
+    const originalTotal = state().total;
+    expect(originalTotal).toBe(TOTAL);
+
+    // Seek into the null zone
+    await actions().seek(Math.floor(TOTAL * 0.75));
+    await flush();
+
+    expect(state().total, "total after null-zone seek").toBe(originalTotal);
+    expect(state().error).toBeNull();
+  });
+
+  it("extendBackward after null-zone seek preserves total", async () => {
+    await actions().search();
+    await flush();
+    const originalTotal = state().total;
+
+    // Seek into the null zone
+    await actions().seek(Math.floor(TOTAL * 0.75));
+    await flush();
+    expect(state().total, "total after seek").toBe(originalTotal);
+
+    // Wait past cooldown so extendBackward is allowed
+    await waitPastCooldown();
+
+    // Extend backward (this was the actual vector for the 45k bug —
+    // the seek was fixed but extendBackward wrote the filtered total)
+    if (state().bufferOffset > 0) {
+      await actions().extendBackward();
+      await flush();
+      expect(state().total, "total after extendBackward").toBe(originalTotal);
+    }
+  });
+
+  it("extendForward after null-zone seek preserves total", async () => {
+    await actions().search();
+    await flush();
+    const originalTotal = state().total;
+
+    // Seek into the null zone
+    await actions().seek(Math.floor(TOTAL * 0.75));
+    await flush();
+    expect(state().total, "total after seek").toBe(originalTotal);
+
+    // Wait past cooldown
+    await waitPastCooldown();
+
+    // Extend forward
+    await actions().extendForward();
+    await flush();
+    expect(state().total, "total after extendForward").toBe(originalTotal);
+  });
+});

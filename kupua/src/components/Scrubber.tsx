@@ -477,7 +477,18 @@ export function Scrubber({
       const el = trackRef.current;
       if (!el || total <= 0) return 0;
       const rect = el.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      // Use the same pixel range as thumb positioning and tick rendering:
+      // maxThumbTop (= trackHeight − thumbHeight), NOT trackHeight.
+      // This ensures hover/click at a tick's pixel resolves to the same
+      // position that the tick represents.  Pixels below maxThumbTop
+      // clamp to ratio 1.0 (= last position), matching native scrollbar
+      // behaviour where the thumb can't descend past maxThumbTop.
+      const th = el.clientHeight;
+      const minH = Math.max(MIN_THUMB_HEIGHT, (thumbVisibleCount / total) * th);
+      const maxTop = Math.max(0, th - minH);
+      const ratio = maxTop > 0
+        ? Math.max(0, Math.min(1, (clientY - rect.top) / maxTop))
+        : 0;
       const maxPos = Math.max(1, total - thumbVisibleCount);
       return Math.round(ratio * maxPos);
     },
@@ -638,10 +649,53 @@ export function Scrubber({
       if (!tipEl || !trackEl) return;
 
       const pos = positionFromY(e.clientY);
-      // Position tooltip at cursor Y (clamped to track), not at the thumb
       const rect = trackEl.getBoundingClientRect();
       const cursorTop = Math.max(0, Math.min(trackEl.clientHeight, e.clientY - rect.top));
       applyTooltipContent(pos, total, cursorTop, trackEl, tipEl, getSortLabelRef.current?.(pos));
+
+      // --- Debug instrumentation (DEV only) ---
+      // Computes THREE candidate position mappings so the diagnostic test
+      // can compare which one aligns with tick labels:
+      //   scrollPos  — positionFromY: cursorRatio * (total - visibleCount)
+      //   dataPos    — cursorRatio * (total - 1)  [full data range]
+      //   tickPos    — cursorTop/maxThumbTop * (total - visibleCount)  [tick pixel space]
+      if (import.meta.env.DEV) {
+        const th = trackEl.clientHeight;
+        const cursorRatio = rect.height > 0
+          ? Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
+          : 0;
+        const minH = Math.max(MIN_THUMB_HEIGHT, (thumbVisibleCount / total) * th);
+        const mTop = Math.max(0, th - minH);
+        const tickRatio = mTop > 0 ? Math.max(0, Math.min(1, cursorTop / mTop)) : 0;
+        const tickMaxPos = Math.max(1, total - thumbVisibleCount);
+
+        const scrollPos = pos;
+        const dataPos = Math.round(cursorRatio * Math.max(0, total - 1));
+        const tickPos = Math.round(Math.min(1, tickRatio) * tickMaxPos);
+
+        (window as any).__scrubber_debug__ = {
+          ts: Date.now(),
+          clientY: e.clientY,
+          trackTop: rect.top,
+          trackHeight: th,
+          cursorRatio,
+          cursorTop,
+          total,
+          thumbVisibleCount,
+          maxThumbTop: mTop,
+          thumbHeight: minH,
+          // Three candidate positions
+          scrollPos,
+          dataPos,
+          tickPos,
+          // Labels for each
+          scrollLabel: getSortLabelRef.current?.(scrollPos) ?? null,
+          dataLabel: getSortLabelRef.current?.(dataPos) ?? null,
+          tickLabel: getSortLabelRef.current?.(tickPos) ?? null,
+          // Current tooltip uses scrollPos
+          effectivePosition: pendingSeekPosRef.current ?? currentPosition,
+        };
+      }
     },
     [isDragging, currentPosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
   );
@@ -704,10 +758,23 @@ export function Scrubber({
     const MIN_LABEL_GAP = 18;
     const labelVisible = new Set<number>();
 
-    // Collect all tick pixel positions for gap checks
+    // Collect all tick pixel positions for gap checks.
+    // Ticks use the same mapping as the thumb (scrollbar semantics):
+    //   ratio = position / max(1, total - visibleCount)
+    //   pixel = ratio * maxThumbTop
+    // This ensures ticks visually align with the thumb — when the thumb
+    // sits at a tick's position, the tooltip and tick label agree.
+    // The effective track range for ticks is 0..maxThumbTop (same as thumb),
+    // not 0..trackHeight (which would put ticks where the thumb can't reach).
+    const tickMaxPosition = Math.max(1, total - thumbVisibleCount);
+    const tickThumbHeight = Math.max(
+      MIN_THUMB_HEIGHT,
+      (thumbVisibleCount / total) * trackHeight,
+    );
+    const tickMaxTop = Math.max(0, trackHeight - tickThumbHeight);
     const tickPx = trackTicks.map((tick) => {
-      const ratio = total > 1 ? tick.position / (total - 1) : 0;
-      return Math.round(ratio * trackHeight);
+      const ratio = Math.min(1, tick.position / tickMaxPosition);
+      return Math.round(ratio * tickMaxTop);
     });
 
     // Isolation-based promotion: a minor year-boundary tick that sits far
@@ -745,7 +812,13 @@ export function Scrubber({
       const tick = trackTicks[i];
       if (!tick.label || (tick.type !== "major" && !promoted.has(i))) continue;
       const topPx = tickPx[i];
-      // Skip if label-above would overflow the top of the track
+      // Boundary ticks are forced visible — they're landmarks with vertical labels.
+      if (tick.boundary) {
+        labelVisible.add(i);
+        lastLabelPx = topPx;
+        continue;
+      }
+      // Skip if label-above would overflow the top of the track.
       if (topPx < LABEL_HEIGHT + 2) continue;
       if (topPx - lastLabelPx >= MIN_LABEL_GAP) {
         labelVisible.add(i);
@@ -778,6 +851,10 @@ export function Scrubber({
             <div
               key={i}
               className="absolute"
+              data-debug-tick-position={tick.position}
+              data-debug-tick-px={topPx}
+              data-debug-tick-label={tick.label ?? ""}
+              data-debug-tick-type={isMajor ? "major" : "minor"}
               style={{
                 top: topPx,
                 left: isHovered
@@ -786,8 +863,8 @@ export function Scrubber({
                 right: isHovered
                   ? (isMajor ? -1 : THUMB_INSET - 1)
                   : (isMajor ? THUMB_INSET - 1 : THUMB_INSET + 1),
-                height: 1,
-                backgroundColor: `rgba(255, 255, 255, ${
+                height: tick.color ? 2 : 1,
+                backgroundColor: tick.color ?? `rgba(255, 255, 255, ${
                   isHovered
                     ? (isMajor ? 0.6 : 0.25)
                     : (isMajor ? 0.4 : 0.16)
@@ -795,7 +872,7 @@ export function Scrubber({
                 transition: "left 200ms ease, right 200ms ease, background-color 200ms ease",
               }}
             >
-              {showLabel && (
+              {showLabel && !tick.boundary && (
                 <span
                   style={{
                     position: "absolute",
@@ -807,11 +884,65 @@ export function Scrubber({
                     fontSize: 11,
                     lineHeight: 1,
                     fontWeight: isMajor ? 700 : 400,
-                    color: `rgba(255, 255, 255, ${isMajor ? 0.7 : 0.45})`,
+                    color: tick.color ?? `rgba(255, 255, 255, ${isMajor ? 0.7 : 0.45})`,
                     whiteSpace: "nowrap",
                     opacity: isHovered ? 1 : 0,
                     transition: "opacity 250ms ease 50ms",
                     fontVariantNumeric: "tabular-nums",
+                    userSelect: "none",
+                  }}
+                >
+                  {tick.label}
+                </span>
+              )}
+              {/* Boundary tick: vertical label to the left of the track,
+                  reading bottom-to-top, anchored at the boundary line and
+                  extending into the null zone. When the null zone is short,
+                  the label is pushed so it stays within the track bounds
+                  (rather than being clipped by the viewport edge).
+                  Uses a ref callback to measure the actual rendered label
+                  height and adjust `top` if it overflows — no magic
+                  character-width constants. */}
+              {tick.boundary && tick.label && (
+                <span
+                  ref={(el) => {
+                    if (!el) return;
+                    // The label is vertical (writing-mode: vertical-rl + rotate(180deg)).
+                    // Its physical height on screen = el.offsetHeight.
+                    // It sits inside the tick div at `topPx` from the track top.
+                    // Default top = 2 (2px into the null zone).
+                    // If topPx + 2 + labelHeight > trackHeight → shift up.
+                    // If topPx + top < 0 → clamp to -topPx (flush with track top).
+                    const labelH = el.offsetHeight;
+                    const idealTop = 2;
+                    const edgePad = 5; // px inset from track edges
+                    const overflow = (topPx + idealTop + labelH) - (trackHeight - edgePad);
+                    if (overflow > 0) {
+                      const pushed = idealTop - overflow;
+                      const clamped = Math.max(-topPx + edgePad, pushed);
+                      el.style.top = `${clamped}px`;
+                    }
+                    // Top-side overflow (null zone at the top of the track):
+                    // idealTop is 2, so topPx + 2 < 0 only if topPx < -2,
+                    // which can't happen (topPx ≥ 0). But if the label were
+                    // pushed above by future logic, the clamp above catches it.
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    right: "100%",
+                    marginRight: 3,
+                    writingMode: "vertical-rl",
+                    transform: "rotate(180deg)",
+                    transformOrigin: "center center",
+                    fontSize: 11,
+                    lineHeight: 1,
+                    fontWeight: 400,
+                    letterSpacing: "0.05em",
+                    color: tick.color,
+                    whiteSpace: "nowrap",
+                    opacity: isHovered ? 0.9 : 0,
+                    transition: "opacity 250ms ease 50ms",
                     userSelect: "none",
                   }}
                 >
@@ -823,7 +954,7 @@ export function Scrubber({
         })}
       </div>
     );
-  }, [trackTicks, trackHeight, total, isHovered]);
+  }, [trackTicks, trackHeight, total, thumbVisibleCount, isHovered]);
 
   // -------------------------------------------------------------------------
   // Empty state — show a disabled scrubber when there are no results.

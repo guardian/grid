@@ -299,18 +299,22 @@ export function useListNavigation(config: ListNavigationConfig): void {
         case "Home":
           e.preventDefault();
           {
-            const el = c.scrollRef.current;
-            if (el) {
-              el.scrollTop = 0;
-              if (c.resetScrollLeftOnHome) el.scrollLeft = 0;
-              // Dispatch synthetic scroll so the scroll handler fires and
-              // updates the visible range (drives the Scrubber thumb).
-              el.dispatchEvent(new Event("scroll"));
-            }
-            // If the buffer is windowed and not at the start, seek to 0
+            // If the buffer is windowed and not at the start, seek to 0.
+            // DON'T reset scrollTop eagerly — that would flash the top of
+            // the stale deep-offset buffer. Let seek(0) replace the buffer
+            // with fresh data; effect #8 (BufferOffset→0 guard) resets
+            // scrollTop in the same render frame. Same pattern as deep-to-deep
+            // seeks which already have zero flash.
             if (c.bufferOffset && c.bufferOffset > 0 && c.seek) {
               c.seek(0);
             } else {
+              // Already at the start — just scroll to top and focus first image
+              const el = c.scrollRef.current;
+              if (el) {
+                el.scrollTop = 0;
+                if (c.resetScrollLeftOnHome) el.scrollLeft = 0;
+                el.dispatchEvent(new Event("scroll"));
+              }
               const firstImage = c.getImage(0);
               if (firstImage) c.setFocusedImageId(firstImage.id);
             }

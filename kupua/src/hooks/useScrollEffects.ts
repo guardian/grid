@@ -28,6 +28,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
+import { devLog } from "@/lib/dev-log";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 
 // ---------------------------------------------------------------------------
@@ -324,7 +325,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const scrollBefore = el.scrollTop;
     el.scrollTop += prependedRows * geo.rowHeight;
     // DIAG: prepend compensation
-    console.log(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} oldCount=${oldCount} newCount=${newCount} oldRows=${Math.ceil(oldCount/geo.columns)} newRows=${Math.ceil(newCount/geo.columns)} deltaRows=${prependedRows} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
+    devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} oldCount=${oldCount} newCount=${newCount} oldRows=${Math.ceil(oldCount/geo.columns)} newRows=${Math.ceil(newCount/geo.columns)} deltaRows=${prependedRows} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
   }, [prependGeneration, lastPrependCount, parentRef]);
 
   // -------------------------------------------------------------------------
@@ -364,8 +365,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
     const rowIdx = localIndexToRowIndex(targetIdx, geo);
     virtualizer.scrollToIndex(rowIdx, { align: "start" });
-    // Dispatch a deferred scroll event after the seek cooldown (500ms) has
-    // expired — triggers reportVisibleRange → extendForward/Backward.
+    // Dispatch a deferred scroll event after the seek has settled — triggers
+    // reportVisibleRange for Scrubber thumb sync and gap detection. The timer
+    // (600ms) fires while the seek cooldown (700ms from data arrival) is still
+    // active, so extends are blocked. This prevents "swimming" — extends
+    // prepending items that shift the seek-target content down. The next real
+    // user scroll (after 700ms) will trigger extends naturally.
     const el = parentRef.current;
     if (el) {
       const timer = setTimeout(() => {
@@ -440,8 +445,17 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   }, [searchParams, virtualizer, focusedImageId, parentRef]);
 
   // -------------------------------------------------------------------------
-  // 8. BufferOffset→0 guard (belt-and-suspenders)
+  // 8. BufferOffset→0 guard — primary scroll-reset for "go home" transitions
   // -------------------------------------------------------------------------
+  //
+  // When bufferOffset transitions from deep (>0) to 0, the buffer has been
+  // replaced with fresh page-1 data. Reset scroll in the SAME layout frame
+  // so the user never sees the old deep-offset content at scrollTop 0.
+  //
+  // This is the mechanism that eliminates the "flash of wrong content" on
+  // Home key / logo click. The eager scrollTop=0 was removed from those
+  // handlers — the old buffer stays visible (harmlessly, at its deep scroll
+  // position) until this effect fires with the new data.
 
   const prevBufferOffsetRef = useRef(bufferOffset);
   useLayoutEffect(() => {
@@ -449,9 +463,16 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     prevBufferOffsetRef.current = bufferOffset;
     if (prev > 0 && bufferOffset === 0) {
       const el = parentRef.current;
-      if (el && el.scrollTop > 0) {
+      if (el) {
         el.scrollTop = 0;
+        el.scrollLeft = 0;
         virtualizer.scrollToOffset(0);
+        // Dispatch scroll event AFTER React finishes rendering — triggers
+        // reportVisibleRange for Scrubber thumb sync and gap detection.
+        // Must be deferred: dispatching from inside useLayoutEffect causes
+        // "flushSync inside lifecycle method" errors because the scroll
+        // handler triggers state updates while React is still rendering.
+        queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
       }
     }
   }, [bufferOffset, virtualizer, parentRef]);
@@ -579,7 +600,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           }
           const clampedNow = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetNow));
           // DIAG: density-focus restore
-          console.log(`[density-focus RESTORE] savedIdx=${idx} freshIdx=${idxNow} bo=${boNow} cols=${colsNow} rowH=${geoNow.rowHeight} headerOff=${geoNow.headerOffset} rowTop=${rowTopNow} savedRatio=${saved.ratio.toFixed(6)} clientH=${el.clientHeight} scrollTopBefore=${el.scrollTop.toFixed(1)} rawTarget=${rawTarget.toFixed(1)} edgeClamp=${edgeClamp} target=${targetNow.toFixed(1)} scrollH=${el.scrollHeight} maxScroll=${el.scrollHeight - el.clientHeight} clamped=${clampedNow.toFixed(1)} wasClamped=${Math.abs(targetNow - clampedNow) > 1}`);
+          devLog(`[density-focus RESTORE] savedIdx=${idx} freshIdx=${idxNow} bo=${boNow} cols=${colsNow} rowH=${geoNow.rowHeight} headerOff=${geoNow.headerOffset} rowTop=${rowTopNow} savedRatio=${saved.ratio.toFixed(6)} clientH=${el.clientHeight} scrollTopBefore=${el.scrollTop.toFixed(1)} rawTarget=${rawTarget.toFixed(1)} edgeClamp=${edgeClamp} target=${targetNow.toFixed(1)} scrollH=${el.scrollHeight} maxScroll=${el.scrollHeight - el.clientHeight} clamped=${clampedNow.toFixed(1)} wasClamped=${Math.abs(targetNow - clampedNow) > 1}`);
           el.scrollTop = clampedNow;
           // NOTE: We intentionally do NOT dispatch a synthetic scroll event here.
           // The old code had `el.dispatchEvent(new Event("scroll"))` which triggered
@@ -640,10 +661,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // no pending unconsumed state.
       if (_densityFocusSaved == null) {
         // DIAG: density-focus save
-        console.log(`[density-focus SAVE] fid=${fid} globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
+        devLog(`[density-focus SAVE] fid=${fid} globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
         saveDensityFocusRatio(ratio, globalIdx);
       } else {
-        console.log(`[density-focus SAVE SKIPPED] pending state exists (Strict Mode guard)`);
+        devLog(`[density-focus SAVE SKIPPED] pending state exists (Strict Mode guard)`);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
