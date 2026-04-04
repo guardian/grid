@@ -429,7 +429,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
   // search_after + PIT methods
   // ---------------------------------------------------------------------------
 
-  async openPit(keepAlive: string = "5m"): Promise<string> {
+  async openPit(keepAlive: string = "1m"): Promise<string> {
     const result = (await this.esRequest(
       `_pit?keep_alive=${keepAlive}`,
       {}, // POST requires a body (even empty)
@@ -513,7 +513,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // PIT — include for consistent pagination
     if (pitId) {
-      body.pit = { id: pitId, keep_alive: "5m" };
+      body.pit = { id: pitId, keep_alive: "1m" };
     }
 
     try {

@@ -14,6 +14,20 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 4 April 2026 — ES usage audit: 4 fixes
+
+Full audit documented in `exploration/docs/es-audit.md` (9 issues found, 4 fixed).
+
+**Issue #1 — PIT generation counter (🔴 HIGH → ✅ FIXED):** `search()` closes the old PIT and opens a new one. `seek()`/`extend*()` captured `pitId` from the store but by the time the request fired, the PIT was already closed → ES returned 404 → retry-without-PIT fallback added ~100–200ms per round-trip. Fix: added `_pitGeneration: number` to the store, bumped in `search()` when a new PIT opens. `seek`/`extendForward`/`extendBackward`/`restoreAroundCursor` capture the generation at call start and pass `null` for pitId if it changed, skipping the stale PIT and avoiding the 404.
+
+**Issue #2 — PIT keepalive 5m → 1m (🔴 HIGH → ✅ MITIGATED):** Orphaned PITs (tab close, navigation, refresh) consumed ES memory for 5 minutes. Reduced keepalive to 1m in three locations: `openPit()` default parameter, `searchAfter()` body `keep_alive`, `search()` call site. Active users who pause >1 minute hit PIT expirations, but the retry-without-PIT fallback handles it gracefully.
+
+**Issue #3 — Remove dead `frozenUntil` (🟡 MEDIUM → ✅ REMOVED):** `frozenUntil` was declared in the store interface, initialised to `null`, and set to `new Date().toISOString()` on search completion — but nothing ever read it. Removed all 4 references. If corpus pinning is needed for a PIT-free architecture in the future, re-implement intentionally.
+
+**Issue #4 — Add AbortController to `fetchExpandedAgg` (🟡 MEDIUM → ✅ FIXED):** `fetchExpandedAgg` called `getAggregations()` without an `AbortSignal`. If the user changed the query while the expanded agg was in-flight, stale data would overwrite fresh results. Fix: added `_expandedAggAbortController` (module-level), passed as signal to `getAggregations()`, aborted by `search()` when a new search starts.
+
+**Also committed:** P10 perf test fix — added missing `scroll`, `flashes`, and `network` fields to the composite `PerfSnapshot` in `perf.spec.ts`.
+
 ### 4 April 2026 — Scrubber tooltip: sub-hour granularity, twitching fix, comma removal
 
 **Three related improvements to scrubber tooltip date formatting:**

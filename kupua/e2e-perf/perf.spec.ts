@@ -1102,6 +1102,9 @@ test.describe("Rendering Performance Smoke", () => {
       jank: { frameCount: 0, droppedFrames: 0, jankyFrames16ms: 0, jankyFrames33ms: 0, jankyFrames50ms: snapLoad.jank.jankyFrames50ms + snapScroll.jank.jankyFrames50ms + snapSeek.jank.jankyFrames50ms + snapDensity.jank.jankyFrames50ms + snapSort.jank.jankyFrames50ms, maxFrameMs: Math.max(snapLoad.jank.maxFrameMs, snapScroll.jank.maxFrameMs, snapSeek.jank.maxFrameMs, snapDensity.jank.maxFrameMs, snapSort.jank.maxFrameMs), p95FrameMs: 0, avgFrameMs: 0 },
       dom: { additions: 0, removals: 0, attributeChanges: 0, totalChurn: snapLoad.dom.totalChurn + snapScroll.dom.totalChurn + snapSeek.dom.totalChurn + snapDensity.dom.totalChurn + snapSort.dom.totalChurn, bursts: [] },
       paints: { count: 0 },
+      scroll: { maxVelocity: 0, avgVelocity: 0, samples: 0 },
+      flashes: { count: 0, totalDurationMs: 0, maxDurationMs: 0, pendingCount: 0 },
+      network: { requestCount: 0, totalBytes: 0, avgBytes: 0, avgDurationMs: 0, requests: [] },
     };
     emitMetric("P10", composite, { report: false });
   });

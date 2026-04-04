@@ -15,6 +15,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
   },
   server: {
+    host: true, // Bind to 0.0.0.0 — allows access from other devices on LAN
     port: 3000,
     watch: {
       ignored: ["**/exploration/**", "**/e2e/**", "**/scripts/**", "**/playwright-report/**", "**/test-results/**"],

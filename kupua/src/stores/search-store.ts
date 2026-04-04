@@ -89,6 +89,12 @@ interface SearchState {
 
   /** PIT ID for consistent pagination (null on local ES or before first search). */
   pitId: string | null;
+  /**
+   * Bumped every time search() opens a new PIT. seek/extend capture this at
+   * start and skip the PIT if it changed mid-flight (avoids 404 round-trip
+   * on a stale PIT that search() already closed). See es-audit.md Issue #1.
+   */
+  _pitGeneration: number;
 
   // Focus
   focusedImageId: string | null;
@@ -104,9 +110,6 @@ interface SearchState {
   // New images ticker
   newCount: number;
   newCountSince: string | null;
-
-  // Result set freezing (used when PIT is not active — local ES)
-  frozenUntil: string | null;
 
   // Track in-flight extend operations to avoid duplicates
   _extendForwardInFlight: boolean;
@@ -263,6 +266,9 @@ let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
+
+/** Abort controller for in-flight expanded aggregation requests. */
+let _expandedAggAbortController: AbortController | null = null;
 
 /** Abort controller for the sort distribution request (keyword or date). */
 let _sortDistAbortController: AbortController | null = null;
@@ -751,6 +757,7 @@ async function _loadBufferAroundImage(
     endCursor,
     total: forwardResult.total,
     pitId: forwardResult.pitId ?? pitId,
+    /** Buffer-local index of the target image. */
     targetLocalIdx: backwardResult.hits.length,
   };
 }
@@ -915,6 +922,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   startCursor: null,
   endCursor: null,
   pitId: null,
+  _pitGeneration: 0,
 
   focusedImageId: null,
   sortAroundFocusStatus: null,
@@ -922,7 +930,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   newCount: 0,
   newCountSince: null,
-  frozenUntil: null,
   _extendForwardInFlight: false,
   _extendBackwardInFlight: false,
   _lastPrependCount: 0,
@@ -975,9 +982,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _seekCooldownUntil = Date.now() + 2000;
     const signal = _rangeAbortController.signal;
 
-    // Abort any in-flight sort distribution fetch
+    // Abort any in-flight sort distribution or expanded agg fetch
     if (_sortDistAbortController) _sortDistAbortController.abort();
     if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
+    if (_expandedAggAbortController) _expandedAggAbortController.abort();
 
     // Clear extend-in-flight flags — the abort above cancels any in-flight
     // extends or scroll-mode fill from the previous search. Without this,
@@ -999,7 +1007,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       let newPitId: string | null = null;
       if (!IS_LOCAL_ES) {
         try {
-          newPitId = await dataSource.openPit("5m");
+          newPitId = await dataSource.openPit("1m");
+          // Bump PIT generation so in-flight seek/extend operations that
+          // captured the old pitId know their PIT is stale and skip it
+          // instead of hitting a 404. See es-audit.md Issue #1.
+          set({ _pitGeneration: get()._pitGeneration + 1 });
         } catch (e) {
           console.warn("[search] Failed to open PIT, proceeding without:", e);
         }
@@ -1043,7 +1055,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           pitId: result.pitId ?? newPitId,
           newCount: 0,
           newCountSince: now,
-          frozenUntil: now,
           // Keep loading: true — _findAndFocusImage will set it to false.
           // Keep results/bufferOffset/imagePositions unchanged — old buffer
           // stays visible (or empty on first load) until the focused image's
@@ -1068,7 +1079,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           focusedImageId: focusedInFirstPage ? sortAroundFocusId! : null,
           newCount: 0,
           newCountSince: now,
-          frozenUntil: now,
           _extendForwardInFlight: false,
           _extendBackwardInFlight: false,
           // When sort-around-focus image is in the first page, bump the
@@ -1110,7 +1120,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   extendForward: async () => {
     const {
       dataSource, params, results, bufferOffset, total,
-      endCursor, pitId, _extendForwardInFlight,
+      endCursor, pitId, _extendForwardInFlight, _pitGeneration,
     } = get();
 
     // Guards
@@ -1129,10 +1139,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // search_after: [null, ...] and returns 500.
       const nz = detectNullZoneCursor(endCursor, params.orderBy);
 
+      // If search() opened a new PIT since we captured ours, skip the
+      // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+      const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
       const result = await dataSource.searchAfter(
         { ...params, length: PAGE_SIZE },
         nz ? nz.strippedCursor : endCursor,
-        pitId,
+        effectivePitId,
         _rangeAbortController.signal,
         false, // reverse
         false, // noSource
@@ -1227,7 +1241,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   extendBackward: async () => {
     const {
       dataSource, params, bufferOffset, startCursor, pitId,
-      _extendBackwardInFlight,
+      _extendBackwardInFlight, _pitGeneration,
     } = get();
 
     // Guards
@@ -1248,10 +1262,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Detect null-zone cursor — same logic as extendForward.
       const nz = detectNullZoneCursor(startCursor, params.orderBy);
 
+      // If search() opened a new PIT since we captured ours, skip the
+      // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+      const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
       const result = await dataSource.searchAfter(
         { ...params, length: fetchCount },
         nz ? nz.strippedCursor : startCursor,
-        pitId,
+        effectivePitId,
         _rangeAbortController.signal,
         true, // reverse
         false, // noSource
@@ -1326,7 +1344,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   seek: async (globalOffset: number) => {
-    const { dataSource, params, pitId } = get();
+    const { dataSource, params, pitId, _pitGeneration } = get();
 
     // Clamp to valid range
     const { total } = get();
@@ -1341,6 +1359,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // read the module-level _rangeAbortController (which may have been
     // replaced by a newer seek), allowing stale seeks to complete uncancelled.
     const signal = _rangeAbortController.signal;
+
+    // If search() opened a new PIT since we captured ours, skip the
+    // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+    const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
     // Set cooldown IMMEDIATELY (synchronous, before any await). This prevents
     // extendForward/extendBackward from racing when a scroll event and seek
@@ -1370,11 +1392,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // slightly short of the end and the buffer won't reach total.
       // ---------------------------------------------------------------
       if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
-        const sortClause = buildSortClause(params.orderBy);
         result = await dataSource.searchAfter(
           { ...params, length: PAGE_SIZE },
           null,
-          pitId,
+          effectivePitId,
           signal,
           true,  // reverse
           false, // noSource
@@ -1585,7 +1606,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             result = await dataSource.searchAfter(
               { ...params, length: PAGE_SIZE },
               nullZoneCursor,
-              pitId,
+              effectivePitId,
               signal,
               false, // reverse
               false, // noSource
@@ -1683,7 +1704,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           result = await dataSource.searchAfter(
             { ...params, length: PAGE_SIZE },
             searchAfterValues,
-            pitId,
+            effectivePitId,
             signal,
           );
 
@@ -1738,7 +1759,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               result = await dataSource.searchAfter(
                 { ...params, length: PAGE_SIZE },
                 searchAfterValues,
-                pitId,
+                effectivePitId,
                 signal,
               );
 
@@ -1843,7 +1864,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   const refinedResult = await dataSource.searchAfter(
                     { ...params, length: PAGE_SIZE },
                     bestCursor,
-                    pitId,
+                    effectivePitId,
                     signal,
                   );
 
@@ -1883,7 +1904,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 const reverseResult = await dataSource.searchAfter(
                   { ...params, length: PAGE_SIZE },
                   null,
-                  pitId,
+                  effectivePitId,
                   signal,
                   true,  // reverse
                   false, // noSource
@@ -1977,7 +1998,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         imagePositions: buildPositions(result.hits, actualOffset),
         startCursor,
         endCursor,
-        pitId: result.pitId ?? pitId,
+        pitId: result.pitId ?? effectivePitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
@@ -2027,13 +2048,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return get().seek(cachedOffset);
     }
 
-    const { dataSource, params, pitId } = get();
+    const { dataSource, params, pitId, _pitGeneration } = get();
 
     // Abort in-flight extends and previous restores
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
     const signal = _rangeAbortController.signal;
     _seekCooldownUntil = Date.now() + 500;
+
+    // If search() opened a new PIT since we captured ours, skip the stale PIT.
+    const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
     set({ loading: true, error: null });
 
@@ -2070,7 +2094,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Step 3: Load a buffer centered on the target image
       const buf = await _loadBufferAroundImage(
         targetHit, targetSortValues, exactOffset,
-        params, pitId, signal, dataSource,
+        params, effectivePitId, signal, dataSource,
       );
       if (!buf) return; // aborted
 
@@ -2169,12 +2193,19 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     if (expandedAggs[field] || expandedAggsLoading.has(field)) return;
 
+    // Abort any previous expanded agg request and create a fresh controller.
+    // Aborted by search() when a new search starts. See es-audit.md Issue #4.
+    if (_expandedAggAbortController) _expandedAggAbortController.abort();
+    _expandedAggAbortController = new AbortController();
+    const signal = _expandedAggAbortController.signal;
+
     set({ expandedAggsLoading: new Set([...expandedAggsLoading, field]) });
 
     try {
       const result = await dataSource.getAggregations(
         params,
         [{ field, size: AGG_EXPANDED_SIZE }],
+        signal,
       );
 
       const fieldResult = result.fields[field];
@@ -2188,7 +2219,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           };
         });
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set((state) => {
+          const newLoading = new Set(state.expandedAggsLoading);
+          newLoading.delete(field);
+          return { expandedAggsLoading: newLoading };
+        });
+        return;
+      }
       set((state) => {
         const newLoading = new Set(state.expandedAggsLoading);
         newLoading.delete(field);
@@ -2260,6 +2299,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     // Cache key: same query params, always uploadTime, direction from sort
     const dateInfo = resolveDateSortInfo(params.orderBy);
+    const kwInfo = resolveKeywordSortInfo(params.orderBy);
     const direction = dateInfo?.direction ?? "desc";
     const key = aggCacheKey(params) + `|nullzone:uploadTime:${direction}`;
     if (key === _nullZoneDistCacheKey) return;
@@ -2276,9 +2316,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // distribution covers all docs and positions are linearly scaled
       // by nullZoneSize/total — wildly inaccurate because null-zone docs
       // have a different uploadTime distribution than non-null docs.
-      const sortKey = resolvePrimarySortKey(params.orderBy);
-      const dateInfo = resolveDateSortInfo(params.orderBy);
-      const kwInfo = resolveKeywordSortInfo(params.orderBy);
       const primaryField = dateInfo?.field ?? kwInfo?.field ?? null;
       const nullZoneFilter = primaryField
         ? { bool: { must_not: { exists: { field: primaryField } } } }

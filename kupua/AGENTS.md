@@ -45,6 +45,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 | Directives (human copy) | `exploration/docs/copilot-instructions-copy-for-humans.md` | Identical to `.github/copilot-instructions.md` |
 | **Structural work plan** | **`exploration/docs/04-kupua-structural-work-plan.md`** | **Full 5-phase rearchitecture plan (10–14 days). Reference architecture — not being executed directly.** |
 | **Realistic work plan** | **`exploration/docs/05-kupua-realistic-work-plan.md`** | **3 safe sessions: (1) test harness, (2) extract orchestration, (3) DAL boundary cleanup. Copy-pasteable agent prompts.** |
+| **ES usage audit** | **`exploration/docs/es-audit.md`** | **9 issues found, 4 fixed. PIT race condition, PIT keepalive, dead code, expanded agg abort.** |
 
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
@@ -58,7 +59,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 
 **DAL** (`src/dal/`, ~2,550 lines across 5 files): `ImageDataSource` interface → `ElasticsearchDataSource`. Core: `search`, `searchAfter` (+ PIT with 404/410 fallback, optional `sortOverride` + `extraFilter` for null-zone seek), `count`, `getById`, batched `getAggregations`. Advanced: `countBefore` (null-aware via `exists`/`must_not:exists`), `estimateSortValue` (percentile), `findKeywordSortValue` (composite walk), `getKeywordDistribution`, `getDateDistribution` (adaptive interval: month / day / hour / 30m / 10m / 5m via `calendar_interval` or `fixed_interval`). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` config and `extraFilter` for null-zone testing). ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (with universal `uploadTime` fallback). Tuning constants in `constants/tuning.ts`.
 
-**State** (`src/stores/search-store.ts`, ~2,160 lines): Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek). Scroll-mode fill for small result sets. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle, new-images ticker. Aggregation cache + circuit breaker. Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
+**State** (`src/stores/search-store.ts`, ~2,160 lines): Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek). Scroll-mode fill for small result sets. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
 
 **URL sync:** Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params. `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation. `useDocumentTitle` hook sets `document.title` to `{query} | the Grid` (mirrors kahuna's `ui-title` directive), with `(N new)` prefix from the new-images ticker.
 
@@ -133,7 +134,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 
 1. **Separate ES on port 9220** — kupua's Docker is independent of Grid's.
 
-2. **DAL** — `ImageDataSource` interface with 15 methods (search, count, getById, aggregations, searchAfter, PIT, countBefore, estimateSortValue, findKeywordSortValue, distributions). Implemented by `ElasticsearchDataSource`. Deep seek: percentile estimation (date/numeric) or composite walk (keyword) + binary search refinement on `id` tiebreaker (hex interpolation). PIT 404/410 fallback retries without PIT. Phase 3+: dual-path (ES for reads, Grid API for writes).
+2. **DAL** — `ImageDataSource` interface with 15 methods (search, count, getById, aggregations, searchAfter, PIT, countBefore, estimateSortValue, findKeywordSortValue, distributions). Implemented by `ElasticsearchDataSource`. Deep seek: percentile estimation (date/numeric) or composite walk (keyword) + binary search refinement on `id` tiebreaker (hex interpolation). PIT 404/410 fallback retries without PIT. PIT keepalive: 1 minute (reduced from 5m — see `es-audit.md` Issue #2). Phase 3+: dual-path (ES for reads, Grid API for writes).
 
 3. **Scripts in `kupua/scripts/`** — self-contained, independent of Grid's `dev/` hierarchy.
 
