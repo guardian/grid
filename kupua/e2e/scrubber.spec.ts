@@ -281,6 +281,141 @@ test.describe("Scroll position after seek", () => {
     });
     expect(hasContent).toBe(true);
   });
+
+  test("scroll works after deep seek (no freeze)", async ({ kupua }) => {
+    // Regression test for scroll freeze after deep seek.
+    // Seeks to multiple positions and verifies programmatic scrollBy
+    // actually changes scrollTop.
+    await kupua.goto();
+
+    for (const ratio of [0.5, 0.8, 0.2]) {
+      await kupua.seekTo(ratio);
+      // Wait for seek cooldown to expire so extends are unblocked
+      await kupua.page.waitForTimeout(800);
+
+      const scrollTopBefore = await kupua.getScrollTop();
+
+      // Scroll down via programmatic scrollBy
+      await kupua.scrollBy(500);
+      const scrollTopAfter = await kupua.getScrollTop();
+
+      // scrollTop must have changed — if it didn't, scroll is frozen
+      expect(scrollTopAfter, `scroll frozen after seek to ${ratio}`).not.toEqual(scrollTopBefore);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Flash prevention — golden table from worklog-stale-cells-bug.md
+//
+// The reverse-compute algorithm adapts content placement to the user's
+// current scrollTop instead of changing scrollTop during a seek.
+// These tests verify that scrollTop changes stay within bounds for
+// every scenario.
+//
+// NOTE: With local data (~10k docs, DEEP_SEEK_THRESHOLD=200), the deep
+// seek path activates for any seek past position ~200. If flashes
+// persist on real data (1.3M docs) despite these passing locally, run
+// the smoke test manually.
+// ---------------------------------------------------------------------------
+
+test.describe("Flash prevention — seek scroll preservation", () => {
+  // These tests assert EXACTLY 0px scroll drift after seek. The reverse-
+  // compute in search-store.ts guarantees this — it calculates the buffer-
+  // local index from the user's current scrollTop, so the virtualizer
+  // renders at the same position.
+  //
+  // IF THESE FAIL (delta > 0):
+  //   - Check seek() reverse-compute in search-store.ts (the scrollTop →
+  //     local index math). A rounding change or off-by-one breaks it.
+  //   - Check effect #6 in useScrollEffects.ts — if it applies a scrollTop
+  //     adjustment when it shouldn't (delta > rowHeight guard).
+  //   - Check SEEK_COOLDOWN_MS / SEEK_DEFERRED_SCROLL_MS in tuning.ts —
+  //     if the cooldown is too short, transient scroll events trigger
+  //     extends before settling, causing prepend-comp scroll shifts.
+  //   - See worklog: exploration/docs/worklog-stale-cells-bug.md
+
+  test("seek preserves scroll position — no flash (golden table)", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Case 1: No scroll between seeks — delta should be ≈ 0
+    // After seek, reverse-compute places content at the user's existing
+    // scrollTop. A second seek from the same position should not move.
+    await kupua.seekTo(0.5);
+    const scrollAfterFirstSeek = await kupua.getScrollTop();
+    await kupua.seekTo(0.3);
+    const scrollAfterSecondSeek = await kupua.getScrollTop();
+    // Zero tolerance — reverse-compute guarantees delta=0
+    expect(
+      Math.abs(scrollAfterSecondSeek - scrollAfterFirstSeek),
+      "scrollTop changed between consecutive seeks without user scroll",
+    ).toBe(0);
+
+    // Case 2: Small scroll then seek — delta should be 0
+    await kupua.seekTo(0.5);
+    await kupua.scrollBy(150); // roughly half a grid row
+    const midScrollTop = await kupua.getScrollTop();
+    await kupua.seekTo(0.7);
+    const postScrollTop = await kupua.getScrollTop();
+    expect(
+      Math.abs(postScrollTop - midScrollTop),
+      "scrollTop jumped after small scroll + seek",
+    ).toBe(0);
+
+    // Case 3: Scroll from top edge then seek
+    await kupua.page.keyboard.press("Home");
+    await kupua.page.waitForTimeout(500);
+    await kupua.scrollBy(100); // small offset from top
+    const topScrollTop = await kupua.getScrollTop();
+    await kupua.seekTo(0.4);
+    const afterTopSeek = await kupua.getScrollTop();
+    expect(
+      Math.abs(afterTopSeek - topScrollTop),
+      "scrollTop jumped after seek from near-top position",
+    ).toBe(0);
+
+    // Case 4: Scroll from bottom edge then seek
+    // NOTE: This is the "buffer-shrink snap" scenario from the worklog,
+    // marked as ⚪ accepted / unfixable — physics. After End key, the
+    // buffer is large (up to 1000 items, scrollHeight ~50k). A new seek
+    // replaces it with 200 items (scrollHeight ~10k). The browser auto-
+    // clamps scrollTop to the new shorter maxScroll → unavoidable large
+    // jump. We still verify that the seek completes without error and
+    // produces valid data.
+    await kupua.page.keyboard.press("End");
+    await kupua.page.waitForTimeout(800);
+    await kupua.scrollBy(-100); // small offset from bottom
+    await kupua.seekTo(0.6);
+    const afterBottomState = await kupua.getStoreState();
+    expect(afterBottomState.error).toBeNull();
+    expect(afterBottomState.resultsLength).toBeGreaterThan(0);
+  });
+
+  test("no large scrollTop jump after seek settles (prepend-comp)", async ({ kupua }) => {
+    // After a seek, SEEK_COOLDOWN_MS blocks extends, then SEEK_DEFERRED_SCROLL_MS
+    // fires a synthetic scroll to trigger reportVisibleRange. The backward-
+    // extend suppress flag (_postSeekBackwardSuppress in useDataWindow.ts)
+    // prevents extendBackward from prepending items and causing scroll shifts.
+    //
+    // IF THIS FAILS (delta > 0):
+    //   - The suppress flag may have been removed or weakened — check
+    //     _postSeekBackwardSuppress in useDataWindow.ts reportVisibleRange.
+    //   - SEEK_COOLDOWN_MS in tuning.ts may be too short — transient scroll
+    //     events fire before the virtualizer settles, triggering extends.
+    //   - See worklog: exploration/docs/worklog-stale-cells-bug.md
+    await kupua.goto();
+    await kupua.seekTo(0.5);
+    // Don't scroll — let scrollTargetIndex land wherever (could be near 0)
+    const scrollRight = await kupua.getScrollTop();
+    // Wait for seek cooldown + deferred scroll + extend time + settle
+    await kupua.page.waitForTimeout(1500);
+    const scrollAfterExtends = await kupua.getScrollTop();
+    // With backward-extend suppression, no prepend should occur at all.
+    expect(
+      Math.abs(scrollAfterExtends - scrollRight),
+      "scrollTop jumped after seek settled (prepend-comp flash)",
+    ).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

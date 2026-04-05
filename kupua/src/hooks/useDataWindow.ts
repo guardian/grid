@@ -35,6 +35,29 @@ import type { Image } from "@/types/image";
 const EXTEND_THRESHOLD = 50;
 
 // ---------------------------------------------------------------------------
+// Post-seek backward extend suppression
+// ---------------------------------------------------------------------------
+//
+// After a deep seek, the user lands at scrollTop≈0 in a 200-item buffer at
+// offset ~670k. Without suppression, every scroll event triggers extendBackward
+// (because startIndex=0 ≤ EXTEND_THRESHOLD=50 and bufferOffset>0), which
+// prepends 200 items + scrollTop compensation (+8787px) = visible "swimming."
+//
+// This flag blocks extendBackward calls until the user scrolls far enough
+// down that backward extending is actually useful (startIndex > EXTEND_THRESHOLD).
+// extendForward is NOT blocked — the user can scroll down freely.
+//
+// Set by seek() in search-store.ts via setPostSeekBackwardSuppress(true).
+// Cleared by reportVisibleRange below when startIndex > EXTEND_THRESHOLD.
+
+let _postSeekBackwardSuppress = false;
+
+/** Called by seek() in search-store.ts to activate backward extend suppression. */
+export function setPostSeekBackwardSuppress(suppress: boolean): void {
+  _postSeekBackwardSuppress = suppress;
+}
+
+// ---------------------------------------------------------------------------
 // Visible-range external store (module-level, no React re-renders on write)
 // ---------------------------------------------------------------------------
 
@@ -178,7 +201,15 @@ export function useDataWindow(): DataWindow {
       }
 
       // Near the start of the buffer → extend backward
-      if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
+      // Post-seek suppression: after a seek, the user is at startIndex≈0
+      // in a fresh buffer. Extending backward would prepend items above and
+      // trigger scroll compensation (+8787px), causing visible "swimming."
+      // Wait until the user scrolls past EXTEND_THRESHOLD before allowing
+      // backward extends. This lets extendForward run freely (scroll down ok).
+      if (_postSeekBackwardSuppress && startIndex > EXTEND_THRESHOLD) {
+        _postSeekBackwardSuppress = false;
+      }
+      if (startIndex <= EXTEND_THRESHOLD && offset > 0 && !_postSeekBackwardSuppress) {
         extendBackward();
       }
     },

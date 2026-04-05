@@ -74,6 +74,49 @@ export const DEEP_SEEK_THRESHOLD = Number(
   import.meta.env.VITE_DEEP_SEEK_THRESHOLD ?? 10_000,
 );
 
+// ---------------------------------------------------------------------------
+// Seek timing
+// ---------------------------------------------------------------------------
+
+/**
+ * After seek data arrives, block all extends for this long (ms).
+ *
+ * Purpose: the virtualizer re-renders and the browser fires transient scroll
+ * events as it adjusts to the new content height. Without a cooldown, those
+ * scroll events trigger reportVisibleRange → extendForward/extendBackward
+ * before the scroll position has settled, corrupting the buffer.
+ *
+ * The backward-extend suppress flag (_postSeekBackwardSuppress) handles the
+ * worst case (swimming), so this cooldown only needs to survive the initial
+ * DOM reflow flurry — not hundreds of milliseconds of "settling."
+ *
+ * Lower = snappier (extendForward unblocks sooner → cells appear faster).
+ * If you see buffer corruption or swimming after seek, increase this.
+ */
+export const SEEK_COOLDOWN_MS = 200;
+
+/**
+ * After seek, dispatch a synthetic scroll event after this delay (ms) to
+ * trigger reportVisibleRange for scrubber thumb sync and gap detection.
+ *
+ * MUST be > SEEK_COOLDOWN_MS — if it fires during cooldown, the scroll
+ * event is swallowed and extendForward never runs → freeze at buffer bottom.
+ * Derived as cooldown + 100ms margin.
+ */
+export const SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100;
+
+/**
+ * Block extends while an async search/abort is in flight (ms).
+ *
+ * Unlike SEEK_COOLDOWN_MS (which covers post-arrival DOM settling), this
+ * covers the network round-trip. During a search() or abortExtends(), the
+ * buffer is stale — extends would prepend/append data from the old query.
+ * 2000ms is generous; real fetches complete in 50–500ms. The cooldown is
+ * overwritten by SEEK_COOLDOWN_MS when data arrives, so the effective
+ * block is max(fetch_time, SEEK_COOLDOWN_MS), not the full 2000ms.
+ */
+export const SEARCH_FETCH_COOLDOWN_MS = 2000;
+
 /** How often to poll for new images (ms). */
 export const NEW_IMAGES_POLL_INTERVAL = 10_000;
 

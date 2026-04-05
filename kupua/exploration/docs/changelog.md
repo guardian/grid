@@ -14,6 +14,81 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 April 2026 — Seek timing: constants extracted, cooldown reduced 700→200ms (agent 7)
+
+**Timing constants extracted to `tuning.ts`:** All 7 `_seekCooldownUntil`
+sites in `search-store.ts` now use named constants instead of magic numbers.
+Three constants:
+
+- `SEEK_COOLDOWN_MS = 200` — post-arrival extend block (was 700ms hardcoded).
+  Used by seek(), _findAndFocusImage(), restoreAroundCursor() at data arrival,
+  and seek() at call start (early guard).
+- `SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100` — derived, fires
+  synthetic scroll event after cooldown to trigger extends. Was 800ms.
+- `SEARCH_FETCH_COOLDOWN_MS = 2000` — blocks extends during in-flight
+  search() or abortExtends(). Covers network round-trip, overwritten by
+  SEEK_COOLDOWN_MS when data arrives.
+
+**Cooldown reduced 700→200ms:** The backward-extend suppress flag
+(`_postSeekBackwardSuppress`) handles the worst case (swimming), so the
+cooldown only needs to survive the initial DOM reflow flurry (~50ms).
+200ms gives 4x margin. Deferred scroll fires at 300ms (was 800ms).
+Result: `extendForward` unblocks ~500ms sooner after seek → cells below
+the viewport appear faster.
+
+**E2E test tolerances tightened:** Flash-prevention golden table (cases 1–3)
+and prepend-comp settle test changed from `< 303px` / `< 500px` to
+`toBe(0)`. Both pass — reverse-compute is pixel-perfect. Diagnostic
+comments added to test describing what causes failures and where to look.
+
+**Files:** `constants/tuning.ts`, `stores/search-store.ts`,
+`hooks/useScrollEffects.ts`, `e2e/scrubber.spec.ts`,
+`exploration/docs/worklog-stale-cells-bug.md`, `AGENTS.md`.
+
+**Tests:** 186 unit pass, 80 E2E pass (all 9 timing-sensitive tests green).
+
+### 5 April 2026 — Scroll stability: all 6 issues fixed (agents 5-6)
+
+Multi-agent effort over agents 3-6 to fix all scroll-related issues after
+deep seek into a 1.3M-doc dataset. Final fixes by agent 6:
+
+**Swimming (v3 — extendBackward suppression):** After seek, user lands at
+scrollTop≈0 in a 200-item buffer. `extendBackward` was firing immediately
+(startIndex=0 ≤ EXTEND_THRESHOLD=50), prepending 200 items + scroll
+compensation (+8787px) = visible teleportation. Two failed approaches:
+(1) increased cooldown 700→1500ms (still not long enough, possibly caused
+freezes); (2) suppressed prepend-comp (catastrophic — visible images changed
+on every scroll step, "Niagara"). The fix: `_postSeekBackwardSuppress` flag
+in `useDataWindow.ts`, set by `seek()`, blocks `extendBackward()` in
+`reportVisibleRange` until `startIndex > EXTEND_THRESHOLD`. `extendForward`
+unblocked.
+
+**Buffer-shrink scroll preservation (lastVisibleRow):** When user was deep
+in an extended buffer (400+ items) and sought to a new 200-item buffer, the
+old `maxSafeRow` clamp lost ~481px (1.5 rows). New approach: when
+`reversePixelTop >= maxScroll`, use `floor(maxScroll/rowH) * cols` as the
+seek target. Effect #6 sees delta < rowHeight → no-op. Browser-clamped
+scrollTop stays put. All 6 S20 scenarios now delta=0.
+
+**Buffer-bottom freeze (deferred timer 600→800ms):** The `lastVisibleRow`
+fix lands users near the buffer end. `extendForward` must fire to grow the
+buffer, but the old deferred scroll timer (600ms) fired during the seek
+cooldown (700ms) → extends blocked → empty cells. Fix: timer 800ms fires
+after cooldown.
+
+**End key (soughtNearEnd, agent 5):** When `atRealEnd` AND user sought near
+the end, use `hits.length - 1` as scroll target so effect #6 scrolls to the
+actual bottom.
+
+Files: `search-store.ts` (reverse-compute, atRealEnd, lastVisibleRow),
+`useScrollEffects.ts` (deferred timer 800ms), `useDataWindow.ts`
+(`_postSeekBackwardSuppress`), `scrubber.spec.ts` (flash-prevention E2E),
+`smoke-scroll-stability.spec.ts` (S12-S21 diagnostic tests).
+
+Results: 186 unit tests pass, full smoke suite S1-S21 all pass on TEST
+(1.3M docs), user manual verification — zero swimming, zero flash, zero
+freezes, position preserved in all scenarios.
+
 ### 4 April 2026 — ES usage audit: 4 fixes
 
 Full audit documented in `exploration/docs/es-audit.md` (9 issues found, 4 fixed).

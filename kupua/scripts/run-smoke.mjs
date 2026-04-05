@@ -29,6 +29,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SPEC_FILES = [
   resolve(ROOT, "e2e/manual-smoke-test.spec.ts"),
+  resolve(ROOT, "e2e/smoke-scroll-stability.spec.ts"),
   // Perf smoke tests moved to e2e-perf/perf.spec.ts — use run-perf-smoke.mjs
 ];
 

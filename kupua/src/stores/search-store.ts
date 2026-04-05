@@ -33,6 +33,9 @@ import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { devLog } from "@/lib/dev-log";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { setPostSeekBackwardSuppress } from "@/hooks/useDataWindow";
+import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
@@ -44,6 +47,8 @@ import {
   AGG_CIRCUIT_BREAKER_MS,
   AGG_DEFAULT_SIZE,
   AGG_EXPANDED_SIZE,
+  SEEK_COOLDOWN_MS,
+  SEARCH_FETCH_COOLDOWN_MS,
 } from "@/constants/tuning";
 
 /** Aggregatable fields derived from the field registry — built once. */
@@ -659,7 +664,7 @@ interface BufferAroundImage {
   total: number;
   pitId: string | null;
   /** Buffer-local index of the target image. */
-  targetLocalIdx: number;
+  targetLocalIndex: number;
 }
 
 /**
@@ -758,7 +763,7 @@ async function _loadBufferAroundImage(
     total: forwardResult.total,
     pitId: forwardResult.pitId ?? pitId,
     /** Buffer-local index of the target image. */
-    targetLocalIdx: backwardResult.hits.length,
+    targetLocalIndex: backwardResult.hits.length,
   };
 }
 
@@ -861,7 +866,7 @@ async function _findAndFocusImage(
       );
       if (!buf) return; // aborted
 
-      _seekCooldownUntil = Date.now() + 500;
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
       // NOTE: we intentionally do NOT bump _seekGeneration here.
       // sortAroundFocusGeneration is the sole scroll trigger — its effect
@@ -979,7 +984,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // prepend stale data.
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
-    _seekCooldownUntil = Date.now() + 2000;
+    _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
     const signal = _rangeAbortController.signal;
 
     // Abort any in-flight sort distribution or expanded agg fetch
@@ -1231,7 +1236,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   abortExtends: () => {
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
-    _seekCooldownUntil = Date.now() + 2000;
+    _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
     set({
       _extendForwardInFlight: false,
       _extendBackwardInFlight: false,
@@ -1369,7 +1374,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // fire in the same microtask (e.g. Home key sets scrollTop=0 then seeks).
     // Without this, the scroll handler triggers reportVisibleRange → extend
     // before the seek's async fetch can set the cooldown.
-    _seekCooldownUntil = Date.now() + 500;
+    _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
     set({ loading: true, error: null });
 
@@ -1960,32 +1965,109 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // render at the new scroll position before edge-detection kicks in.
       // Without this, extendBackward can fire during a logo-click scroll
       // reset (scrollTop=0 on a deep buffer), corrupting the buffer.
-      //
-      // 700ms: must outlast the 600ms deferred scroll timer in useScrollEffects
-      // (effect #6). That timer fires a synthetic scroll event to sync the
-      // Scrubber after seek. If the cooldown expires before the timer fires,
-      // the scroll event triggers reportVisibleRange → extendBackward, which
-      // prepends items and causes visible "swimming" (content shifts down as
-      // items are prepended above). 700ms > 600ms guarantees the deferred
-      // scroll fires while extends are still blocked.
-      _seekCooldownUntil = Date.now() + 700;
+      // See tuning.ts for the timing relationship with SEEK_DEFERRED_SCROLL_MS.
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+      // Suppress extendBackward until the user scrolls past EXTEND_THRESHOLD.
+      // After a seek, the user is at startIndex≈0 in a 200-item buffer.
+      // Without this, every scroll event triggers extendBackward → prepend
+      // 200 items → scrollTop compensation (+8787px) → visible "swimming."
+      // The flag is cleared by reportVisibleRange in useDataWindow when
+      // startIndex > EXTEND_THRESHOLD. extendForward is NOT blocked.
+      setPostSeekBackwardSuppress(true);
 
       // Compute the buffer-local target index so views can scroll there.
       // Clamp to buffer bounds — the percentile estimate may drift, landing
       // the buffer offset far enough from the target that the target falls
       // outside the fetched page. Without clamping, the view would try to
       // scroll to index 10000+ in a 200-item buffer → wild jump.
-      const targetLocalIdx = Math.max(0, Math.min(
-        clampedOffset - actualOffset,
+      const rawTargetLocalIndex = clampedOffset - actualOffset;
+      const targetLocalIndex = Math.max(0, Math.min(
+        rawTargetLocalIndex,
         result.hits.length - 1,
       ));
+      const targetWasClamped = rawTargetLocalIndex !== targetLocalIndex;
 
-      devLog(
-        `[seek-diag] FINAL: actualOffset=${actualOffset}, result.total=${result.total}, ` +
-        `hits=${result.hits.length}, usedNullZoneFilter=${usedNullZoneFilter}, ` +
-        `storeTotal=${get().total}, writingTotal=${usedNullZoneFilter ? get().total : result.total}, ` +
-        `startCursor=${JSON.stringify(startCursor)}, endCursor=${JSON.stringify(endCursor)}`,
-      );
+      // FLASH PREVENTION: We must NOT change scrollTop here. Any scrollTop
+      // change before set() shifts the OLD content visibly (flash). Instead,
+      // we reverse-compute the local index that corresponds to the user's
+      // current scrollTop and use that as the target. The virtualizer renders
+      // new content at the user's current scroll position → zero flash.
+      //
+      // This is done for ALL seeks, not just clamped ones. Even when the
+      // target is inside the buffer, the user's scrollTop may not match
+      // targetLocalIndex's pixel position (e.g. user at scrollTop=96 but
+      // target at index 28 → pixelTop 1212 → 1116px flash).
+      const scrollEl = getScrollContainer();
+      let scrollTargetIndex: number;
+
+      if (scrollEl) {
+        const isTable = scrollEl.getAttribute("aria-label")?.includes("table");
+        const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
+        const cols = isTable
+          ? 1
+          : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
+        const currentScrollTop = scrollEl.scrollTop;
+        const currentRow = Math.round(currentScrollTop / rowH);
+        const reverseIndex = currentRow * cols;
+
+        // At the real end of the dataset, there are no more items to extend.
+        // Being at atBottom=true won't cause freeze — the deferred scroll
+        // event fires reportVisibleRange, which sees there's nothing to
+        // extend, and nothing bad happens. Skip the maxScroll clamp entirely
+        // so the End key can reach the absolute bottom of the buffer.
+        const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
+        const atRealEnd = actualOffset + result.hits.length >= effectiveTotal;
+
+        if (atRealEnd) {
+          // When the user sought to near the end of the dataset (e.g. End key,
+          // or scrubber click near bottom), they WANT to see the end — don't
+          // preserve their old scrollTop. Use the last item in the buffer.
+          // When they sought to a mid-range position that just happened to
+          // produce atRealEnd (shouldn't normally happen), fall back to
+          // reverse-compute to preserve their scroll position.
+          const soughtNearEnd = clampedOffset >= effectiveTotal - result.hits.length;
+          if (soughtNearEnd) {
+            scrollTargetIndex = result.hits.length - 1;
+          } else {
+            scrollTargetIndex = Math.max(0, Math.min(reverseIndex, result.hits.length - 1));
+          }
+        } else {
+          const totalRows = Math.ceil(result.hits.length / cols);
+          const newScrollHeight = totalRows * rowH;
+          const maxScroll = newScrollHeight - scrollEl.clientHeight;
+          const reversePixelTop = Math.floor(reverseIndex / cols) * rowH;
+
+          if (reversePixelTop < maxScroll) {
+            // User's position fits in the new buffer — use it directly.
+            scrollTargetIndex = reverseIndex;
+          } else {
+            // Buffer-shrink: user's old position exceeds the new belt's
+            // maxScroll. Instead of clamping to maxSafeRow (which loses
+            // 1-2 rows), use the last row whose top pixel ≤ maxScroll.
+            // Effect #6 computes targetPixel from this index; if the
+            // browser already clamped scrollTop to maxScroll, the delta
+            // is < rowHeight → effect #6 no-ops → position preserved.
+            //
+            // Example: 200 items, 7 cols, 29 rows, maxScroll=7753.
+            // lastVisibleRow = floor(7753/303) = 25. Index = 25*7 = 175.
+            // Pixel = 7575. Browser scrollTop = 7753. Delta = 178 < 303.
+            // Effect #6 skips. User stays at 7753. Looks like bottom.
+            const lastVisibleRow = Math.max(0, Math.floor(maxScroll / rowH));
+            scrollTargetIndex = Math.min(lastVisibleRow * cols, result.hits.length - 1);
+          }
+        }
+      } else {
+        // No scroll container (shouldn't happen) — fall back to center.
+        scrollTargetIndex = Math.floor(result.hits.length / 2);
+      }
+
+
+      // NOTE: We intentionally do NOT set scrollEl.scrollTop here.
+      // The _seekTargetLocalIndex is chosen so that localIndexToPixelTop()
+      // matches (or is very close to) the user's current scrollTop.
+      // Effect #6 in useScrollEffects will only adjust scrollTop if there's
+      // a meaningful difference — otherwise it's a no-op → zero flash.
 
       set({
         results: result.hits,
@@ -2002,7 +2084,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
-        _seekTargetLocalIndex: targetLocalIdx,
+        _seekTargetLocalIndex: scrollTargetIndex,
         seekTime: Date.now() - seekStartTime,
       });
 
@@ -2010,9 +2092,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       devLog(
         `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
-        `hits=${result.hits.length}, targetLocalIdx=${targetLocalIdx}, ` +
+        `hits=${result.hits.length}, targetLocalIndex=${targetLocalIndex}, ` +
         `ratio=${(actualOffset / (writtenTotal || 1)).toFixed(4)}` +
-        (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : ''),
+        (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : '') +
+        (targetWasClamped ? ` CLAMPED→center=${scrollTargetIndex}` : ''),
       );
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -2054,7 +2137,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
     const signal = _rangeAbortController.signal;
-    _seekCooldownUntil = Date.now() + 500;
+    _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
     // If search() opened a new PIT since we captured ours, skip the stale PIT.
     const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
@@ -2098,7 +2181,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       );
       if (!buf) return; // aborted
 
-      _seekCooldownUntil = Date.now() + 500;
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
       set({
         results: buf.combinedHits,
@@ -2112,12 +2195,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
-        _seekTargetLocalIndex: buf.targetLocalIdx,
+        _seekTargetLocalIndex: buf.targetLocalIndex,
       });
 
       devLog(
         `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, ` +
-        `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIdx}, ` +
+        `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIndex}, ` +
         `hits=${buf.combinedHits.length}`,
       );
     } catch (e) {

@@ -28,6 +28,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
+import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { devLog } from "@/lib/dev-log";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 
@@ -289,7 +290,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
     el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+    };
   }, [handleScroll, parentRef]);
 
   // Re-fire after buffer changes (Scrubber thumb sync)
@@ -300,6 +304,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // -------------------------------------------------------------------------
   // 4. Prepend scroll compensation
   // -------------------------------------------------------------------------
+
+  // Subscribe to seekGeneration early — needed by section 6 (seek scroll-to-target).
+  const seekGeneration = useSearchStore((s) => s._seekGeneration);
 
   const prependGeneration = useSearchStore((s) => s._prependGeneration);
   const lastPrependCount = useSearchStore((s) => s._lastPrependCount);
@@ -355,27 +362,39 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // 6. Seek scroll-to-target
   // -------------------------------------------------------------------------
 
-  const seekGeneration = useSearchStore((s) => s._seekGeneration);
+  // seekGeneration already subscribed in section 4 above.
   const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
   const prevSeekGenRef = useRef(seekGeneration);
   useLayoutEffect(() => {
     if (seekGeneration === prevSeekGenRef.current) return;
     prevSeekGenRef.current = seekGeneration;
+
     const geo = geometryRef.current;
     const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
-    const rowIdx = localIndexToRowIndex(targetIdx, geo);
-    virtualizer.scrollToIndex(rowIdx, { align: "start" });
-    // Dispatch a deferred scroll event after the seek has settled — triggers
-    // reportVisibleRange for Scrubber thumb sync and gap detection. The timer
-    // (600ms) fires while the seek cooldown (700ms from data arrival) is still
-    // active, so extends are blocked. This prevents "swimming" — extends
-    // prepending items that shift the seek-target content down. The next real
-    // user scroll (after 700ms) will trigger extends naturally.
+    const targetPixelTop = localIndexToPixelTop(targetIdx, geo);
+
     const el = parentRef.current;
+
+    // Only adjust scrollTop if there's a large difference (> 1 row).
+    // The store's seek() reverse-computes _seekTargetLocalIndex from the
+    // user's current scrollTop, so the delta is typically 0–15px (sub-row
+    // rounding). Skipping small adjustments prevents visible flash — any
+    // scrollTop change, however small, shifts the currently-rendered content.
+    // Large deltas (> rowHeight) indicate browser clamping (new buffer is
+    // shorter) or first seek from a distant position — those must be applied.
+    if (el && Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight) {
+      el.scrollTop = targetPixelTop;
+    }
+
+
+    // Dispatch a deferred scroll event after the seek has settled — triggers
+    // reportVisibleRange for Scrubber thumb sync and gap detection.
+    // SEEK_DEFERRED_SCROLL_MS is derived from SEEK_COOLDOWN_MS + 100ms margin
+    // in tuning.ts — see that file for the timing constraint.
     if (el) {
       const timer = setTimeout(() => {
         el.dispatchEvent(new Event("scroll"));
-      }, 600);
+      }, SEEK_DEFERRED_SCROLL_MS);
       return () => clearTimeout(timer);
     }
   }, [seekGeneration, seekTargetLocalIndex, virtualizer, parentRef]);
