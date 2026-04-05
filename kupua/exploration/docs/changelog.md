@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 April 2026 — Scroll architecture reference document
+
+Created `exploration/docs/scroll-architecture.md` — a Staff-Engineer-level
+architecture document covering the entire scroll, seek, scrubber, and
+keep-position infrastructure. Synthesised from AGENTS.md, changelog, 10+
+worklogs, and all source files. Seven sections: The Problem (why browser
+native scroll can't work, why Google Photos/iCloud approaches don't scale),
+Architecture at a Glance (windowed buffer + cursor pagination + custom
+scrubber), User Experience (normal scroll, deep seek, sort-around-focus,
+density switch), The Swimming Problem (prepend-then-compensate, timing
+chain, historical approaches), Deep Seek (percentile estimation, composite
+walk, SHA-1 binary search, countBefore), The Scrubber (coordinate system,
+dual mode, density-map ticks, null zone), Edge Cases (1% swim ideas,
+timing optimisation, buffer corruption defence, PIT lifecycle). Includes
+file map and glossary.
+
+**Files changed:**
+- `exploration/docs/scroll-architecture.md` — NEW
+- `AGENTS.md` — added to Design Documents table
+- `exploration/docs/changelog.md` — this entry
+
 ### 5 April 2026 — Scroll-up after seek: FIXED (agent 10)
 
 **The bug:** After any scrubber seek, the user could not scroll up with mousewheel.

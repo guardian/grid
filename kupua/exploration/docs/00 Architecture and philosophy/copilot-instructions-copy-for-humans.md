@@ -60,7 +60,7 @@ run `git commit -F <file>`, then delete the temp file and `git commit --amend --
 
 **Directive: Directive sync rule.** The directives exist in two places:
 `.github/copilot-instructions.md` (what Copilot auto-loads) and
-`kupua/exploration/docs/copilot-instructions-copy-for-humans.md` (the
+`kupua/exploration/docs/00 Architecture and philosophy/copilot-instructions-copy-for-humans.md` (the
 committed copy for humans and fresh clones). If you add, remove, or change
 a directive, update BOTH files to keep them identical. **However:**
 `.github/copilot-instructions.md` is gitignored and must **NEVER** be

@@ -10,15 +10,15 @@
 
 ---
 
-## 1. Buffer & Pagination (search-store.ts)
+## 1. Buffer & Pagination (constants/tuning.ts)
 
 These are the core knobs controlling how much data lives in memory and how
 fast it flows in and out.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `BUFFER_CAPACITY` | **1000** | — | search-store.ts:45 |
-| `PAGE_SIZE` | **200** | — | search-store.ts:51 |
+| `BUFFER_CAPACITY` | **1000** | — | constants/tuning.ts:24 |
+| `PAGE_SIZE` | **200** | — | constants/tuning.ts:30 |
 | `EXTEND_THRESHOLD` | **50** | — | useDataWindow.ts:35 |
 
 ### BUFFER_CAPACITY (1000)
@@ -96,15 +96,15 @@ network but higher risk of visible gaps during fast scroll).
 
 ---
 
-## 2. Seek Strategy (search-store.ts)
+## 2. Seek Strategy (constants/tuning.ts)
 
 Controls how the scrubber/keyboard seeks to arbitrary positions.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `MAX_RESULT_WINDOW` | **500** (local) / **100,000** (TEST/PROD) | `VITE_MAX_RESULT_WINDOW` | search-store.ts:81, .env, start.sh |
-| `DEEP_SEEK_THRESHOLD` | **200** (dev) / **500** (.env) / **10,000** (TEST/PROD) | `VITE_DEEP_SEEK_THRESHOLD` | search-store.ts:94 |
-| `MAX_BISECT` | **50** | — | search-store.ts:1282 |
+| `MAX_RESULT_WINDOW` | **500** (local) / **100,000** (TEST/PROD) | `VITE_MAX_RESULT_WINDOW` | constants/tuning.ts:60, .env, start.sh |
+| `DEEP_SEEK_THRESHOLD` | **200** (.env.development) / **500** (.env) / **10,000** (TEST/PROD) | `VITE_DEEP_SEEK_THRESHOLD` | constants/tuning.ts:73 |
+| `MAX_BISECT` | **50** | — | search-store.ts:1822 |
 
 ### MAX_RESULT_WINDOW (500 local / 100,000 real)
 
@@ -128,7 +128,7 @@ exists as a hard cap, not a performance target.
 - TEST/PROD: 100,000 (real ES setting).
 - **Set by infrastructure, not tuned per corpus size.**
 
-### DEEP_SEEK_THRESHOLD (200 dev / 500 .env / 10,000 real)
+### DEEP_SEEK_THRESHOLD (200 .env.development / 500 .env / 10,000 real)
 
 **What it does:** When a seek targets a position above this threshold, the
 store uses the deep path (percentile estimation + search_after +
@@ -170,11 +170,11 @@ Controls the composite aggregation walk for keyword sort seeking.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `BUCKET_SIZE` (findKeywordSortValue) | **10,000** | `VITE_KEYWORD_SEEK_BUCKET_SIZE` | es-adapter.ts:811 |
-| `MAX_PAGES` (findKeywordSortValue) | **50** | — | es-adapter.ts:814 |
-| `TIME_CAP_MS` (findKeywordSortValue) | **8,000** | — | es-adapter.ts:815 |
-| `BUCKET_SIZE` (getKeywordDistribution) | **10,000** | — | es-adapter.ts:941 |
-| `MAX_PAGES` (getKeywordDistribution) | **5** | — | es-adapter.ts:942 |
+| `BUCKET_SIZE` (findKeywordSortValue) | **10,000** | `VITE_KEYWORD_SEEK_BUCKET_SIZE` | es-adapter.ts:779 |
+| `MAX_PAGES` (findKeywordSortValue) | **50** | — | es-adapter.ts:782 |
+| `TIME_CAP_MS` (findKeywordSortValue) | **8,000** | — | es-adapter.ts:783 |
+| `BUCKET_SIZE` (getKeywordDistribution) | **10,000** | — | es-adapter.ts:909 |
+| `MAX_PAGES` (getKeywordDistribution) | **5** | — | es-adapter.ts:910 |
 
 ### BUCKET_SIZE (10,000)
 
@@ -222,8 +222,8 @@ accuracy degrades gracefully for very high-cardinality fields.
 
 | Knob | Value | Location |
 |---|---|---|
-| `overscan` (table) | **5** | ImageTable.tsx:480 |
-| `overscan` (grid) | **5** | ImageGrid.tsx:283 |
+| `overscan` (table) | **5** | ImageTable.tsx:484 |
+| `overscan` (grid) | **5** | ImageGrid.tsx:301 |
 
 ### overscan (5 for both)
 
@@ -274,11 +274,11 @@ already-buffered items are rendered in the DOM, not how many are fetched.)
 
 ---
 
-## 5. Scroll Mode (search-store.ts)
+## 5. Scroll Mode (constants/tuning.ts)
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `SCROLL_MODE_THRESHOLD` | **1000** | `VITE_SCROLL_MODE_THRESHOLD` | search-store.ts:67 |
+| `SCROLL_MODE_THRESHOLD` | **1000** | `VITE_SCROLL_MODE_THRESHOLD` | constants/tuning.ts:46 |
 
 ### SCROLL_MODE_THRESHOLD (1000)
 
@@ -301,18 +301,19 @@ regardless of whether the corpus is 10k or 9M. **Not corpus-dependent.**
 
 ---
 
-## 6. Timing & Cooldowns (search-store.ts, useScrollEffects.ts)
+## 6. Timing & Cooldowns (constants/tuning.ts, useScrollEffects.ts)
 
 | Knob | Value | Location | Purpose |
 |---|---|---|---|
-| Seek cooldown (seek data arrival) | **500ms** | search-store.ts:642, 1089, 1436 | Prevent extends during seek settle |
-| Seek cooldown (search/abort) | **2000ms** | search-store.ts:753, 976 | Prevent extends during search/reset |
-| Density-switch cooldown | **2000ms** | useScrollEffects.ts:572 (via abortExtends) | Prevent extends during density settle |
-| Deferred scroll event after seek | **600ms** | useScrollEffects.ts:407-410 | Re-fire reportVisibleRange after cooldown expires |
-| `AGG_DEBOUNCE_MS` | **500ms** | search-store.ts:106 | Debounce aggregation fetches |
-| `AGG_CIRCUIT_BREAKER_MS` | **2000ms** | search-store.ts:109 | Disable auto-fetch if aggs are slow |
-| `NEW_IMAGES_POLL_INTERVAL` | **10,000ms** | search-store.ts:99 | Ticker poll interval |
-| `PREFETCH_SETTLE_MS` | **400ms** | ImageDetail.tsx:274 | Debounce image prefetch in detail view |
+| `SEEK_COOLDOWN_MS` (seek data arrival) | **700ms** | constants/tuning.ts:98 | Prevent extends during seek settle |
+| `SEEK_DEFERRED_SCROLL_MS` (after seek) | **800ms** | constants/tuning.ts:108 | Re-fire reportVisibleRange after cooldown expires |
+| `POST_EXTEND_COOLDOWN_MS` | **200ms** | constants/tuning.ts:126 | Space out backward extends to prevent cascading compensation |
+| `SEARCH_FETCH_COOLDOWN_MS` (search/abort) | **2000ms** | constants/tuning.ts:138 | Prevent extends during search/reset |
+| Density-switch cooldown | **2000ms** | useScrollEffects.ts:576 (via abortExtends) | Prevent extends during density settle |
+| `AGG_DEBOUNCE_MS` | **500ms** | constants/tuning.ts:148 | Debounce aggregation fetches |
+| `AGG_CIRCUIT_BREAKER_MS` | **2000ms** | constants/tuning.ts:151 | Disable auto-fetch if aggs are slow |
+| `NEW_IMAGES_POLL_INTERVAL` | **10,000ms** | constants/tuning.ts:141 | Ticker poll interval |
+| Prefetch throttle gate | **150ms** | image-prefetch.ts:64 | Skip prefetch batches at held-key speed |
 | Tooltip flash suppression | **1500ms** | Scrubber.tsx:248 | Tooltip fade after seek |
 
 **Corpus scaling:** The timing values are UI-feel constants, not
@@ -331,8 +332,8 @@ auto-fetch. **Monitor agg response times on PROD.**
 | `GRID_ROW_HEIGHT` | **303px** | constants/layout.ts:20 |
 | `GRID_MIN_CELL_WIDTH` | **280px** | constants/layout.ts:23 |
 | `GRID_CELL_GAP` | **8px** | constants/layout.ts:26 |
-| Fallback loadMore threshold | **500px** | useScrollEffects.ts:317 |
-| Detail auto-load threshold | **5 images** | ImageDetail.tsx:145 |
+| Fallback loadMore threshold | **500px** | useScrollEffects.ts:283 |
+| Detail auto-load threshold | **5 images** | ImageDetail.tsx:141 |
 
 **These are design constants, not tuning knobs.** They define the visual
 grid and are coupled to Tailwind classes (h-8, h-11, etc). Changing them
@@ -344,12 +345,12 @@ E2E test assertions use these values.
 
 ---
 
-## 8. Aggregation (search-store.ts)
+## 8. Aggregation (constants/tuning.ts)
 
 | Knob | Value | Location |
 |---|---|---|
-| `AGG_DEFAULT_SIZE` | **10** | search-store.ts:112 |
-| `AGG_EXPANDED_SIZE` | **100** | search-store.ts:115 |
+| `AGG_DEFAULT_SIZE` | **10** | constants/tuning.ts:154 |
+| `AGG_EXPANDED_SIZE` | **100** | constants/tuning.ts:157 |
 
 ### AGG_DEFAULT_SIZE (10)
 
@@ -366,8 +367,8 @@ change needed — the "Show more" button fetches 100.**
 
 | Knob | Value | Location |
 |---|---|---|
-| `SOURCE_EXCLUDES` | `["fileMetadata.exif", "fileMetadata.exifSub", "fileMetadata.getty", "embedding"]` | es-config.ts:46 |
-| `SOURCE_INCLUDES` | `[]` (empty) | es-config.ts:66 |
+| `SOURCE_EXCLUDES` | `["fileMetadata.exif", "fileMetadata.exifSub", "fileMetadata.getty", "embedding"]` | dal/es-config.ts:46 |
+| `SOURCE_INCLUDES` | `[]` (empty) | dal/es-config.ts:66 |
 
 **What it does:** Strips heavy fields from ES responses. EXIF metadata,
 Getty metadata, and the 1024-dim embedding vector are never displayed.
