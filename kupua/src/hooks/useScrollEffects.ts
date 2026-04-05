@@ -364,6 +364,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   // seekGeneration already subscribed in section 4 above.
   const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
+  const seekSubRowOffset = useSearchStore((s) => s._seekSubRowOffset);
   const prevSeekGenRef = useRef(seekGeneration);
   useLayoutEffect(() => {
     if (seekGeneration === prevSeekGenRef.current) return;
@@ -372,6 +373,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const geo = geometryRef.current;
     const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
     const targetPixelTop = localIndexToPixelTop(targetIdx, geo);
+    // When the store passes a sub-row offset (headroom pre-set couldn't apply
+    // it synchronously because the old buffer's scrollHeight was too small),
+    // apply it here. Effect #6 runs in useLayoutEffect AFTER the new 300-item
+    // buffer is rendered → scrollHeight is large enough → no browser clamping.
+    const targetWithSubRow = targetPixelTop + seekSubRowOffset;
 
     const el = parentRef.current;
 
@@ -382,8 +388,24 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // scrollTop change, however small, shifts the currently-rendered content.
     // Large deltas (> rowHeight) indicate browser clamping (new buffer is
     // shorter) or first seek from a distant position — those must be applied.
-    if (el && Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight) {
-      el.scrollTop = targetPixelTop;
+    //
+    // When seekSubRowOffset > 0 (headroom zone seek), always apply — the
+    // store's pre-set was clamped by the browser, so el.scrollTop is wrong
+    // and needs correction regardless of delta size.
+    if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight)) {
+      devLog(
+        `[effect6-seek] ADJUSTING scrollTop: ${el.scrollTop.toFixed(1)} → ${targetWithSubRow.toFixed(1)} ` +
+        `(targetPixelTop=${targetPixelTop.toFixed(1)}, subRowOffset=${seekSubRowOffset.toFixed(1)}, ` +
+        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${geo.rowHeight}, ` +
+        `cols=${geo.columns}, targetIdx=${targetIdx})`,
+      );
+      el.scrollTop = targetWithSubRow;
+    } else if (el) {
+      devLog(
+        `[effect6-seek] NO-OP: scrollTop=${el.scrollTop.toFixed(1)}, targetPixelTop=${targetPixelTop.toFixed(1)}, ` +
+        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${geo.rowHeight}, ` +
+        `cols=${geo.columns}, targetIdx=${targetIdx}, seekTargetLocalIndex=${seekTargetLocalIndex}`,
+      );
     }
 
 
@@ -397,7 +419,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       }, SEEK_DEFERRED_SCROLL_MS);
       return () => clearTimeout(timer);
     }
-  }, [seekGeneration, seekTargetLocalIndex, virtualizer, parentRef]);
+  }, [seekGeneration, seekTargetLocalIndex, seekSubRowOffset, virtualizer, parentRef]);
 
   // -------------------------------------------------------------------------
   // 7. Search params scroll reset (with sort-around-focus detection)

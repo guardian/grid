@@ -363,16 +363,37 @@ test.describe("Flash prevention — seek scroll preservation", () => {
     ).toBe(0);
 
     // Case 3: Scroll from top edge then seek
+    // With bidirectional seek, the headroom offset pre-sets scrollTop
+    // synchronously before the buffer renders. The sub-row pixel offset
+    // is preserved — the user's vertical position within a row should
+    // not change visibly.
+    //
+    // scrollTop VALUE changes (100 → ~4342) because headroom items are
+    // prepended, but the sub-row offset (100 % rowHeight) is preserved.
+    // What matters is that the user's visual position is the same:
+    // "top row cut off by 100px" before and after seek.
     await kupua.page.keyboard.press("Home");
     await kupua.page.waitForTimeout(500);
-    await kupua.scrollBy(100); // small offset from top
-    const topScrollTop = await kupua.getScrollTop();
+    await kupua.scrollBy(100); // small offset from top (sub-row)
+    const beforeTopSeek = await kupua.getScrollTop();
     await kupua.seekTo(0.4);
     const afterTopSeek = await kupua.getScrollTop();
+    const afterTopState = await kupua.getStoreState();
+    expect(afterTopState.error).toBeNull();
     expect(
-      Math.abs(afterTopSeek - topScrollTop),
-      "scrollTop jumped after seek from near-top position",
-    ).toBe(0);
+      afterTopState.bufferOffset,
+      "bufferOffset should be > 0 (backward items loaded)",
+    ).toBeGreaterThan(0);
+    // Sub-row offset preserved: before and after should have the same
+    // pixel offset within their respective rows.
+    const ROW_H = 303;
+    const subRowBefore = beforeTopSeek % ROW_H;
+    const subRowAfter = afterTopSeek % ROW_H;
+    expect(
+      Math.abs(subRowAfter - subRowBefore),
+      `Sub-row offset changed: before=${subRowBefore.toFixed(1)}, after=${subRowAfter.toFixed(1)}. ` +
+      `scrollTop: ${beforeTopSeek.toFixed(1)} → ${afterTopSeek.toFixed(1)}`,
+    ).toBeLessThan(5); // small tolerance for rounding
 
     // Case 4: Scroll from bottom edge then seek
     // NOTE: This is the "buffer-shrink snap" scenario from the worklog,
@@ -391,42 +412,43 @@ test.describe("Flash prevention — seek scroll preservation", () => {
     expect(afterBottomState.resultsLength).toBeGreaterThan(0);
   });
 
-  test("prepend compensation works after seek settles", async ({ kupua }) => {
-    // After a seek, SEEK_DEFERRED_SCROLL_MS clears the backward-extend
-    // suppress flag and fires a synthetic scroll. If the buffer is at a
-    // deep offset (bufferOffset > 0) and startIndex ≈ 0, extendBackward
-    // fires, prepending items. Scroll compensation (effect #4) adjusts
-    // scrollTop by the prepended pixel height so visible content doesn't
-    // shift. S14 (smoke test) validates no visible swimming on real data.
+  test("bidirectional seek places user in buffer middle", async ({ kupua }) => {
+    // After a deep seek, bidirectional fetch loads items both BEFORE and
+    // AFTER the landed cursor. The user sees the buffer middle (~100 items
+    // of headroom above), so extends don't fire immediately — they operate
+    // on off-screen content when the user eventually scrolls far enough.
     //
-    // This local test verifies the mechanical correctness:
-    // 1. Buffer grows beyond the initial 200 items (extend fired)
-    // 2. scrollTop increased (compensation ran — items were prepended above)
+    // This test verifies the post-seek resting state:
+    // 1. Buffer has content in both directions (bufferOffset > 0 AND
+    //    bufferOffset + resultsLength < total)
+    // 2. Buffer is larger than PAGE_SIZE (200) — backward items were added
+    // 3. No visible content shift during the settle window
     //
-    // IF THIS FAILS:
-    //   - extendBackward may not fire after seek — check suppress flag
-    //     clearing in effect #6 (useScrollEffects.ts) and cooldown timing.
-    //   - Prepend compensation may not fire — check effect #4.
+    // The scroll-up tests (below) verify that extends work when the user
+    // scrolls far enough past the headroom.
     await kupua.goto();
     await kupua.seekTo(0.5);
-    const scrollBefore = await kupua.getScrollTop();
     const storeBefore = await kupua.getStoreState();
-    // Wait for seek cooldown + deferred scroll + extend + settle
+    // Wait for seek cooldown + deferred scroll + settle
     await kupua.page.waitForTimeout(1500);
-    const scrollAfter = await kupua.getScrollTop();
     const storeAfter = await kupua.getStoreState();
 
-    // Buffer should have grown (extendBackward and/or extendForward fired)
-    expect(storeAfter.resultsLength).toBeGreaterThan(storeBefore.resultsLength);
+    // Buffer should have content in both directions (bidirectional fetch worked)
+    expect(
+      storeAfter.bufferOffset,
+      "bufferOffset should be > 0 after bidirectional seek to 50%",
+    ).toBeGreaterThan(0);
+    expect(
+      storeAfter.bufferOffset + storeAfter.resultsLength,
+      "buffer should not extend to total (has room to extend forward)",
+    ).toBeLessThan(storeAfter.total);
 
-    // If items were prepended (offset decreased), scrollTop must have
-    // increased by the compensation amount
-    if (storeAfter.bufferOffset < storeBefore.bufferOffset) {
-      expect(
-        scrollAfter,
-        "scrollTop should increase when items are prepended (compensation)",
-      ).toBeGreaterThan(scrollBefore);
-    }
+    // Buffer should be larger than the initial forward-only fetch (200)
+    // because backward items were prepended
+    expect(
+      storeBefore.resultsLength,
+      "initial buffer should be larger than PAGE_SIZE (backward items added)",
+    ).toBeGreaterThan(200);
   });
 });
 
@@ -465,29 +487,41 @@ test.describe("Post-seek scroll-up", () => {
       gridBox!.x + gridBox!.width / 2,
       gridBox!.y + gridBox!.height / 2,
     );
-    // Multiple small upward wheel events to simulate real user scrolling up
+
+    // Phase 1: Small scroll to verify scrollTop decreases (within buffer,
+    // no extends triggered). With bidirectional seek, user starts at
+    // scrollTop ≈ 7575 (headroom offset). 5 events × -200px = -1000px
+    // → scrollTop ≈ 6575. No extend fires (startIndex still > 50).
     for (let i = 0; i < 5; i++) {
       await kupua.page.mouse.wheel(0, -200);
       await kupua.page.waitForTimeout(100);
     }
-    // Wait for any extends to complete
-    await kupua.page.waitForTimeout(1000);
+    await kupua.page.waitForTimeout(300);
 
-    const scrollAfter = await kupua.getScrollTop();
-    const storeAfterScroll = await kupua.getStoreState();
-
-    // scrollTop should have decreased (user scrolled up successfully).
-    // If extendBackward is blocked, there's nothing above to scroll into,
-    // so scrollTop stays at 0 or wherever it was — this assertion FAILS.
+    const scrollAfterSmall = await kupua.getScrollTop();
     expect(
-      scrollAfter,
-      `scrollTop should decrease after scrolling up (was ${scrollBefore}, now ${scrollAfter}). ` +
-      `If this fails, extendBackward is blocked after seek — see _postSeekBackwardSuppress in useDataWindow.ts`,
+      scrollAfterSmall,
+      `scrollTop should decrease after small upward scroll (was ${scrollBefore}, now ${scrollAfterSmall}). ` +
+      `If this fails, scroll-up is blocked after seek.`,
     ).toBeLessThan(scrollBefore);
 
+    // Phase 2: Continue scrolling to trigger extendBackward. With ~100
+    // items of headroom above, we need ~20 more events to bring startIndex
+    // below EXTEND_THRESHOLD (50). Prepend compensation will increase
+    // scrollTop (expected), so we only assert bufferOffset decreased.
+    for (let i = 0; i < 20; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    // Wait for extends to complete
+    await kupua.page.waitForTimeout(1000);
+
+    const storeAfterScroll = await kupua.getStoreState();
+
     // bufferOffset should have decreased — proves extendBackward actually
-    // fired and prepended items, not just that scroll happened within the
-    // existing 200-item buffer.
+    // fired and prepended items. Note: we don't assert scrollTop direction
+    // here because prepend compensation increases scrollTop (expected and
+    // correct — it prevents swimming).
     expect(
       storeAfterScroll.bufferOffset,
       `bufferOffset should decrease after scrolling up (was ${storeAfterSeek.bufferOffset}, ` +
@@ -514,19 +548,33 @@ test.describe("Post-seek scroll-up", () => {
       tableBox!.x + tableBox!.width / 2,
       tableBox!.y + tableBox!.height / 2,
     );
+
+    // Phase 1: Small scroll to verify direction. Table has 1 col,
+    // ROW_HEIGHT=32. 5 × -200px = -1000px → ~31 rows scrolled.
+    // With headroom starting at local index ~100, startIndex ≈ 69,
+    // still > EXTEND_THRESHOLD (50). scrollTop should decrease.
     for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(300);
+
+    const scrollAfterSmall = await kupua.getScrollTop();
+    expect(
+      scrollAfterSmall,
+      `scrollTop should decrease after small upward scroll in table view`,
+    ).toBeLessThan(scrollBefore);
+
+    // Phase 2: More scroll to trigger extendBackward. Need to bring
+    // startIndex below 50 — about 15 more events should do it.
+    // (15 × 200px = 3000px ÷ 32px = ~94 items → startIndex ≈ 69-94 < 50)
+    for (let i = 0; i < 15; i++) {
       await kupua.page.mouse.wheel(0, -200);
       await kupua.page.waitForTimeout(100);
     }
     await kupua.page.waitForTimeout(1000);
 
-    const scrollAfter = await kupua.getScrollTop();
     const storeAfterScroll = await kupua.getStoreState();
-
-    expect(
-      scrollAfter,
-      `scrollTop should decrease after scrolling up in table view`,
-    ).toBeLessThan(scrollBefore);
 
     // bufferOffset should have decreased — proves extendBackward fired
     expect(
@@ -564,11 +612,15 @@ test.describe("Post-seek scroll-up", () => {
       gridBox!.x + gridBox!.width / 2,
       gridBox!.y + gridBox!.height / 2,
     );
+
+    // Phase 1: Small scroll to verify direction. With bidirectional seek
+    // headroom, 5 events is enough to confirm scroll-up works without
+    // triggering extendBackward (stays within the ~100-item headroom).
     for (let i = 0; i < 5; i++) {
       await kupua.page.mouse.wheel(0, -200);
       await kupua.page.waitForTimeout(100);
     }
-    await kupua.page.waitForTimeout(1000);
+    await kupua.page.waitForTimeout(300);
 
     const scrollAfter = await kupua.getScrollTop();
 
@@ -601,20 +653,30 @@ test.describe("Post-seek scroll-up", () => {
       gridBox!.x + gridBox!.width / 2,
       gridBox!.y + gridBox!.height / 2,
     );
+
+    // Phase 1: Small scroll to verify direction works within the deadline.
     for (let i = 0; i < 5; i++) {
       await kupua.page.mouse.wheel(0, -200);
       await kupua.page.waitForTimeout(100);
     }
-    await kupua.page.waitForTimeout(500);
+    await kupua.page.waitForTimeout(300);
 
-    const scrollAfter = await kupua.getScrollTop();
-    const storeAfterScroll = await kupua.getStoreState();
-
+    const scrollAfterSmall = await kupua.getScrollTop();
     expect(
-      scrollAfter,
+      scrollAfterSmall,
       `scroll-up must work within 2s of seek landing (scrollTop was ${scrollBefore}, ` +
-      `now ${scrollAfter}). If this fails, the timing chain is too slow.`,
+      `now ${scrollAfterSmall}). If this fails, the timing chain is too slow.`,
     ).toBeLessThan(scrollBefore);
+
+    // Phase 2: Continue scrolling to trigger extendBackward past the
+    // bidirectional headroom. Don't assert scrollTop — compensation expected.
+    for (let i = 0; i < 20; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(1000);
+
+    const storeAfterScroll = await kupua.getStoreState();
 
     expect(
       storeAfterScroll.bufferOffset,
@@ -735,11 +797,100 @@ test.describe("Settle-window stability", () => {
       `See timeline above.`,
     ).toBeLessThanOrEqual(MAX_SHIFT);
   });
-});
 
-// ---------------------------------------------------------------------------
-// Extend forward / backward — buffer growth at edges
-// ---------------------------------------------------------------------------
+  test("no swim when seeking from any near-top row offset", async ({ kupua }) => {
+    // Regression test: seeking from half-a-row-2 (or any row in the headroom
+    // zone) must NOT show wrong content or swim, AND must preserve the user's
+    // vertical position (sub-row pixel offset).
+    await kupua.goto();
+
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    const GRID_ROW_HEIGHT = 303;
+
+    // Test seeks from row offsets 0.5, 1.5, and 5.5 (half of rows 1, 2, 6)
+    for (const rowOffset of [0.5, 1.5, 5.5]) {
+      // Reset to top
+      await kupua.page.keyboard.press("Home");
+      await kupua.page.waitForTimeout(500);
+
+      // Scroll to the target row offset
+      const scrollPx = Math.round(GRID_ROW_HEIGHT * rowOffset);
+      await kupua.page.mouse.move(
+        gridBox!.x + gridBox!.width / 2,
+        gridBox!.y + gridBox!.height / 2,
+      );
+      await kupua.page.mouse.wheel(0, scrollPx);
+      await kupua.page.waitForTimeout(300);
+
+      // Capture pre-seek scrollTop for position preservation check
+      const preSeekScrollTop = await kupua.getScrollTop();
+
+      // Seek to 50%
+      await kupua.seekTo(0.5);
+
+      // Check vertical position preservation: sub-row offset should match
+      const postSeekScrollTop = await kupua.getScrollTop();
+      const subRowBefore = preSeekScrollTop % GRID_ROW_HEIGHT;
+      const subRowAfter = postSeekScrollTop % GRID_ROW_HEIGHT;
+
+      // Poll for 2 seconds to detect content shift
+      const snapshots: Array<{ t: number; pos: number }> = [];
+      const start = Date.now();
+      for (let i = 0; i < 40; i++) {
+        const snap = await kupua.page.evaluate(() => {
+          const w = window as unknown as Record<string, unknown>;
+          const s = w.__kupuaStore as Record<string, unknown> | undefined;
+          if (!s) return null;
+          const el = document.querySelector('[aria-label="Image results grid"]');
+          if (!el) return null;
+          const offset = s.bufferOffset as number;
+          const scrollTop = el.scrollTop;
+          const cols = Math.max(1, Math.floor(el.clientWidth / 280));
+          const rowHeight = 303;
+          const firstVisibleRow = Math.round(scrollTop / rowHeight);
+          return { pos: offset + firstVisibleRow * cols };
+        });
+        if (snap) snapshots.push({ t: Date.now() - start, pos: snap.pos });
+        await kupua.page.waitForTimeout(50);
+      }
+
+      // Calculate max content shift
+      let maxShift = 0;
+      for (let i = 1; i < snapshots.length; i++) {
+        const shift = Math.abs(snapshots[i].pos - snapshots[i - 1].pos);
+        if (shift > maxShift) maxShift = shift;
+      }
+
+      console.log(
+        `  [row-offset=${rowOffset}] scrollPx=${scrollPx}, maxShift=${maxShift}, ` +
+        `subRow: ${subRowBefore.toFixed(1)} → ${subRowAfter.toFixed(1)}, ` +
+        `scrollTop: ${preSeekScrollTop.toFixed(1)} → ${postSeekScrollTop.toFixed(1)}, ` +
+        `snapshots=${snapshots.length}, firstPos=${snapshots[0]?.pos}, lastPos=${snapshots[snapshots.length - 1]?.pos}`,
+      );
+
+      // Assert 1: No swimming (content shift)
+      const cols = await kupua.page.evaluate(() => {
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        return el ? Math.max(1, Math.floor(el.clientWidth / 280)) : 5;
+      });
+      expect(
+        maxShift,
+        `Seek from row offset ${rowOffset} caused ${maxShift}-item content shift (max allowed: ${cols}). ` +
+        `This indicates swimming in the headroom zone.`,
+      ).toBeLessThanOrEqual(cols);
+
+      // Assert 2: Vertical position preserved (sub-row offset)
+      expect(
+        Math.abs(subRowAfter - subRowBefore),
+        `Seek from row offset ${rowOffset}: sub-row offset changed from ${subRowBefore.toFixed(1)} ` +
+        `to ${subRowAfter.toFixed(1)} (delta=${Math.abs(subRowAfter - subRowBefore).toFixed(1)}). ` +
+        `Vertical position was not preserved.`,
+      ).toBeLessThan(5); // small tolerance for rounding
+    }
+  });
+});
 
 test.describe("Buffer extension", () => {
   test("scrolling down past buffer triggers extendForward", async ({ kupua }) => {

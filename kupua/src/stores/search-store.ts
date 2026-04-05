@@ -153,6 +153,14 @@ interface SearchState {
    */
   _seekTargetLocalIndex: number;
 
+  /**
+   * Sub-row pixel offset to preserve after seek. When the headroom pre-set
+   * fires, the user's sub-row offset (scrollTop % rowHeight) must be restored
+   * by effect #6 AFTER the new buffer is rendered (so scrollHeight is large
+   * enough to avoid browser clamping). 0 means "snap to row boundary".
+   */
+  _seekSubRowOffset: number;
+
   // --- Aggregation state (unchanged from before) ---
   aggregations: AggregationsResult | null;
   aggTook: number | null;
@@ -943,6 +951,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _forwardEvictGeneration: 0,
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
+  _seekSubRowOffset: 0,
 
   // Aggregation state
   aggregations: null,
@@ -1396,6 +1405,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       let result;
       let actualOffset = fetchStart;
       let usedNullZoneFilter = false;
+      // Bidirectional seek: after the forward fetch completes (for deep paths),
+      // we add a backward fetch to place the user in the MIDDLE of the buffer.
+      // This eliminates swimming — both extendBackward and extendForward operate
+      // on off-screen content. The End-key and shallow paths skip this.
+      let skipBackwardFetch = false;
+      // Track how many backward items were prepended. Used by the reverse-compute
+      // to offset scrollTargetIndex past the backward headroom.
+      let backwardItemCount = 0;
 
       // ---------------------------------------------------------------
       // Fast path: End key — target is within PAGE_SIZE of the end.
@@ -1419,6 +1436,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         if (result.hits.length > 0) {
           actualOffset = Math.max(0, total - result.hits.length);
         }
+        skipBackwardFetch = true; // At the absolute end — nothing beyond to fetch
       } else if (fetchStart < DEEP_SEEK_THRESHOLD) {
         // ---------------------------------------------------------------
         // Shallow seek — from/size is fast at small offsets (<10k)
@@ -1429,6 +1447,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           null,
           signal,
         );
+        skipBackwardFetch = true; // from/size already centers buffer via fetchStart
       } else {
         // ---------------------------------------------------------------
         // Deep seek — percentile estimation + search_after + countBefore
@@ -1955,6 +1974,93 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
       }
 
+      // -----------------------------------------------------------------
+      // Bidirectional seek — backward fetch (Idea B from scroll-architecture §7)
+      //
+      // Deep paths above fetched PAGE_SIZE (200) items FORWARD from the
+      // landed cursor. The user sees buffer[0..~15] — the very top. The
+      // first extendBackward at ~800ms would prepend directly above visible
+      // content, causing a ~1% visible swim.
+      //
+      // Fix: add a backward fetch of halfBuffer items BEFORE the landed
+      // cursor. Combined buffer = [...backward, ...forward]. The user sees
+      // the buffer middle (~100 items of headroom above), so both
+      // extendBackward and extendForward operate on off-screen content.
+      //
+      // Uses detectNullZoneCursor to handle null-zone cursors automatically
+      // (same pattern as _loadBufferAroundImage). Parallelisation not
+      // possible here because we need the forward result first to get the
+      // landed cursor — but the backward fetch is a single ~10-50ms call.
+      // -----------------------------------------------------------------
+      if (
+        !skipBackwardFetch &&
+        result &&
+        result.hits.length > 0 &&
+        result.sortValues.length > 0 &&
+        actualOffset > 0 // no point fetching backward if we're at position 0
+      ) {
+        if (signal.aborted) return;
+
+        const landedCursor = result.sortValues[0];
+
+        // Detect null-zone cursor — same logic as _loadBufferAroundImage.
+        // If the cursor's primary field is null, we need to strip it and
+        // use the null-zone sort/filter overrides for the backward fetch.
+        const nz = detectNullZoneCursor(landedCursor, params.orderBy);
+        const effectiveCursor = nz ? nz.strippedCursor : landedCursor;
+
+        const backwardResult = await dataSource.searchAfter(
+          { ...params, length: halfBuffer },
+          effectiveCursor,
+          effectivePitId,
+          signal,
+          true,  // reverse
+          false, // noSource
+          false, // missingFirst
+          nz?.sortOverride,
+          nz?.extraFilter,
+        );
+
+        if (signal.aborted) return;
+
+        // Remap backward sort values from null-zone shape back to full shape
+        if (nz && backwardResult.sortValues.length > 0) {
+          backwardResult.sortValues = remapNullZoneSortValues(
+            backwardResult.sortValues, nz.sortClause, nz.primaryField,
+          );
+        }
+
+        if (backwardResult.hits.length > 0) {
+          // Combine: backward (reversed to restore original order) + forward
+          const combinedHits = [
+            ...backwardResult.hits,
+            ...result.hits,
+          ];
+          const combinedSortValues = [
+            ...backwardResult.sortValues,
+            ...result.sortValues,
+          ];
+
+          // Adjust actualOffset to account for the prepended backward items
+          const newBufferStart = Math.max(0, actualOffset - backwardResult.hits.length);
+
+          // Update result with the combined buffer
+          result = {
+            ...result,
+            hits: combinedHits,
+            sortValues: combinedSortValues,
+          };
+          actualOffset = newBufferStart;
+          backwardItemCount = backwardResult.hits.length;
+
+          devLog(
+            `[seek] bidirectional: prepended ${backwardResult.hits.length} backward items, ` +
+            `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}` +
+            (nz ? ' (null-zone cursor)' : ''),
+          );
+        }
+      }
+
       // If this seek was superseded by a newer one, our signal is aborted.
       // Don't overwrite the store with stale results.
       if (signal.aborted) return;
@@ -2003,6 +2109,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // target at index 28 → pixelTop 1212 → 1116px flash).
       const scrollEl = getScrollContainer();
       let scrollTargetIndex: number;
+      let _seekSubRowOffset = 0;
+      let _diagReverseIndex: number | string = 'N/A'; // for diagnostic log outside the if block
+      let _diagOrigScrollTop: number | string = 'N/A';
+      let _diagCurrentRow: number | string = 'N/A';
+      let _diagCols: number | string = 'N/A';
+      let _diagHeadroomFired = false;
 
       if (scrollEl) {
         const isTable = scrollEl.getAttribute("aria-label")?.includes("table");
@@ -2012,7 +2124,42 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
         const currentScrollTop = scrollEl.scrollTop;
         const currentRow = Math.round(currentScrollTop / rowH);
-        const reverseIndex = currentRow * cols;
+        let reverseIndex = currentRow * cols;
+        _diagOrigScrollTop = currentScrollTop;
+        _diagCurrentRow = currentRow;
+        _diagCols = cols;
+
+        // Bidirectional seek offset: when backward items were prepended,
+        // any reverseIndex that falls within the backward headroom
+        // (reverseIndex < backwardItemCount) means the user would see
+        // wrong content (images from before the target) and then get a
+        // visible swim when extendBackward fires at 800ms.
+        //
+        // Fix: shift reverseIndex past the headroom by adding
+        // backwardItemCount. Store the user's sub-row offset so effect #6
+        // can apply it AFTER the new buffer is rendered. We cannot pre-set
+        // scrollEl.scrollTop here because the OLD buffer is still rendered
+        // and its scrollHeight may be too small — the browser would clamp
+        // the value, losing the offset. Effect #6 runs in useLayoutEffect
+        // after React paints the new 300-item buffer (enough scrollHeight).
+        //
+        // When reverseIndex >= backwardItemCount, the user is already
+        // past the headroom (e.g. second seeks with large scrollTop).
+        // No adjustment needed — position preserved exactly by the
+        // existing reverse-compute + effect #6 no-op path.
+        if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
+          _diagHeadroomFired = true;
+          const subRowOffset = currentScrollTop - (currentRow * rowH);
+          reverseIndex += backwardItemCount;
+          // Store the sub-row offset so effect #6 can apply it AFTER the new
+          // buffer is rendered (when scrollHeight is large enough). We do NOT
+          // pre-set scrollEl.scrollTop here because the old buffer is still
+          // rendered and its scrollHeight may be too small — the browser would
+          // clamp the value, losing the offset. Effect #6 runs in
+          // useLayoutEffect after React paints the new 300-item buffer.
+          _seekSubRowOffset = subRowOffset;
+        }
+        _diagReverseIndex = reverseIndex;
 
         // At the real end of the dataset, there are no more items to extend.
         // Being at atBottom=true won't cause freeze — the deferred scroll
@@ -2066,9 +2213,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       }
 
 
-      // NOTE: We intentionally do NOT set scrollEl.scrollTop here.
-      // The _seekTargetLocalIndex is chosen so that localIndexToPixelTop()
+      // NOTE: We generally do NOT set scrollEl.scrollTop here — the
+      // _seekTargetLocalIndex is chosen so that localIndexToPixelTop()
       // matches (or is very close to) the user's current scrollTop.
+      // EXCEPTION: the headroom zone (reverseIndex < backwardItemCount) —
+      // that stores a sub-row offset for effect #6 to apply after the new
+      // buffer is rendered (to avoid browser clamping on the old buffer).
+
+      devLog(
+        `[seek-reverse-compute] scrollTop=${scrollEl?.scrollTop.toFixed(1)}, ` +
+        `origScrollTop=${_diagOrigScrollTop}, currentRow=${_diagCurrentRow}, cols=${_diagCols}, ` +
+        `reverseIndex=${_diagReverseIndex}, headroomFired=${_diagHeadroomFired}, ` +
+        `scrollTargetIndex=${scrollTargetIndex}, ` +
+        `rawTargetLocalIndex=${rawTargetLocalIndex}, targetLocalIndex=${targetLocalIndex}, ` +
+        `bufferLen=${result.hits.length}, actualOffset=${actualOffset}, clampedOffset=${clampedOffset}, ` +
+        `backwardItemCount=${backwardItemCount}, skipBackwardFetch=${skipBackwardFetch}, ` +
+        `clientWidth=${scrollEl?.clientWidth}`,
+      );
       // Effect #6 in useScrollEffects will only adjust scrollTop if there's
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
@@ -2088,6 +2249,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: scrollTargetIndex,
+        _seekSubRowOffset,
         seekTime: Date.now() - seekStartTime,
       });
 
@@ -2199,6 +2361,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: buf.targetLocalIndex,
+        _seekSubRowOffset: 0,
       });
 
       devLog(

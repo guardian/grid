@@ -9,7 +9,7 @@
  *   5. Seek position is completely off + scrolling causes content shift
  *   6. Content shifts ("swimming") when scrolling slowly after seek
  *
- * MANUAL INVOCATION ONLY — see manual-smoke-test.spec.ts header.
+ * RUNS AGAINST REAL ES — see manual-smoke-test.spec.ts header.
  *
  * === AGENT-READABLE OUTPUT ===
  * After running, structured results are written to:
@@ -28,34 +28,7 @@ import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,
 } from "@/constants/layout";
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
-
-// ---------------------------------------------------------------------------
-// Report output
-// ---------------------------------------------------------------------------
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const OUT_DIR = path.join(__dirname, "..", "test-results");
-const REPORT_PATH = path.join(OUT_DIR, "scroll-stability-report.json");
-
-/** Accumulated test results — written to JSON after all tests complete. */
-const report: Record<string, any> = {
-  timestamp: new Date().toISOString(),
-  tests: {},
-};
-
-function ensureOutDir() {
-  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
-}
-
-/** Save a test's result into the report. Also logs a compact summary. */
-function recordResult(testId: string, data: Record<string, any>) {
-  report.tests[testId] = { ...data, completedAt: new Date().toISOString() };
-  console.log(`\n  [${testId}] JSON recorded → ${REPORT_PATH}`);
-}
+import { recordResult } from "./smoke-report";
 
 // ---------------------------------------------------------------------------
 // Guard
@@ -308,17 +281,7 @@ async function detectSwimming(
 test.describe("Smoke — scroll stability (real ES)", () => {
   test.describe.configure({ timeout: 180_000 });
 
-  // Write report after ALL tests in this describe block
-  test.afterAll(() => {
-    ensureOutDir();
-    fs.writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2));
-    console.log(`\n══════════════════════════════════════════════════════`);
-    console.log(`  REPORT WRITTEN → ${REPORT_PATH}`);
-    console.log(`  Tests recorded: ${Object.keys(report.tests).length}`);
-    console.log(`══════════════════════════════════════════════════════\n`);
-  });
-
-  test.afterEach(async ({ kupua }) => {
+  test.afterEach(async ({ kupua }, testInfo) => {
     try {
       const store = await kupua.getStoreState();
       console.log("\n── Store state ──────────────────────────────────────");
@@ -330,6 +293,18 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       console.log(`  orderBy:        ${store.orderBy}`);
       console.log(`  seekGeneration: ${store.seekGeneration}`);
       console.log("────────────────────────────────────────────────────\n");
+
+      // If the test failed before its own recordResult, record the failure
+      const match = testInfo.title.match(/^(S\d+)/);
+      if (match && testInfo.status === "failed") {
+        recordResult(match[1], {
+          total: store.total,
+          store,
+          status: "failed",
+          duration: testInfo.duration,
+          error: testInfo.error?.message?.slice(0, 500),
+        });
+      }
     } catch {
       console.log("  (could not read store state)\n");
     }
@@ -425,13 +400,19 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       if (!preDiag || !postDiag) continue;
 
       const scrollDelta = Math.abs(postDiag.scrollTop - preDiag.scrollTop);
-      const preserved = scrollDelta < GRID_ROW_HEIGHT;
+      const subRowBefore = preDiag.scrollTop % GRID_ROW_HEIGHT;
+      const subRowAfter = postDiag.scrollTop % GRID_ROW_HEIGHT;
+      const subRowDelta = Math.abs(subRowAfter - subRowBefore);
+      const preserved = subRowDelta < 5;
 
       scenarios.push({
         preScrollRows,
         preScrollTop: preDiag.scrollTop,
         postScrollTop: postDiag.scrollTop,
         scrollDelta,
+        subRowBefore,
+        subRowAfter,
+        subRowDelta,
         scrollPreserved: preserved,
         seekTargetLocalIndex: postDiag.seekTargetLocalIndex,
         seekTargetPixelTop: postDiag.seekTargetPixelTop,
@@ -445,10 +426,27 @@ test.describe("Smoke — scroll stability (real ES)", () => {
 
       console.log(`\n  ── preScrollRows=${preScrollRows} ──`);
       console.log(`  scrollTop: ${preDiag.scrollTop.toFixed(1)} → ${postDiag.scrollTop.toFixed(1)} (delta=${scrollDelta.toFixed(1)})`);
+      console.log(`  subRow: ${subRowBefore.toFixed(1)} → ${subRowAfter.toFixed(1)} (delta=${subRowDelta.toFixed(1)})`);
       console.log(`  ${preserved ? "✅ PRESERVED" : "❌ NOT PRESERVED"}`);
     }
 
     recordResult("S13", { total, scenarios, GRID_ROW_HEIGHT });
+
+    // Assert scroll preservation for non-zero preScrollRows.
+    // preScrollRows=0 is the "seek from very top" case — the headroom
+    // offset fires and scrollTop changes significantly (expected, by design).
+    // preScrollRows=1,3 should preserve SUB-ROW OFFSET (not absolute scrollTop,
+    // which changes due to headroom items being prepended).
+    for (const s of scenarios) {
+      if (s.preScrollRows > 0) {
+        expect(
+          s.subRowDelta,
+          `preScrollRows=${s.preScrollRows}: sub-row offset changed by ${s.subRowDelta.toFixed(1)} ` +
+          `(before=${s.subRowBefore.toFixed(1)}, after=${s.subRowAfter.toFixed(1)}). ` +
+          `Vertical position was not preserved.`,
+        ).toBeLessThan(5);
+      }
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -816,12 +814,18 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       const post = await getGridDiag(kupua.page);
 
       const delta = post ? Math.abs(post.scrollTop - pre!.scrollTop) : -1;
+      const subRowBefore = pre ? pre.scrollTop % GRID_ROW_HEIGHT : 0;
+      const subRowAfter = post ? post.scrollTop % GRID_ROW_HEIGHT : 0;
+      const subRowDelta = Math.abs(subRowAfter - subRowBefore);
       scenarios.push({
         name: "A: half-row scroll from top",
         preScrollTop: pre?.scrollTop,
         postScrollTop: post?.scrollTop,
         delta,
-        preserved: delta < GRID_ROW_HEIGHT,
+        subRowBefore,
+        subRowAfter,
+        subRowDelta,
+        preserved: subRowDelta < 5,
         seekTargetLocalIndex: post?.seekTargetLocalIndex,
         preDiag: pre,
         postDiag: post,
@@ -848,12 +852,18 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       const post = await getGridDiag(kupua.page);
 
       const delta = post ? Math.abs(post.scrollTop - pre!.scrollTop) : -1;
+      const subRowBefore = pre ? pre.scrollTop % GRID_ROW_HEIGHT : 0;
+      const subRowAfter = post ? post.scrollTop % GRID_ROW_HEIGHT : 0;
+      const subRowDelta = Math.abs(subRowAfter - subRowBefore);
       scenarios.push({
         name: "B: 2+ rows from top (partial cut-off)",
         preScrollTop: pre?.scrollTop,
         postScrollTop: post?.scrollTop,
         delta,
-        preserved: delta < GRID_ROW_HEIGHT,
+        subRowBefore,
+        subRowAfter,
+        subRowDelta,
+        preserved: subRowDelta < 5,
         seekTargetLocalIndex: post?.seekTargetLocalIndex,
         preDiag: pre,
         postDiag: post,
@@ -1004,6 +1014,35 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     }
 
     recordResult("S20", { total, GRID_ROW_HEIGHT, scenarios });
+
+    // Assert scroll preservation for scenarios where it should work.
+    // A: half-row from top → headroom pre-set preserves sub-row offset
+    // B: 2+ rows from top → headroom pre-set preserves sub-row offset
+    //    For A and B, absolute scrollTop changes (headroom added) but
+    //    sub-row offset is preserved. Check subRowDelta.
+    // F: sequential seek (50%→scroll→70%) → reverse-compute preserves
+    //    scrollTop directly (no headroom zone). Check absolute delta.
+    //
+    // C: near-bottom scroll → buffer-shrink may clamp (accepted)
+    // D: half-row from bottom → buffer-shrink may clamp (accepted)
+    // E: End×2 → seek → buffer-shrink always clamps (accepted)
+    for (const s of scenarios) {
+      if (["A", "B"].some((prefix) => s.name.startsWith(prefix))) {
+        expect(
+          s.subRowDelta,
+          `${s.name}: sub-row offset changed by ${s.subRowDelta.toFixed(1)} ` +
+          `(before=${s.subRowBefore.toFixed(1)}, after=${s.subRowAfter.toFixed(1)}). ` +
+          `Vertical position was not preserved.`,
+        ).toBeLessThan(5);
+      }
+      if (s.name.startsWith("F")) {
+        expect(
+          s.delta,
+          `${s.name}: scrollTop delta ${s.delta.toFixed(1)} exceeds rowHeight ${GRID_ROW_HEIGHT}. ` +
+          `Scroll position was not preserved.`,
+        ).toBeLessThan(GRID_ROW_HEIGHT);
+      }
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -1067,7 +1106,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     });
     const storeBefore = await getStoreInternals(kupua.page);
 
-    // Scroll UP with mouse.wheel — 5 steps of -200px
+    // Scroll UP with mouse.wheel — 5 steps of -200px to verify scroll works
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
     const gridBox = await gridEl.boundingBox();
     if (!gridBox) { console.log("  ERROR: no grid box"); return; }
@@ -1079,6 +1118,22 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       await kupua.page.mouse.wheel(0, -200);
       await kupua.page.waitForTimeout(100);
     }
+    await kupua.page.waitForTimeout(500);
+
+    const scrollAfterSmall = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      return el?.scrollTop ?? 0;
+    });
+    const scrollDecreased = scrollAfterSmall < scrollBefore;
+
+    // Phase 2: Continue scrolling to trigger extendBackward past the
+    // bidirectional headroom (~100 items). With 7 cols and ~242px rows,
+    // need to scroll ~14 rows × 242px ≈ 3400px to go from index ~93
+    // to below EXTEND_THRESHOLD (50). 20 more events × 200px = 4000px.
+    for (let i = 0; i < 20; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
     await kupua.page.waitForTimeout(1500);
 
     const scrollAfter = await kupua.page.evaluate(() => {
@@ -1087,11 +1142,11 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     });
     const storeAfter = await getStoreInternals(kupua.page);
 
-    const scrollDecreased = scrollAfter < scrollBefore;
     const backwardExtendFired = (storeAfter?.bufferOffset ?? 0) < (storeBefore?.bufferOffset ?? 0);
     const bufferGrew = (storeAfter?.resultsLength ?? 0) > (storeBefore?.resultsLength ?? 0);
 
-    console.log(`\n  scrollTop: ${scrollBefore.toFixed(1)} → ${scrollAfter.toFixed(1)} (delta=${(scrollAfter - scrollBefore).toFixed(1)})`);
+    console.log(`\n  scrollTop: ${scrollBefore.toFixed(1)} → ${scrollAfterSmall.toFixed(1)} (phase 1, delta=${(scrollAfterSmall - scrollBefore).toFixed(1)})`);
+    console.log(`  scrollTop after full scroll: ${scrollAfter.toFixed(1)}`);
     console.log(`  offset: ${storeBefore?.bufferOffset} → ${storeAfter?.bufferOffset}`);
     console.log(`  len: ${storeBefore?.resultsLength} → ${storeAfter?.resultsLength}`);
     console.log(`  scrollDecreased: ${scrollDecreased}`);
@@ -1116,11 +1171,10 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     });
 
     expect(scrollDecreased, "User must be able to scroll up after seeking").toBe(true);
-    // On real data, extendBackward typically fires during the 1.5s settle window
-    // (deferred scroll at ~800ms triggers it), so by the time we scroll up the
-    // bufferOffset has already decreased. Assert that backward extend fired
-    // either during settle (storeBefore already shows decreased offset vs post-seek)
-    // or during the scroll-up itself.
+    // With bidirectional seek, the user starts in the buffer middle (~100 items
+    // of headroom above). Phase 2 scrolls 20 more events past the headroom to
+    // trigger extendBackward. On real data with 7 cols, this should bring
+    // startIndex below EXTEND_THRESHOLD (50).
     const seekOffset = postSeek?.bufferOffset ?? 0;
     const extendFiredDuringSettle = (storeBefore?.bufferOffset ?? 0) < seekOffset;
     expect(
@@ -1246,6 +1300,139 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     });
 
     expect(maxContentShift, `Visible content shifted by ${maxContentShift} items (limit: ${MAX_SHIFT}, cols: ${cols})`).toBeLessThanOrEqual(MAX_SHIFT);
+  });
+
+  // -------------------------------------------------------------------------
+  // S24: Seek from various row offsets — no swim in headroom zone
+  // -------------------------------------------------------------------------
+
+  test("S24: seek from row offsets 0.5/1.5/5.5 — no swim", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+
+    const results: Array<{
+      rowOffset: number;
+      scrollPx: number;
+      maxShift: number;
+      firstPos: number;
+      lastPos: number;
+      snapshotCount: number;
+      subRowBefore: number;
+      subRowAfter: number;
+    }> = [];
+
+    for (const rowOffset of [0.5, 1.5, 5.5]) {
+      // Reset to top
+      await kupua.page.keyboard.press("Home");
+      await kupua.page.waitForTimeout(500);
+
+      // Scroll to the target row offset
+      const scrollPx = Math.round(GRID_ROW_HEIGHT * rowOffset);
+      await kupua.page.mouse.move(
+        gridBox.x + gridBox.width / 2,
+        gridBox.y + gridBox.height / 2,
+      );
+      await kupua.page.mouse.wheel(0, scrollPx);
+      await kupua.page.waitForTimeout(300);
+
+      // Capture pre-seek scrollTop for position preservation check
+      const preScrollTop = await kupua.page.evaluate(() => {
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        return el ? el.scrollTop : 0;
+      });
+
+      // Seek to 50%
+      await kupua.seekTo(0.5, 30_000);
+
+      // Capture post-seek scrollTop for sub-row offset check
+      const postScrollTop = await kupua.page.evaluate(() => {
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        return el ? el.scrollTop : 0;
+      });
+
+      const subRowBefore = preScrollTop % GRID_ROW_HEIGHT;
+      const subRowAfter = postScrollTop % GRID_ROW_HEIGHT;
+
+      // Poll for 3 seconds to detect content shift
+      const snapshots: Array<{ t: number; pos: number }> = [];
+      const start = Date.now();
+      for (let i = 0; i < 60; i++) {
+        const diag = await getGridDiag(kupua.page);
+        if (diag) {
+          snapshots.push({
+            t: Date.now() - start,
+            pos: diag.firstVisibleGlobalPos,
+          });
+        }
+        await kupua.page.waitForTimeout(50);
+      }
+
+      // Calculate max content shift
+      let maxShift = 0;
+      for (let j = 1; j < snapshots.length; j++) {
+        const shift = Math.abs(snapshots[j].pos - snapshots[j - 1].pos);
+        if (shift > maxShift) maxShift = shift;
+      }
+
+      const entry = {
+        rowOffset,
+        scrollPx,
+        maxShift,
+        firstPos: snapshots[0]?.pos ?? -1,
+        lastPos: snapshots[snapshots.length - 1]?.pos ?? -1,
+        snapshotCount: snapshots.length,
+        subRowBefore,
+        subRowAfter,
+      };
+      results.push(entry);
+
+      console.log(
+        `\n  [row=${rowOffset}] scrollPx=${scrollPx}, maxShift=${maxShift}, ` +
+        `subRow: ${subRowBefore.toFixed(1)} → ${subRowAfter.toFixed(1)}, ` +
+        `scrollTop: ${preScrollTop.toFixed(1)} → ${postScrollTop.toFixed(1)}, ` +
+        `first=${entry.firstPos}, last=${entry.lastPos}, snaps=${entry.snapshotCount}`,
+      );
+    }
+
+    const cols = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      return el ? Math.max(1, Math.floor(el.clientWidth / 280)) : 7;
+    });
+    const MAX_SHIFT = cols + 1;
+
+    recordResult("S24", {
+      total,
+      cols,
+      maxShiftLimit: MAX_SHIFT,
+      results,
+      consoleLogs: kupua.getConsoleLogs(/\[seek\]|\[prepend-comp\]/),
+      verdict: results.every((r) => r.maxShift <= MAX_SHIFT && Math.abs(r.subRowAfter - r.subRowBefore) < 5)
+        ? "PERFECT"
+        : results.every((r) => r.maxShift <= MAX_SHIFT)
+          ? "NO_SWIM_BUT_POSITION_LOST"
+          : "SWIM_DETECTED",
+    });
+
+    for (const r of results) {
+      expect(
+        r.maxShift,
+        `Seek from row offset ${r.rowOffset} caused ${r.maxShift}-item content shift ` +
+        `(limit: ${MAX_SHIFT}, cols: ${cols}). Swimming in headroom zone.`,
+      ).toBeLessThanOrEqual(MAX_SHIFT);
+
+      expect(
+        Math.abs(r.subRowAfter - r.subRowBefore),
+        `Seek from row offset ${r.rowOffset}: sub-row offset changed from ` +
+        `${r.subRowBefore.toFixed(1)} to ${r.subRowAfter.toFixed(1)}. ` +
+        `Vertical position was not preserved.`,
+      ).toBeLessThan(5);
+    }
   });
 });
 

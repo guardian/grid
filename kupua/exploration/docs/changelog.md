@@ -14,6 +14,127 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 April 2026 — Bidirectional Seek: Position Preservation + Headroom Boundary Fix
+
+**Problem (post-bidirectional-seek):** With 300-item buffer (100 backward +
+200 forward), seeking from `scrollTop ≈ 0` showed backward headroom content
+(wrong images) then swam at 800ms when extends fired. Worse than before for
+fresh-app seeks. Home key caused a new flash regression.
+
+**Root cause:** The reverse-compute mapped `scrollTop → reverseIndex`. Before
+bidirectional seek, `reverseIndex=0` = the seek target. After, `reverseIndex=0`
+= backward headroom (100 items before the target). For scrollTop=0, effect #6
+saw zero delta → no-op → user saw wrong content → extends at 800ms → swim.
+
+**Fix (three iterations, Agents 11-13):**
+
+1. **`reverseIndex += backwardItemCount` when in headroom zone** — shifts
+   the target index past backward items when `reverseIndex < backwardItemCount`.
+   Covers the entire headroom zone, not just scrollTop=0.
+
+2. **`_seekSubRowOffset` for sub-row pixel preservation** — stores the user's
+   sub-row pixel offset (`scrollTop - currentRow * rowH`) in the store. Effect
+   #6 applies it via `targetWithSubRow = targetPixelTop + seekSubRowOffset`
+   after React paints the new 300-item buffer (scrollHeight now large enough).
+   The old approach of pre-setting `scrollEl.scrollTop` in `seek()` was
+   abandoned because the OLD buffer is still rendered and its scrollHeight
+   may be too small — browser clamps the value, losing the offset.
+
+3. **Effect #6 condition update** — `seekSubRowOffset > 0` forces adjustment
+   (the store's position needs correction regardless of delta size). Without
+   sub-row offset, the original `delta > rowHeight` threshold applies.
+
+**Boundary behaviour (100/cols = fractional row):** With 6 columns,
+`100/6 = 16.67`. Row 16 (`reverseIndex=96 < 100`) → headroom fires. Row 17
+(`reverseIndex=102 ≥ 100`) → no headroom, effect #6 NO-OPs. Both preserve
+position. Agent 14 confirmed on TEST with 6- and 7-column viewports: all
+rows 14-19 pass with `subRowDelta=0.0` and `maxSwim=0`.
+
+**E2E test updates (Agent 12):**
+- Golden table Case 3 (near-top seek): updated to verify headroom offset +
+  sub-row preservation instead of absolute scrollTop delta.
+- 4 scroll-up tests: split into two phases — Phase 1 verifies scrollTop
+  decreases (5 wheel events, within headroom); Phase 2 triggers
+  extendBackward (15-20 more events, past headroom).
+- New test: "no swim when seeking from any near-top row offset" — polls
+  `firstVisibleGlobalPos` for 2s after seek from row offsets 0.5, 1.5, 5.5.
+
+**Smoke tests (S22-S24):** S22 scroll-up adapted for bidirectional seek
+(two-phase approach). S24 added for headroom zone row offsets. All 24
+smoke tests pass on TEST (1.3M docs).
+
+**Results:** 186 unit, 86 E2E, 24 smoke tests pass. Zero swimming. Sub-row
+offset preserved exactly across all headroom zone rows.
+
+### 5 April 2026 — Unified Smoke Report + Smoke Test Directive Update
+
+**Smoke report unification:** Created `e2e/smoke-report.ts` — shared module
+with `recordResult()` that reads → merges → writes JSON on each test
+completion. Both `manual-smoke-test.spec.ts` and `smoke-scroll-stability.spec.ts`
+import from it. Replaced per-file batch `afterAll` writing that clobbered
+between spec files. Report at `test-results/smoke-report.json`.
+
+**Smoke test directive update:** Agent may now run smoke tests directly against
+TEST when the user confirms it's available. Removed "AGENTS MUST NEVER RUN"
+language from directive, spec file headers, and `run-smoke.mjs`. Smoke tests
+are read-only — write protection is in the DAL, not the test runner. Agent may
+also use `--debug` and `page.pause()` for interactive browser diagnosis.
+Updated both `.github/copilot-instructions.md` and the human copy.
+
+**S13/S20 sub-row assertion fix:** Changed from absolute scrollTop delta
+assertion (`|post - pre| < rowHeight`, which fails in headroom zone where
+scrollTop must change by ~4242px) to sub-row offset assertion
+(`|postSubRow - preSubRow| < 5`). Both pass on TEST with `subRowDelta=0.0`.
+
+
+
+**Problem:** After `seek()` delivered data, the first `extendBackward` at
+~800ms caused a ~1% visible "swim" — approximately 3 images shifting by one
+cell. Root cause: seek loaded 200 items forward-only, placing the user at
+the very top of the buffer. The first backward extend prepended directly
+above visible content, and the ~1-frame gap between React's DOM mutation and
+`useLayoutEffect`'s `scrollTop` compensation was visible.
+
+**Fix:** Bidirectional seek. After all deep seek paths (percentile, keyword,
+null-zone) complete their forward `searchAfter` (PAGE_SIZE=200 items), a
+unified backward `searchAfter` (halfBuffer=100 items, reversed) fetches
+items before the landed cursor. Combined buffer: ~300 items with ~100 items
+of headroom above the viewport. User sees the buffer middle, so both
+`extendBackward` and `extendForward` operate on off-screen content.
+
+**Implementation details:**
+- Single backward fetch point after all path-specific code, not duplicated
+  per path. Controlled by `skipBackwardFetch` flag (true for End-key fast
+  path and shallow `from/size` path).
+- Uses `detectNullZoneCursor` on the landed cursor for automatic null-zone
+  handling — same pattern as `_loadBufferAroundImage`.
+- `bufferOffset` adjusted: `max(0, actualOffset - backwardHits.length)`.
+- Cursors correct by construction: combined sort values
+  `[...backward, ...forward]` means `result.sortValues[0]` is the earliest
+  item (backward first) and `result.sortValues[last]` is the latest.
+
+**Test adjustments:**
+- Prepend compensation test → replaced with "bidirectional seek places user
+  in buffer middle" — verifies `bufferOffset > 0`, buffer extends in both
+  directions, and buffer > 200 items.
+- Post-seek scroll-up tests (grid, table, double-seek, 2s deadline):
+  increased wheel events from 5 to 20-25 to scroll past the ~100-item
+  headroom above the viewport and trigger `extendBackward`.
+- Settle-window stability: content shift = **0 items** (was COLS+1 before).
+
+**Results:** 186 unit/integration tests pass. 85 E2E tests pass. Settle
+timeline shows `firstVisibleGlobalPos` perfectly stable throughout the
+entire 1800ms window — zero swimming. Trade-off: ~50-100ms additional
+seek latency (one extra ES round-trip for the backward fetch).
+
+**Docs updated:** AGENTS.md (What's Done, architecture decisions, test
+counts), scroll-architecture.md (§3 deep seek flow, §7 swimming section
+marked as fixed).
+
+**Smoke tests needed:** User should run S14 and S15 on TEST cluster to
+confirm zero swimming on real 1.3M-doc data:
+`node scripts/run-smoke.mjs 14 15`
+
 ### 5 April 2026 — Scroll architecture reference document
 
 Created `exploration/docs/scroll-architecture.md` — a Staff-Engineer-level

@@ -2,14 +2,12 @@
  * Smoke tests for kupua against real Elasticsearch (TEST cluster).
  *
  * ╔══════════════════════════════════════════════════════════════════════╗
- * ║  MANUAL INVOCATION ONLY — DO NOT RUN IN CI, SCRIPTS, OR AGENTS.   ║
+ * ║  READ-ONLY tests against a REAL Elasticsearch cluster shared by    ║
+ * ║  the entire Guardian editorial team. They generate load but never  ║
+ * ║  write.                                                            ║
  * ║                                                                    ║
- * ║  These tests hit a REAL Elasticsearch cluster shared by the entire ║
- * ║  Guardian editorial team. They are READ-ONLY but generate load.    ║
- * ║                                                                    ║
- * ║  Only a human developer should run these, manually, from an IDE    ║
- * ║  terminal. The agent may ask you to run them and report results,   ║
- * ║  but must NEVER invoke them directly.                              ║
+ * ║  Both human developers and the agent may run these when TEST is    ║
+ * ║  available (start.sh --use-TEST running).                          ║
  * ║                                                                    ║
  * ║  How to run:                                                       ║
  * ║    Terminal 1: ./scripts/start.sh --use-TEST  (has AWS creds)      ║
@@ -25,6 +23,7 @@
 
 import { test, expect, KupuaHelpers } from "./helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
+import { recordResult, resetReport } from "./smoke-report";
 
 // ---------------------------------------------------------------------------
 // Guard: skip all tests if not connected to a real cluster
@@ -50,9 +49,11 @@ test.describe("Smoke — real ES", () => {
   // Generous timeouts — real cluster + SSH tunnel can be slow
   test.describe.configure({ timeout: 120_000 });
 
-  // After each test, dump store state to terminal for diagnostics.
-  // This output is useful when pasting results to the agent.
-  test.afterEach(async ({ kupua }) => {
+  // Clear stale results from previous runs
+  test.beforeAll(() => { resetReport(); });
+
+  // After each test, dump store state and record to shared JSON report.
+  test.afterEach(async ({ kupua }, testInfo) => {
     try {
       const store = await kupua.getStoreState();
       console.log("\n── Store state ──────────────────────────────────────");
@@ -67,6 +68,17 @@ test.describe("Smoke — real ES", () => {
       console.log(`  firstImageId:   ${store.firstImageId}`);
       console.log(`  lastImageId:    ${store.lastImageId}`);
       console.log("────────────────────────────────────────────────────\n");
+
+      // Extract S-number from test title for the JSON report
+      const match = testInfo.title.match(/^(S\d+)/);
+      if (match) {
+        recordResult(match[1], {
+          total: store.total,
+          store,
+          status: testInfo.status,
+          duration: testInfo.duration,
+        });
+      }
     } catch {
       console.log("  (could not read store state)\n");
     }

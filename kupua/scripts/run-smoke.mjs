@@ -4,8 +4,8 @@
  * Interactive runner for manual smoke tests against real ES.
  *
  * ╔══════════════════════════════════════════════════════════════════════╗
- * ║  MANUAL INVOCATION ONLY — NEVER RUN BY CI, SCRIPTS, OR AGENTS.    ║
- * ║  Only a human developer should run this from their IDE terminal.   ║
+ * ║  READ-ONLY smoke tests against real ES (TEST cluster).             ║
+ * ║  May be run by human developers or by the agent when TEST is up.  ║
  * ╚══════════════════════════════════════════════════════════════════════╝
  *
  * Usage:
@@ -108,12 +108,12 @@ async function main() {
   // Build grep pattern
   let grepPattern;
   if (selection.toLowerCase() === "all") {
-    grepPattern = "Smoke — real ES";
+    grepPattern = "Smoke —";
   } else if (selection.toLowerCase() === "perf") {
     console.log('  ℹ️  Perf smoke tests moved to e2e-perf/. Use: node scripts/run-perf-smoke.mjs');
     process.exit(0);
   } else if (selection.toLowerCase() === "smoke") {
-    grepPattern = "Smoke — real ES";
+    grepPattern = "Smoke —";
   } else {
     const indices = selection.split(",").map((s) => parseInt(s.trim(), 10) - 1);
     const invalid = indices.filter((i) => isNaN(i) || i < 0 || i >= tests.length);

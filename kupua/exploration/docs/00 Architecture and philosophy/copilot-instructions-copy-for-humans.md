@@ -74,13 +74,18 @@ call, not background). Do NOT pipe through `tail`/`head`. Do NOT use `sleep` to 
 The list reporter streams each result live (~70s total run). The user wants to watch
 results accumulate in real time.
 
-**Directive: Smoke tests against real ES.** `e2e/manual-smoke-test.spec.ts` runs against a
-live Elasticsearch cluster (TEST) via `./scripts/start.sh --use-TEST`. The agent must
-**NEVER** run these tests directly — only the human developer may invoke them, manually,
-from their own IDE terminal. When a fix needs validation against real data, tell the
-user what command to run (e.g. `node scripts/run-smoke.mjs 2`). The user runs it, you
-see the output, and iterate. The tests auto-skip when connected to local ES
-(`total < 100k`), so accidental local runs are harmless.
+**Directive: Smoke tests against real ES.** `e2e/manual-smoke-test.spec.ts` and
+`e2e/smoke-scroll-stability.spec.ts` run against a live Elasticsearch cluster (TEST)
+via `./scripts/start.sh --use-TEST`. The agent **may** run these tests directly,
+after seeking EXPLICIT permission from the human user once per-session, using
+`node scripts/run-smoke.mjs <number>` (or Playwright commands against the smoke config)
+when the user confirms that TEST is available and `start.sh --use-TEST` is running.
+All smoke tests are **read-only** and auto-skip when connected to local ES
+(`total < 100k`), so accidental local runs are harmless. The agent may also use
+Playwright `--debug` or `page.pause()` for interactive browser diagnosis when
+that would speed up debugging, similarly after excplicit human consent once per-session.
+**Never** issue write operations against real ES —
+this is a read-only privilege.
 
 **Directive: Smoke → local feedback loop.** The primary purpose of manual smoke tests is
 NOT just to validate fixes on real data — it is to **improve local test coverage** so

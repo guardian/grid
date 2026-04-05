@@ -139,19 +139,26 @@ of data.
 2. `seek()` sets `SEEK_COOLDOWN_MS = 700ms` — blocks all extends.
 3. Deep path: ES `percentiles` aggregation estimates the `uploadTime` at
    the 50th percentile → e.g. `2024-08-15T14:22:00.000Z`.
-4. `search_after([estimated_date, ""])` fetches 200 items starting there.
+4. Forward `search_after([estimated_date, ""])` fetches 200 items starting
+   there. Then a backward `search_after` (reversed, halfBuffer ≈ 100 items)
+   fetches items before the cursor. Combined buffer ≈ 300 items with the
+   user's viewport in the middle (~100 items of headroom above).
 5. `countBefore` query returns the exact global offset we landed at.
+   `bufferOffset` adjusted for backward items: `actualOffset - backwardHits`.
 6. Buffer is replaced. `_seekGeneration` increments.
 7. `useScrollEffects` effect #6 fires: reverse-computes the local index
    that corresponds to the user's current `scrollTop` → typically delta
    <1 row → **no-op**. Zero visible flash.
 8. At 800ms (`SEEK_DEFERRED_SCROLL_MS`), a synthetic scroll event triggers
-   `reportVisibleRange` → `extendForward` runs, filling cells below.
-9. `extendBackward` fires → prepends 200 items → scroll compensation
-   adjusts `scrollTop` in `useLayoutEffect` → nearly invisible.
+   `reportVisibleRange`. With ~100 items of headroom, `startIndex > 50`
+   (EXTEND_THRESHOLD) — **no immediate backward extend**. Forward extend
+   fires if needed.
+9. As the user scrolls up past the headroom, `extendBackward` fires and
+   prepends to off-screen content — **invisible** by construction.
 10. Post-extend cooldown (200ms) prevents cascading compensations.
 
-Total time: ~200–500ms on real ES (dominated by network, not computation).
+Total time: ~250–600ms on real ES (one extra backward fetch, ~50-100ms).
+Settle-window content shift: **0 items** (was ~3 items before bidirectional seek).
 
 ### Sort-around-focus ("Never Lost")
 
@@ -510,40 +517,33 @@ past the last doc with a value is the **null zone**:
 
 ## §7 Edge Cases and Remaining Work
 
-### The 1% swim
+### The 1% swim — ✅ FIXED (Bidirectional Seek, Idea B)
 
-After seek, the first `extendBackward` at ~800ms causes a tiny (~3 image)
-visual shift. Root cause: the gap between React's DOM mutation (prepend
-200 items) and `useLayoutEffect`'s `scrollTop` compensation. Ideas ranked
-by promise:
+After seek, `extendBackward` used to prepend items directly above visible
+content, causing a ~3-image visual shift. **Fixed by bidirectional seek:**
+deep seek paths now fetch backward items (halfBuffer ≈ 100) in addition to
+the forward fetch (PAGE_SIZE = 200), placing the user in the buffer middle.
+Both `extendBackward` and `extendForward` operate on off-screen content.
+Settle-window content shift: **0 items** (measured on both local and real
+1.3M-doc data).
 
-**Idea A: Accept it.** 3 images shifting by one cell is genuinely
-imperceptible to most users. The old behaviour (can't scroll up at all)
-was a real usability bug. This is cosmetic.
+**Implementation:** A unified backward fetch runs after all deep seek paths
+(percentile, keyword, null-zone) complete. Uses `detectNullZoneCursor` on
+the landed cursor for automatic null-zone handling. The End-key fast path
+and shallow `from/size` path skip the backward fetch (no swimming concern).
+Buffer size after seek: ~300 items (200 forward + ~100 backward), well
+within `BUFFER_CAPACITY` (1000).
 
-**Idea B: Bidirectional seek — land in the middle of the buffer.** Currently
-`seek()` loads 200 items starting at the target. The viewport shows the
-buffer top, so the first `extendBackward` prepends directly above visible
-content — the most swim-visible spot. If seek loaded ~100 items before and
-~100 after the target, the viewport would show the buffer middle. Both
-`extendBackward` and `extendForward` would prepend/append to off-screen
-zones. The store already has `_loadBufferAroundImage` (bidirectional
-`search_after`) for sort-around-focus — the machinery exists. Trade-off:
-seek takes two ES round-trips instead of one, adding ~50–100ms.
+**Trade-off:** One additional ES round-trip per deep seek (~10ms local,
+~50-100ms over SSH tunnel). Seek latency: ~250-600ms (was ~200-500ms).
+Worth it: swimming is eliminated by construction.
 
-**Idea C: Increase deferred scroll delay beyond 800ms.** Delays when the
-swim occurs rather than preventing it. Only helps if the user has scrolled
-away from the landing zone before the first extend fires — essentially a
-time-gated version of "offscreen prepend" with worse UX guarantees.
+**Ideas considered but not needed:**
 
-**Idea D: `requestAnimationFrame` wrapper around compensation.** Runs
-*after* paint, not before — strictly worse than `useLayoutEffect`. Don't
-do this.
-
-**Idea E: `overflow-anchor: none` on scroll containers.** Tried 5 Apr 2026
-— no visible improvement. Chrome's scroll anchoring doesn't appear to
-conflict with the manual `scrollTop` compensation (likely because
-`contain: strict` already isolates the subtree). Reverted.
+- **Idea A (accept it):** Was the previous state — cosmetic but noticeable.
+- **Idea C (increase deferred scroll):** Delays but doesn't prevent swimming.
+- **Idea D (`requestAnimationFrame`):** Worse than `useLayoutEffect`.
+- **Idea E (`overflow-anchor: none`):** Tried 5 Apr 2026, no effect. Reverted.
 
 ### Timing optimisation
 
