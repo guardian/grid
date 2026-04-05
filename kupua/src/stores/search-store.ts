@@ -34,7 +34,6 @@ import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
-import { setPostSeekBackwardSuppress } from "@/hooks/useDataWindow";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import {
   BUFFER_CAPACITY,
@@ -49,6 +48,7 @@ import {
   AGG_EXPANDED_SIZE,
   SEEK_COOLDOWN_MS,
   SEARCH_FETCH_COOLDOWN_MS,
+  POST_EXTEND_COOLDOWN_MS,
 } from "@/constants/tuning";
 
 /** Aggregatable fields derived from the field registry — built once. */
@@ -1336,6 +1336,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _prependGeneration: state._prependGeneration + 1,
         };
       });
+
+      // APPROACH #4 (Agent 10): After each backward extend completes, set a
+      // short cooldown so the next extend can't fire immediately. Without this,
+      // the prepend compensation (scrollTop += ~8787px) fires a scroll event
+      // which triggers another extendBackward before the browser has painted
+      // the compensated position — cascading compensations cause visible
+      // "swimming." See POST_EXTEND_COOLDOWN_MS in tuning.ts for constraints.
+      _seekCooldownUntil = Date.now() + POST_EXTEND_COOLDOWN_MS;
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendBackwardInFlight: false });
@@ -1968,13 +1976,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // See tuning.ts for the timing relationship with SEEK_DEFERRED_SCROLL_MS.
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-      // Suppress extendBackward until the user scrolls past EXTEND_THRESHOLD.
-      // After a seek, the user is at startIndex≈0 in a 200-item buffer.
-      // Without this, every scroll event triggers extendBackward → prepend
-      // 200 items → scrollTop compensation (+8787px) → visible "swimming."
-      // The flag is cleared by reportVisibleRange in useDataWindow when
-      // startIndex > EXTEND_THRESHOLD. extendForward is NOT blocked.
-      setPostSeekBackwardSuppress(true);
+      // NOTE: _postSeekBackwardSuppress flag was removed (Agent 10). Swimming
+      // prevention now handled by SEEK_COOLDOWN_MS + POST_EXTEND_COOLDOWN_MS.
 
       // Compute the buffer-local target index so views can scroll there.
       // Clamp to buffer bounds — the percentile estimate may drift, landing

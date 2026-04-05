@@ -1042,6 +1042,211 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       verdict: totalShifts === 0 ? "STABLE" : `SWIMMING(${totalShifts})`,
     });
   });
+
+  // -------------------------------------------------------------------------
+  // S22: Scroll-up after seek — can the user scroll up immediately?
+  // -------------------------------------------------------------------------
+
+  test("S22: scroll-up after seek — immediate upward scroll", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Seek to 50%
+    await kupua.seekTo(0.5, 30_000);
+    const postSeek = await getGridDiag(kupua.page);
+    console.log(`\n  [post-seek] offset=${postSeek?.bufferOffset}, len=${postSeek?.resultsLength}, scrollTop=${postSeek?.scrollTop.toFixed(1)}`);
+
+    // Wait for full settle window
+    await kupua.page.waitForTimeout(1500);
+
+    const scrollBefore = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      return el?.scrollTop ?? 0;
+    });
+    const storeBefore = await getStoreInternals(kupua.page);
+
+    // Scroll UP with mouse.wheel — 5 steps of -200px
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(1500);
+
+    const scrollAfter = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]');
+      return el?.scrollTop ?? 0;
+    });
+    const storeAfter = await getStoreInternals(kupua.page);
+
+    const scrollDecreased = scrollAfter < scrollBefore;
+    const backwardExtendFired = (storeAfter?.bufferOffset ?? 0) < (storeBefore?.bufferOffset ?? 0);
+    const bufferGrew = (storeAfter?.resultsLength ?? 0) > (storeBefore?.resultsLength ?? 0);
+
+    console.log(`\n  scrollTop: ${scrollBefore.toFixed(1)} → ${scrollAfter.toFixed(1)} (delta=${(scrollAfter - scrollBefore).toFixed(1)})`);
+    console.log(`  offset: ${storeBefore?.bufferOffset} → ${storeAfter?.bufferOffset}`);
+    console.log(`  len: ${storeBefore?.resultsLength} → ${storeAfter?.resultsLength}`);
+    console.log(`  scrollDecreased: ${scrollDecreased}`);
+    console.log(`  backwardExtendFired: ${backwardExtendFired}`);
+    console.log(`  bufferGrew: ${bufferGrew}`);
+    console.log(`\n  VERDICT: ${scrollDecreased ? "✅ CAN SCROLL UP" : "❌ CANNOT SCROLL UP"}`);
+
+    const logs = kupua.getConsoleLogs(/\[seek\]|\[extend|\[prepend-comp\]/);
+
+    recordResult("S22", {
+      total,
+      scrollBefore,
+      scrollAfter,
+      scrollDelta: scrollAfter - scrollBefore,
+      scrollDecreased,
+      backwardExtendFired,
+      bufferGrew,
+      storeBefore,
+      storeAfter,
+      consoleLogs: logs,
+      verdict: scrollDecreased ? "CAN_SCROLL_UP" : "BLOCKED",
+    });
+
+    expect(scrollDecreased, "User must be able to scroll up after seeking").toBe(true);
+    // On real data, extendBackward typically fires during the 1.5s settle window
+    // (deferred scroll at ~800ms triggers it), so by the time we scroll up the
+    // bufferOffset has already decreased. Assert that backward extend fired
+    // either during settle (storeBefore already shows decreased offset vs post-seek)
+    // or during the scroll-up itself.
+    const seekOffset = postSeek?.bufferOffset ?? 0;
+    const extendFiredDuringSettle = (storeBefore?.bufferOffset ?? 0) < seekOffset;
+    expect(
+      backwardExtendFired || extendFiredDuringSettle,
+      `extendBackward must fire at some point after seek — bufferOffset should decrease ` +
+      `(seekOffset=${seekOffset}, beforeScroll=${storeBefore?.bufferOffset}, afterScroll=${storeAfter?.bufferOffset})`,
+    ).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // S23: Settle-window stability — high-frequency scrollTop polling after seek
+  // -------------------------------------------------------------------------
+
+  test("S23: settle-window stability — poll scrollTop 0-3s after seek", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+
+    // Scroll to a partial-row position first
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+    await kupua.page.mouse.wheel(0, GRID_ROW_HEIGHT * 0.5);
+    await kupua.page.waitForTimeout(500);
+
+    kupua.startConsoleCapture();
+
+    // Seek via low-level click (seekTo adds 200ms wait which skips early window)
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
+    await kupua.page.mouse.click(
+      trackBox!.x + trackBox!.width / 2,
+      trackBox!.y + 0.5 * trackBox!.height,
+    );
+
+    // Wait for data arrival
+    await kupua.waitForSeekComplete(30_000);
+
+    // Poll every 50ms for 3s — full settle + deferred scroll window.
+    // Track firstVisibleGlobalPos (what the user sees), not just scrollTop
+    // (which changes legitimately during prepend compensation).
+    const snapshots: Array<{ t: number; scrollTop: number; offset: number; len: number; firstVisibleGlobalPos: number }> = [];
+    const startT = Date.now();
+    for (let i = 0; i < 60; i++) {
+      await kupua.page.waitForTimeout(50);
+      const snap = await kupua.page.evaluate(
+        ({ MIN_CELL_WIDTH, ROW_HEIGHT }: any) => {
+          const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+          const store = (window as any).__kupua_store__;
+          if (!el || !store) return null;
+          const s = store.getState();
+          const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+          const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+          const firstLocalIdx = firstRow * cols;
+          return {
+            scrollTop: el.scrollTop,
+            offset: s.bufferOffset,
+            len: s.results.length,
+            firstVisibleGlobalPos: firstLocalIdx + s.bufferOffset,
+          };
+        },
+        { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+      );
+      if (snap) snapshots.push({ t: Date.now() - startT, ...snap });
+    }
+
+    // Find max consecutive visible content shift (not scrollTop drift)
+    let maxContentShift = 0;
+    let maxShiftStep = -1;
+    for (let i = 1; i < snapshots.length; i++) {
+      const shift = Math.abs(
+        snapshots[i].firstVisibleGlobalPos - snapshots[i - 1].firstVisibleGlobalPos,
+      );
+      if (shift > maxContentShift) {
+        maxContentShift = shift;
+        maxShiftStep = i;
+      }
+    }
+
+    // Also track raw scrollTop drift for diagnostic purposes
+    let maxScrollDrift = 0;
+    for (let i = 1; i < snapshots.length; i++) {
+      const drift = Math.abs(snapshots[i].scrollTop - snapshots[i - 1].scrollTop);
+      if (drift > maxScrollDrift) maxScrollDrift = drift;
+    }
+
+    // Print timeline
+    console.log(`\n  ── SETTLE WINDOW TIMELINE (50ms, 3s) ──`);
+    let prevOffset = snapshots[0]?.offset;
+    for (const s of snapshots) {
+      const flag = s.offset !== prevOffset ? " ← OFFSET CHANGED" : "";
+      console.log(
+        `  ${s.t.toString().padStart(5)}ms: scrollTop=${s.scrollTop.toFixed(1)} offset=${s.offset} len=${s.len} visiblePos=${s.firstVisibleGlobalPos}${flag}`,
+      );
+      prevOffset = s.offset;
+    }
+    // Compute COLS dynamically from actual viewport (same formula as ImageGrid)
+    const cols = await kupua.page.evaluate(({ MIN_CELL_WIDTH }: any) => {
+      const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+      return el ? Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH)) : 7;
+    }, { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH });
+    const MAX_SHIFT = cols + 1; // 1 row + 1 item tolerance
+    console.log(`\n  maxContentShift=${maxContentShift} items at step ${maxShiftStep} (limit: ${MAX_SHIFT}, cols: ${cols})`);
+    console.log(`  maxScrollDrift=${maxScrollDrift.toFixed(1)}px (diagnostic only — scrollTop changes during compensation are expected)`);
+    console.log(`  VERDICT: ${maxContentShift <= MAX_SHIFT ? "✅ STABLE" : `❌ CONTENT SHIFT ${maxContentShift} items`}`);
+
+    const logs = kupua.getConsoleLogs(/\[seek\]|\[prepend-comp\]|\[extend/);
+
+    recordResult("S23", {
+      total,
+      snapshotCount: snapshots.length,
+      maxContentShift,
+      maxShiftStep,
+      maxScrollDrift,
+      cols,
+      maxShiftLimit: MAX_SHIFT,
+      snapshots,
+      consoleLogs: logs,
+      verdict: maxContentShift <= MAX_SHIFT ? "STABLE" : `CONTENT_SHIFT(${maxContentShift})`,
+    });
+
+    expect(maxContentShift, `Visible content shifted by ${maxContentShift} items (limit: ${MAX_SHIFT}, cols: ${cols})`).toBeLessThanOrEqual(MAX_SHIFT);
+  });
 });
 
 

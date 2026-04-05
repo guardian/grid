@@ -14,6 +14,57 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 April 2026 — Scroll-up after seek: FIXED (agent 10)
+
+**The bug:** After any scrubber seek, the user could not scroll up with mousewheel.
+The buffer had items above but `extendBackward` was blocked by the
+`_postSeekBackwardSuppress` flag (introduced by agent 6 to prevent swimming).
+Users had to scroll DOWN ~7 rows first to unlock upward scrolling.
+
+**Root cause:** The flag blocked `extendBackward` indefinitely after seek until
+`startIndex > EXTEND_THRESHOLD` (50 items, ~7 rows of downward scroll). Without
+backward extend, no items existed above the viewport → browser had nothing to
+scroll into.
+
+**Fix (Approach #4):** Removed the `_postSeekBackwardSuppress` flag entirely.
+Added a 200ms post-extend cooldown (`_seekCooldownUntil = Date.now() + 200`)
+after each `extendBackward` completion. This prevents cascading prepend
+compensations (which caused "swimming") by ensuring the browser has time to paint
+each scrollTop adjustment before the next extend fires.
+
+**Timing chain after seek:**
+1. `SEEK_COOLDOWN_MS` (700ms) blocks ALL extends after seek data arrives
+2. `SEEK_DEFERRED_SCROLL_MS` (800ms) fires synthetic scroll → triggers first extend
+3. Post-extend cooldown (200ms) spaces out consecutive backward extends
+4. Each prepend compensation settles before the next fires → no swimming
+
+**Test improvements:**
+- Agent 9's scroll-up tests (grid + table) now pass — previously failed with flag ON
+- Rewrote settle-window test: checks `firstVisibleGlobalPos` (what user sees) instead
+  of `scrollTop` (which legitimately changes during prepend compensation)
+- Added smoke tests S22 (scroll-up) + S23 (settle-window) for real-data validation
+- All 23 smoke tests pass on TEST cluster (1.3M docs)
+- All 186 unit + 69 E2E + 10 buffer corruption tests pass
+
+**Remaining 1%:** A tiny ~3-image shift visible immediately after seek when the first
+`extendBackward` fires (800ms post-seek). This is the prepend compensation being
+*almost* invisible — `useLayoutEffect` adjusts scrollTop before paint, but React's
+virtualizer may need a second render pass. Documented in scroll-work-worklog-agent10-final-fix.md with
+5 mitigation ideas. Idea A ("offscreen prepend" — only allow backward extend when
+user has scrolled deep enough that compensation is above viewport) is most promising.
+
+**Also fixed:** `SEEK_COOLDOWN_MS` corrected from 200ms (agent 7 committed) back to
+700ms. The 200ms value was proven to cause swimming on real data during agent 7's
+manual testing session. Agent 9 changed it back in working tree but agent 7's commit
+had the wrong value.
+
+**Files changed:**
+- `src/constants/tuning.ts` — SEEK_COOLDOWN_MS 200→700
+- `src/hooks/useDataWindow.ts` — disabled _postSeekBackwardSuppress flag
+- `src/stores/search-store.ts` — removed flag activation, added post-extend cooldown
+- `e2e/scrubber.spec.ts` — scroll-up tests + rewritten settle-window test
+- `e2e/smoke-scroll-stability.spec.ts` — S22 + S23
+
 ### 5 April 2026 — Seek timing: constants extracted, cooldown reduced 700→200ms (agent 7)
 
 **Timing constants extracted to `tuning.ts`:** All 7 `_seekCooldownUntil`

@@ -35,27 +35,12 @@ import type { Image } from "@/types/image";
 const EXTEND_THRESHOLD = 50;
 
 // ---------------------------------------------------------------------------
-// Post-seek backward extend suppression
+// Post-seek backward extend suppression — REMOVED (Agent 10)
+//
+// A module-level flag previously blocked extendBackward after seek to prevent
+// swimming. Removed because it also prevented scrolling UP. Now relying on
+// SEEK_COOLDOWN_MS + POST_EXTEND_COOLDOWN_MS only. See changelog 5 Apr 2026.
 // ---------------------------------------------------------------------------
-//
-// After a deep seek, the user lands at scrollTop≈0 in a 200-item buffer at
-// offset ~670k. Without suppression, every scroll event triggers extendBackward
-// (because startIndex=0 ≤ EXTEND_THRESHOLD=50 and bufferOffset>0), which
-// prepends 200 items + scrollTop compensation (+8787px) = visible "swimming."
-//
-// This flag blocks extendBackward calls until the user scrolls far enough
-// down that backward extending is actually useful (startIndex > EXTEND_THRESHOLD).
-// extendForward is NOT blocked — the user can scroll down freely.
-//
-// Set by seek() in search-store.ts via setPostSeekBackwardSuppress(true).
-// Cleared by reportVisibleRange below when startIndex > EXTEND_THRESHOLD.
-
-let _postSeekBackwardSuppress = false;
-
-/** Called by seek() in search-store.ts to activate backward extend suppression. */
-export function setPostSeekBackwardSuppress(suppress: boolean): void {
-  _postSeekBackwardSuppress = suppress;
-}
 
 // ---------------------------------------------------------------------------
 // Visible-range external store (module-level, no React re-renders on write)
@@ -201,15 +186,17 @@ export function useDataWindow(): DataWindow {
       }
 
       // Near the start of the buffer → extend backward
-      // Post-seek suppression: after a seek, the user is at startIndex≈0
-      // in a fresh buffer. Extending backward would prepend items above and
-      // trigger scroll compensation (+8787px), causing visible "swimming."
-      // Wait until the user scrolls past EXTEND_THRESHOLD before allowing
-      // backward extends. This lets extendForward run freely (scroll down ok).
-      if (_postSeekBackwardSuppress && startIndex > EXTEND_THRESHOLD) {
-        _postSeekBackwardSuppress = false;
-      }
-      if (startIndex <= EXTEND_THRESHOLD && offset > 0 && !_postSeekBackwardSuppress) {
+      //
+      // APPROACH #4 (Agent 10): Removed _postSeekBackwardSuppress flag.
+      // Previously, a flag blocked extendBackward after seek until the user
+      // scrolled past EXTEND_THRESHOLD (~7 rows). This prevented swimming
+      // but also prevented scrolling UP after seek. With the 700ms cooldown
+      // (SEEK_COOLDOWN_MS) blocking ALL extends post-seek, and the deferred
+      // scroll firing at 800ms (after the virtualizer has settled), the
+      // first extendBackward should happen in a stable state where
+      // useLayoutEffect compensation is invisible. If swimming returns,
+      // increase SEEK_COOLDOWN_MS — don't re-add the flag.
+      if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
         extendBackward();
       }
     },

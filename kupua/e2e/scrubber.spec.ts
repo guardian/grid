@@ -391,30 +391,349 @@ test.describe("Flash prevention — seek scroll preservation", () => {
     expect(afterBottomState.resultsLength).toBeGreaterThan(0);
   });
 
-  test("no large scrollTop jump after seek settles (prepend-comp)", async ({ kupua }) => {
-    // After a seek, SEEK_COOLDOWN_MS blocks extends, then SEEK_DEFERRED_SCROLL_MS
-    // fires a synthetic scroll to trigger reportVisibleRange. The backward-
-    // extend suppress flag (_postSeekBackwardSuppress in useDataWindow.ts)
-    // prevents extendBackward from prepending items and causing scroll shifts.
+  test("prepend compensation works after seek settles", async ({ kupua }) => {
+    // After a seek, SEEK_DEFERRED_SCROLL_MS clears the backward-extend
+    // suppress flag and fires a synthetic scroll. If the buffer is at a
+    // deep offset (bufferOffset > 0) and startIndex ≈ 0, extendBackward
+    // fires, prepending items. Scroll compensation (effect #4) adjusts
+    // scrollTop by the prepended pixel height so visible content doesn't
+    // shift. S14 (smoke test) validates no visible swimming on real data.
     //
-    // IF THIS FAILS (delta > 0):
-    //   - The suppress flag may have been removed or weakened — check
-    //     _postSeekBackwardSuppress in useDataWindow.ts reportVisibleRange.
-    //   - SEEK_COOLDOWN_MS in tuning.ts may be too short — transient scroll
-    //     events fire before the virtualizer settles, triggering extends.
-    //   - See worklog: exploration/docs/worklog-stale-cells-bug.md
+    // This local test verifies the mechanical correctness:
+    // 1. Buffer grows beyond the initial 200 items (extend fired)
+    // 2. scrollTop increased (compensation ran — items were prepended above)
+    //
+    // IF THIS FAILS:
+    //   - extendBackward may not fire after seek — check suppress flag
+    //     clearing in effect #6 (useScrollEffects.ts) and cooldown timing.
+    //   - Prepend compensation may not fire — check effect #4.
     await kupua.goto();
     await kupua.seekTo(0.5);
-    // Don't scroll — let scrollTargetIndex land wherever (could be near 0)
-    const scrollRight = await kupua.getScrollTop();
-    // Wait for seek cooldown + deferred scroll + extend time + settle
+    const scrollBefore = await kupua.getScrollTop();
+    const storeBefore = await kupua.getStoreState();
+    // Wait for seek cooldown + deferred scroll + extend + settle
     await kupua.page.waitForTimeout(1500);
-    const scrollAfterExtends = await kupua.getScrollTop();
-    // With backward-extend suppression, no prepend should occur at all.
+    const scrollAfter = await kupua.getScrollTop();
+    const storeAfter = await kupua.getStoreState();
+
+    // Buffer should have grown (extendBackward and/or extendForward fired)
+    expect(storeAfter.resultsLength).toBeGreaterThan(storeBefore.resultsLength);
+
+    // If items were prepended (offset decreased), scrollTop must have
+    // increased by the compensation amount
+    if (storeAfter.bufferOffset < storeBefore.bufferOffset) {
+      expect(
+        scrollAfter,
+        "scrollTop should increase when items are prepended (compensation)",
+      ).toBeGreaterThan(scrollBefore);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Post-seek scroll-up — detect inability to scroll backward after seek
+// ---------------------------------------------------------------------------
+//
+// After a deep seek, the user lands at startIndex≈0 in a fresh buffer at a
+// deep offset. If extendBackward is suppressed, there are no items above
+// buffer[0] so the scroll container has nothing to scroll into — the user
+// physically cannot scroll up. This test catches that.
+//
+// Uses mouse.wheel (fires native wheel → scroll events) not programmatic
+// scrollTop (which may not fire scroll events in headless Chromium).
+
+test.describe("Post-seek scroll-up", () => {
+  test("can scroll up after seeking to 50%", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Seek to 50% — lands at a deep offset with bufferOffset > 0
+    await kupua.seekTo(0.5);
+    const storeAfterSeek = await kupua.getStoreState();
+    expect(storeAfterSeek.bufferOffset).toBeGreaterThan(0);
+
+    // Wait for the full settle window (cooldown + deferred scroll + margin)
+    await kupua.page.waitForTimeout(1500);
+
+    // Record scrollTop before scroll-up attempt
+    const scrollBefore = await kupua.getScrollTop();
+
+    // Move mouse to the grid and scroll UP with mouse.wheel
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+    // Multiple small upward wheel events to simulate real user scrolling up
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    // Wait for any extends to complete
+    await kupua.page.waitForTimeout(1000);
+
+    const scrollAfter = await kupua.getScrollTop();
+    const storeAfterScroll = await kupua.getStoreState();
+
+    // scrollTop should have decreased (user scrolled up successfully).
+    // If extendBackward is blocked, there's nothing above to scroll into,
+    // so scrollTop stays at 0 or wherever it was — this assertion FAILS.
     expect(
-      Math.abs(scrollAfterExtends - scrollRight),
-      "scrollTop jumped after seek settled (prepend-comp flash)",
-    ).toBe(0);
+      scrollAfter,
+      `scrollTop should decrease after scrolling up (was ${scrollBefore}, now ${scrollAfter}). ` +
+      `If this fails, extendBackward is blocked after seek — see _postSeekBackwardSuppress in useDataWindow.ts`,
+    ).toBeLessThan(scrollBefore);
+
+    // bufferOffset should have decreased — proves extendBackward actually
+    // fired and prepended items, not just that scroll happened within the
+    // existing 200-item buffer.
+    expect(
+      storeAfterScroll.bufferOffset,
+      `bufferOffset should decrease after scrolling up (was ${storeAfterSeek.bufferOffset}, ` +
+      `now ${storeAfterScroll.bufferOffset}). extendBackward may not have fired.`,
+    ).toBeLessThan(storeAfterSeek.bufferOffset);
+  });
+
+  test("can scroll up after seeking to 50% (table view)", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+
+    await kupua.seekTo(0.5);
+    const storeAfterSeek = await kupua.getStoreState();
+    expect(storeAfterSeek.bufferOffset).toBeGreaterThan(0);
+
+    await kupua.page.waitForTimeout(1500);
+
+    const scrollBefore = await kupua.getScrollTop();
+
+    const tableEl = kupua.page.locator('[aria-label="Image results table"]');
+    const tableBox = await tableEl.boundingBox();
+    expect(tableBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      tableBox!.x + tableBox!.width / 2,
+      tableBox!.y + tableBox!.height / 2,
+    );
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(1000);
+
+    const scrollAfter = await kupua.getScrollTop();
+    const storeAfterScroll = await kupua.getStoreState();
+
+    expect(
+      scrollAfter,
+      `scrollTop should decrease after scrolling up in table view`,
+    ).toBeLessThan(scrollBefore);
+
+    // bufferOffset should have decreased — proves extendBackward fired
+    expect(
+      storeAfterScroll.bufferOffset,
+      `bufferOffset should decrease after scrolling up in table view ` +
+      `(was ${storeAfterSeek.bufferOffset}, now ${storeAfterScroll.bufferOffset})`,
+    ).toBeLessThan(storeAfterSeek.bufferOffset);
+  });
+
+  test("can scroll up after double-seek (cooldown resets correctly)", async ({ kupua }) => {
+    // Seek twice in succession, then try to scroll up. This tests that
+    // the cooldown and post-extend state reset correctly between seeks —
+    // no stale flag or cooldown from the first seek blocks the second.
+    await kupua.goto();
+
+    // First seek to 30%
+    await kupua.seekTo(0.3);
+    await kupua.page.waitForTimeout(500); // partial settle
+
+    // Second seek to 70% (while first may still be settling)
+    await kupua.seekTo(0.7);
+    const storeAfterSeek = await kupua.getStoreState();
+    expect(storeAfterSeek.bufferOffset).toBeGreaterThan(0);
+
+    // Wait for full settle
+    await kupua.page.waitForTimeout(1500);
+
+    const scrollBefore = await kupua.getScrollTop();
+
+    // Scroll up
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(1000);
+
+    const scrollAfter = await kupua.getScrollTop();
+
+    expect(
+      scrollAfter,
+      `scrollTop should decrease after double-seek then scroll up ` +
+      `(was ${scrollBefore}, now ${scrollAfter})`,
+    ).toBeLessThan(scrollBefore);
+  });
+
+  test("scroll-up works within 2s of seek landing", async ({ kupua }) => {
+    // After seek, the user should be able to scroll up within 2 seconds.
+    // This formalises the timing expectation: SEEK_COOLDOWN_MS (700ms) +
+    // SEEK_DEFERRED_SCROLL_MS (800ms) + network + extend settle < 2000ms.
+    await kupua.goto();
+
+    await kupua.seekTo(0.5);
+    const storeAfterSeek = await kupua.getStoreState();
+    expect(storeAfterSeek.bufferOffset).toBeGreaterThan(0);
+
+    // Wait exactly 2 seconds (not 1.5s like other tests — this is the deadline)
+    await kupua.page.waitForTimeout(2000);
+
+    const scrollBefore = await kupua.getScrollTop();
+
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, -200);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(500);
+
+    const scrollAfter = await kupua.getScrollTop();
+    const storeAfterScroll = await kupua.getStoreState();
+
+    expect(
+      scrollAfter,
+      `scroll-up must work within 2s of seek landing (scrollTop was ${scrollBefore}, ` +
+      `now ${scrollAfter}). If this fails, the timing chain is too slow.`,
+    ).toBeLessThan(scrollBefore);
+
+    expect(
+      storeAfterScroll.bufferOffset,
+      `extendBackward must have fired within 2s of seek landing`,
+    ).toBeLessThan(storeAfterSeek.bufferOffset);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Settle-window stability — detect swimming during the 0-1000ms after seek
+// ---------------------------------------------------------------------------
+//
+// After seek data arrives, the virtualizer re-renders and the browser fires
+// transient scroll events. If the cooldown is too short or if extends fire
+// during this window, prepend compensation causes visible content shifts
+// ("swimming"). This test polls scrollTop at high frequency right after seek
+// and asserts no unexpected drift.
+//
+// This is the test gap that agents 7-8 identified: no existing test measured
+// the 0-700ms settle window. The golden table test (cases 1-3) measures the
+// delta AT seek completion. S14 (smoke) measures after 2 seconds. Neither
+// catches what happens in between.
+
+test.describe("Settle-window stability", () => {
+  test("no visible content shift during settle window after seek", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Scroll to a partial-row offset first so scrollTop is non-zero
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+    await kupua.page.mouse.wheel(0, 150); // half a grid row
+    await kupua.page.waitForTimeout(300);
+
+    // Seek to 50% — don't wait for any timeout after, start polling immediately
+    // Use clickScrubberAt (low-level, less waiting) instead of seekTo
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
+    await kupua.page.mouse.click(
+      trackBox!.x + trackBox!.width / 2,
+      trackBox!.y + 0.5 * trackBox!.height,
+    );
+
+    // Wait for seek data to arrive (store.loading becomes false)
+    await kupua.waitForSeekComplete(15_000);
+
+    // Poll every 50ms for 1500ms — capture the full settle + deferred scroll window.
+    // Track firstVisibleGlobalPos (what the user actually sees), not scrollTop
+    // (which changes legitimately during prepend compensation).
+    const snapshots: Array<{
+      t: number; scrollTop: number; offset: number; len: number;
+      firstVisibleGlobalPos: number;
+    }> = [];
+    const startT = Date.now();
+    for (let i = 0; i < 30; i++) {
+      await kupua.page.waitForTimeout(50);
+      const snap = await kupua.page.evaluate(() => {
+        const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+        if (!el) return null;
+        const store = (window as any).__kupua_store__;
+        if (!store) return null;
+        const s = store.getState();
+        const ROW_HEIGHT = 303;
+        const MIN_CELL_WIDTH = 280;
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+        const firstLocalIdx = firstRow * cols;
+        return {
+          scrollTop: el.scrollTop,
+          offset: s.bufferOffset,
+          len: s.results.length,
+          firstVisibleGlobalPos: firstLocalIdx + s.bufferOffset,
+        };
+      });
+      if (snap) snapshots.push({ t: Date.now() - startT, ...snap });
+    }
+
+    // Check: the visible content (firstVisibleGlobalPos) should be stable.
+    // After the initial seek lands, the user should see the same images
+    // even as prepend compensation adjusts scrollTop. A shift of more than
+    // ~1 row means the user saw different content.
+    //
+    // Compute COLS from actual viewport width (same formula as ImageGrid):
+    // floor(clientWidth / 280). At 1280px test viewport → 4 cols.
+    // Tolerance is COLS + 1 to allow sub-row rounding during compensation.
+    const cols = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+      return el ? Math.max(1, Math.floor(el.clientWidth / 280)) : 7;
+    });
+    const MAX_SHIFT = cols + 1; // 1 row + 1 item tolerance
+    let maxContentShift = 0;
+    for (let i = 1; i < snapshots.length; i++) {
+      const shift = Math.abs(
+        snapshots[i].firstVisibleGlobalPos - snapshots[i - 1].firstVisibleGlobalPos,
+      );
+      if (shift > maxContentShift) maxContentShift = shift;
+    }
+
+    // Log the timeline for diagnostics
+    for (const s of snapshots) {
+      console.log(
+        `  [settle] t=${s.t}ms scrollTop=${s.scrollTop.toFixed(1)} offset=${s.offset} len=${s.len} visiblePos=${s.firstVisibleGlobalPos}`,
+      );
+    }
+
+    // Allow up to 1 row + 1 item of content shift — sub-row
+    // rounding differences during compensation are acceptable.
+    // Tightened from COLS (7) to COLS+1 (5 at 4-col viewport).
+    // Real-data measurement: 3 items on TEST (1.3M docs).
+    expect(
+      maxContentShift,
+      `Max visible content shift during settle window was ${maxContentShift} items ` +
+      `(limit: ${MAX_SHIFT}, cols: ${cols}). This means prepend compensation didn't preserve visible content. ` +
+      `See timeline above.`,
+    ).toBeLessThanOrEqual(MAX_SHIFT);
   });
 });
 

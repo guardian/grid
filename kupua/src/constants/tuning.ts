@@ -86,14 +86,16 @@ export const DEEP_SEEK_THRESHOLD = Number(
  * scroll events trigger reportVisibleRange → extendForward/extendBackward
  * before the scroll position has settled, corrupting the buffer.
  *
- * The backward-extend suppress flag (_postSeekBackwardSuppress) handles the
- * worst case (swimming), so this cooldown only needs to survive the initial
- * DOM reflow flurry — not hundreds of milliseconds of "settling."
+ * This is the PRIMARY defence against post-seek swimming. The deferred scroll
+ * event fires at SEEK_DEFERRED_SCROLL_MS (cooldown + 100ms), which triggers
+ * the first extends in a stable state. Each extendBackward completion also
+ * sets a 200ms post-extend cooldown (in search-store.ts) to prevent cascading
+ * prepend compensations.
  *
  * Lower = snappier (extendForward unblocks sooner → cells appear faster).
  * If you see buffer corruption or swimming after seek, increase this.
  */
-export const SEEK_COOLDOWN_MS = 200;
+export const SEEK_COOLDOWN_MS = 700;
 
 /**
  * After seek, dispatch a synthetic scroll event after this delay (ms) to
@@ -104,6 +106,24 @@ export const SEEK_COOLDOWN_MS = 200;
  * Derived as cooldown + 100ms margin.
  */
 export const SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100;
+
+/**
+ * After each extendBackward completes, block the next extend for this long (ms).
+ *
+ * Purpose: prepend compensation (scrollTop += prependedRows × rowHeight) fires
+ * a synthetic scroll event which would immediately trigger another extendBackward
+ * before the browser has painted the compensated position. Without this cooldown,
+ * cascading compensations cause visible "swimming."
+ *
+ * The timing chain after seek:
+ *   1. SEEK_COOLDOWN_MS (700ms)    — blocks ALL extends after seek data arrives
+ *   2. SEEK_DEFERRED_SCROLL_MS     — first extends fire in stable state
+ *   3. POST_EXTEND_COOLDOWN_MS     — each backward extend spaces itself out
+ *
+ * Must be ≥ 2 paint frames (~32ms) so the browser settles between compensations.
+ * 200ms is conservative — may be tunable down to 50-100ms (see worklog Q4).
+ */
+export const POST_EXTEND_COOLDOWN_MS = 200;
 
 /**
  * Block extends while an async search/abort is in flight (ms).
