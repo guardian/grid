@@ -1,43 +1,46 @@
 {
-	"name": "image-embedder-lambda",
-	"version": "1.0.0",
-	"description": "This is a service responsible for embedding uploaded images to the Grid and writing those embeddings to the S3 Vector Store.",
-	"main": "index.js",
-	"scripts": {
-		"test": "jest",
-		"test:integration": "AWS_PROFILE=media-service NODE_OPTIONS='--experimental-vm-modules' jest --config jest.integration.config.ts",
-		"type-check": "tsc --noEmit",
-		"bundle:embedder": "esbuild src/embedder/embedder.ts --bundle --platform=node --target=node24 --format=cjs --external:sharp --outfile=dist/embedder.js",
-		"bundle:backfiller": "esbuild src/backfiller/backfiller.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/backfiller.js",
-		"bundle": "run-p --print-label bundle:embedder bundle:backfiller",
-		"build": "run-p --print-label type-check bundle",
-		"local": "ts-node localRun.ts"
-	},
-	"author": "",
-	"license": "ISC",
-	"devDependencies": {
-		"@aws-sdk/client-cloudformation": "^3.1012.0",
-		"@guardian/prettier": "^10.0.0",
-		"@smithy/util-stream": "^4.5.14",
-		"@types/aws-lambda": "^8.10.159",
-		"@types/jest": "^30.0.0",
-		"@types/node": "^25.0.0",
-		"aws-sdk-client-mock": "^4.1.0",
-		"esbuild": "0.27.0",
-		"jest": "^30.2.0",
-		"npm-run-all": "^4.1.5",
-		"ts-jest": "^29.4.6",
-		"ts-node": "^10.9.2",
-		"typescript": "^5.9.3"
-	},
-	"dependencies": {
-		"@aws-sdk/client-bedrock-runtime": "^3.1012.0",
-		"@aws-sdk/client-kinesis": "^3.1012.0",
-		"@aws-sdk/client-s3": "^3.1012.0",
-		"@aws-sdk/client-s3vectors": "^3.1012.0",
-		"@aws-sdk/client-sqs": "^3.1012.0",
-		"@aws-sdk/config": "^3.1012.0",
-		"sharp": "^0.34.5"
-	},
-	"prettier": "@guardian/prettier"
+  "name": "image-embedder-lambda",
+  "version": "1.0.0",
+  "description": "This is a service responsible for embedding uploaded images to the Grid and writing those embeddings to the S3 Vector Store.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:integration": "AWS_PROFILE=media-service NODE_OPTIONS='--experimental-vm-modules' jest --config jest.integration.config.ts",
+    "type-check": "tsc --noEmit",
+    "bundle:embedder": "esbuild src/embedder/embedder.ts --bundle --platform=node --target=node24 --format=cjs --external:sharp --sourcemap --outfile=dist/embedder.js",
+    "bundle:backfiller": "esbuild src/backfiller/backfiller.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/backfiller.js",
+    "bundle": "run-p --print-label bundle:embedder bundle:backfiller",
+    "build": "run-p --print-label type-check bundle",
+    "local:embedder": "ts-node src/embedder/localRun.ts",
+    "local:backfiller": "ts-node src/backfiller/localRun.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1012.0",
+    "@guardian/prettier": "^10.0.0",
+    "@smithy/util-stream": "^4.5.14",
+    "@types/aws-lambda": "^8.10.159",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.0",
+    "@types/source-map-support": "^0.5.10",
+    "aws-sdk-client-mock": "^4.1.0",
+    "esbuild": "0.27.0",
+    "jest": "^30.2.0",
+    "npm-run-all": "^4.1.5",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1018.0",
+    "@aws-sdk/client-kinesis": "^3.1018.0",
+    "@aws-sdk/client-s3": "^3.1018.0",
+    "@aws-sdk/client-s3vectors": "^3.1018.0",
+    "@aws-sdk/client-sqs": "^3.1018.0",
+    "@aws-sdk/config": "^3.1018.0",
+    "sharp": "^0.34.5",
+    "source-map-support": "^0.5.21"
+  },
+  "prettier": "@guardian/prettier"
 }
