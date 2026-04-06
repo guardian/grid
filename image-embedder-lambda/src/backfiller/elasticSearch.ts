@@ -48,7 +48,7 @@ export const queryElasticSearch = async (
         query: {
           bool: {
             must_not: [
-              {exists: {field: "embedding.cohereEmbedEnglishV3.image"}},
+              {exists: {field: "embedding.cohereEmbedV4.image"}},
               {exists: {field: "softDeletedMetadata"}}
             ]
           }
