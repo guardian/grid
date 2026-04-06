@@ -5,7 +5,7 @@
 >
 > **§0** frames why the architecture has this shape.
 > **§1–§3** are accessible to anyone familiar with web UIs.
-> **§4–§7** require understanding of React rendering, virtual scrolling, and
+> **§4–§6** require understanding of React rendering, virtual scrolling, and
 > Elasticsearch internals.
 
 ---
@@ -203,13 +203,13 @@ When switching from table to grid (or vice versa):
 
 ---
 
-## §4 The Swimming Problem
+## §4 Swimming, Timing, and Limits
+
+### The swimming problem
 
 "Swimming" is when visible images shift position during buffer prepend
 operations. It's the central engineering challenge of prepend-then-compensate
 virtual scrolling.
-
-### Why prepending causes visible shifts
 
 When `extendBackward` prepends 200 items to the buffer:
 
@@ -220,23 +220,41 @@ When `extendBackward` prepends 200 items to the buffer:
 4. **The contract of `useLayoutEffect`:** runs after DOM mutation, before
    browser paint. So the compensation should be invisible.
 
-**But it's not always invisible.** The ~1% swim that remains:
+**But it's not always invisible.** TanStack Virtual may need its own
+internal re-render before the correct row count is established. On fast
+GPUs with high refresh rates, the browser may composite an intermediate
+frame between React's DOM mutation and the `scrollTop` adjustment. This
+is a **fundamental tension** in prepend-then-compensate strategies. Every
+virtual scroll library that supports prepending has this problem.
 
-- TanStack Virtual may need its own internal re-render after the buffer
-  resize before the correct row count is established.
-- On fast GPUs with high refresh rates, the browser may composite an
-  intermediate frame between React's DOM mutation and the `scrollTop`
-  adjustment.
-- The virtualiser's spacer element resizes, which can trigger a layout
-  recalculation between the prepend and the compensation.
+### The fix: bidirectional seek
 
-This is a **fundamental tension** in prepend-then-compensate strategies.
-Every virtual scroll library that supports prepending has this problem to
-some degree.
+The problem was geometric, not temporal. After seek, the user sat at the
+top of a 200-item buffer. The first `extendBackward` prepended directly
+above visible content — the compensation was *almost* invisible but not
+quite (~3 images shifting for one frame).
 
-### How we control it
+The fix changes **where the user sits in the buffer**, not when extends
+fire. Deep seek paths now fetch backward items (halfBuffer ≈ 100) in
+addition to the forward fetch (PAGE_SIZE = 200). Combined buffer ≈ 300
+items. The user's viewport lands in the middle, with ~100 items of
+headroom above. Both `extendBackward` and `extendForward` now operate on
+off-screen content — swimming is eliminated by construction, not timing.
 
-The timing chain after seek:
+**Settle-window content shift: 0 items** (measured on both local and real
+1.3M-doc data; was ~3 items before).
+
+This is the insight that matters: no amount of cooldown tuning can make a
+prepend-directly-above-the-viewport invisible on all hardware. But if the
+prepend happens 100 items above the viewport, it doesn't need to be
+invisible — it's literally off-screen.
+
+### The timing chain
+
+Bidirectional seek eliminated swimming, but the timing chain still serves
+two purposes: (1) preventing extends from racing against the buffer
+replacement during seek, and (2) spacing out consecutive prepends so each
+`scrollTop` compensation settles before the next fires.
 
 ```
 seek() called
@@ -259,29 +277,128 @@ seek() called
   └── 1000ms+: next extend can fire (200ms after previous)
 ```
 
-The cooldown serves two purposes: (1) blocks extends while the virtualizer
-re-renders and the browser settles transient scroll events (~50–300ms
-depending on hardware), and (2) ensures the first prepend after seek
-happens in a stable state, minimising swimming.
-
 **Key constants** (in `tuning.ts`):
 
 | Constant | Value | Purpose |
 |---|---|---|
-| `SEEK_COOLDOWN_MS` | 700ms | Post-arrival extend block — virtualiser settles + swim prevention |
+| `SEEK_COOLDOWN_MS` | 700ms | Post-arrival extend block — virtualiser settles |
 | `SEEK_DEFERRED_SCROLL_MS` | 800ms | = cooldown + 100ms — first extends fire in stable state |
 | `POST_EXTEND_COOLDOWN_MS` | 200ms | Spaces out consecutive backward extends |
 | `SEARCH_FETCH_COOLDOWN_MS` | 2000ms | Blocks extends during in-flight search/abort |
 
-### Historical context — what didn't work
+The 700ms is conservative. The browser's actual settle time is ~50–300ms
+depending on hardware. With bidirectional seek, the cooldown's job is
+simpler (prevent races, not prevent swimming), so there's room to reduce
+it — but no user-visible reason to. Touching these values requires
+running the full smoke suite on real data. Don't reduce them speculatively.
 
-| Approach | Agent | Outcome |
-|---|---|---|
-| Increased cooldown 700→1500ms | Agent 5 | Still not long enough; possibly caused freezes |
-| Suppress prepend compensation | Agent 5 | Catastrophic — visible images changed on every scroll ("Niagara") |
-| `_postSeekBackwardSuppress` flag | Agent 6 | Prevented swimming but also prevented scrolling up |
-| Flag + 200ms cooldown | Agent 7 | Swimming returned at 200ms |
-| Remove flag + 700ms cooldown + post-extend cooldown | Agent 10 | **Current approach.** 99% invisible. |
+### What didn't work (historical)
+
+| Approach | Outcome |
+|---|---|
+| Increased cooldown 700→1500ms | Still not long enough; possibly caused freezes |
+| Suppress prepend compensation | Catastrophic — visible images changed on every scroll |
+| `_postSeekBackwardSuppress` flag | Prevented swimming but also prevented scrolling up |
+| Flag + 200ms cooldown | Swimming returned at 200ms |
+| `requestAnimationFrame` instead of `useLayoutEffect` | Worse |
+| `overflow-anchor: none` | No effect |
+| Remove flag + cooldowns only (no bidirectional seek) | 99% invisible, ~1% cosmetic swim remained |
+
+### Cost model
+
+Each seek path makes a different number of ES round-trips:
+
+| Path | Round-trips | Typical latency | When |
+|---|---|---|---|
+| Shallow from/size | 1 | 20–50ms | offset < 10k |
+| End key fast path | 1 | 50–100ms | offset + PAGE_SIZE ≥ total |
+| Percentile (deep date/numeric) | 3–4 | 250–600ms | percentile + search_after + backward + countBefore |
+| Keyword composite (deep keyword) | 4–15 | 200–800ms | composite pages + search_after + countBefore ± binary search |
+| Null-zone seek | 3–4 | 250–600ms | distribution lookup + filtered search_after + backward + countBefore |
+
+Normal scrolling (extend forward/backward) is always 1 round-trip, 10–50ms.
+Sort-around-focus is 2–4 round-trips (getById + countBefore + optional
+bidirectional search_after). First scrubber interaction pays 2 round-trips
+for the sort distribution (stats + histogram, ~15–50ms for dates, ~200–500ms
+for keywords); cached after that.
+
+### When this architecture breaks
+
+The approach has known limits. None are hit at current scale (1.3M–9M),
+but they exist:
+
+**TDigest percentile error at extremes.** ES's TDigest sketch has ~1–5%
+error, worse at the 0th and 100th percentile tails. At 9M docs, 5%
+error = 450k positions. This doesn't affect the user (we correct with
+`countBefore`), but it means the initial buffer window might be far from
+the target — requiring the backward fetch to cover more ground. If error
+exceeds halfBuffer (100 items as headroom), the user sees content from the
+wrong neighbourhood for one frame before the correction. Not observed in
+practice, but the mechanism exists.
+
+**`countBefore` on heavily skewed data.** `countBefore` is a single
+`_count` query — fast regardless of depth. But the compound boolean query
+it constructs (multi-clause range + term) can be slow if ES needs to
+evaluate it against a very large number of tied values. With 400k docs
+sharing the same credit "PA", the tiebreaker clause (`id < "abc..."`) is
+doing work. Observed: ~5–10ms per query at 1.3M. Not profiled at 9M.
+
+**Keyword composite walk at extreme cardinality.** `findKeywordSortValue`
+pages through a composite aggregation (1000 buckets per page). At 100k+
+unique values this is 100+ pages × ~50ms = 5 seconds. Current fields peak
+at ~50k unique values (credit). A field with 1M+ unique values would need
+a different strategy (e.g. terms aggregation with min_doc_count, or
+percentile on the keyword's hash). Filename sort was removed as it took ~15s.
+
+**`search_after` cursor invalidation.** If the underlying data changes
+between the forward and backward fetches of a bidirectional seek (document
+deleted, re-indexed with new sort values), the cursors can become
+inconsistent. PIT provides snapshot isolation on non-local ES, but PIT
+keepalive is only 1 minute. A user who leaves the tab for >1 minute and
+then seeks will get a PIT expiration, fall back to non-PIT mode, and
+potentially see a small cursor inconsistency. Graceful degradation, not
+a crash — but the buffer might have a gap or duplicate near the cursor
+boundary.
+
+**The id tiebreaker assumes uniform distribution.** The binary search
+refinement (§5) works because SHA-1 hashes are uniformly distributed in
+hex space. If image IDs were ever changed to sequential integers or
+UUIDs-v7 (time-sorted), the binary search would degenerate. The hex
+interpolation would overshoot or undershoot systematically. Fix: detect
+the ID format and switch to linear interpolation for sequential IDs.
+
+### Buffer corruption defence
+
+Five layers protect against stale data from racing extends:
+
+1. `abortExtends()` before scroll reset (primary).
+2. `search()` sets a 2-second extend cooldown.
+3. Seek cooldown refreshed at data arrival.
+4. Abort check before PIT-404 retry in `es-adapter.ts`.
+5. `abortExtends()` exposed on the store for imperative callers.
+
+All nine buffer-corruption regression tests (`buffer-corruption.spec.ts`)
+must pass on every change.
+
+### PIT lifecycle
+
+Point In Time (PIT) provides consistent pagination on non-local ES:
+
+- Opened on first search, reused for extends and seeks.
+- 1-minute keepalive (reduced from 5m — see `es-audit.md`).
+- Generation counter (`_pitGeneration`): seek/extend capture the
+  generation at call start; if `search()` opened a new PIT mid-flight,
+  they skip the stale PIT (avoids 404 round-trip).
+- 404/410 fallback: retries without PIT. Graceful degradation at the
+  cost of snapshot isolation for that single request.
+
+### Image detail position restore
+
+When the user reloads the page while viewing image detail at a deep offset,
+the offset cache (`sessionStorage`) stores both the numeric offset AND the
+`search_after` cursor. `restoreAroundCursor` uses the cursor for exact
+restoration via bidirectional `search_after` — guaranteed to land the image
+in the buffer regardless of depth.
 
 ---
 
@@ -327,7 +444,7 @@ seek(globalOffset)
                ~11 countBefore queries, ~200ms total)
 ```
 
-### Percentile estimation — the clever part
+### Percentile estimation
 
 For date-sorted views (the common case), ES's `percentiles` aggregation
 can estimate the sort value at any percentile of the distribution in O(1)
@@ -345,7 +462,7 @@ null values (e.g. `dateTaken` — 80% null), using `total` would compress the
 non-null distribution to a thin band. The sort distribution's `coveredCount`
 is fetched (and cached) on first scrubber interaction.
 
-### Binary search on SHA-1 hex — the PhD part
+### Binary search on SHA-1 hex
 
 When sorting by keyword (e.g. Credit), a single bucket can contain 400k+
 docs (all with credit "PA"). After landing at the bucket start via
@@ -463,26 +580,13 @@ Label decimation prevents overcrowding: major labels shown first (≥18px
 spacing), then minor labels fill remaining gaps. The result adapts
 naturally to any track height or data distribution.
 
-### Sort distribution cost and guards
+### Sort distribution cost
 
 Tick data comes from ES aggregations (date histogram or composite terms).
-These are cheap — date histograms cost 10–50ms, keyword composites up to
-~500ms for high-cardinality fields — but seven guards prevent abuse:
-
-1. **Lazy fetch** — no aggregation until the user touches the scrubber.
-2. **Cache key dedup** — same query + sort = skip.
-3. **Abort on supersession** — stale in-flight requests are killed via
-   `AbortController`.
-4. **Staleness guard** — if params changed while the agg was running,
-   the result is silently discarded.
-5. **Null-zone auto-fetch** — fires only when `coveredCount < total`.
-6. **Seek-time fallback** — if the user clicks before hovering, `seek()`
-   awaits the distribution synchronously (one extra round-trip, first
-   click only).
-7. **Facet circuit breaker** — separate system; does *not* apply to sort
-   distributions (blocking them would leave the scrubber unusable).
-
-Full details in `scrubber-ticks-and-labels.md` §"ES Aggregation Internals".
+Date histograms cost 10–50ms; keyword composites up to ~500ms for
+high-cardinality fields. Distributions are lazily fetched on first
+scrubber interaction, cached by query+sort key, and aborted on
+supersession. Full guard details in `scrubber-ticks-and-labels.md`.
 
 ### Sort-context tooltip
 
@@ -515,84 +619,6 @@ past the last doc with a value is the **null zone**:
 
 ---
 
-## §7 Edge Cases and Remaining Work
-
-### The 1% swim — ✅ FIXED (Bidirectional Seek, Idea B)
-
-After seek, `extendBackward` used to prepend items directly above visible
-content, causing a ~3-image visual shift. **Fixed by bidirectional seek:**
-deep seek paths now fetch backward items (halfBuffer ≈ 100) in addition to
-the forward fetch (PAGE_SIZE = 200), placing the user in the buffer middle.
-Both `extendBackward` and `extendForward` operate on off-screen content.
-Settle-window content shift: **0 items** (measured on both local and real
-1.3M-doc data).
-
-**Implementation:** A unified backward fetch runs after all deep seek paths
-(percentile, keyword, null-zone) complete. Uses `detectNullZoneCursor` on
-the landed cursor for automatic null-zone handling. The End-key fast path
-and shallow `from/size` path skip the backward fetch (no swimming concern).
-Buffer size after seek: ~300 items (200 forward + ~100 backward), well
-within `BUFFER_CAPACITY` (1000).
-
-**Trade-off:** One additional ES round-trip per deep seek (~10ms local,
-~50-100ms over SSH tunnel). Seek latency: ~250-600ms (was ~200-500ms).
-Worth it: swimming is eliminated by construction.
-
-**Ideas considered but not needed:**
-
-- **Idea A (accept it):** Was the previous state — cosmetic but noticeable.
-- **Idea C (increase deferred scroll):** Delays but doesn't prevent swimming.
-- **Idea D (`requestAnimationFrame`):** Worse than `useLayoutEffect`.
-- **Idea E (`overflow-anchor: none`):** Tried 5 Apr 2026, no effect. Reverted.
-
-### Timing optimisation
-
-The current timing chain (700ms cooldown + 800ms deferred scroll) is
-conservative. The browser's DOM settle time after seek is ~50–300ms
-depending on hardware (React reconciliation + virtualizer re-layout +
-reflow). The 700ms has significant headroom on fast machines. An empirical
-binary search — reducing cooldowns while watching the test suite across
-local, CI, and real clusters — could make seeks feel snappier. The
-post-extend cooldown (200ms) could also be tunable. Any reduction risks
-premature extends computing against stale virtualizer geometry on slow
-hardware.
-
-### Buffer corruption defence
-
-Five layers protect against stale data from racing extends:
-
-1. `abortExtends()` before scroll reset (primary).
-2. `search()` sets a 2-second extend cooldown.
-3. Seek cooldown refreshed at data arrival.
-4. Abort check before PIT-404 retry in `es-adapter.ts`.
-5. `abortExtends()` exposed on the store for imperative callers.
-
-All nine buffer-corruption regression tests (`buffer-corruption.spec.ts`)
-must pass on every change.
-
-### PIT lifecycle
-
-Point In Time (PIT) provides consistent pagination on non-local ES. Key
-details:
-
-- Opened on first search, reused for extends and seeks.
-- 1-minute keepalive (reduced from 5m — see `es-audit.md`).
-- Generation counter (`_pitGeneration`): seek/extend capture the
-  generation at call start; if `search()` opened a new PIT mid-flight,
-  they skip the stale PIT (avoids 404 round-trip).
-- 404/410 fallback: if a PIT-based request fails (expired, closed),
-  retries without PIT. Graceful degradation at the cost of snapshot
-  isolation for that single request.
-
-### Image detail position restore
-
-When the user reloads the page while viewing image detail at a deep offset,
-the offset cache (`sessionStorage`) stores both the numeric offset AND the
-`search_after` cursor. `restoreAroundCursor` uses the cursor for exact
-restoration via bidirectional `search_after` — guaranteed to land the image
-in the buffer regardless of depth.
-
----
 
 ## File Map
 

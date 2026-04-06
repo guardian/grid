@@ -609,7 +609,7 @@ suspenders `virtualizer.scrollToOffset(0)` in scroll-reset effect.
 
 ## Imgproxy Latency Benchmark (24 March 2026)
 
-Script: `kupua/exploration/bench-imgproxy.mjs`. 70 real images from TEST ES via local
+Script: `kupua/exploration/imgproxy-bench.mjs`. 70 real images from TEST ES via local
 imgproxy Docker → S3. Window: 2013×1176 CSS px @ 1.2x DPR.
 
 ### Sequential (pure per-image latency)

@@ -7,7 +7,7 @@
  * matching what the app generates in ImageDetail.tsx.
  *
  * Usage:
- *   node kupua/exploration/bench-imgproxy.mjs [--width=W] [--height=H] [--count=N]
+ *   node kupua/exploration/imgproxy-bench.mjs [--width=W] [--height=H] [--count=N]
  *                                             [--dpr=D] [--appWidth=W] [--appHeight=H]
  *                                             [--quality=Q]
  *
