@@ -15,7 +15,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const OUT_DIR = path.join(__dirname, "..", "test-results");
+const OUT_DIR = path.join(__dirname, "..", "..", "test-results");
 export const REPORT_PATH = path.join(OUT_DIR, "smoke-report.json");
 
 function ensureOutDir() {

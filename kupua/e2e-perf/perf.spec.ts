@@ -32,7 +32,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect } from "../e2e/helpers";
+import { test, expect } from "../e2e/shared/helpers";
 import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,

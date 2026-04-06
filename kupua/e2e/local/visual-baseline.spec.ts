@@ -6,10 +6,10 @@
  * runs compare against the committed baselines.
  *
  * Run with --update-snapshots to regenerate baselines:
- *   npx playwright test e2e/visual-baseline.spec.ts --update-snapshots
+ *   npx playwright test e2e/local/visual-baseline.spec.ts --update-snapshots
  */
 
-import { test, expect } from "./helpers";
+import { test, expect } from "../shared/helpers";
 
 test.describe("Visual regression baselines", () => {
   test("grid view baseline", async ({ kupua, page }) => {

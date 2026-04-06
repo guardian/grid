@@ -74,8 +74,8 @@ call, not background). Do NOT pipe through `tail`/`head`. Do NOT use `sleep` to 
 The list reporter streams each result live (~70s total run). The user wants to watch
 results accumulate in real time.
 
-**Directive: Smoke tests against real ES.** `e2e/manual-smoke-test.spec.ts` and
-`e2e/smoke-scroll-stability.spec.ts` run against a live Elasticsearch cluster (TEST)
+**Directive: Smoke tests against real ES.** `e2e/smoke/manual-smoke-test.spec.ts` and
+`e2e/smoke/smoke-scroll-stability.spec.ts` run against a live Elasticsearch cluster (TEST)
 via `./scripts/start.sh --use-TEST`. The agent **may** run these tests directly,
 after seeking EXPLICIT permission from the human user once per-session, using
 `node scripts/run-smoke.mjs <number>` (or Playwright commands against the smoke config)

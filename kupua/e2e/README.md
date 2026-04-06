@@ -1,0 +1,103 @@
+# Kupua Test Suite — Quick Reference
+
+> Agent: read this before touching any test file.
+
+## Directory Structure
+
+```
+e2e/
+  local/                          ← npx playwright test (habitual)
+    scrubber.spec.ts
+    buffer-corruption.spec.ts
+    visual-baseline.spec.ts
+    visual-baseline.spec.ts-snapshots/
+  smoke/                          ← node scripts/run-smoke.mjs (TEST)
+    manual-smoke-test.spec.ts
+    smoke-scroll-stability.spec.ts
+    smoke-report.ts
+  shared/                         ← imported by local, smoke, perf, and diag
+    helpers.ts
+  scrubber-debug.spec.ts          ← diagnostic (own config)
+  global-setup.ts                 ← local E2E infra (Docker ES health check)
+  tsconfig.json                   ← covers all subdirectories
+  README.md
+
+e2e-perf/                         ← separate (own configs, own results)
+  perf.spec.ts
+  experiments.spec.ts
+```
+
+## Test Modes
+
+| Mode | Command | Data | When to use |
+|------|---------|------|-------------|
+| **Unit/Integration** | `npm test` | In-memory mock | After any `src/` change. ~5s. Non-negotiable. |
+| **Local E2E** | `npm run test:e2e` | Docker ES, 10k docs | After changing components, hooks, store, scroll effects. ~70s. |
+| **Local E2E (full)** | `npm run test:e2e:full` | Docker ES, 10k docs | Same as above but orchestrates Docker + data loading first. |
+| **Smoke (TEST)** | `npm run test:smoke` | Real ES, 1.3M docs | After behavioural changes. Requires `start.sh --use-TEST`. |
+| **Perf** | `npm run test:perf` | Real ES, 1.3M docs | Manual, purpose-driven. Never habitual. |
+| **Experiment** | `npm run test:experiment` | Local or real ES | Agent-driven A/B tuning. Requires user consent for TEST. |
+| **Diagnostic** | `npm run test:diag` | Local or real ES | Scrubber coordinate-space investigation. Headed only. |
+
+## Which Command Do I Run?
+
+1. **Changed `src/`?** → `npm test` then `npm run test:e2e`
+2. **Need to validate on real data?** → Ask user for TEST consent → `npm run test:smoke`
+3. **Running a tuning experiment?** → Ask user for TEST consent → `npm run test:experiment`
+4. **Investigating scrubber coordinate mapping?** → `npm run test:diag`
+
+## Common Mistakes
+
+- **Port 3000 conflict:** Local E2E starts its own Vite. Stop any running `npm run dev` or `start.sh` first.
+- **Running E2E when TEST is connected:** The safety gate (global-setup + per-test check) will refuse. Stop `--use-TEST` first.
+- **Running smoke when local ES is connected:** Tests auto-skip (total < 100k). No harm, just wasted time.
+- **Piping test output through tail/head:** Don't. The list reporter streams results live.
+
+## Where Results Live
+
+| Artefact | Location |
+|----------|----------|
+| Smoke JSON report | `test-results/smoke-report.json` |
+| Experiment results | `e2e-perf/results/experiments/` |
+| Perf audit results | `e2e-perf/results/` |
+| Playwright HTML report | `playwright-report/` |
+| Visual baseline snapshots | `e2e/local/visual-baseline.spec.ts-snapshots/` |
+| Scrubber diagnostic JSON | `test-results/scrubber-diag-all.json` |
+
+## File Map
+
+### Local E2E (`npm run test:e2e` — `playwright.config.ts` → `e2e/local/`)
+
+| File | Tests | What it covers |
+|------|-------|----------------|
+| `local/scrubber.spec.ts` | ~74 | Seek accuracy, scroll preservation, flash prevention, settle-window stability, density switch, sort change, keyboard nav, buffer extension, scroll-up after seek, scroll mode, bug regressions (#1–#18) |
+| `local/buffer-corruption.spec.ts` | ~10 | Logo click / metadata click / query change after deep seek — stale prepend regression |
+| `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
+
+### Smoke (`npm run test:smoke` — `playwright.smoke.config.ts` → `e2e/smoke/`)
+
+| File | Tests | What it covers |
+|------|-------|----------------|
+| `smoke/manual-smoke-test.spec.ts` | S1–S11 | Date/keyword/null-zone seek accuracy, End key, Home key, sort-around-focus, density switch at scale |
+| `smoke/smoke-scroll-stability.spec.ts` | S12–S25 | Seek accuracy sweep, flash prevention, swimming detection, settle-window rAF trace + CLS, headroom-zone stability, cold-start seek |
+
+### Shared (`e2e/shared/` — imported by all modes)
+
+| File | What it provides |
+|------|------------------|
+| `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()` |
+
+### Infrastructure (`e2e/` root)
+
+| File | What it does |
+|------|--------------|
+| `global-setup.ts` | Docker ES auto-start + safety gate (used by `playwright.config.ts` only) |
+| `scrubber-debug.spec.ts` | NOT pass/fail. Diagnostic scan of scrubber coordinate spaces. Own config (`playwright.debug.config.ts`). |
+
+### Perf / Experiments (separate `e2e-perf/` directory)
+
+| File | Config | What it covers |
+|------|--------|----------------|
+| `e2e-perf/perf.spec.ts` | `e2e-perf/playwright.perf.config.ts` | 16 perf scenarios (P1–P16): CLS, jank, DOM churn, LoAF |
+| `e2e-perf/experiments.spec.ts` | `playwright.experiments.config.ts` | A/B tuning experiments (E1–E6): overscan, buffer capacity, etc. |
+

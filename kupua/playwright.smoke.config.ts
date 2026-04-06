@@ -15,8 +15,8 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e",
-  testMatch: ["**/manual-smoke-test.spec.ts", "**/smoke-scroll-stability.spec.ts"],
+  testDir: "./e2e/smoke",
+  testMatch: ["**/*.spec.ts"],
 
   /* No globalSetup — we don't want the local ES health check.
    * The smoke tests themselves check total > 100k and skip if local. */

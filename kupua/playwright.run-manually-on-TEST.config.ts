@@ -14,7 +14,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/local",
   testMatch: ["**/buffer-corruption.spec.ts"],
 
   /* No globalSetup — skip local ES health check.

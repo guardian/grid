@@ -729,6 +729,46 @@ export class KupuaHelpers {
   }
 
   // -------------------------------------------------------------------------
+  // Frame-accurate measurement primitives
+  // -------------------------------------------------------------------------
+
+  /**
+   * Sample scrollTop at requestAnimationFrame rate for `durationMs` milliseconds.
+   *
+   * Runs a rAF loop inside `page.evaluate` and returns one scrollTop sample per
+   * animation frame (~60fps → ~60 samples per second). This is the foundational
+   * measurement primitive for swimming detection: a 50ms setTimeout poll has ~50%
+   * chance of missing a 16-32ms event, while rAF captures every painted frame.
+   *
+   * Used by both local E2E and smoke tests.
+   */
+  async sampleScrollTopAtFrameRate(durationMs: number): Promise<number[]> {
+    return this.page.evaluate((duration) => {
+      return new Promise<number[]>((resolve) => {
+        const samples: number[] = [];
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (!el) {
+          resolve([]);
+          return;
+        }
+
+        const start = performance.now();
+        function sample() {
+          samples.push(el!.scrollTop);
+          if (performance.now() - start < duration) {
+            requestAnimationFrame(sample);
+          } else {
+            resolve(samples);
+          }
+        }
+        requestAnimationFrame(sample);
+      });
+    }, durationMs);
+  }
+
+  // -------------------------------------------------------------------------
   // CQL search helpers
   // -------------------------------------------------------------------------
 

@@ -23,7 +23,7 @@
  *   Terminal 2: node scripts/run-smoke.mjs <N>   (pick the S-number)
  */
 
-import { test, expect, KupuaHelpers } from "./helpers";
+import { test, expect, KupuaHelpers } from "../shared/helpers";
 import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,
@@ -1185,10 +1185,17 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // S23: Settle-window stability — high-frequency scrollTop polling after seek
+  // S23: Settle-window stability — rAF scrollTop trace + CLS after seek
+  //
+  // Phase 2 upgrade: replaced 50ms setTimeout polling with frame-accurate
+  // sampleScrollTopAtFrameRate (rAF loop). Also captures CLS via
+  // PerformanceObserver for layout-shift entries. The rAF trace catches
+  // 16ms swimming events that the old 50ms poll missed ~50% of the time.
+  // CLS doesn't catch scrollTop-based swimming (see plan Context) but it
+  // catches layout shifts from virtualizer height changes.
   // -------------------------------------------------------------------------
 
-  test("S23: settle-window stability — poll scrollTop 0-3s after seek", async ({ kupua }) => {
+  test("S23: settle-window stability — rAF scrollTop trace + CLS after seek", async ({ kupua }) => {
     await kupua.goto();
     const total = await requireRealData(kupua);
 
@@ -1205,6 +1212,30 @@ test.describe("Smoke — scroll stability (real ES)", () => {
 
     kupua.startConsoleCapture();
 
+    // Install CLS observer BEFORE seeking — captures layout-shift entries
+    // during the seek + settle window. CLS doesn't catch scrollTop-based
+    // swimming (programmatic scroll, not CSS layout shift), but it catches
+    // virtualizer height changes during buffer replacement.
+    await kupua.page.evaluate(() => {
+      (window as any).__kupua_cls_entries__ = [];
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          (window as any).__kupua_cls_entries__.push({
+            value: (entry as any).value,
+            hadRecentInput: (entry as any).hadRecentInput,
+            startTime: entry.startTime,
+            sources: (entry as any).sources?.map((s: any) => ({
+              node: s.node?.tagName ?? null,
+              previousRect: s.previousRect ? { x: s.previousRect.x, y: s.previousRect.y, width: s.previousRect.width, height: s.previousRect.height } : null,
+              currentRect: s.currentRect ? { x: s.currentRect.x, y: s.currentRect.y, width: s.currentRect.width, height: s.currentRect.height } : null,
+            })) ?? [],
+          });
+        }
+      });
+      observer.observe({ type: "layout-shift", buffered: false });
+      (window as any).__kupua_cls_observer__ = observer;
+    });
+
     // Seek via low-level click (seekTo adds 200ms wait which skips early window)
     const trackBox = await kupua.scrubber.boundingBox();
     expect(trackBox).not.toBeNull();
@@ -1216,12 +1247,57 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     // Wait for data arrival
     await kupua.waitForSeekComplete(30_000);
 
-    // Poll every 50ms for 3s — full settle + deferred scroll window.
-    // Track firstVisibleGlobalPos (what the user sees), not just scrollTop
-    // (which changes legitimately during prepend compensation).
+    // ── rAF scrollTop trace ──
+    // Captures every painted frame for 2s — the full settle + deferred scroll
+    // window. ~120 samples at 60fps. This replaces the old 50ms setTimeout
+    // polling which had ~50% chance of missing a 16-32ms swimming event.
+    const scrollTopTrace = await kupua.sampleScrollTopAtFrameRate(2000);
+
+    // Also sample store state at the start and end of the trace for context
+    const storeAfterTrace = await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }: any) => {
+        const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+        const store = (window as any).__kupua_store__;
+        if (!el || !store) return null;
+        const s = store.getState();
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+        const firstLocalIdx = firstRow * cols;
+        return {
+          scrollTop: el.scrollTop,
+          offset: s.bufferOffset,
+          len: s.results.length,
+          firstVisibleGlobalPos: firstLocalIdx + s.bufferOffset,
+        };
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
+
+    // ── Monotonicity check ──
+    // A non-monotonic scrollTop change = swimming (viewport jumped backward).
+    // Sub-pixel tolerance of 0.5px for browser rounding.
+    let nonMonotonicCount = 0;
+    let maxBackwardJump = 0;
+    const violations: Array<{ frame: number; prev: number; curr: number; delta: number }> = [];
+    for (let i = 1; i < scrollTopTrace.length; i++) {
+      const delta = scrollTopTrace[i] - scrollTopTrace[i - 1];
+      if (delta < -0.5) {
+        nonMonotonicCount++;
+        const jump = Math.abs(delta);
+        if (jump > maxBackwardJump) maxBackwardJump = jump;
+        if (violations.length < 10) {
+          violations.push({ frame: i, prev: scrollTopTrace[i - 1], curr: scrollTopTrace[i], delta });
+        }
+      }
+    }
+
+    // ── Also compute content-shift metric (legacy, for comparison) ──
+    // Poll a few snapshots for firstVisibleGlobalPos to maintain continuity
+    // with the old S23 metric. This runs AFTER the rAF trace (trace is the
+    // primary measurement now).
     const snapshots: Array<{ t: number; scrollTop: number; offset: number; len: number; firstVisibleGlobalPos: number }> = [];
     const startT = Date.now();
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 20; i++) {
       await kupua.page.waitForTimeout(50);
       const snap = await kupua.page.evaluate(
         ({ MIN_CELL_WIDTH, ROW_HEIGHT }: any) => {
@@ -1244,7 +1320,6 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       if (snap) snapshots.push({ t: Date.now() - startT, ...snap });
     }
 
-    // Find max consecutive visible content shift (not scrollTop drift)
     let maxContentShift = 0;
     let maxShiftStep = -1;
     for (let i = 1; i < snapshots.length; i++) {
@@ -1257,49 +1332,92 @@ test.describe("Smoke — scroll stability (real ES)", () => {
       }
     }
 
-    // Also track raw scrollTop drift for diagnostic purposes
-    let maxScrollDrift = 0;
-    for (let i = 1; i < snapshots.length; i++) {
-      const drift = Math.abs(snapshots[i].scrollTop - snapshots[i - 1].scrollTop);
-      if (drift > maxScrollDrift) maxScrollDrift = drift;
-    }
+    // ── Collect CLS entries ──
+    const clsEntries = await kupua.page.evaluate(() => {
+      const observer = (window as any).__kupua_cls_observer__;
+      if (observer) observer.disconnect();
+      return (window as any).__kupua_cls_entries__ ?? [];
+    });
+    const clsTotal = clsEntries.reduce((sum: number, e: any) => sum + (e.hadRecentInput ? 0 : e.value), 0);
 
-    // Print timeline
-    console.log(`\n  ── SETTLE WINDOW TIMELINE (50ms, 3s) ──`);
-    let prevOffset = snapshots[0]?.offset;
-    for (const s of snapshots) {
-      const flag = s.offset !== prevOffset ? " ← OFFSET CHANGED" : "";
-      console.log(
-        `  ${s.t.toString().padStart(5)}ms: scrollTop=${s.scrollTop.toFixed(1)} offset=${s.offset} len=${s.len} visiblePos=${s.firstVisibleGlobalPos}${flag}`,
-      );
-      prevOffset = s.offset;
-    }
-    // Compute COLS dynamically from actual viewport (same formula as ImageGrid)
+    // ── Print diagnostics ──
     const cols = await kupua.page.evaluate(({ MIN_CELL_WIDTH }: any) => {
       const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
       return el ? Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH)) : 7;
     }, { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH });
-    const MAX_SHIFT = cols + 1; // 1 row + 1 item tolerance
-    console.log(`\n  maxContentShift=${maxContentShift} items at step ${maxShiftStep} (limit: ${MAX_SHIFT}, cols: ${cols})`);
-    console.log(`  maxScrollDrift=${maxScrollDrift.toFixed(1)}px (diagnostic only — scrollTop changes during compensation are expected)`);
-    console.log(`  VERDICT: ${maxContentShift <= MAX_SHIFT ? "✅ STABLE" : `❌ CONTENT SHIFT ${maxContentShift} items`}`);
+    const MAX_SHIFT = cols + 1;
+
+    console.log(`\n  ── rAF SCROLL TRACE (2s, ${scrollTopTrace.length} frames) ──`);
+    console.log(`  first=${scrollTopTrace[0]?.toFixed(1)}, last=${scrollTopTrace[scrollTopTrace.length - 1]?.toFixed(1)}`);
+    console.log(`  nonMonotonicFrames=${nonMonotonicCount}, maxBackwardJump=${maxBackwardJump.toFixed(1)}px`);
+    if (violations.length > 0) {
+      for (const v of violations) {
+        console.log(`    frame ${v.frame}: ${v.prev.toFixed(1)} → ${v.curr.toFixed(1)} (Δ${v.delta.toFixed(1)})`);
+      }
+    }
+    console.log(`\n  ── CONTENT SHIFT (legacy metric, 20 samples) ──`);
+    console.log(`  maxContentShift=${maxContentShift} items at step ${maxShiftStep} (limit: ${MAX_SHIFT}, cols: ${cols})`);
+    console.log(`\n  ── CLS (PerformanceObserver layout-shift) ──`);
+    console.log(`  entries=${clsEntries.length}, total CLS=${clsTotal.toFixed(4)}`);
+    for (const e of clsEntries.slice(0, 5)) {
+      console.log(`    value=${e.value.toFixed(4)} hadRecentInput=${e.hadRecentInput} t=${e.startTime.toFixed(0)}ms sources=${e.sources.length}`);
+    }
+
+    const monotonicOk = nonMonotonicCount === 0;
+    const contentShiftOk = maxContentShift <= MAX_SHIFT;
+    console.log(`\n  VERDICT: ${monotonicOk ? "✅ MONOTONIC" : `❌ ${nonMonotonicCount} BACKWARD JUMPS`} | ${contentShiftOk ? "✅ STABLE" : `❌ CONTENT SHIFT ${maxContentShift}`} | CLS=${clsTotal.toFixed(4)}`);
 
     const logs = kupua.getConsoleLogs(/\[seek\]|\[prepend-comp\]|\[extend/);
 
     recordResult("S23", {
       total,
-      snapshotCount: snapshots.length,
-      maxContentShift,
-      maxShiftStep,
-      maxScrollDrift,
-      cols,
-      maxShiftLimit: MAX_SHIFT,
-      snapshots,
+      // rAF trace — primary measurement
+      rAfTrace: {
+        sampleCount: scrollTopTrace.length,
+        first: scrollTopTrace[0] ?? null,
+        last: scrollTopTrace[scrollTopTrace.length - 1] ?? null,
+        nonMonotonicCount,
+        maxBackwardJump,
+        violations,
+        // Include a decimated trace (every 10th sample) to keep JSON manageable
+        decimatedTrace: scrollTopTrace.filter((_, i) => i % 10 === 0),
+      },
+      // Content shift — legacy metric for continuity
+      contentShift: {
+        snapshotCount: snapshots.length,
+        maxContentShift,
+        maxShiftStep,
+        cols,
+        maxShiftLimit: MAX_SHIFT,
+      },
+      // CLS — layout shift detection
+      cls: {
+        entryCount: clsEntries.length,
+        totalCls: +clsTotal.toFixed(4),
+        entries: clsEntries.slice(0, 10), // cap at 10 for report size
+      },
+      storeAfterTrace,
       consoleLogs: logs,
-      verdict: maxContentShift <= MAX_SHIFT ? "STABLE" : `CONTENT_SHIFT(${maxContentShift})`,
+      verdict: {
+        monotonic: monotonicOk,
+        contentShiftOk,
+        cls: clsTotal,
+      },
     });
 
-    expect(maxContentShift, `Visible content shifted by ${maxContentShift} items (limit: ${MAX_SHIFT}, cols: ${cols})`).toBeLessThanOrEqual(MAX_SHIFT);
+    // Primary assertion: scrollTop must be monotonically non-decreasing
+    // during the settle window. A backward jump = swimming.
+    expect(
+      nonMonotonicCount,
+      `scrollTop was non-monotonic: ${nonMonotonicCount} backward jumps ` +
+      `(max jump: ${maxBackwardJump.toFixed(1)}px). This is swimming.`,
+    ).toBe(0);
+
+    // Secondary assertion: visible content must not shift beyond tolerance
+    expect(
+      maxContentShift,
+      `Visible content shifted by ${maxContentShift} items (limit: ${MAX_SHIFT}, cols: ${cols})`,
+    ).toBeLessThanOrEqual(MAX_SHIFT);
   });
 
   // -------------------------------------------------------------------------
@@ -1433,6 +1551,137 @@ test.describe("Smoke — scroll stability (real ES)", () => {
         `Vertical position was not preserved.`,
       ).toBeLessThan(5);
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // S25: Fresh-app cold-start seek — navigate, wait, seek without scrolling
+  //
+  // The most common user scenario: user arrives at the app, sees results,
+  // clicks the scrubber at 50% without scrolling first. This is the exact
+  // path that the Agent 11-13 bug class affected: scrollTop=0, no headroom,
+  // backward items missing. Existing smoke tests all pre-scroll or test
+  // scroll-up — none test this cold-start path on real data.
+  //
+  // Asserts:
+  //   1. bufferOffset > 0 (backward items loaded — bidirectional seek)
+  //   2. scrollTop moved to headroom position (not stuck at 0)
+  //   3. firstVisibleGlobalPos stable over 1.5s (zero content shift)
+  //   4. scrollTop monotonically non-decreasing (rAF trace, no swimming)
+  // -------------------------------------------------------------------------
+
+  test("S25: fresh-app cold-start seek — no pre-scroll, seek to 50%", async ({ kupua }) => {
+    await kupua.goto();
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Verify we're at scrollTop=0 — no pre-scrolling
+    const preScrollTop = await kupua.getScrollTop();
+    expect(preScrollTop).toBe(0);
+
+    const preDiag = await getGridDiag(kupua.page);
+    console.log(`\n  [pre-seek] scrollTop=${preDiag?.scrollTop.toFixed(1)}, offset=${preDiag?.bufferOffset}, len=${preDiag?.resultsLength}`);
+
+    // Seek to 50% via seekTo (waits for seek completion)
+    await kupua.seekTo(0.5, 30_000);
+
+    const postDiag = await getGridDiag(kupua.page);
+    const store = await getStoreInternals(kupua.page);
+    if (!postDiag) { console.log("  ERROR: no grid diag"); return; }
+
+    console.log(`\n  [post-seek] scrollTop=${postDiag.scrollTop.toFixed(1)}, offset=${postDiag.bufferOffset}, len=${postDiag.resultsLength}`);
+    console.log(`  seekTargetLocalIndex=${postDiag.seekTargetLocalIndex}, firstVisibleGlobalPos=${postDiag.firstVisibleGlobalPos}`);
+
+    // Assertion 1: backward items loaded (bidirectional seek)
+    const hasHeadroom = postDiag.bufferOffset > 0 || (store?.bufferOffset ?? 0) > 0;
+    console.log(`  bufferOffset=${postDiag.bufferOffset} → ${hasHeadroom ? "✅ HEADROOM" : "❌ NO HEADROOM"}`);
+
+    // Assertion 2: scrollTop moved from 0 to headroom position
+    const scrollMoved = postDiag.scrollTop > 0;
+    console.log(`  scrollTop=${postDiag.scrollTop.toFixed(1)} → ${scrollMoved ? "✅ MOVED" : "❌ STUCK AT 0"}`);
+
+    // Assertion 3: firstVisibleGlobalPos stable over 1.5s
+    // Use coarser polling (50ms) — this measures content stability, not pixel precision
+    const posSnapshots: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      await kupua.page.waitForTimeout(50);
+      const diag = await getGridDiag(kupua.page);
+      if (diag) posSnapshots.push(diag.firstVisibleGlobalPos);
+    }
+
+    let maxPosShift = 0;
+    for (let i = 1; i < posSnapshots.length; i++) {
+      const shift = Math.abs(posSnapshots[i] - posSnapshots[i - 1]);
+      if (shift > maxPosShift) maxPosShift = shift;
+    }
+    const posStable = maxPosShift === 0;
+    console.log(`  content stability: maxShift=${maxPosShift} items over 1.5s → ${posStable ? "✅ STABLE" : `❌ SHIFTED`}`);
+
+    // Assertion 4: rAF scrollTop monotonicity (frame-accurate swimming detection)
+    const scrollTrace = await kupua.sampleScrollTopAtFrameRate(1500);
+    let backwardJumps = 0;
+    let maxJump = 0;
+    for (let i = 1; i < scrollTrace.length; i++) {
+      const delta = scrollTrace[i] - scrollTrace[i - 1];
+      if (delta < -0.5) {
+        backwardJumps++;
+        if (Math.abs(delta) > maxJump) maxJump = Math.abs(delta);
+      }
+    }
+    const monotonicOk = backwardJumps === 0;
+    console.log(`  rAF trace: ${scrollTrace.length} frames, backwardJumps=${backwardJumps}, maxJump=${maxJump.toFixed(1)}px → ${monotonicOk ? "✅ MONOTONIC" : "❌ SWIMMING"}`);
+
+    const seekLogs = kupua.getConsoleLogs(/\[seek\]|\[seek-diag\]|\[extend/);
+
+    const expectedGlobalPos = Math.floor(total * 0.5);
+    const drift = postDiag.firstVisibleGlobalPos - expectedGlobalPos;
+    const driftPct = (drift / total) * 100;
+
+    console.log(`\n  position: visible=${postDiag.firstVisibleGlobalPos}, expected~${expectedGlobalPos}, drift=${drift} (${driftPct.toFixed(2)}%)`);
+    console.log(`  VERDICT: ${hasHeadroom && scrollMoved && posStable && monotonicOk ? "✅ PERFECT" : "❌ ISSUES DETECTED"}`);
+
+    recordResult("S25", {
+      total,
+      preScrollTop,
+      postDiag,
+      storeInternals: store,
+      hasHeadroom,
+      scrollMoved,
+      contentStability: {
+        maxPosShift,
+        snapshotCount: posSnapshots.length,
+        firstPos: posSnapshots[0] ?? null,
+        lastPos: posSnapshots[posSnapshots.length - 1] ?? null,
+      },
+      rAfTrace: {
+        sampleCount: scrollTrace.length,
+        first: scrollTrace[0] ?? null,
+        last: scrollTrace[scrollTrace.length - 1] ?? null,
+        backwardJumps,
+        maxJump,
+      },
+      seekAccuracy: {
+        expectedGlobalPos,
+        actualFirstVisibleGlobalPos: postDiag.firstVisibleGlobalPos,
+        drift,
+        driftPct: +driftPct.toFixed(4),
+      },
+      seekLogs: seekLogs.slice(-20),
+      verdict: {
+        hasHeadroom,
+        scrollMoved,
+        contentStable: posStable,
+        monotonic: monotonicOk,
+        accuracyOk: Math.abs(driftPct) < 10,
+      },
+    });
+
+    // Hard assertions
+    expect(hasHeadroom, "Bidirectional seek must load backward items (bufferOffset > 0)").toBe(true);
+    expect(scrollMoved, "scrollTop must move from 0 to headroom position after seek").toBe(true);
+    expect(maxPosShift, `Content shifted by ${maxPosShift} items during settle window`).toBe(0);
+    expect(backwardJumps, `scrollTop had ${backwardJumps} backward jumps (swimming)`).toBe(0);
+    expect(Math.abs(driftPct), `Seek accuracy drift ${driftPct.toFixed(2)}% exceeds 10%`).toBeLessThan(10);
   });
 });
 

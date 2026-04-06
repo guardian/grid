@@ -20,11 +20,10 @@ import { defineConfig, devices } from "@playwright/test";
  *     npx playwright test --ui           (Playwright UI mode)
  */
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/local",
   testMatch: "**/*.spec.ts",
-  /* Manual smoke tests (real ES) and perf tests (own config) are excluded.
-   * Run via: node scripts/run-smoke.mjs  or  node e2e-perf/run-audit.mjs */
-  testIgnore: ["**/manual-smoke-test.spec.ts", "**/smoke-scroll-stability.spec.ts", "**/e2e-perf/**", "**/scrubber-debug.spec.ts"],
+  /* Only local E2E specs live in e2e/local/ — no testIgnore needed.
+   * Smoke tests are in e2e/smoke/, perf tests in e2e-perf/. */
 
   /* Verify ES + sample data before starting any tests.
    * Fails fast with a clear message instead of 46 individual timeouts. */

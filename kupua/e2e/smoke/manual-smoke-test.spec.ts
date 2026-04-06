@@ -21,7 +21,7 @@
  * ╚══════════════════════════════════════════════════════════════════════╝
  */
 
-import { test, expect, KupuaHelpers } from "./helpers";
+import { test, expect, KupuaHelpers } from "../shared/helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { recordResult, resetReport } from "./smoke-report";
 

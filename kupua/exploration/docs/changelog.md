@@ -14,6 +14,223 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 6 April 2026 — Phase 2: Smoke Test Hardening (Testing Regime Plan)
+
+Upgraded the smoke test suite for frame-accurate swimming detection on real data.
+Three changes to `e2e/smoke-scroll-stability.spec.ts`:
+
+**2a — S23 rAF-enhanced settle-window.** Replaced the 50ms `setTimeout` polling
+(60 iterations, ~50% chance of missing a 16ms event) with `sampleScrollTopAtFrameRate(2000)`.
+The rAF loop captures every painted frame (~121 samples at 60fps). Primary assertion
+changed from content-shift-per-row to scrollTop monotonicity — any backward jump = swimming.
+The old content-shift metric is kept as a secondary assertion for continuity. Result on
+TEST (1.3M docs): 122 frames, perfectly monotonic, 0 content shift.
+
+**2b — S25 fresh-app cold-start seek.** New test. Navigate → wait for results → immediately
+seek to 50% without scrolling first. This is the most common user scenario and the exact
+path that the Agent 11-13 bug class affected (scrollTop=0, no headroom, backward items
+missing). Asserts: (1) bufferOffset > 0 (bidirectional seek loaded backward items),
+(2) scrollTop moved from 0 to headroom position, (3) firstVisibleGlobalPos stable over 1.5s
+(zero content shift), (4) scrollTop monotonically non-decreasing (rAF trace), (5) seek
+accuracy < 10%. Result on TEST: all 5 assertions pass — PERFECT verdict.
+
+**2c — S23 CLS capture.** Added `PerformanceObserver` for `layout-shift` entries to S23.
+CLS doesn't catch scrollTop-based swimming (programmatic scroll, not CSS layout shift) but
+catches virtualizer height changes during buffer replacement. CLS entries and total are
+written to the smoke report JSON. Result on TEST: 7 entries, all `hadRecentInput=true`
+(user-initiated), totalCLS=0.0000.
+
+**Validation:**
+- `npm test` → 203 passed
+- `npx playwright test` → 88 passed (local E2E, no `src/` changes)
+- Full smoke suite on TEST → 25 tests: 23 passed, 2 pre-existing Credit sort failures (S2, S6)
+
+
+Extracted the reverse-compute logic from `seek()` (~90 lines inline at L2100–2213)
+into a standalone exported pure function `computeScrollTarget()` at module level in
+`search-store.ts`. `seek()` now calls this function instead of doing the math inline.
+Zero behavioural change — E2E tests produce identical scrollTop values, offsets, and
+positions.
+
+**Function signature:**
+```typescript
+export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScrollTargetResult
+```
+Input: `currentScrollTop`, `isTable`, `clientWidth`, `clientHeight`, `backwardItemCount`,
+`bufferLength`, `total`, `actualOffset`, `clampedOffset`.
+Output: `{ scrollTargetIndex, seekSubRowOffset }`.
+
+**17 unit tests** in `src/stores/reverse-compute.test.ts` covering the exact edge cases
+from the Agent 11–13 swimming saga:
+- scrollTop=0 with 100 backward items (cold-start headroom bug) → index 100
+- Half-row (150px) sub-row preservation → seekSubRowOffset=150
+- Deep scroll (10 rows, 6 cols) → index 160
+- Shallow seek (no backward items) → index 0
+- End key at-real-end → last item (bufferLength-1)
+- At-real-end but not soughtNearEnd → clamped reverseIndex
+- Fractional boundary row (100/6=16.67): row 16 headroom fires, row 17 doesn't
+- Fractional row with sub-row offset (scrollTop=4948, 6 cols) → index 196, subRow=100
+- Buffer-shrink (reversePixelTop > maxScroll) → clamped to lastVisibleRow
+- Past headroom with large scrollTop → no headroom adjustment
+- Table variants of the above
+- Regression guard matching E2E observed values (scrollTop=7725, offset=5057, len=300)
+
+Diagnostic logging in `seek()` preserved — same devLog output, variables populated from
+the same computations (slight duplication, acceptable for debugging).
+
+Validation: 203 unit tests pass (186 existing + 17 new), 88 E2E tests pass (unchanged).
+Worklog: `exploration/docs/worklog-testing-regime.md`.
+
+### 6 April 2026 — Phase 1: Measurement Primitives (Testing Regime Plan)
+
+Executed Phase 1 of the Scroll Test & Tune plan (`testing-regime-plan-handoff.md`).
+Built reusable measurement probes and local regression gates for swimming detection.
+Zero changes to `src/` — tests only.
+
+**1a — `sampleScrollTopAtFrameRate()` helper.** Added to `KupuaHelpers` in `e2e/helpers.ts`.
+Runs a `requestAnimationFrame` loop inside `page.evaluate` for N milliseconds, returning
+one scrollTop sample per painted frame (~60fps / ~120Hz in headless Chromium). Foundational
+primitive for frame-accurate swimming detection — replaces 50ms setTimeout polling which
+has ~50% chance of missing a 16-32ms swimming event.
+
+**1b — scrollTop=0 cold-start seek test.** Added to `e2e/scrubber.spec.ts` Settle-window
+stability section. Seeks from `scrollTop=0` (no pre-scroll) — the exact scenario masked by
+existing tests' `scrollTop=150` pre-scroll and the root cause of the Agent 11-13 swimming
+bug class. Asserts: bufferOffset > 0 (backward items loaded), scrollTop moved to headroom
+position, firstVisibleGlobalPos stable over 1.5s (zero shift).
+
+**1c — Tightened settle-window tolerance.** Changed `MAX_SHIFT` from `cols + 1` to `0`.
+Bidirectional seek produces zero content shift by construction. Test confirmed: 30 snapshots
+over 1.5s, all at identical visiblePos.
+
+**1d — rAF scrollTop monotonicity test.** Added to `e2e/scrubber.spec.ts`. Uses
+`sampleScrollTopAtFrameRate(1500)` after seek. Captures ~181 frames. Asserts no frame-to-frame
+scrollTop decrease (0.5px sub-pixel tolerance). A decrease = swimming. On local data won't
+catch timing-dependent swimming (ES too fast), but catches structural bugs.
+
+Validation: 186 unit tests pass, 88 E2E tests pass (was 86, +2 new).
+Worklog: `exploration/docs/worklog-testing-regime.md`.
+
+
+**Problem (post-bidirectional-seek):** With 300-item buffer (100 backward +
+200 forward), seeking from `scrollTop ≈ 0` showed backward headroom content
+(wrong images) then swam at 800ms when extends fired. Worse than before for
+fresh-app seeks. Home key caused a new flash regression.
+
+**Root cause:** The reverse-compute mapped `scrollTop → reverseIndex`. Before
+bidirectional seek, `reverseIndex=0` = the seek target. After, `reverseIndex=0`
+= backward headroom (100 items before the target). For scrollTop=0, effect #6
+saw zero delta → no-op → user saw wrong content → extends at 800ms → swim.
+
+**Fix (three iterations, Agents 11-13):**
+
+1. **`reverseIndex += backwardItemCount` when in headroom zone** — shifts
+   the target index past backward items when `reverseIndex < backwardItemCount`.
+   Covers the entire headroom zone, not just scrollTop=0.
+
+2. **`_seekSubRowOffset` for sub-row pixel preservation** — stores the user's
+   sub-row pixel offset (`scrollTop - currentRow * rowH`) in the store. Effect
+   #6 applies it via `targetWithSubRow = targetPixelTop + seekSubRowOffset`
+   after React paints the new 300-item buffer (scrollHeight now large enough).
+   The old approach of pre-setting `scrollEl.scrollTop` in `seek()` was
+   abandoned because the OLD buffer is still rendered and its scrollHeight
+   may be too small — browser clamps the value, losing the offset.
+
+3. **Effect #6 condition update** — `seekSubRowOffset > 0` forces adjustment
+   (the store's position needs correction regardless of delta size). Without
+   sub-row offset, the original `delta > rowHeight` threshold applies.
+
+**Boundary behaviour (100/cols = fractional row):** With 6 columns,
+`100/6 = 16.67`. Row 16 (`reverseIndex=96 < 100`) → headroom fires. Row 17
+(`reverseIndex=102 ≥ 100`) → no headroom, effect #6 NO-OPs. Both preserve
+position. Agent 14 confirmed on TEST with 6- and 7-column viewports: all
+rows 14-19 pass with `subRowDelta=0.0` and `maxSwim=0`.
+
+**E2E test updates (Agent 12):**
+- Golden table Case 3 (near-top seek): updated to verify headroom offset +
+  sub-row preservation instead of absolute scrollTop delta.
+- 4 scroll-up tests: split into two phases — Phase 1 verifies scrollTop
+  decreases (5 wheel events, within headroom); Phase 2 triggers
+  extendBackward (15-20 more events, past headroom).
+- New test: "no swim when seeking from any near-top row offset" — polls
+  `firstVisibleGlobalPos` for 2s after seek from row offsets 0.5, 1.5, 5.5.
+
+**Smoke tests (S22-S24):** S22 scroll-up adapted for bidirectional seek
+(two-phase approach). S24 added for headroom zone row offsets. All 24
+smoke tests pass on TEST (1.3M docs).
+
+**Results:** 186 unit, 86 E2E, 24 smoke tests pass. Zero swimming. Sub-row
+offset preserved exactly across all headroom zone rows.
+
+### 5 April 2026 — Unified Smoke Report + Smoke Test Directive Update
+
+**Smoke report unification:** Created `e2e/smoke-report.ts` — shared module
+with `recordResult()` that reads → merges → writes JSON on each test
+completion. Both `manual-smoke-test.spec.ts` and `smoke-scroll-stability.spec.ts`
+import from it. Replaced per-file batch `afterAll` writing that clobbered
+between spec files. Report at `test-results/smoke-report.json`.
+
+**Smoke test directive update:** Agent may now run smoke tests directly against
+TEST when the user confirms it's available. Removed "AGENTS MUST NEVER RUN"
+language from directive, spec file headers, and `run-smoke.mjs`. Smoke tests
+are read-only — write protection is in the DAL, not the test runner. Agent may
+also use `--debug` and `page.pause()` for interactive browser diagnosis.
+Updated both `.github/copilot-instructions.md` and the human copy.
+
+**S13/S20 sub-row assertion fix:** Changed from absolute scrollTop delta
+assertion (`|post - pre| < rowHeight`, which fails in headroom zone where
+scrollTop must change by ~4242px) to sub-row offset assertion
+(`|postSubRow - preSubRow| < 5`). Both pass on TEST with `subRowDelta=0.0`.
+
+
+
+**Problem:** After `seek()` delivered data, the first `extendBackward` at
+~800ms caused a ~1% visible "swim" — approximately 3 images shifting by one
+cell. Root cause: seek loaded 200 items forward-only, placing the user at
+the very top of the buffer. The first backward extend prepended directly
+above visible content, and the ~1-frame gap between React's DOM mutation and
+`useLayoutEffect`'s `scrollTop` compensation was visible.
+
+**Fix:** Bidirectional seek. After all deep seek paths (percentile, keyword,
+null-zone) complete their forward `searchAfter` (PAGE_SIZE=200 items), a
+unified backward `searchAfter` (halfBuffer=100 items, reversed) fetches
+items before the landed cursor. Combined buffer: ~300 items with ~100 items
+of headroom above the viewport. User sees the buffer middle, so both
+`extendBackward` and `extendForward` operate on off-screen content.
+
+**Implementation details:**
+- Single backward fetch point after all path-specific code, not duplicated
+  per path. Controlled by `skipBackwardFetch` flag (true for End-key fast
+  path and shallow `from/size` path).
+- Uses `detectNullZoneCursor` on the landed cursor for automatic null-zone
+  handling — same pattern as `_loadBufferAroundImage`.
+- `bufferOffset` adjusted: `max(0, actualOffset - backwardHits.length)`.
+- Cursors correct by construction: combined sort values
+  `[...backward, ...forward]` means `result.sortValues[0]` is the earliest
+  item (backward first) and `result.sortValues[last]` is the latest.
+
+**Test adjustments:**
+- Prepend compensation test → replaced with "bidirectional seek places user
+  in buffer middle" — verifies `bufferOffset > 0`, buffer extends in both
+  directions, and buffer > 200 items.
+- Post-seek scroll-up tests (grid, table, double-seek, 2s deadline):
+  increased wheel events from 5 to 20-25 to scroll past the ~100-item
+  headroom above the viewport and trigger `extendBackward`.
+- Settle-window stability: content shift = **0 items** (was COLS+1 before).
+
+**Results:** 186 unit/integration tests pass. 85 E2E tests pass. Settle
+timeline shows `firstVisibleGlobalPos` perfectly stable throughout the
+entire 1800ms window — zero swimming. Trade-off: ~50-100ms additional
+seek latency (one extra ES round-trip for the backward fetch).
+
+**Docs updated:** AGENTS.md (What's Done, architecture decisions, test
+counts), scroll-architecture.md (§3 deep seek flow, §7 swimming section
+marked as fixed).
+
+**Smoke tests needed:** User should run S14 and S15 on TEST cluster to
+confirm zero swimming on real 1.3M-doc data:
+`node scripts/run-smoke.mjs 14 15`
+
 ### 5 April 2026 — Bidirectional Seek: Position Preservation + Headroom Boundary Fix
 
 **Problem (post-bidirectional-seek):** With 300-item buffer (100 backward +

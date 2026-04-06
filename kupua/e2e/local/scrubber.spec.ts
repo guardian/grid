@@ -12,11 +12,11 @@
  * - Local ES on port 9220 with sample data loaded (max_result_window=500)
  * - `npm run dev` (auto-started by playwright.config.ts webServer)
  *
- * Run: npx playwright test e2e/scrubber.spec.ts
- * Debug: npx playwright test e2e/scrubber.spec.ts --debug
+ * Run: npx playwright test e2e/local/scrubber.spec.ts
+ * Debug: npx playwright test e2e/local/scrubber.spec.ts --debug
  */
 
-import { test, expect } from "./helpers";
+import { test, expect } from "../shared/helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT, TABLE_HEADER_HEIGHT } from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
@@ -770,7 +770,7 @@ test.describe("Settle-window stability", () => {
       const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
       return el ? Math.max(1, Math.floor(el.clientWidth / 280)) : 7;
     });
-    const MAX_SHIFT = cols + 1; // 1 row + 1 item tolerance
+    const MAX_SHIFT = 0; // Bidirectional seek produces zero content shift — anything > 0 is a regression
     let maxContentShift = 0;
     for (let i = 1; i < snapshots.length; i++) {
       const shift = Math.abs(
@@ -889,6 +889,152 @@ test.describe("Settle-window stability", () => {
         `Vertical position was not preserved.`,
       ).toBeLessThan(5); // small tolerance for rounding
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // Phase 1b: scrollTop=0 seek test — the exact scenario masked by existing
+  // tests' scrollTop=150 pre-scroll. Tests the headroom-zone code path that
+  // was the root cause of the Agent 11–13 swimming bug class.
+  // -------------------------------------------------------------------------
+
+  test("seek from scrollTop=0 lands in buffer middle with headroom", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Verify we're at scrollTop=0 — NO pre-scroll
+    const scrollTopBefore = await kupua.getScrollTop();
+    expect(scrollTopBefore).toBe(0);
+
+    // Seek to 50%
+    await kupua.seekTo(0.5);
+
+    // Wait for full settle window (cooldown + deferred scroll + margin)
+    await kupua.page.waitForTimeout(1500);
+
+    const store = await kupua.getStoreState();
+    expect(store.error).toBeNull();
+
+    // Assert 1: bufferOffset > 0 — backward items were loaded (bidirectional seek)
+    expect(
+      store.bufferOffset,
+      "bufferOffset should be > 0 after seek from scrollTop=0 — backward items must be loaded",
+    ).toBeGreaterThan(0);
+
+    // Assert 2: scrollTop moved to headroom position (not stayed at 0)
+    // With bidirectional seek, the reverse-compute places the user at the
+    // seek target, which is ~100 items into the buffer. scrollTop must be
+    // non-zero because there's content above.
+    const scrollTopAfter = await kupua.getScrollTop();
+    expect(
+      scrollTopAfter,
+      "scrollTop should have moved to headroom position (not stayed at 0). " +
+      "If this fails, reverse-compute headroom offset is broken.",
+    ).toBeGreaterThan(0);
+
+    // Assert 3: firstVisibleGlobalPos is stable over 1.5s (zero shift)
+    // Poll firstVisibleGlobalPos to detect any swimming
+    const snapshots: Array<{ t: number; pos: number }> = [];
+    const start = Date.now();
+    for (let i = 0; i < 30; i++) {
+      const snap = await kupua.page.evaluate(() => {
+        const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+        if (!el) return null;
+        const store = (window as any).__kupua_store__;
+        if (!store) return null;
+        const s = store.getState();
+        const ROW_HEIGHT = 303;
+        const MIN_CELL_WIDTH = 280;
+        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+        const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+        return { pos: firstRow * cols + s.bufferOffset };
+      });
+      if (snap) snapshots.push({ t: Date.now() - start, pos: snap.pos });
+      await kupua.page.waitForTimeout(50);
+    }
+
+    let maxShift = 0;
+    for (let i = 1; i < snapshots.length; i++) {
+      const shift = Math.abs(snapshots[i].pos - snapshots[i - 1].pos);
+      if (shift > maxShift) maxShift = shift;
+    }
+
+    expect(
+      maxShift,
+      `Content shift of ${maxShift} items detected during settle window after seek from scrollTop=0. ` +
+      `Expected 0 — bidirectional seek should produce zero visible shift.`,
+    ).toBe(0);
+
+    await kupua.assertPositionsConsistent();
+  });
+
+  // -------------------------------------------------------------------------
+  // Phase 1d: rAF scrollTop monotonicity test — uses sampleScrollTopAtFrameRate
+  // to capture every painted frame during the settle window. A non-monotonic
+  // scrollTop change = swimming (viewport jumped backward).
+  //
+  // On local data this won't catch timing-dependent swimming (ES is too fast),
+  // but it catches any structural bug that causes scrollTop to go backwards.
+  // -------------------------------------------------------------------------
+
+  test("scrollTop is monotonically non-decreasing during settle window after seek", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Scroll to a partial-row offset first (non-zero starting point)
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+    await kupua.page.mouse.wheel(0, 150);
+    await kupua.page.waitForTimeout(300);
+
+    // Seek to 50% via low-level click (less waiting than seekTo)
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
+    await kupua.page.mouse.click(
+      trackBox!.x + trackBox!.width / 2,
+      trackBox!.y + 0.5 * trackBox!.height,
+    );
+
+    // Wait for seek data to arrive
+    await kupua.waitForSeekComplete(15_000);
+
+    // Sample scrollTop at frame rate for 1500ms (full settle + deferred scroll window)
+    const samples = await kupua.sampleScrollTopAtFrameRate(1500);
+
+    // Log the trace for diagnostics
+    console.log(`  [rAF-mono] ${samples.length} samples over 1500ms`);
+    if (samples.length > 0) {
+      console.log(`  [rAF-mono] first=${samples[0].toFixed(1)} last=${samples[samples.length - 1].toFixed(1)}`);
+    }
+
+    // Find any non-monotonic transitions (scrollTop decreased between frames).
+    // Legitimate scrollTop increases happen during prepend compensation — that's
+    // fine. A DECREASE means the viewport jumped backward = swimming.
+    const decreases: Array<{ frame: number; from: number; to: number }> = [];
+    for (let i = 1; i < samples.length; i++) {
+      if (samples[i] < samples[i - 1] - 0.5) { // 0.5px tolerance for sub-pixel rounding
+        decreases.push({
+          frame: i,
+          from: samples[i - 1],
+          to: samples[i],
+        });
+      }
+    }
+
+    if (decreases.length > 0) {
+      console.log(`  [rAF-mono] DECREASES FOUND:`);
+      for (const d of decreases) {
+        console.log(`    frame ${d.frame}: ${d.from.toFixed(1)} → ${d.to.toFixed(1)} (Δ=${(d.to - d.from).toFixed(1)})`);
+      }
+    }
+
+    expect(
+      decreases.length,
+      `scrollTop decreased ${decreases.length} times during settle window — this is swimming. ` +
+      `First decrease: frame ${decreases[0]?.frame}, ${decreases[0]?.from.toFixed(1)} → ${decreases[0]?.to.toFixed(1)}`,
+    ).toBe(0);
   });
 });
 

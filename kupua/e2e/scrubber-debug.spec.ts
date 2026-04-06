@@ -13,7 +13,7 @@
  * Output: console tables + kupua/test-results/scrubber-diag-all.json
  */
 
-import { test, expect } from "./helpers";
+import { test, expect } from "./shared/helpers";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";

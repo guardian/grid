@@ -57,6 +57,105 @@ const AGG_FIELDS = FIELD_REGISTRY
   .map((f) => ({ field: f.esSearchPath as string, size: AGG_DEFAULT_SIZE }));
 
 // ---------------------------------------------------------------------------
+// Reverse-compute: pure function extracted from seek() for independent testing.
+//
+// Given the user's current scroll position and the new buffer geometry after
+// a seek, computes the buffer-local index that keeps the user's visual
+// position stable (zero flash, zero swimming). Also handles:
+// - Bidirectional seek headroom offset (backward items prepended)
+// - Sub-row pixel preservation (seekSubRowOffset for effect #6)
+// - Buffer-shrink clamping (End key, small buffers)
+// - At-real-end detection (End key fast path)
+//
+// See exploration/docs/testing-regime-plan-handoff.md Phase 3 for rationale.
+// ---------------------------------------------------------------------------
+
+export interface ComputeScrollTargetInput {
+  /** User's current scrollTop in the scroll container (px). */
+  currentScrollTop: number;
+  /** Whether the active view is table (1 col, 32px rows) or grid (N cols, 303px rows). */
+  isTable: boolean;
+  /** Scroll container's clientWidth — used to compute grid column count. */
+  clientWidth: number;
+  /** Scroll container's clientHeight — used for maxScroll computation. */
+  clientHeight: number;
+  /** Number of backward items prepended by bidirectional seek (0 if none). */
+  backwardItemCount: number;
+  /** Total number of items in the new buffer (result.hits.length). */
+  bufferLength: number;
+  /** Effective total result count (null-zone-aware). */
+  total: number;
+  /** Actual buffer offset in the full result set. */
+  actualOffset: number;
+  /** Clamped seek target offset (before buffer fetch). */
+  clampedOffset: number;
+}
+
+export interface ComputeScrollTargetResult {
+  /** Buffer-local index for the virtualizer to scroll to. */
+  scrollTargetIndex: number;
+  /** Sub-row pixel offset for effect #6 to apply after render. */
+  seekSubRowOffset: number;
+}
+
+export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScrollTargetResult {
+  const {
+    currentScrollTop,
+    isTable,
+    clientWidth,
+    clientHeight,
+    backwardItemCount,
+    bufferLength,
+    total,
+    actualOffset,
+    clampedOffset,
+  } = input;
+
+  const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
+  const cols = isTable ? 1 : Math.max(1, Math.floor(clientWidth / GRID_MIN_CELL_WIDTH));
+
+  const currentRow = Math.round(currentScrollTop / rowH);
+  let reverseIndex = currentRow * cols;
+  let seekSubRowOffset = 0;
+
+  // Bidirectional seek offset: shift reverseIndex past the headroom zone.
+  if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
+    const subRowOffset = currentScrollTop - (currentRow * rowH);
+    reverseIndex += backwardItemCount;
+    seekSubRowOffset = subRowOffset;
+  }
+
+  // At-real-end detection
+  const atRealEnd = actualOffset + bufferLength >= total;
+
+  let scrollTargetIndex: number;
+
+  if (atRealEnd) {
+    const soughtNearEnd = clampedOffset >= total - bufferLength;
+    if (soughtNearEnd) {
+      scrollTargetIndex = bufferLength - 1;
+    } else {
+      scrollTargetIndex = Math.max(0, Math.min(reverseIndex, bufferLength - 1));
+    }
+  } else {
+    const totalRows = Math.ceil(bufferLength / cols);
+    const newScrollHeight = totalRows * rowH;
+    const maxScroll = newScrollHeight - clientHeight;
+    const reversePixelTop = Math.floor(reverseIndex / cols) * rowH;
+
+    if (reversePixelTop < maxScroll) {
+      scrollTargetIndex = reverseIndex;
+    } else {
+      // Buffer-shrink: last visible row whose top pixel ≤ maxScroll.
+      const lastVisibleRow = Math.max(0, Math.floor(maxScroll / rowH));
+      scrollTargetIndex = Math.min(lastVisibleRow * cols, bufferLength - 1);
+    }
+  }
+
+  return { scrollTargetIndex, seekSubRowOffset };
+}
+
+// ---------------------------------------------------------------------------
 // Store interface
 // ---------------------------------------------------------------------------
 
@@ -2107,106 +2206,51 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // target is inside the buffer, the user's scrollTop may not match
       // targetLocalIndex's pixel position (e.g. user at scrollTop=96 but
       // target at index 28 → pixelTop 1212 → 1116px flash).
+      //
+      // The math is extracted into computeScrollTarget() for independent
+      // unit testing — see Phase 3 of testing-regime-plan-handoff.md.
       const scrollEl = getScrollContainer();
       let scrollTargetIndex: number;
       let _seekSubRowOffset = 0;
-      let _diagReverseIndex: number | string = 'N/A'; // for diagnostic log outside the if block
+
+      // Diagnostic variables for the devLog below
+      let _diagReverseIndex: number | string = 'N/A';
       let _diagOrigScrollTop: number | string = 'N/A';
       let _diagCurrentRow: number | string = 'N/A';
       let _diagCols: number | string = 'N/A';
       let _diagHeadroomFired = false;
 
       if (scrollEl) {
-        const isTable = scrollEl.getAttribute("aria-label")?.includes("table");
-        const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
-        const cols = isTable
-          ? 1
-          : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
-        const currentScrollTop = scrollEl.scrollTop;
-        const currentRow = Math.round(currentScrollTop / rowH);
-        let reverseIndex = currentRow * cols;
-        _diagOrigScrollTop = currentScrollTop;
-        _diagCurrentRow = currentRow;
-        _diagCols = cols;
+        const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
+        const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
 
-        // Bidirectional seek offset: when backward items were prepended,
-        // any reverseIndex that falls within the backward headroom
-        // (reverseIndex < backwardItemCount) means the user would see
-        // wrong content (images from before the target) and then get a
-        // visible swim when extendBackward fires at 800ms.
-        //
-        // Fix: shift reverseIndex past the headroom by adding
-        // backwardItemCount. Store the user's sub-row offset so effect #6
-        // can apply it AFTER the new buffer is rendered. We cannot pre-set
-        // scrollEl.scrollTop here because the OLD buffer is still rendered
-        // and its scrollHeight may be too small — the browser would clamp
-        // the value, losing the offset. Effect #6 runs in useLayoutEffect
-        // after React paints the new 300-item buffer (enough scrollHeight).
-        //
-        // When reverseIndex >= backwardItemCount, the user is already
-        // past the headroom (e.g. second seeks with large scrollTop).
-        // No adjustment needed — position preserved exactly by the
-        // existing reverse-compute + effect #6 no-op path.
+        const computed = computeScrollTarget({
+          currentScrollTop: scrollEl.scrollTop,
+          isTable,
+          clientWidth: scrollEl.clientWidth,
+          clientHeight: scrollEl.clientHeight,
+          backwardItemCount,
+          bufferLength: result.hits.length,
+          total: effectiveTotal,
+          actualOffset,
+          clampedOffset,
+        });
+
+        scrollTargetIndex = computed.scrollTargetIndex;
+        _seekSubRowOffset = computed.seekSubRowOffset;
+
+        // Populate diagnostics for the devLog
+        const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
+        const cols = isTable ? 1 : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
+        _diagOrigScrollTop = scrollEl.scrollTop;
+        _diagCurrentRow = Math.round(scrollEl.scrollTop / rowH);
+        _diagCols = cols;
+        let reverseIndex = _diagCurrentRow * cols;
         if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
           _diagHeadroomFired = true;
-          const subRowOffset = currentScrollTop - (currentRow * rowH);
           reverseIndex += backwardItemCount;
-          // Store the sub-row offset so effect #6 can apply it AFTER the new
-          // buffer is rendered (when scrollHeight is large enough). We do NOT
-          // pre-set scrollEl.scrollTop here because the old buffer is still
-          // rendered and its scrollHeight may be too small — the browser would
-          // clamp the value, losing the offset. Effect #6 runs in
-          // useLayoutEffect after React paints the new 300-item buffer.
-          _seekSubRowOffset = subRowOffset;
         }
         _diagReverseIndex = reverseIndex;
-
-        // At the real end of the dataset, there are no more items to extend.
-        // Being at atBottom=true won't cause freeze — the deferred scroll
-        // event fires reportVisibleRange, which sees there's nothing to
-        // extend, and nothing bad happens. Skip the maxScroll clamp entirely
-        // so the End key can reach the absolute bottom of the buffer.
-        const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
-        const atRealEnd = actualOffset + result.hits.length >= effectiveTotal;
-
-        if (atRealEnd) {
-          // When the user sought to near the end of the dataset (e.g. End key,
-          // or scrubber click near bottom), they WANT to see the end — don't
-          // preserve their old scrollTop. Use the last item in the buffer.
-          // When they sought to a mid-range position that just happened to
-          // produce atRealEnd (shouldn't normally happen), fall back to
-          // reverse-compute to preserve their scroll position.
-          const soughtNearEnd = clampedOffset >= effectiveTotal - result.hits.length;
-          if (soughtNearEnd) {
-            scrollTargetIndex = result.hits.length - 1;
-          } else {
-            scrollTargetIndex = Math.max(0, Math.min(reverseIndex, result.hits.length - 1));
-          }
-        } else {
-          const totalRows = Math.ceil(result.hits.length / cols);
-          const newScrollHeight = totalRows * rowH;
-          const maxScroll = newScrollHeight - scrollEl.clientHeight;
-          const reversePixelTop = Math.floor(reverseIndex / cols) * rowH;
-
-          if (reversePixelTop < maxScroll) {
-            // User's position fits in the new buffer — use it directly.
-            scrollTargetIndex = reverseIndex;
-          } else {
-            // Buffer-shrink: user's old position exceeds the new belt's
-            // maxScroll. Instead of clamping to maxSafeRow (which loses
-            // 1-2 rows), use the last row whose top pixel ≤ maxScroll.
-            // Effect #6 computes targetPixel from this index; if the
-            // browser already clamped scrollTop to maxScroll, the delta
-            // is < rowHeight → effect #6 no-ops → position preserved.
-            //
-            // Example: 200 items, 7 cols, 29 rows, maxScroll=7753.
-            // lastVisibleRow = floor(7753/303) = 25. Index = 25*7 = 175.
-            // Pixel = 7575. Browser scrollTop = 7753. Delta = 178 < 303.
-            // Effect #6 skips. User stays at 7753. Looks like bottom.
-            const lastVisibleRow = Math.max(0, Math.floor(maxScroll / rowH));
-            scrollTargetIndex = Math.min(lastVisibleRow * cols, result.hits.length - 1);
-          }
-        }
       } else {
         // No scroll container (shouldn't happen) — fall back to center.
         scrollTargetIndex = Math.floor(result.hits.length / 2);

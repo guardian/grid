@@ -84,8 +84,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 **Fullscreen preview** (`FullscreenPreview.tsx`): Lightweight fullscreen peek from grid/table — press `f` to view focused image edge-to-edge via Fullscreen API. No route change, no metadata. Arrow keys traverse images, updating `focusedImageId`; exit (Esc/Backspace/f) scrolls list to centered focused image. Shares prefetch pipeline with ImageDetail. Another density of the same ordered list.
 
 **Field registry** (`field-registry.ts`): Single source of truth for all image fields. 23 hardcoded + config-driven aliases. Drives table columns, sort dropdown, facet filters, detail panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display.
-
-**Testing:** 186 Vitest unit/integration tests (~5s) — includes 7 null-zone seek/extend tests + 3 total-corruption regression tests using sparse `MockDataSource` (50k images, 20% `lastModified` coverage). 86 Playwright E2E tests (~70s) — scrubber (including flash-prevention golden table with **0px scroll-drift tolerance**, bidirectional buffer verification, scroll-up-after-seek grid+table with headroom-adjusted wheel events, settle-window visible content stability — **0 items content shift** with bidirectional seek, headroom-zone swim regression test), buffer corruption regression suite, density-focus drift, visual baselines. Safety gate refuses real ES. 19 perf tests + experiment infrastructure (16 scenarios). Corpus pinned via `PERF_STABLE_UNTIL`. 11 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`). 13 scroll stability smoke tests (`smoke-scroll-stability.spec.ts`, S12-S24) including headroom-zone position preservation (S24). Shared `smoke-report.ts` writes structured JSON report to `test-results/smoke-report.json` for agent consumption; all 24 passed on real data (1.3M docs). **Logging pattern:** all diagnostic `console.log` calls use `devLog()` from `src/lib/dev-log.ts` — a thin wrapper guarded by `import.meta.env.DEV` so Vite DCEs them in prod. E2E tests can still read these messages via `KupuaHelpers.getConsoleLogs()` because Playwright runs against the dev server. Use `devLog` for all new diagnostic logging; reserve bare `console.warn` for genuine error paths only.
+**Testing:** 203 Vitest unit/integration tests (~5s) — includes 7 null-zone seek/extend tests + 3 total-corruption regression tests using sparse `MockDataSource` (50k images, 20% `lastModified` coverage) + **17 reverse-compute unit tests** (`computeScrollTarget` edge cases: cold-start headroom, sub-row preservation, End key, fractional boundary, buffer-shrink clamping). 88 Playwright E2E tests (~70s) — scrubber (including flash-prevention golden table with **0px scroll-drift tolerance**, bidirectional buffer verification, scroll-up-after-seek grid+table with headroom-adjusted wheel events, settle-window visible content stability — **0 items content shift** with bidirectional seek, headroom-zone swim regression test, **scrollTop=0 cold-start seek test**, **rAF scrollTop monotonicity test** using frame-accurate `sampleScrollTopAtFrameRate` helper), buffer corruption regression suite, density-focus drift, visual baselines. Safety gate refuses real ES. 19 perf tests + experiment infrastructure (16 scenarios). Corpus pinned via `PERF_STABLE_UNTIL`. 11 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`). 14 scroll stability smoke tests (`smoke-scroll-stability.spec.ts`, S12-S25) including headroom-zone position preservation (S24), **rAF-enhanced settle-window with CLS capture (S23)**, and **fresh-app cold-start seek (S25)**. Shared `smoke-report.ts` writes structured JSON report to `test-results/smoke-report.json` for agent consumption; all 25 passed on real data (1.3M docs, except 2 pre-existing Credit sort failures S2/S6). **Test suite reference:** `e2e/README.md` — 7 test modes, decision tree, file map. **npm scripts:** `test`, `test:e2e`, `test:e2e:full`, `test:smoke`, `test:perf`, `test:experiment`, `test:diag`. **Logging pattern:** all diagnostic `console.log` calls use `devLog()` from `src/lib/dev-log.ts` — a thin wrapper guarded by `import.meta.env.DEV` so Vite DCEs them in prod. E2E tests can still read these messages via `KupuaHelpers.getConsoleLogs()` because Playwright runs against the dev server. Use `devLog` for all new diagnostic logging; reserve bare `console.warn` for genuine error paths only.
 
 **Null-zone seek for sparse sort fields** — When sorting by fields with many missing values (e.g. `lastModified`, `dateTaken`), scrubber seek correctly positions within the "null zone" (docs without the field). Uses filtered `search_after` (narrowed to missing-field docs, sorted by uploadTime fallback) + null-aware `countBefore`. Sort clause builder injects universal `uploadTime` fallback for meaningful null-zone ordering. Null-zone cursor detection is shared across seek, extendForward, extendBackward, scroll-mode fill, and buffer-around-image via `detectNullZoneCursor` + `remapNullZoneSortValues` helpers. **Critical invariant:** when a null-zone filter is active, `result.total` from ES is the filtered count (only null-zone docs), not the full corpus — all four write sites (`seek`, `extendForward`, `extendBackward`, `_fillBufferForScrollMode`) preserve `state.total` instead of overwriting with `result.total`.
 
@@ -280,6 +279,7 @@ kupua/
     stores/
       search-store.ts          # Main store — windowed buffer, seek, extend/evict, PIT, sort-around-focus, aggs (~1,810 lines)
       search-store.test.ts     # 34 integration tests with MockDataSource
+      reverse-compute.test.ts  # 17 unit tests for computeScrollTarget() pure function
       column-store.ts          # Column visibility + widths (localStorage)
       panel-store.ts           # Panel visibility + widths (localStorage)
     types/
@@ -295,18 +295,19 @@ kupua/
       useReturnFromDetail.ts   # Scroll-to-focused on return from image detail
       useDocumentTitle.ts      # Dynamic page title: "{query} | the Grid", with "(N new)" ticker prefix
   e2e/
+    README.md                  # Agent-facing test suite quick reference (7 modes, decision tree, file map)
     global-setup.ts            # Safety gate + ES health check
-    helpers.ts                 # KupuaHelpers fixture class
-    scrubber.spec.ts           # 72 E2E tests
-    buffer-corruption.spec.ts  # 10 regression tests
-    visual-baseline.spec.ts    # 4 visual regression baselines (screenshot comparison)
-    manual-smoke-test.spec.ts  # Real ES smoke tests S1-S11 (read-only)
-    smoke-scroll-stability.spec.ts # Scroll stability smoke tests S12-S24
-    smoke-report.ts            # Shared smoke report writer (JSON to test-results/smoke-report.json)
-  e2e-perf/
-    perf.spec.ts               # 16 perf tests (P1–P16)
-    experiments.spec.ts        # A/B tuning experiments (E1–E6)
-    run-audit.mjs              # Perf audit harness
+    scrubber-debug.spec.ts     # Diagnostic (NOT pass/fail) — scrubber coordinate scan, 8 scenarios
+    local/                     # Local E2E tests (npx playwright test)
+      scrubber.spec.ts         # 74 E2E tests
+      buffer-corruption.spec.ts # 10 regression tests
+      visual-baseline.spec.ts  # 4 visual regression baselines (screenshot comparison)
+    smoke/                     # Smoke tests (node scripts/run-smoke.mjs, requires --use-TEST)
+      manual-smoke-test.spec.ts # S1-S11
+      smoke-scroll-stability.spec.ts # S12-S25
+      smoke-report.ts          # Shared smoke report writer (JSON to test-results/smoke-report.json)
+    shared/                    # Imported by local, smoke, perf, and diag specs
+      helpers.ts               # KupuaHelpers fixture class
     results/                   # Audit logs + experiment results
 
 ```

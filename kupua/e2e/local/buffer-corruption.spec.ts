@@ -24,11 +24,11 @@
  * inconsistent, and scrollTop/bufferOffset would be non-zero.
  *
  * Run:
- *   npx playwright test e2e/buffer-corruption.spec.ts
- *   npx playwright test e2e/buffer-corruption.spec.ts --headed
+ *   npx playwright test e2e/local/buffer-corruption.spec.ts
+ *   npx playwright test e2e/local/buffer-corruption.spec.ts --headed
  */
 
-import { test, expect } from "./helpers";
+import { test, expect } from "../shared/helpers";
 
 // ---------------------------------------------------------------------------
 // Safety: require enough data for seeks to be meaningful.
