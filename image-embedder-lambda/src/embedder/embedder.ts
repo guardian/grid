@@ -146,20 +146,20 @@ export const handler = async (
 
   const bedrockClient = createProductionBedrockClient();
 
-  // const { vectors, batchItemFailures, imageIdToMessageId } =
-  const { batchItemFailures } =
+  const { vectors, batchItemFailures, imageIdToMessageId } =
     await generateVectors(event.Records, imageResolver, bedrockClient);
 
-	// if (vectors.length > 0) {
-	// 	await thrallEventPublisher.sendEmbeddingsToKinesis(
-	// 		vectors,
-	// 		imageIdToMessageId,
-	// 		batchItemFailures,
-	// 	);
-	// 	await s3VectorStore.storeEmbeddings(vectors);
-	// } else {
-	// 	console.log(`No vectors to store`);
-	// }
+	if (vectors.length > 0) {
+		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingTo256(vectors);
+		await thrallEventPublisher.sendEmbeddingsToKinesis(
+			shortenedVectors,
+			imageIdToMessageId,
+			batchItemFailures,
+		);
+		await s3VectorStore.storeEmbeddings(vectors);
+	} else {
+		console.log(`No vectors to store`);
+	}
 
 	return { batchItemFailures };
 };

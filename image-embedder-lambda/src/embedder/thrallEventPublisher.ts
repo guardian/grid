@@ -1,6 +1,7 @@
 import {KinesisClient, PutRecordsCommand, PutRecordsRequestEntry, PutRecordsResultEntry} from "@aws-sdk/client-kinesis";
 import {ValidVector} from "./models";
-import {SQSBatchItemFailure} from "aws-lambda";
+import { SQSBatchItemFailure } from "aws-lambda";
+import {KINESIS_VECTOR_DIMENSIONS} from "./constants"
 
 export interface CohereV3Embedding {
   image: number[];
@@ -35,6 +36,16 @@ export class ThrallEventPublisher {
     this.kinesisClient = kinesisClient;
     this.thrallKinesisStreamArn = thrallKinesisStreamArn;
     this.stage = stage;
+  }
+
+  matryoshkaEmbeddingTo256(vectors: ValidVector[]): ValidVector[] {
+    return vectors.map((vector) => ({
+      ...vector,
+      data: {
+        ...vector.data,
+        float32: vector.data.float32.slice(0, KINESIS_VECTOR_DIMENSIONS),
+      },
+    }));
   }
 
   async sendEmbeddingsToKinesis(
