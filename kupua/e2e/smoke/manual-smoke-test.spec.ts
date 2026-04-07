@@ -255,7 +255,10 @@ test.describe("Smoke — real ES", () => {
 
   test("S8: sort toggle in grid preserves focus and scrolls to image", async ({ kupua }) => {
     // Use a filtered query so total fits in one page (< PAGE_SIZE=200)
-    await kupua.page.goto("/search?nonFree=true&query=%2Bcategory%3Astaff-photographer");
+    // Include until= for corpus stability (this test bypasses kupua.goto())
+    const stableUntil = process.env["PERF_STABLE_UNTIL"];
+    const untilParam = stableUntil ? `&until=${stableUntil}` : "";
+    await kupua.page.goto(`/search?nonFree=true&query=%2Bcategory%3Astaff-photographer${untilParam}`);
     await kupua.waitForResults();
     // No requireRealData — works at any scale
 

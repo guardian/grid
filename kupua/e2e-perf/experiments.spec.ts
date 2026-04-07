@@ -72,7 +72,7 @@ const EXPERIMENT_LOG = resolve(EXPERIMENTS_DIR, "experiments-log.md");
 // on TEST regardless of when the experiment runs.
 // ---------------------------------------------------------------------------
 
-const STABLE_UNTIL = "2026-02-15T00:00:00.000Z";
+const STABLE_UNTIL = "2026-02-15T23:59:59.999Z";
 
 // ---------------------------------------------------------------------------
 // Scroll speed tiers — named constants for reproducible, comparable scenarios.
@@ -593,7 +593,7 @@ function logProbeDiagnostics(diags: ProbeDiag[], experimentId: string) {
 // ---------------------------------------------------------------------------
 
 async function gotoExperiment(kupua: any, extraParams?: string) {
-  const untilParam = `until=${encodeURIComponent(STABLE_UNTIL)}`;
+  const untilParam = `until=${STABLE_UNTIL}`;
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true&${untilParam}${extra}`);
   await kupua.waitForResults();

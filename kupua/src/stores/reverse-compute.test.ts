@@ -11,7 +11,6 @@
  * - Fractional boundary row (100/6 = 16.67)
  * - Buffer-shrink clamping
  *
- * See exploration/docs/testing-regime-plan-handoff.md Phase 3.
  */
 
 import { describe, it, expect } from "vitest";

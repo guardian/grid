@@ -190,9 +190,9 @@ export function useDataWindow(): DataWindow {
       // APPROACH #4 (Agent 10): Removed _postSeekBackwardSuppress flag.
       // Previously, a flag blocked extendBackward after seek until the user
       // scrolled past EXTEND_THRESHOLD (~7 rows). This prevented swimming
-      // but also prevented scrolling UP after seek. With the 700ms cooldown
+      // but also prevented scrolling UP after seek. With the 100ms cooldown
       // (SEEK_COOLDOWN_MS) blocking ALL extends post-seek, and the deferred
-      // scroll firing at 800ms (after the virtualizer has settled), the
+      // scroll firing at 150ms (after the virtualizer has settled), the
       // first extendBackward should happen in a stable state where
       // useLayoutEffect compensation is invisible. If swimming returns,
       // increase SEEK_COOLDOWN_MS — don't re-add the flag.

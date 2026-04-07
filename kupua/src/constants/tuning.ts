@@ -95,7 +95,7 @@ export const DEEP_SEEK_THRESHOLD = Number(
  * Lower = snappier (extendForward unblocks sooner → cells appear faster).
  * If you see buffer corruption or swimming after seek, increase this.
  */
-export const SEEK_COOLDOWN_MS = 700;
+export const SEEK_COOLDOWN_MS = 100;
 
 /**
  * After seek, dispatch a synthetic scroll event after this delay (ms) to
@@ -103,9 +103,9 @@ export const SEEK_COOLDOWN_MS = 700;
  *
  * MUST be > SEEK_COOLDOWN_MS — if it fires during cooldown, the scroll
  * event is swallowed and extendForward never runs → freeze at buffer bottom.
- * Derived as cooldown + 100ms margin.
+ * Derived as cooldown + 50ms margin (tuned down from +100; floor at +15).
  */
-export const SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100;
+export const SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 50;
 
 /**
  * After each extendBackward completes, block the next extend for this long (ms).
@@ -116,14 +116,15 @@ export const SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100;
  * cascading compensations cause visible "swimming."
  *
  * The timing chain after seek:
- *   1. SEEK_COOLDOWN_MS (700ms)    — blocks ALL extends after seek data arrives
+ *   1. SEEK_COOLDOWN_MS (100ms)    — blocks ALL extends after seek data arrives
  *   2. SEEK_DEFERRED_SCROLL_MS     — first extends fire in stable state
  *   3. POST_EXTEND_COOLDOWN_MS     — each backward extend spaces itself out
  *
  * Must be ≥ 2 paint frames (~32ms) so the browser settles between compensations.
- * 200ms is conservative — may be tunable down to 50-100ms (see worklog Q4).
+ * Floor at 32ms (local E2E), validated at 50ms on TEST (1.3M docs).
+ * See testing-regime-and-tuning-worklog.md Session 5.
  */
-export const POST_EXTEND_COOLDOWN_MS = 200;
+export const POST_EXTEND_COOLDOWN_MS = 50;
 
 /**
  * Block extends while an async search/abort is in flight (ms).

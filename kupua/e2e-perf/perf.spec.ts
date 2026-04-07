@@ -58,7 +58,7 @@ const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
  * likely return zero results anyway.
  */
 async function gotoPerfSearch(kupua: any, extraParams?: string) {
-  const untilParam = STABLE_UNTIL ? `&until=${encodeURIComponent(STABLE_UNTIL)}` : "";
+  const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
   await kupua.waitForResults();
@@ -696,7 +696,7 @@ test.describe("Rendering Performance Smoke", () => {
   test("P1: initial load — CLS and frame jank during first render", async ({ kupua }) => {
     await kupua.page.goto(
       STABLE_UNTIL
-        ? `/search?nonFree=true&until=${encodeURIComponent(STABLE_UNTIL)}`
+        ? `/search?nonFree=true&until=${STABLE_UNTIL}`
         : "/search?nonFree=true",
     );
     await injectPerfProbes(kupua);
@@ -1043,7 +1043,7 @@ test.describe("Rendering Performance Smoke", () => {
   test("P10: full workflow — load, scroll, seek, switch, panel, sort", async ({ kupua }) => {
     await kupua.page.goto(
       STABLE_UNTIL
-        ? `/search?nonFree=true&until=${encodeURIComponent(STABLE_UNTIL)}`
+        ? `/search?nonFree=true&until=${STABLE_UNTIL}`
         : "/search?nonFree=true",
     );
     await injectPerfProbes(kupua);

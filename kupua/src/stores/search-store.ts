@@ -67,7 +67,6 @@ const AGG_FIELDS = FIELD_REGISTRY
 // - Buffer-shrink clamping (End key, small buffers)
 // - At-real-end detection (End key fast path)
 //
-// See exploration/docs/testing-regime-plan-handoff.md Phase 3 for rationale.
 // ---------------------------------------------------------------------------
 
 export interface ComputeScrollTargetInput {
@@ -2208,7 +2207,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // target at index 28 → pixelTop 1212 → 1116px flash).
       //
       // The math is extracted into computeScrollTarget() for independent
-      // unit testing — see Phase 3 of testing-regime-plan-handoff.md.
+      // unit testing.
       const scrollEl = getScrollContainer();
       let scrollTargetIndex: number;
       let _seekSubRowOffset = 0;

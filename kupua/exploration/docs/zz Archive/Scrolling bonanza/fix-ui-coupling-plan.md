@@ -1,6 +1,6 @@
 # Kupua Coupling Fix — Expanded Analysis & Work Plan
 
-> Critical evaluation and expansion of [fix-ui-coupling.md](../../fix-ui-coupling.md),
+> Critical evaluation and expansion of [fix-ui-coupling.md](../fix-ui-coupling.md),
 > with modern performance-focused solutions and a detailed implementation plan.
 
 ---

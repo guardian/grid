@@ -14,6 +14,67 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 6–7 April 2026 — Scroll Test & Tune (6 sessions)
+
+Multi-session effort to build test infrastructure, tune timing constants, and
+investigate CPU throttle behaviour. Full worklog:
+`exploration/docs/worklog-testing-regime.md`.
+
+**Sessions 1–2 (6 Apr): Measurement primitives + smoke hardening.**
+Added `sampleScrollTopAtFrameRate()` rAF helper to `KupuaHelpers` for frame-accurate
+swimming detection. Added scrollTop=0 cold-start seek test, tightened settle-window
+tolerance to 0 items, added rAF monotonicity test. Upgraded smoke S23 from 50ms
+polling to rAF (catches 16ms events the old probe missed ~50% of). Added S25
+fresh-app cold-start seek test. Added CLS capture via PerformanceObserver.
+
+**Session 3 (6 Apr): Test suite rationalisation.**
+Full audit of all spec files across 7 test modes. Created `e2e/README.md` with
+decision tree, file map, and mode table. Added npm scripts: `test:e2e:headed`,
+`test:e2e:debug`, `test:e2e:ui`. Reviewed directives — no changes needed.
+
+**Session 4 (6 Apr): File reorganisation.**
+Moved specs into `e2e/local/`, `e2e/smoke/`, `e2e/shared/` directories. Fixed all
+imports. Updated all Playwright configs. Fixed smoke-report output path.
+
+**Session 5 (6 Apr): Timing constant tuning.**
+Systematic tuning of three constants on TEST (1.3M docs) with E1/E2 experiment
+baselines. Results:
+
+| Constant | Before | After | Method |
+|----------|--------|-------|--------|
+| `SEEK_COOLDOWN_MS` | 700 | 100 | Bisected; floor at 65–80ms |
+| `SEEK_DEFERRED_SCROLL_MS` | 800 (700+100) | 150 (100+50) | Delta tuned +100→+50 |
+| `POST_EXTEND_COOLDOWN_MS` | 200 | 50 | Halved; floor at 32ms |
+
+Seek-to-first-extend reduced from 800ms → 150ms (**5.3× faster**). Grid jank
+improved 50% at fast speed, 18% at turbo. Table jank unchanged (DOM-churn-bound).
+No stability regressions. Fixed corpus-pinning `&until=` URLs across 7 files
+(removed `encodeURIComponent`, fixed timestamp format). Overscan tuning deferred —
+blank flash probe can't detect empty table rows.
+
+**Corruption fix (6 Apr):** Restored `smoke-scroll-stability.spec.ts` from HEAD~1
+after a bad merge during reorganisation left three duplicated S23 copies and syntax
+errors. Re-applied Phase 2 changes cleanly.
+
+**Session 6 (7 Apr): CPU throttle experiments.**
+Added `CPU_THROTTLE` env var to shared test fixture (CDP `setCPUThrottlingRate`).
+Ran smoke S14/S22/S23/S25 + E1/E2 experiments on TEST at 4× throttle. S22
+(backward extend after seek) **consistently fails** at 4× — backward extend never
+fires. Systematically tested three timing constant configurations:
+
+| Experiment | SEEK_COOLDOWN | Delta | POST_EXTEND | Result |
+|---|---|---|---|---|
+| A: raise POST_EXTEND | 100 | +50 | 100 | ❌ 4/4 fail |
+| B: raise delta | 100 | +150 | 100 | ❌ 4/4 fail |
+| C: lower cooldown | 50 | +150 | 100 | ❌ 4/4 fail |
+
+Root cause: the timing constants gate the store's *response* to extend requests, but
+at 4× throttle the scroll handler doesn't fire often enough to *make* the request
+(`startIndex` never reaches `EXTEND_THRESHOLD`). Fix requires changing the extend
+trigger mechanism (scroll-distance-based or higher threshold), not timing constants.
+On actual Guardian hardware (M1/M2), the 4× scenario doesn't arise. Updated
+`e2e/README.md` with full environment variable and runner flag documentation.
+
 ### 6 April 2026 — Phase 2: Smoke Test Hardening (Testing Regime Plan)
 
 Upgraded the smoke test suite for frame-accurate swimming detection on real data.

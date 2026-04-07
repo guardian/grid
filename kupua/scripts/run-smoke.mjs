@@ -27,6 +27,20 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+
+// ---------------------------------------------------------------------------
+// Corpus pinning — freeze the result set so totals don't drift between runs.
+// TEST receives new images every ~20 minutes. Without pinning, seek accuracy
+// assertions that compare bufferOffset to total will flicker.
+// This uses the same env var as perf tests (PERF_STABLE_UNTIL) so the
+// existing kupua.goto() helper picks it up automatically.
+// ---------------------------------------------------------------------------
+
+const SMOKE_STABLE_UNTIL = "2026-02-15T23:59:59.999Z";
+if (!process.env["PERF_STABLE_UNTIL"]) {
+  process.env["PERF_STABLE_UNTIL"] = SMOKE_STABLE_UNTIL;
+}
+
 const SPEC_FILES = [
   resolve(ROOT, "e2e/smoke/manual-smoke-test.spec.ts"),
   resolve(ROOT, "e2e/smoke/smoke-scroll-stability.spec.ts"),

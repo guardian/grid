@@ -39,6 +39,65 @@ e2e-perf/                         ← separate (own configs, own results)
 | **Experiment** | `npm run test:experiment` | Local or real ES | Agent-driven A/B tuning. Requires user consent for TEST. |
 | **Diagnostic** | `npm run test:diag` | Local or real ES | Scrubber coordinate-space investigation. Headed only. |
 
+## Environment Variables
+
+All env vars are optional. Pass them as prefixes to any command, e.g.
+`CPU_THROTTLE=4 npm run test:e2e` or `CPU_THROTTLE=4 npm run test:smoke`.
+
+### Test runner env vars (affect Playwright test execution)
+
+| Variable | Type | Default | Used by | Purpose |
+|----------|------|---------|---------|---------|
+| `CPU_THROTTLE` | number | 0 (off) | All modes via shared fixture | CDP `Emulation.setCPUThrottlingRate`. Rate=4 simulates 4× slower CPU. Used for slow-hardware experiments. |
+| `PERF_STABLE_UNTIL` | ISO date string | — | Smoke, perf, experiments | Pins the result corpus at a fixed date (`&until=` URL param) to prevent metric drift from new images. Auto-set by `run-smoke.mjs` and `run-audit.mjs`. |
+| `EXP_OVERSCAN_TABLE` | number or `"current"` | `"current"` | Experiments (E1) | Override TanStack Virtual overscan for table scroll experiments. |
+| `EXP_OVERSCAN_GRID` | number or `"current"` | `"current"` | Experiments (E2) | Override TanStack Virtual overscan for grid scroll experiments. |
+
+### App-level env vars (affect kupua's runtime behaviour via Vite)
+
+These are set in `.env` / `.env.development` for local mode, and overridden
+by `start.sh --use-TEST` for real clusters. They're **not** test runner flags,
+but they determine how the app behaves during tests.
+
+| Variable | Default | Local dev | `--use-TEST` | Purpose |
+|----------|---------|-----------|--------------|---------|
+| `VITE_MAX_RESULT_WINDOW` | 100,000 | 500 | 100,000 | Must match ES index `max_result_window` |
+| `VITE_DEEP_SEEK_THRESHOLD` | 10,000 | 200 | 10,000 | Offset above which seek uses the deep path |
+| `VITE_SCROLL_MODE_THRESHOLD` | 1,000 | 1,000 | 1,000 | Max total for scroll mode (vs seek mode) |
+| `VITE_ES_BASE` | `/es` | — | — | ES proxy base URL |
+| `VITE_ES_INDEX` | `images` | — | Auto-discovered | ES index name |
+| `VITE_ES_IS_LOCAL` | `true` | `true` | `false` | Write-protection flag |
+| `VITE_S3_PROXY_ENABLED` | `false` | — | `true` | Enable S3 thumbnail proxy |
+| `VITE_IMGPROXY_ENABLED` | `false` | — | `true` | Enable imgproxy for full images |
+| `VITE_IMAGE_BUCKET` | — | — | Auto-discovered | S3 bucket for full images |
+| `VITE_KEYWORD_SEEK_BUCKET_SIZE` | 10,000 | — | — | Composite agg page size for keyword seek |
+
+### Perf audit CLI flags (`run-audit.mjs`)
+
+| Flag | Example | Purpose |
+|------|---------|---------|
+| `--label "..."` | `--label "Phase 1: baseline"` | Human-readable label for the audit log entry |
+| `--runs N` | `--runs 3` | Repeat the test suite N times; metrics are median-aggregated |
+| Positional | `P8` or `P3,P8,P9` | Grep filter — run only specific perf scenarios |
+
+### Smoke runner CLI args (`run-smoke.mjs`)
+
+| Arg | Example | Purpose |
+|-----|---------|---------|
+| Number(s) | `2` or `2,3,5` | Run specific test(s) by menu number |
+| `all` | `all` | Run all smoke tests |
+| (none) | — | Interactive picker |
+
+### Playwright built-in flags (useful combinations)
+
+| Flag | Example | Purpose |
+|------|---------|---------|
+| `--headed` | `npm run test:e2e:headed` | Visible browser |
+| `--debug` | `npm run test:e2e:debug` | Step-through debugger |
+| `--ui` | `npm run test:e2e:ui` | Playwright UI mode |
+| `-g "pattern"` | `npx playwright test -g "scroll up"` | Run tests matching grep pattern |
+| `--update-snapshots` | `npx playwright test --update-snapshots` | Update visual baselines |
+
 ## Which Command Do I Run?
 
 1. **Changed `src/`?** → `npm test` then `npm run test:e2e`

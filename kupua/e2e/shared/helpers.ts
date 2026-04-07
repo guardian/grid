@@ -18,6 +18,12 @@ import { test as base, expect, type Page, type Locator } from "@playwright/test"
 
 export const test = base.extend<{ kupua: KupuaHelpers }>({
   kupua: async ({ page }, use) => {
+    // Optional CPU throttle for slow-hardware experiments (e.g. CPU_THROTTLE=4)
+    const throttle = Number(process.env["CPU_THROTTLE"] || 0);
+    if (throttle > 0) {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
+    }
     const helpers = new KupuaHelpers(page);
     await use(helpers);
   },
@@ -46,7 +52,7 @@ export class KupuaHelpers {
    */
   async goto() {
     const stableUntil = process.env["PERF_STABLE_UNTIL"];
-    const untilParam = stableUntil ? `&until=${encodeURIComponent(stableUntil)}` : "";
+    const untilParam = stableUntil ? `&until=${stableUntil}` : "";
     await this.page.goto(`/search?nonFree=true${untilParam}`);
     await this.waitForResults();
   }
@@ -68,7 +74,7 @@ export class KupuaHelpers {
    */
   async gotoPerfStable(extraParams?: string) {
     const stableUntil = process.env["PERF_STABLE_UNTIL"];
-    const untilParam = stableUntil ? `&until=${encodeURIComponent(stableUntil)}` : "";
+    const untilParam = stableUntil ? `&until=${stableUntil}` : "";
     const extra = extraParams ? `&${extraParams}` : "";
     await this.page.goto(`/search?nonFree=true${untilParam}${extra}`);
     await this.waitForResults();

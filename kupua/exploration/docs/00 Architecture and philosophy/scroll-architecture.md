@@ -136,7 +136,7 @@ of data.
 ### Deep seek (scrubber click at 50% of 1.3M results)
 
 1. User clicks the scrubber track at 50% → `seek(650000)`.
-2. `seek()` sets `SEEK_COOLDOWN_MS = 700ms` — blocks all extends.
+2. `seek()` sets `SEEK_COOLDOWN_MS = 100ms` — blocks all extends.
 3. Deep path: ES `percentiles` aggregation estimates the `uploadTime` at
    the 50th percentile → e.g. `2024-08-15T14:22:00.000Z`.
 4. Forward `search_after([estimated_date, ""])` fetches 200 items starting
@@ -149,13 +149,13 @@ of data.
 7. `useScrollEffects` effect #6 fires: reverse-computes the local index
    that corresponds to the user's current `scrollTop` → typically delta
    <1 row → **no-op**. Zero visible flash.
-8. At 800ms (`SEEK_DEFERRED_SCROLL_MS`), a synthetic scroll event triggers
+8. At 150ms (`SEEK_DEFERRED_SCROLL_MS`), a synthetic scroll event triggers
    `reportVisibleRange`. With ~100 items of headroom, `startIndex > 50`
    (EXTEND_THRESHOLD) — **no immediate backward extend**. Forward extend
    fires if needed.
 9. As the user scrolls up past the headroom, `extendBackward` fires and
    prepends to off-screen content — **invisible** by construction.
-10. Post-extend cooldown (200ms) prevents cascading compensations.
+10. Post-extend cooldown (50ms) prevents cascading compensations.
 
 Total time: ~250–600ms on real ES (one extra backward fetch, ~50-100ms).
 Settle-window content shift: **0 items** (was ~3 items before bidirectional seek).
@@ -258,39 +258,37 @@ replacement during seek, and (2) spacing out consecutive prepends so each
 
 ```
 seek() called
-  ├── _seekCooldownUntil = Date.now() + 700ms     ← blocks ALL extends
+  ├── _seekCooldownUntil = Date.now() + 100ms     ← blocks ALL extends
   ├── ES fetch (async, ~100–500ms)
   ├── set() — buffer replaced, _seekGeneration++
   │
   ├── Effect #6: reverse-compute scrollTarget       ← zero flash
-  │     └── setTimeout(800ms) → synthetic scroll
+  │     └── setTimeout(150ms) → synthetic scroll
   │
-  ├── 700ms: cooldown expires
-  ├── 800ms: deferred scroll fires
+  ├── 100ms: cooldown expires
+  ├── 150ms: deferred scroll fires
   │     ├── reportVisibleRange → extendForward
   │     └── reportVisibleRange → extendBackward     ← first prepend
   │           ├── ES fetch (async)
   │           ├── set() — buffer grows, _prependGeneration++
   │           ├── useLayoutEffect: scrollTop += compensation
-  │           └── _seekCooldownUntil = Date.now() + 200ms  ← POST_EXTEND_COOLDOWN
+  │           └── _seekCooldownUntil = Date.now() + 50ms   ← POST_EXTEND_COOLDOWN
   │
-  └── 1000ms+: next extend can fire (200ms after previous)
+  └── 200ms+: next extend can fire (50ms after previous)
 ```
 
 **Key constants** (in `tuning.ts`):
 
 | Constant | Value | Purpose |
 |---|---|---|
-| `SEEK_COOLDOWN_MS` | 700ms | Post-arrival extend block — virtualiser settles |
-| `SEEK_DEFERRED_SCROLL_MS` | 800ms | = cooldown + 100ms — first extends fire in stable state |
-| `POST_EXTEND_COOLDOWN_MS` | 200ms | Spaces out consecutive backward extends |
+| `SEEK_COOLDOWN_MS` | 100ms | Post-arrival extend block — virtualiser settles |
+| `SEEK_DEFERRED_SCROLL_MS` | 150ms | = cooldown + 50ms — first extends fire in stable state |
+| `POST_EXTEND_COOLDOWN_MS` | 50ms | Spaces out consecutive backward extends |
 | `SEARCH_FETCH_COOLDOWN_MS` | 2000ms | Blocks extends during in-flight search/abort |
 
-The 700ms is conservative. The browser's actual settle time is ~50–300ms
-depending on hardware. With bidirectional seek, the cooldown's job is
-simpler (prevent races, not prevent swimming), so there's room to reduce
-it — but no user-visible reason to. Touching these values requires
-running the full smoke suite on real data. Don't reduce them speculatively.
+The timing chain was tuned in April 2026 (see `worklog-testing-regime.md` Session 5).
+Original values were 700 / 800 / 200 — reduced 5.3× with no stability regressions,
+grid jank improved 50% at fast scroll speed.
 
 ### What didn't work (historical)
 
