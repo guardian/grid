@@ -59,6 +59,8 @@ The user considers this the single most valuable behaviour the agent can have.
 in the shell — special characters and line breaks get mangled by zsh quoting. Instead:
 write the message to a temp file (e.g. via a heredoc or the file-creation tool), then
 run `git commit -F <file>`, then delete the temp file and `git commit --amend --no-edit`.
+**Staging:** Always `git add kupua/` from the repo root. Never `git add -A` or
+`git add .` — git operates on the whole repo regardless of your cwd.
 
 **Directive: Directive sync rule.** The directives exist in two places that must stay
 identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and

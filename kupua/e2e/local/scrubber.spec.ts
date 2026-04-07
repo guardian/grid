@@ -306,7 +306,7 @@ test.describe("Scroll position after seek", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Flash prevention — golden table from worklog-stale-cells-bug.md
+// Flash prevention — reverse-compute golden table
 //
 // The reverse-compute algorithm adapts content placement to the user's
 // current scrollTop instead of changing scrollTop during a seek.

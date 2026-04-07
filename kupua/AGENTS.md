@@ -52,16 +52,16 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 | Component | Key files | ~Lines | Purpose |
 |---|---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,550 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
-| Store | `stores/search-store.ts` | 2,540 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus |
-| Table | `components/ImageTable.tsx` | 1,260 | TanStack Table + Virtual. Column defs from field-registry. |
-| Grid | `components/ImageGrid.tsx` | 520 | Responsive thumbnails, scroll anchoring on width change |
-| Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,010 + 970 | Scroll/seek modes, ticks, tooltip, null-zone support |
-| Scroll | `hooks/useScrollEffects.ts` | 700 | Shared scroll lifecycle. Seek, prepend compensation, density-focus. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
+| Store | `stores/search-store.ts` | 2,650 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus |
+| Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
+| Grid | `components/ImageGrid.tsx` | 490 | Responsive thumbnails, scroll anchoring on width change |
+| Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,080 + 1,040 | Scroll/seek modes, ticks, tooltip, null-zone support |
+| Scroll | `hooks/useScrollEffects.ts` | 720 | Shared scroll lifecycle. Seek, prepend compensation, density-focus. |
 | Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Prefetch, fullscreen, position cache. |
 | Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Another density of the same list. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
-| Fields | `lib/field-registry.ts` | 644 | 23 hardcoded + config aliases. Drives all surfaces. |
+| Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
 | URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | 478 | `@guardian/cql` Web Component + CQL→ES translator |

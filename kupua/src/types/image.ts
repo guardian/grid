@@ -1,6 +1,6 @@
 /**
  * Core image types derived from the Grid Elasticsearch mapping.
- * See kupua/exploration/mapping.json for the full schema.
+ * See kupua/exploration/mock/mapping.json for the full schema.
  */
 
 export interface ImageDimensions {

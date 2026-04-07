@@ -12,7 +12,7 @@
  *   - scrollTop jumps to ~6969 (prepend scroll compensation)
  *   - Grid shows images from the wrong position
  *
- * The fix has 5 layers (see exploration/docs/buffer-corruption-fix.md):
+ * The fix has 5 layers (see exploration/docs/zz Archive/Scrolling bonanza/buffer-corruption-fix.md):
  *   Layer 1: resetScrollAndFocusSearch() calls abortExtends() (primary)
  *   Layer 2: search() sets a 2-second extend cooldown
  *   Layer 3: Seek cooldown refreshed at data arrival

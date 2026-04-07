@@ -286,7 +286,7 @@ seek() called
 | `POST_EXTEND_COOLDOWN_MS` | 50ms | Spaces out consecutive backward extends |
 | `SEARCH_FETCH_COOLDOWN_MS` | 2000ms | Blocks extends during in-flight search/abort |
 
-The timing chain was tuned in April 2026 (see `worklog-testing-regime.md` Session 5).
+The timing chain was tuned in April 2026 (see changelog.md, "Scroll Test & Tune" sessions).
 Original values were 700 / 800 / 200 — reduced 5.3× with no stability regressions,
 grid jank improved 50% at fast scroll speed.
 
