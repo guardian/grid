@@ -29,6 +29,16 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
   },
   "Resources": {
+    "CohereV4Index": {
+      "Properties": {
+        "DataType": "float32",
+        "Dimension": 256,
+        "DistanceMetric": "cosine",
+        "IndexName": "cohere-embed-english-v4",
+        "VectorBucketName": "image-embeddings-TEST",
+      },
+      "Type": "AWS::S3Vectors::Index",
+    },
     "DownscaledImageBucketImageembedderE1B3D588": {
       "DeletionPolicy": "Retain",
       "Properties": {
@@ -64,6 +74,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
+    },
+    "GridEmbeddingsVectorBucket": {
+      "Properties": {
+        "VectorBucketName": "image-embeddings-TEST",
+      },
+      "Type": "AWS::S3Vectors::VectorBucket",
     },
     "ImageEmbedderBackfillerC6D20164": {
       "DependsOn": [

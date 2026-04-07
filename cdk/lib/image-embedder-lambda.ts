@@ -15,7 +15,8 @@ import {Schedule} from "aws-cdk-lib/aws-events";
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
-import {Queue} from 'aws-cdk-lib/aws-sqs';
+import * as s3vectors from 'aws-cdk-lib/aws-s3vectors';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 export class ImageEmbedder extends GuStack {
   constructor(scope: App, id: string, props: GuStackProps) {
@@ -25,6 +26,18 @@ export class ImageEmbedder extends GuStack {
 
     const appName = 'image-embedder';
     const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
+
+    new s3vectors.CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
+      vectorBucketName: `image-embeddings-${this.stage}`,
+    });
+
+    new s3vectors.CfnIndex(this, 'CohereV4Index', {
+      dataType: 'float32',
+      dimension: 256,
+      distanceMetric: 'cosine',
+      indexName: 'cohere-embed-english-v4',
+      vectorBucketName: `image-embeddings-${this.stage}`,
+    });
 
     // These are exposed as parameters by the cloudformation in editorial-tools-platform
     // https://github.com/guardian/editorial-tools-platform/blob/ea68387e82d28642b23966635f813b0a8f3a2c0a/cloudformation/media-service-account/grid/media-service.yaml#L3270-L3283

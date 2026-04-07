@@ -75,7 +75,7 @@ export class ThrallEventPublisher {
         lastModified: new Date().toISOString(),
         id: v.key,
         embedding: {
-          cohereEmbedEnglishV3: {
+          cohereEmbedEnglishV4: {
             image: v.data.float32,
           },
         },
