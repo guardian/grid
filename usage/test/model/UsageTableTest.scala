@@ -141,7 +141,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
 
       whenReady(eventualResult) { result =>
         result.size should be(1)
-        result.head.mediaId should be(imageId1)
+        result.head should be(usage1)
       }
     }
 
