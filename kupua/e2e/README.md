@@ -160,3 +160,26 @@ but they determine how the app behaves during tests.
 | `e2e-perf/perf.spec.ts` | `e2e-perf/playwright.perf.config.ts` | 16 perf scenarios (P1–P16): CLS, jank, DOM churn, LoAF |
 | `e2e-perf/experiments.spec.ts` | `playwright.experiments.config.ts` | A/B tuning experiments (E1–E6): overscan, buffer capacity, etc. |
 
+## Smoke → Local Feedback Loop
+
+> This procedure applies after every smoke test session against TEST.
+
+The primary purpose of manual smoke tests is NOT just to validate fixes on real
+data — it is to **improve local test coverage** so the same class of bug is caught
+without manual testing in the future. After every smoke test session, the agent must
+try hard to backport learnings into the local test suite:
+
+1. **Amend existing local tests** — add stronger assertions, capture telemetry
+   (console logs, timing, page counts), tighten tolerances, assert on code paths
+   taken (not just outcomes).
+2. **Improve helpers and env config** — add new helper methods to `KupuaHelpers`,
+   adjust env variables (`.env`, `.env.development`), tune Docker ES settings
+   (`load-sample-data.sh`), or add synthetic edge-case data (e.g. docs with missing
+   fields) so local ES better approximates real-world data shapes.
+3. **Add new local tests** if the existing ones can't be modified to cover the gap.
+
+**Goal:** every smoke test failure should produce at least one local test improvement
+that would have caught (or would in the future catch) the same bug class locally. If
+a particular failure truly cannot be reproduced locally (e.g. requires 1M+ docs),
+document why in the test comments and ensure the smoke test itself covers it permanently.
+

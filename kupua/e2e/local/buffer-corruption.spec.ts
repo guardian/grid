@@ -549,5 +549,214 @@ test.describe("Reset to home from deep scrubber position", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Scenario I: Logo click resets scroll when already at bufferOffset 0
+//
+// Regression test for the bug introduced by the "Home/logo flash elimination"
+// (commit 61b042101): resetScrollAndFocusSearch() stopped resetting scrollTop
+// entirely, relying on effect #8 (BufferOffset→0 guard). But effect #8 only
+// fires when bufferOffset transitions from >0 to 0. When the user is scrolled
+// down within the first page (bufferOffset already 0), nothing resets scroll.
+//
+// The fix: eager scrollTop=0 in resetScrollAndFocusSearch() when bufferOffset
+// is already 0 (safe — buffer has correct data, no flash). Same logic as the
+// Home key handler in useListNavigation.ts.
+// ---------------------------------------------------------------------------
+
+test.describe("Logo click resets scroll without prior deep seek", () => {
+
+  test("grid: logo click scrolls to top when scrolled within first page", async ({ kupua }) => {
+    await kupua.goto();
+    const initial = await kupua.getStoreState();
+    expect(initial.bufferOffset).toBe(0);
+
+    // Scroll down a meaningful amount within the first page
+    await kupua.scrollBy(1500);
+    const scrollBefore = await kupua.getScrollTop();
+    expect(scrollBefore, "should have scrolled down").toBeGreaterThan(500);
+
+    // Click the Home logo
+    await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
+    await kupua.page.waitForTimeout(500);
+
+    // Scroll must be at or very near 0
+    const scrollAfter = await kupua.getScrollTop();
+    expect(scrollAfter, "scrollTop after logo click").toBeLessThan(50);
+
+    // Buffer must still be healthy
+    const state = await kupua.getStoreState();
+    expect(state.bufferOffset).toBe(0);
+    expect(state.error).toBeNull();
+    await kupua.assertPositionsConsistent();
+  });
+
+  test("table: logo click scrolls to top when scrolled within first page", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    const initial = await kupua.getStoreState();
+    expect(initial.bufferOffset).toBe(0);
+
+    // Scroll down within the first page
+    await kupua.scrollBy(1500);
+    const scrollBefore = await kupua.getScrollTop();
+    expect(scrollBefore, "should have scrolled down").toBeGreaterThan(500);
+
+    // Click the Home logo
+    await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
+    await kupua.page.waitForTimeout(500);
+
+    const scrollAfter = await kupua.getScrollTop();
+    expect(scrollAfter, "scrollTop after logo click").toBeLessThan(50);
+
+    const state = await kupua.getStoreState();
+    expect(state.bufferOffset).toBe(0);
+    expect(state.error).toBeNull();
+    await kupua.assertPositionsConsistent();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario J: Home logo from deep table — no flash of wrong grid content
+//
+// This is the definitive test for the "Home logo flash" bug.
+//
+// When clicking the Home logo from a deep-seeked TABLE view, the old code
+// would: (1) fire search() async, (2) navigate immediately (dropping
+// density=table from URL), (3) grid mounts with stale deep-offset buffer
+// → flash of wrong images for ~50-200ms. The fix makes resetToHome() async
+// — it awaits search() completion before navigating, so the grid only
+// mounts after fresh page-1 data is in the store.
+//
+// This test installs a MutationObserver on the grid container to catch the
+// exact moment the grid mounts, then reads the store's bufferOffset. If
+// the grid ever renders while bufferOffset > 0, that's the flash.
+// ---------------------------------------------------------------------------
+
+test.describe("Home logo from deep table — no flash of wrong grid content", () => {
+
+  test("grid never mounts with stale deep-offset data during Home from table", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    const initial = await kupua.getStoreState();
+    test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
+
+    const firstImageBefore = initial.firstImageId;
+
+    // Seek deep in table view
+    await kupua.seekTo(0.5);
+    const afterSeek = await kupua.getStoreState();
+    expect(afterSeek.bufferOffset, "should be at a deep offset").toBeGreaterThan(0);
+
+    // Install a recorder that captures the store state at every change.
+    // We specifically watch for the moment when:
+    //   - The URL no longer has density=table (grid is about to mount)
+    //   - AND bufferOffset > 0 (stale data still in buffer)
+    // That combination IS the flash.
+    await kupua.page.evaluate(() => {
+      const snapshots: Array<{
+        bufferOffset: number;
+        resultsLength: number;
+        density: string | null;
+        firstImageId: string | null;
+        ts: number;
+      }> = [];
+
+      const store = (window as any).__kupua_store__;
+
+      // Record store state changes
+      const unsub = store.subscribe((s: any) => {
+        const url = new URL(window.location.href);
+        snapshots.push({
+          bufferOffset: s.bufferOffset,
+          resultsLength: s.results.length,
+          density: url.searchParams.get("density"),
+          firstImageId: s.results[0]?.id ?? null,
+          ts: Date.now(),
+        });
+      });
+
+      // Also watch for URL changes via a MutationObserver on the DOM
+      // (TanStack Router uses History API, which we can catch via
+      // periodic URL checks in a rAF loop)
+      let lastUrl = window.location.href;
+      const urlSnapshots: Array<{ url: string; bufferOffset: number; ts: number }> = [];
+      const checkUrl = () => {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+          lastUrl = currentUrl;
+          const s = store.getState();
+          urlSnapshots.push({
+            url: currentUrl,
+            bufferOffset: s.bufferOffset,
+            ts: Date.now(),
+          });
+        }
+        if (!(window as any).__flash_test_done__) {
+          requestAnimationFrame(checkUrl);
+        }
+      };
+      requestAnimationFrame(checkUrl);
+
+      (window as any).__flash_snapshots__ = snapshots;
+      (window as any).__flash_url_snapshots__ = urlSnapshots;
+      (window as any).__flash_unsub__ = unsub;
+      (window as any).__flash_test_done__ = false;
+    });
+
+    // Click the Home logo
+    await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
+    await kupua.waitForResults();
+    await kupua.page.waitForTimeout(1500);
+
+    // Stop the recorder
+    const { snapshots, urlSnapshots } = await kupua.page.evaluate(() => {
+      (window as any).__flash_test_done__ = true;
+      const snaps = (window as any).__flash_snapshots__;
+      const urlSnaps = (window as any).__flash_url_snapshots__;
+      const unsub = (window as any).__flash_unsub__ as () => void;
+      if (unsub) unsub();
+      delete (window as any).__flash_snapshots__;
+      delete (window as any).__flash_url_snapshots__;
+      delete (window as any).__flash_unsub__;
+      delete (window as any).__flash_test_done__;
+      return { snapshots: snaps, urlSnapshots: urlSnaps };
+    });
+
+    // Assert: when the URL changed (dropping density=table), the buffer
+    // must already have been at offset 0 with fresh data.
+    for (const snap of urlSnapshots) {
+      const url = new URL(snap.url);
+      const density = url.searchParams.get("density");
+      if (density !== "table") {
+        // Grid view is now active — buffer must be at offset 0
+        expect(
+          snap.bufferOffset,
+          `Flash detected: URL changed to grid view while bufferOffset=${snap.bufferOffset}. ` +
+          `The grid would show stale deep-offset images.`,
+        ).toBe(0);
+      }
+    }
+
+    // Assert: no store state snapshot shows bufferOffset > 0 after the
+    // URL dropped density=table. Find the first snapshot where density
+    // is not "table" — all subsequent snapshots must have bufferOffset 0.
+    let gridModeStarted = false;
+    for (const snap of snapshots) {
+      if (snap.density !== "table") gridModeStarted = true;
+      if (gridModeStarted) {
+        expect(
+          snap.bufferOffset,
+          `Store had bufferOffset=${snap.bufferOffset} while in grid mode ` +
+          `(firstImage=${snap.firstImageId}). This is the flash.`,
+        ).toBe(0);
+      }
+    }
+
+    // Final state: clean top, first image matches
+    await assertCleanTopState(kupua, "Home from deep table — no flash");
+    const afterHome = await kupua.getStoreState();
+    expect(afterHome.firstImageId).toBe(firstImageBefore);
+  });
+});
 
 

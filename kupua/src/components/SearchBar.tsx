@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
@@ -18,6 +18,7 @@ import { resetToHome } from "@/lib/reset-to-home";
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
+  const navigate = useNavigate();
   const took = useSearchStore((s) => s.took);
   const seekTime = useSearchStore((s) => s.seekTime);
   // Track whether the CQL editor has content (for showing the clear button)
@@ -82,18 +83,23 @@ export function SearchBar() {
     >
       {/* Logo — always visible, resets state and focuses search box.
            Hit area is a square matching the full bar height (h-11 = 44px).
-           -ml-3 eats the bar's px-3 so the click target sits flush left. */}
-      <Link
-        to="/search"
-        search={{ nonFree: "true" }}
+           -ml-3 eats the bar's px-3 so the click target sits flush left.
+           Uses <a> (not <Link>) with e.preventDefault() so we can await
+           search() before navigating. This prevents the table→grid flash:
+           the density switch only happens after fresh page-1 data is ready. */}
+      <a
+        href="/search?nonFree=true"
         title="Grid — clear all filters"
         className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
-        onClick={() => {
-          resetToHome();
+        onClick={(e) => {
+          e.preventDefault();
+          resetToHome(() =>
+            navigate({ to: "/search", search: { nonFree: "true" } }),
+          );
         }}
       >
         <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />
-      </Link>
+      </a>
 
       {/* CQL search input with chips — grows to fill available space */}
       <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">

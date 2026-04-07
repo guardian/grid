@@ -1270,16 +1270,6 @@ export function ImageTable() {
         </div>
       )}
 
-      {/* Column context menu */}
-      <ColumnContextMenu
-        ref={columnMenuRef}
-        columns={allColumns}
-        getColumnId={getColumnId}
-        hiddenColumnIds={config.hidden}
-        onToggleVisibility={toggleVisibility}
-        onResizeColumnToFit={resizeColumnToFit}
-        onResizeAllColumnsToFit={resizeAllColumnsToFit}
-      />
     </div>
 
     {/* Horizontal scrollbar proxy — native scrollbar on a thin div that
@@ -1294,6 +1284,19 @@ export function ImageTable() {
     >
       <div ref={hScrollInnerRef} style={{ height: 1 }} />
     </div>
+
+    {/* Column context menu — rendered outside the scroll container because
+        its `contain: strict` (hide-scrollbar-y) creates a new containing
+        block that breaks position:fixed and clips overflow. */}
+    <ColumnContextMenu
+      ref={columnMenuRef}
+      columns={allColumns}
+      getColumnId={getColumnId}
+      hiddenColumnIds={config.hidden}
+      onToggleVisibility={toggleVisibility}
+      onResizeColumnToFit={resizeColumnToFit}
+      onResizeAllColumnsToFit={resizeAllColumnsToFit}
+    />
   </div>
   );
 }

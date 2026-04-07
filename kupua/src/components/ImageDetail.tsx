@@ -33,7 +33,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -351,14 +351,18 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           {/* Logo + separator + back button — flush together, no gaps */}
           <div className="flex items-center shrink-0 -ml-3">
             {/* Logo — resets everything (query, filters, sort, scroll), same as SearchBar.
-                 Hit area is a square matching the full bar height (h-11 = 44px). */}
-            <Link
-              to="/search"
-              search={{ nonFree: "true" }}
+                 Hit area is a square matching the full bar height (h-11 = 44px).
+                 Uses <a> (not <Link>) with e.preventDefault() so we can await
+                 search() before navigating — prevents table→grid flash. */}
+            <a
+              href="/search?nonFree=true"
               title="Grid — clear all filters"
               className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
-              onClick={() => {
-                resetToHome();
+              onClick={(e) => {
+                e.preventDefault();
+                resetToHome(() =>
+                  navigate({ to: "/search", search: { nonFree: "true" } }),
+                );
               }}
             >
               <img
@@ -366,7 +370,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                 alt="Grid"
                 className="w-8 h-8"
               />
-            </Link>
+            </a>
 
             <div className="w-px h-5 bg-grid-separator shrink-0" />
 

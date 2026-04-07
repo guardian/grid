@@ -14,6 +14,88 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+
+### 7 April 2026 — Home logo flash elimination (table→grid density switch)
+
+**Problem:** Clicking the Home logo from table view produced three visual states
+instead of two: (1) table at current position, (2) grid showing wrong images from
+deep offset for ~50-200ms, (3) grid at top with correct data. State 2 was the flash.
+A second, subtler flash existed even at shallow scroll: the table jumped to
+`scrollTop=0` for ~100ms before the grid replaced it.
+
+**Root cause (deep flash):** The `<Link>` navigation changed the URL synchronously
+(dropping `density=table`), causing React to unmount the table and mount the grid
+BEFORE the async `search()` completed. The grid rendered the stale deep-offset
+buffer at `scrollTop=0`.
+
+**Root cause (shallow flash):** `resetScrollAndFocusSearch()` eagerly set
+`scrollTop=0` on the table's scroll container. The table jumped to top immediately,
+then ~100ms later navigation fired and the grid replaced it. Three states.
+
+**Investigation — approach G (startTransition) eliminated:** TanStack Router's
+`useSearch()` → `useMatch()` → `useStore()` → `useSyncExternalStoreWithSelector`
+delivers URL state via a synchronous external store that tears through React
+transitions. `startTransition` cannot defer the density value change.
+
+**Fix — approach A (imperative navigation):**
+
+1. **`reset-to-home.ts`:** `resetToHome()` converted from sync to async. Accepts a
+   `navigate: () => void` callback. Runs all state resets, then `await store.search()`,
+   then calls `navigate()`. Error handling: navigates even if search fails (graceful
+   degradation). The density switch now happens AFTER fresh page-1 data is in the store.
+
+2. **`SearchBar.tsx` + `ImageDetail.tsx`:** Replaced `<Link>` with
+   `<a href="/search?nonFree=true">` + `e.preventDefault()` + `useNavigate()`.
+   Preserves right-click "open in new tab" via the `href` attribute.
+
+3. **`orchestration/search.ts`:** Added `skipEagerScroll` option to
+   `resetScrollAndFocusSearch()`. When true, the eager `scrollTop=0` reset is
+   skipped — the current view is about to be replaced by navigation.
+
+4. **Density-aware skip:** `resetToHome()` checks `density=table` in the current
+   URL. Only skips eager scroll when a density switch will happen (table→grid,
+   where the scroll container is about to be replaced). When already in grid view,
+   the scroll container survives navigation — eager reset is preserved.
+
+**Test:** Scenario J in `buffer-corruption.spec.ts` — installs Zustand subscriber +
+rAF URL watcher before clicking Home from deep-seeked table. Asserts the grid never
+renders while `bufferOffset > 0`. All assertions pass.
+
+**Files:** `lib/reset-to-home.ts`, `lib/orchestration/search.ts`,
+`components/SearchBar.tsx`, `components/ImageDetail.tsx`,
+`e2e/local/buffer-corruption.spec.ts`.
+**Results:** 203 unit tests pass, 91 E2E pass (was 90 + 1 new).
+
+
+### 7 April 2026 — Home logo fixes (shallow scroll + density-focus interference)
+
+Three fixes from one session, all related to Home logo click behaviour:
+
+**1. Home logo scroll reset from shallow scroll (fix #1).** Clicking the Home
+logo did nothing when scrolled within the first page (bufferOffset already 0).
+Root cause: commit 61b042101 removed eager scrollTop=0, deferring all resets
+to effect #8 which only fires on bufferOffset >0 to 0 transitions. Fix: restored
+eager scroll reset in `resetScrollAndFocusSearch()`, guarded by bufferOffset===0.
+Two new E2E tests in buffer-corruption.spec.ts (grid + table).
+
+**2. Column context menu positioning.** Moved ColumnContextMenu outside the
+scroll container -- `contain: strict` on the scroll container was breaking
+`position: fixed` and clipping the menu.
+
+**3. Home logo from table with focused image (fix #2).** Clicking Home logo
+from table view with a focused image failed to scroll to top in grid. The
+density-focus save/restore (effect #10) saved the focused image ratio on table
+unmount, then restored it on grid mount -- fighting the go-home intent. Fix:
+in `resetToHome()`, synchronously clear `focusedImageId` and density-focus
+saved state before navigation. Exported `clearDensityFocusRatio()` from
+`useScrollEffects.ts`.
+
+**Files:** `lib/orchestration/search.ts`, `lib/reset-to-home.ts`,
+`hooks/useScrollEffects.ts`, `components/ImageTable.tsx`,
+`e2e/local/buffer-corruption.spec.ts`.
+**Results:** 203 unit tests pass, 90 E2E pass (was 88 + 2 new).
+
+
 ### 6–7 April 2026 — Scroll Test & Tune (6 sessions)
 
 Multi-session effort to build test infrastructure, tune timing constants, and

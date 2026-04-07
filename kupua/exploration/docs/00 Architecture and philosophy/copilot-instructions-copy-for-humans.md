@@ -7,12 +7,14 @@
 
 **Directive: AGENTS.md is a living snapshot, not a history log.** After completing any
 task that adds, removes, or changes features, architecture, files, or key decisions:
-(1) Update the relevant sections of `kupua/AGENTS.md` (What's Done, What's Next,
-Project Structure, Key Architecture Decisions) with the **current state** — what exists
-and how it works, not how it was built. Keep it concise.
+(1) Update `kupua/AGENTS.md` — keep it lean (~130 lines). Update the Component Summary
+table, Context Routing table, Backlog, Known Issues, Key Architecture Decisions, or
+Tech Stack as needed. For detailed component descriptions, update
+`exploration/docs/00 Architecture and philosophy/component-detail.md` instead.
 (2) Append the detailed narrative (bug fixes, implementation steps, reverted experiments,
 root-cause analysis, dates) to `kupua/exploration/docs/changelog.md` under the current
-phase heading. This keeps AGENTS.md lean for fresh sessions while preserving full history.
+phase heading at top (after `DO NOT delete or reorder existing entries. --> line)`.
+This keeps AGENTS.md lean for fresh sessions while preserving full history.
 
 **Directive:** Performance is crucial. If any requested change is likely to seriously impact
 performance, do not proceed without checking with the user first — explain the potential
@@ -58,15 +60,11 @@ in the shell — special characters and line breaks get mangled by zsh quoting. 
 write the message to a temp file (e.g. via a heredoc or the file-creation tool), then
 run `git commit -F <file>`, then delete the temp file and `git commit --amend --no-edit`.
 
-**Directive: Directive sync rule.** The directives exist in two places:
-`.github/copilot-instructions.md` (what Copilot auto-loads) and
-`kupua/exploration/docs/00 Architecture and philosophy/copilot-instructions-copy-for-humans.md` (the
-committed copy for humans and fresh clones). If you add, remove, or change
-a directive, update BOTH files to keep them identical. **However:**
-`.github/copilot-instructions.md` is gitignored and must **NEVER** be
-staged or committed — it lives outside `kupua/` and is the user's local
-config. Only `copilot-instructions-copy-for-humans.md` (inside `kupua/`)
-is committed. When committing, **never `git add` anything in `.github/`**.
+**Directive: Directive sync rule.** The directives exist in two places that must stay
+identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
+`kupua/exploration/docs/00 Architecture and philosophy/copilot-instructions-copy-for-humans.md` (for humans and
+fresh clones where `.github/` may be missing). If you add, remove, or change a
+directive in one place, copy the change to the other.
 
 **Directive: Run tests in the foreground.** When running `npx playwright test`,
 `./scripts/run-e2e.sh`, or any test command, run it in the **foreground** (blocking
@@ -85,23 +83,8 @@ All smoke tests are **read-only** and auto-skip when connected to local ES
 Playwright `--debug` or `page.pause()` for interactive browser diagnosis when
 that would speed up debugging, similarly after excplicit human consent once per-session.
 **Never** issue write operations against real ES —
-this is a read-only privilege.
-
-**Directive: Smoke → local feedback loop.** The primary purpose of manual smoke tests is
-NOT just to validate fixes on real data — it is to **improve local test coverage** so
-the same class of bug is caught without manual testing in the future. After every smoke
-test session, the agent must try hard to backport learnings into the local test suite.
-Concretely: (1) **Amend existing local tests** — add stronger assertions, capture
-telemetry (console logs, timing, page counts), tighten tolerances, assert on code paths
-taken (not just outcomes). (2) **Improve helpers and env config** — add new helper
-methods to `KupuaHelpers`, adjust env variables (`.env`, `.env.development`), tune
-Docker ES settings (`load-sample-data.sh`), or add synthetic edge-case data (e.g. docs
-with missing fields) so local ES better approximates real-world data shapes.
-(3) **Add new local tests** if the existing ones can't be modified to cover the gap.
-The goal: every smoke test failure should produce at least one local test improvement
-that would have caught (or would in the future catch) the same bug class locally. If a
-particular failure truly cannot be reproduced locally (e.g. requires 1M+ docs), document
-why in the test comments and ensure the smoke test itself covers it permanently.
+this is a read-only privilege. After every smoke session, follow the
+"Smoke → local feedback loop" procedure in `e2e/README.md`.
 
 **Directive: Dev server conflict.** Before running `npx playwright test` (any config),
 warn the user if port 3000 might be in use. The local test suite starts its own Vite
@@ -109,13 +92,6 @@ dev server — if the user's manual `npm run dev` or `./scripts/start.sh` is sti
 running on port 3000, tests will fail with `ERR_CONNECTION_REFUSED` or bind errors.
 Say: "I need to run the test suite — please stop any running dev server on port 3000
 first." Wait for confirmation before proceeding.
-
-**Directive: Visualise experiment results.** When presenting perf experiment findings
-(from `e2e-perf/results/experiments/`), generate a standalone HTML dashboard with
-Chart.js and open it in the browser. Include: grouped bar charts for key metrics,
-a scatter plot if there are two continuous variables, a raw data table, and a written
-verdict. The dashboard is **disposable** — don't keep it in the repo or build generic
-scaffolding. Generate it fresh each time from the JSON data. The user likes pictures.
 
 **Directive: Habitual testing.** After any code change to `src/`:
 - Run `npm test` (unit + integration, ~5 seconds). This is non-negotiable.
@@ -133,3 +109,21 @@ This does NOT mean ask before starting — take action when the path is clear. I
 when you're uncertain between approaches that diverge significantly, or when a first
 attempt failed and the next one requires assumptions about user intent, stop and ask.
 
+**Directive: Fresh agent protocol.** You are a new agent every session. You have
+NO memory of prior conversations. On session start: (1) Say "Hi, I'm a fresh agent."
+(2) Read `kupua/exploration/docs/worklog-current.md` — it contains the previous
+agent's in-progress notes. Also read any file with "handoff" in its name that is
+referenced in AGENTS.md. (3) State what context you have (attached files, AGENTS.md,
+worklog, any pasted text). (4) Ask: "What should I read before starting? Is there
+anything not in the docs I need to know?" (5) Do NOT write or modify any code until
+the user confirms you understand the task. Reading files to build context is fine
+and encouraged.
+
+**Directive: Maintain a session worklog.** During any non-trivial task, maintain
+`kupua/exploration/docs/worklog-current.md`. Format: a "Current Task" header
+(1-3 sentences) followed by a "Session Log" (append-only, max ~40 lines of key
+decisions, failed approaches, blockers, and findings). This survives agent death
+mid-task so the next agent can pick up where you left off. When the user says
+the task is done or explicitly starts a new task, or after a commit, move the
+session log content to `changelog.md` and start `worklog-current.md` fresh.
+Never delete the file.

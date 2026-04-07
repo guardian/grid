@@ -23,7 +23,7 @@ The density spectrum, from most-metadata to most-image:
 | **Single image (clean)** | Just the image, no chrome | Presentation, visual inspection |
 | **Zoomed image** | Pan/zoom within one image | Checking sharpness, reading text in image |
 
-The transition between any two adjacent levels should feel like a smooth zoom, not a page navigation. The user's position in the list is preserved — if you're looking at image #47 in the table, switching to grid view should show image #47 in roughly the same viewport position.
+The transition between any two adjacent levels should feel like a smooth zoom, not a page navigation. The user's position in the list is preserved — if you're looking at image #47 in the table, switching to grid view should show image #47 in roughly the same viewport position. At no point should user be looking at the data in flight when navigating, only cleanly at the start and end state (no flashes of intermediate internal app states).
 
 ### Context is Sacred — The "Never Lost" Principle
 

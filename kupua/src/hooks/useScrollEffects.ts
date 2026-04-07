@@ -60,7 +60,7 @@ function peekDensityFocusRatio(): DensityFocusState | null {
 }
 
 /** Clear the saved state — call after the deferred scroll has been applied. */
-function clearDensityFocusRatio(): void {
+export function clearDensityFocusRatio(): void {
   _densityFocusSaved = null;
 }
 

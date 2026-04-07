@@ -15,6 +15,7 @@
  */
 
 import { useSearchStore } from "@/stores/search-store";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { resetVisibleRange } from "@/hooks/useDataWindow";
 
 // ===========================================================================
@@ -117,20 +118,47 @@ export function scrollFocusedIntoView(): void {
  * Imperatively prepare for a "go home" transition — called by SearchBar logo,
  * ImageDetail logo, and metadata clicks. Orchestrates:
  * 1. Abort in-flight extends (buffer corruption prevention)
- * 2. Reset visible range (Scrubber thumb sync)
- * 3. Direct scrubber thumb DOM reset (instant visual signal)
- * 4. Focus CQL input (next frame)
+ * 2. Scroll reset (eager when safe, deferred when stale — see below)
+ * 3. Reset visible range (Scrubber thumb sync)
+ * 4. Direct scrubber thumb DOM reset (instant visual signal)
+ * 5. Focus CQL input (next frame)
  *
- * **Does NOT touch scrollTop or the virtualizer.** The old content stays
- * visible during the async fetch — no flash of wrong content. When the
- * search/seek completes and sets bufferOffset: 0, effect #8 in
- * useScrollEffects (BufferOffset→0 guard) resets scrollTop in the same
- * render frame as the data swap.
+ * Scroll-reset strategy (same logic as the Home key handler in
+ * useListNavigation.ts):
+ *
+ * - **bufferOffset === 0:** The buffer already contains the correct first-page
+ *   data. Eager `scrollTop = 0` is safe — it just scrolls within correct
+ *   content. No flash possible.
+ *
+ * - **bufferOffset > 0:** The buffer has stale deep-offset data. Eager
+ *   `scrollTop = 0` would briefly show wrong images (the "flash"). Leave
+ *   the scroll reset to effect #8 (BufferOffset→0 guard) in useScrollEffects,
+ *   which fires in the same layout frame as the data swap when `search()`
+ *   sets bufferOffset back to 0.
+ *
+ * - **skipEagerScroll:** When called from `resetToHome()`, the current view
+ *   is about to be unmounted by a programmatic navigation. Resetting its
+ *   scrollTop eagerly just creates a visible flash (table jumps to top
+ *   before the grid replaces it). Skip the eager reset entirely — the grid
+ *   mounts at scrollTop=0 naturally.
  */
-export function resetScrollAndFocusSearch(): void {
+export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }): void {
   // Abort in-flight extends and set cooldown — prevents stale
   // extendBackward from corrupting the buffer during the transition.
   useSearchStore.getState().abortExtends();
+
+  // Scroll reset — only when the buffer is at the start (bufferOffset 0)
+  // and the caller hasn't asked to skip (resetToHome skips because the
+  // view is about to be replaced by navigation).
+  // When deep (bufferOffset > 0), effect #8 handles it after data arrives.
+  if (!opts?.skipEagerScroll && useSearchStore.getState().bufferOffset === 0) {
+    const scrollContainer = getScrollContainer();
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+      scrollContainer.scrollLeft = 0;
+    }
+    _virtualizerReset?.();
+  }
 
   // Reset the visible range so the Scrubber thumb reflects position 0
   // without waiting for the scroll handler to fire.
