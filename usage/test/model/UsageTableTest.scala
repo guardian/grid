@@ -128,7 +128,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         None,
         None,
         None,
-        None,
+        Some(ChildUsageMetadata(addedBy = "someone", childMediaId = "123abc")),
         DateTime.now()
       )
 
