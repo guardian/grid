@@ -83,18 +83,31 @@ object Mappings {
   def embeddingMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     nonDynamicObjectField("cohereEmbedEnglishV3").copy(properties = Seq(
       new DenseVectorField(
-        name="image",
-        dims=Some(1024),
+        name = "image",
+        dims = Some(1024),
         index = Some(true),
         similarity = Some(Cosine),
         indexOptions = Some(DenseVectorIndexOptions(
-          `type`=DenseVectorField.Int8Hnsw,
-          m=Some(16),
-          efConstruction=Some(100)
-        )
+          `type` = DenseVectorField.Int8Hnsw,
+          m = Some(16),
+          efConstruction = Some(100)
+        ))
+      ),
+    )),
+    nonDynamicObjectField("cohereEmbedV4").copy(properties = Seq(
+      new DenseVectorField(
+        name = "image",
+        dims = Some(256),
+        index = Some(true),
+        similarity = Some(Cosine),
+        indexOptions = Some(DenseVectorIndexOptions(
+          `type` = DenseVectorField.Int8Hnsw,
+          m = Some(16),
+          efConstruction = Some(100)
+        ))
       )
     ))
-  )))
+  ))
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),

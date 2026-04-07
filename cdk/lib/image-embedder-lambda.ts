@@ -2,6 +2,7 @@ import {GuScheduledLambda} from "@guardian/cdk";
 import type {GuStackProps} from '@guardian/cdk/lib/constructs/core';
 import {GuStack} from '@guardian/cdk/lib/constructs/core';
 import {GuParameter} from '@guardian/cdk/lib/constructs/core';
+import {GuVpc} from "@guardian/cdk/lib/constructs/ec2";
 import {GuLambdaFunction} from '@guardian/cdk/lib/constructs/lambda';
 import {GuS3Bucket} from '@guardian/cdk/lib/constructs/s3';
 import type {App} from 'aws-cdk-lib';
@@ -11,7 +12,6 @@ import {
   aws_s3 as s3,
   Stack,
 } from 'aws-cdk-lib';
-import {Schedule} from "aws-cdk-lib/aws-events";
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -51,6 +51,12 @@ export class ImageEmbedder extends GuStack {
       default: `/${this.stage}/${this.stack}/thrall/kms-key-arn`,
       type: 'String',
     });
+    const elasticSearchUrl = new GuParameter(this, 'ElasticSearchUrl', {
+      fromSSM: true,
+      default: `/${this.stage}/${this.stack}/elasticsearch/url`,
+      type: 'String',
+    });
+
 
     const imageEmbedderDLQ = new Queue(this, 'imageEmbedderDLQ', {
       queueName: `${appName}-DLQ-${this.stage}`,
@@ -100,7 +106,10 @@ export class ImageEmbedder extends GuStack {
       },
     );
 
-    new GuScheduledLambda(
+    const vpc = GuVpc.fromIdParameter(this, "AccountVPC");
+    const subnets = GuVpc.subnetsFromParameter(this);
+
+    const backfiller = new GuScheduledLambda(
       this,
       'ImageEmbedderBackfiller',
       {
@@ -112,18 +121,36 @@ export class ImageEmbedder extends GuStack {
         app: `${appName}-backfill-lambda`,
         environment: {
           STAGE: props.stage,
+          ELASTIC_SEARCH_URL: elasticSearchUrl.valueAsString,
+          BACKFILL_SQS_QUEUE: backfillQueue.queueUrl,
         },
         memorySize: 512,
         timeout: Duration.minutes(1),
-        rules: [{
-          schedule: Schedule.rate(Duration.days(1)),
-          description: 'Frequency of execution of the backfiller',
-        }],
+        rules: [
+					// Schedule TBD
+					// {
+					// 	schedule: Schedule.rate(Duration.days(1)),
+					// 	description: 'Frequency of execution of the backfiller',
+					// }
+				],
         monitoringConfiguration: {
           noMonitoring: true,
         },
+        vpc: vpc,
+        vpcSubnets: {
+          subnets: subnets,
+        }
       },
     );
+
+    backfillQueue.grantSendMessages(backfiller);
+    backfiller.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['sqs:GetQueueAttributes'],
+        resources: [backfillQueue.queueArn],
+      }),
+    );
+
 
     imageEmbedderLambda.addEventSource(
       new SqsEventSource(imageEmbedderQueue, {

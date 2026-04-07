@@ -6,10 +6,5 @@ export interface ValidVector extends PutInputVector {
   data: { float32: number[] };
 }
 
-export interface SQSMessageBody {
-  imageId: string;
-  s3Bucket: string;
-  s3Key: string;
-  fileType: string;
-}
+
 

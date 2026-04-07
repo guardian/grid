@@ -6,8 +6,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "gu:cdk:constructs": [
       "GuParameter",
       "GuParameter",
+      "GuParameter",
       "GuDistributionBucketParameter",
       "GuLambdaFunction",
+      "GuVpcParameter",
+      "GuSubnetListParameter",
       "GuScheduledLambda",
       "GuS3Bucket",
     ],
@@ -19,6 +22,15 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       "Description": "SSM parameter containing the S3 bucket name holding distribution artifacts",
       "Type": "AWS::SSM::Parameter::Value<String>",
     },
+    "ElasticSearchUrl": {
+      "Default": "/TEST/media-service/elasticsearch/url",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "PrivateSubnets": {
+      "Default": "/account/vpc/primary/subnets/private",
+      "Description": "A list of private subnets",
+      "Type": "AWS::SSM::Parameter::Value<List<AWS::EC2::Subnet::Id>>",
+    },
     "ThrallKmsKeyArn": {
       "Default": "/TEST/media-service/thrall/kms-key-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
@@ -26,6 +38,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "ThrallMessageStreamArn": {
       "Default": "/TEST/media-service/thrall/message-stream-arn",
       "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+    "VpcId": {
+      "Default": "/account/vpc/primary/id",
+      "Description": "Virtual Private Cloud to run EC2 instances within. Should NOT be the account default VPC.",
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::VPC::Id>",
     },
   },
   "Resources": {
@@ -99,6 +116,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-embedder-backfill-lambda",
+            "BACKFILL_SQS_QUEUE": {
+              "Ref": "imageEmbedderBackfill5DD09905",
+            },
+            "ELASTIC_SEARCH_URL": {
+              "Ref": "ElasticSearchUrl",
+            },
             "STACK": "media-service",
             "STAGE": "TEST",
           },
@@ -139,14 +162,32 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           },
         ],
         "Timeout": 60,
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::GetAtt": [
+                "ImageEmbedderBackfillerSecurityGroup93958CDD",
+                "GroupId",
+              ],
+            },
+          ],
+          "SubnetIds": {
+            "Ref": "PrivateSubnets",
+          },
+        },
       },
       "Type": "AWS::Lambda::Function",
     },
-    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7": {
+    "ImageEmbedderBackfillerSecurityGroup93958CDD": {
       "Properties": {
-        "Description": "Frequency of execution of the backfiller",
-        "ScheduleExpression": "rate(1 day)",
-        "State": "ENABLED",
+        "GroupDescription": "Automatic security group for Lambda Function ImageEmbedderLambdaImageEmbedderBackfiller35B59D3A",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
         "Tags": [
           {
             "Key": "App",
@@ -169,38 +210,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "Targets": [
-          {
-            "Arn": {
-              "Fn::GetAtt": [
-                "ImageEmbedderBackfillerC6D20164",
-                "Arn",
-              ],
-            },
-            "Id": "Target0",
-          },
-        ],
-      },
-      "Type": "AWS::Events::Rule",
-    },
-    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day0AllowEventRuleImageEmbedderLambdaImageEmbedderBackfiller35B59D3AB0582810": {
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "ImageEmbedderBackfillerC6D20164",
-            "Arn",
-          ],
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": {
-          "Fn::GetAtt": [
-            "ImageEmbedderBackfillerImageEmbedderBackfillerrate1day03470DFE7",
-            "Arn",
-          ],
+        "VpcId": {
+          "Ref": "VpcId",
         },
       },
-      "Type": "AWS::Lambda::Permission",
+      "Type": "AWS::EC2::SecurityGroup",
     },
     "ImageEmbedderBackfillerServiceRole2C5388A7": {
       "Properties": {
@@ -226,6 +240,18 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                   "Ref": "AWS::Partition",
                 },
                 ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
               ],
             ],
           },
@@ -340,6 +366,30 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                     },
                     ":parameter/TEST/media-service/image-embedder-backfill-lambda/*",
                   ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "imageEmbedderBackfill5DD09905",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": "sqs:GetQueueAttributes",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "imageEmbedderBackfill5DD09905",
+                  "Arn",
                 ],
               },
             },
