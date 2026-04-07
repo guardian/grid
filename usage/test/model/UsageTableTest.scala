@@ -113,6 +113,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         None,
         None,
         None,
+        None,
         DateTime.now()
       )
       val usage2 = MediaUsage(
@@ -122,6 +123,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         DigitalUsage,
         "image",
         PublishedUsageStatus,
+        None,
         None,
         None,
         None,
@@ -182,6 +184,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         Some(DownloadUsageMetadata(
           downloadedBy = "test-downloader"
         )),
+        None,
         DateTime.now()
       )
 
@@ -208,6 +211,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         DigitalUsage,
         "image",
         PendingUsageStatus,
+        None,
         None,
         None,
         None,
@@ -247,6 +251,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         None,
         None,
         None,
+        None,
         DateTime.now()
       )
       val eventualUsageCreated = store.create(usage)(MarkerMap()).toList.toBlocking.toFuture
@@ -279,6 +284,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         None,
         None,
         None,
+        None,
         DateTime.now()
       )
       val eventualUsageCreated = store.create(usage)(MarkerMap()).toList.toBlocking.toFuture
@@ -306,6 +312,7 @@ class UsageTableTest extends AnyFunSpec with Matchers with GridLogging with Scal
         DigitalUsage,
         "image",
         PendingUsageStatus,
+        None,
         None,
         None,
         None,
