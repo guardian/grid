@@ -9,6 +9,7 @@ e2e/
   local/                          ← npx playwright test (habitual)
     scrubber.spec.ts
     buffer-corruption.spec.ts
+    ui-features.spec.ts
     visual-baseline.spec.ts
     visual-baseline.spec.ts-snapshots/
   smoke/                          ← node scripts/run-smoke.mjs (TEST)
@@ -130,7 +131,8 @@ but they determine how the app behaves during tests.
 | File | Tests | What it covers |
 |------|-------|----------------|
 | `local/scrubber.spec.ts` | ~74 | Seek accuracy, scroll preservation, flash prevention, settle-window stability, density switch, sort change, keyboard nav, buffer extension, scroll-up after seek, scroll mode, bug regressions (#1–#18) |
-| `local/buffer-corruption.spec.ts` | ~10 | Logo click / metadata click / query change after deep seek — stale prepend regression |
+| `local/buffer-corruption.spec.ts` | ~13 | Logo click / metadata click / query change after deep seek — stale prepend regression |
+| `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
 
 ### Smoke (`npm run test:smoke` — `playwright.smoke.config.ts` → `e2e/smoke/`)

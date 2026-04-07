@@ -409,6 +409,29 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     }
 
 
+    // -----------------------------------------------------------------------
+    // Post-seek focus: Home/End with active focus triggers a seek, but focus
+    // can't be set until the new buffer arrives. Consume the pending intent.
+    // -----------------------------------------------------------------------
+    const pendingFocus = useSearchStore.getState()._pendingFocusAfterSeek;
+    if (pendingFocus) {
+      const store = useSearchStore.getState();
+      if (pendingFocus === "first") {
+        const firstImg = store.results[0];
+        if (firstImg) useSearchStore.setState({ focusedImageId: firstImg.id });
+      } else {
+        // "last" — scan backwards for a non-placeholder image
+        for (let i = store.results.length - 1; i >= Math.max(0, store.results.length - 50); i--) {
+          const img = store.results[i];
+          if (img) {
+            useSearchStore.setState({ focusedImageId: img.id });
+            break;
+          }
+        }
+      }
+      useSearchStore.setState({ _pendingFocusAfterSeek: null });
+    }
+
     // Dispatch a deferred scroll event after the seek has settled — triggers
     // reportVisibleRange for Scrubber thumb sync and gap detection.
     // SEEK_DEFERRED_SCROLL_MS is derived from SEEK_COOLDOWN_MS + 100ms margin

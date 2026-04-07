@@ -39,3 +39,6 @@ e2e-perf/results/.metrics-tmp.jsonl
 e2e-perf/results/experiments/exp-*.json
 e2e-perf/results/experiments/dashboard*.html
 
+# Session worklog — transient, never committed
+exploration/docs/worklog-current.md
+

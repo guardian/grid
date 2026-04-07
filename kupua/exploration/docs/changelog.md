@@ -14,6 +14,76 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 7 April 2026 — Keyboard nav E2E test culling & globalTimeout bump
+
+**Context:** E2E suite grew to 127 tests (21 keyboard-nav + 106 existing) and started
+hitting the 5-minute `globalTimeout`. The keyboard-nav tests had several redundancies
+from iterative development.
+
+**Culled 5 redundant keyboard-nav E2E tests** (21 → 16):
+- "ArrowUp scrolls by one row without setting focus" — same `scrollByRows` code path as ArrowDown test.
+- "PageUp scrolls by one page without setting focus" — same `pageScrollTarget` code path as PageDown test.
+- "multiple ArrowDown presses scroll cumulatively" — tests arithmetic (`3 * ROW_HEIGHT`), not behaviour.
+- "PageUp/Down propagate from search box" — already covered by no-focus PageDown test (search box has autofocus).
+- "ArrowDown from non-aligned position snaps" — same `snapToRow` path already covered by PageDown snap test.
+
+**Reduced wait** on "Home after deep seek" test: 1500ms → 1000ms. Verified it passes (3.5s).
+
+**Bumped `globalTimeout`** from 5 → 10 minutes in `playwright.config.ts` and
+`playwright.run-manually-on-TEST.config.ts`. Other configs already had 10+ min.
+
+### 7 April 2026 — Testing coverage audit & P0 feature specification E2E tests
+
+**Context:** Home logo regression went undetected for 2 days. Root cause: tests were
+written around bug *fixes*, not around feature *specifications*. The shallow-scroll case
+(bufferOffset already 0) was untested while the deep-seek case was covered.
+
+**Audit findings:**
+- 203 Vitest unit/integration tests (~5s) — excellent for store/DAL/sort logic.
+- 91 Playwright E2E tests (~70s) — exceptional for scroll/seek/buffer, heavily skewed
+  toward solved problems.
+- Zero E2E tests for: search input, filters, image detail content/navigation, panel
+  toggles, keyboard shortcuts (beyond PageDown/Home), responsive viewports, error states.
+
+**Decision:** Recommended against splitting E2E tests into groups. 70s (now ~4.5min with
+106 tests) is cheap; integration is the whole point — the Home logo regression was caused
+by interaction between 3 systems.
+
+**New file: `e2e/local/ui-features.spec.ts`** — 15 feature specification tests:
+1. Double-click grid cell opens detail
+2. Double-click table row opens detail
+3. Back to search button preserves focus + visibility
+4. Backspace closes detail, preserves focus
+5. Arrow keys navigate between images in detail
+6. Enter key on focused image opens detail
+7. Result count updates when query changes
+8. Detail header shows position counter (N of total)
+9. Browse button toggles left panel
+10. Details button toggles right panel
+11. `[` and `]` keyboard shortcuts toggle panels
+12. Sort dropdown opens, shows options, selecting changes results
+13. Column header click changes primary sort
+14. Shift+click column header adds secondary sort
+15. URL with query+sort loads correct results
+
+**Dropped (with reasoning):** density toggle (redundant with existing tests #45-47),
+Free-to-use toggle (config-changing soon), sort direction toggle (already covered by #49).
+
+**BUILD-FIRST note added:** ArrowDown from search box should focus FIRST visible image
+(currently focuses wrong item because `isNativeInputTarget()` check partially blocks).
+
+**Test #6 fix:** Enter key test initially failed — page loaded with CQL search input
+focused. ArrowDown dispatched to `useListNavigation` but `isNativeInputTarget()` check
+blocked proper focus transfer. Fixed by using `focusNthItem()` (click) instead of
+ArrowDown to establish focus before pressing Enter.
+
+**Integration test audit:** 203 Vitest tests in excellent shape. One medium-risk gap
+identified: `search-params-schema.ts` (Zod schema) has zero tests. Deferred — low
+probability of breakage, fully covered by E2E URL state test.
+
+**Housekeeping:** Added `worklog-current.md` to `.gitignore` (transient session artifact,
+never committed). Updated worklog directive wording in both copilot-instructions files.
+Updated `e2e/README.md` file map and `AGENTS.md` test counts.
 
 ### 7 April 2026 — Home logo flash elimination (table→grid density switch)
 

@@ -36,6 +36,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.ts` |
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
+| **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx` |
@@ -71,7 +72,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ### Testing Summary
 
 - **203 Vitest** unit/integration tests (~5s) — `npm test`
-- **91 Playwright E2E** tests (~70s) — `npx playwright test`
+- **106 Playwright E2E** tests (~4.5min) — `npx playwright test`
 - **19 perf tests** + experiment infrastructure — `npm run test:perf`
 - **25 smoke tests** against TEST cluster — `npm run test:smoke`
 - Full reference: **`e2e/README.md`** (7 test modes, decision tree, env vars)

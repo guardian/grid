@@ -203,14 +203,15 @@ export function CqlSearchInput({
     el.addEventListener("keydown", handleEscape, true);
 
     // Prevent keyboard events from bubbling (matches kahuna).
-    // Navigation keys propagate so the ImageTable keyboard handler can
-    // scroll the results — even when the caret is in the search box.
-    // Home/End are handled separately via capture-phase listener on
-    // document (see ImageTable.tsx) — they must NOT propagate here,
-    // otherwise the editor would also move the cursor.
+    // Navigation keys propagate so useListNavigation can scroll/move
+    // the results — even when the caret is in the search box.
+    // ArrowLeft/Right are trapped — they're needed for cursor movement
+    // inside the text field. ArrowUp/Down, PageUp/Down, Home/End all
+    // propagate to the list navigation handler.
     const keysToPropagate = [
-      "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+      "ArrowUp", "ArrowDown",
       "PageUp", "PageDown",
+      "Home", "End",
     ];
     const stopUnhandled = (e: Event) => {
       const { shiftKey, altKey, metaKey, ctrlKey, key } = e as KeyboardEvent;

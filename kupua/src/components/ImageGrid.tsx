@@ -125,6 +125,7 @@ const GridCell = memo(function GridCell({
 
   return (
     <div
+      data-grid-cell
       className={`shrink-0 flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
@@ -360,6 +361,19 @@ export function ImageGrid() {
     [setFocusedImageId],
   );
 
+  /** Clear focus when clicking the grid background (gaps between cells). */
+  const handleBackgroundClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // If the click originated inside a cell, the cell's own onClick already
+      // handled it. We only clear focus for clicks on the background — the
+      // scroll container, the sizer div, or the row flex containers (gaps).
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-grid-cell]")) return;
+      setFocusedImageId(null);
+    },
+    [setFocusedImageId],
+  );
+
   const handleCellDoubleClick = useCallback(
     (imageId: string) => {
       setFocusedImageId(imageId);
@@ -442,6 +456,7 @@ export function ImageGrid() {
       role="region"
       aria-label="Image results grid"
       className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1"
+      onClick={handleBackgroundClick}
     >
       <div
         style={{ height: virtualizer.getTotalSize() }}

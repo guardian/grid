@@ -32,9 +32,8 @@ export default defineConfig({
   /* Each test gets up to 60s — scrubber seeks are async */
   timeout: 60_000,
 
-  /* Hard limit for entire test run — prevents hanging forever.
-   * 46 tests take ~70s locally; 5 min is generous headroom. */
-  globalTimeout: 5 * 60_000,
+  /* Hard limit for entire test run — prevents hanging forever. */
+  globalTimeout: 10 * 60_000,
 
   /* Retry flaky tests once */
   retries: 1,

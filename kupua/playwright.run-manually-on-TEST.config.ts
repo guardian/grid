@@ -21,7 +21,7 @@ export default defineConfig({
    * The tests themselves skip gracefully if total < MIN_TOTAL_FOR_SEEK. */
 
   timeout: 60_000,
-  globalTimeout: 5 * 60_000,
+  globalTimeout: 10 * 60_000,
 
   retries: 0,  // No retries — we want to see the real result
   workers: 1,

@@ -126,6 +126,6 @@ and encouraged.
 (1-3 sentences) followed by a "Session Log" (append-only, max ~40 lines of key
 decisions, failed approaches, blockers, and findings). This survives agent death
 mid-task so the next agent can pick up where you left off. When the user says
-the task is done or explicitly starts a new task, or after a commit, move the
+the task is done or explicitly starts a new task, or when user asks for a commit, move the
 session log content to `changelog.md` and start `worklog-current.md` fresh.
 Never delete the file.

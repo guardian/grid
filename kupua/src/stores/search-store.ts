@@ -259,6 +259,16 @@ interface SearchState {
    */
   _seekSubRowOffset: number;
 
+  /**
+   * Post-seek focus intent for Home/End keys.
+   * When Home/End triggers a seek (because the buffer doesn't cover the
+   * target position), focus can't be set immediately — the buffer hasn't
+   * arrived yet. This field records the intent so effect #6 in
+   * useScrollEffects can apply it after the seek completes.
+   * "first" = focus first image in new buffer, "last" = focus last.
+   */
+  _pendingFocusAfterSeek: "first" | "last" | null;
+
   // --- Aggregation state (unchanged from before) ---
   aggregations: AggregationsResult | null;
   aggTook: number | null;
@@ -1050,6 +1060,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
   _seekSubRowOffset: 0,
+  _pendingFocusAfterSeek: null,
 
   // Aggregation state
   aggregations: null,
