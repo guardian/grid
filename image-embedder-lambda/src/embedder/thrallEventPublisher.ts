@@ -3,13 +3,14 @@ import {ValidVector} from "./models";
 import { SQSBatchItemFailure } from "aws-lambda";
 import {KINESIS_VECTOR_DIMENSIONS} from "./constants"
 
-export interface CohereV3Embedding {
+export interface CohereV4Embedding {
   image: number[];
 }
 
 export interface Embedding {
-  cohereEmbedEnglishV3: CohereV3Embedding;
+  cohereEmbedEnglishV4: CohereV4Embedding;
 }
+
 
 // Message format matching Scala's ExternalThrallMessage serialisation.
 // Play JSON uses a `_type` discriminator field with the fully qualified class name.
