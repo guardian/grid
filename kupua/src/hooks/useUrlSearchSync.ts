@@ -98,8 +98,8 @@ export function useUrlSearchSync() {
     if (serialized === _prevParamsSerialized) return;
 
     // Detect sort-only change: orderBy changed, nothing else did.
-    // If so and there's a focused image, pass its ID to search() for
-    // sort-around-focus ("Never Lost").
+    // If so and there's a focused image (or a viewport anchor), pass its ID
+    // to search() for sort-around-focus ("Never Lost").
     const prev = _prevSearchOnly;
     const isSortOnly =
       _prevParamsSerialized !== "" && // not the first search
@@ -108,7 +108,9 @@ export function useUrlSearchSync() {
         (k) => k === "orderBy" || searchOnly[k] === prev[k]
       );
     const sortAroundFocusId =
-      isSortOnly ? useSearchStore.getState().focusedImageId : null;
+      isSortOnly
+        ? useSearchStore.getState().focusedImageId
+        : null;
 
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });

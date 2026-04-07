@@ -31,6 +31,7 @@ import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchest
 import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { devLog } from "@/lib/dev-log";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import { getViewportAnchorId } from "@/hooks/useDataWindow";
 
 // ---------------------------------------------------------------------------
 // Density-focus bridge (previously src/lib/density-focus.ts)
@@ -46,12 +47,20 @@ import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-sche
 interface DensityFocusState {
   ratio: number;
   globalIndex: number;
+  /** scrollTop of the source density at save time. When 0, the restore
+   *  should snap to 0 instead of computing from the ratio — avoids small
+   *  pixel offsets from geometry mismatch at the top edge. */
+  sourceScrollTop: number;
+  /** scrollHeight - clientHeight of the source density at save time.
+   *  When sourceScrollTop is within one row of this value, the restore
+   *  should snap to the target's maxScroll (bottom-edge extremum). */
+  sourceMaxScroll: number;
 }
 
 let _densityFocusSaved: DensityFocusState | null = null;
 
-function saveDensityFocusRatio(ratio: number, globalIndex: number): void {
-  _densityFocusSaved = { ratio, globalIndex };
+function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number): void {
+  _densityFocusSaved = { ratio, globalIndex, sourceScrollTop, sourceMaxScroll };
 }
 
 /** Read without clearing — for deferred consumption (survives React Strict Mode double-mount). */
@@ -478,7 +487,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const sortOnly = orderByChanged && !nonSortChanged;
 
     // Skip scroll-reset when sort-around-focus is active. Capture the
-    // focused item's viewport ratio BEFORE the sort.
+    // anchor item's viewport ratio BEFORE the sort.
     // NOTE: sort-focus ratio does NOT include headerOffset — it measures
     // the pure row-to-viewport ratio. Density-focus DOES include headerOffset
     // because the two density modes have different headers and need to
@@ -591,7 +600,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
 
-    const id = focusedImageId;
+    // Use focusedImageId if set, otherwise fall back to the viewport anchor
+    // (the image nearest the viewport centre, tracked by useDataWindow).
+    // This ensures density switches preserve scroll position even when the
+    // user hasn't explicitly clicked an image.
+    const id = focusedImageId ?? getViewportAnchorId();
     if (!id) return;
 
     const saved = peekDensityFocusRatio();
@@ -630,12 +643,43 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // Then we can safely set scrollTop directly on the DOM.
       const raf1 = requestAnimationFrame(() => {
         const raf2 = requestAnimationFrame(() => {
-          // Re-lookup globalIndex from the store — the buffer may have extended
-          // between mount and rAF2, shifting bufferOffset and invalidating
-          // the globalIndex captured at mount time.
-          const { imagePositions: posNow, bufferOffset: boNow } = useSearchStore.getState();
-          const globalIdxNow = id ? (posNow.get(id) ?? -1) : -1;
-          const idxNow = globalIdxNow >= 0 ? globalIdxNow - boNow : idx;
+          // Extremum snapping: if the source density was at the very top
+          // (scrollTop=0), snap the target to 0 instead of computing from
+          // the ratio. The ratio math maps viewport-centre positions between
+          // different row heights, which can produce small non-zero offsets
+          // (e.g. 4px) at the edges. At the top, the user expects to stay
+          // at the top.
+          if (saved.sourceScrollTop === 0) {
+            devLog(`[density-focus RESTORE] extremum snap → 0 (source was at top)`);
+            el.scrollTop = 0;
+            clearDensityFocusRatio();
+            return;
+          }
+
+          // Bottom extremum snap: if the source density was at (or within one
+          // row of) the bottom edge, snap to the target's maxScroll. The
+          // ratio-based restore uses the viewport-centre anchor which is
+          // naturally a few rows above the bottom — landing 2-3 rows short.
+          // Use 303 (grid row height) as threshold — the largest row height
+          // of any density, so this catches "near bottom" in both table and grid.
+          const targetMaxScroll = el.scrollHeight - el.clientHeight;
+          if (saved.sourceMaxScroll > 0 &&
+              saved.sourceMaxScroll - saved.sourceScrollTop < 303) {
+            devLog(`[density-focus RESTORE] extremum snap → maxScroll=${targetMaxScroll} (source was at bottom: scrollTop=${saved.sourceScrollTop} maxScroll=${saved.sourceMaxScroll} gap=${saved.sourceMaxScroll - saved.sourceScrollTop})`);
+            el.scrollTop = targetMaxScroll;
+            clearDensityFocusRatio();
+            return;
+          }
+
+          // Re-lookup local index from the saved globalIndex — the buffer
+          // may have extended between mount and rAF2, shifting bufferOffset.
+          // We use saved.globalIndex directly (a stable global position)
+          // rather than looking up the viewport anchor id via imagePositions,
+          // because the viewport anchor can be overwritten by the NEW
+          // component's initial scroll/render before rAF2 fires — causing
+          // the re-lookup to find a completely different image near the top.
+          const { bufferOffset: boNow } = useSearchStore.getState();
+          const idxNow = saved.globalIndex - boNow;
 
           // Recompute with the now-correct geometry
           const geoNow = geometryRef.current;
@@ -662,9 +706,17 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
             targetNow = rowTopNow + geoNow.headerOffset - el.clientHeight + geoNow.rowHeight;
             edgeClamp = "bottom";
           }
-          const clampedNow = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetNow));
+          const maxScroll = el.scrollHeight - el.clientHeight;
+          let clampedNow = Math.max(0, Math.min(maxScroll, targetNow));
+          // Extremum snapping: when the computed position is within one row
+          // of an edge, snap to the edge. This prevents small pixel offsets
+          // (e.g. 4px) when switching densities at the top/bottom — the
+          // ratio math can't perfectly map between grid (303px rows) and
+          // table (32px rows) geometry at the extremes.
+          if (clampedNow < geoNow.rowHeight) clampedNow = 0;
+          else if (maxScroll - clampedNow < geoNow.rowHeight) clampedNow = maxScroll;
           // DIAG: density-focus restore
-          devLog(`[density-focus RESTORE] savedIdx=${idx} freshIdx=${idxNow} bo=${boNow} cols=${colsNow} rowH=${geoNow.rowHeight} headerOff=${geoNow.headerOffset} rowTop=${rowTopNow} savedRatio=${saved.ratio.toFixed(6)} clientH=${el.clientHeight} scrollTopBefore=${el.scrollTop.toFixed(1)} rawTarget=${rawTarget.toFixed(1)} edgeClamp=${edgeClamp} target=${targetNow.toFixed(1)} scrollH=${el.scrollHeight} maxScroll=${el.scrollHeight - el.clientHeight} clamped=${clampedNow.toFixed(1)} wasClamped=${Math.abs(targetNow - clampedNow) > 1}`);
+          devLog(`[density-focus RESTORE] savedGlobalIdx=${saved.globalIndex} localIdx=${idxNow} bo=${boNow} cols=${colsNow} rowH=${geoNow.rowHeight} headerOff=${geoNow.headerOffset} rowTop=${rowTopNow} savedRatio=${saved.ratio.toFixed(6)} clientH=${el.clientHeight} scrollTopBefore=${el.scrollTop.toFixed(1)} rawTarget=${rawTarget.toFixed(1)} edgeClamp=${edgeClamp} target=${targetNow.toFixed(1)} scrollH=${el.scrollHeight} maxScroll=${maxScroll} clamped=${clampedNow.toFixed(1)} wasClamped=${Math.abs(targetNow - clampedNow) > 1}`);
           el.scrollTop = clampedNow;
           // NOTE: We intentionally do NOT dispatch a synthetic scroll event here.
           // The old code had `el.dispatchEvent(new Event("scroll"))` which triggered
@@ -679,13 +731,18 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       });
       return () => cancelAnimationFrame(raf1);
     } else {
+      // No saved density-focus state — scroll the anchor into view.
+      // Capture the anchor's global index NOW (mount time), before the
+      // new component's scroll events can overwrite the viewport anchor.
+      const store = useSearchStore.getState();
+      const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
+
       // scrollToIndex also may not work on mount — defer similarly
       const raf1 = requestAnimationFrame(() => {
         const raf2 = requestAnimationFrame(() => {
-          // Re-lookup globalIndex — buffer may have shifted
-          const { imagePositions: posNow, bufferOffset: boNow } = useSearchStore.getState();
-          const globalIdxNow = id ? (posNow.get(id) ?? -1) : -1;
-          const idxNow = globalIdxNow >= 0 ? globalIdxNow - boNow : idx;
+          // Re-derive local index from the stable global index
+          const { bufferOffset: boNow } = useSearchStore.getState();
+          const idxNow = anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx;
           const geoNow = geometryRef.current;
           const colsNow = geoNow.minCellWidth
             ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
@@ -701,7 +758,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 
-  // Unmount: ALWAYS save the focused image's viewport ratio.
+  // Unmount: save the scroll anchor's viewport ratio for density-switch restore.
+  // Uses focusedImageId if set, otherwise falls back to the viewport anchor
+  // (viewport-centre image). This ensures density switches preserve scroll
+  // position even without explicit focus.
   // Separate from mount so the cleanup is registered unconditionally —
   // even when focusedImageId was null at mount time (Bug #17).
   useLayoutEffect(() => {
@@ -709,8 +769,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const el = parentRef.current;
       if (!el) return;
       const { focusedImageId: fid, imagePositions, bufferOffset: bo } = useSearchStore.getState();
-      if (!fid) return;
-      const globalIdx = imagePositions.get(fid) ?? -1;
+      // Fall back to viewport anchor when no explicit focus
+      const anchorId = fid ?? getViewportAnchorId();
+      if (!anchorId) return;
+      const globalIdx = imagePositions.get(anchorId) ?? -1;
       if (globalIdx < 0) return;
       const localIdx = globalIdx - bo;
       if (localIdx < 0) return;
@@ -724,9 +786,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // wrong geometry (columns=4 default, scrollTop=0). Only save if there's
       // no pending unconsumed state.
       if (_densityFocusSaved == null) {
+        const sourceMaxScroll = el.scrollHeight - el.clientHeight;
         // DIAG: density-focus save
-        devLog(`[density-focus SAVE] fid=${fid} globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
-        saveDensityFocusRatio(ratio, globalIdx);
+        devLog(`[density-focus SAVE] anchor=${anchorId} (focus=${!!fid}) globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} maxScroll=${sourceMaxScroll} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
+        saveDensityFocusRatio(ratio, globalIdx, el.scrollTop, sourceMaxScroll);
       } else {
         devLog(`[density-focus SAVE SKIPPED] pending state exists (Strict Mode guard)`);
       }

@@ -43,6 +43,34 @@ const EXTEND_THRESHOLD = 50;
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Viewport anchor — always the image nearest the viewport centre.
+//
+// Used by density-focus and sort-around-focus as a fallback when
+// focusedImageId is null. Updated on every reportVisibleRange call.
+// NOT a React subscription — consumed imperatively by useScrollEffects
+// and useUrlSearchSync via getViewportAnchorId().
+// ---------------------------------------------------------------------------
+
+let _viewportAnchorId: string | null = null;
+
+/**
+ * Get the current viewport-centre image ID. Returns null if no images
+ * have been rendered yet. Used as a fallback scroll anchor when the
+ * user hasn't explicitly focused an image.
+ */
+export function getViewportAnchorId(): string | null {
+  return _viewportAnchorId;
+}
+
+/**
+ * Clear the viewport anchor. Call alongside resetVisibleRange() when
+ * resetting all scroll state (e.g. logo click / go home).
+ */
+export function resetViewportAnchor(): void {
+  _viewportAnchorId = null;
+}
+
+// ---------------------------------------------------------------------------
 // Visible-range external store (module-level, no React re-renders on write)
 // ---------------------------------------------------------------------------
 
@@ -166,6 +194,10 @@ export function useDataWindow(): DataWindow {
   resultsLenRef.current = results.length;
   const totalRef = useRef(total);
   totalRef.current = total;
+  const resultsRef = useRef(results);
+  resultsRef.current = results;
+  const focusedImageIdRef = useRef(focusedImageId);
+  focusedImageIdRef.current = focusedImageId;
 
   const reportVisibleRange = useCallback(
     (startIndex: number, endIndex: number) => {
@@ -198,6 +230,18 @@ export function useDataWindow(): DataWindow {
       // increase SEEK_COOLDOWN_MS — don't re-add the flag.
       if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
         extendBackward();
+      }
+
+      // Update the viewport anchor — nearest image to the viewport centre.
+      // Only when there's no explicit focus (focus always wins as anchor).
+      const currentResults = resultsRef.current;
+      if (currentResults.length > 0 && !focusedImageIdRef.current) {
+        const midPoint = (startIndex + endIndex) / 2;
+        const anchorIndex = Math.min(Math.max(0, Math.round(midPoint)), currentResults.length - 1);
+        const anchorImage = currentResults[anchorIndex];
+        if (anchorImage) {
+          _viewportAnchorId = anchorImage.id;
+        }
       }
     },
     [extendForward, extendBackward],

@@ -1098,46 +1098,11 @@ test.describe("Buffer extension", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Density switch — strict", () => {
-  test("focused image ID survives grid→table→grid", async ({ kupua }) => {
-    await kupua.goto();
-
-    await kupua.focusNthItem(5);
-    const focusedId = await kupua.getFocusedImageId();
-    expect(focusedId).not.toBeNull();
-
-    await kupua.switchToTable();
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-
-    await kupua.switchToGrid();
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-  });
-
-  test("density switch after deep seek preserves focused image", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Seek deep
-    await kupua.seekTo(0.5);
-    await kupua.focusNthItem(2);
-    const focusedId = await kupua.getFocusedImageId();
-    expect(focusedId).not.toBeNull();
-
-    // Get the focused image's global position
-    const globalPosBefore = await kupua.getFocusedGlobalPosition();
-    expect(globalPosBefore).toBeGreaterThan(0);
-
-    // Switch
-    await kupua.switchToTable();
-    await kupua.page.waitForTimeout(500);
-
-    // Same image still focused
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-
-    // Its global position is unchanged
-    const globalPosAfter = await kupua.getFocusedGlobalPosition();
-    expect(globalPosAfter).toBe(globalPosBefore);
-
-    await kupua.assertPositionsConsistent();
-  });
+  // NOTE: Two tests were removed here (7 Apr 2026 culling):
+  // - "focused image ID survives grid→table→grid" — shallow ID-only check,
+  //   subsumed by "rapid density toggling" which does 6 toggles at depth.
+  // - "density switch after deep seek preserves focused image" — deep seek
+  //   + single toggle, subsumed by "rapid density toggling" (seek + 6 toggles).
 
   test("rapid density toggling doesn't corrupt state", async ({ kupua }) => {
     await kupua.goto();
@@ -1478,34 +1443,9 @@ test.describe("Metadata panel", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Full workflow — user journey", () => {
-  test("scrub → focus → density switch → scrub back", async ({ kupua }) => {
-    await kupua.goto();
-
-    // 1. Scrub deep
-    await kupua.seekTo(0.5);
-    const midStore = await kupua.getStoreState();
-    expect(midStore.bufferOffset).toBeGreaterThan(0);
-
-    // 2. Focus
-    await kupua.focusNthItem(3);
-    const focusedId = await kupua.getFocusedImageId();
-    expect(focusedId).not.toBeNull();
-
-    // 3. Switch density
-    await kupua.switchToTable();
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-
-    // 4. Switch back
-    await kupua.switchToGrid();
-    expect(await kupua.getFocusedImageId()).toBe(focusedId);
-
-    // 5. Scrub to top
-    await kupua.seekTo(0.02);
-    const topStore = await kupua.getStoreState();
-    expect(topStore.bufferOffset).toBeLessThan(midStore.bufferOffset);
-    expect(topStore.error).toBeNull();
-    await kupua.assertPositionsConsistent();
-  });
+  // NOTE: "scrub → focus → density switch → scrub back" was removed
+  // (8 Apr 2026 culling) — subsumed by "long session" below, which is a
+  // strict superset (adds extend, sort change, second seek).
 
   test("sort → focus → sort → focus preserved", async ({ kupua }) => {
     await kupua.goto();
@@ -2584,6 +2524,183 @@ test.describe("Bug #17 — density switch after deep scroll preserves focus visi
 
     // Final: positions must be internally consistent
     await kupua.assertPositionsConsistent();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Density switch WITHOUT focus — viewport anchor path
+//
+// When the user hasn't clicked any image (focusedImageId is null), density
+// switches use the "viewport anchor" (the image nearest the viewport centre,
+// tracked by useDataWindow) to preserve scroll position. These tests verify
+// the anchor mechanism works for common navigation patterns.
+//
+// Root cause of the original bug: the rAF2 re-lookup inside the mount
+// restore used the viewport anchor id (which could be overwritten by the
+// NEW component's initial scroll before rAF2 fired) instead of the saved
+// globalIndex from the unmount. The re-lookup found a completely different
+// image near the top, collapsing the restore target to scrollTop=0.
+// ---------------------------------------------------------------------------
+
+test.describe("Density switch without focus — viewport anchor", () => {
+  test.use({ viewport: { width: 1920, height: 1080 } });
+
+  /** Get scroll state and visible image info. */
+  async function getViewState(page: any) {
+    return page.evaluate(({ MIN_CELL_WIDTH, GRID_RH, TABLE_RH }: any) => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = (grid ?? table) as HTMLElement | null;
+      if (!el) return null;
+      const isGrid = !!grid;
+      const rowH = isGrid ? GRID_RH : TABLE_RH;
+      const cols = isGrid
+        ? Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH))
+        : 1;
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      // Find the image nearest the viewport centre
+      const centrePixel = el.scrollTop + el.clientHeight / 2;
+      const centreRow = Math.floor(centrePixel / rowH);
+      const centreIdx = centreRow * cols;
+      const centreImage = s?.results?.[centreIdx];
+      const centreGlobalPos = centreImage
+        ? (s.imagePositions.get(centreImage.id) ?? -1)
+        : -1;
+      return {
+        scrollTop: Math.round(el.scrollTop),
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        maxScroll: el.scrollHeight - el.clientHeight,
+        isGrid,
+        cols,
+        rowH,
+        bufferOffset: s?.bufferOffset ?? 0,
+        resultsLength: s?.results?.length ?? 0,
+        total: s?.total ?? 0,
+        centreGlobalPos,
+        centreImageId: centreImage?.id ?? null,
+      };
+    }, {
+      MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH,
+      GRID_RH: GRID_ROW_HEIGHT,
+      TABLE_RH: TABLE_ROW_HEIGHT,
+    });
+  }
+
+  test("PgDown ×3 preserves position across table↔grid round-trip", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+
+    // Ensure no focus
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // PgDown 3 times in table
+    for (let i = 0; i < 3; i++) {
+      await kupua.page.keyboard.press("PageDown");
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(300);
+
+    const tableBefore = await getViewState(kupua.page);
+    expect(tableBefore!.scrollTop).toBeGreaterThan(500);
+
+    // Table → grid
+    await kupua.switchToGrid();
+    await kupua.page.waitForTimeout(800);
+
+    const gridState = await getViewState(kupua.page);
+    expect(gridState!.scrollTop).toBeGreaterThan(0);
+    expect(Math.abs(gridState!.centreGlobalPos - tableBefore!.centreGlobalPos))
+      .toBeLessThan(gridState!.cols * 2);
+
+    // PgDown 3 more times in grid
+    for (let i = 0; i < 3; i++) {
+      await kupua.page.keyboard.press("PageDown");
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(300);
+
+    const gridAfterPgDown = await getViewState(kupua.page);
+    expect(gridAfterPgDown!.scrollTop).toBeGreaterThan(gridState!.scrollTop);
+
+    // Grid → table
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(800);
+
+    const tableAfter = await getViewState(kupua.page);
+    expect(tableAfter!.scrollTop).toBeGreaterThan(0);
+    expect(Math.abs(tableAfter!.centreGlobalPos - gridAfterPgDown!.centreGlobalPos))
+      .toBeLessThan(gridAfterPgDown!.cols * 2 + 5);
+  });
+
+  test("End key preserves near-bottom across table↔grid round-trip", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+
+    // End in table
+    await kupua.page.keyboard.press("End");
+    await kupua.page.waitForTimeout(1500); // End triggers seek
+
+    const tableBefore = await getViewState(kupua.page);
+    expect(tableBefore!.scrollTop).toBeGreaterThan(tableBefore!.maxScroll * 0.5);
+
+    // Table → grid: should be near bottom
+    await kupua.switchToGrid();
+    await kupua.page.waitForTimeout(800);
+
+    const gridState = await getViewState(kupua.page);
+    expect(gridState!.scrollTop).toBeGreaterThan(gridState!.maxScroll * 0.5);
+
+    // End again in grid (to reach absolute bottom)
+    await kupua.page.keyboard.press("End");
+    await kupua.page.waitForTimeout(1500);
+
+    const gridAfterEnd = await getViewState(kupua.page);
+    expect(gridAfterEnd!.scrollTop).toBeGreaterThan(gridAfterEnd!.maxScroll * 0.5);
+
+    // Grid → table: should be near bottom
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(800);
+
+    const tableAfter = await getViewState(kupua.page);
+    expect(tableAfter!.scrollTop).toBeGreaterThan(tableAfter!.maxScroll * 0.5);
+  });
+
+  test("seek 50% in table → grid → table round-trip is stable", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(500);
+
+    // Seek to 50%
+    await kupua.seekTo(0.5);
+    await kupua.page.waitForTimeout(800);
+
+    const tableBefore = await getViewState(kupua.page);
+    expect(tableBefore!.scrollTop).toBeGreaterThan(0);
+    const refGlobalPos = tableBefore!.centreGlobalPos;
+
+    // Switch to grid
+    await kupua.switchToGrid();
+    await kupua.page.waitForTimeout(800);
+
+    const gridState = await getViewState(kupua.page);
+    expect(gridState!.scrollTop).toBeGreaterThan(0);
+    // Centre image should be close to the table's
+    expect(Math.abs(gridState!.centreGlobalPos - refGlobalPos))
+      .toBeLessThan(gridState!.cols * 2);
+
+    // Switch back to table
+    await kupua.switchToTable();
+    await kupua.page.waitForTimeout(800);
+
+    const tableAfter = await getViewState(kupua.page);
+    expect(tableAfter!.scrollTop).toBeGreaterThan(0);
+    // Round-trip: centre image should be close to original
+    expect(Math.abs(tableAfter!.centreGlobalPos - refGlobalPos))
+      .toBeLessThan(10); // small drift from geometry mismatch is OK
   });
 });
 

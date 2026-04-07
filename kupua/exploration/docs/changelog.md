@@ -14,6 +14,79 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 8 April 2026 — Viewport anchor: stale re-lookup bug fix
+
+**Bug:** Density switching (grid↔table) without focus (no clicked image) failed
+in multiple scenarios: PgDown ×3 from top → switch landed at top; End key →
+switch landed at top; seek 50% → switch showed wrong images. Only subsequent
+switches were stable. Reproduced with both keyboard navigation and mousewheel.
+
+**Root cause:** The mount-restore rAF2 callback (Effect #10) re-looked up the
+anchor image's position via `posNow.get(id)` where `id` was the viewport anchor
+captured at mount time. Between mount and rAF2 (~2 animation frames), the NEW
+component's initial scroll handler (`handleScroll` → `reportVisibleRange`) fires
+and overwrites `_viewportAnchorId` with an image near the top (scrollTop=0).
+The rAF2 re-lookup then found this wrong image at position ~8 instead of the
+saved position ~103, computed `rowTop=303` instead of `rowTop=5151`, and the
+restore target collapsed to 0 via clamping.
+
+Diagnostic trace showed:
+```
+SAVE:    anchor=62ff... globalIdx=103 scrollTop=2784
+RESTORE: savedGlobalIdx=103 freshIdx=8 rowTop=303 rawTarget=-260 → clamped=0
+```
+The `freshIdx=8` was the smoking gun — a completely different image.
+
+**Fix:** In the `saved != null` branch of mount restore, the rAF2 re-lookup now
+uses `saved.globalIndex - boNow` directly instead of looking up via the viewport
+anchor id. `saved.globalIndex` is a stable global position that doesn't depend on
+module-level state that can be overwritten between mount and rAF2. Same fix applied
+to the `saved == null` fallback branch — captures the anchor's global index at mount
+time (before the new component's scroll can corrupt it).
+
+**Fix 2 — bottom-edge extremum snap.** After fixing the stale re-lookup, End key
+density switches (table→grid, grid→table) still landed 2-3 rows short of the
+actual bottom. Cause: the viewport-centre anchor is naturally a few rows above the
+bottom edge, so the ratio-based restore lands short. Added `sourceMaxScroll` to
+`DensityFocusState`. When the source density was within one grid row (303px) of its
+maxScroll, the restore snaps to the target's maxScroll — symmetric with the existing
+top-edge snap at `sourceScrollTop === 0`.
+
+**Tests added:** 5 new E2E tests in `scrubber.spec.ts`:
+1. PgDown ×3 from top of table → grid preserves position
+2. PgDown ×3 from top of grid → table preserves position
+3. End key in table → grid shows near-bottom
+4. End key in grid → table shows near-bottom
+5. Seek 50% in table → grid → table round-trip is stable
+
+All assert that `scrollTop > 0` after the switch and that the centre image's
+global position is close between densities.
+
+**Files changed:** `useScrollEffects.ts` (mount restore rAF2 re-lookup),
+`e2e/local/scrubber.spec.ts` (5 new tests).
+**Results:** 203/203 unit, 11/11 density tests on TEST (1.3M docs).
+
+### 7 April 2026 — Viewport anchor: extremum-snapping fix & sort-focus revert
+**Context:** Viewport anchor (viewportAnchorId) was implemented across
+useDataWindow, useScrollEffects, useUrlSearchSync, and reset-to-home to keep the
+user's visual position stable across density changes and sort switches. Two issues
+surfaced during E2E testing.
+**Reverted Effect #7 sort-focus fallback.** The anchor-around-sort path in
+useScrollEffects Effect #7 caused regressions when the anchor row disappeared
+from the new sort order. Removed the single fallback line; sort switches now use
+the existing density-focus machinery which already handles missing rows gracefully.
+Can be re-enabled later as a one-line change.
+**Fixed extremum snapping on mount restore.** When a density change happened while
+the user was scrolled to the very top, the mount-restore logic would compute a
+non-zero offset because it didn't know the source scroll position. Added
+`sourceScrollTop` to `DensityFocusState`; mount restore now snaps to 0 when the
+source was at the top edge.
+**Added row-height extremum clamping** as a safety net: if the computed restore
+target exceeds the container's scrollable range, it clamps to the nearest valid
+boundary instead of leaving the viewport in a broken state.
+**Files changed:** `useScrollEffects.ts` only (revert + extremum logic).
+**Tests:** 203/203 unit, 121/121 E2E — clean sweep.
+
 ### 7 April 2026 — Keyboard nav E2E test culling & globalTimeout bump
 
 **Context:** E2E suite grew to 127 tests (21 keyboard-nav + 106 existing) and started

@@ -20,6 +20,7 @@
 import { resetSearchSync, resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { useSearchStore } from "@/stores/search-store";
 import { clearDensityFocusRatio } from "@/hooks/useScrollEffects";
+import { resetViewportAnchor } from "@/hooks/useDataWindow";
 
 /**
  * Reset all search/scroll/sync state, await fresh first-page data,
@@ -49,9 +50,11 @@ export async function resetToHome(navigate: () => void) {
   // scrolling the grid to the old focused position instead of the top.
   // Clearing focusedImageId makes the unmount save a no-op (no focused
   // image → nothing to save), and clearing the density-focus state
-  // prevents stale restores from any prior save.
+  // prevents stale restores from any prior save. Also clear the viewport
+  // anchor so the unmount doesn't fall back to a stale anchor.
   useSearchStore.getState().setFocusedImageId(null);
   clearDensityFocusRatio();
+  resetViewportAnchor();
 
   // resetScrollAndFocusSearch calls abortExtends() internally to
   // prevent rogue extendBackward from corrupting the buffer.
