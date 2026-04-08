@@ -15,7 +15,7 @@ import {
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
-import * as s3vectors from 'aws-cdk-lib/aws-s3vectors';
+import {CfnIndex, CfnVectorBucket} from 'aws-cdk-lib/aws-s3vectors';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 export class ImageEmbedder extends GuStack {
@@ -27,11 +27,11 @@ export class ImageEmbedder extends GuStack {
     const appName = 'image-embedder';
     const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
 
-    new s3vectors.CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
+    new CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
       vectorBucketName: `image-embeddings-${this.stage}`,
     });
 
-    new s3vectors.CfnIndex(this, 'CohereV4Index', {
+    new CfnIndex(this, 'CohereV4Index', {
       dataType: 'float32',
       dimension: 256,
       distanceMetric: 'cosine',
