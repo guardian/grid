@@ -57,7 +57,8 @@ function listTests() {
     let src;
     try { src = readFileSync(specFile, "utf-8"); } catch { continue; }
     // Match: test("S1: description", ... or test("P1: description", ...
-    const re = /test\(\s*"([SP]\d+:\s*[^"]+)"/g;
+    // Also matches S26a, S27b etc (letter suffix)
+    const re = /test\(\s*"([SP]\d+[a-z]?:\s*[^"]+)"/g;
     let m;
     while ((m = re.exec(src)) !== null) {
       tests.push(m[1]);
@@ -129,17 +130,49 @@ async function main() {
   } else if (selection.toLowerCase() === "smoke") {
     grepPattern = "Smoke —";
   } else {
-    const indices = selection.split(",").map((s) => parseInt(s.trim(), 10) - 1);
-    const invalid = indices.filter((i) => isNaN(i) || i < 0 || i >= tests.length);
-    if (invalid.length > 0) {
-      console.error(`Invalid selection. Pick numbers 1-${tests.length}.`);
+    // Support multiple input formats:
+    //   "28"    → menu index 28 (1-based)
+    //   "27a"   → S-number S27a (direct grep)
+    //   "S27a"  → S-number S27a (direct grep)
+    //   "27"    → could be menu index OR S-number; prefer S-number if it
+    //             matches a test name, otherwise fall back to menu index
+    const tokens = selection.split(",").map((s) => s.trim());
+    const patterns = [];
+
+    for (const tok of tokens) {
+      // Check if token looks like an S/P-number (with optional letter suffix)
+      const sMatch = tok.match(/^[SP]?(\d+[a-z]?)$/i);
+      if (sMatch) {
+        const sNum = sMatch[1]; // e.g. "27a" or "27"
+        const prefix = tok.match(/^[SP]/i) ? tok[0].toUpperCase() : "S";
+        const candidate = `${prefix}${sNum}`;
+
+        // Check if this S-number matches any test name
+        const directMatch = tests.some((t) =>
+          t.match(new RegExp(`^${candidate}[:\\s]`, "i"))
+        );
+
+        if (directMatch) {
+          patterns.push(candidate);
+          continue;
+        }
+
+        // If no direct match AND token is purely numeric (no letter suffix),
+        // try as a 1-based menu index
+        if (/^\d+$/.test(tok)) {
+          const idx = parseInt(tok, 10) - 1;
+          if (idx >= 0 && idx < tests.length) {
+            const nameMatch = tests[idx].match(/^([SP]\d+[a-z]?)/);
+            patterns.push(nameMatch ? nameMatch[1] : tests[idx]);
+            continue;
+          }
+        }
+      }
+
+      console.error(`Invalid token: "${tok}". Use S-numbers (e.g. 27a, S27a) or menu indices (1-${tests.length}).`);
       process.exit(1);
     }
-    // Extract the S/P-number from each test name for grep
-    const patterns = indices.map((i) => {
-      const match = tests[i].match(/^([SP]\d+)/);
-      return match ? match[1] : tests[i];
-    });
+
     grepPattern = patterns.join("|");
   }
 

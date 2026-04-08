@@ -74,7 +74,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 - **203 Vitest** unit/integration tests (~5s) — `npm test`
 - **106 Playwright E2E** tests (~4.5min) — `npx playwright test`
 - **19 perf tests** + experiment infrastructure — `npm run test:perf`
-- **25 smoke tests** against TEST cluster — `npm run test:smoke`
+- **27 smoke tests** against TEST cluster — `npm run test:smoke`
 - Full reference: **`e2e/README.md`** (7 test modes, decision tree, env vars)
 - Logging: use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E)
 

@@ -34,6 +34,7 @@ import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import {
   BUFFER_CAPACITY,
@@ -1300,10 +1301,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           state.imagePositions,
         );
 
-        // Eviction: if buffer exceeds capacity, evict from start
+        // Eviction: if buffer exceeds capacity, evict from start.
+        // Round eviction count UP to the nearest multiple of columns so
+        // remaining items keep their column positions — same principle as
+        // the prepend trimming in extendBackward.
         let evictedFromStart = 0;
         if (newBuffer.length > BUFFER_CAPACITY) {
-          evictedFromStart = newBuffer.length - BUFFER_CAPACITY;
+          const rawEvict = newBuffer.length - BUFFER_CAPACITY;
+          const cols = getScrollGeometry().columns;
+          evictedFromStart = cols > 1
+            ? Math.ceil(rawEvict / cols) * cols
+            : rawEvict;
           newPositions = evictPositions(
             newPositions, newBuffer, 0, evictedFromStart,
           );
@@ -1412,6 +1420,26 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({ _extendBackwardInFlight: false });
         return;
       }
+
+      // Trim prepended items to a multiple of the current column count.
+      // When prependCount % columns != 0, ALL existing items shift to
+      // different column positions in the grid — the user sees images
+      // rearranging sideways at the boundary between old and new content.
+      // Trimming from the FRONT (earliest items) preserves the cursor
+      // adjacency: the kept items are adjacent to the existing buffer start.
+      const geo = getScrollGeometry();
+      if (geo.columns > 1 && result.hits.length % geo.columns !== 0) {
+        const excess = result.hits.length % geo.columns;
+        result.hits = result.hits.slice(excess);
+        result.sortValues = result.sortValues.slice(excess);
+        devLog(`[extendBackward] trimmed ${excess} items to align with ${geo.columns} columns (${result.hits.length + excess} → ${result.hits.length})`);
+      }
+
+      if (result.hits.length === 0) {
+        set({ _extendBackwardInFlight: false });
+        return;
+      }
+
 
       set((state) => {
         // result.hits are already in correct (forward) order after reversal

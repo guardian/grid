@@ -14,6 +14,158 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 8 April 2026 — Approach C (synthetic seek) implemented and abandoned
+
+**Goal:** Eliminate FOCC (Flash Of Correct Content) caused by non-atomic
+scrollTop compensation after backward prepend and forward eviction in the
+windowed buffer. The idea: instead of prepending/evicting items and then
+compensating scrollTop (which leaks one visible frame), combine fetched items
+with the existing buffer in memory, slice a BUFFER_CAPACITY window centered on
+the viewport, and `set()` the result as if it were a seek. No prepend = no
+compensation = no FOCC. Zero extra ES queries.
+
+**What was built (Sessions 1–2):**
+- `computeSyntheticSeek()`: pure function (~65 lines, 14 unit tests) that
+  combines fetched hits with the existing buffer, slices a centered window,
+  extracts cursors, computes scroll target index, and builds imagePositions.
+- `extendBackward`: replaced the prepend + `_prependGeneration++` path with
+  synthetic seek — calls `computeSyntheticSeek(direction:"backward")` then
+  `set()` with `_seekGeneration++`, reusing Effect #6 (proven zero-flash seek
+  scroll-to-target).
+- `extendForward` eviction path: replaced evict + `_forwardEvictGeneration++`
+  with `computeSyntheticSeek(direction:"forward")` + seek-shaped `set()`.
+  Non-eviction (pure append) path left unchanged.
+- Removed dead `evictPositions()` function (~15 lines, sole caller was old
+  eviction path).
+- Cascade fix: initial E2E revealed that bumping `_seekGeneration` triggers
+  Effect #6's deferred scroll (at SEEK_DEFERRED_SCROLL_MS = 150ms), which
+  fires `reportVisibleRange` → another extend → cascade. Fixed by setting
+  cooldown to `SEEK_DEFERRED_SCROLL_MS + POST_EXTEND_COOLDOWN_MS` (200ms)
+  so the cooldown outlasts the deferred scroll.
+- Results: 217/217 unit tests pass, 121/121 E2E tests pass (local ES, ~10k docs).
+
+**What failed (Session 3 — smoke test on TEST, 1.3M docs):**
+
+App was unusable. After seek to 50% and scrolling up, bufferOffset dropped by
+~196 every ~500ms. Once scrollTop reached 0, the cascade continued indefinitely
+— 18 extends in 8 seconds, offset fell from 671,797 to 668,269.
+
+Root cause — two linked problems:
+
+1. **scrollTop ↔ buffer content mismatch.** `computeSyntheticSeek` correctly
+   tracks where the viewport image sits in the new buffer (`viewportInPool -
+   windowStart`), but Effect #6 compares this target pixel position against
+   `currentScrollTop`. For backward extends, 196 items are prepended to the
+   pool. When the pool is smaller than BUFFER_CAPACITY (no slicing — the
+   first 3–4 extends after seek), the scroll target index is offset by
+   `fetchedHits.length` from where `currentScrollTop` points. The delta is
+   `(196 / 7 cols) × 303px ≈ 8,484px`. Depending on how `scrollTargetIndex`
+   is computed, Effect #6 either (a) NO-OPs because a reverse-computation from
+   `currentScrollTop` gives a low delta — causing content drift (wrong images
+   at correct scroll position), or (b) fires with the full +8,484px delta —
+   which IS the scrollTop compensation that causes FOCC in the first place.
+   Either outcome defeats the purpose.
+
+2. **Perpetual extend trigger at scrollTop=0.** As the user scrolls up, each
+   synthetic seek prepends items without adjusting scrollTop (that's the
+   point — no compensation). scrollTop monotonically decreases to 0. At
+   scrollTop=0: startIndex=0, which satisfies `startIndex ≤ EXTEND_THRESHOLD
+   (50) && offset > 0`. Every subsequent scroll event (including no-op wheel
+   events at scrollTop=0) triggers `reportVisibleRange` → `extendBackward`.
+   The 200ms cooldown delays but doesn't prevent — the trigger condition is
+   permanently true. The cascade runs until bufferOffset reaches 0 (671k
+   items of runway on TEST; on local ES with 10k items it self-terminates
+   quickly, which is why E2E passed).
+
+**Why forward worked but backward didn't:** Forward synthetic seek works
+because scrolling DOWN moves `startIndex` away from the backward threshold.
+After eviction + re-centering, `startIndex` lands in the buffer middle, far
+from both thresholds. Backward extends push the viewport toward scrollTop=0
+— a hard wall that traps the trigger condition.
+
+**The fundamental design flaw:** Synthetic seek was designed on the premise
+that "replace the buffer atomically, compute scrollTargetIndex so Effect #6
+sees delta ≈ 0, no flash." For real seeks this is true — the buffer is
+fetched fresh and `currentScrollTop` naturally maps to the correct position.
+For backward synthetic seeks, the buffer has items prepended at the front, so
+`currentScrollTop` is inherently misaligned with the new buffer layout by
+`(fetchedItems / columns) × rowHeight`. Either the scrollTop is adjusted
+(reintroducing the FOCC that synthetic seek exists to avoid) or it isn't
+(causing content drift and cascade). This is circular — the approach's core
+premise doesn't hold for backward extends.
+
+**Alternatives evaluated and rejected:**
+- Pre-set scrollTop before `set()` (scrollTop first, then DOM swap): might
+  avoid FOCC if the browser doesn't paint between the two synchronous
+  operations, but this is the same browser-timing gamble that defeated
+  flushSync, CSS transform, and the other four prior approaches.
+- Hybrid (old path when pool ≤ capacity, synthetic seek when pool > capacity):
+  the steady-state delta is also large because `currentScrollTop` is in the
+  old buffer's coordinate system regardless of slicing. Doesn't fix the
+  fundamental mismatch.
+- Deferred application (fetch early, apply when viewport is centered): same
+  coordinate mismatch regardless of when the modification is applied.
+
+**Decision:** Abandon synthetic seek entirely. Revert all uncommitted changes.
+The forward eviction FOCC (35 screens from seek point) and backward prepend
+FOCC (3 screens from seek point) remain as cosmetic issues. They are
+positional stutters (same images, wrong position for one frame) — not content
+errors. Four additional approaches failed for the same fundamental reason: the
+browser provides no API for "the content origin moved, adjust scrollTop
+atomically." This appears to be an inherent limitation of virtual scroll
+libraries using `position: absolute` rows, well-known in the community.
+
+**FOCC status: accepted as known cosmetic limitation.** Not worth further
+investment — six approaches tried (flushSync, CSS transform, aggressive
+threshold, directional bias, overflow-anchor, synthetic seek), all failed.
+The FOCC is 1–2 frames at specific scroll positions after scrubber seek,
+rarely noticed by users in practice.
+
+### 8 April 2026 — FOCC research: 4 failed approaches, Approach C planned
+
+**Problem:** After scrubber seek, scrolling continuously in either direction
+causes a visible flash (FOCC — Flash Of Correct Content). Scroll-up: ~3
+screens from seek point (high severity). Scroll-down: ~35 screens (lower).
+The flash is a scrollTop discontinuity (+8,484px up / -4,545px down) — same
+images at wrong position for one frame. Caused by non-atomic prepend/evict
++ scrollTop compensation in the windowed buffer system.
+
+**Empirical confirmation (S27 v3 on TEST, 1.3M docs):** FOCC, not FOIC.
+Every SCROLL_JUMP frame has identical image sets (sorted src comparison).
+Column-aligned trimming eliminated content discontinuities; only positional
+discontinuity remains.
+
+**Approaches tried and failed (sessions 3–8):**
+- **K (flushSync):** Wrapped Zustand `set()` in `flushSync()`. SCROLL_JUMP
+  count identical — browser compositor paints between DOM mutation and
+  scrollTop regardless of JS-level synchronicity. Reverted.
+- **A+T (CSS transform):** `translateY(-Δ)` on sizer div via Zustand
+  `subscribe` + `will-change: transform`. Flash visually worse — TanStack
+  Virtual recalculates row `top` values, compounding with transform. Reverted.
+- **V+ (aggressive EXTEND_THRESHOLD):** Increased threshold to fire extends
+  earlier. Flash happened earlier, not gone — threshold measures from buffer
+  edge, not viewport. Fundamental flaw. Reverted.
+- **V++ (directional headroom bias):** Same fundamental flaw as V+. Ruled out.
+
+**Solution designed: Approach C (synthetic seek).** When extend would
+prepend/evict, combine fetched items with existing buffer in memory, slice
+a BUFFER_CAPACITY window centered on viewport, and `set()` as a seek result.
+No prepend → no compensation → no FOCC. Zero extra ES queries (vs Approach B
+micro-seek). Uses proven `computeScrollTarget` + Effect #6 path.
+
+**Artifacts produced:**
+- `scroll-flashing-issue.md`: comprehensive FOCC narrative
+- `scroll-approach-C-synthetic-seek-idea.md`: design rationale
+- `scroll-synthetic-seek-workplan.md`: 4-session implementation plan
+- `scroll-swimming-on-scroll-up-handoff.md`: handoff doc
+
+**Code changes kept:** S27a/S27b smoke tests (FOCC detection + corpus
+pinning), run-smoke.mjs S-number parsing fix, column-aligned prepend/evict
+trimming, removed dead `markPrependPreCompensated`/`consumePrependPreCompensated`
+flag system (never called — pure dead code).
+
+**Next:** Approach C Session 1 (synthetic seek implementation).
+
 ### 8 April 2026 — Viewport anchor: stale re-lookup bug fix
 
 **Bug:** Density switching (grid↔table) without focus (no clicked image) failed
@@ -65,6 +217,36 @@ global position is close between densities.
 **Files changed:** `useScrollEffects.ts` (mount restore rAF2 re-lookup),
 `e2e/local/scrubber.spec.ts` (5 new tests).
 **Results:** 203/203 unit, 11/11 density tests on TEST (1.3M docs).
+
+### 8 April 2026 — Swimming detection tests (S26a/S26b)
+
+**Context:** Sustained scroll-up after seek causes visible cell repositioning
+("swimming") when backward headroom is exhausted and `extendBackward` prepends
+items directly adjacent to the viewport. Previous agents wrote a comprehensive
+handoff (`handoff-swimming-on-sustained-scroll-up.md`) analysing the root cause
+(append vs prepend asymmetry, "rubber top") and proposing fixes. This session
+wrote the detection tests.
+
+**S26a (scroll-up):** Seeks to 50%, scrolls UP 12,000px (80 × 150px). Exhausts
+~4,200px of headroom, triggers 2 `extendBackward` cycles. Asserts
+`firstVisibleGlobalPos` is monotonically non-increasing. **Fails on TEST:** 1
+backward jump at step 15 (pos 672,169 → 672,172, +3 items at prependGen=1).
+Bug confirmed.
+
+**S26b (scroll-down, forward eviction probe):** Same seek, scrolls DOWN 40,000px
+(200 × 200px). Fills buffer to BUFFER_CAPACITY (1000), triggers 1 forward eviction.
+**Passes on TEST:** 0 monotonicity violations. Forward eviction compensation is
+undetectable at 100ms polling. Soft assertion — ready to harden when forward flash
+is addressed.
+
+**Decisions:**
+- No local test variants — 100ms polling can't catch ~16ms intermediate frame
+  artifacts on local data. Existing local `"can scroll up after seeking to 50%"`
+  covers plumbing.
+- S26b uses soft assertion (warns, doesn't fail) to distinguish from the more
+  severe backward swimming.
+- Handoff updated with full empirical results and next-agent instructions (Step 3:
+  implement CSS transform pre-compensation).
 
 ### 7 April 2026 — Viewport anchor: extremum-snapping fix & sort-focus revert
 **Context:** Viewport anchor (viewportAnchorId) was implemented across

@@ -31,6 +31,16 @@ import {
 import { recordResult } from "./smoke-report";
 
 // ---------------------------------------------------------------------------
+// Corpus pinning — static dates for result-set stability across runs.
+// New images are ingested daily; without pinning, total and positions drift
+// between runs making results non-reproducible. These dates are static
+// (not relative) and at least one month old.
+// ---------------------------------------------------------------------------
+
+/** Pin the corpus so new ingestion doesn't shift results between runs. */
+const STABLE_UNTIL = "2026-03-04T00:00:00";
+
+// ---------------------------------------------------------------------------
 // Guard
 // ---------------------------------------------------------------------------
 
@@ -315,7 +325,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S12: seek accuracy — date sort 25%/50%/75%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -368,7 +378,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S13: scroll alignment after seek — flash prevention", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
@@ -454,7 +464,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S14: post-seek swimming — scroll slowly after seek to 50%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -498,7 +508,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S15: extended wait then scroll — 10s pause after seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     await kupua.seekTo(0.5, 30_000);
@@ -545,7 +555,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S16: Credit sort — seek to 50% accuracy + swimming", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     await kupua.selectSort("Credit");
@@ -607,7 +617,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S17: full-range seek accuracy — 10%/30%/50%/70%/90%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -669,7 +679,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S18: post-seek extend timing — buffer stability timeline", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -739,7 +749,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S19: End key — accuracy and post-scroll stability", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -791,7 +801,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S20: seek from scrolled position — scroll preservation (pts 3/4)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     const scenarios: Array<Record<string, any>> = [];
@@ -1055,7 +1065,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S21: aggressive scroll after seek — realistic wheel input", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     await kupua.seekTo(0.5, 30_000);
@@ -1087,7 +1097,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S22: scroll-up after seek — immediate upward scroll", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -1196,7 +1206,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S23: settle-window stability — rAF scrollTop trace + CLS after seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     // Scroll to a partial-row position first
@@ -1425,7 +1435,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S24: seek from row offsets 0.5/1.5/5.5 — no swim", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -1570,7 +1580,7 @@ test.describe("Smoke — scroll stability (real ES)", () => {
   // -------------------------------------------------------------------------
 
   test("S25: fresh-app cold-start seek — no pre-scroll, seek to 50%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     kupua.startConsoleCapture();
@@ -1682,6 +1692,1137 @@ test.describe("Smoke — scroll stability (real ES)", () => {
     expect(maxPosShift, `Content shifted by ${maxPosShift} items during settle window`).toBe(0);
     expect(backwardJumps, `scrollTop had ${backwardJumps} backward jumps (swimming)`).toBe(0);
     expect(Math.abs(driftPct), `Seek accuracy drift ${driftPct.toFixed(2)}% exceeds 10%`).toBeLessThan(10);
+  });
+
+  // -------------------------------------------------------------------------
+  // S26: Sustained scroll-up swimming — seek to 50%, scroll UP 10,000+px
+  //
+  // This is the detection test for the backward-prepend swimming bug.
+  // After seek, bidirectional headroom gives ~100 items (~14 rows, ~4,200px)
+  // above the viewport. Once the user scrolls UP past that headroom,
+  // extendBackward fires and prepends items — the scrollTop compensation
+  // may produce a 1-frame artifact where cells "dance" to wrong positions.
+  //
+  // Detection: sample firstVisibleGlobalPos after each wheel step. When
+  // scrolling UP, this value must monotonically DECREASE (or stay the same).
+  // Any INCREASE = the viewport jumped backward = swimming detected.
+  //
+  // S26a tests scroll-UP (where the bug manifests).
+  // S26b tests scroll-DOWN as a control (forward extend is flash-free).
+  // -------------------------------------------------------------------------
+
+  test("S26a: sustained scroll-up after seek — swimming detection", async ({ kupua }) => {
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Seek to 50%
+    await kupua.seekTo(0.5, 30_000);
+    const postSeek = await getGridDiag(kupua.page);
+    if (!postSeek) { console.log("  ERROR: no grid diag"); return; }
+
+    console.log(`\n  [post-seek] offset=${postSeek.bufferOffset}, len=${postSeek.resultsLength}, scrollTop=${postSeek.scrollTop.toFixed(1)}`);
+    console.log(`  headroom: ${postSeek.seekTargetLocalIndex} items above viewport (${(postSeek.seekTargetLocalIndex / postSeek.cols).toFixed(1)} rows, ${((postSeek.seekTargetLocalIndex / postSeek.cols) * GRID_ROW_HEIGHT).toFixed(0)}px)`);
+
+    // Wait for full settle
+    await kupua.page.waitForTimeout(2000);
+
+    // Position cursor over the grid
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+
+    // -----------------------------------------------------------------------
+    // Start rAF-based continuous sampler — captures every frame during scroll.
+    // This catches sub-frame artifacts that 100ms polling misses.
+    // -----------------------------------------------------------------------
+    await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }: any) => {
+        const w = window as any;
+        w.__s26a_samples = [];
+        w.__s26a_running = true;
+        const loop = () => {
+          if (!w.__s26a_running) return;
+          const el = document.querySelector('[aria-label="Image results grid"]');
+          const store = w.__kupua_store__;
+          if (el && store) {
+            const s = store.getState();
+            const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+            const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+            const firstLocalIdx = firstRow * cols;
+            const pos = firstLocalIdx + s.bufferOffset;
+            const arr = w.__s26a_samples;
+            // Deduplicate: only record when value changes
+            if (arr.length === 0 || arr[arr.length - 1].pos !== pos) {
+              arr.push({
+                pos,
+                t: performance.now(),
+                scrollTop: el.scrollTop,
+                bufferOffset: s.bufferOffset,
+                len: s.results.length,
+                prependGen: s._prependGeneration,
+              });
+            }
+          }
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
+
+    // Scroll UP in small steps
+    const steps = 80;
+    const deltaPerStep = -150;
+    const delayMs = 100;
+
+    for (let step = 0; step < steps; step++) {
+      await kupua.page.mouse.wheel(0, deltaPerStep);
+      await kupua.page.waitForTimeout(delayMs);
+    }
+
+    // Stop sampler and retrieve data
+    const rafSamples: Array<{
+      pos: number;
+      t: number;
+      scrollTop: number;
+      bufferOffset: number;
+      len: number;
+      prependGen: number;
+    }> = await kupua.page.evaluate(() => {
+      const w = window as any;
+      w.__s26a_running = false;
+      return w.__s26a_samples ?? [];
+    });
+
+    // Also take a final snapshot for store state
+    const finalSnap = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      return {
+        bufferOffset: s.bufferOffset,
+        resultsLength: s.results.length,
+        prependGen: s._prependGeneration,
+      };
+    });
+
+    // Build step-like samples for compatibility (one per distinct position)
+    const samples = rafSamples.map((s, i) => ({
+      step: i,
+      firstVisibleGlobalPos: s.pos,
+      bufferOffset: s.bufferOffset,
+      resultsLength: s.len,
+      scrollTop: s.scrollTop,
+      prependGen: s.prependGen,
+    }));
+
+    // Detect monotonicity violations: when scrolling UP, firstVisibleGlobalPos
+    // must only decrease (or stay the same). Any increase = swimming.
+    const violations: Array<{
+      step: number;
+      prevPos: number;
+      currPos: number;
+      jump: number;
+      prependGen: number;
+      timeDelta: number;
+    }> = [];
+
+    for (let i = 1; i < rafSamples.length; i++) {
+      const prev = rafSamples[i - 1];
+      const curr = rafSamples[i];
+      if (curr.pos > prev.pos) {
+        violations.push({
+          step: i,
+          prevPos: prev.pos,
+          currPos: curr.pos,
+          jump: curr.pos - prev.pos,
+          prependGen: curr.prependGen,
+          timeDelta: Math.round(curr.t - prev.t),
+        });
+      }
+    }
+
+    // Count how many extendBackward cycles occurred
+    const prependGens = new Set(samples.map(s => s.prependGen));
+    const prependCount = Math.max(0, prependGens.size - 1);
+    const offsetStart = samples[0]?.bufferOffset ?? 0;
+    const offsetEnd = samples[samples.length - 1]?.bufferOffset ?? 0;
+    const totalScrolled = Math.abs(
+      (samples[samples.length - 1]?.scrollTop ?? 0) - (samples[0]?.scrollTop ?? 0),
+    );
+
+    console.log(`\n  ── S26a SUSTAINED SCROLL-UP ──`);
+    console.log(`  steps=${steps}, delta=${deltaPerStep}px, delay=${delayMs}ms`);
+    console.log(`  rAF samples: ${rafSamples.length} distinct positions (deduplicated)`);
+    console.log(`  totalScrolledPx=${totalScrolled.toFixed(0)}`);
+    console.log(`  bufferOffset: ${offsetStart} → ${offsetEnd} (Δ${offsetEnd - offsetStart})`);
+    console.log(`  extendBackward cycles: ${prependCount} (prependGens: ${[...prependGens].join(",")})`);
+    console.log(`  firstVisibleGlobalPos: ${samples[0]?.firstVisibleGlobalPos} → ${samples[samples.length - 1]?.firstVisibleGlobalPos}`);
+    console.log(`  monotonicity violations: ${violations.length}`);
+    for (const v of violations.slice(0, 10)) {
+      console.log(`    frame ${v.step}: ${v.prevPos} → ${v.currPos} (jump +${v.jump}, prependGen=${v.prependGen}, Δt=${v.timeDelta}ms)`);
+    }
+    console.log(`\n  VERDICT: ${violations.length === 0 ? "✅ NO SWIMMING" : `❌ ${violations.length} BACKWARD JUMPS (swimming)`}`);
+
+    const logs = kupua.getConsoleLogs(/\[prepend-comp\]|\[prepend-pre-comp\]|\[seek\]|\[extend/);
+
+    recordResult("S26a", {
+      total,
+      postSeekDiag: postSeek,
+      scrollParams: { steps, deltaPerStep, delayMs },
+      rafSampleCount: rafSamples.length,
+      totalScrolledPx: totalScrolled,
+      bufferOffsetStart: offsetStart,
+      bufferOffsetEnd: offsetEnd,
+      prependCount,
+      prependGens: [...prependGens],
+      firstPosStart: samples[0]?.firstVisibleGlobalPos,
+      firstPosEnd: samples[samples.length - 1]?.firstVisibleGlobalPos,
+      violationCount: violations.length,
+      violations: violations.slice(0, 20),
+      sampleCount: samples.length,
+      consoleLogs: logs.slice(-30),
+      verdict: violations.length === 0 ? "STABLE" : `SWIMMING(${violations.length})`,
+    });
+
+    // The assertion: monotonic firstVisibleGlobalPos when scrolling up.
+    // At least one extendBackward must have fired for this test to be meaningful.
+    expect(
+      prependCount,
+      `extendBackward must fire during sustained scroll-up (offset ${offsetStart} → ${offsetEnd}). ` +
+      `Need more scroll distance or headroom was not consumed.`,
+    ).toBeGreaterThan(0);
+
+    expect(
+      violations.length,
+      `Swimming detected: ${violations.length} backward jumps in firstVisibleGlobalPos ` +
+      `during sustained scroll-up after seek. ` +
+      `First violation at frame ${violations[0]?.step}: ` +
+      `pos ${violations[0]?.prevPos} → ${violations[0]?.currPos} (jump +${violations[0]?.jump}, Δt=${violations[0]?.timeDelta}ms).`,
+    ).toBe(0);
+  });
+
+  test("S26b: sustained scroll-down after seek — forward eviction swimming probe", async ({ kupua }) => {
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Seek to 50%
+    await kupua.seekTo(0.5, 30_000);
+    const postSeek = await getGridDiag(kupua.page);
+    if (!postSeek) { console.log("  ERROR: no grid diag"); return; }
+
+    console.log(`\n  [post-seek] offset=${postSeek.bufferOffset}, len=${postSeek.resultsLength}, scrollTop=${postSeek.scrollTop.toFixed(1)}`);
+
+    // Wait for full settle
+    await kupua.page.waitForTimeout(2000);
+
+    // Position cursor over the grid
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+
+    // FORWARD EVICTION PROBE — scroll far enough to fill buffer to
+    // BUFFER_CAPACITY (1000) and trigger forward eviction.
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+
+    // -----------------------------------------------------------------------
+    // Start rAF-based continuous sampler (same as S26a but for scroll-down)
+    // -----------------------------------------------------------------------
+    await kupua.page.evaluate(
+      ({ MIN_CELL_WIDTH, ROW_HEIGHT }: any) => {
+        const w = window as any;
+        w.__s26b_samples = [];
+        w.__s26b_running = true;
+        const loop = () => {
+          if (!w.__s26b_running) return;
+          const el = document.querySelector('[aria-label="Image results grid"]');
+          const store = w.__kupua_store__;
+          if (el && store) {
+            const s = store.getState();
+            const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
+            const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
+            const firstLocalIdx = firstRow * cols;
+            const pos = firstLocalIdx + s.bufferOffset;
+            const arr = w.__s26b_samples;
+            // Deduplicate: only record when value changes
+            if (arr.length === 0 || arr[arr.length - 1].pos !== pos) {
+              arr.push({
+                pos,
+                t: performance.now(),
+                scrollTop: el.scrollTop,
+                bufferOffset: s.bufferOffset,
+                len: s.results.length,
+                forwardEvictGen: s._forwardEvictGeneration,
+              });
+            }
+          }
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      },
+      { MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH, ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
+
+    const steps = 200;
+    const deltaPerStep = 200;
+    const delayMs = 100;
+
+    for (let step = 0; step < steps; step++) {
+      await kupua.page.mouse.wheel(0, deltaPerStep);
+      await kupua.page.waitForTimeout(delayMs);
+    }
+
+    // Stop sampler and retrieve data
+    const rafSamples: Array<{
+      pos: number;
+      t: number;
+      scrollTop: number;
+      bufferOffset: number;
+      len: number;
+      forwardEvictGen: number;
+    }> = await kupua.page.evaluate(() => {
+      const w = window as any;
+      w.__s26b_running = false;
+      return w.__s26b_samples ?? [];
+    });
+
+    // Build step-like samples for compatibility
+    const samples = rafSamples.map((s, i) => ({
+      step: i,
+      firstVisibleGlobalPos: s.pos,
+      bufferOffset: s.bufferOffset,
+      resultsLength: s.len,
+      scrollTop: s.scrollTop,
+      forwardEvictGen: s.forwardEvictGen,
+    }));
+
+    // Detect monotonicity violations: when scrolling DOWN, firstVisibleGlobalPos
+    // must only increase (or stay the same). Any decrease = swimming.
+    const violations: Array<{
+      step: number;
+      prevPos: number;
+      currPos: number;
+      jump: number;
+      forwardEvictGen: number;
+      bufferOffset: number;
+      resultsLength: number;
+      timeDelta: number;
+    }> = [];
+
+    for (let i = 1; i < rafSamples.length; i++) {
+      const prev = rafSamples[i - 1];
+      const curr = rafSamples[i];
+      if (curr.pos < prev.pos) {
+        violations.push({
+          step: i,
+          prevPos: prev.pos,
+          currPos: curr.pos,
+          jump: prev.pos - curr.pos,
+          forwardEvictGen: curr.forwardEvictGen,
+          bufferOffset: curr.bufferOffset,
+          resultsLength: curr.len,
+          timeDelta: Math.round(curr.t - prev.t),
+        });
+      }
+    }
+
+    // Count eviction cycles and buffer growth
+    const evictGens = new Set(samples.map(s => s.forwardEvictGen));
+    const evictCount = Math.max(0, evictGens.size - 1);
+    const maxLen = Math.max(...samples.map(s => s.resultsLength));
+    const offsetStart = samples[0]?.bufferOffset ?? 0;
+    const offsetEnd = samples[samples.length - 1]?.bufferOffset ?? 0;
+    const totalScrolled = Math.abs(
+      (samples[samples.length - 1]?.scrollTop ?? 0) - (samples[0]?.scrollTop ?? 0),
+    );
+
+    console.log(`\n  ── S26b SUSTAINED SCROLL-DOWN (forward eviction probe) ──`);
+    console.log(`  steps=${steps}, delta=${deltaPerStep}px, delay=${delayMs}ms`);
+    console.log(`  rAF samples: ${rafSamples.length} distinct positions (deduplicated)`);
+    console.log(`  totalScrolledPx=${totalScrolled.toFixed(0)}`);
+    console.log(`  bufferOffset: ${offsetStart} → ${offsetEnd} (Δ${offsetEnd - offsetStart})`);
+    console.log(`  maxBufferLen: ${maxLen} (BUFFER_CAPACITY=1000)`);
+    console.log(`  forwardEvict cycles: ${evictCount} (evictGens: ${[...evictGens].join(",")})`);
+    console.log(`  firstVisibleGlobalPos: ${samples[0]?.firstVisibleGlobalPos} → ${samples[samples.length - 1]?.firstVisibleGlobalPos}`);
+    console.log(`  monotonicity violations: ${violations.length}`);
+    for (const v of violations.slice(0, 15)) {
+      console.log(`    frame ${v.step}: ${v.prevPos} → ${v.currPos} (jump -${v.jump}, evictGen=${v.forwardEvictGen}, offset=${v.bufferOffset}, len=${v.resultsLength}, Δt=${v.timeDelta}ms)`);
+    }
+
+    // Compare with S26a for context
+    const evictionTriggered = evictCount > 0;
+    const violationsAtEviction = violations.filter(v => v.forwardEvictGen > 0);
+    const violationsBeforeEviction = violations.filter(v => v.forwardEvictGen === 0);
+
+    console.log(`\n  violations before eviction: ${violationsBeforeEviction.length}`);
+    console.log(`  violations at/after eviction: ${violationsAtEviction.length}`);
+    console.log(`  eviction triggered: ${evictionTriggered}`);
+    console.log(`\n  VERDICT: ${violations.length === 0 ? "✅ NO SWIMMING" : `⚠️  ${violations.length} FORWARD JUMPS (${evictionTriggered ? "eviction-related" : "pre-eviction"})`}`);
+
+    const logs = kupua.getConsoleLogs(/\[prepend-comp\]|\[prepend-pre-comp\]|\[seek\]|\[extend|\[evict/);
+
+    recordResult("S26b", {
+      total,
+      postSeekDiag: postSeek,
+      scrollParams: { steps, deltaPerStep, delayMs },
+      rafSampleCount: rafSamples.length,
+      totalScrolledPx: totalScrolled,
+      bufferOffsetStart: offsetStart,
+      bufferOffsetEnd: offsetEnd,
+      maxBufferLen: maxLen,
+      evictCount,
+      evictGens: [...evictGens],
+      evictionTriggered,
+      firstPosStart: samples[0]?.firstVisibleGlobalPos,
+      firstPosEnd: samples[samples.length - 1]?.firstVisibleGlobalPos,
+      violationCount: violations.length,
+      violationsBeforeEviction: violationsBeforeEviction.length,
+      violationsAtEviction: violationsAtEviction.length,
+      violations: violations.slice(0, 20),
+      sampleCount: samples.length,
+      consoleLogs: logs.slice(-30),
+      verdict: violations.length === 0 ? "STABLE" : `SWIMMING(${violations.length})`,
+    });
+
+    // SOFT ASSERTION: we expect this to pass (forward extend = append = free),
+    // but if forward eviction causes detectable swimming, we want to know
+    // WITHOUT failing the suite. Log a warning instead.
+    if (violations.length > 0) {
+      console.log(
+        `\n  ⚠️  FORWARD SWIMMING DETECTED — ${violations.length} violations. ` +
+        `This is the "less bad" flash (valid positions). Not blocking.`,
+      );
+    }
+
+    // Hard assertion: extendForward must fire (proves we scrolled enough)
+    const bufferGrew = maxLen > postSeek.resultsLength;
+    expect(
+      bufferGrew,
+      `Buffer didn't grow during scroll-down (max len=${maxLen}, initial=${postSeek.resultsLength}). ` +
+      `extendForward may not have fired — test needs more scroll distance.`,
+    ).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // S27: FOCC (Flash Of Correct Content) — DOM-level detection v3
+  //
+  // V1 findings: simple img-count-vs-peak sampling produced false positives.
+  // During scroll, the viewport straddles row boundaries differently,
+  // changing visible cell count (49 → 42) — but every visible cell ALWAYS
+  // had its <img>. FOCC is not about cells losing images.
+  //
+  // V2 strategy — multi-signal FOCC detection (signals 1–4).
+  // V3 enhancement — adds Signal 5 (CONTENT_SHIFT) to determine whether
+  // SCROLL_JUMP frames show the SAME images at wrong positions (FOCC) or
+  // DIFFERENT images entirely (FOIC). Also captures row `top` values and
+  // all visible image srcs on signal frames for forensic analysis.
+  //
+  // Signal 1: SKELETON CELLS — any frame where a visible cell has no <img>
+  //           (cellsWithImg < visibleCells on the SAME frame). This detects
+  //           React unmounting/remounting cell content.
+  //
+  // Signal 2: ROW COUNT DROP — the number of virtualiser rows in the DOM
+  //           drops between frames (TanStack Virtual removing rows during
+  //           buffer mutation, re-adding them next frame).
+  //
+  // Signal 3: SCROLLTOP JUMP — during scroll-up, scrollTop should only
+  //           decrease. A sudden increase = compensation artifact visible
+  //           for one frame. During scroll-down, scrollTop should only
+  //           increase; a decrease = forward-evict compensation flash.
+  //
+  // Signal 4: IMAGE IDENTITY CHANGE — track the first visible img src.
+  //           If it changes between frames without a scroll that would
+  //           explain it, the user briefly saw wrong content.
+  //
+  // Signal 5: CONTENT_SHIFT — on SCROLL_JUMP frames, compare the full set
+  //           of visible image srcs with the previous frame. If the set is
+  //           identical, it's FOCC (positional stutter). If different, it's
+  //           FOIC (different content briefly shown). This is the definitive
+  //           test of what the user actually sees in the flash frame.
+  //
+  // S27a: scroll UP (extendBackward)
+  // S27b: scroll DOWN (forward eviction)
+  // -------------------------------------------------------------------------
+
+  test("S27a: FOCC scroll-up — DOM content drops during extendBackward", async ({ kupua }) => {
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Seek to 50%
+    await kupua.seekTo(0.5, 30_000);
+    const postSeek = await getGridDiag(kupua.page);
+    if (!postSeek) { console.log("  ERROR: no grid diag"); return; }
+
+    console.log(`\n  [post-seek] offset=${postSeek.bufferOffset}, len=${postSeek.resultsLength}, scrollTop=${postSeek.scrollTop.toFixed(1)}`);
+    console.log(`  headroom: ${postSeek.seekTargetLocalIndex} items (${(postSeek.seekTargetLocalIndex / postSeek.cols).toFixed(1)} rows)`);
+
+    // Wait for settle + thumbnail loading
+    await kupua.page.waitForTimeout(3000);
+
+    // Position cursor over grid
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+
+    // -----------------------------------------------------------------------
+    // Install rAF DOM sampler v3 — multi-signal FOCC detection + content
+    // identity analysis. Records EVERY frame (no filtering) to catch
+    // single-frame glitches. On SCROLL_JUMP frames, captures full image
+    // src set and row tops for forensic comparison.
+    // -----------------------------------------------------------------------
+    await kupua.page.evaluate(
+      ({ ROW_HEIGHT }: { ROW_HEIGHT: number }) => {
+        const w = window as any;
+        w.__focc2 = {
+          samples: [] as any[],
+          skeletonFrames: 0,     // Signal 1: frames where cellsWithImg < visibleCells
+          rowDropFrames: 0,      // Signal 2: frames where row count dropped
+          scrollJumpFrames: 0,   // Signal 3: scrollTop went wrong direction
+          imgChangeFrames: 0,    // Signal 4: first visible img src changed unexpectedly
+          contentShiftSame: 0,   // Signal 5: SCROLL_JUMP with SAME image set (FOCC)
+          contentShiftDiff: 0,   // Signal 5: SCROLL_JUMP with DIFFERENT image set (FOIC)
+          totalFrames: 0,
+          prevRowCount: -1,
+          prevScrollTop: -1,
+          prevFirstImgSrc: "",
+          prevVisibleCells: -1,
+          prevImgSrcs: [] as string[],  // all visible img srcs from previous frame
+          prevRowTops: [] as number[],  // row top positions from previous frame
+          running: true,
+        };
+
+        const state = w.__focc2;
+
+        const loop = () => {
+          if (!state.running) return;
+          state.totalFrames++;
+
+          const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+          const store = w.__kupua_store__;
+          if (!el || !store) { requestAnimationFrame(loop); return; }
+
+          const s = store.getState();
+          const scrollTop = el.scrollTop;
+          const viewportTop = scrollTop;
+          const viewportBottom = scrollTop + el.clientHeight;
+
+          const sizer = el.firstElementChild;
+          if (!sizer) { requestAnimationFrame(loop); return; }
+
+          let visibleCells = 0;
+          let cellsWithImg = 0;
+          let visibleRowCount = 0;
+          let firstImgSrc = "";
+          const allImgSrcs: string[] = [];
+          const rowTops: number[] = [];
+
+          const rows = sizer.children;
+          for (let r = 0; r < rows.length; r++) {
+            const row = rows[r] as HTMLElement;
+            const rowTop = parseFloat(row.style.top);
+            const rowBottom = rowTop + ROW_HEIGHT;
+
+            // Only count rows actually overlapping the viewport
+            if (rowBottom <= viewportTop || rowTop >= viewportBottom) continue;
+            visibleRowCount++;
+            rowTops.push(rowTop);
+
+            const cells = row.querySelectorAll("[data-grid-cell]");
+            for (let c = 0; c < cells.length; c++) {
+              visibleCells++;
+              const img = cells[c].querySelector("img") as HTMLImageElement | null;
+              if (img) {
+                cellsWithImg++;
+                const src = img.src ? img.src.slice(-40) : "";
+                allImgSrcs.push(src);
+                if (!firstImgSrc && src) firstImgSrc = src;
+              }
+            }
+          }
+
+          // --- Signal detection ---
+          let signals = 0;
+          let signalNames = "";
+          let isScrollJump = false;
+
+          // Signal 1: Skeleton cells (visible cell without img)
+          if (visibleCells > 0 && cellsWithImg < visibleCells) {
+            state.skeletonFrames++;
+            signals++;
+            signalNames += "SKELETON ";
+          }
+
+          // Signal 2: Row count drop (rows disappeared from DOM)
+          if (state.prevRowCount > 0 && visibleRowCount < state.prevRowCount - 1) {
+            state.rowDropFrames++;
+            signals++;
+            signalNames += "ROW_DROP ";
+          }
+
+          // Signal 3: ScrollTop jump (wrong direction for scroll-up)
+          // During scroll-up, scrollTop should decrease. An increase > 1px = jump.
+          if (state.prevScrollTop > 0 && scrollTop > state.prevScrollTop + 1) {
+            state.scrollJumpFrames++;
+            signals++;
+            signalNames += "SCROLL_JUMP ";
+            isScrollJump = true;
+          }
+
+          // Signal 4: First visible image changed identity
+          if (state.prevFirstImgSrc && firstImgSrc &&
+              firstImgSrc !== state.prevFirstImgSrc &&
+              Math.abs(scrollTop - state.prevScrollTop) < ROW_HEIGHT * 0.5) {
+            state.imgChangeFrames++;
+            signals++;
+            signalNames += "IMG_CHANGE ";
+          }
+
+          // Signal 5: Content identity on SCROLL_JUMP frames.
+          // Compare the sorted set of visible image srcs with previous frame.
+          // If identical → FOCC (same content, wrong position).
+          // If different → FOIC (different content briefly shown).
+          let contentVerdict = "";
+          if (isScrollJump && state.prevImgSrcs.length > 0 && allImgSrcs.length > 0) {
+            const prevSet = state.prevImgSrcs.slice().sort().join("|");
+            const curSet = allImgSrcs.slice().sort().join("|");
+            if (prevSet === curSet) {
+              state.contentShiftSame++;
+              contentVerdict = "SAME_CONTENT";
+              signalNames += "CONTENT_SAME ";
+            } else {
+              state.contentShiftDiff++;
+              contentVerdict = "DIFF_CONTENT";
+              signalNames += "CONTENT_DIFF ";
+              // Count overlap: how many images are in both sets?
+              const prevArr = state.prevImgSrcs.slice().sort();
+              const curArr = allImgSrcs.slice().sort();
+              let overlap = 0;
+              let pi = 0, ci = 0;
+              while (pi < prevArr.length && ci < curArr.length) {
+                if (prevArr[pi] === curArr[ci]) { overlap++; pi++; ci++; }
+                else if (prevArr[pi] < curArr[ci]) pi++;
+                else ci++;
+              }
+              contentVerdict += `(overlap=${overlap}/${Math.max(prevArr.length, curArr.length)})`;
+            }
+          }
+
+          // Record frame if any signal fired, or every 120th frame for context
+          if (signals > 0 || state.totalFrames % 120 === 0) {
+            const sample: any = {
+              frame: state.totalFrames,
+              t: performance.now(),
+              scrollTop,
+              scrollTopDelta: scrollTop - (state.prevScrollTop > 0 ? state.prevScrollTop : scrollTop),
+              visibleRows: visibleRowCount,
+              visibleCells,
+              cellsWithImg,
+              firstImgSrc,
+              signals: signalNames.trim() || "periodic",
+              prependGen: s._prependGeneration,
+              forwardEvictGen: s._forwardEvictGeneration,
+              bufferOffset: s.bufferOffset,
+              resultsLength: s.results.length,
+              prevScrollTop: state.prevScrollTop,
+              prevRowCount: state.prevRowCount,
+            };
+            // On signal frames, include forensic data
+            if (signals > 0) {
+              sample.rowTops = rowTops.slice(0, 5);          // first 5 row tops
+              sample.prevRowTops = state.prevRowTops.slice(0, 5);
+              sample.imgCount = allImgSrcs.length;
+              sample.prevImgCount = state.prevImgSrcs.length;
+              sample.contentVerdict = contentVerdict || "N/A";
+              // On SCROLL_JUMP, also store first 3 img srcs from each frame
+              if (isScrollJump) {
+                sample.curImgs = allImgSrcs.slice(0, 3);
+                sample.prevImgs = state.prevImgSrcs.slice(0, 3);
+              }
+            }
+            state.samples.push(sample);
+          }
+
+          // Update prev state
+          state.prevRowCount = visibleRowCount;
+          state.prevScrollTop = scrollTop;
+          state.prevFirstImgSrc = firstImgSrc;
+          state.prevVisibleCells = visibleCells;
+          state.prevImgSrcs = allImgSrcs;
+          state.prevRowTops = rowTops;
+
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      },
+      { ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
+
+    // Scroll UP in small steps — same as S26a
+    const steps = 80;
+    const deltaPerStep = -150;
+    const delayMs = 100;
+
+    for (let step = 0; step < steps; step++) {
+      await kupua.page.mouse.wheel(0, deltaPerStep);
+      await kupua.page.waitForTimeout(delayMs);
+    }
+
+    // Stop sampler and retrieve data
+    const result = await kupua.page.evaluate(() => {
+      const w = window as any;
+      const state = w.__focc2;
+      state.running = false;
+      return {
+        samples: state.samples,
+        skeletonFrames: state.skeletonFrames,
+        rowDropFrames: state.rowDropFrames,
+        scrollJumpFrames: state.scrollJumpFrames,
+        imgChangeFrames: state.imgChangeFrames,
+        contentShiftSame: state.contentShiftSame,
+        contentShiftDiff: state.contentShiftDiff,
+        totalFrames: state.totalFrames,
+      };
+    });
+
+    const { samples, skeletonFrames, rowDropFrames, scrollJumpFrames, imgChangeFrames,
+            contentShiftSame, contentShiftDiff, totalFrames } = result;
+    const prependGens = new Set(samples.map((s: any) => s.prependGen));
+    const prependCount = Math.max(0, prependGens.size - 1);
+
+    // Separate signal events from periodic snapshots
+    const signalEvents = samples.filter((s: any) => s.signals !== "periodic");
+    const periodicEvents = samples.filter((s: any) => s.signals === "periodic");
+
+    console.log(`\n  ── S27a FOCC SCROLL-UP v3 (multi-signal + content identity) ──`);
+    console.log(`  steps=${steps}, delta=${deltaPerStep}px, delay=${delayMs}ms`);
+    console.log(`  totalFrames=${totalFrames}, recorded=${samples.length} (${signalEvents.length} signals + ${periodicEvents.length} periodic)`);
+    console.log(`  extendBackward cycles: ${prependCount}`);
+    console.log(`\n  Signal 1 — SKELETON (cell without img):     ${skeletonFrames} frames`);
+    console.log(`  Signal 2 — ROW_DROP (row count decreased):   ${rowDropFrames} frames`);
+    console.log(`  Signal 3 — SCROLL_JUMP (scrollTop increased): ${scrollJumpFrames} frames`);
+    console.log(`  Signal 4 — IMG_CHANGE (image identity):      ${imgChangeFrames} frames`);
+    console.log(`  Signal 5 — CONTENT on SCROLL_JUMP: same=${contentShiftSame} diff=${contentShiftDiff}`);
+    if (scrollJumpFrames > 0) {
+      console.log(`\n  ★ VERDICT: SCROLL_JUMP frames show ${contentShiftSame > 0 ? "SAME" : ""}${contentShiftSame > 0 && contentShiftDiff > 0 ? " + " : ""}${contentShiftDiff > 0 ? "DIFFERENT" : ""} content`);
+      console.log(`    → ${contentShiftDiff === 0 ? "FOCC (positional stutter only)" : "FOIC (different images briefly visible)"}`);
+    }
+
+    if (signalEvents.length > 0) {
+      console.log(`\n  ── signal events (first 20) ──`);
+      for (const s of signalEvents.slice(0, 20)) {
+        let line = `    frame ${s.frame}: [${s.signals}] scrollTop=${s.scrollTop.toFixed(0)} ` +
+          `(prev=${s.prevScrollTop?.toFixed(0)}, Δ=${s.scrollTopDelta?.toFixed(0)}), ` +
+          `rows=${s.visibleRows} (prev=${s.prevRowCount}), ` +
+          `cells=${s.visibleCells}, img=${s.cellsWithImg}, prependGen=${s.prependGen}, offset=${s.bufferOffset}`;
+        if (s.contentVerdict && s.contentVerdict !== "N/A") {
+          line += `\n           content: ${s.contentVerdict}`;
+          if (s.curImgs) line += `\n           curImgs[0..2]: ${JSON.stringify(s.curImgs)}`;
+          if (s.prevImgs) line += `\n           prevImgs[0..2]: ${JSON.stringify(s.prevImgs)}`;
+          if (s.rowTops) line += `\n           rowTops: [${s.rowTops.join(", ")}] prev: [${s.prevRowTops?.join(", ") ?? "?"}]`;
+        }
+        console.log(line);
+      }
+    }
+
+    console.log(`\n  ── periodic snapshots (context) ──`);
+    for (const p of periodicEvents.slice(0, 8)) {
+      console.log(
+        `    frame ${p.frame}: scrollTop=${p.scrollTop.toFixed(0)}, rows=${p.visibleRows}, ` +
+        `cells=${p.visibleCells}, img=${p.cellsWithImg}, prependGen=${p.prependGen}, offset=${p.bufferOffset}`,
+      );
+    }
+
+    const totalSignals = skeletonFrames + rowDropFrames + scrollJumpFrames + imgChangeFrames;
+    console.log(`\n  VERDICT: ${totalSignals === 0 ? "✅ NO FOCC SIGNALS" : `❌ ${totalSignals} FOCC SIGNALS DETECTED`}`);
+
+    const logs = kupua.getConsoleLogs(/\[prepend-comp\]|\[prepend-pre-comp\]|\[extend|\[seek\]/);
+
+    recordResult("S27a", {
+      total,
+      postSeekDiag: postSeek,
+      scrollParams: { steps, deltaPerStep, delayMs },
+      totalFrames,
+      recordedSamples: samples.length,
+      prependCount,
+      prependGens: [...prependGens],
+      signals: {
+        skeleton: skeletonFrames,
+        rowDrop: rowDropFrames,
+        scrollJump: scrollJumpFrames,
+        imgChange: imgChangeFrames,
+        contentShiftSame,
+        contentShiftDiff,
+        total: totalSignals,
+      },
+      contentVerdict: contentShiftDiff === 0
+        ? (contentShiftSame > 0 ? "FOCC" : "UNKNOWN")
+        : "FOIC",
+      signalEvents: signalEvents.slice(0, 30),
+      periodicSnapshots: periodicEvents.slice(0, 15),
+      consoleLogs: logs.slice(-30),
+      verdict: totalSignals === 0 ? "NO_FOCC" : `FOCC(signals=${totalSignals})`,
+    });
+
+    // Hard assertion: at least one extendBackward must fire
+    expect(
+      prependCount,
+      `extendBackward must fire during sustained scroll-up (need more scroll distance).`,
+    ).toBeGreaterThan(0);
+
+    // Soft report — log but don't fail
+    if (totalSignals > 0) {
+      console.log(
+        `\n  ⚠️  FOCC SIGNALS: skeleton=${skeletonFrames}, rowDrop=${rowDropFrames}, ` +
+        `scrollJump=${scrollJumpFrames}, imgChange=${imgChangeFrames}`,
+      );
+    }
+  });
+
+  test("S27b: FOCC scroll-down — DOM content drops during forward eviction", async ({ kupua }) => {
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    const total = await requireRealData(kupua);
+
+    kupua.startConsoleCapture();
+
+    // Seek to 50%
+    await kupua.seekTo(0.5, 30_000);
+    const postSeek = await getGridDiag(kupua.page);
+    if (!postSeek) { console.log("  ERROR: no grid diag"); return; }
+
+    console.log(`\n  [post-seek] offset=${postSeek.bufferOffset}, len=${postSeek.resultsLength}, scrollTop=${postSeek.scrollTop.toFixed(1)}`);
+
+    // Wait for settle + thumbnail loading
+    await kupua.page.waitForTimeout(3000);
+
+    // Position cursor over grid
+    const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await gridEl.boundingBox();
+    if (!gridBox) { console.log("  ERROR: no grid box"); return; }
+    await kupua.page.mouse.move(
+      gridBox.x + gridBox.width / 2,
+      gridBox.y + gridBox.height / 2,
+    );
+
+    // -----------------------------------------------------------------------
+    // Install rAF DOM sampler v3 — same as S27a but scroll direction is DOWN
+    // -----------------------------------------------------------------------
+    await kupua.page.evaluate(
+      ({ ROW_HEIGHT }: { ROW_HEIGHT: number }) => {
+        const w = window as any;
+        w.__focc2 = {
+          samples: [] as any[],
+          skeletonFrames: 0,
+          rowDropFrames: 0,
+          scrollJumpFrames: 0,
+          imgChangeFrames: 0,
+          contentShiftSame: 0,
+          contentShiftDiff: 0,
+          totalFrames: 0,
+          prevRowCount: -1,
+          prevScrollTop: -1,
+          prevFirstImgSrc: "",
+          prevVisibleCells: -1,
+          prevImgSrcs: [] as string[],
+          prevRowTops: [] as number[],
+          running: true,
+        };
+
+        const state = w.__focc2;
+
+        const loop = () => {
+          if (!state.running) return;
+          state.totalFrames++;
+
+          const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+          const store = w.__kupua_store__;
+          if (!el || !store) { requestAnimationFrame(loop); return; }
+
+          const s = store.getState();
+          const scrollTop = el.scrollTop;
+          const viewportTop = scrollTop;
+          const viewportBottom = scrollTop + el.clientHeight;
+
+          const sizer = el.firstElementChild;
+          if (!sizer) { requestAnimationFrame(loop); return; }
+
+          let visibleCells = 0;
+          let cellsWithImg = 0;
+          let visibleRowCount = 0;
+          let firstImgSrc = "";
+          const allImgSrcs: string[] = [];
+          const rowTops: number[] = [];
+
+          const rows = sizer.children;
+          for (let r = 0; r < rows.length; r++) {
+            const row = rows[r] as HTMLElement;
+            const rowTop = parseFloat(row.style.top);
+            const rowBottom = rowTop + ROW_HEIGHT;
+
+            if (rowBottom <= viewportTop || rowTop >= viewportBottom) continue;
+            visibleRowCount++;
+            rowTops.push(rowTop);
+
+            const cells = row.querySelectorAll("[data-grid-cell]");
+            for (let c = 0; c < cells.length; c++) {
+              visibleCells++;
+              const img = cells[c].querySelector("img") as HTMLImageElement | null;
+              if (img) {
+                cellsWithImg++;
+                const src = img.src ? img.src.slice(-40) : "";
+                allImgSrcs.push(src);
+                if (!firstImgSrc && src) firstImgSrc = src;
+              }
+            }
+          }
+
+          let signals = 0;
+          let signalNames = "";
+          let isScrollJump = false;
+
+          // Signal 1: Skeleton cells
+          if (visibleCells > 0 && cellsWithImg < visibleCells) {
+            state.skeletonFrames++;
+            signals++;
+            signalNames += "SKELETON ";
+          }
+
+          // Signal 2: Row count drop
+          if (state.prevRowCount > 0 && visibleRowCount < state.prevRowCount - 1) {
+            state.rowDropFrames++;
+            signals++;
+            signalNames += "ROW_DROP ";
+          }
+
+          // Signal 3: ScrollTop jump (wrong direction for scroll-down)
+          // During scroll-down, scrollTop should increase. A decrease > 1px = jump.
+          if (state.prevScrollTop > 0 && scrollTop < state.prevScrollTop - 1) {
+            state.scrollJumpFrames++;
+            signals++;
+            signalNames += "SCROLL_JUMP ";
+            isScrollJump = true;
+          }
+
+          // Signal 4: First visible image changed identity
+          if (state.prevFirstImgSrc && firstImgSrc &&
+              firstImgSrc !== state.prevFirstImgSrc &&
+              Math.abs(scrollTop - state.prevScrollTop) < ROW_HEIGHT * 0.5) {
+            state.imgChangeFrames++;
+            signals++;
+            signalNames += "IMG_CHANGE ";
+          }
+
+          // Signal 5: Content identity on SCROLL_JUMP frames
+          let contentVerdict = "";
+          if (isScrollJump && state.prevImgSrcs.length > 0 && allImgSrcs.length > 0) {
+            const prevSet = state.prevImgSrcs.slice().sort().join("|");
+            const curSet = allImgSrcs.slice().sort().join("|");
+            if (prevSet === curSet) {
+              state.contentShiftSame++;
+              contentVerdict = "SAME_CONTENT";
+              signalNames += "CONTENT_SAME ";
+            } else {
+              state.contentShiftDiff++;
+              contentVerdict = "DIFF_CONTENT";
+              signalNames += "CONTENT_DIFF ";
+              const prevArr = state.prevImgSrcs.slice().sort();
+              const curArr = allImgSrcs.slice().sort();
+              let overlap = 0;
+              let pi = 0, ci = 0;
+              while (pi < prevArr.length && ci < curArr.length) {
+                if (prevArr[pi] === curArr[ci]) { overlap++; pi++; ci++; }
+                else if (prevArr[pi] < curArr[ci]) pi++;
+                else ci++;
+              }
+              contentVerdict += `(overlap=${overlap}/${Math.max(prevArr.length, curArr.length)})`;
+            }
+          }
+
+          if (signals > 0 || state.totalFrames % 120 === 0) {
+            const sample: any = {
+              frame: state.totalFrames,
+              t: performance.now(),
+              scrollTop,
+              scrollTopDelta: scrollTop - (state.prevScrollTop > 0 ? state.prevScrollTop : scrollTop),
+              visibleRows: visibleRowCount,
+              visibleCells,
+              cellsWithImg,
+              firstImgSrc,
+              signals: signalNames.trim() || "periodic",
+              prependGen: s._prependGeneration,
+              forwardEvictGen: s._forwardEvictGeneration,
+              bufferOffset: s.bufferOffset,
+              resultsLength: s.results.length,
+              prevScrollTop: state.prevScrollTop,
+              prevRowCount: state.prevRowCount,
+            };
+            if (signals > 0) {
+              sample.rowTops = rowTops.slice(0, 5);
+              sample.prevRowTops = state.prevRowTops.slice(0, 5);
+              sample.imgCount = allImgSrcs.length;
+              sample.prevImgCount = state.prevImgSrcs.length;
+              sample.contentVerdict = contentVerdict || "N/A";
+              if (isScrollJump) {
+                sample.curImgs = allImgSrcs.slice(0, 3);
+                sample.prevImgs = state.prevImgSrcs.slice(0, 3);
+              }
+            }
+            state.samples.push(sample);
+          }
+
+          state.prevRowCount = visibleRowCount;
+          state.prevScrollTop = scrollTop;
+          state.prevFirstImgSrc = firstImgSrc;
+          state.prevVisibleCells = visibleCells;
+          state.prevImgSrcs = allImgSrcs;
+          state.prevRowTops = rowTops;
+
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      },
+      { ROW_HEIGHT: GRID_ROW_HEIGHT },
+    );
+
+    // Scroll DOWN far enough to trigger forward eviction
+    const steps = 200;
+    const deltaPerStep = 200;
+    const delayMs = 100;
+
+    for (let step = 0; step < steps; step++) {
+      await kupua.page.mouse.wheel(0, deltaPerStep);
+      await kupua.page.waitForTimeout(delayMs);
+    }
+
+    // Stop sampler and retrieve data
+    const result = await kupua.page.evaluate(() => {
+      const w = window as any;
+      const state = w.__focc2;
+      state.running = false;
+      return {
+        samples: state.samples,
+        skeletonFrames: state.skeletonFrames,
+        rowDropFrames: state.rowDropFrames,
+        scrollJumpFrames: state.scrollJumpFrames,
+        imgChangeFrames: state.imgChangeFrames,
+        contentShiftSame: state.contentShiftSame,
+        contentShiftDiff: state.contentShiftDiff,
+        totalFrames: state.totalFrames,
+      };
+    });
+
+    const { samples, skeletonFrames, rowDropFrames, scrollJumpFrames, imgChangeFrames,
+            contentShiftSame, contentShiftDiff, totalFrames } = result;
+    const evictGens = new Set(samples.map((s: any) => s.forwardEvictGen));
+    const evictCount = Math.max(0, evictGens.size - 1);
+    const maxLen = Math.max(0, ...samples.map((s: any) => s.resultsLength));
+
+    const signalEvents = samples.filter((s: any) => s.signals !== "periodic");
+    const periodicEvents = samples.filter((s: any) => s.signals === "periodic");
+
+    console.log(`\n  ── S27b FOCC SCROLL-DOWN v3 (multi-signal + content identity) ──`);
+    console.log(`  steps=${steps}, delta=${deltaPerStep}px, delay=${delayMs}ms`);
+    console.log(`  totalFrames=${totalFrames}, recorded=${samples.length} (${signalEvents.length} signals + ${periodicEvents.length} periodic)`);
+    console.log(`  forwardEvict cycles: ${evictCount}, max buffer: ${maxLen}`);
+    console.log(`\n  Signal 1 — SKELETON (cell without img):      ${skeletonFrames} frames`);
+    console.log(`  Signal 2 — ROW_DROP (row count decreased):    ${rowDropFrames} frames`);
+    console.log(`  Signal 3 — SCROLL_JUMP (scrollTop decreased): ${scrollJumpFrames} frames`);
+    console.log(`  Signal 4 — IMG_CHANGE (image identity):       ${imgChangeFrames} frames`);
+    console.log(`  Signal 5 — CONTENT on SCROLL_JUMP: same=${contentShiftSame} diff=${contentShiftDiff}`);
+    if (scrollJumpFrames > 0) {
+      console.log(`\n  ★ VERDICT: SCROLL_JUMP frames show ${contentShiftSame > 0 ? "SAME" : ""}${contentShiftSame > 0 && contentShiftDiff > 0 ? " + " : ""}${contentShiftDiff > 0 ? "DIFFERENT" : ""} content`);
+      console.log(`    → ${contentShiftDiff === 0 ? "FOCC (positional stutter only)" : "FOIC (different images briefly visible)"}`);
+    }
+
+    if (signalEvents.length > 0) {
+      console.log(`\n  ── signal events (first 20) ──`);
+      for (const s of signalEvents.slice(0, 20)) {
+        let line = `    frame ${s.frame}: [${s.signals}] scrollTop=${s.scrollTop.toFixed(0)} ` +
+          `(prev=${s.prevScrollTop?.toFixed(0)}, Δ=${s.scrollTopDelta?.toFixed(0)}), ` +
+          `rows=${s.visibleRows} (prev=${s.prevRowCount}), ` +
+          `cells=${s.visibleCells}, img=${s.cellsWithImg}, evictGen=${s.forwardEvictGen}, ` +
+          `offset=${s.bufferOffset}, len=${s.resultsLength}`;
+        if (s.contentVerdict && s.contentVerdict !== "N/A") {
+          line += `\n           content: ${s.contentVerdict}`;
+          if (s.curImgs) line += `\n           curImgs[0..2]: ${JSON.stringify(s.curImgs)}`;
+          if (s.prevImgs) line += `\n           prevImgs[0..2]: ${JSON.stringify(s.prevImgs)}`;
+          if (s.rowTops) line += `\n           rowTops: [${s.rowTops.join(", ")}] prev: [${s.prevRowTops?.join(", ") ?? "?"}]`;
+        }
+        console.log(line);
+      }
+    }
+
+    console.log(`\n  ── periodic snapshots (context) ──`);
+    for (const p of periodicEvents.slice(0, 8)) {
+      console.log(
+        `    frame ${p.frame}: scrollTop=${p.scrollTop.toFixed(0)}, rows=${p.visibleRows}, ` +
+        `cells=${p.visibleCells}, img=${p.cellsWithImg}, evictGen=${p.forwardEvictGen}, ` +
+        `offset=${p.bufferOffset}, len=${p.resultsLength}`,
+      );
+    }
+
+    const totalSignals = skeletonFrames + rowDropFrames + scrollJumpFrames + imgChangeFrames;
+    console.log(`\n  VERDICT: ${totalSignals === 0 ? "✅ NO FOCC SIGNALS" : `❌ ${totalSignals} FOCC SIGNALS DETECTED`}`);
+
+    const logs = kupua.getConsoleLogs(/\[prepend-comp\]|\[seek\]|\[extend|\[evict/);
+
+    recordResult("S27b", {
+      total,
+      postSeekDiag: postSeek,
+      scrollParams: { steps, deltaPerStep, delayMs },
+      totalFrames,
+      recordedSamples: samples.length,
+      evictCount,
+      evictGens: [...evictGens],
+      maxBufferLen: maxLen,
+      signals: {
+        skeleton: skeletonFrames,
+        rowDrop: rowDropFrames,
+        scrollJump: scrollJumpFrames,
+        imgChange: imgChangeFrames,
+        contentShiftSame,
+        contentShiftDiff,
+        total: totalSignals,
+      },
+      contentVerdict: contentShiftDiff === 0
+        ? (contentShiftSame > 0 ? "FOCC" : "UNKNOWN")
+        : "FOIC",
+      signalEvents: signalEvents.slice(0, 30),
+      periodicSnapshots: periodicEvents.slice(0, 15),
+      consoleLogs: logs.slice(-30),
+      verdict: totalSignals === 0 ? "NO_FOCC" : `FOCC(signals=${totalSignals})`,
+    });
+
+    // Hard assertion: buffer must grow
+    const bufferGrew = maxLen > postSeek.resultsLength;
+    expect(
+      bufferGrew,
+      `Buffer didn't grow during scroll-down (max len=${maxLen}, initial=${postSeek.resultsLength}).`,
+    ).toBe(true);
+
+    // Soft report
+    if (totalSignals > 0) {
+      console.log(
+        `\n  ⚠️  FOCC SIGNALS: skeleton=${skeletonFrames}, rowDrop=${rowDropFrames}, ` +
+        `scrollJump=${scrollJumpFrames}, imgChange=${imgChangeFrames}`,
+      );
+    }
   });
 });
 

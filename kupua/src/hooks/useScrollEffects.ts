@@ -27,6 +27,7 @@ import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
+import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
 import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { devLog } from "@/lib/dev-log";
@@ -268,6 +269,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
 
+  // Register geometry for external consumers (e.g. Scrubber, diagnostics)
+  registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns });
+
   const handleScroll = useCallback(() => {
     const el = parentRef.current;
     if (!el) return;
@@ -325,23 +329,30 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     prevPrependGenRef.current = prependGeneration;
     const el = parentRef.current;
     if (!el || lastPrependCount <= 0) return;
+
+
     const geo = geometryRef.current;
-    // Compute the exact row delta. Using ceil(prependCount / columns) can
-    // overshoot by 1 row when the old item count isn't a multiple of columns,
-    // because ceil(N/c) counts partial rows as full rows. The virtualizer's
-    // total row count is ceil(totalItems / columns), so the actual row delta
-    // is ceil(newCount / cols) - ceil(oldCount / cols). This matters for
-    // density-focus: a 1-row overshoot (303px in grid) accumulates as drift
-    // on every density-switch cycle that triggers a prepend.
-    const newCount = resultsLengthRef.current;
-    const oldCount = newCount - lastPrependCount;
-    const prependedRows = geo.columns > 1
-      ? Math.ceil(newCount / geo.columns) - Math.ceil(oldCount / geo.columns)
-      : lastPrependCount;
+    // Compute the row shift of the topmost visible item, NOT the change in
+    // total row count. The old formula (ceil(new/cols) - ceil(old/cols)) gives
+    // the total-row-count delta, which can overshoot by 1 row when
+    // prependCount % columns ≠ 0. The overshoot is exactly 1 row (= `columns`
+    // items) — matching the +3 item jump observed in S26a with 3-column grid.
+    //
+    // Correct formula: the topmost visible item was at local index v (row
+    // floor(v/cols)). After prepend it's at index v + prependCount (row
+    // floor((v + prependCount)/cols)). The pixel compensation is the row
+    // difference × rowHeight. This is exact regardless of partial-row
+    // alignment, buffer eviction, or total count.
     const scrollBefore = el.scrollTop;
-    el.scrollTop += prependedRows * geo.rowHeight;
+    const firstVisibleRow = Math.floor(scrollBefore / geo.rowHeight);
+    const firstVisibleIndex = firstVisibleRow * geo.columns;
+    const shiftedRow = Math.floor(
+      (firstVisibleIndex + lastPrependCount) / geo.columns,
+    );
+    const rowDelta = shiftedRow - firstVisibleRow;
+    el.scrollTop += rowDelta * geo.rowHeight;
     // DIAG: prepend compensation
-    devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} oldCount=${oldCount} newCount=${newCount} oldRows=${Math.ceil(oldCount/geo.columns)} newRows=${Math.ceil(newCount/geo.columns)} deltaRows=${prependedRows} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
+    devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} firstVisibleRow=${firstVisibleRow} firstVisibleIndex=${firstVisibleIndex} shiftedRow=${shiftedRow} rowDelta=${rowDelta} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
   }, [prependGeneration, lastPrependCount, parentRef]);
 
   // -------------------------------------------------------------------------
@@ -357,14 +368,19 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el || lastForwardEvictCount <= 0) return;
     const geo = geometryRef.current;
-    // Same exact-row-delta logic as prepend compensation — see comment above.
-    // Forward eviction removes items from the END, so the old count was larger.
-    const newCount = resultsLengthRef.current;
-    const oldCount = newCount + lastForwardEvictCount;
-    const evictedRows = geo.columns > 1
-      ? Math.ceil(oldCount / geo.columns) - Math.ceil(newCount / geo.columns)
-      : lastForwardEvictCount;
-    el.scrollTop -= evictedRows * geo.rowHeight;
+    // Viewport-aware row-delta — same principle as prepend compensation.
+    // Forward eviction removes items from the START of the buffer, so all
+    // remaining items shift left. The topmost visible item at index v becomes
+    // index v - evictCount. Its row shifts from floor(v/cols) to
+    // floor((v - evictCount)/cols). The compensation is the difference.
+    const scrollBefore = el.scrollTop;
+    const firstVisibleRow = Math.floor(scrollBefore / geo.rowHeight);
+    const firstVisibleIndex = firstVisibleRow * geo.columns;
+    const shiftedRow = Math.floor(
+      (firstVisibleIndex - lastForwardEvictCount) / geo.columns,
+    );
+    const rowDelta = firstVisibleRow - shiftedRow;
+    el.scrollTop -= rowDelta * geo.rowHeight;
   }, [forwardEvictGeneration, lastForwardEvictCount, parentRef]);
 
   // -------------------------------------------------------------------------

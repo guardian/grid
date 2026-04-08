@@ -26,6 +26,16 @@ import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/consta
 import { recordResult, resetReport } from "./smoke-report";
 
 // ---------------------------------------------------------------------------
+// Corpus pinning — static dates for result-set stability across runs.
+// New images are ingested daily; without pinning, total and positions drift
+// between runs making results non-reproducible. These dates are static
+// (not relative) and at least one month old.
+// ---------------------------------------------------------------------------
+
+/** Pin the corpus so new ingestion doesn't shift results between runs. */
+const STABLE_UNTIL = "2026-03-04T00:00:00";
+
+// ---------------------------------------------------------------------------
 // Guard: skip all tests if not connected to a real cluster
 // ---------------------------------------------------------------------------
 
@@ -85,7 +95,7 @@ test.describe("Smoke — real ES", () => {
   });
 
   test("S1: date sort seek to 50% lands near the middle", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     await kupua.seekTo(0.5);
@@ -108,7 +118,7 @@ test.describe("Smoke — real ES", () => {
   // -------------------------------------------------------------------------
 
   test("S2: Credit sort seek to 50% moves buffer from 0", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     await kupua.selectSort("Credit");
@@ -131,7 +141,7 @@ test.describe("Smoke — real ES", () => {
   });
 
   test("S3: Credit sort seek completes within 15 seconds", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     await kupua.selectSort("Credit");
@@ -154,7 +164,7 @@ test.describe("Smoke — real ES", () => {
   // -------------------------------------------------------------------------
 
   test("S4: wheel scroll works after seek to 50%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     await kupua.seekTo(0.5);
@@ -182,7 +192,7 @@ test.describe("Smoke — real ES", () => {
   // -------------------------------------------------------------------------
 
   test("S5: End key under Credit sort seeks to end", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     await kupua.selectSort("Credit");
@@ -206,7 +216,7 @@ test.describe("Smoke — real ES", () => {
   // -------------------------------------------------------------------------
 
   test("S6: Home key returns to offset 0 after deep Credit seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     await kupua.selectSort("Credit");
@@ -229,7 +239,7 @@ test.describe("Smoke — real ES", () => {
   // -------------------------------------------------------------------------
 
   test("S7: sort direction toggle preserves focused image at scale", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     // Focus an image
@@ -294,7 +304,7 @@ test.describe("Smoke — real ES", () => {
   // ---------------------------------------------------------------------------
 
   test("S9: table->grid density switch after deep scroll keeps focused image visible", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
     console.log(`  [S9] total=${total}`);
 
@@ -423,7 +433,7 @@ test.describe("Smoke — real ES", () => {
   // ---------------------------------------------------------------------------
 
   test("S10: Credit sort seek to 75% — full diagnostic", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     const total = await requireRealData(kupua);
 
     // Switch to Credit sort — wait for loading to fully settle
@@ -595,7 +605,7 @@ test.describe("Smoke — real ES", () => {
   // ---------------------------------------------------------------------------
 
   test("S11: -lastModified seek to 50% — null-zone validation", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
     await requireRealData(kupua);
 
     // Switch to Last Modified sort (desc)

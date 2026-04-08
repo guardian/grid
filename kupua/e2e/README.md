@@ -140,7 +140,7 @@ but they determine how the app behaves during tests.
 | File | Tests | What it covers |
 |------|-------|----------------|
 | `smoke/manual-smoke-test.spec.ts` | S1–S11 | Date/keyword/null-zone seek accuracy, End key, Home key, sort-around-focus, density switch at scale |
-| `smoke/smoke-scroll-stability.spec.ts` | S12–S25 | Seek accuracy sweep, flash prevention, swimming detection, settle-window rAF trace + CLS, headroom-zone stability, cold-start seek |
+| `smoke/smoke-scroll-stability.spec.ts` | S12–S27 | Seek accuracy sweep, flash prevention, swimming detection, settle-window rAF trace + CLS, headroom-zone stability, cold-start seek, sustained scroll-up swimming, FOCC DOM-level detection |
 
 ### Shared (`e2e/shared/` — imported by all modes)
 

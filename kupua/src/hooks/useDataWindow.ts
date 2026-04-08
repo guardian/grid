@@ -31,7 +31,11 @@ import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 
-/** How close to the buffer edge before triggering an extend (buffer-local indices). */
+/**
+ * How close to the buffer edge before triggering an extend (buffer-local indices).
+ * When the viewport's startIndex or endIndex is within this many items of the
+ * buffer boundary, we trigger extendBackward or extendForward respectively.
+ */
 const EXTEND_THRESHOLD = 50;
 
 // ---------------------------------------------------------------------------
