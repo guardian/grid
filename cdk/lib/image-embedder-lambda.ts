@@ -37,6 +37,24 @@ export class ImageEmbedder extends GuStack {
       distanceMetric: 'cosine',
       indexName: 'cohere-embed-english-v4',
       vectorBucketName: `image-embeddings-${this.stage}`,
+      tags: [
+        {
+          key: "gu:cdk:version",
+          value: `${this.stage}`,
+        },
+        {
+          key: "gu:repo",
+          value: "guardian/grid",
+        },
+        {
+          key: "Stack",
+          value: `${this.stack}`,
+        },
+        {
+          key: "Stage",
+          value: `${this.stage}`,
+        },
+      ],
     });
 
     // These are exposed as parameters by the cloudformation in editorial-tools-platform

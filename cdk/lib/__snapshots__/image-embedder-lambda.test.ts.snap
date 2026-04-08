@@ -52,6 +52,24 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "Dimension": 256,
         "DistanceMetric": "cosine",
         "IndexName": "cohere-embed-english-v4",
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
         "VectorBucketName": "image-embeddings-TEST",
       },
       "Type": "AWS::S3Vectors::Index",
@@ -94,6 +112,24 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
     "GridEmbeddingsVectorBucket": {
       "Properties": {
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
         "VectorBucketName": "image-embeddings-TEST",
       },
       "Type": "AWS::S3Vectors::VectorBucket",
