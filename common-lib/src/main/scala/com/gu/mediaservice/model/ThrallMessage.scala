@@ -127,7 +127,7 @@ case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends Exter
 
 case class UpdateUsageStatusMessage(id: String, usageNotice: UsageNotice, lastModified: DateTime) extends ExternalThrallMessage
 
-case class UpdateEmbeddingMessage(id: String, lastModified: DateTime, embedding: Embedding) extends ExternalThrallMessage
+case class UpdateEmbeddingMessage(id: String, lastModified: DateTime, embedding: PartialEmbedding) extends ExternalThrallMessage
 
 object DeleteUsagesMessage {
   implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))

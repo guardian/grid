@@ -11,6 +11,10 @@ case class Embedding(
     cohereEmbedV4: Option[CohereV4Embedding] = None
 )
 
+case class PartialEmbedding(
+  cohereEmbedV4: Option[CohereV4Embedding] = None
+)
+
 case class CohereV3Embedding(
     image: List[Double]
 )
@@ -31,4 +35,7 @@ object Embedding {
     implicit val format: OFormat[Embedding] = Json.format[Embedding]
 }
 
+object PartialEmbedding {
+    implicit val format: OFormat[PartialEmbedding] = Json.format[PartialEmbedding]
+}
 
