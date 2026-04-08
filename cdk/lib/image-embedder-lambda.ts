@@ -28,7 +28,7 @@ export class ImageEmbedder extends GuStack {
     const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
 
     new CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
-      vectorBucketName: `image-embeddings-${this.stage}`,
+      vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
     });
 
     new CfnIndex(this, 'CohereV4Index', {
@@ -36,7 +36,7 @@ export class ImageEmbedder extends GuStack {
       dimension: 256,
       distanceMetric: 'cosine',
       indexName: 'cohere-embed-english-v4',
-      vectorBucketName: `image-embeddings-${this.stage}`,
+      vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
       tags: [
         {
           key: "gu:cdk:version",
