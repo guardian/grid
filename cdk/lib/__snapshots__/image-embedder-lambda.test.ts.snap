@@ -49,7 +49,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     "CohereV4Index": {
       "Properties": {
         "DataType": "float32",
-        "Dimension": 256,
+        "Dimension": 1536,
         "DistanceMetric": "cosine",
         "IndexName": "cohere-embed-v4",
         "Tags": [
