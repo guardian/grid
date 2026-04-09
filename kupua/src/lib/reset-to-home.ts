@@ -102,5 +102,14 @@ export async function resetToHome(navigate: () => void) {
   // Navigate AFTER data is ready. The density switch (table→grid) now
   // sees bufferOffset=0 and fresh results — no flash.
   navigate();
+
+  // Focus the CQL search input AFTER navigation. resetScrollAndFocusSearch
+  // already attempts focus, but skips it when the URL still has ?image=
+  // (image detail view). By this point navigate() has removed the image
+  // param, so the focus can proceed.
+  requestAnimationFrame(() => {
+    const cqlInput = document.querySelector("cql-input");
+    if (cqlInput instanceof HTMLElement) cqlInput.focus();
+  });
 }
 

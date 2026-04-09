@@ -312,6 +312,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         // Table: flat indices ARE row indices
         reportVisibleRange(range.startIndex, range.endIndex);
       }
+    } else {
+      devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
     }
 
     // Fallback loadMore near bottom

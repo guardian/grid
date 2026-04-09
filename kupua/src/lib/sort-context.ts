@@ -670,10 +670,6 @@ export function computeTrackTicks(
     const isMonthly = intervalMs > 20 * MS_PER_DAY; // ~28–31 days
     const isDaily = !isMonthly && intervalMs > 12 * 3600_000; // ~24h
     const isHourly = !isMonthly && !isDaily && intervalMs >= 3600_000; // 1h
-    // Otherwise: sub-hour (30m, 10m, 5m, etc.)
-    const intervalMinutes = !isMonthly && !isDaily && !isHourly
-      ? Math.round(intervalMs / 60_000)
-      : 0;
 
     // For monthly buckets: compute span in years to decide label density.
     // Short spans (< ~15 years): every January gets a year label and major

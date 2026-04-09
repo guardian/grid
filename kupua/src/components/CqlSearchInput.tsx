@@ -89,7 +89,7 @@ function ensureRegistered(typeahead: LazyTypeahead) {
     theme,
     lang: cqlParserSettings,
   });
-  customElements.define("cql-input", CqlInput);
+  customElements.define("cql-input", CqlInput as unknown as CustomElementConstructor);
   registered = true;
 }
 

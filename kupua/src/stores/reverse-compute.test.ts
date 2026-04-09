@@ -18,11 +18,6 @@ import {
   computeScrollTarget,
   type ComputeScrollTargetInput,
 } from "./search-store";
-import {
-  GRID_ROW_HEIGHT,
-  GRID_MIN_CELL_WIDTH,
-  TABLE_ROW_HEIGHT,
-} from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Helpers — common input shapes

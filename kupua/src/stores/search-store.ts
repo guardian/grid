@@ -370,6 +370,15 @@ interface SearchState {
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
+ * Generation counter for the new-images poll. Bumped every time
+ * startNewImagesPoll is called. The poll callback captures the current
+ * generation and skips the set() if a newer generation has started.
+ * This prevents a dangling in-flight count() from a stale poll from
+ * overwriting newCount: 0 after search() clears it.
+ */
+let _newImagesPollGeneration = 0;
+
+/**
  * Generation-based abort for extend/seek requests.
  * search() aborts all in-flight extends from the previous search.
  */
@@ -429,7 +438,9 @@ function sortDistCacheKey(params: SearchParams): string {
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
+  const gen = ++_newImagesPollGeneration;
   _newImagesPollTimer = setInterval(async () => {
+    if (gen !== _newImagesPollGeneration) return; // stale poll
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
     try {
@@ -444,6 +455,7 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
         offset: 0,
         length: 0,
       });
+      if (gen !== _newImagesPollGeneration) return; // stale after await
       set({ newCount: count });
     } catch {
       // Silently ignore — ticker is non-critical
@@ -456,6 +468,7 @@ function stopNewImagesPoll() {
     clearInterval(_newImagesPollTimer);
     _newImagesPollTimer = null;
   }
+  _newImagesPollGeneration++; // invalidate any in-flight count()
 }
 
 /**
@@ -1129,7 +1142,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   search: async (sortAroundFocusId?: string | null) => {
     const { dataSource, params, pitId: oldPitId } = get();
-    set({ loading: true, error: null, sortAroundFocusStatus: null });
+
+    // Stop the new-images poll IMMEDIATELY — before any async work.
+    // Without this, a dangling in-flight poll count() can resolve after
+    // search completes and overwrite newCount: 0, causing the ticker to
+    // reappear despite the user having just clicked it to refresh.
+    stopNewImagesPoll();
+
+    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0 });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -1284,12 +1304,24 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     } = get();
     const params = frozenParams(rawParams, get);
 
-    // Guards
-    if (_extendForwardInFlight) return;
-    if (!endCursor) return; // no cursor — can't extend
-    if (Date.now() < _seekCooldownUntil) return; // post-seek cooldown
+    // Guards — with diagnostics so we can identify silent-block causes
+    if (_extendForwardInFlight) {
+      devLog(`[extendForward] BLOCKED: _extendForwardInFlight=true`);
+      return;
+    }
+    if (!endCursor) {
+      devLog(`[extendForward] BLOCKED: endCursor is null`);
+      return;
+    }
+    if (Date.now() < _seekCooldownUntil) {
+      devLog(`[extendForward] BLOCKED: seekCooldown (${_seekCooldownUntil - Date.now()}ms remaining)`);
+      return;
+    }
     const globalEnd = bufferOffset + results.length;
-    if (globalEnd >= total) return; // already at the end
+    if (globalEnd >= total) {
+      devLog(`[extendForward] BLOCKED: at end (globalEnd=${globalEnd} >= total=${total}, bufferOffset=${bufferOffset}, results.length=${results.length})`);
+      return;
+    }
 
     set({ _extendForwardInFlight: true });
 
@@ -1358,8 +1390,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // extractSortValues derives ES sort values from the image's
           // fields (pure field read, no ES call). Without this,
           // extendBackward has no cursor and the user can't scroll up.
-          newStartCursor = newBuffer.length > 0
-            ? extractSortValues(newBuffer[0], params.orderBy) ?? null
+          const firstItem = newBuffer[0];
+          newStartCursor = firstItem
+            ? extractSortValues(firstItem, params.orderBy) ?? null
             : null;
         }
 
@@ -1414,11 +1447,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     } = get();
     const params = frozenParams(rawParams, get);
 
-    // Guards
-    if (_extendBackwardInFlight) return;
-    if (bufferOffset <= 0) return; // already at the start
-    if (Date.now() < _seekCooldownUntil) return; // post-seek cooldown
-    if (!startCursor) return; // no cursor — can't extend backward
+    // Guards — with diagnostics so we can identify silent-block causes
+    if (_extendBackwardInFlight) {
+      devLog(`[extendBackward] BLOCKED: _extendBackwardInFlight=true`);
+      return;
+    }
+    if (bufferOffset <= 0) return; // already at the start (normal, no log)
+    if (Date.now() < _seekCooldownUntil) {
+      devLog(`[extendBackward] BLOCKED: seekCooldown (${_seekCooldownUntil - Date.now()}ms remaining)`);
+      return;
+    }
+    if (!startCursor) {
+      devLog(`[extendBackward] BLOCKED: startCursor is null`);
+      return;
+    }
 
     const fetchCount = Math.min(PAGE_SIZE, bufferOffset);
 
@@ -1501,8 +1543,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           newBuffer.splice(evictStart, evictCount);
           // Recompute endCursor from the new last buffer item (symmetric
           // with the startCursor recomputation in extendForward eviction).
-          newEndCursor = newBuffer.length > 0
-            ? extractSortValues(newBuffer[newBuffer.length - 1], params.orderBy) ?? null
+          const lastItem = newBuffer[newBuffer.length - 1];
+          newEndCursor = lastItem
+            ? extractSortValues(lastItem, params.orderBy) ?? null
             : null;
         }
 

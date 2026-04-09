@@ -820,7 +820,6 @@ describe("null-zone seek (sparse lastModified)", () => {
     await waitPastCooldown();
 
     const beforeLen = state().results.length;
-    const beforeOffset = state().bufferOffset;
 
     await actions().extendForward();
     await flush();

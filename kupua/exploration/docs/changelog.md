@@ -14,6 +14,99 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — Fix: new-images ticker doesn't clear on first click
+
+**Bug:** Click the "X new" ticker to refresh → images are prepended but the ticker
+stays visible. Only a second click clears it.
+
+**Root cause:** Race between the new-images poll and `search()`. The poll fires
+`dataSource.count()` with no abort signal. If the count request is in-flight when
+the user clicks the ticker, `search()` completes and sets `newCount: 0`, but the
+old poll's count response arrives after and overwrites it back to a positive value.
+
+**Fix (search-store.ts):**
+1. Stop the poll immediately at the start of `search()` (was only stopped after
+   results arrived) and eagerly set `newCount: 0`.
+2. Added a generation counter (`_newImagesPollGeneration`) to the poll. The callback
+   captures the generation at creation time and skips `set()` if a newer generation
+   has started. `stopNewImagesPoll()` also bumps the generation.
+
+### 9 April 2026 — Fix: scroll freeze after 1 minute idle (PIT `_shard_doc` mismatch)
+
+**Bug:** After the app sits idle for ~1 minute, scrolling down stops at exactly 200
+images (the initial PAGE_SIZE). `extendForward` never succeeds. The app is permanently
+stuck until a new search is triggered.
+
+**Root cause:** ES 8.x PIT-based queries silently append an internal `_shard_doc`
+tiebreaker to `hit.sort` arrays. With a 3-field sort clause `[uploadTime, id, _shard_doc]`,
+the returned cursors have 4 values instead of 3. After the PIT expires (1 minute
+`keep_alive`), `extendForward` fires with the stale PIT → 404 → the retry code
+strips the PIT from the body and retries against the index. But `search_after` still
+has 4 values for a 3-field sort → ES rejects with **400 Bad Request**. The error
+throws, `extendForward` catches and resets `_extendForwardInFlight`, but the next
+scroll event immediately retries the same failing cycle. The user sees a frozen list.
+
+**Diagnosis:** Diagnostic `devLog()` added to every `extendForward`/`extendBackward`
+guard showed `[extendForward] BLOCKED: _extendForwardInFlight=true` repeating, with
+interleaved `PIT expired/closed, retrying without PIT` warnings and `400 Bad Request`
+responses in the network tab.
+
+**Fix (2 changes in `es-adapter.ts`):**
+1. **Strip at source:** When returning sort values from PIT queries, trim each
+   `hit.sort` array to match the explicit sort clause length (`effectiveSort.length`).
+   Cursors stored in `endCursor`/`startCursor` never contain `_shard_doc` values.
+2. **Defence-in-depth:** In the PIT 404 retry block, also trim `body.search_after`
+   before retrying — catches any cursors that were already stored with the extra value.
+
+**Diagnostic logging kept:** `devLog()` in extend guards and `handleScroll` null-range
+warning. DCE'd in prod, useful for future debugging.
+
+### 9 April 2026 — Fix: Home logo from image detail doesn't focus search box
+
+**Bug:** Clicking the Home logo from image detail view resets everything correctly but
+doesn't place the caret in the CQL search input.
+
+**Root cause:** `resetScrollAndFocusSearch()` focuses the CQL input in a
+`requestAnimationFrame`, but guards it with `url.searchParams.has("image")`. At rAF
+time the URL still has `?image=...` because `navigate()` hasn't been called yet
+(it fires after `await search()` in `resetToHome`). The guard returns early.
+
+**Fix (`reset-to-home.ts`):** Added a second `requestAnimationFrame` focus after
+`navigate()` in `resetToHome()`, when the URL is clean and the image detail is gone.
+
+### 9 April 2026 — Code quality audit + tsc error fixes
+
+**Audit:** Full code quality scan of `src/` (~22k lines, 55 files). Report written to
+`exploration/docs/code-quality-audit-2026-04-09.md` (archived). Scanned for: `as any`
+(3, all debug globals), `@ts-ignore` (0), eslint-disable (19, all annotated), catch
+blocks (14 in store, all follow consistent abort-check → warn → degrade pattern),
+console.warn (19, intentional per dev-log contract), TODO/FIXME (0), dead code (1).
+Conclusion: codebase is clean, no structural issues beyond what doc 05 already
+identified and deferred.
+
+**Fixes applied (6 changes):**
+
+1. `search-store.ts:1362` — Added `firstItem` guard before `extractSortValues` call
+   in extendForward eviction. Buffer items are `Image | undefined` but
+   `extractSortValues` expects `Image`. The `newBuffer.length > 0` check was
+   already there but TS couldn't narrow through the index access.
+2. `search-store.ts:1505` — Symmetric fix in extendBackward eviction (`lastItem` guard).
+3. `sort-context.ts:674` — Removed unused `intervalMinutes` variable (3 lines). Leftover
+   from a refactor where sub-hour interval logic was simplified.
+4. `CqlSearchInput.tsx:92` — Added `as unknown as CustomElementConstructor` cast.
+   Upstream `@guardian/cql` type doesn't satisfy newer DOM typings
+   (`ariaActiveDescendantElement` etc.). Works at runtime; type system is behind.
+5. `reverse-compute.test.ts:21–25` — Removed unused `@/constants/layout` import
+   (values appeared in comments but were never used as code).
+6. `search-store-extended.test.ts:823` — Removed unused `beforeOffset` variable
+   (declared but never asserted against in the extendForward-after-null-zone-seek test).
+
+**Bonus:** `es-adapter.ts:448–453` — Deleted the PIT close `console.warn` entirely.
+PIT close is fire-and-forget (PITs auto-expire), and the warning fired constantly,
+polluting the console with zero diagnostic value.
+
+**Result:** `npx tsc --noEmit` → 0 errors (was 5). `npm test` → 203/203 pass.
+
 ### 9 April 2026 — Fix: Home from deep table lands at wrong grid position
 
 **Bug:** Fresh app → switch to table → scroll down past buffer (triggers forward

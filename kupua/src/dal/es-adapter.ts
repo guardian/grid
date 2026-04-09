@@ -445,11 +445,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
         undefined,
         "DELETE",
       );
-    } catch (e) {
-      // 404/410 = PIT already closed or expired — that's fine, not an error.
-      // Only warn on genuinely unexpected failures.
-      if (e instanceof Error && (/404/.test(e.message) || /410/.test(e.message))) return;
-      console.warn("[ES] Failed to close PIT:", e);
+    } catch {
+      // PIT close failures are benign — PITs auto-expire after their
+      // keep_alive period. Silencing to avoid constant console noise.
     }
   }
 
@@ -537,11 +535,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
       const rawHits = result.hits.hits;
       const orderedHits = reverse ? [...rawHits].reverse() : rawHits;
 
+      // PIT-based queries include an implicit `_shard_doc` tiebreaker that
+      // makes `hit.sort` arrays longer than the explicit sort clause. Strip
+      // the extra values so cursors stored in the search store (endCursor,
+      // startCursor) never contain PIT-specific values. Without this, a
+      // subsequent extend after PIT expiry would send a search_after cursor
+      // that's longer than the sort clause, causing ES to return 400.
+      const sortLen = effectiveSort.length;
       return {
         hits: orderedHits.map((hit) => hit._source),
         total: result.hits.total.value,
         took: result.took,
-        sortValues: orderedHits.map((hit) => hit.sort),
+        sortValues: orderedHits.map((hit) =>
+          hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
+        ),
         pitId: result.pit_id,
       };
     } catch (e) {
@@ -558,6 +565,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
         if (signal?.aborted) return { hits: [], total: 0, sortValues: [] };
         console.warn("[ES] searchAfter: PIT expired/closed, retrying without PIT");
         delete body.pit;
+        // PIT-based queries include an implicit `_shard_doc` tiebreaker in
+        // sort values, making `search_after` cursors longer than the explicit
+        // sort clause. Without PIT, ES rejects the length mismatch with 400.
+        // Trim the cursor to match the sort clause length.
+        if (Array.isArray(body.search_after) && body.search_after.length > effectiveSort.length) {
+          body.search_after = (body.search_after as SortValues).slice(0, effectiveSort.length);
+        }
         try {
           const fallbackResult = (await this.esRequest("_search", body, signal)) as {
             took?: number;
