@@ -314,6 +314,16 @@ test.describe("Smoke — real ES", () => {
     // The real user scrolls with mousewheel which fires many small scroll
     // events — this may trigger different extend/evict timing than
     // programmatic scrollTop = scrollHeight.
+    //
+    // IMPORTANT: switchToTable triggers a density-switch search() which sets
+    // a 2-second SEARCH_FETCH_COOLDOWN_MS. During this cooldown, extendForward
+    // is blocked — so wheel events scroll within the initial 200-item buffer
+    // but can't trigger extends. Once scrollTop hits the buffer's maxScroll,
+    // further wheel events are no-ops (no scroll = no scroll event = no
+    // reportVisibleRange = no extend trigger). Wait for the cooldown to
+    // expire before starting to wheel.
+    await kupua.page.waitForTimeout(2500);
+
     const tableEl = kupua.page.locator('[aria-label="Image results table"]');
     const tableBox = await tableEl.boundingBox();
     expect(tableBox).not.toBeNull();

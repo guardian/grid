@@ -12,7 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Worklog — Current Task
 
-(none — awaiting next task)
+(No active task)
 
 ## Session Log
 

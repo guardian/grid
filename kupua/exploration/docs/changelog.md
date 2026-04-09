@@ -14,6 +14,48 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — Fix: Home from deep table lands at wrong grid position
+
+**Bug:** Fresh app → switch to table → scroll down past buffer (triggers forward
+eviction, bufferOffset > 0) → click Home logo → grid lands at ~image 198 instead
+of the top, forwardExtend is broken (can't scroll down). App thinks it's at the
+bottom of the result set.
+
+**Root cause:** Race condition in the density-focus unmount/mount bridge. When
+`resetToHome()` calls `search()`, Zustand's `set()` triggers a batched re-render.
+`navigate()` fires before React commits the re-render, so Effect #8
+(BufferOffset→0 guard in `useScrollEffects.ts`) never runs. The browser
+auto-clamps scrollTop to the new shorter maxScroll (200 items instead of 1000).
+The table's unmount save captures `scrollTop=maxScroll, gap=0` → "source was at
+bottom". The grid mount extremum-snaps to its own maxScroll, landing the user at
+~image 198.
+
+The viewport anchor feature (c4dec72c3) expanded the surface area: before it, the
+unmount save only fired when `focusedImageId` was set. After it, `getViewportAnchorId()`
+returns non-null almost always, so the unmount save fires even without explicit focus.
+
+**Fix:** Added `_suppressDensityFocusSave` flag to `useScrollEffects.ts`.
+`resetToHome()` calls `suppressDensityFocusSave()` before `navigate()` to prevent
+the table's unmount save from writing stale data. The grid mount effect #10 clears
+the flag, restoring normal density-switch behaviour for future interactions.
+
+**Files changed:**
+- `src/hooks/useScrollEffects.ts` — added suppress flag + guard in save + clear in mount
+- `src/lib/reset-to-home.ts` — calls `suppressDensityFocusSave()` before `navigate()`
+
+**Density-focus audit:** Only `resetToHome()` can trigger this race (search() +
+density-changing navigate() in sequence). Normal density toggle doesn't call
+search(). Browser back/forward strips density from sync comparison (display-only
+key). No other code paths affected. Commit dceb2e69b (cursor recomputation after
+eviction) is a separate, unrelated bug class.
+
+**mouse.wheel audit for E2E tests:** All 8 existing mouse.wheel tests pass. One
+smoke test (S9 in `manual-smoke-test.spec.ts`) was fixed: added 2500ms wait after
+`switchToTable()` before wheel loop to outlast `SEARCH_FETCH_COOLDOWN_MS`.
+
+**Playwright globalTimeout:** Bumped from 10min to 20min — 121 sequential tests
+with retries easily exceed 10min.
+
 ### 9 April 2026 — Developer experience: deps upgrade, resilient start.sh, Docker Compose v1 compat
 
 **Context:** User tried to onboard a friend. 3.5 hours spent fighting dependencies.

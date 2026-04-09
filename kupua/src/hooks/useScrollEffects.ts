@@ -60,7 +60,20 @@ interface DensityFocusState {
 
 let _densityFocusSaved: DensityFocusState | null = null;
 
+/**
+ * When true, the unmount save in effect #10 is suppressed. Set by
+ * resetToHome() to prevent the table's unmount from saving a stale
+ * scroll position that would cause the grid to restore to the wrong
+ * place. Cleared automatically after the grid mount reads (or skips)
+ * the density-focus state.
+ */
+let _suppressDensityFocusSave = false;
+
 function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number): void {
+  if (_suppressDensityFocusSave) {
+    devLog(`[density-focus SAVE SUPPRESSED] going home — ignoring save`);
+    return;
+  }
   _densityFocusSaved = { ratio, globalIndex, sourceScrollTop, sourceMaxScroll };
 }
 
@@ -72,6 +85,16 @@ function peekDensityFocusRatio(): DensityFocusState | null {
 /** Clear the saved state — call after the deferred scroll has been applied. */
 export function clearDensityFocusRatio(): void {
   _densityFocusSaved = null;
+}
+
+/**
+ * Suppress density-focus saves from unmount cleanups. Call before a
+ * "go home" navigation to prevent the unmounting table from saving a
+ * stale scroll position (see resetToHome). The suppress is automatically
+ * cleared after the next grid mount reads the density-focus state.
+ */
+export function suppressDensityFocusSave(): void {
+  _suppressDensityFocusSave = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -613,6 +636,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // restore. Peeking lets the state survive the double-mount; clearDensityFocusRatio()
   // is called inside the rAF callback after the scroll is actually applied.
   useLayoutEffect(() => {
+    // Clear the suppress flag — it only needs to survive one navigate()
+    // cycle (resetToHome sets it before navigate, table unmount is
+    // suppressed, grid mount clears it here).
+    _suppressDensityFocusSave = false;
+
     const el = parentRef.current;
     if (!el) return;
 

@@ -19,7 +19,7 @@
 
 import { resetSearchSync, resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { useSearchStore } from "@/stores/search-store";
-import { clearDensityFocusRatio } from "@/hooks/useScrollEffects";
+import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { resetViewportAnchor } from "@/hooks/useDataWindow";
 
 /**
@@ -82,6 +82,22 @@ export async function resetToHome(navigate: () => void) {
     // If search fails, navigate anyway — graceful degradation.
     // The error state will be displayed on the home page.
   }
+
+  // Suppress density-focus saves during the navigate() commit phase.
+  //
+  // When search() completes, it sets bufferOffset=0 with 200 fresh results.
+  // React may or may not commit this re-render before navigate() fires
+  // (set() inside an async function — React may batch). If the re-render
+  // DOES commit, the table renders 200 items but scrollTop is browser-clamped
+  // to the shorter maxScroll (not reset to 0 — effect #8 may not have fired).
+  // The table's unmount save then captures scrollTop=maxScroll, gap=0 →
+  // "source was at bottom". The grid mount extremum-snaps to its own
+  // maxScroll, landing the user at ~image 198 instead of the top.
+  //
+  // suppressDensityFocusSave() prevents the unmount save from writing.
+  // The grid mount effect clears the suppress flag, restoring normal
+  // density-switch behaviour for future interactions.
+  suppressDensityFocusSave();
 
   // Navigate AFTER data is ready. The density switch (table→grid) now
   // sees bufferOffset=0 and fresh results — no flash.
