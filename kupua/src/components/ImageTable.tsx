@@ -1035,7 +1035,7 @@ export function ImageTable() {
 
   return (
     <div className="flex-1 min-w-0 flex flex-col">
-      <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y">
+      <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain">
       {/* (C) CSS-variable column widths — a single <style> tag sets
           --col-<id> for every visible column.  Header and body cells
           reference these variables, so width changes during resize
@@ -1116,11 +1116,29 @@ export function ImageTable() {
                     header.getContext()
                   )}
                   {isPrimary && (
-                    <span className="ml-1" aria-hidden="true">{primaryDesc ? "↓" : "↑"}</span>
+                    <span className="ml-0.5 inline-flex shrink-0" aria-hidden="true">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        {primaryDesc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
+                    </span>
                   )}
                   {isSecondary && (
-                    <span className="ml-1 opacity-65" aria-hidden="true">
-                      {secondaryDesc ? "↓↓" : "↑↑"}
+                    <span className="ml-0.5 inline-flex shrink-0 opacity-65" aria-hidden="true">
+                      <svg className="w-3 h-3 -mr-0.5" viewBox="0 0 24 24" fill="currentColor">
+                        {secondaryDesc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        {secondaryDesc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
                     </span>
                   )}
                   {/* Resize handle — pointer capture keeps events flowing

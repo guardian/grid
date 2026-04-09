@@ -245,7 +245,17 @@ export function Scrubber({
   const flashTooltip = useCallback(() => {
     if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
     setTooltipFlashing(true);
-    tooltipTimerRef.current = setTimeout(() => setTooltipFlashing(false), 1500);
+    tooltipTimerRef.current = setTimeout(() => {
+      setTooltipFlashing(false);
+      // Also clear hover state. On mobile, `mouseenter` fires synthetically
+      // on tap but `mouseleave` never fires — leaving isHoveringTrack and
+      // isHovered stuck true (tooltip visible forever, ticks stuck extended).
+      // Clearing both here lets them fade. On desktop this is invisible:
+      // the continuous mouseMove events immediately re-set both flags
+      // via handleTrackMouseMove.
+      setIsHoveringTrack(false);
+      setIsHovered(false);
+    }, 1500);
   }, []);
 
   // Keep tooltip visible during drag, restart linger timer on drag end
@@ -255,7 +265,12 @@ export function Scrubber({
       setTooltipFlashing(true);
     } else if (tooltipFlashing) {
       // Drag ended — start the linger timer
-      tooltipTimerRef.current = setTimeout(() => setTooltipFlashing(false), 1500);
+      tooltipTimerRef.current = setTimeout(() => {
+        setTooltipFlashing(false);
+        // Clear hover state for mobile (same reason as flashTooltip timer).
+        setIsHoveringTrack(false);
+        setIsHovered(false);
+      }, 1500);
     }
   }, [isDragging]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -544,6 +559,7 @@ export function Scrubber({
       thumb.setPointerCapture(e.pointerId);
       setIsDragging(true);
       setIsHoveringTrack(false); // Drag owns the tooltip now
+      setIsHovered(true); // Show extended ticks during drag (on desktop already true from hover)
 
       // Freeze the thumb at its current visual position during the grab.
       pendingSeekPosRef.current = currentPosition;
@@ -631,6 +647,11 @@ export function Scrubber({
   const handleTrackMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isDragging) return;
+      // Re-assert hover state. The flash/linger timers clear isHoveringTrack
+      // and isHovered to fix mobile (where mouseleave never fires). On desktop
+      // the very next mousemove re-enters hover-preview seamlessly.
+      if (!isHoveringTrack) setIsHoveringTrack(true);
+      if (!isHovered) setIsHovered(true);
       // Ignore moves over the thumb — thumb hover shows current position
       if ((e.target as HTMLElement).dataset.scrubberThumb) {
         // Restore tooltip to current/thumb position when mouse enters thumb
@@ -697,7 +718,7 @@ export function Scrubber({
         };
       }
     },
-    [isDragging, currentPosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
+    [isDragging, isHoveringTrack, isHovered, currentPosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
   );
 
   const handleTrackMouseEnter = useCallback(() => {
@@ -1002,6 +1023,10 @@ export function Scrubber({
            The track is wider than the thumb for a generous hit target. */
         backgroundColor: "transparent",
         transition: "opacity 300ms",
+        /* Prevent mobile browsers from interpreting scrubber drag as
+           pull-to-refresh or scroll. Pure touch-screen property — zero
+           effect on mouse/trackpad interactions on desktop. */
+        touchAction: "none",
       }}
       onClick={handleTrackClick}
       onMouseEnter={handleTrackMouseEnter}

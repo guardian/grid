@@ -15,7 +15,7 @@ export const rootRoute = createRootRoute({
 
 function RootLayout() {
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-grid-bg text-grid-text">
+    <div className="h-dvh w-screen overflow-hidden flex flex-col bg-grid-bg text-grid-text">
       <ErrorBoundary>
         <Outlet />
       </ErrorBoundary>

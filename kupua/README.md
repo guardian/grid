@@ -1,12 +1,16 @@
+<img align="right" width="250px" src="https://github.com/user-attachments/assets/0649d9f1-a25d-4173-b054-a3e9ff77e530">
+
 # Kupua (kjˈuː.pju.ːə)
 
 **Modern frontend WIP PROPOSAL for [Grid](https://github.com/guardian/grid)** – the Guardian's image DAM. Or just a plaything, really.
 
-Kupua  is a React-based replacement for kahuna (AngularJS). It lives inside the Grid monorepo and connects directly to Elasticsearch – either a local instance with sample data, or real Guardian ES clusters via SSH tunnel.
+Kupua  is a React-based replacement for Kahuna (AngularJS). It lives inside the Grid monorepo and connects directly to Elasticsearch – either a local instance with sample data, or real Guardian ES clusters via SSH tunnel.
 
-Kupua is also a supernatural shape-shifting being from Hawaiian mythology, usually of cruel and vindictive character, ready to destroy and devour any persons they can catch, oftentimes of kindly spirit giving watchful care to others. One time a man, a vegtable, an animal or a mineral form.
+Kupua is also a supernatural shape-shifting being from Hawaiian mythology, usually of cruel and vindictive character, ready to destroy and devour any persons they can catch, oftentimes of kindly spirit giving watchful care to others. One time a man, a vegetable, an animal or a mineral form.
 
 Kupua is also written entirely using Claude Opus 4.6 shamelessly reusing work of every human who worked on Grid over the years, including those who forked it. And everyone else who ever used the internet.
+
+<br>
 
 ## Quick Start
 

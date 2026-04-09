@@ -14,6 +14,78 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — Secondary sort in toolbar + SVG arrows in table headers
+
+**Scope:** Unify sort UX between table column headers and toolbar sort dropdown.
+
+1. **Table header arrows → SVG** — replaced Unicode `↑`/`↓` characters in table column
+   headers with Material Icons `arrow_upward`/`arrow_downward` SVGs at `w-3 h-3` (12px).
+   Secondary sort double-arrows use two SVGs with `-mr-0.5` (~1px visual gap).
+   Cross-platform identical rendering, matches toolbar sort button style.
+
+2. **Secondary sort in toolbar dropdown** — the sort dropdown now shows the active
+   secondary sort field with double-arrow SVGs (same as table headers). Previously
+   only the primary sort was shown (with a `✓` checkmark, now replaced with a
+   directional arrow).
+
+3. **Shift+click in sort dropdown** — same interaction model as table column headers:
+   - Normal click: set primary sort, clear secondary
+   - Shift+click on a different field: add as secondary sort
+   - Shift+click on active secondary: toggle its direction
+   - Shift+click on primary: no-op (can't be both primary and secondary)
+
+4. **E2E test updates** — `ui-features.spec.ts` sort indicator assertions updated from
+   text-matching `↑↓` to checking for `svg` elements. `helpers.ts` sort locators
+   already use `aria-label` (from previous session).
+
+**Files changed:** `ImageTable.tsx`, `SearchFilters.tsx`, `e2e/local/ui-features.spec.ts`.
+
+**Visual baselines regenerated** (table view shows SVG arrows instead of text).
+
+### 9 April 2026 — Mobile Phase 1: Quick wins + responsive polish
+
+**Scope:** Make browsing usable on mobile without compromising the desktop experience
+(99.9% of usage). All changes CSS-only or touch-event-only unless noted.
+
+**Fixes implemented:**
+
+1. **Pull-to-refresh prevention** — `overscroll-behavior-y: contain` on ImageGrid and
+   ImageTable scroll containers. `touch-action: none` on Scrubber track.
+2. **Dynamic viewport height** — `h-screen` → `h-dvh` in `__root.tsx` to avoid layout
+   thrashing when the Android URL bar shows/hides.
+3. **Scrubber tooltip stuck on mobile** — `mouseenter` fires synthetically on tap but
+   `mouseleave` never fires. Timer callbacks now clear `isHoveringTrack`/`isHovered`;
+   `handleTrackMouseMove` re-asserts both on each move so desktop hover is unaffected.
+4. **Extended ticks stuck on mobile** — same root cause as tooltip. Timer callbacks
+   clear both hover states. `handleThumbPointerDown` sets `isHovered(true)` so ticks
+   show during drag on mobile.
+5. **Search input overflow** — Clear ✕ button moved from absolute overlay to flex
+   sibling (matching kahuna). Inner wrapper `overflow-hidden` preserves CQL component's
+   built-in `overflow-x: auto` horizontal scrolling.
+6. **Responsive toolbar labels** — StatusBar uses CSS container queries
+   (`@container` + `@[500px]`/`@[600px]`): "matches" text appears at 500px, Browse/Details
+   labels at 600px. SearchBar uses viewport breakpoints: "Free only" (below lg) / "Free to
+   use only" (lg+), DateFilter icon-only (below lg) / full label (lg+), ES timing hidden
+   below lg. Filters visible from `sm` (640px).
+7. **StatusBar no-wrap guarantee** — `overflow-hidden` + `whitespace-nowrap` + `shrink-0`
+   on all buttons. Text never wraps even with large accessibility fonts on mobile.
+8. **Sort arrow cross-platform** — replaced Unicode ↓/↑ with Material Icons
+   `arrow_downward`/`arrow_upward` SVGs. Renders identically on macOS, Android, Windows.
+9. **SearchBar gap** — consistent `gap-1.5` (6px) at all breakpoints.
+10. **E2E test helper fix** — `toggleSortDirection()` and `getSortDirection()` in
+    `helpers.ts` used `hasText: /[↑↓]/` to find the sort direction button. Broken by
+    the SVG arrow change (#8). Fixed: locate via `aria-label` attributes instead.
+
+**Minor desktop compromise (accepted):** After clicking the scrubber track and holding
+the mouse perfectly still for 1.5s, tooltip and ticks blink briefly. Instantly recovered
+on any mouse movement. An absurdly narrow edge case — not worth more complexity.
+
+**Files changed:** `__root.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`, `Scrubber.tsx`,
+`SearchBar.tsx`, `SearchFilters.tsx`, `DateFilter.tsx`, `StatusBar.tsx`,
+`e2e/shared/helpers.ts`.
+
+**Visual baselines regenerated** after all layout changes.
+
 ### 9 April 2026 — Fix: new-images ticker doesn't clear on first click
 
 **Bug:** Click the "X new" ticker to refresh → images are prepended but the ticker

@@ -27,6 +27,17 @@ function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {
   return { field, desc };
 }
 
+/** Parse the secondary sort field and direction (if any) from the orderBy param */
+function parseSecondarySort(orderBy: string): { field: string; desc: boolean } | null {
+  const parts = orderBy.split(",");
+  if (parts.length < 2) return null;
+  const secondary = parts[1].trim();
+  if (!secondary) return null;
+  const desc = secondary.startsWith("-");
+  const field = desc ? secondary.slice(1) : secondary;
+  return { field, desc };
+}
+
 // ---------------------------------------------------------------------------
 // Middle filters: free-to-use toggle + date range
 // ---------------------------------------------------------------------------
@@ -41,7 +52,7 @@ function FilterControls() {
   }, [params.nonFree, updateSearch]);
 
   return (
-    <div className="hidden md:flex items-center gap-3 shrink-0">
+    <div className="hidden sm:flex items-center gap-3 shrink-0">
       {/* Free to use only toggle */}
       <label className="flex items-center gap-1.5 text-sm text-grid-text-muted cursor-pointer select-none whitespace-nowrap">
         <input
@@ -50,7 +61,8 @@ function FilterControls() {
           onChange={handleFreeOnlyToggle}
           className="rounded border-grid-border bg-grid-bg text-grid-accent focus:ring-grid-accent focus:ring-offset-0 w-3.5 h-3.5"
         />
-        Free to use only
+        <span className="lg:hidden">Free only</span>
+        <span className="hidden lg:inline">Free to use only</span>
       </label>
 
       {/* Date range filter */}
@@ -71,9 +83,8 @@ function SortControls() {
 
   const orderBy = params.orderBy ?? "-uploadTime";
   const { field: sortField, desc: sortDesc } = parsePrimarySort(orderBy);
-  const secondaryPart = orderBy.includes(",")
-    ? orderBy.slice(orderBy.indexOf(","))
-    : "";
+  const secondary = parseSecondarySort(orderBy);
+  const primaryToken = orderBy.split(",")[0].trim();
 
   const currentLabel =
     SORTABLE_FIELDS.find((f) => f.value === sortField)?.label ?? sortField;
@@ -83,18 +94,47 @@ function SortControls() {
   const isNonDefaultSort = orderBy !== "-uploadTime";
 
   const handleSelectField = useCallback(
-    (value: string) => {
-      const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
-      updateSearch({ orderBy: `${prefix}${value}${secondaryPart}` });
+    (value: string, e: React.MouseEvent) => {
+      if (e.shiftKey) {
+        // Shift+click — manage secondary sort (same logic as table column headers)
+        if (!secondary) {
+          // No secondary yet — add with natural default direction
+          if (value !== sortField) {
+            const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
+            updateSearch({ orderBy: `${primaryToken},${prefix}${value}` });
+          }
+        } else if (secondary.field === value) {
+          // Toggle secondary direction
+          const newSecondary = secondary.desc ? value : `-${value}`;
+          updateSearch({ orderBy: `${primaryToken},${newSecondary}` });
+        } else if (value !== sortField) {
+          // Move secondary to new field with natural default direction
+          const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
+          updateSearch({ orderBy: `${primaryToken},${prefix}${value}` });
+        }
+      } else {
+        // Normal click — set primary, clear secondary
+        if (value === sortField) {
+          // Toggle primary direction
+          const newPrimary = sortDesc ? value : `-${value}`;
+          updateSearch({ orderBy: newPrimary });
+        } else {
+          const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
+          updateSearch({ orderBy: `${prefix}${value}` });
+        }
+      }
       setOpen(false);
     },
-    [updateSearch, secondaryPart]
+    [updateSearch, sortField, sortDesc, primaryToken, secondary]
   );
 
   const handleToggleDirection = useCallback(() => {
+    const secondaryPart = secondary
+      ? `,${secondary.desc ? "-" : ""}${secondary.field}`
+      : "";
     const newPrimary = sortDesc ? sortField : `-${sortField}`;
     updateSearch({ orderBy: `${newPrimary}${secondaryPart}` });
-  }, [sortField, sortDesc, secondaryPart, updateSearch]);
+  }, [sortField, sortDesc, secondary, updateSearch]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -146,17 +186,26 @@ function SortControls() {
         )}
       </button>
 
-      {/* Direction toggle */}
+      {/* Direction toggle — uses Material Icons arrow_downward / arrow_upward
+           at w-4 h-4 (16px) to match the sort field button's text-sm line height,
+           keeping both button borders aligned within ~1px. */}
       <button
         onClick={handleToggleDirection}
         aria-label={sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
         className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer select-none"
         title={sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
       >
-        <span aria-hidden="true">{sortDesc ? "↓" : "↑"}</span>
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          {sortDesc
+            ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+            : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+          }
+        </svg>
       </button>
 
-      {/* Dropdown menu — uses shared popup-menu / popup-item classes */}
+      {/* Dropdown menu — uses shared popup-menu / popup-item classes.
+           Normal click: set primary sort, clear secondary.
+           Shift+click: add/toggle secondary sort (same as table column headers). */}
       {open && (
         <div
           role="listbox"
@@ -164,20 +213,47 @@ function SortControls() {
           className="absolute top-full right-0 mt-1 popup-menu"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {SORTABLE_FIELDS.map((opt) => (
-            <div
-              key={opt.value}
-              role="option"
-              aria-selected={sortField === opt.value}
-              onClick={() => handleSelectField(opt.value)}
-              className="popup-item"
-            >
-              <span className="w-3 text-center text-grid-accent">
-                {sortField === opt.value ? "✓" : ""}
-              </span>
-              {opt.label}
-            </div>
-          ))}
+          {SORTABLE_FIELDS.map((opt) => {
+            const isPrimary = sortField === opt.value;
+            const isSecondary = secondary?.field === opt.value;
+            return (
+              <div
+                key={opt.value}
+                role="option"
+                aria-selected={isPrimary}
+                onClick={(e) => handleSelectField(opt.value, e)}
+                className="popup-item"
+              >
+                <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
+                  {isPrimary && (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      {sortDesc
+                        ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                        : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                      }
+                    </svg>
+                  )}
+                  {isSecondary && (
+                    <span className="inline-flex opacity-65">
+                      <svg className="w-3 h-3 -mr-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        {secondary!.desc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        {secondary!.desc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
+                    </span>
+                  )}
+                </span>
+                {opt.label}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -53,13 +53,13 @@ export function StatusBar() {
   }, [leftVisible, filtersExpanded, fetchAggregations]);
 
   return (
-    <div className="flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative">
+    <div className="@container flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative overflow-hidden">
       {/* Left panel toggle — full-height strip; when active, extends below
           the border to visually merge with the panel beneath */}
       <button
         onClick={() => togglePanel("left")}
         onMouseEnter={handleBrowseHover}
-        className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
+        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap ${
           leftVisible
             ? "text-grid-accent -mb-px bg-grid-bg z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
@@ -68,17 +68,17 @@ export function StatusBar() {
         aria-label={`${leftVisible ? "Hide" : "Show"} Browse panel`}
         aria-pressed={leftVisible}
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 0v16h4V4H5zm6 0v16h8V4h-8z" />
         </svg>
-        <span className="text-sm">Browse</span>
+        <span className="text-sm hidden @[600px]:inline">Browse</span>
       </button>
 
       <div className="w-px bg-grid-separator shrink-0" />
 
-      {/* Result count */}
-      <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center">
-        {total.toLocaleString()} matches
+      {/* Result count — "matches" appears at @[500px], before panel labels (@[600px]) */}
+      <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap">
+        {total.toLocaleString()}<span className="hidden @[500px]:inline">&nbsp;matches</span>
       </span>
 
       {/* Sort-around-focus indicator — brief, non-blocking */}
@@ -92,7 +92,7 @@ export function StatusBar() {
       {newCount > 0 && (
         <button
           onClick={() => reSearch()}
-          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center"
+          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap"
           title={`${newCount.toLocaleString()} new images since ${
             newCountSince
               ? formatDistanceToNow(new Date(newCountSince), {
@@ -113,7 +113,7 @@ export function StatusBar() {
       {/* Density toggle */}
       <button
         onClick={toggleDensity}
-        className="flex items-center gap-1 px-2 hover:bg-grid-hover transition-colors cursor-pointer"
+        className="shrink-0 flex items-center gap-1 px-2 hover:bg-grid-hover transition-colors cursor-pointer"
         title={isGrid ? "Switch to table view" : "Switch to grid view"}
         aria-label={isGrid ? "Switch to table view" : "Switch to grid view"}
       >
@@ -147,7 +147,7 @@ export function StatusBar() {
       {/* Right panel toggle — full-height strip; extends below when active */}
       <button
         onClick={() => togglePanel("right")}
-        className={`flex items-center gap-1 px-2 transition-colors cursor-pointer ${
+        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap ${
           rightVisible
             ? "text-grid-accent -mb-px bg-grid-bg z-10"
             : "text-grid-text-muted hover:bg-grid-hover"
@@ -156,7 +156,7 @@ export function StatusBar() {
         aria-label={`${rightVisible ? "Hide" : "Show"} Details panel`}
         aria-pressed={rightVisible}
       >
-        <span className="text-sm">Details</span>
+        <span className="text-sm hidden @[600px]:inline">Details</span>
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M21 4a2 2 0 00-2-2H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V4zm-2 0v16h-4V4h4zm-6 0v16H5V4h8z" />
         </svg>

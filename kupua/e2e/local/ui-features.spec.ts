@@ -401,8 +401,8 @@ test.describe("Table column header sort", () => {
     await kupua.page.waitForTimeout(800);
     await kupua.waitForResults();
 
-    // The Credit header should now show a sort indicator (↑ or ↓)
-    const sortIndicator = creditHeader.locator('span', { hasText: /^[↑↓]$/ });
+    // The Credit header should now show a sort indicator (SVG arrow icon)
+    const sortIndicator = creditHeader.locator('span[aria-hidden="true"] svg');
     await expect(sortIndicator).toBeVisible();
 
     // aria-sort should be ascending or descending (not "none")
@@ -431,13 +431,13 @@ test.describe("Table column header sort", () => {
     await kupua.page.waitForTimeout(800);
     await kupua.waitForResults();
 
-    // Source header should show a double-arrow secondary sort indicator (↑↑ or ↓↓)
-    const secondaryIndicator = sourceHeader.locator('span', { hasText: /^[↑↓]{2}$/ });
-    await expect(secondaryIndicator).toBeVisible();
+    // Source header should show a double-arrow secondary sort indicator (two SVG arrows)
+    const secondaryIndicator = sourceHeader.locator('span[aria-hidden="true"] svg');
+    expect(await secondaryIndicator.count()).toBe(2);
 
-    // Credit should still be the primary sort
-    const creditIndicator = creditHeader.locator('span', { hasText: /^[↑↓]$/ });
-    await expect(creditIndicator).toBeVisible();
+    // Credit should still be the primary sort (single SVG arrow)
+    const creditIndicator = creditHeader.locator('span[aria-hidden="true"] svg');
+    await expect(creditIndicator.first()).toBeVisible();
 
     // No errors
     const store = await kupua.getStoreState();

@@ -417,9 +417,7 @@ export class KupuaHelpers {
 
   /** Toggle sort direction (ascending ↔ descending). */
   async toggleSortDirection() {
-    const btn = this.page.locator('button[aria-label*="Sort"]').filter({
-      hasText: /[↑↓]/,
-    });
+    const btn = this.page.locator('button[aria-label*="Sort"][aria-label*="click to sort"]');
     await btn.click();
     await this.page.waitForTimeout(500);
     await this.waitForResults();
@@ -427,11 +425,9 @@ export class KupuaHelpers {
 
   /** Get the current sort direction from the UI. */
   async getSortDirection(): Promise<"asc" | "desc"> {
-    const btn = this.page.locator('button[aria-label*="Sort"]').filter({
-      hasText: /[↑↓]/,
-    });
-    const text = await btn.textContent();
-    return text?.includes("↓") ? "desc" : "asc";
+    const btn = this.page.locator('button[aria-label*="Sort"][aria-label*="click to sort"]');
+    const label = await btn.getAttribute("aria-label");
+    return label?.includes("Sort descending") ? "desc" : "asc";
   }
 
   // -------------------------------------------------------------------------

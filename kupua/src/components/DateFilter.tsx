@@ -382,9 +382,9 @@ export function DateFilter() {
         aria-label={open ? "Hide date range filter" : "Show date range filter"}
       >
         <CalendarIcon className="w-4 h-4 shrink-0" />
-        <span>{buttonLabel}</span>
+        <span className="hidden lg:inline">{buttonLabel}</span>
         {/* Chevron — matches the native <select> dropdown arrow */}
-        <svg className="w-3 h-3 shrink-0 ml-0.5" viewBox="0 0 12 12" fill="currentColor">
+        <svg className="w-3 h-3 shrink-0 ml-0.5 hidden lg:block" viewBox="0 0 12 12" fill="currentColor">
           <path d={open ? "M3 8l3-3 3 3" : "M3 4l3 3 3-3"} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {/* Non-default indicator — positioned as a badge to avoid layout shift */}

@@ -455,7 +455,7 @@ export function ImageGrid() {
       ref={parentRef}
       role="region"
       aria-label="Image results grid"
-      className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1"
+      className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1 overscroll-y-contain"
       onClick={handleBackgroundClick}
     >
       <div

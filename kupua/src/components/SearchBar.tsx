@@ -79,7 +79,7 @@ export function SearchBar() {
     <header
       role="toolbar"
       aria-label="Search and filter controls"
-      className="flex items-center gap-3 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
     >
       {/* Logo — always visible, resets state and focuses search box.
            Hit area is a square matching the full bar height (h-11 = 44px).
@@ -101,8 +101,13 @@ export function SearchBar() {
         <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />
       </a>
 
-      {/* CQL search input with chips — grows to fill available space */}
-      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
+      {/* CQL search input with chips — grows to fill available space.
+           Layout mirrors kahuna: [magnifier] [query (flex-1 overflow-hidden)] [clear ✕].
+           The CQL Web Component has built-in overflow-x:auto with hidden scrollbars,
+           so the query area scrolls horizontally when content overflows.
+           The clear button is a normal flex child (not an absolute overlay),
+           so it never covers text/chips. */}
+      <div role="search" className="flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
         {/* Search icon — non-selectable, matches Grid's magnifier */}
         <svg
           className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
@@ -117,17 +122,19 @@ export function SearchBar() {
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <CqlSearchInput
-          key={getCqlInputGeneration()}
-          value={searchParams.query ?? ""}
-          onChange={handleQueryChange}
-          onHasContentChange={setHasEditorContent}
-        />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <CqlSearchInput
+            key={getCqlInputGeneration()}
+            value={searchParams.query ?? ""}
+            onChange={handleQueryChange}
+            onHasContentChange={setHasEditorContent}
+          />
+        </div>
         {showClear && (
           <button
             onClick={handleClear}
             aria-label="Clear search"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-grid-text-muted hover:text-grid-text text-sm px-1 py-0.5 rounded hover:bg-grid-hover transition-colors z-10"
+            className="shrink-0 text-grid-text-muted hover:text-grid-text text-sm px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors"
             title="Clear search"
           >
             <span aria-hidden="true">✕</span>
@@ -137,19 +144,19 @@ export function SearchBar() {
 
 
       {/* Separator */}
-      <div className="hidden md:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden sm:block w-px h-5 bg-grid-separator shrink-0" />
 
-      {/* Filters (free-to-use, dates) — hidden on small screens */}
+      {/* Filters (free-to-use, dates) — hidden on phones, visible from sm */}
       <SearchFilters />
 
       {/* Separator */}
-      <div className="hidden md:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden sm:block w-px h-5 bg-grid-separator shrink-0" />
 
       {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
       <SearchFilters.Sort />
 
-      {/* ES timing — far right. Always rendered to avoid layout shift. */}
-      <span className="text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
+      {/* ES timing — far right. Hidden below lg. Always rendered to avoid layout shift. */}
+      <span className="hidden lg:block text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
         {took != null && (
           <span title="Elasticsearch query time for initial search">
             {took}ms
