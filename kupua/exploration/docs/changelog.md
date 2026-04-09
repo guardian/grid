@@ -14,6 +14,54 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — Developer experience: deps upgrade, resilient start.sh, Docker Compose v1 compat
+
+**Context:** User tried to onboard a friend. 3.5 hours spent fighting dependencies.
+Audit identified: hidden deps (Python 3, session-manager-plugin), missing sample data
+instructions, cryptic errors from `ssm-scala` Java failures, Docker Compose v1
+incompatibility, and stale npm packages with CVEs.
+
+**Dependency upgrades (safe patches/minors only):**
+- vite 8.0.2→8.0.8 (3 CVEs fixed: arbitrary file read via WebSocket, `server.fs.deny`
+  bypass, `.map` path traversal)
+- 12 other packages: @aws-sdk 3.1014→3.1027, @playwright/test 1.58→1.59,
+  tailwindcss/vite 4.1→4.2, @tanstack/react-router 1.168.3→1.168.10,
+  @tanstack/react-virtual 3.13.6→3.13.23, jsdom 29.0.1→29.0.2,
+  typescript-eslint 8.57→8.58, vitest 4.1.1→4.1.4, zustand 5.0.5→5.0.12
+- brace-expansion transitive vulnerability fixed via `npm audit fix`
+- Deferred: TypeScript 6, ESLint 10, eslint-plugin-react-hooks 7, React 19.2
+  (major version bumps, need separate testing)
+
+**start.sh — SSM fallback (no more Java requirement for TEST mode):**
+- Tries `ssm-scala` first if available (Guardian devs, unchanged path)
+- Falls back to raw AWS CLI (`ec2 describe-instances` + `ssm start-session`
+  port forwarding) if `ssm` not installed or fails (Java crash)
+- Preflight checks: verifies `aws` CLI and `session-manager-plugin` before
+  attempting tunnel. Prints `brew install` commands if missing.
+- Credential errors now print actionable messages ("Fetch from Janus")
+
+**start.sh — Docker Compose v1/v2 compatibility:**
+- `dc()` wrapper function auto-detects `docker compose` (v2) vs `docker-compose` (v1)
+- All compose calls go through `dc()`
+- `docker-compose.yml`: added `version: "3.9"` (v2 ignores it, v1 requires it)
+- `env_file` simplified from extended syntax (`path:`/`required:`) to plain string
+  (v1 doesn't understand the extended form)
+- `touch ~/.kupua-imgproxy.env` at startup ensures v1 doesn't fail on missing env_file
+
+**package.json / .nvmrc:**
+- Added `"engines": { "node": "^20.19.0 || >=22.12.0" }` — `npm install` warns on
+  wrong Node version
+- Added `kupua/.nvmrc` (v22.12.0) — `nvm use` auto-switches in kupua directory
+
+**README.md rewrite:**
+- Prerequisites split into "Local mode (everyone)" vs "TEST mode (adds)"
+- All dependencies listed with `brew install` commands
+- Python 3 listed as prerequisite (was hidden)
+- Docker image size warning for first-time users
+- `ssm-scala` marked as optional
+- Quick dependency check commands
+- Docker Compose v1 and v2 both mentioned as supported
+
 ### 9 April 2026 — Fix scroll freeze after buffer eviction (cursor recomputation)
 
 **Problem:** After scrolling down far enough to trigger forward eviction (~1000

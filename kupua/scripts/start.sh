@@ -120,6 +120,26 @@ if [ "$NEEDS_DOCKER" = true ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Docker Compose v1/v2 compatibility
+# ---------------------------------------------------------------------------
+# v2: `docker compose` (subcommand, ships with Docker Desktop)
+# v1: `docker-compose` (standalone binary, EOL July 2023 but still in use)
+if docker compose version &> /dev/null; then
+  dc() { docker compose "$@"; }
+elif command -v docker-compose &> /dev/null; then
+  dc() { docker-compose "$@"; }
+  echo -e "${yellow}Note: using docker-compose (v1). Consider upgrading to Docker Compose v2.${plain}"
+else
+  echo -e "${red}ERROR: Neither 'docker compose' nor 'docker-compose' found.${plain}"
+  echo "  Install Docker Desktop: brew install --cask docker"
+  exit 1
+fi
+
+# Ensure the imgproxy env file exists (even empty) — docker-compose v1 fails
+# if an env_file entry is missing, even for services that aren't being started.
+touch "${HOME}/.kupua-imgproxy.env"
+
+# ---------------------------------------------------------------------------
 # Check port availability — fail early with a clear message
 # ---------------------------------------------------------------------------
 check_port() {
@@ -176,15 +196,33 @@ if [ "$USE_TEST" = true ]; then
   echo -e "${yellow}     See kupua/exploration/docs/infra-safeguards.md${plain}"
   echo
 
+  # --- 0. Preflight: check TEST mode dependencies ---
+  MISSING=""
+  if ! command -v aws &> /dev/null; then
+    MISSING+="  - AWS CLI v2:              brew install awscli\n"
+  fi
+  if ! command -v session-manager-plugin &> /dev/null; then
+    MISSING+="  - Session Manager Plugin:  brew install session-manager-plugin\n"
+  fi
+  if [ -n "$MISSING" ]; then
+    echo -e "${red}ERROR: Missing dependencies for TEST mode:${plain}"
+    echo -e "$MISSING"
+    exit 1
+  fi
+
+  HAS_SSM=false
+  if command -v ssm &> /dev/null; then
+    HAS_SSM=true
+  fi
+
   # --- 1. Establish SSH tunnel if not already running ---
-  # (Mirrors Grid's dev/script/start.sh startDockerContainers() behaviour)
   EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
 
   # Stop kupua's local docker ES if running — port 9200 needed for tunnel
   if (docker stats --no-stream &> /dev/null); then
     echo -e "${yellow}[1/3] Stopping local docker ES (port 9220)...${plain}"
     cd "$KUPUA_DIR"
-    docker compose down 2>/dev/null || true
+    dc down 2>/dev/null || true
   fi
 
   NEED_NEW_TUNNEL=true
@@ -211,26 +249,100 @@ if [ "$USE_TEST" = true ]; then
   if [ "$NEED_NEW_TUNNEL" = true ]; then
     echo -e "${yellow}[1/3] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
 
-    if ! command -v ssm &> /dev/null; then
-      echo -e "${red}ERROR: 'ssm' command not found.${plain}"
-      echo "  Install ssm-scala: https://github.com/guardian/ssm-scala"
-      exit 1
-    fi
-
     # Check AWS credentials (same pattern as Grid's hasCredentials())
     STATUS=$(aws sts get-caller-identity --profile media-service 2>&1 || true)
     if [[ ${STATUS} =~ (ExpiredToken) ]]; then
-      echo -e "${red}Credentials for the media-service profile are expired. Please fetch new credentials and run this again.${plain}"
+      echo -e "${red}Credentials for the media-service profile are expired.${plain}"
+      echo "  Fetch new credentials from Janus and run this again."
       exit 1
     elif [[ ${STATUS} =~ ("could not be found") ]]; then
-      echo -e "${red}Credentials for the media-service profile are missing. Please ensure you have the right credentials.${plain}"
+      echo -e "${red}Credentials for the media-service profile are missing.${plain}"
+      echo "  Fetch credentials from Janus (media-service profile) and run this again."
       exit 1
     fi
 
     TUNNEL_OPTS="-o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
-    SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw)
-    eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200
-    echo -e "${green}      SSH tunnel established ✓${plain}"
+    TUNNEL_OK=false
+
+    # --- Path A: use ssm-scala if available (Guardian devs) ---
+    if [ "$HAS_SSM" = true ]; then
+      echo -e "${yellow}      Using ssm-scala for tunnel...${plain}"
+      SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw 2>&1) || true
+      if [ -n "$SSH_COMMAND" ] && [[ ! "$SSH_COMMAND" =~ "Error" ]]; then
+        eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200 2>/dev/null && TUNNEL_OK=true
+      fi
+      if [ "$TUNNEL_OK" = false ]; then
+        echo -e "${yellow}      ssm-scala failed (Java issue?). Falling back to AWS CLI...${plain}"
+      fi
+    fi
+
+    # --- Path B: fallback to raw AWS CLI + session-manager-plugin ---
+    if [ "$TUNNEL_OK" = false ]; then
+      if [ "$HAS_SSM" = false ]; then
+        echo -e "${yellow}      ssm-scala not installed — using AWS CLI directly...${plain}"
+      fi
+
+      # Discover instance ID by tags
+      INSTANCE_ID=$(aws ec2 describe-instances \
+        --profile media-service \
+        --region eu-west-1 \
+        --filters \
+          "Name=tag:App,Values=elasticsearch-data" \
+          "Name=tag:Stack,Values=media-service" \
+          "Name=tag:Stage,Values=TEST" \
+          "Name=instance-state-name,Values=running" \
+        --query 'Reservations[].Instances[] | sort_by(@, &LaunchTime) | [-1].InstanceId' \
+        --output text 2>&1)
+
+      if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ] || [[ "$INSTANCE_ID" =~ "error" ]]; then
+        echo -e "${red}ERROR: Could not find TEST ES instance via AWS API.${plain}"
+        echo "  Response: ${INSTANCE_ID}"
+        echo "  Check your media-service credentials and try again."
+        exit 1
+      fi
+
+      echo -e "${yellow}      Found instance: ${INSTANCE_ID}${plain}"
+
+      # Use SSM port-forwarding to tunnel port 9200
+      # This runs in the background (-f equivalent via &)
+      aws ssm start-session \
+        --profile media-service \
+        --region eu-west-1 \
+        --target "$INSTANCE_ID" \
+        --document-name AWS-StartPortForwardingRemoteHost \
+        --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
+        > /dev/null 2>&1 &
+      SSM_SESSION_PID=$!
+
+      # Wait for the tunnel to be ready
+      tunnel_wait=0
+      until curl -sf --connect-timeout 2 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; do
+        tunnel_wait=$((tunnel_wait + 1))
+        if [ $tunnel_wait -ge 20 ]; then
+          echo -e "${red}ERROR: SSM tunnel did not become ready after 20s.${plain}"
+          echo "  Check: aws ssm start-session --target ${INSTANCE_ID} --profile media-service --region eu-west-1"
+          kill $SSM_SESSION_PID 2>/dev/null || true
+          exit 1
+        fi
+        # Check the process is still alive
+        if ! kill -0 $SSM_SESSION_PID 2>/dev/null; then
+          echo -e "${red}ERROR: SSM session died unexpectedly.${plain}"
+          echo "  This usually means session-manager-plugin is not working."
+          echo "  Try: brew reinstall session-manager-plugin"
+          exit 1
+        fi
+        printf "      Waiting for tunnel... (%d/20)\r" "$tunnel_wait"
+        sleep 1
+      done
+
+      TUNNEL_OK=true
+      # Clean up the SSM session when this script exits
+      KUPUA_SSM_PID=$SSM_SESSION_PID
+    fi
+
+    if [ "$TUNNEL_OK" = true ]; then
+      echo -e "${green}      SSH tunnel established ✓${plain}"
+    fi
   fi
   echo
 
@@ -368,8 +480,8 @@ print('')
       export VITE_S3_PROXY_ENABLED="false"
     fi
 
-    # Ensure the proxy is killed when this script exits
-    trap "kill $S3_PROXY_PID 2>/dev/null" EXIT
+    # Ensure the proxy (and SSM session if active) are killed when this script exits
+    trap "kill $S3_PROXY_PID 2>/dev/null; kill ${KUPUA_SSM_PID:-999999} 2>/dev/null" EXIT
   else
     echo -e "${yellow}      Could not discover bucket names. Thumbnails disabled.${plain}"
     export VITE_S3_PROXY_ENABLED="false"
@@ -411,7 +523,7 @@ print('')
       # docker rm -f handles both running and exited containers, avoiding
       # the "container name already in use" conflict on repeated runs.
       docker rm -f kupua-imgproxy > /dev/null 2>&1 || true
-      docker compose --profile imgproxy up -d imgproxy 2>&1
+      dc --profile imgproxy up -d imgproxy 2>&1
       # Delete the env file immediately — credentials no longer needed on disk
       rm -f "$IMGPROXY_ENV_FILE"
 
@@ -496,7 +608,7 @@ fi
 if [ "$SKIP_ES" = false ]; then
   echo -e "${yellow}[1/4] Starting Elasticsearch (port 9220)...${plain}"
   cd "$KUPUA_DIR"
-  docker compose up -d
+  dc up -d
   echo
 
   # Wait for ES to be healthy
@@ -507,7 +619,7 @@ if [ "$SKIP_ES" = false ]; then
     retry=$((retry + 1))
     if [ $retry -ge $max_retries ]; then
       echo -e "${red}ERROR: Elasticsearch not available after ${max_retries} attempts.${plain}"
-      echo "  Check docker logs: docker compose -f kupua/docker-compose.yml logs"
+      echo "  Check logs: cd kupua && docker compose logs  (or docker-compose logs)"
       exit 1
     fi
     printf "      Waiting... (%d/%d)\r" "$retry" "$max_retries"

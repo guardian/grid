@@ -26,8 +26,10 @@ Starts a local ES on port 9220, loads 10k sample images, and opens at **http://l
 
 Connects to the Guardian's TEST Elasticsearch cluster via SSH tunnel. Requires:
 
+- **AWS CLI v2** – `brew install awscli`
+- **Session Manager Plugin** – `brew install session-manager-plugin`
 - **Janus credentials** – you need the `media-service` AWS profile. Fetch credentials from [Janus](https://janus.gutools.co.uk) before running.
-- **`ssm`** – [ssm-scala](https://github.com/guardian/ssm-scala) must be installed for the SSH tunnel.
+- **`ssm`** _(optional)_ – [ssm-scala](https://github.com/guardian/ssm-scala) is used if available, otherwise the script falls back to raw AWS CLI. Guardian devs likely have it already.
 
 TEST mode automatically:
 1. Establishes an SSH tunnel to TEST ES (port 9200)
@@ -50,10 +52,31 @@ All image access is read-only and uses your existing developer AWS credentials. 
 
 ## Prerequisites
 
-- **Docker** – for local Elasticsearch (and imgproxy in TEST mode)
-- **Node.js** – `^20.19.0` or `≥22.12.0` (required by Vite 8; `start.sh` checks this)
-- **Sample data** (local mode only) – `kupua/exploration/mock/sample-data.ndjson` (not in git, grab some):
-- **Janus credentials** (TEST mode only)
+### Local mode (everyone)
+
+- **Docker** (with Compose) – `brew install --cask docker` or [Docker Desktop](https://www.docker.com/products/docker-desktop/). Both Compose v2 (`docker compose`) and v1 (`docker-compose`) are supported.
+- **Node.js** `^20.19.0` or `≥22.12.0` – `brew install node` or use `nvm use` (`.nvmrc` provided)
+- **Python 3** – used by the sample data loader. macOS includes it; check with `python3 --version`
+- **Sample data** – `kupua/exploration/mock/sample-data.ndjson` (115MB, not in git). Ask a team member or check S3.
+
+> **First run?** The ES Docker image is ~1.3GB — first `docker compose up` may take a few minutes to download.
+
+### TEST mode (adds)
+
+- **AWS CLI v2** – `brew install awscli`
+- **Session Manager Plugin** – `brew install session-manager-plugin`
+- **Janus credentials** – `media-service` AWS profile
+- **`ssm-scala`** _(optional)_ – used if available, otherwise falls back to raw AWS CLI
+
+### Quick dependency check
+
+```bash
+node -v                         # ^20.19.0 || >=22.12.0
+docker compose version          # v2.x
+python3 --version               # 3.x
+aws --version                   # (TEST mode only)
+session-manager-plugin          # (TEST mode only — prints version)
+```
 
 ## Manual Setup (if you prefer)
 

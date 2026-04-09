@@ -8,6 +8,11 @@
 #   cd kupua && docker compose --profile imgproxy up -d    # ES + imgproxy
 #   # or from repo root:
 #   docker compose -f kupua/docker-compose.yml up -d
+#
+# Compatible with both Docker Compose v1 (docker-compose) and v2 (docker compose).
+# v2 ignores the version key; v1 requires it.
+
+version: "3.9"
 
 services:
   elasticsearch:
@@ -61,11 +66,12 @@ services:
       # Not worth overriding — defaults are the sweet spot.
     # AWS credentials are passed via env_file (not inline environment) so that
     # `docker inspect` shows only variable names, not their values.
-    # start.sh writes ~/.kupua-imgproxy.env and deletes it immediately after
-    # `docker compose up` returns — it exists on disk for under a second.
+    # start.sh writes ~/.kupua-imgproxy.env before `docker compose up` and
+    # deletes it immediately after — it exists on disk for under a second.
+    # Plain string syntax (not path/required) for Docker Compose v1 compat.
+    # start.sh ensures the file exists (even empty) before starting imgproxy.
     env_file:
-      - path: ~/.kupua-imgproxy.env
-        required: false
+      - ~/.kupua-imgproxy.env
 
 volumes:
   kupua-es-data:

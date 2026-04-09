@@ -23,7 +23,7 @@ Single entry point: `kupua/scripts/start.sh`. Two modes:
 | **Local** (default) | `./kupua/scripts/start.sh` | Docker ES on port 9220 |
 | **TEST** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 |
 
-Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunnel, auto-discovers index alias + S3 buckets, starts S3 proxy + imgproxy. Both independent of Grid's `dev/script/start.sh`.
+Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunnel (via `ssm-scala` if available, falls back to raw AWS CLI + session-manager-plugin), auto-discovers index alias + S3 buckets, starts S3 proxy + imgproxy. Both independent of Grid's `dev/script/start.sh`. Docker Compose v1 and v2 supported.
 
 ## Context Routing — What to Read for What Task
 
