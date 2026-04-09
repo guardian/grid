@@ -54,7 +54,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Component | Key files | ~Lines | Purpose |
 |---|---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
-| Store | `stores/search-store.ts` | 2,650 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus |
+| Store | `stores/search-store.ts` | 2,730 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil |
 | Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
 | Grid | `components/ImageGrid.tsx` | 490 | Responsive thumbnails, scroll anchoring on width change |
 | Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,080 + 1,040 | Scroll/seek modes, ticks, tooltip, null-zone support |

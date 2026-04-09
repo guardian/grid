@@ -14,6 +14,36 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — frozenUntil: cap pagination requests to prevent new-image leakage
+
+**Problem:** After PIT expires (idle >5 min), extend/seek/fill requests hit the
+live index and may include images uploaded after the user's last search. The
+ticker says "5 new" while those images are already silently visible — an
+inconsistent hybrid worse than either "always frozen" or "always live."
+
+**Solution:** Added `frozenParams()` helper in `search-store.ts`. It applies
+`until: min(params.until, newCountSince)` to every pagination request
+(extendForward, extendBackward, seek, restoreAroundCursor, _findAndFocusImage,
+_fillBufferForScrollMode). NOT applied in `search()` itself — that's the action
+that resets `newCountSince`.
+
+Also applied `frozenParams()` to `fetchAggregations` and `fetchExpandedAgg` so
+facet filter counts stay consistent with the frozen result set. Without this,
+a new image could bump "Credit A: 7" to "Credit A: 8" in the filter panel
+while the results grid still showed only the original 7.
+
+When PIT is active, the cap is redundant (subset filter on a snapshot is a
+no-op). When PIT expires, it prevents new images from entering the buffer.
+If the user has an explicit `until` date filter, the earlier of the two is used
+so the user's filter is never widened.
+
+Document title and ticker badge both read the same `newCount` store field —
+always in sync, no fix needed.
+
+Investigation and action comparison table: archived to
+`exploration/docs/99 Archive/new-images-behaviour-comparison.md`.
+All 203 unit/integration tests pass.
+
 ### 8 April 2026 — Approach C (synthetic seek) implemented and abandoned
 
 **Goal:** Eliminate FOCC (Flash Of Correct Content) caused by non-atomic

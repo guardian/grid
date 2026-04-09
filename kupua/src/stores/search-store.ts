@@ -458,6 +458,37 @@ function stopNewImagesPoll() {
 }
 
 /**
+ * Apply the "frozen until" cap to search params for extend/seek/fill requests.
+ *
+ * After a search, `newCountSince` records the timestamp. All subsequent
+ * pagination requests should exclude images uploaded after that time —
+ * otherwise the ticker can say "5 new" while those images have already
+ * silently leaked into the buffer via a PIT-less extend.
+ *
+ * The cap is applied as `until: newCountSince` (which becomes
+ * `range.uploadTime.lte` in the ES query builder). If the user has already
+ * set an explicit `until` (date filter), we use whichever is earlier so the
+ * user's filter is never widened.
+ *
+ * PIT provides snapshot isolation while alive, so the cap is redundant when
+ * the PIT is active — but harmless (a subset filter on a snapshot is a no-op).
+ * The cap matters when the PIT has expired (idle >5 min) and requests fall
+ * back to the live index.
+ */
+function frozenParams(params: SearchParams, get: () => SearchState): SearchParams {
+  const { newCountSince } = get();
+  if (!newCountSince) return params;
+
+  // If the user set an explicit `until`, use the earlier of the two
+  const effectiveUntil =
+    params.until && params.until < newCountSince
+      ? params.until
+      : newCountSince;
+
+  return { ...params, until: effectiveUntil };
+}
+
+/**
  * Build an imagePositions Map from a hits array starting at `offset`.
  * Used for full rebuilds (search) and incremental updates (extend).
  */
@@ -674,6 +705,8 @@ async function _fillBufferForScrollMode(
   get: () => SearchState,
   set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
 ): Promise<void> {
+  // Apply frozen-until cap — scroll-mode fill should not include new images.
+  const frozenP = frozenParams(params, get);
   let currentCursor = cursor;
   let fetched = loadedSoFar;
 
@@ -694,10 +727,10 @@ async function _fillBufferForScrollMode(
 
     try {
       // Detect null-zone cursor — same logic as extend paths.
-      const nz = detectNullZoneCursor(currentCursor, params.orderBy);
+      const nz = detectNullZoneCursor(currentCursor, frozenP.orderBy);
 
       const result = await dataSource.searchAfter(
-        { ...params, length: chunkSize },
+        { ...frozenP, length: chunkSize },
         nz ? nz.strippedCursor : currentCursor,
         pitId,
         signal,
@@ -909,6 +942,8 @@ async function _findAndFocusImage(
   set: (s: Partial<SearchState>) => void,
 ): Promise<void> {
   const { dataSource } = get();
+  // Apply frozen-until cap — sort-around-focus should not include new images.
+  const fp = frozenParams(params, get);
 
   set({ sortAroundFocusStatus: "Finding image…" });
 
@@ -923,9 +958,9 @@ async function _findAndFocusImage(
     // Step 1: Search for this specific image with the current sort to get
     // both the image and its sort[] values in one request.
     if (signal.aborted) return;
-    const sortClause = buildSortClause(params.orderBy);
+    const sortClause = buildSortClause(fp.orderBy);
     const sortResult = await dataSource.searchAfter(
-      { ...params, ids: imageId, length: 1 },
+      { ...fp, ids: imageId, length: 1 },
       null,
       null,
       signal,
@@ -944,7 +979,7 @@ async function _findAndFocusImage(
     // Step 2: countBefore → exact global offset
     if (signal.aborted) return;
     const offset = await dataSource.countBefore(
-      params,
+      fp,
       imageSortValues,
       sortClause,
       signal,
@@ -978,7 +1013,7 @@ async function _findAndFocusImage(
       const seekSignal = _rangeAbortController.signal;
 
       const buf = await _loadBufferAroundImage(
-        targetHit, imageSortValues, offset, params,
+        targetHit, imageSortValues, offset, fp,
         get().pitId, seekSignal, dataSource,
       );
       if (!buf) return; // aborted
@@ -1243,9 +1278,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   extendForward: async () => {
     const {
-      dataSource, params, results, bufferOffset, total,
+      dataSource, params: rawParams, results, bufferOffset, total,
       endCursor, pitId, _extendForwardInFlight, _pitGeneration,
     } = get();
+    const params = frozenParams(rawParams, get);
 
     // Guards
     if (_extendForwardInFlight) return;
@@ -1371,9 +1407,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   extendBackward: async () => {
     const {
-      dataSource, params, bufferOffset, startCursor, pitId,
+      dataSource, params: rawParams, bufferOffset, startCursor, pitId,
       _extendBackwardInFlight, _pitGeneration,
     } = get();
+    const params = frozenParams(rawParams, get);
 
     // Guards
     if (_extendBackwardInFlight) return;
@@ -1503,7 +1540,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   seek: async (globalOffset: number) => {
-    const { dataSource, params, pitId, _pitGeneration } = get();
+    const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
+    const params = frozenParams(rawParams, get);
 
     // Clamp to valid range
     const { total } = get();
@@ -2378,7 +2416,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return get().seek(cachedOffset);
     }
 
-    const { dataSource, params, pitId, _pitGeneration } = get();
+    const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
+    const params = frozenParams(rawParams, get);
 
     // Abort in-flight extends and previous restores
     _rangeAbortController.abort();
@@ -2469,9 +2508,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // -------------------------------------------------------------------------
 
   fetchAggregations: async (force) => {
-    const { dataSource, params, aggCircuitOpen, _aggCacheKey } = get();
+    const { dataSource, aggCircuitOpen, _aggCacheKey } = get();
 
-    const key = aggCacheKey(params);
+    const key = aggCacheKey(frozenParams(get().params, get));
     if (!force && key === _aggCacheKey) return;
     if (!force && aggCircuitOpen) return;
 
@@ -2484,7 +2523,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       });
     }
 
-    const currentKey = aggCacheKey(get().params);
+    const currentKey = aggCacheKey(frozenParams(get().params, get));
     if (!force && currentKey === get()._aggCacheKey) return;
 
     _aggAbortController = new AbortController();
@@ -2494,7 +2533,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       const result = await dataSource.getAggregations(
-        get().params,
+        frozenParams(get().params, get),
         AGG_FIELDS,
         _aggAbortController.signal,
       );
@@ -2505,7 +2544,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         aggregations: result,
         aggTook: result.took ?? null,
         aggLoading: false,
-        _aggCacheKey: aggCacheKey(get().params),
+        _aggCacheKey: aggCacheKey(frozenParams(get().params, get)),
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
         expandedAggs: {},
         expandedAggsLoading: new Set(),
@@ -2520,7 +2559,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   fetchExpandedAgg: async (field: string) => {
-    const { dataSource, params, expandedAggs, expandedAggsLoading } = get();
+    const { dataSource, expandedAggs, expandedAggsLoading } = get();
 
     if (expandedAggs[field] || expandedAggsLoading.has(field)) return;
 
@@ -2534,7 +2573,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       const result = await dataSource.getAggregations(
-        params,
+        frozenParams(get().params, get),
         [{ field, size: AGG_EXPANDED_SIZE }],
         signal,
       );
