@@ -32,6 +32,7 @@ import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal"
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
+import { extractSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
@@ -1353,12 +1354,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           );
           newBuffer.splice(0, evictedFromStart);
           newOffset += evictedFromStart;
-          // Update start cursor to the new first entry's sort values
-          // We don't have sort values stored per-entry in the buffer,
-          // so we use the first result from the extend response if eviction
-          // consumed the entire old buffer, otherwise the cursor stays
-          // (it's stale but won't be used until we extend backward)
-          newStartCursor = null; // Invalidate — backward extend will need a fresh fetch
+          // Recompute startCursor from the new first buffer item.
+          // extractSortValues derives ES sort values from the image's
+          // fields (pure field read, no ES call). Without this,
+          // extendBackward has no cursor and the user can't scroll up.
+          newStartCursor = newBuffer.length > 0
+            ? extractSortValues(newBuffer[0], params.orderBy) ?? null
+            : null;
         }
 
         const newEndCursor = result.sortValues.length > 0
@@ -1372,7 +1374,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // count (only docs missing the field), not the full corpus total.
           total: nz ? state.total : result.total,
           endCursor: newEndCursor,
-          startCursor: newStartCursor ?? state.startCursor,
+          startCursor: newStartCursor,
           pitId: result.pitId ?? state.pitId,
           imagePositions: newPositions,
           _extendForwardInFlight: false,
@@ -1497,7 +1499,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             newPositions, newBuffer, evictStart, newBuffer.length,
           );
           newBuffer.splice(evictStart, evictCount);
-          newEndCursor = null; // Invalidate — forward extend will refetch
+          // Recompute endCursor from the new last buffer item (symmetric
+          // with the startCursor recomputation in extendForward eviction).
+          newEndCursor = newBuffer.length > 0
+            ? extractSortValues(newBuffer[newBuffer.length - 1], params.orderBy) ?? null
+            : null;
         }
 
         // Start cursor from the first result (earliest in sort order)
@@ -1509,7 +1515,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           results: newBuffer,
           bufferOffset: newOffset,
           startCursor: newStartCursor,
-          endCursor: newEndCursor ?? state.endCursor,
+          endCursor: newEndCursor,
           // When a null-zone filter was used, result.total is the filtered
           // count (only docs missing the field), not the full corpus total.
           total: nz ? state.total : result.total,

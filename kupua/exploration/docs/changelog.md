@@ -14,6 +14,34 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 April 2026 — Fix scroll freeze after buffer eviction (cursor recomputation)
+
+**Problem:** After scrolling down far enough to trigger forward eviction (~1000
+items), the user could not scroll back up — the grid froze at the buffer start.
+Symmetric issue existed for backward eviction blocking forward scrolling.
+
+**Root cause (two bugs):**
+
+1. **Nullish coalescing defeated invalidation.** After forward eviction,
+   `newStartCursor` was set to `null`, but then
+   `startCursor: newStartCursor ?? state.startCursor` restored the old (stale)
+   cursor. `null ?? x` returns `x`. Same pattern for `endCursor` in backward
+   eviction.
+
+2. **Null cursor blocked extend guards.** Even after removing the `??` fallback,
+   `startCursor = null` caused `extendBackward` to bail at its
+   `if (!startCursor) return` guard — so backward extension was permanently
+   disabled after any forward eviction.
+
+**Fix:** Instead of nullifying cursors after eviction, recompute them from the
+new buffer boundary items using `extractSortValues()` (pure field read from the
+in-memory image, no ES call). This keeps both cursors valid after eviction so
+the user can scroll in either direction indefinitely.
+
+- `extendForward` eviction: `newStartCursor = extractSortValues(newBuffer[0], params.orderBy)`
+- `extendBackward` eviction: `newEndCursor = extractSortValues(newBuffer[newBuffer.length - 1], params.orderBy)`
+- Removed the `?? state.startCursor` and `?? state.endCursor` fallbacks.
+
 ### 9 April 2026 — frozenUntil: cap pagination requests to prevent new-image leakage
 
 **Problem:** After PIT expires (idle >5 min), extend/seek/fill requests hit the
