@@ -33,7 +33,7 @@ export class ImageEmbedder extends GuStack {
 
     new CfnIndex(this, 'CohereV4Index', {
       dataType: 'float32',
-      dimension: 256,
+      dimension: 1536,
       distanceMetric: 'cosine',
       indexName: 'cohere-embed-v4',
       vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,

@@ -46,7 +46,7 @@ function initializeAwsClients(): AWSClients {
   awsClientsCache = {
     kinesis: new KinesisClient({region: 'eu-west-1'}),
     s3: new S3Client({region: 'eu-west-1'}),
-    s3VectorsClient: new S3VectorsClient({region: 'eu-central-1'}),
+    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
   }
   return awsClientsCache;
 }

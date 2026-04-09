@@ -47,7 +47,6 @@ export async function embedImage(
     input_type: 'search_document',
     embedding_types: ['float'],
     images: [`data:${imageMimeType};base64,${base64Image}`],
-    // TODO we get the largest dimension now and then truncate to 256 for ES
     output_dimension: 1536,
   }
 
