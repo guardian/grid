@@ -8,7 +8,7 @@ export interface CohereV4Embedding {
 }
 
 export interface Embedding {
-  cohereEmbedEnglishV4: CohereV4Embedding;
+  cohereEmbedV4: CohereV4Embedding;
 }
 
 
@@ -75,7 +75,7 @@ export class ThrallEventPublisher {
         lastModified: new Date().toISOString(),
         id: v.key,
         embedding: {
-          cohereEmbedEnglishV4: {
+          cohereEmbedV4: {
             image: v.data.float32,
           },
         },

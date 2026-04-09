@@ -35,7 +35,7 @@ export class ImageEmbedder extends GuStack {
       dataType: 'float32',
       dimension: 256,
       distanceMetric: 'cosine',
-      indexName: 'cohere-embed-english-v4',
+      indexName: 'cohere-embed-v4',
       vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
       tags: [
         {
@@ -204,7 +204,7 @@ export class ImageEmbedder extends GuStack {
       new PolicyStatement({
         actions: ['s3vectors:PutVectors'],
         resources: [
-          `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
+          `arn:aws:s3vectors:${Stack.of(this).region}:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
         ],
       }),
     );

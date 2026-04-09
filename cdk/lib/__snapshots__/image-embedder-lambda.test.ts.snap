@@ -51,7 +51,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
         "DataType": "float32",
         "Dimension": 256,
         "DistanceMetric": "cosine",
-        "IndexName": "cohere-embed-english-v4",
+        "IndexName": "cohere-embed-v4",
         "Tags": [
           {
             "Key": "gu:cdk:version",
@@ -723,7 +723,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                 "Fn::Join": [
                   "",
                   [
-                    "arn:aws:s3vectors:eu-central-1:",
+                    "arn:aws:s3vectors:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
                     {
                       "Ref": "AWS::AccountId",
                     },
