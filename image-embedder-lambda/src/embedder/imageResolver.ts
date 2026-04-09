@@ -4,6 +4,7 @@ import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import {MAX_IMAGE_SIZE_BYTES, MAX_PIXELS_COHERE_V4} from "./constants";
 import {downscaleImageIfNeeded} from "./resizeImage";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
+import sharp from "sharp";
 
 export interface FetchedImage {
   bytes: Uint8Array;
@@ -87,7 +88,7 @@ export class CachedImageResolver implements ImageResolver {
 
   async fetchCachedDownscaledImage(
     imageId: string,
-    maxImageSizeBytes: number,
+    maxImageSizePixels: number,
   ): Promise<Uint8Array | undefined> {
     if (!this.downScaledImageBucket) {
       console.log(`No downscaled image bucket configured, skipping cache lookup`);
@@ -96,11 +97,15 @@ export class CachedImageResolver implements ImageResolver {
 
     const key = this.toPartitionedKey(imageId);
     const bytes = await this.s3Fetcher.fetch(this.downScaledImageBucket, key);
-    if (bytes && bytes.length <= maxImageSizeBytes) {
-      console.log(
-        `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes)`,
-      );
-      return bytes;
+    if (bytes) {
+      const { width, height } = await sharp(bytes).metadata();
+      const pixels = width * height;
+      if (pixels <= maxImageSizePixels) {
+        console.log(
+          `Cache hit: found downscaled image for ${imageId} (${bytes.length.toLocaleString()} bytes, ${pixels.toLocaleString()} px)`,
+        );
+        return bytes;
+      }
     }
     console.log(`Cache miss: no downscaled image for ${imageId}`);
     return undefined;
@@ -144,7 +149,7 @@ export class CachedImageResolver implements ImageResolver {
     const processedMimeType =
       message.fileType === 'image/tiff' ? 'image/png' : message.fileType;
 
-    const cachedBytes = await this.fetchCachedDownscaledImage(message.imageId, MAX_IMAGE_SIZE_BYTES);
+    const cachedBytes = await this.fetchCachedDownscaledImage(message.imageId, MAX_PIXELS_COHERE_V4);
     if (cachedBytes) {
       // Validate cached image against current pixel limits in case limits have changed
       const revalidated = await downscaleImageIfNeeded(
