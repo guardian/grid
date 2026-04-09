@@ -441,6 +441,7 @@ export class KupuaHelpers {
       await btn.click();
       await this.page.waitForTimeout(300);
       await this.waitForResults();
+      await this.waitForExtendReady();
     }
   }
 
@@ -451,7 +452,36 @@ export class KupuaHelpers {
       await btn.click();
       await this.page.waitForTimeout(300);
       await this.waitForResults();
+      await this.waitForExtendReady();
     }
+  }
+
+  /**
+   * Wait until the store's extend cooldown has expired after a density switch.
+   *
+   * Density switches trigger a search() which sets SEARCH_FETCH_COOLDOWN_MS
+   * (2000ms) on the store. During this cooldown, extendForward/extendBackward
+   * are blocked — so wheel events can only scroll within the initial buffer.
+   * Once scrollTop hits the buffer's max, further wheel events are no-ops.
+   *
+   * This polls the store's `loading` state until it clears (search response
+   * arrived), then waits 200ms for the post-search SEEK_COOLDOWN_MS (100ms)
+   * to expire with margin. Total added wait: ~200-500ms (vs 2500ms before).
+   */
+  async waitForExtendReady(timeout = 5_000) {
+    // Wait for loading to clear — search response has arrived
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return true; // no store = local tests without store exposure
+        return !store.getState().loading;
+      },
+      { timeout },
+    );
+    // Wait for SEEK_COOLDOWN_MS (100ms) + margin to expire.
+    // The search() completion sets _seekCooldownUntil = Date.now() + 100.
+    // 200ms gives a comfortable margin without being wasteful.
+    await this.page.waitForTimeout(200);
   }
 
   /** Check if currently in grid view. */

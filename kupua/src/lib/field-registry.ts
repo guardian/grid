@@ -489,6 +489,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     detailLayout: "stacked",
     detailGroup: "keywords", // Own section in detail panel
     defaultWidth: 250,
+    defaultHidden: true,
     fieldType: "list",
     isList: true,
     aggregatable: true,

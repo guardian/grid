@@ -12,14 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Worklog — Current Task
 
-Secondary sort in toolbar dropdown + SVG arrows in table headers. Unify sort UX across table and toolbar.
+[no current task]
 
 ## Session Log
 
-- 🤖 Agent check-in. Continuing from previous turn in same session.
-- Replaced Unicode ↑/↓ in table column headers with Material Icons SVGs (w-3 h-3, 12px). Secondary double-arrows: two SVGs with -mr-0.5 (~1px gap).
-- Reworked SearchFilters.tsx SortControls: parses secondary sort, shows arrows in dropdown, supports shift+click (same logic as table handleSort).
-- Updated ui-features.spec.ts: sort indicator assertions now check for svg elements instead of text arrows.
-- User feedback: primary arrows too large (w-3.5→w-3), secondary arrows need more spacing (-mr-1.5→-mr-0.5). Applied to both table and dropdown.
-- All 203 unit tests pass. Visual baselines regenerated (4/4 pass).
-- Changelog entry added.
+[empty]

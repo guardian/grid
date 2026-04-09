@@ -14,6 +14,50 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 April 2026 — Better table scroll (overscan 5→15), fix scrolling in tests
+
+**Scope:** Fix rubberbanding in Playwright scroll tests, tune table overscan, hide Keywords column.
+
+1. **Fix density-switch cooldown in test helpers** — `switchToTable()` and `switchToGrid()`
+   in `e2e/shared/helpers.ts` now call `waitForExtendReady()` after `waitForResults()`.
+   This polls the store's `loading` state until the search response arrives, then waits
+   200ms for `SEEK_COOLDOWN_MS` to expire. Previously, tests scrolled during the 2-second
+   `SEARCH_FETCH_COOLDOWN_MS` cooldown, which blocked `extendForward` — wheel events hit
+   the buffer bottom and rubberbanded. Replaces the ad-hoc 2500ms wait in smoke test S9.
+
+2. **Recalibrate wheel events in perf tests** — large `deltaY` values (1500-2000px)
+   exhausted the 200-item buffer in 3-4 events, then remaining events were no-ops
+   (no scrollTop change → no scroll event → no reportVisibleRange → no extend trigger).
+   P8: 1500×40@60ms → 400×80@50ms. S9: 2000×60@100ms → 400×120@50ms. All perf/smoke
+   wheel events now ≤600px, matching experiments.spec.ts calibration.
+
+3. **Replace grid scroll with rAF smooth scroll** — P2 and P12 replaced wheel events
+   with rAF-based `scrollTop` increments (50px/frame ≈ 3,000px/s). Continuous scroll
+   events fire every frame, preventing rubberbanding at buffer boundaries. Table scroll
+   (P8) keeps wheel events — 400px deltas don't rubberband in the table's taller buffer
+   (200 rows × 32px = 6,400px).
+
+4. **Fix P12 Credit sort cooldown** — `goto()` + `selectSort("Credit")` triggers
+   `SEARCH_FETCH_COOLDOWN_MS` without going through `switchToTable()`. Made
+   `waitForExtendReady()` public on `KupuaHelpers`, added call before second drift test.
+
+5. **Add P14d rapid traversal** — 20 images forward at 80ms (~12/s) + 3s settle.
+   Held arrow key simulation — cancellation stress test. Most images won't render;
+   only the final image should load cleanly.
+
+6. **Table overscan 5→15** — each side of viewport now has 15 pre-rendered rows
+   (480px buffer) instead of 5 (160px). DOM churn in P8 dropped 25% (155k→117k).
+   Severe jank increased 40% (heavier per-frame rendering) — acceptable trade-off
+   since the visible result is fewer blank row flashes during fast scroll.
+
+7. **Keywords column hidden by default** — `defaultHidden: true` on the Keywords
+   field. Removes ~10-15 `<DataSearchPill>` spans per visible row. Users can
+   still show it via column context menu.
+
+**Test results:** 203 unit tests pass, 121 E2E tests pass (5.3m). P8 validated
+visually (no rubberbanding), P12 validated (smooth scroll, reached offset=0/len=400
+with extends). Perf baseline established (3 runs median).
+
 ### 9 April 2026 — Secondary sort in toolbar + SVG arrows in table headers
 
 **Scope:** Unify sort UX between table column headers and toolbar sort dropdown.

@@ -726,16 +726,37 @@ test.describe("Rendering Performance Smoke", () => {
     const gridBox = await gridEl.boundingBox();
     expect(gridBox).not.toBeNull();
 
-    await kupua.page.mouse.move(
-      gridBox!.x + gridBox!.width / 2,
-      gridBox!.y + gridBox!.height / 2,
+    // rAF-based smooth scroll at 50px/frame (~3,000px/s) for 4 seconds.
+    // Wheel events rubberband at buffer boundaries because extends take
+    // 200-500ms; rAF smooth scroll keeps scroll events flowing continuously.
+    console.log(`  [P2] Smooth-scrolling for 4s at 50px/frame (~3,000px/s)...`);
+    const gridSelector = '[aria-label="Image results grid"]';
+    await kupua.page.evaluate(
+      ({ selector, pxPf }: { selector: string; pxPf: number }) => {
+        const el = document.querySelector(selector) as HTMLElement;
+        if (!el) return;
+        const state = { running: true, scrolled: 0, frames: 0 };
+        (window as any).__smoothScroll = state;
+        function tick() {
+          if (!state.running) return;
+          const before = el.scrollTop;
+          el.scrollTop += pxPf;
+          state.scrolled += el.scrollTop - before;
+          state.frames++;
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      },
+      { selector: gridSelector, pxPf: 50 },
     );
-
-    console.log(`  [P2] Starting fast scroll (30 wheel events)...`);
-    for (let i = 0; i < 30; i++) {
-      await kupua.page.mouse.wheel(0, 800);
-      await kupua.page.waitForTimeout(50);
-    }
+    await kupua.page.waitForTimeout(4000);
+    const scrollResult = await kupua.page.evaluate(() => {
+      const state = (window as any).__smoothScroll;
+      if (!state) return { scrolled: 0, frames: 0 };
+      state.running = false;
+      return { scrolled: Math.round(state.scrolled), frames: state.frames };
+    });
+    console.log(`  [P2] Scrolled ${scrollResult.scrolled}px in ${scrollResult.frames} frames`);
     await kupua.page.waitForTimeout(2000);
 
     const snap = await collectPerfSnapshot(kupua, "P2: Fast Scroll");
@@ -1003,10 +1024,14 @@ test.describe("Rendering Performance Smoke", () => {
       tableBox!.y + tableBox!.height / 2,
     );
 
-    console.log(`  [P8] Fast table scroll (40 wheel events)...`);
-    for (let i = 0; i < 40; i++) {
-      await kupua.page.mouse.wheel(0, 1500);
-      await kupua.page.waitForTimeout(60);
+    // Turbo scroll: deltaY=400 at 50ms intervals (matching experiments.spec.ts
+    // calibration). Smaller deltas than the old 1500px prevent rubberbanding at
+    // the buffer boundary — extends arrive before scrollTop exhausts the buffer.
+    // 80 events × 400px × 50ms = ~4 seconds of aggressive scroll.
+    console.log(`  [P8] Fast table scroll (80 wheel events, 400px @ 50ms)...`);
+    for (let i = 0; i < 80; i++) {
+      await kupua.page.mouse.wheel(0, 400);
+      await kupua.page.waitForTimeout(50);
     }
     await kupua.page.waitForTimeout(3000);
 
@@ -1198,16 +1223,43 @@ test.describe("Rendering Performance Smoke", () => {
         gridBox.y + gridBox.height / 2,
       );
 
-      console.log(`  [P12] Scrolling aggressively (60 wheels, past buffer boundary)...`);
+      console.log(`  [P12] Smooth-scrolling for 6s at 50px/frame (~3,000px/s)...`);
 
       await injectPerfProbes(kupua);
       await kupua.page.waitForTimeout(300);
       await resetPerfProbes(kupua);
 
-      for (let i = 0; i < 60; i++) {
-        await kupua.page.mouse.wheel(0, 2000);
-        await kupua.page.waitForTimeout(80);
-      }
+      // rAF-based smooth scroll — continuous scrollTop increments produce real
+      // scroll events every frame. Unlike wheel events, this never outruns the
+      // buffer because each frame's tiny delta keeps scroll events flowing
+      // even near the buffer boundary, ensuring extends fire promptly.
+      const scrollSelector = '[aria-label="Image results grid"]';
+      await kupua.page.evaluate(
+        ({ selector, pxPf }: { selector: string; pxPf: number }) => {
+          const el = document.querySelector(selector) as HTMLElement;
+          if (!el) return;
+          const state = { running: true, scrolled: 0, frames: 0 };
+          (window as any).__smoothScroll = state;
+          function tick() {
+            if (!state.running) return;
+            const before = el.scrollTop;
+            el.scrollTop += pxPf;
+            state.scrolled += el.scrollTop - before;
+            state.frames++;
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        },
+        { selector: scrollSelector, pxPf: 50 },
+      );
+      await kupua.page.waitForTimeout(6000);
+      const scrollResult = await kupua.page.evaluate(() => {
+        const state = (window as any).__smoothScroll;
+        if (!state) return { scrolled: 0, frames: 0 };
+        state.running = false;
+        return { scrolled: Math.round(state.scrolled), frames: state.frames };
+      });
+      console.log(`  [P12] Scrolled ${scrollResult.scrolled}px in ${scrollResult.frames} frames`);
       await kupua.page.waitForTimeout(3000);
 
       const scrollSnap = await collectPerfSnapshot(kupua);
@@ -1281,7 +1333,7 @@ test.describe("Rendering Performance Smoke", () => {
 
     await kupua.goto();
     await kupua.selectSort("Credit");
-    await kupua.page.waitForTimeout(1500);
+    await kupua.waitForExtendReady();
     await runDriftTest("Credit sort");
 
     const finalPos = await getFocusedViewportPos(kupua);
@@ -1351,7 +1403,7 @@ test.describe("Rendering Performance Smoke", () => {
   });
 
   // ─── P14: Image traversal (prev/next) ─────────────────────────────
-  // Three realistic traversal patterns:
+  // Four traversal patterns:
   //   P14a — Normal browsing:  10 images forward at ~2/s (500ms gap).
   //          User is looking at each image briefly.
   //   P14b — Fast breeze-through: 15 images forward at ~5/s (200ms gap),
@@ -1360,6 +1412,9 @@ test.describe("Rendering Performance Smoke", () => {
   //   P14c — Second burst + settle: 10 images backward at ~5/s (200ms gap),
   //          then STOP and wait 3s. Tests the same settle behaviour in
   //          the reverse direction (prefetch behind vs ahead).
+  //   P14d — Rapid burst: 20 images forward at ~12/s (80ms gap, held key),
+  //          then STOP and wait 3s. Most images won't render; tests
+  //          cancellation accuracy — only the final image should load.
   //
   // The settle period is the critical measurement: CLS and jank during
   // the 3s after stopping reveal whether the app is thrashing on stale
@@ -1424,6 +1479,21 @@ test.describe("Rendering Performance Smoke", () => {
     const snapFastBack = await collectPerfSnapshot(kupua, "P14c: Fast backward + settle");
     logPerfReport("P14c: Fast Backward + Settle (10 back @ 5/s + 3s)", snapFastBack);
     emitMetric("P14c", snapFastBack, { traversals: 10, speed: "fast", direction: "backward" });
+
+    // ── P14d: Rapid burst — 20 at ~12/s (held arrow key), then settle 3s ──
+    await resetPerfProbes(kupua);
+
+    console.log(`  [P14d] Rapid burst: 20 images forward at ~12/s (held key), then settle...`);
+    for (let i = 0; i < 20; i++) {
+      await kupua.page.keyboard.press("ArrowRight");
+      await kupua.page.waitForTimeout(80);
+    }
+    console.log(`  [P14d] Stopped. Waiting 3s for settle...`);
+    await kupua.page.waitForTimeout(3000);
+
+    const snapRapid = await collectPerfSnapshot(kupua, "P14d: Rapid + settle");
+    logPerfReport("P14d: Rapid Forward + Settle (20 fwd @ 12/s + 3s)", snapRapid);
+    emitMetric("P14d", snapRapid, { traversals: 20, speed: "rapid", direction: "forward" });
 
     // Exit
     await kupua.page.keyboard.press("Backspace");

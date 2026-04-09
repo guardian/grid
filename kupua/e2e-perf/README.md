@@ -75,6 +75,7 @@ position is preserved across transitions:
 | **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe. Browsing-pace image swap smoothness. |
 | **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle. Does the app load only the final image? |
 | **P14c** | Image traversal, fast backward (10 back @ 5/s + 3s settle) | ~6s | Same as P14b, reverse direction. Prefetch-behind effectiveness. |
+| **P14d** | Image traversal, rapid burst (20 fwd @ 12/s + 3s settle) | ~5s | Cancellation stress test. Held arrow key — most images won't render. |
 | **P15a/b/c** | Fullscreen enter/traverse/exit | ~4s | maxFrame. Should be near-zero (Fullscreen API is cheap). |
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
 

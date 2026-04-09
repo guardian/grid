@@ -73,19 +73,19 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - **203 Vitest** unit/integration tests (~5s) — `npm test`
 - **121 Playwright E2E** tests (~5.5min) — `npx playwright test`
-- **19 perf tests** + experiment infrastructure — `npm run test:perf`
+- **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
 - Full reference: **`e2e/README.md`** (7 test modes, decision tree, env vars)
 - Logging: use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E)
 
 ### Known Issues
 
-- **P8 (table fast scroll):** p95=50ms, domChurn=~57k. Root cause: virtualiser DOM churn. Needs skeleton rows.
+- **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
 - **P4b focusDrift:** Partially fixed. May have secondary cause.
 
 ### Backlog
 
-- [ ] P8 domChurn ~57k (see perf report §5)
+- [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
 - [ ] Raise scroll-mode threshold beyond 1000
 - [ ] Column reordering via drag-and-drop

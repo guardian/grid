@@ -481,7 +481,7 @@ export function ImageTable() {
     count: virtualizerCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 5,
+    overscan: 15,
     // Account for sticky header — without this, scrollToIndex considers
     // rows behind the header as "visible" and won't scroll to them.
     // Subtract one ROW_HEIGHT because the padding is additive with the

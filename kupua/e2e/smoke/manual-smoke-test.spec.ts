@@ -315,14 +315,9 @@ test.describe("Smoke — real ES", () => {
     // events — this may trigger different extend/evict timing than
     // programmatic scrollTop = scrollHeight.
     //
-    // IMPORTANT: switchToTable triggers a density-switch search() which sets
-    // a 2-second SEARCH_FETCH_COOLDOWN_MS. During this cooldown, extendForward
-    // is blocked — so wheel events scroll within the initial 200-item buffer
-    // but can't trigger extends. Once scrollTop hits the buffer's maxScroll,
-    // further wheel events are no-ops (no scroll = no scroll event = no
-    // reportVisibleRange = no extend trigger). Wait for the cooldown to
-    // expire before starting to wheel.
-    await kupua.page.waitForTimeout(2500);
+    // Note: switchToTable() now waits for the SEARCH_FETCH_COOLDOWN_MS to
+    // expire internally (via waitForExtendReady), so extends are unblocked
+    // by the time we start wheeling.
 
     const tableEl = kupua.page.locator('[aria-label="Image results table"]');
     const tableBox = await tableEl.boundingBox();
@@ -331,10 +326,13 @@ test.describe("Smoke — real ES", () => {
       tableBox!.x + tableBox!.width / 2,
       tableBox!.y + tableBox!.height / 2,
     );
-    // Scroll aggressively — many large wheel events
-    for (let i = 0; i < 60; i++) {
-      await kupua.page.mouse.wheel(0, 2000);
-      await kupua.page.waitForTimeout(100);
+    // Scroll aggressively — turbo wheel events (400px @ 50ms, matching
+    // experiments.spec.ts calibration). Smaller deltas than old 2000px prevent
+    // rubberbanding at buffer boundary — extends arrive before scrollTop
+    // exhausts the buffer.
+    for (let i = 0; i < 120; i++) {
+      await kupua.page.mouse.wheel(0, 400);
+      await kupua.page.waitForTimeout(50);
     }
     await kupua.page.waitForTimeout(2000);
 
