@@ -15,7 +15,8 @@ import {
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
-import {Queue} from 'aws-cdk-lib/aws-sqs';
+import {CfnIndex, CfnVectorBucket} from 'aws-cdk-lib/aws-s3vectors';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 export class ImageEmbedder extends GuStack {
   constructor(scope: App, id: string, props: GuStackProps) {
@@ -25,6 +26,18 @@ export class ImageEmbedder extends GuStack {
 
     const appName = 'image-embedder';
     const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
+
+    const vectorBucket = new CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
+      vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
+    });
+
+    new CfnIndex(this, 'CohereV4Index', {
+      dataType: 'float32',
+      dimension: 1536,
+      distanceMetric: 'cosine',
+      indexName: 'cohere-embed-v4',
+      vectorBucketArn: vectorBucket.attrVectorBucketArn
+    });
 
     // These are exposed as parameters by the cloudformation in editorial-tools-platform
     // https://github.com/guardian/editorial-tools-platform/blob/ea68387e82d28642b23966635f813b0a8f3a2c0a/cloudformation/media-service-account/grid/media-service.yaml#L3270-L3283
@@ -173,7 +186,7 @@ export class ImageEmbedder extends GuStack {
       new PolicyStatement({
         actions: ['s3vectors:PutVectors'],
         resources: [
-          `arn:aws:s3vectors:eu-central-1:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
+          `${vectorBucket.attrVectorBucketArn}/index/*`,
         ],
       }),
     );
@@ -191,12 +204,16 @@ export class ImageEmbedder extends GuStack {
       }),
     );
 
-    // Allow invoking the Bedrock Cohere embeddings model
+    // Allow invoking the Bedrock Cohere embeddings model.
+    // When using a cross-region inference profile (global.*), the SDK may resolve
+    // the model to a regionless foundation-model ARN, so we need to cover both forms.
     imageEmbedderLambda.role?.addToPrincipalPolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-english-v3`,
+          `arn:aws:bedrock:${Stack.of(this).region}:${Stack.of(this).account}:inference-profile/global.cohere.embed-v4:0`,
+          `arn:aws:bedrock:*::foundation-model/cohere.embed-v4:0`,
         ],
       }),
     );

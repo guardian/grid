@@ -7,4 +7,6 @@ export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 // but Cohere v4 downsamples images above this pixel count:
 // https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-embed-v4.html#:~:text=Image%20sizing%3A-,Images%20%3E%202%2C458%2C624,-pixels%20are%20downsampled
 // We use the lower bound of the models we can immediately foresee using.
-export const MAX_PIXELS_COHERE_V4 = 2_458_624;
+export const MAX_PIXELS_COHERE_V4 = 30_000;
+
+export const ELASTICSEARCH_VECTOR_DIMENSIONS = 256;

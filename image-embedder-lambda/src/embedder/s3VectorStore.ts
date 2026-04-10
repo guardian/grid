@@ -19,7 +19,7 @@ export class S3VectorStore {
 
     const input: PutVectorsCommandInput = {
       vectorBucketName: this.vectorBucketName,
-      indexName: 'cohere-embed-english-v3',
+      indexName: 'cohere-embed-v4',
       vectors: vectors,
     };
 

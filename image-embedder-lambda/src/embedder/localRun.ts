@@ -97,7 +97,7 @@ function initializeHandlerAwsClients(): AWSClients {
     kinesis: new KinesisClient({region: 'eu-west-1', ...localStack}),
     s3: new S3Client({region: 'eu-west-1', ...localStack}),
     // S3 Vectors is not supported by LocalStack, so we connect directly to real AWS
-    s3VectorsClient: new S3VectorsClient({region: 'eu-central-1'}),
+    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
   };
 }
 
