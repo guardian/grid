@@ -41,12 +41,14 @@ export async function embedImage(
   bedrockClient: BedrockRuntimeClient,
 ): Promise<InvokeModelCommandOutput> {
   const base64Image = Buffer.from(imageBytes).toString('base64');
-  const model = 'cohere.embed-english-v3';
+  const model = 'global.cohere.embed-v4:0';
+
   const body = {
-    input_type: 'image',
+    input_type: 'search_document',
     embedding_types: ['float'],
     images: [`data:${imageMimeType};base64,${base64Image}`],
-  };
+    output_dimension: 1536,
+  }
 
   const input: InvokeModelCommandInput = {
     modelId: model,

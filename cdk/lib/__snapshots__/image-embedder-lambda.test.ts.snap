@@ -46,6 +46,34 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
   },
   "Resources": {
+    "CohereV4Index": {
+      "Properties": {
+        "DataType": "float32",
+        "Dimension": 1536,
+        "DistanceMetric": "cosine",
+        "IndexName": "cohere-embed-v4",
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VectorBucketName": "image-embeddings-test",
+      },
+      "Type": "AWS::S3Vectors::Index",
+    },
     "DownscaledImageBucketImageembedderE1B3D588": {
       "DeletionPolicy": "Retain",
       "Properties": {
@@ -81,6 +109,30 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
+    },
+    "GridEmbeddingsVectorBucket": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "VectorBucketName": "image-embeddings-test",
+      },
+      "Type": "AWS::S3Vectors::VectorBucket",
     },
     "ImageEmbedderBackfillerC6D20164": {
       "DependsOn": [
@@ -671,7 +723,11 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                 "Fn::Join": [
                   "",
                   [
-                    "arn:aws:s3vectors:eu-central-1:",
+                    "arn:aws:s3vectors:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
                     {
                       "Ref": "AWS::AccountId",
                     },
@@ -700,18 +756,37 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             {
               "Action": "bedrock:InvokeModel",
               "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:bedrock:",
-                    {
-                      "Ref": "AWS::Region",
-                    },
-                    "::foundation-model/cohere.embed-english-v3",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:bedrock:",
+                      {
+                        "Ref": "AWS::Region",
+                      },
+                      "::foundation-model/cohere.embed-english-v3",
+                    ],
                   ],
-                ],
-              },
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:bedrock:",
+                      {
+                        "Ref": "AWS::Region",
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":inference-profile/global.cohere.embed-v4:0",
+                    ],
+                  ],
+                },
+                "arn:aws:bedrock:*::foundation-model/cohere.embed-v4:0",
+              ],
             },
             {
               "Action": [
