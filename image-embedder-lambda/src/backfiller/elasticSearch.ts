@@ -1,3 +1,5 @@
+import { freeFilter } from './freeImagesFilter.ts';
+
 export interface ElasticSearchHit {
   _id: string,
   _source: {
@@ -35,7 +37,6 @@ const parseElasticSearchResponse = (response: any): ElasticSearchResponse => {
   }
 }
 
-
 export const queryElasticSearch = async (
   batchSize: number,
   elasticSearchUrl: string,
@@ -50,7 +51,8 @@ export const queryElasticSearch = async (
             must_not: [
               {exists: {field: "embedding.cohereEmbedV4.image"}},
               {exists: {field: "softDeletedMetadata"}}
-            ]
+            ],
+            filter: [freeFilter],
           }
         },
         random_score: {seed: seed, field: "_seq_no"},
