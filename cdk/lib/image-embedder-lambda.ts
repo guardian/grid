@@ -27,7 +27,7 @@ export class ImageEmbedder extends GuStack {
     const appName = 'image-embedder';
     const downscaledImageBucketName = `${this.stack}-${props.stage.toLowerCase()}-${appName}-downscaled-images`;
 
-    new CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
+    const vectorBucket = new CfnVectorBucket(this, 'GridEmbeddingsVectorBucket', {
       vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
     });
 
@@ -36,7 +36,7 @@ export class ImageEmbedder extends GuStack {
       dimension: 1536,
       distanceMetric: 'cosine',
       indexName: 'cohere-embed-v4',
-      vectorBucketName: `image-embeddings-${this.stage.toLowerCase()}`,
+      vectorBucketArn: vectorBucket.attrVectorBucketArn
     });
 
     // These are exposed as parameters by the cloudformation in editorial-tools-platform
@@ -186,7 +186,7 @@ export class ImageEmbedder extends GuStack {
       new PolicyStatement({
         actions: ['s3vectors:PutVectors'],
         resources: [
-          `arn:aws:s3vectors:${Stack.of(this).region}:${Stack.of(this).account}:bucket/image-embeddings-${props.stage.toLowerCase()}/index/*`,
+          `${vectorBucket.attrVectorBucketArn}/index/*`,
         ],
       }),
     );

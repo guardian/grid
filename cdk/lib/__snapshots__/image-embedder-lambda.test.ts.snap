@@ -70,7 +70,12 @@ exports[`The MediaService stack matches the snapshot 1`] = `
             "Value": "TEST",
           },
         ],
-        "VectorBucketName": "image-embeddings-test",
+        "VectorBucketArn": {
+          "Fn::GetAtt": [
+            "GridEmbeddingsVectorBucket",
+            "VectorBucketArn",
+          ],
+        },
       },
       "Type": "AWS::S3Vectors::Index",
     },
@@ -723,15 +728,13 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                 "Fn::Join": [
                   "",
                   [
-                    "arn:aws:s3vectors:",
                     {
-                      "Ref": "AWS::Region",
+                      "Fn::GetAtt": [
+                        "GridEmbeddingsVectorBucket",
+                        "VectorBucketArn",
+                      ],
                     },
-                    ":",
-                    {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":bucket/image-embeddings-test/index/*",
+                    "/index/*",
                   ],
                 ],
               },
