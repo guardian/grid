@@ -777,10 +777,15 @@ exports[`The MediaService stack matches the snapshot 1`] = `
                       {
                         "Ref": "AWS::Region",
                       },
-                      "::foundation-model/cohere.embed-v4:0",
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId",
+                      },
+                      ":inference-profile/global.cohere.embed-v4:0",
                     ],
                   ],
                 },
+                "arn:aws:bedrock:*::foundation-model/cohere.embed-v4:0",
               ],
             },
             {

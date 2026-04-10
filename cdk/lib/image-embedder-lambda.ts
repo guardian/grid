@@ -204,13 +204,16 @@ export class ImageEmbedder extends GuStack {
       }),
     );
 
-    // Allow invoking the Bedrock Cohere embeddings model
+    // Allow invoking the Bedrock Cohere embeddings model.
+    // When using a cross-region inference profile (global.*), the SDK may resolve
+    // the model to a regionless foundation-model ARN, so we need to cover both forms.
     imageEmbedderLambda.role?.addToPrincipalPolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [
           `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-english-v3`,
-          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/cohere.embed-v4:0`
+          `arn:aws:bedrock:${Stack.of(this).region}:${Stack.of(this).account}:inference-profile/global.cohere.embed-v4:0`,
+          `arn:aws:bedrock:*::foundation-model/cohere.embed-v4:0`,
         ],
       }),
     );
