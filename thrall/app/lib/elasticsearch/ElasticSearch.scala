@@ -211,7 +211,7 @@ class ElasticSearch(
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def updateEmbedding(id: String, embedding: PartialEmbedding, lastModified: DateTime)
+  def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
                      (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
     val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
