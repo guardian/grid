@@ -9,4 +9,4 @@ export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 // We use the lower bound of the models we can immediately foresee using.
 export const MAX_PIXELS_COHERE_V4 = 30_000;
 
-export const KINESIS_VECTOR_DIMENSIONS = 256;
+export const ELASTICSEARCH_VECTOR_DIMENSIONS = 256;

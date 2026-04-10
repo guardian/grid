@@ -1,7 +1,7 @@
 import {KinesisClient, PutRecordsCommand, PutRecordsRequestEntry, PutRecordsResultEntry} from "@aws-sdk/client-kinesis";
 import {ValidVector} from "./models";
 import { SQSBatchItemFailure } from "aws-lambda";
-import {KINESIS_VECTOR_DIMENSIONS} from "./constants"
+import {ELASTICSEARCH_VECTOR_DIMENSIONS} from "./constants"
 
 export interface CohereV4Embedding {
   image: number[];
@@ -39,12 +39,12 @@ export class ThrallEventPublisher {
     this.stage = stage;
   }
 
-  matryoshkaEmbeddingTo256(vectors: ValidVector[]): ValidVector[] {
+  matryoshkaEmbeddingToElasticsearchDimensions(vectors: ValidVector[]): ValidVector[] {
     return vectors.map((vector) => ({
       ...vector,
       data: {
         ...vector.data,
-        float32: vector.data.float32.slice(0, KINESIS_VECTOR_DIMENSIONS),
+        float32: vector.data.float32.slice(0, ELASTICSEARCH_VECTOR_DIMENSIONS),
       },
     }));
   }

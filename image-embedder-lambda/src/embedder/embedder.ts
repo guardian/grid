@@ -141,7 +141,7 @@ export const computeEmbeddingForSQSEvent = async (
     await generateVectors(event.Records, imageResolver, bedrockClient);
 
 	if (vectors.length > 0) {
-		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingTo256(vectors);
+		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
 		await thrallEventPublisher.sendEmbeddingsToKinesis(
 			shortenedVectors,
 			imageIdToMessageId,
