@@ -1,14 +1,16 @@
 import {KinesisClient, PutRecordsCommand, PutRecordsRequestEntry, PutRecordsResultEntry} from "@aws-sdk/client-kinesis";
 import {ValidVector} from "./models";
-import {SQSBatchItemFailure} from "aws-lambda";
+import { SQSBatchItemFailure } from "aws-lambda";
+import {ELASTICSEARCH_VECTOR_DIMENSIONS} from "./constants"
 
-export interface CohereV3Embedding {
+export interface CohereV4Embedding {
   image: number[];
 }
 
 export interface Embedding {
-  cohereEmbedEnglishV3: CohereV3Embedding;
+  cohereEmbedV4: CohereV4Embedding;
 }
+
 
 // Message format matching Scala's ExternalThrallMessage serialisation.
 // Play JSON uses a `_type` discriminator field with the fully qualified class name.
@@ -37,6 +39,16 @@ export class ThrallEventPublisher {
     this.stage = stage;
   }
 
+  matryoshkaEmbeddingToElasticsearchDimensions(vectors: ValidVector[]): ValidVector[] {
+    return vectors.map((vector) => ({
+      ...vector,
+      data: {
+        ...vector.data,
+        float32: vector.data.float32.slice(0, ELASTICSEARCH_VECTOR_DIMENSIONS),
+      },
+    }));
+  }
+
   async sendEmbeddingsToKinesis(
     vectors: ValidVector[],
     imageIdToMessageId: Map<string, string>,
@@ -63,7 +75,7 @@ export class ThrallEventPublisher {
         lastModified: new Date().toISOString(),
         id: v.key,
         embedding: {
-          cohereEmbedEnglishV3: {
+          cohereEmbedV4: {
             image: v.data.float32,
           },
         },

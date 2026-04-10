@@ -46,7 +46,7 @@ function initializeAwsClients(): AWSClients {
   awsClientsCache = {
     kinesis: new KinesisClient({region: 'eu-west-1'}),
     s3: new S3Client({region: 'eu-west-1'}),
-    s3VectorsClient: new S3VectorsClient({region: 'eu-central-1'}),
+    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
   }
   return awsClientsCache;
 }
@@ -137,19 +137,20 @@ export const computeEmbeddingForSQSEvent = async (
 
   const bedrockClient = createProductionBedrockClient();
 
-  const {vectors, batchItemFailures, imageIdToMessageId} =
+  const { vectors, batchItemFailures, imageIdToMessageId } =
     await generateVectors(event.Records, imageResolver, bedrockClient);
 
-  if (vectors.length > 0) {
-    await thrallEventPublisher.sendEmbeddingsToKinesis(
-      vectors,
-      imageIdToMessageId,
-      batchItemFailures,
-    );
-    await s3VectorStore.storeEmbeddings(vectors);
-  } else {
-    console.log(`No vectors to store`);
-  }
+	if (vectors.length > 0) {
+		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
+		await thrallEventPublisher.sendEmbeddingsToKinesis(
+			shortenedVectors,
+			imageIdToMessageId,
+			batchItemFailures,
+		);
+		await s3VectorStore.storeEmbeddings(vectors);
+	} else {
+		console.log(`No vectors to store`);
+	}
 
   return {batchItemFailures};
 };
