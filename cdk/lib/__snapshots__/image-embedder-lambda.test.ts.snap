@@ -538,6 +538,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "LogFormat": "JSON",
         },
         "MemorySize": 2048,
+        "ReservedConcurrentExecutions": 10,
         "Role": {
           "Fn::GetAtt": [
             "ImageEmbedderHandlerServiceRoleD4456D21",
@@ -913,7 +914,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "ReportBatchItemFailures",
         ],
         "ScalingConfig": {
-          "MaximumConcurrency": 3,
+          "MaximumConcurrency": 5,
         },
         "Tags": [
           {
@@ -942,7 +943,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
     },
     "ImageEmbedderHandlerSqsEventSourceImageEmbedderLambdaimageEmbedderBackfillC21D96704F7E8636": {
       "Properties": {
-        "BatchSize": 1,
+        "BatchSize": 5,
         "EventSourceArn": {
           "Fn::GetAtt": [
             "imageEmbedderBackfill5DD09905",
@@ -956,7 +957,7 @@ exports[`The MediaService stack matches the snapshot 1`] = `
           "ReportBatchItemFailures",
         ],
         "ScalingConfig": {
-          "MaximumConcurrency": 2,
+          "MaximumConcurrency": 5,
         },
         "Tags": [
           {
