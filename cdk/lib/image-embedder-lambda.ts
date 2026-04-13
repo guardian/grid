@@ -12,6 +12,7 @@ import {
   aws_s3 as s3,
   Stack,
 } from 'aws-cdk-lib';
+import { Schedule } from 'aws-cdk-lib/aws-events';
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -127,11 +128,10 @@ export class ImageEmbedder extends GuStack {
         memorySize: 512,
         timeout: Duration.minutes(1),
         rules: [
-					// Schedule TBD
-					// {
-					// 	schedule: Schedule.rate(Duration.days(1)),
-					// 	description: 'Frequency of execution of the backfiller',
-					// }
+					{
+						schedule: Schedule.rate(Duration.minutes(1)),
+						description: 'Frequency of execution of the backfiller',
+					}
 				],
         monitoringConfiguration: {
           noMonitoring: true,
