@@ -219,6 +219,66 @@ exports[`The MediaService stack matches the snapshot 1`] = `
       },
       "Type": "AWS::Lambda::Function",
     },
+    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1minute0646C28A2": {
+      "Properties": {
+        "Description": "Frequency of execution of the backfiller",
+        "ScheduleExpression": "rate(1 minute)",
+        "State": "ENABLED",
+        "Tags": [
+          {
+            "Key": "App",
+            "Value": "image-embedder-backfill-lambda",
+          },
+          {
+            "Key": "gu:cdk:version",
+            "Value": "TEST",
+          },
+          {
+            "Key": "gu:repo",
+            "Value": "guardian/grid",
+          },
+          {
+            "Key": "Stack",
+            "Value": "media-service",
+          },
+          {
+            "Key": "Stage",
+            "Value": "TEST",
+          },
+        ],
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "ImageEmbedderBackfillerC6D20164",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "ImageEmbedderBackfillerImageEmbedderBackfillerrate1minute0AllowEventRuleImageEmbedderLambdaImageEmbedderBackfiller35B59D3AA9F45FB2": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "ImageEmbedderBackfillerC6D20164",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "ImageEmbedderBackfillerImageEmbedderBackfillerrate1minute0646C28A2",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
     "ImageEmbedderBackfillerSecurityGroup93958CDD": {
       "Properties": {
         "GroupDescription": "Automatic security group for Lambda Function ImageEmbedderLambdaImageEmbedderBackfiller35B59D3A",
