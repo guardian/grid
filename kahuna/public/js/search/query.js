@@ -286,7 +286,7 @@ query.controller('SearchQueryCtrl', [
       }
       ctrl.filter.nonFree = nonFreeCheck;
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
@@ -526,7 +526,7 @@ query.controller('SearchQueryCtrl', [
 
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
 }]);
 
 query.directive('searchQuery', [function() {
