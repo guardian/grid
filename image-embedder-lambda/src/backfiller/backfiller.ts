@@ -5,8 +5,8 @@ import {SQSMessageBody} from "../shared/sqsMessageBody";
 import {queryElasticSearch, ElasticSearchSuccess} from "./elasticSearch";
 import {EmbedderQueue} from "./embedderQueue";
 
-export const BATCH_SIZE = 200;
-export const CROWDED_QUEUE = 100;
+export const BATCH_SIZE = 2000;
+export const CROWDED_QUEUE = 4000;
 
 const mapElasticsearchResponseToSqsMessages = (esResponse: ElasticSearchSuccess): SQSMessageBody[] => {
   console.debug("EsResponse", JSON.stringify(esResponse));
