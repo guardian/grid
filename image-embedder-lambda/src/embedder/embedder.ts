@@ -1,4 +1,7 @@
 import 'source-map-support/register';
+import * as fs from 'fs';
+import * as path from 'path';
+import {execSync} from 'child_process';
 import {
   Context,
   SQSBatchItemFailure,
@@ -22,10 +25,34 @@ import {createBedrockClient, embedImage} from "./imageEmbedder";
 import {ThrallEventPublisher} from "./thrallEventPublisher";
 import {S3VectorStore} from "./s3VectorStore";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
+import { randomInt } from 'node:crypto';
 
 // Sharp is opening lots of files and keeping them open leading to too many open files
 // this leads to EBUSY errors when trying to resolve DNS
 sharp.cache({ files: 1, items: 1 });
+
+function logOpenFileDescriptors(label: string): void {
+  try {
+    const fdDir = '/proc/self/fd';
+    if (fs.existsSync(fdDir)) {
+      const fds = fs.readdirSync(fdDir);
+      const resolved = fds.map((fd) => {
+        try {
+          const target = fs.readlinkSync(path.join(fdDir, fd));
+          return `  fd ${fd.padStart(4)} -> ${target}`;
+        } catch {
+          return `  fd ${fd.padStart(4)} -> <unresolvable>`;
+        }
+      });
+      console.log(
+        `[FD DIAGNOSTIC | ${label}] ${fds.length} open file descriptors:\n` +
+        resolved.join('\n'),
+      );
+    }
+  } catch (err) {
+    console.warn('[FD DIAGNOSTIC] Could not list file descriptors:', err);
+  }
+}
 
 export interface Environment {
   isLocal: boolean;
@@ -125,6 +152,9 @@ export const computeEmbeddingForSQSEvent = async (
   event: SQSEvent,
   environment: Environment,
 ): Promise<SQSBatchResponse> => {
+	const sampledShouldTraceFd = randomInt(100) < 1;
+	if (sampledShouldTraceFd) logOpenFileDescriptors('start');
+
   const thrallEventPublisher = new ThrallEventPublisher(
     clients.kinesis,
     environment.thrallKinesisStreamArn,
@@ -155,6 +185,8 @@ export const computeEmbeddingForSQSEvent = async (
 	} else {
 		console.log(`No vectors to store`);
 	}
+
+	if (sampledShouldTraceFd) logOpenFileDescriptors('end');
 
 	return {batchItemFailures};
 };
