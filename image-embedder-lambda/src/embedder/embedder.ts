@@ -18,7 +18,7 @@ import sharp from 'sharp';
 import {ValidVector} from "./models";
 import {CachedImageResolver, ImageResolver, S3ImageResolver} from "./imageResolver";
 import {S3Fetcher} from "./s3Fetcher";
-import {createProductionBedrockClient, embedImage} from "./imageEmbedder";
+import {createBedrockClient, embedImage} from "./imageEmbedder";
 import {ThrallEventPublisher} from "./thrallEventPublisher";
 import {S3VectorStore} from "./s3VectorStore";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
@@ -38,6 +38,7 @@ export interface AWSClients {
   kinesis: KinesisClient;
   s3: S3Client;
   s3VectorsClient: S3VectorsClient;
+	bedrockClient: BedrockRuntimeClient;
 }
 
 // Once the clients are warmed up, keep them in cache at the module level
@@ -52,6 +53,7 @@ function initializeAwsClients(): AWSClients {
     kinesis: new KinesisClient({region: 'eu-west-1'}),
     s3: new S3Client({region: 'eu-west-1'}),
     s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
+		bedrockClient: createBedrockClient(),
   }
   return awsClientsCache;
 }
@@ -139,32 +141,22 @@ export const computeEmbeddingForSQSEvent = async (
 
   const s3VectorStore = new S3VectorStore(clients.s3VectorsClient, `image-embeddings-${environment.stage}`.toLowerCase());
 
+	const { vectors, batchItemFailures, imageIdToMessageId } =
+		await generateVectors(event.Records, imageResolver, clients.bedrockClient);
 
-  const bedrockClient = createProductionBedrockClient();
+	if (vectors.length > 0) {
+		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
+		await thrallEventPublisher.sendEmbeddingsToKinesis(
+			shortenedVectors,
+			imageIdToMessageId,
+			batchItemFailures,
+		);
+		await s3VectorStore.storeEmbeddings(vectors);
+	} else {
+		console.log(`No vectors to store`);
+	}
 
-  try {
-    const { vectors, batchItemFailures, imageIdToMessageId } =
-      await generateVectors(event.Records, imageResolver, bedrockClient);
-
-    if (vectors.length > 0) {
-      const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
-      await thrallEventPublisher.sendEmbeddingsToKinesis(
-        shortenedVectors,
-        imageIdToMessageId,
-        batchItemFailures,
-      );
-      await s3VectorStore.storeEmbeddings(vectors);
-    } else {
-      console.log(`No vectors to store`);
-    }
-
-    return {batchItemFailures};
-  } finally {
-		// force freeing the bedrock client to avoid opening too many connections
-		// each connection holds a file descriptor, leading to DNS resolution errors
-		// such as EBUSY
-    bedrockClient.destroy();
-  }
+	return {batchItemFailures};
 };
 
 export const handler = async (
