@@ -5,17 +5,16 @@ import {
   InvokeModelCommandOutput
 } from "@aws-sdk/client-bedrock-runtime";
 import {LogLevel} from "@aws-sdk/config/logger";
+import * as https from 'https';
+import {NodeHttpHandler} from '@smithy/node-http-handler';
 
-// At AWS office hour they recommended to re-initialise the client each handler invocation
-// as a temporary fix whilst AWS investigates the Bedrock server issues
-// This is to avoid the TCP connection from the client to timeout whilst we're waiting for Bedrock to respond
-// See https://aws.amazon.com/blogs/networking-and-content-delivery/implementing-long-running-tcp-connections-within-vpc-networking/
-export function createProductionBedrockClient(): BedrockRuntimeClient {
+
+export function createBedrockClient(): BedrockRuntimeClient {
   const bedrockClientStart = performance.now();
   const bedrockClient = new BedrockRuntimeClient({
     region: 'eu-west-1',
     logger: new LogLevel('debug', console),
-    requestHandler: {
+    requestHandler: new NodeHttpHandler({
       // We set hard timeouts to prevent the client simply hanging if the server
       // is not behaving correctly. We have seen this behaviour in production
       // when requests to Bedrock have exceeded 2000 per minute,
@@ -25,7 +24,11 @@ export function createProductionBedrockClient(): BedrockRuntimeClient {
       // https://563563610310-jmoumez6.support.console.aws.amazon.com/support/home?region=eu-west-1#/case/?displayId=177202106800750&language=en
       connectionTimeout: 3_000,
       requestTimeout: 30_000,
-    },
+      httpsAgent: new https.Agent({
+        keepAlive: true,
+        maxSockets: 5,
+      }),
+    }),
   });
   const bedrockClientDuration = performance.now() - bedrockClientStart;
   console.log(

@@ -15,6 +15,7 @@ import {DescribeStreamCommand, KinesisClient} from '@aws-sdk/client-kinesis';
 import {AWSClients, computeEmbeddingForSQSEvent, Environment} from "./embedder.ts";
 import {S3Client} from "@aws-sdk/client-s3";
 import {S3VectorsClient} from "@aws-sdk/client-s3vectors";
+import { createBedrockClient } from './imageEmbedder.ts';
 
 process.env.AWS_PROFILE = process.env.AWS_PROFILE || 'media-service';
 
@@ -94,11 +95,12 @@ function initializeHandlerAwsClients(): AWSClients {
     }
   };
   return {
-    kinesis: new KinesisClient({region: 'eu-west-1', ...localStack}),
-    s3: new S3Client({region: 'eu-west-1', ...localStack}),
-    // S3 Vectors is not supported by LocalStack, so we connect directly to real AWS
-    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
-  };
+		kinesis: new KinesisClient({ region: 'eu-west-1', ...localStack }),
+		s3: new S3Client({ region: 'eu-west-1', ...localStack }),
+		// S3 Vectors is not supported by LocalStack, so we connect directly to real AWS
+		s3VectorsClient: new S3VectorsClient({ region: 'eu-west-1' }),
+		bedrockClient: createBedrockClient(),
+	};
 }
 
 async function main() {
