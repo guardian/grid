@@ -23,7 +23,7 @@ const CONCURRENCY: Record<string, { backfill: number; loader: number; total: num
 	'PROD': {
 		backfill: 20,
 		loader: 5,
-		total: 35,
+		total: 25,
 	},
 	'TEST': {
 		backfill: 5,
