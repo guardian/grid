@@ -125,6 +125,12 @@ export class ImageEmbedder extends GuStack {
     const vpc = GuVpc.fromIdParameter(this, "AccountVPC");
     const subnets = GuVpc.subnetsFromParameter(this);
 
+		const everyMinute = {
+			schedule: Schedule.rate(Duration.minutes(1)),
+			description: 'Frequency of execution of the backfiller',
+		};
+
+
     const backfiller = new GuScheduledLambda(
       this,
       'ImageEmbedderBackfiller',
@@ -142,12 +148,7 @@ export class ImageEmbedder extends GuStack {
         },
         memorySize: 512,
         timeout: Duration.minutes(1),
-        rules: [
-					{
-						schedule: Schedule.rate(Duration.minutes(1)),
-						description: 'Frequency of execution of the backfiller',
-					}
-				],
+        rules: this.stage === 'TEST' ? [] : [everyMinute],
         monitoringConfiguration: {
           noMonitoring: true,
         },
