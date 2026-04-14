@@ -1,6 +1,8 @@
 import 'source-map-support/register';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
+import {NodeHttpHandler} from '@smithy/node-http-handler';
 import {
   Context,
   SQSBatchItemFailure,
@@ -163,10 +165,18 @@ function initializeAwsClients(): AWSClients {
   if (awsClientsCache) {
     return awsClientsCache;
   }
+
+  // Each service gets its own agent so their pools don't compete with each other.
+  // maxSockets: 5 caps the number of concurrent connections per service, preventing
+  // unbounded socket accumulation across warm invocations.
+  const makeHandler = () => new NodeHttpHandler({
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 5 }),
+  });
+
   awsClientsCache = {
-    kinesis: new KinesisClient({region: 'eu-west-1'}),
-    s3: new S3Client({region: 'eu-west-1'}),
-    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
+    kinesis: new KinesisClient({region: 'eu-west-1', requestHandler: makeHandler()}),
+    s3: new S3Client({region: 'eu-west-1', requestHandler: makeHandler()}),
+    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1', requestHandler: makeHandler()}),
 		bedrockClient: createBedrockClient(),
   }
   return awsClientsCache;
