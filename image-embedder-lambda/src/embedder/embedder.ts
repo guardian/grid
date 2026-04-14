@@ -1,7 +1,6 @@
 import 'source-map-support/register';
 import * as fs from 'fs';
 import * as path from 'path';
-import {execSync} from 'child_process';
 import {
   Context,
   SQSBatchItemFailure,
@@ -31,24 +30,112 @@ import { randomInt } from 'node:crypto';
 // this leads to EBUSY errors when trying to resolve DNS
 sharp.cache({ files: 1, items: 1 });
 
+// Maps a hex-encoded little-endian IPv4 address+port (e.g. "0101007F:01BB")
+// to a human-readable "127.0.0.1:443" string.
+function decodeHexAddr(hexAddrPort: string): string {
+  const [hexAddr, hexPort] = hexAddrPort.split(':');
+  const ip = hexAddr
+    .match(/.{2}/g)!
+    .reverse()
+    .map((b) => parseInt(b, 16))
+    .join('.');
+  const port = parseInt(hexPort, 16);
+  return `${ip}:${port}`;
+}
+
+// Maps a hex-encoded little-endian IPv6 address+port to a human-readable string.
+function decodeHexAddr6(hexAddrPort: string): string {
+  const [hexAddr, hexPort] = hexAddrPort.split(':');
+  // IPv6 is stored as four little-endian 32-bit words
+  const groups = hexAddr.match(/.{8}/g)!.map((word) =>
+    word.match(/.{2}/g)!.reverse().join(''),
+  );
+  const ip = groups
+    .join('')
+    .match(/.{4}/g)!
+    .join(':');
+  const port = parseInt(hexPort, 16);
+  return `[${ip}]:${port}`;
+}
+
+const TCP_STATES: Record<string, string> = {
+  '01': 'ESTABLISHED',
+  '02': 'SYN_SENT',
+  '03': 'SYN_RECV',
+  '04': 'FIN_WAIT1',
+  '05': 'FIN_WAIT2',
+  '06': 'TIME_WAIT',
+  '07': 'CLOSE',
+  '08': 'CLOSE_WAIT',
+  '09': 'LAST_ACK',
+  '0A': 'LISTEN',
+  '0B': 'CLOSING',
+};
+
+// Reads /proc/net/tcp (and tcp6) and builds a map of inode -> { state, remote }
+function buildInodeToSocketInfo(): Map<string, { state: string; remote: string }> {
+  const map = new Map<string, { state: string; remote: string }>();
+  const files: Array<{ file: string; decode: (s: string) => string }> = [
+    { file: '/proc/net/tcp', decode: decodeHexAddr },
+    { file: '/proc/net/tcp6', decode: decodeHexAddr6 },
+  ];
+  for (const { file, decode } of files) {
+    if (!fs.existsSync(file)) continue;
+    const lines = fs.readFileSync(file, 'utf8').split('\n').slice(1); // skip header
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 10) continue;
+      // columns: sl local_addr rem_addr st tx_queue:rx_queue tr:timer retransmit uid timeout inode
+      const remAddr = parts[2];
+      const stateHex = parts[3].toUpperCase();
+      const inode = parts[9];
+      map.set(inode, {
+        state: TCP_STATES[stateHex] ?? stateHex,
+        remote: decode(remAddr),
+      });
+    }
+  }
+  return map;
+}
+
 function logOpenFileDescriptors(label: string): void {
   try {
     const fdDir = '/proc/self/fd';
-    if (fs.existsSync(fdDir)) {
-      const fds = fs.readdirSync(fdDir);
-      const resolved = fds.map((fd) => {
-        try {
-          const target = fs.readlinkSync(path.join(fdDir, fd));
-          return `  fd ${fd.padStart(4)} -> ${target}`;
-        } catch {
-          return `  fd ${fd.padStart(4)} -> <unresolvable>`;
+    if (!fs.existsSync(fdDir)) return;
+
+    const inodeInfo = buildInodeToSocketInfo();
+
+    const fds = fs.readdirSync(fdDir);
+    const resolved = fds.map((fd) => {
+      try {
+        const target = fs.readlinkSync(path.join(fdDir, fd));
+        const inodeMatch = target.match(/^socket:\[(\d+)\]$/);
+        if (inodeMatch) {
+          const info = inodeInfo.get(inodeMatch[1]);
+          const annotation = info
+            ? ` (${info.state} -> ${info.remote})`
+            : ' (unknown state)';
+          return `  fd ${fd.padStart(4)} -> ${target}${annotation}`;
         }
-      });
-      console.log(
-        `[FD DIAGNOSTIC | ${label}] ${fds.length} open file descriptors:\n` +
-        resolved.join('\n'),
-      );
+        return `  fd ${fd.padStart(4)} -> ${target}`;
+      } catch {
+        return `  fd ${fd.padStart(4)} -> <unresolvable>`;
+      }
+    });
+
+    // Summarise socket states for quick scanning
+    const stateCounts: Record<string, number> = {};
+    for (const info of inodeInfo.values()) {
+      stateCounts[info.state] = (stateCounts[info.state] ?? 0) + 1;
     }
+    const stateSummary = Object.entries(stateCounts)
+      .map(([s, n]) => `${s}=${n}`)
+      .join(', ');
+
+    console.log(
+      `[FD DIAGNOSTIC | ${label}] ${fds.length} open FDs, socket states: ${stateSummary}\n` +
+      resolved.join('\n'),
+    );
   } catch (err) {
     console.warn('[FD DIAGNOSTIC] Could not list file descriptors:', err);
   }
