@@ -14,6 +14,7 @@ import {
 } from '@aws-sdk/client-s3';
 import {S3VectorsClient} from '@aws-sdk/client-s3vectors';
 import {KinesisClient} from '@aws-sdk/client-kinesis';
+import sharp from 'sharp';
 import {ValidVector} from "./models";
 import {CachedImageResolver, ImageResolver, S3ImageResolver} from "./imageResolver";
 import {S3Fetcher} from "./s3Fetcher";
@@ -21,6 +22,10 @@ import {createProductionBedrockClient, embedImage} from "./imageEmbedder";
 import {ThrallEventPublisher} from "./thrallEventPublisher";
 import {S3VectorStore} from "./s3VectorStore";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
+
+// Sharp is opening lots of files and keeping them open leading to too many open files
+// this leads to EBUSY errors when trying to resolve DNS
+sharp.cache({ files: 1, items: 1 });
 
 export interface Environment {
   isLocal: boolean;
@@ -137,22 +142,29 @@ export const computeEmbeddingForSQSEvent = async (
 
   const bedrockClient = createProductionBedrockClient();
 
-  const { vectors, batchItemFailures, imageIdToMessageId } =
-    await generateVectors(event.Records, imageResolver, bedrockClient);
+  try {
+    const { vectors, batchItemFailures, imageIdToMessageId } =
+      await generateVectors(event.Records, imageResolver, bedrockClient);
 
-	if (vectors.length > 0) {
-		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
-		await thrallEventPublisher.sendEmbeddingsToKinesis(
-			shortenedVectors,
-			imageIdToMessageId,
-			batchItemFailures,
-		);
-		await s3VectorStore.storeEmbeddings(vectors);
-	} else {
-		console.log(`No vectors to store`);
-	}
+    if (vectors.length > 0) {
+      const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
+      await thrallEventPublisher.sendEmbeddingsToKinesis(
+        shortenedVectors,
+        imageIdToMessageId,
+        batchItemFailures,
+      );
+      await s3VectorStore.storeEmbeddings(vectors);
+    } else {
+      console.log(`No vectors to store`);
+    }
 
-  return {batchItemFailures};
+    return {batchItemFailures};
+  } finally {
+		// force freeing the bedrock client to avoid opening too many connections
+		// each connection holds a file descriptor, leading to DNS resolution errors
+		// such as EBUSY
+    bedrockClient.destroy();
+  }
 };
 
 export const handler = async (
