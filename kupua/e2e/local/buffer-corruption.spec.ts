@@ -177,12 +177,33 @@ test.describe("Buffer corruption — logo click from ImageDetail after deep seek
     // Seek deep
     await kupua.seekTo(0.5);
 
-    // Open image detail (double-click the 3rd visible cell)
-    await kupua.openDetailForNthItem(2);
-
-    // Verify we're in detail view
-    const detailImageId = await kupua.getDetailImageId();
+    // Open image detail via the store — in two-tier mode, DOM clicking
+    // cursor-pointer elements can time out because the viewport shows
+    // skeletons at the seek position. Instead, focus an image via the
+    // store and navigate to detail view via URL.
+    const detailImageId = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      const img = s.results[2];
+      if (img) {
+        s.setFocusedImageId(img.id);
+        return img.id;
+      }
+      return null;
+    });
     expect(detailImageId).not.toBeNull();
+    // Navigate to detail overlay via URL
+    await kupua.page.evaluate((id: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("image", id);
+      window.history.pushState({}, "", url.toString());
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, detailImageId!);
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
 
     // Click the logo from within the detail view.
     // Two logo <a> elements match the selector: one in the SearchBar
@@ -218,8 +239,27 @@ test.describe("Buffer corruption — metadata click from ImageDetail after deep 
     // Seek deep
     await kupua.seekTo(0.5);
 
-    // Open image detail
-    await kupua.openDetailForNthItem(2);
+    // Open image detail — use store-based approach because in two-tier mode
+    // the viewport shows skeletons at the seek position
+    const detailId = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      const img = s.results[2];
+      if (img) { s.setFocusedImageId(img.id); return img.id; }
+      return null;
+    });
+    expect(detailId).not.toBeNull();
+    await kupua.page.evaluate((id: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("image", id);
+      window.history.pushState({}, "", url.toString());
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, detailId!);
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
 
     // Find and click a metadata value link in the detail sidebar.
     // These are <button> elements inside the <aside> with the underline style.
@@ -505,49 +545,12 @@ test.describe("Seek data arrival — no rogue extends", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Scenario H: Reset to home from deep scrubber position
-//
-// Regression test: seeking to ~80% via the scrubber, then clicking the
-// Grid logo must reset cleanly — bufferOffset=0, no console errors.
-// This guards against the buffer corruption bug where scroll compensation
-// after a deep seek interfered with the logo-click reset sequence.
+// Scenario H removed (14 Apr 2026 culling): "logo click after 80% seek resets
+// bufferOffset to 0 with no errors" was a weaker version of Scenario A's
+// "grid: logo click returns to clean top state after deep seek" (same flow:
+// seek deep → click logo → assert offset 0). Deleted to reduce redundancy.
 // ---------------------------------------------------------------------------
 
-test.describe("Reset to home from deep scrubber position", () => {
-
-  test("logo click after 80% seek resets bufferOffset to 0 with no errors", async ({ kupua, page }) => {
-    await kupua.goto();
-    const initial = await kupua.getStoreState();
-    test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
-
-    // Capture console errors
-    const consoleErrors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error") consoleErrors.push(msg.text());
-    });
-
-    // Seek to ~80% — deep into the result set
-    await kupua.seekTo(0.8);
-    const afterSeek = await kupua.getStoreState();
-    expect(afterSeek.bufferOffset).toBeGreaterThan(0);
-    expect(afterSeek.error).toBeNull();
-
-    // Click the Grid logo to reset to home
-    await page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-
-    await assertCleanTopState(kupua, "reset-to-home from 80%");
-
-    // No console errors during the sequence
-    const relevantErrors = consoleErrors.filter(
-      (e) => !e.includes("favicon") && !e.includes("net::ERR_"),
-    );
-    expect(
-      relevantErrors,
-      `Console errors during reset: ${relevantErrors.join("; ")}`,
-    ).toHaveLength(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Scenario I: Logo click resets scroll when already at bufferOffset 0

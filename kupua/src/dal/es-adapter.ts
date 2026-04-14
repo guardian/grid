@@ -24,6 +24,9 @@ import type {
   SortDistBucket,
 } from "./types";
 import { parseCql } from "./adapters/elasticsearch/cql";
+import type { PositionMap } from "./position-map";
+import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
+import { MAX_RESULT_WINDOW } from "@/constants/tuning";
 import { devLog } from "@/lib/dev-log";
 import {
   buildSortClause,
@@ -207,7 +210,11 @@ export class ElasticsearchDataSource implements ImageDataSource {
     });
 
     if (!response.ok) {
-      throw new Error(`ES request failed: ${response.status} ${url}`);
+      let detail = "";
+      try { detail = (await response.text()).slice(0, 500); } catch { /* best-effort */ }
+      throw new Error(
+        `ES request failed: ${response.status} ${url}` + (detail ? `\n${detail}` : ""),
+      );
     }
 
     // Yield after JSON.parse to break the long task — lets the browser paint
@@ -244,7 +251,11 @@ export class ElasticsearchDataSource implements ImageDataSource {
     });
 
     if (!response.ok) {
-      throw new Error(`ES request failed: ${response.status} ${url}`);
+      let detail = "";
+      try { detail = (await response.text()).slice(0, 500); } catch { /* best-effort */ }
+      throw new Error(
+        `ES request failed: ${response.status} ${url}` + (detail ? `\n${detail}` : ""),
+      );
     }
 
     // Same yield as esRequest — see comment above.
@@ -1127,6 +1138,152 @@ export class ElasticsearchDataSource implements ImageDataSource {
       console.warn("[ES] getDateDistribution failed:", e);
       return null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Position map — lightweight full-index fetch (_source: false)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch a lightweight position index for all results.
+   *
+   * Opens a **dedicated PIT** (decoupled from the main search PIT lifecycle),
+   * then walks the entire result set via `search_after` in 10k-doc chunks
+   * with `_source: false` — only `_id` and `sort` values are returned.
+   *
+   * The dedicated PIT is closed when done (or on abort/error).
+   *
+   * Yields between chunks (`scheduler.yield()`) to avoid blocking the main
+   * thread for >500ms (same pattern as `_fillBufferForScrollMode`).
+   *
+   * @returns Complete position map, or `null` if aborted/failed.
+   */
+  async fetchPositionIndex(
+    params: SearchParams,
+    signal: AbortSignal,
+  ): Promise<PositionMap | null> {
+    const startTime = Date.now();
+    const bareSortClause = buildSortClause(params.orderBy);
+    // Make `missing` explicit on every sort field. buildSortClause produces
+    // bare clauses like {field: "asc"} — ES defaults nulls to _last for asc,
+    // _first for desc. Making this explicit is required for search_after
+    // cursors that contain null values (null-zone tail): without explicit
+    // `missing`, ES 8.x rejects null in the search_after array with a 400.
+    const sortClause = bareSortClause.map((clause) => {
+      const { field, direction } = parseSortField(clause);
+      if (!field) return clause;
+      return {
+        [field]: {
+          order: direction,
+          missing: direction === "asc" ? "_last" : "_first",
+        },
+      };
+    });
+    const sortLen = bareSortClause.length;
+    const query = buildQuery(params);
+
+    // Open a dedicated PIT for this fetch — fully decoupled from main search.
+    let pitId: string;
+    try {
+      pitId = await this.openPit("1m");
+    } catch (e) {
+      if (signal.aborted) return null;
+      console.warn("[ES] fetchPositionIndex: failed to open PIT:", e);
+      return null;
+    }
+
+    if (signal.aborted) {
+      this.closePit(pitId);
+      return null;
+    }
+
+    const ids: string[] = [];
+    const sortValues: SortValues[] = [];
+    let cursor: SortValues | null = null;
+
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        if (signal.aborted) return null;
+
+        const body: Record<string, unknown> = {
+          query,
+          sort: sortClause,
+          // size must respect max_result_window on all pages —
+          // search_after does NOT bypass the limit in ES 8.x.
+          size: Math.min(POSITION_MAP_CHUNK_SIZE, MAX_RESULT_WINDOW),
+          _source: false,
+          track_total_hits: true,
+          pit: { id: pitId, keep_alive: "1m" },
+        };
+        const requestedSize = body.size as number;
+
+        if (cursor) {
+          body.search_after = cursor;
+        }
+
+        const result = (await this.esRequestRaw("_search", body, signal)) as {
+          took?: number;
+          pit_id?: string;
+          hits: {
+            total: { value: number };
+            hits: Array<{ _id: string; sort: SortValues }>;
+          };
+        };
+
+        if (signal.aborted) return null;
+
+        // Update PIT ID if ES refreshed it
+        if (result.pit_id) {
+          pitId = result.pit_id;
+        }
+
+        const hits = result.hits.hits;
+        if (hits.length === 0) break;
+
+        for (const hit of hits) {
+          ids.push(hit._id);
+          // Strip PIT's implicit _shard_doc tiebreaker from sort values.
+          // PIT adds an extra element; trim to match the sort clause length.
+          sortValues.push(
+            hit.sort.length > sortLen
+              ? hit.sort.slice(0, sortLen)
+              : hit.sort,
+          );
+        }
+
+        // Update cursor for next chunk — use the FULL sort values (including
+        // _shard_doc) so PIT-based search_after works correctly.
+        cursor = hits[hits.length - 1].sort;
+
+        devLog(
+          `[ES] fetchPositionIndex: chunk ${Math.ceil(ids.length / POSITION_MAP_CHUNK_SIZE)} — ` +
+          `${ids.length} entries so far (${Date.now() - startTime}ms)`,
+        );
+
+        // Last chunk — fewer hits than requested means no more data
+        if (hits.length < requestedSize) break;
+
+        // Yield to main thread between chunks to avoid long-task jank
+        await (scheduler?.yield?.() ?? new Promise<void>((r) => setTimeout(r, 0)));
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return null;
+      console.warn("[ES] fetchPositionIndex failed:", e);
+      return null;
+    } finally {
+      // Always close the dedicated PIT — fire and forget
+      this.closePit(pitId);
+    }
+
+    if (ids.length === 0) return null;
+
+    devLog(
+      `[ES] fetchPositionIndex: complete — ${ids.length} entries in ` +
+      `${Date.now() - startTime}ms`,
+    );
+
+    return { length: ids.length, ids, sortValues };
   }
 }
 

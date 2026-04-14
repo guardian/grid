@@ -233,7 +233,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (direction === "down") {
       const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
       const lastVisibleIdx = Math.min(count - 1, lastVisibleRow * cols);
-      if (count - lastVisibleIdx <= 5 && resultsLength < total) loadMore();
+      const bufOff = configRef.current.bufferOffset ?? 0;
+      if (count - lastVisibleIdx <= 5 && bufOff + resultsLength < total) loadMore();
     }
   }, []);
 
@@ -285,7 +286,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(nextIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (count - nextIdx <= 5 && resultsLength < total) {
+    if (count - nextIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
       loadMore();
     }
   }, []);
@@ -351,7 +352,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(targetIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (direction === "down" && count - targetIdx <= 5 && resultsLength < total) {
+    if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
       loadMore();
     }
   }, []);

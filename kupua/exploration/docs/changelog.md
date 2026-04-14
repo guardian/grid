@@ -14,6 +14,572 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 14 April 2026 — Code audit action items 1 & 2
+
+Executed two low-priority refactors from the two-tier virtualisation code audit
+(handoff-audit-action-items.md):
+
+1. **Scoped `performance.clearMarks()`** in `search-store.ts` — the seek function was
+   calling `performance.clearMarks()` / `clearMeasures()` with no argument, wiping ALL
+   marks on the page. Now clears only the 5 seek-specific mark names and 5 measure names.
+   Zero-risk, same behaviour.
+
+2. **Added `toVirtualizerIdx()` helper** in `useScrollEffects.ts` — the ternary
+   `isTwoTierFromTotal(t) ? globalIdx : globalIdx - bo` was repeated in 5 places.
+   Extracted to a module-level helper. Did NOT touch the line-841 site (different
+   branching pattern) or the component sites (different direction: `+` not `-`).
+
+Action 3 (JSDoc comments in useDataWindow.ts) was already done by a prior agent.
+
+All 270 Vitest tests pass. Handoff file deleted.
+
+### 14 April 2026 — Cross-tier E2E test matrix + test suite culling
+
+**Problem:** Kupua has three scrolling tiers (buffer ≤1k, two-tier 1k–65k, seek >65k)
+but 137 E2E tests only exercised two-tier mode (local ES has ~10k docs at default
+thresholds). Recent bugs were all at tier boundaries.
+
+**Solution:** Created a cross-tier test matrix that runs 18 tier-sensitive tests across
+all three tiers via three Vite dev servers (ports 3010/3020/3030) with different env
+vars. Each server inlines different `VITE_SCROLL_MODE_THRESHOLD` / `VITE_POSITION_MAP_THRESHOLD`
+values at build time to force buffer, two-tier, or seek mode respectively.
+
+**Test redundancy cull (habitual suite: 137→128 tests, ~6.2→5.8min):**
+- Deleted 6 two-tier tests (T5–T8, T10–T11) superseded by tier matrix. Kept T1–T4
+  (position map lifecycle), T9 (transient seek state), T12 (filter invalidation).
+- Merged 3 grid/table pairs into parameterised for-loops: post-seek scroll-up (B),
+  Bug #12 wheel scroll (C), Bug #16 runaway eviction (D).
+- Deleted sort-around-focus subset (E, strict subset of direction-change test),
+  weaker logo-click test (F), duplicate Home key test (G).
+
+**Tier matrix (54 tests across 3 tiers, ~4.2min):**
+- Created `playwright.tiers.config.ts` (3 projects × 3 webServers, `reuseExistingServer: false`).
+- Created `e2e/local/tier-matrix.spec.ts` with 18 tests covering: seek accuracy (4),
+  drag/content/scroll-freeze (3), density toggle (1), sort-around-focus (2), Home/End
+  keys (4), Bug #1 race (1), Bug #14 Credit sort (1), density-switch position (2).
+- Each test branches assertions on `test.info().project.name` (not runtime store
+  introspection). Buffer-mode tests wait for eager fill (10k docs, ~7-17s/test vs
+  ~1-6s for other tiers).
+- Added `testIgnore: "**/tier-matrix.spec.ts"` to habitual config so it only runs via
+  `npm run test:e2e:tiers`.
+
+**Test directive rewrite (copilot-instructions.md, both copies):**
+- Collapsed 4 directives (~34 lines) into 2 (~22 lines).
+- Added mandatory `2>&1 | tee /tmp/kupua-test-output.txt` pattern for all test commands.
+- Added "never re-run tests that are already running" rule to prevent agent panic on
+  terminal timeout.
+- Added port conflict warning for tier-matrix ports (3010/3020/3030).
+
+**Fix during validation:** Test #2 ("seek to top") failed at all tiers because
+`seekTo(0.02)` lands at 2% of scrollHeight (thousands of pixels), not near 0px.
+Replaced scrollTop threshold with bufferOffset + scrubberPosition assertions.
+
+**Files:** `playwright.tiers.config.ts` (new), `e2e/local/tier-matrix.spec.ts` (new),
+`e2e/local/scrubber.spec.ts` (culled), `e2e/local/buffer-corruption.spec.ts` (culled),
+`playwright.config.ts` (testIgnore), `package.json` (script), `e2e/README.md`,
+`AGENTS.md`, `.github/copilot-instructions.md` + human copy.
+
+### 14 April 2026 — Fix scrubber thumb frozen after density switch in two-tier mode
+
+**Bug:** In two-tier mode (~62k results): scroll to ~50% → switch density to table →
+switch back to grid → press End. Results correctly showed the end of the dataset, but
+the scrubber thumb stayed at ~50%. All scrolling after a density round-trip failed to
+update the thumb.
+
+**Root cause:** The Scrubber's scroll-mode continuous sync effect (line 476) attached a
+scroll listener to the scroll container element via `getScrollContainer()`, capturing it
+in a closure. After a density round-trip (grid→table→grid), the grid remounted with a
+**new** DOM element, but the Scrubber (which lives in `search.tsx` and never unmounts)
+kept listening to the dead element. The effect's deps (`isScrollMode`, `isDragging`,
+`maxThumbTop`, `trackHeight`) didn't change after the round-trip, so the effect never
+re-ran. In scroll mode, the discrete thumb sync is explicitly skipped (`if (isScrollMode)
+return`), so no code path updated the thumb.
+
+**Systemic analysis:** Reviewed all 12 `getScrollContainer()` call sites. All except the
+Scrubber's scroll listener call it fresh per invocation (correct). The deeper issue:
+`scroll-container-ref.ts` was a fire-and-forget setter/getter with no notification
+mechanism — consumers that needed to react to changes had to discover them through
+indirect effect deps. Also reviewed four recent density-switch bugs (Bug #18 skeleton
+deadlock, `_suppressDensityFocusSave` stuck, `_prevParamsSerialized` mismatch, this bug)
+— genuinely different root causes, not whack-a-mole.
+
+**Fix:** Made `scroll-container-ref.ts` observable via `useSyncExternalStore`.
+`registerScrollContainer()` now increments a generation counter and notifies subscribers.
+New `useScrollContainerGeneration()` hook returns the counter. Scrubber uses it as a dep
+on the scroll-sync effect — when the container changes, the effect re-runs and
+`attach()` picks up the new element. Same-element guard (`if (_el === el) return`)
+avoids spurious bumps.
+
+**Impact verification:** Traced all 6 scroll-container interaction points in the
+Scrubber (wheel forwarding, scroll-sync effect, `scrollContentTo`, track click, drag
+move, drag up). Only the scroll-sync effect was affected. Verified all 3 modes
+(buffer/indexed/seek), tooltip, ticks, labels — none touch the scroll container. Seek
+mode hits the `if (!isScrollMode) return` guard, so generation changes are a harmless
+no-op.
+
+**Also fixed:** Pre-existing unused variable `images` in `useDataWindow.test.ts` line
+224 (TS6133 warning).
+
+**Files changed (3):**
+- `src/lib/scroll-container-ref.ts` — generation counter + `useSyncExternalStore` hook
+- `src/components/Scrubber.tsx` — import + call `useScrollContainerGeneration()`, add as
+  scroll-sync effect dep
+- `src/hooks/useDataWindow.test.ts` — remove unused destructured variable
+
+**Results:** Unit 270/270 ✓, TypeScript clean ✓, E2E 137/137 ✓ (6.2m). Manually
+verified on ~62k results: scroll 50% → table → grid → End → thumb moves to bottom.
+
+### 14 April 2026 — Fix position map fetch failure on null-zone sorts + ES error diagnostics
+
+**Bug:** `fetchPositionIndex()` failed with HTTP 400 on the final chunk when
+sorting by a field with null values (e.g. `metadata.dateTaken` — ~960 of 60,962
+images lack it on TEST). The position map never loaded for Taken, Credit, Source,
+Last Modified, Category, or any config-driven alias sort. Seeks fell back to the
+slower deep-seek path (percentile estimation). The app worked, just slower.
+
+**Root cause:** `fetchPositionIndex` built sort clauses via `buildSortClause()`
+which produces bare `{field: "asc"}` without explicit `missing` values. When the
+`search_after` cursor contained `null` (entering the null zone at chunk 7), ES 8.x
+rejected the request — a null in the cursor didn't match the expected type for the
+field without an explicit `missing` directive.
+
+**Fix (es-adapter.ts):**
+1. **Explicit `missing` in sort clauses:** Transform bare clauses to object-form
+   with `missing: "_last"` for asc / `missing: "_first"` for desc. Semantically
+   identical to ES defaults but makes null-valued `search_after` cursors accepted.
+2. **ES error body in diagnostics:** Both `esRequest()` and `esRequestRaw()` now
+   read the response body (first 500 chars) on non-OK status and include it in
+   the error message. Previously the body was discarded, making 400s opaque.
+
+**Not reproducible locally** — the local E2E dataset has no null sort fields.
+Requires TEST verification via `./scripts/start.sh --use-TEST` with Taken sort.
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓ (6.0m).
+
+### 14 April 2026 — Retrofit E2E tests with placeholder detection
+
+**Task:** Added `assertNoVisiblePlaceholders()` to 4 existing seek-and-settle tests
+in `e2e/local/scrubber.spec.ts`, per `handoff-placeholder-detection.md`.
+
+**Why:** The original permanent-skeleton bug after two-tier seek was invisible to
+E2E tests because they only checked store state (bufferOffset, resultsLength, error)
+and scroll position — all of which could be correct while the viewport showed only
+skeletons. The new assertion catches "buffer positioned correctly but viewport not
+aligned to it" regressions.
+
+**Tests amended (1 line each):**
+1. "can scroll up after seeking to 50%" — after 1500ms settle, before scroll-up
+2. "dragging past buffer triggers scroll-seek that fills skeletons" — after assertPositionsConsistent
+3. "scrubber works in seek mode before position map loads" — after assertPositionsConsistent
+4. "position-map seek lands at exact target position" — after assertPositionsConsistent
+
+**Results:** 270/270 unit ✓, 137/137 E2E ✓ (7.3min). Zero additional runtime on
+passing tests (waitForFunction returns immediately when no placeholders visible).
+
+### 14 April 2026 — Consolidate hardcoded `nonFree: "true"` to single source of truth
+
+**Refactor:** All hardcoded `nonFree: "true"` default values across 6 files now
+reference `DEFAULT_SEARCH` from a single zero-dependency module
+(`src/lib/home-defaults.ts`). Pure mechanical refactor — no behaviour change.
+
+**Motivation:** In real Grid, `nonFree` is a per-user config. When Kupua reaches
+Phase 3 (Grid API integration, auth), `DEFAULT_SEARCH` will become dynamic.
+Having the value in one place makes that a single-file change instead of a 6-file
+hunt. Handoff doc: `handoff-nonFree-single-source.md`.
+
+**Key decision — extract to `home-defaults.ts`:** `DEFAULT_SEARCH` was originally
+defined in `useUrlSearchSync.ts`, which imports from `search-store`. If
+`search-store` imported `DEFAULT_SEARCH` back, that would create a circular
+dependency. The new `home-defaults.ts` module has zero internal imports (only the
+`UrlSearchParams` type from `search-params-schema.ts`), so it's importable from
+anywhere. `useUrlSearchSync.ts` re-exports for backward compatibility.
+
+**Sites changed:**
+- `routes/index.tsx` — `{ nonFree: "true" }` → `DEFAULT_SEARCH`
+- `routes/image.tsx` — `{ nonFree: "true", image }` → `{ ...DEFAULT_SEARCH, image }`
+- `SearchBar.tsx` — navigate param in resetToHome callback → `DEFAULT_SEARCH`
+- `ImageDetail.tsx` — navigate param in resetToHome callback → `DEFAULT_SEARCH`
+- `search-store.ts` — initial store `params` → `...DEFAULT_SEARCH`
+- `reset-to-home.ts` — import path updated to `home-defaults`
+- `useUrlSearchSync.ts` — inline definition → import + re-export
+
+**Sites NOT changed (with reasoning):**
+- `ErrorBoundary.tsx` (`window.location.href = "/search?nonFree=true"`) — hard
+  reload fallback, can't use runtime constant. Cross-reference comment added.
+- `SearchBar.tsx` / `ImageDetail.tsx` `<a href="...">` — static HTML for
+  right-click "open in new tab". Cross-reference comments added.
+- `SearchFilters.tsx` (`params.nonFree === "true"`) — runtime comparison against
+  user input, not a default value.
+- `es-adapter.ts` (`params.nonFree !== "true"`) — runtime filter condition.
+
+**Files changed (9):** `home-defaults.ts` (new), `useUrlSearchSync.ts`,
+`reset-to-home.ts`, `routes/index.tsx`, `routes/image.tsx`, `SearchBar.tsx`,
+`ImageDetail.tsx`, `ErrorBoundary.tsx`, `search-store.ts`.
+
+**Results:** Unit 270/270 ✓, E2E 118/118 ✓ (buffer-corruption, keyboard-nav,
+scrubber — 5.8m).
+
+### 14 April 2026 — Fix permanent skeletons after two-tier seek + position map not fetched after sort-around-focus
+
+**Bug A (primary):** After seeking within 1k–65k results in two-tier mode,
+placeholders never fill with images. Repro: fresh app with 62k results
+(`nonFree=true&since=2024-12-12`), switch to Taken sort, seek to null zone →
+permanent empty skeletons.
+
+**Root cause A:** `_seekTargetGlobalIndex` was always set to `clampedOffset`
+regardless of `exactOffset`. The deep-seek path (percentile estimation) has drift
+— `actualOffset` can differ from `clampedOffset` by thousands of positions in the
+null zone. Effect #6 in `useScrollEffects.ts` forced `scrollTop` to
+`clampedOffset`'s pixel position, but the buffer was at `actualOffset` →
+viewport showed only skeletons → scroll-triggered re-seek faced the same drift →
+infinite skeleton deadlock.
+
+**Fix A:** `_seekTargetGlobalIndex` now differentiates exact vs inexact offset:
+- **Exact offset** (position-map, shallow from/size): uses `clampedOffset` — the
+  buffer is guaranteed to cover that position.
+- **Inexact offset** (deep seek): uses `actualOffset + backwardItemCount` — the
+  bidirectional centre of the buffer, where "interesting" content starts.
+
+First attempt used `actualOffset + scrollTargetIndex` (from `computeScrollTarget`),
+but that function clamps to buffer-local scroll bounds — in two-tier mode where
+`scrollTop` is a global pixel position, the reverse-computed index clamped to
+`bufferLength - 1`, placing the viewport at the buffer's bottom edge with no
+scroll-up headroom (broke tests 46, 50). Using `backwardItemCount` directly avoids
+the buffer-local clamping.
+
+**Bug B (secondary):** Position map never fetched after sort-around-focus.
+
+**Root cause B:** `search()` has two branches — the sort-around-focus early path
+(when `sortAroundFocusId && !focusedInFirstPage`) and the normal path. Only the
+normal path called `_fetchPositionMap`. After sort-around-focus, `positionMap`
+stayed `null` forever, forcing all subsequent seeks through the deep-seek path.
+
+**Fix B:** Added `_fetchPositionMap` call in the sort-around-focus early branch,
+with the same two-tier eligibility check and dedicated abort controller.
+
+**Fix C (test tooling):** Added `countVisiblePlaceholders()` and
+`assertNoVisiblePlaceholders(timeout?)` to E2E helpers. Grid detection: cells
+without `[data-grid-cell]` + `bg-grid-cell` class. Table detection: rows without
+`cursor-pointer` + `bg-grid-separator` skeleton. Both check viewport intersection.
+Created handoff (`handoff-placeholder-detection.md`) for retrofitting 4 existing
+tests with the new assertion.
+
+**Files changed (3):**
+- `src/stores/search-store.ts` — Fix A (`_seekTargetGlobalIndex` exact/inexact
+  split) + Fix B (`_fetchPositionMap` in sort-around-focus branch)
+- `e2e/shared/helpers.ts` — Fix C (placeholder detection helpers)
+- `exploration/docs/handoff-placeholder-detection.md` — retrofit handoff
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓. Verified on TEST cluster (62k
+results, Taken sort, null zone seek) — no skeletons.
+
+### 14 April 2026 — Fix Home button not resetting sort order
+
+**Bug:** Change sort to e.g. Category → click Home → results still sorted by
+Category instead of reverting to default `-uploadTime`.
+
+**Root cause:** Regression from the density-switch position loss fix (same day,
+earlier session). `resetToHome()` only cleared `query` and `offset` via
+`store.setParams({ query: undefined, offset: 0 })`. The 14 Apr density fix
+restored `_prevParamsSerialized` to `{nonFree:"true"}` after `search()` — which
+matched the home URL exactly, so `useUrlSearchSync`'s dedup bailed out and never
+pushed the full reset (including `orderBy: undefined`) to the store. The stale
+`orderBy` persisted.
+
+**Fix:** `resetToHome()` now resets ALL URL-managed search params (built
+dynamically from `URL_PARAM_KEYS`, excluding display-only keys), then overlays
+home defaults from the new exported `DEFAULT_SEARCH` constant. This makes the
+store match the home URL *before* `search()` fires, so the dedup restoration is
+correct. Any future params added to the schema are cleared automatically.
+
+**Collateral improvement:** Exported `DEFAULT_SEARCH` from `useUrlSearchSync.ts`
+as the single source of truth for home URL defaults. `resetToHome()` references
+it instead of hardcoding `{ nonFree: "true" }`. Created handoff doc
+(`handoff-nonFree-single-source.md`) for a future refactor to consolidate the
+remaining 5 hardcoded `nonFree: "true"` sites across routes and components.
+
+**Files changed (4):**
+- `src/lib/reset-to-home.ts` — full param reset using `URL_PARAM_KEYS` +
+  `DEFAULT_SEARCH` instead of partial `{ query, offset }` reset
+- `src/hooks/useUrlSearchSync.ts` — exported `DEFAULT_SEARCH` constant
+- `e2e/local/scrubber.spec.ts` — 3 new E2E tests: sort field reset, sort
+  direction reset, Home from table with sort reset
+- `exploration/docs/handoff-nonFree-single-source.md` — handoff for nonFree
+  consolidation refactor
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓ (3 new tests).### 14 April 2026 — Fix density-switch position loss after Home button click
+
+**Bug:** Grid → seek 50% → table (OK) → grid → Home → seek 50% → table → scrolls
+to top instead of preserving position.
+
+**Root cause #1:** `_suppressDensityFocusSave` flag stuck permanently.
+`resetToHome()` called `suppressDensityFocusSave()` unconditionally. The flag is
+only cleared by the mount effect of the *next* density component. But Home from
+grid = no density switch = grid stays mounted → flag stays true → all future
+unmount saves suppressed → focus never recorded.
+
+**Fix #1:** Gate `suppressDensityFocusSave()` with `if (willSwitchDensity)` in
+`reset-to-home.ts`.
+
+**Root cause #2:** `resetSearchSync()` clears `_prevParamsSerialized` to `""`.
+When Home is clicked from grid (URL already `?nonFree=true`), `navigate()` is a
+no-op (same URL). `useUrlSearchSync` never fires to restore
+`_prevParamsSerialized`. It stays empty. The next density switch (adding
+`?density=table`) finds a mismatch and fires `search()`, resetting buffer to
+offset 0 → position lost.
+
+**Fix #2:** After `store.search()` completes in `resetToHome()`, restore
+`_prevParamsSerialized` and `_prevSearchOnly` to match the home URL params
+(`{nonFree: "true"}`). When Home fires from table (URL does change),
+`useUrlSearchSync` overwrites with the same value — no conflict.
+
+**Other changes:**
+- Removed all diagnostic devLogs from `useUrlSearchSync.ts`. Permanent devLog
+  tracing kept in `setPrevParamsSerialized` and `resetSearchSync` (routed through
+  `devLog`, no-op in prod).
+- 2 new E2E tests in `scrubber.spec.ts`: Home-from-grid without focus + with focus.
+
+**Files changed (4):**
+- `src/lib/reset-to-home.ts` — both fixes
+- `src/lib/orchestration/search.ts` — permanent devLog in resetSearchSync +
+  setPrevParamsSerialized
+- `src/hooks/useUrlSearchSync.ts` — temp diagnostics removed
+- `e2e/local/scrubber.spec.ts` — 2 new Home-from-grid density tests
+
+**Results:** Unit 270/270 ✓, E2E 134/134 ✓. All 8 density-switch tests pass.
+
+### 13–14 April 2026 — Fix indexed-mode scrubber skeleton deadlock (Bug #18)
+
+**Bug:** Clicking scrubber at 50% on ~62k results → after ~2s scrubber jumps near
+top, shows only empty placeholders that never fill in.
+
+**Root cause:** `twoTier` was derived from `positionMap !== null`. When user clicks
+scrubber before the position map finishes loading (~5-8s for 62k), the seek completes
+in non-twoTier mode (virtualizerCount = buffer length ~300, scrollHeight ~13k). When
+positionMap arrives asynchronously, `twoTier` flips true → virtualizerCount jumps to
+~62k → scrollHeight jumps to ~2.6M. But scrollTop stays at its old value (~4242).
+In the new coordinate space, scrollTop=4242 maps to global position ~98, but the
+buffer is at ~31k → all cells show skeletons forever (permanent deadlock).
+
+**Fix #3 (accepted) — two parts, 4 agents over 2 days:**
+
+- **Part A:** Derive `twoTier` from total range (`SCROLL_MODE_THRESHOLD < total ≤
+  POSITION_MAP_THRESHOLD`) instead of `positionMap !== null`. The coordinate space is
+  now stable from frame 1 — no late flip when position map arrives. Position map
+  remains a performance optimisation (faster seeks), not a coordinate-space decision.
+
+- **Part B:** Scrubber `isScrollMode` includes `twoTier`. When the scroll container
+  already spans all `total` items, the scrubber sets scrollTop directly (instant
+  visual feedback) instead of firing a slow deep seek (~2.1s). Data fills
+  asynchronously via useDataWindow's scroll-triggered seek (~1.8s background).
+
+**Rejected approaches:**
+
+- Fix #1 (swimming): `useLayoutEffect` detecting twoTier false→true transition to
+  recompute scrollTop. Caused visible swimming — cells shifted when scrollTop changed.
+- Fix #2 (slow): Total-based twoTier only (Part A without Part B). Scrubber still
+  entered seek mode (deep percentile path) → 2.1s with no visual feedback.
+
+**Regression fix — Effect #8 (bufferOffset→0 guard):** The `if (twoTier) return;`
+guard in effect #8 prevented scrollTop reset on logo click. With total-range-based
+twoTier, the local 10k dataset triggers twoTier=true, so effect #8 never reset
+scrollTop on go-home. Removed the guard — in twoTier mode, bufferOffset→0 happens
+either from natural scroll-to-top (scrollTop already ~0, reset is no-op) or from
+search()/resetToHome (scrollTop needs reset). Both are safe.
+
+**Test helper fixes:** `seekTo()` and `isTwoTierMode()` in `e2e/shared/helpers.ts`
+still used `positionMap !== null` for twoTier detection. Updated to use total-range
+check matching the app logic. Sort-around-focus visibility assertion in
+`scrubber.spec.ts` updated to use global index (not buffer-local) for row position
+estimation in twoTier mode.
+
+**Files changed (8):**
+- `src/hooks/useDataWindow.ts` — twoTier from total range
+- `src/stores/search-store.ts` — `_seekTargetGlobalIndex` from total range
+- `src/hooks/useScrollEffects.ts` — `isTwoTierFromTotal()` helper, 6 imperative
+  checks updated, effect #8 twoTier guard removed
+- `src/components/ImageGrid.tsx` — `captureAnchor` uses hook's twoTier
+- `src/routes/search.tsx` — separate `positionMapLoaded` from `twoTier`, pass to Scrubber
+- `src/components/Scrubber.tsx` — `twoTier` prop, `isScrollMode` includes twoTier
+- `e2e/shared/helpers.ts` — `seekTo()`, `isTwoTierMode()` use total-range twoTier
+- `e2e/local/scrubber.spec.ts` — Sort-around-focus visibility uses global index
+
+**Results:** Unit 270/270 ✓, E2E 132/132 ✓, smoke 10/11 (S3 pre-existing), scroll
+stability 8/8 ✓. Tested on TEST cluster (~62k results) and local Docker ES (~10k).
+
+Sorry
+**Scope:** Fix all E2E test failures introduced by two-tier virtualisation, then
+fix a real app bug (End key landing near top in two-tier mode).
+
+**Part 1 — E2E test fixes (5 agents, 6 full suite runs):**
+
+Baseline: 125 passed, 8 failed. Final: 132 passed, 1 skipped, 0 failed.
+
+Root cause of most failures: in two-tier mode, `seekTo()` in `helpers.ts` checked
+`positionMap !== null` to decide the two-tier code path, but position map is
+transiently null during initial load (~2-3s) and after sort/density/view switch
+reload (~1s). Tests calling `seekTo` during these windows took the wrong (non-two-tier)
+path, resolving immediately from stale buffer state.
+
+**Root cause fix in `helpers.ts`:** `seekTo()` now waits up to 10s for position map
+to load when `total > 1000` and `positionMap` is null. This fixes all tests that
+call `seekTo` when position map is transiently null.
+
+**Fixes in `scrubber.spec.ts` (~14 targeted edits):**
+
+1. Fixed `__kupuaStore` → `__kupua_store__` typo in no-swim test polling
+2. Golden table (Cases 1-3): wrapped scroll-preservation assertions in `if (!isTwoTier)` —
+   scroll preservation semantics don't apply in two-tier (scrollContentTo sets absolute scrollTop)
+3. Settle-window: replaced raw click + `waitForSeekComplete` with seekGeneration
+   snapshot + `waitForSeekGenerationBump` + `waitForPositionMap`
+4. No-swim test: `isTwoTier` detection after first seekTo; sub-row preservation
+   assertion gated with `if (!isTwoTier)`
+5. Metadata panel + long session: replaced `focusNthItem()` with store-based focus
+   via `page.evaluate → setFocusedImageId` (skeletons prevent DOM click in two-tier)
+6. End key tests (Credit + default): replaced `waitForTimeout` + `waitForSeekComplete`
+   with seekGeneration snapshot + `waitForSeekGenerationBump`
+7. End key cross-density: replaced `waitForTimeout(1500)` with seekGeneration approach
+8. `getViewState` helper: fixed global→buffer-local index conversion
+9. Seek to bottom (0.98): mode-aware `bufferEnd` assertion
+10. ScrollTop after seek: skip buffer-local scrollTop assertion in two-tier
+11. Keyword sort Credit tests: wrapped console log assertions in `if (!isTwoTier)` —
+    position-map fast path bypasses keyword strategy
+12. Density-focus 5+ toggles: `test.skip()` in two-tier (prepend compensation N/A) —
+    later deleted entirely as dead code
+
+**Part 2 — End key bug fix (1-line fix):**
+
+**Bug:** End key in two-tier mode (1k-65k results) landed near the top instead of
+the bottom. Correctly diagnosed after previous agent misattributed the symptom to
+a "density switch resets buffer" app bug.
+
+**Root cause:** End key fast path (reverse `searchAfter`, line 1796 of `search-store.ts`)
+didn't set `exactOffset = true`. Consequences: (1) `_seekTargetGlobalIndex` stayed -1
+(no two-tier scroll target), (2) `scrollTargetIndex` was reverse-computed from the
+user's current scrollTop (near the top) instead of using the known-exact
+`targetLocalIndex`. Effect #6 in `useScrollEffects` scrolled to the wrong position.
+
+**Fix:** Added `exactOffset = true` to the End key fast path. The offset IS exact
+(`total - hits.length`). This enables the exact-offset scroll target path AND sets
+`_seekTargetGlobalIndex = clampedOffset` in two-tier mode.
+
+After the fix, the End key cross-density test was unskipped and rewritten to verify
+buffer position (not scrollTop, which is buffer-local in table virtualiser).
+
+**Also reverted:** unnecessary `isSeekCooldownActive()` export from `search-store.ts` —
+was solving a non-existent problem based on the previous agent's wrong diagnosis.
+
+**Final results:** 132 passed, 1 skipped (density-focus 5+ toggles — deleted as dead
+code). 270 unit tests pass. Files modified: `helpers.ts`, `scrubber.spec.ts`,
+`search-store.ts`.
+
+### 13 April 2026 — Two-Tier Virtualisation: Real Scrollbar for 1k-65k Results
+
+**Scope:** Make the scrubber behave like a real scrollbar (drag = direct scroll)
+for result sets between 1,000 and 65,000 images. Previously, the scrubber was a
+seek control for >1k results — drag previewed a position, pointer-up teleported
+the buffer there (~850ms on TEST). Now, the virtualizer renders `total` items
+(not just buffer length), the scroll container has full height, and scrubber
+drag directly sets `scrollTop`.
+
+**Prerequisites built (Phases 0-4a of position-map workplan, 10-12 Apr):**
+
+1. **Phase 0 — Measurement:** Validated position map feasibility. Per-entry
+   V8 heap: 288 bytes. At 65k: ~18MB heap, ~5s fetch. `_source` per image:
+   8,258 bytes avg — full `_source` for 65k = 512MB, impossible. Position map
+   is the only viable index for large datasets.
+
+2. **Phase 1 — Position Map data structure + DAL:** Created `PositionMap` type
+   (struct-of-arrays: `ids[]`, `sortValues[]`, `length`), `cursorForPosition()`
+   helper (handles search_after off-by-one, position 0, tied sort values),
+   `fetchPositionIndex()` in `es-adapter.ts` (chunked `_source: false` fetch,
+   dedicated PIT, 10k/chunk). Files: `dal/position-map.ts`, `dal/es-adapter.ts`.
+
+3. **Phase 2 — Store integration:** Background fetch triggered after search when
+   `SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`. Store exposes
+   `positionMap`, `positionMapLoading`. Invalidated on every `search()`.
+   Files: `search-store.ts`, `tuning.ts`.
+
+4. **Phase 3 — Fast seek path:** When position map available, seek uses exact
+   cursor lookup — one `searchAfter` call. Eliminates `countBefore`, percentile
+   estimation, and composite-agg walks. Fixed `exactOffset` ReferenceError that
+   silently crashed all position-map seeks. Files: `search-store.ts`.
+
+5. **Phase 4a — Scrubber tristate:** `ScrubberMode = 'buffer' | 'indexed' | 'seek'`.
+   `indexed` mode activates when position map is loaded. Files: `Scrubber.tsx`,
+   `search.tsx`.
+
+**Two-tier virtualisation (Sessions 1-3, 13 Apr):**
+
+**Session 1 — Index mapping + scrubber mode switch:**
+
+- `useDataWindow.ts`: Added `twoTier = positionMap !== null`. Set
+  `virtualizerCount = twoTier ? total : results.length`. Remapped `getImage()`
+  (global→local mapping), `findImageIndex()` (returns global when twoTier),
+  `reportVisibleRange()` (buffer-relative extend triggers), viewport anchor
+  (local conversion, skip when outside buffer).
+- `Scrubber.tsx`: `isScrollMode = buffer || indexed`. Replaced all 12
+  `isBufferMode` references. Scrubber drag directly scrolls container in both
+  buffer and indexed modes.
+- `search.tsx`: `currentPosition = positionMapLoaded ? visibleRange.start : bufferOffset + visibleRange.start`.
+- `ImageGrid.tsx`, `ImageTable.tsx`, `ImageDetail.tsx`: `storeImageOffset` callers
+  use `twoTier ? idx : bufferOffset + idx`. All `results[idx]` → `getImage(idx)`.
+- `useListNavigation.ts`: 3 `loadMore` guards changed to
+  `bufferOffset + resultsLength < total`.
+- New: `useDataWindow.test.ts` — 28 unit tests for two-tier index mapping.
+
+**Session 2 — Scroll-triggered seek + compensation + verification:**
+
+- `useDataWindow.ts`: Debounced scroll-triggered seek (200ms) when viewport
+  entirely outside buffer in two-tier mode. Skip extends when viewport too far
+  from buffer (extends can't bridge thousands of positions).
+- `useScrollEffects.ts`: Gated prepend/evict compensation with `if (twoTier) return`
+  (items replaced at fixed positions, no insertion). Gated bufferOffset→0 guard.
+  Fixed `loadMore` fallback guard. Fixed density-focus restore (6 locations) for
+  two-tier global indices. Added seek scroll-to-target branching using
+  `_seekTargetGlobalIndex`.
+- `search-store.ts`: Added `_seekTargetGlobalIndex` to store. Implemented parallel
+  forward+backward fetch in position-map seek path — `Promise.all` saves ~250-350ms
+  on TEST (sequential ~750ms → parallel ~450ms network). Each direction independently
+  handles null-zone cursors.
+
+**Session 3 — E2E tests + documentation:**
+
+- `scrubber.spec.ts`: 12 new E2E tests under "Two-tier virtualisation" describe:
+  position-map loading, scrubber drag direct scroll, drag past buffer → seek fill,
+  sort change invalidation+reload, Home button reset, Home key seek(0), density
+  switch position preservation, keyboard nav (PgDown + End), seek mode regression,
+  position-map seek accuracy, sort-around-focus with two-tier, date filter
+  invalidation+reload.
+- `e2e/shared/helpers.ts`: Added `waitForPositionMap()`, `isTwoTierMode()` helpers.
+- Documentation: changelog, AGENTS.md, workplan status updates.
+
+**Architecture decisions:**
+
+- **`twoTier` is the central invariant:** derived from `positionMap !== null`.
+  When false, every code path is identical to before — zero regression by design.
+  When true, indices become global, scroll container is full-height, scrubber
+  drags directly.
+- **`search()` invalidates; `seek()` preserves.** Any search call sets
+  `positionMap: null` → `twoTier` snaps to false. Features like filters, sort,
+  query, Home button all go through `search()`, so they auto-revert to
+  buffer-local behaviour during the transition.
+- **Parallel fetch only with position map.** Sequential backward fetch remains
+  as fallback when `positionMap === null`.
+
+**All 270 unit tests pass. 12 new E2E tests added.**
+
+### 12 April 2026 — Position Map: Phases 0-4a (Seek Acceleration)
+
+**Scope:** Build the position-map infrastructure for 65k-image scrolling.
+See `scroll-real-scrolling-through-24-workplan.md` for the full 8-phase plan.
+
+Phases 0-4a delivered: position map data structure + DAL, store integration +
+background fetch, position-map-accelerated seek (exact positioning, fewer ES
+calls, no composite walks), scrubber tristate mode signal. Phases 4b-7
+superseded — the remaining work was scrubber seek-mode polish, not real
+scrolling. Two-tier virtualisation (above) is the successor.
+
 ### 10 April 2026 — Better table scroll (overscan 5→15), fix scrolling in tests
 
 **Scope:** Fix rubberbanding in Playwright scroll tests, tune table overscan, hide Keywords column.

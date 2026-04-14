@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { getScrollContainer, useScrollContainerGeneration } from "@/lib/scroll-container-ref";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -134,7 +134,21 @@ function applyThumbPosition(
 
 import type { TrackTick } from "@/lib/sort-context";
 
-// ...existing code...
+// ---------------------------------------------------------------------------
+// Scrubber mode — tristate describing the scrubber's interaction model.
+// ---------------------------------------------------------------------------
+
+/**
+ * Scrubber operating mode:
+ * - `'buffer'`: all data in buffer (total ≤ bufferLength). Click/drag
+ *   directly scrolls the content container. Native scrollbar behaviour.
+ * - `'indexed'`: position map loaded — the scrubber knows the exact
+ *   sortValues at every global position. Buffer is windowed.
+ *   Seek is fast (~50ms via position map lookup + single searchAfter).
+ * - `'seek'`: neither buffer nor position map. Status-quo deep seek
+ *   (percentile estimation, composite walk, countBefore).
+ */
+export type ScrubberMode = "buffer" | "indexed" | "seek";
 
 export interface ScrubberProps {
   /** Total number of matching results in the full result set. */
@@ -167,6 +181,20 @@ export interface ScrubberProps {
    * temporal structure and density without labels or width expansion.
    */
   trackTicks?: TrackTick[];
+  /**
+   * Whether the position map has been loaded (non-null in the store).
+   * When true AND total > bufferLength, the scrubber enters 'indexed' mode
+   * instead of 'seek' mode. Defaults to false.
+   */
+  positionMapLoaded?: boolean;
+  /**
+   * Whether two-tier virtualisation is active. When true, the scroll
+   * container already spans all `total` items (virtualizerCount = total),
+   * so the scrubber can scroll the container directly even before the
+   * position map loads. Without this, scrubber would fire a slow deep
+   * seek (~2s) instead of instant scrollTop assignment.
+   */
+  twoTier?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,10 +211,42 @@ export function Scrubber({
   getSortLabel,
   onFirstInteraction,
   trackTicks,
+  positionMapLoaded = false,
+  twoTier = false,
 }: ScrubberProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // -------------------------------------------------------------------------
+  // Mode derivation
+  // -------------------------------------------------------------------------
+
+  /**
+   * Tristate scrubber mode:
+   * - `'buffer'`:  total ≤ bufferLength — all data in buffer, direct scroll.
+   * - `'indexed'`: position map loaded — windowed buffer, fast seek via map.
+   * - `'seek'`:    neither — deep seek (percentile/composite/countBefore).
+   *
+   * NOTE: For Phase 4a this is purely a signal. 'indexed' currently
+   * behaves identically to 'seek' in all code paths. Phase 4b will
+   * add indexed-specific interaction (fast pointer-up seek).
+   */
+  const scrubberMode: ScrubberMode =
+    total <= bufferLength ? "buffer" : positionMapLoaded ? "indexed" : "seek";
+
+  // Two-tier: in indexed mode, the scrubber behaves like a scrollbar (same
+  // as buffer mode) — drag sets scrollTop directly, no seek-on-pointer-up.
+  // isScrollMode is true for both buffer and indexed modes. Only seek mode
+  // (no position map, >1k results) uses the seek-on-pointer-up interaction.
+  //
+  // ALSO true when twoTier is active (even without positionMap). When the
+  // scroll container already spans all `total` items, scrollTop assignment
+  // is instant — the scrubber moves immediately, skeletons appear at the
+  // right position, and useDataWindow's scroll-triggered seek fetches data
+  // in the background. Without this, clicking the scrubber before positionMap
+  // loads would fire a slow deep seek (~2s) with no visual feedback.
+  const isScrollMode = scrubberMode === "buffer" || scrubberMode === "indexed" || twoTier;
 
   // Ref-stabilise onFirstInteraction so callers don't need to memoize it.
   // Called on every user interaction (hover, click, drag). The store's own
@@ -209,10 +269,15 @@ export function Scrubber({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally empty — only runs on mount
 
-  const allDataInBuffer = total <= bufferLength;
   const [trackHeight, setTrackHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Subscribe to scroll container changes. The generation counter increments
+  // whenever a density component mounts/unmounts (registerScrollContainer).
+  // Used as a dep on the scroll-mode sync effect to re-attach the scroll
+  // listener when the container element changes (density switch).
+  const scrollContainerGen = useScrollContainerGeneration();
   /** True when mouse is over the track and NOT dragging — drives hover-preview tooltip. */
   const [isHoveringTrack, setIsHoveringTrack] = useState(false);
 
@@ -224,7 +289,7 @@ export function Scrubber({
   // less — the scrubber is a seeking control, not a scrollbar).
   const stableVisibleCountRef = useRef<number>(visibleCount);
   const stableTotalRef = useRef<number>(total);
-  if (!allDataInBuffer) {
+  if (!isScrollMode) {
     // Seek mode — always use live value
     stableVisibleCountRef.current = visibleCount;
     stableTotalRef.current = total;
@@ -234,7 +299,7 @@ export function Scrubber({
     stableTotalRef.current = total;
   }
   // Otherwise: scroll mode, already captured — keep the frozen value.
-  const thumbVisibleCount = allDataInBuffer ? stableVisibleCountRef.current : visibleCount;
+  const thumbVisibleCount = isScrollMode ? stableVisibleCountRef.current : visibleCount;
 
   // Tooltip visibility — visible during: hover preview, drag, or 1.5s flash
   const [tooltipFlashing, setTooltipFlashing] = useState(false);
@@ -390,7 +455,7 @@ export function Scrubber({
   // from the actual scroll ratio — skip here to avoid the two fighting.
   useEffect(() => {
     if (isDragging || pendingSeekPosRef.current != null) return;
-    if (allDataInBuffer) return; // scroll mode — handled by scroll listener below
+    if (isScrollMode) return; // scroll mode — handled by scroll listener below
     const thumbEl = thumbRef.current;
     if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
     const tipEl = tooltipRef.current;
@@ -398,12 +463,12 @@ export function Scrubber({
       const tipH = tipEl.offsetHeight || 28;
       tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
     }
-  }, [thumbTop, isDragging, trackHeight, allDataInBuffer]);
+  }, [thumbTop, isDragging, trackHeight, isScrollMode]);
 
   // -------------------------------------------------------------------------
   // Scroll-mode continuous sync
   //
-  // In scroll mode (allDataInBuffer), the discrete visibleRange.start from
+  // In scroll mode (isBufferMode), the discrete visibleRange.start from
   // the virtualizer has a "dead zone" at the top: it stays at 0 until the
   // first row fully scrolls out of view. This makes the scrubber thumb lag
   // behind the native scrollbar.
@@ -415,7 +480,7 @@ export function Scrubber({
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!allDataInBuffer) return; // seek mode — handled by the discrete sync above
+    if (!isScrollMode) return; // seek mode — handled by the discrete sync above
 
     // --- inner helper: attach scroll listener to the current scroll container ---
     let currentScrollEl: HTMLElement | null = null;
@@ -457,21 +522,21 @@ export function Scrubber({
 
     attach();
 
-    // Re-attach whenever allDataInBuffer re-enters true (e.g. after a new search
+    // Re-attach whenever isBufferMode re-enters true (e.g. after a new search
     // that loads a small result set, the density component remounts and the module
-    // ref updates). The effect re-runs because allDataInBuffer is in the dep array.
-    // No MutationObserver needed — the density component registers the new scroll
-    // container via registerScrollContainer() on its mount effect, but that happens
-    // before this effect runs (React processes child effects before parent-sibling
-    // effects in the same render). The getScrollContainer() call in attach() picks
-    // up the freshly-registered element.
+    // ref updates). The effect re-runs because isBufferMode is in the dep array.
+    // Re-attach whenever the scroll container element changes (density switch).
+    // scrollContainerGen increments when registerScrollContainer() is called,
+    // causing this effect to re-run and attach() to pick up the new element.
+    // Without this, the listener stays on the stale (unmounted) element after
+    // a grid→table→grid round-trip, and the thumb never updates from scroll events.
 
     return () => {
       if (currentScrollEl && currentHandler) {
         currentScrollEl.removeEventListener("scroll", currentHandler);
       }
     };
-  }, [allDataInBuffer, isDragging, maxThumbTop, trackHeight]);
+  }, [isScrollMode, isDragging, maxThumbTop, trackHeight, scrollContainerGen]);
 
   // -------------------------------------------------------------------------
   // Position → offset and back
@@ -523,8 +588,8 @@ export function Scrubber({
 
       applyThumbPosition(pos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
 
-      if (allDataInBuffer) {
-        // All data in buffer — scroll the content container
+      if (isScrollMode) {
+        // All data in buffer or indexed mode — scroll the content container
         const maxPos = Math.max(1, total - thumbVisibleCount);
         scrollContentTo(pos / maxPos);
       } else {
@@ -533,7 +598,7 @@ export function Scrubber({
       }
       flashTooltip();
     },
-    [positionFromY, total, thumbVisibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
+    [positionFromY, total, thumbVisibleCount, isScrollMode, scrollContentTo, flashTooltip],
   );
 
   // -------------------------------------------------------------------------
@@ -545,7 +610,7 @@ export function Scrubber({
   // One single seek fires on pointer up. Fine-grained browsing of
   // adjacent items is done via wheel/trackpad (native scroll physics).
   //
-  // For small result sets (allDataInBuffer), drag directly scrolls the
+  // For small result sets (isBufferMode), drag directly scrolls the
   // content container — no seek needed, instant feedback.
   // -------------------------------------------------------------------------
 
@@ -598,8 +663,8 @@ export function Scrubber({
         // Move thumb + tooltip via direct DOM writes (60fps, no React)
         applyThumbPosition(pos, total, dragVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
 
-        if (allDataInBuffer) {
-          // Small result set — scroll content directly
+        if (isScrollMode) {
+          // Small result set or indexed mode — scroll content directly
           const maxPos = Math.max(1, total - dragVisibleCount);
           scrollContentTo(pos / maxPos);
         }
@@ -610,7 +675,7 @@ export function Scrubber({
 
       const onPointerUp = () => {
         if (hasMoved) {
-          if (allDataInBuffer) {
+          if (isScrollMode) {
             const maxPos = Math.max(1, total - dragVisibleCount);
             scrollContentTo(latestPosition / maxPos);
           } else {
@@ -632,7 +697,7 @@ export function Scrubber({
       document.addEventListener("pointerup", onPointerUp);
       document.addEventListener("pointercancel", onPointerUp);
     },
-    [currentPosition, total, thumbVisibleCount, allDataInBuffer, scrollContentTo, flashTooltip],
+    [currentPosition, total, thumbVisibleCount, isScrollMode, scrollContentTo, flashTooltip],
   );
 
 
@@ -1076,7 +1141,7 @@ export function Scrubber({
           textAlign: "right",
           backgroundColor: "var(--color-grid-bg)",
           border: "1px solid var(--color-grid-border)",
-          opacity: tooltipVisible && !(allDataInBuffer && thumbHeight >= trackHeight * 0.8) ? 1 : 0,
+          opacity: tooltipVisible && !(isScrollMode && thumbHeight >= trackHeight * 0.8) ? 1 : 0,
           transition: "opacity 150ms ease-in",
         }}
       >

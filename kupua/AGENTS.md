@@ -30,6 +30,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Working on… | Read these files |
 |---|---|
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
+| **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts` |
@@ -39,9 +40,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
-| **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx` |
+| **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
-| **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts` |
+| **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
 | **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
@@ -54,11 +55,13 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Component | Key files | ~Lines | Purpose |
 |---|---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
-| Store | `stores/search-store.ts` | 2,730 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil |
+| Position Map | `dal/position-map.ts` | 80 | `PositionMap` struct-of-arrays (ids + sortValues), `cursorForPosition()` helper |
+| Store | `stores/search-store.ts` | 3,040 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil, position map, parallel seek |
+| Data Window | `hooks/useDataWindow.ts` | 415 | Buffer↔view bridge. Two-tier mode (`virtualizerCount=total`), scroll-triggered seek, extend triggers |
 | Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
-| Grid | `components/ImageGrid.tsx` | 490 | Responsive thumbnails, scroll anchoring on width change |
-| Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,080 + 1,040 | Scroll/seek modes, ticks, tooltip, null-zone support |
-| Scroll | `hooks/useScrollEffects.ts` | 720 | Shared scroll lifecycle. Seek, prepend compensation, density-focus. |
+| Grid | `components/ImageGrid.tsx` | 510 | Responsive thumbnails, scroll anchoring on width change |
+| Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
+| Scroll | `hooks/useScrollEffects.ts` | 890 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
 | Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Prefetch, fullscreen, position cache. |
 | Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Another density of the same list. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
@@ -71,11 +74,12 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **203 Vitest** unit/integration tests (~5s) — `npm test`
-- **121 Playwright E2E** tests (~5.5min) — `npx playwright test`
+- **270 Vitest** unit/integration tests (~36s) — `npm test`
+- **128 Playwright E2E** tests (~5.8min) — `npx playwright test`
+- **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
-- Full reference: **`e2e/README.md`** (7 test modes, decision tree, env vars)
+- Full reference: **`e2e/README.md`** (8 test modes, decision tree, env vars)
 - Logging: use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E)
 
 ### Known Issues
@@ -87,8 +91,10 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
-- [ ] Raise scroll-mode threshold beyond 1000
+- [x] ~~Raise scroll-mode threshold beyond 1000~~ → Position map Phases 0-4a complete
+- [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Sessions 1-3 complete
 - [ ] Column reordering via drag-and-drop
+- [x] ~~Consolidate hardcoded `nonFree: "true"` to `DEFAULT_SEARCH`~~ → `home-defaults.ts`
 
 ### Deferred to Later Phases
 
@@ -112,6 +118,11 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | ES audit | `exploration/docs/es-audit.md` | 9 issues found, 4 fixed |
 | Performance | `exploration/docs/perf-measurement-report.md` | Phases 0–C measured results |
 | Rendering perf plan | `exploration/docs/rendering-perf-plan.md` | Issue taxonomy (A–F), quantitative gates |
+| Position map workplan | `exploration/docs/scroll-real-scrolling-through-24-workplan.md` | 8-phase plan for 65k scroll-like scrubber (Phases 0-4a done, 4b-7 superseded) |
+| Two-tier virtualisation | `exploration/docs/scroll-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
+| Two-tier handoff | `exploration/docs/two-tier-virtualisation-handoff.md` | Assessment + detailed plan for next agent |
+| Position map measurements | `exploration/docs/01 Research/scroll-position-map-measurements.md` | Phase 0 results + decisions |
+| Phase 1 handoff | `exploration/docs/phase1-handoff.md` | Next-agent handoff for position map data layer |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 ## Tech Stack
@@ -150,3 +161,6 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 10. **Separate infrastructure** — Docker ES on port 9220, scripts in `kupua/scripts/`, sample data (115MB) not in git.
 
 11. **TanStack Table column ID caveat** — dot-path accessors get dots→underscores in IDs. Maps keyed by column ID must use underscores.
+
+12. **Two-tier virtualisation** — When total is in the position-map-eligible range (1k < total ≤ 65k), `virtualizerCount = total`, indices become global, scrubber drag directly scrolls the container. `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background performance optimisation (faster seeks), not a coordinate-space decision. Buffer slides via extends and scroll-triggered seeks. `search()` invalidates the map (→ reverts to buffer-local); `seek()` preserves it. Parallel forward+backward fetch saves ~250-350ms. Full design: `scroll-two-tier-virtualisation-workplan.md`.
+

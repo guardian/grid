@@ -14,6 +14,7 @@ import {
   getCqlInputGeneration,
 } from "@/lib/orchestration/search";
 import { resetToHome } from "@/lib/reset-to-home";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
@@ -87,6 +88,8 @@ export function SearchBar() {
            Uses <a> (not <Link>) with e.preventDefault() so we can await
            search() before navigating. This prevents the table→grid flash:
            the density switch only happens after fresh page-1 data is ready. */}
+      {/* href must match DEFAULT_SEARCH in src/lib/home-defaults.ts
+           (static string for right-click "open in new tab") */}
       <a
         href="/search?nonFree=true"
         title="Grid — clear all filters"
@@ -94,7 +97,7 @@ export function SearchBar() {
         onClick={(e) => {
           e.preventDefault();
           resetToHome(() =>
-            navigate({ to: "/search", search: { nonFree: "true" } }),
+            navigate({ to: "/search", search: DEFAULT_SEARCH }),
           );
         }}
       >

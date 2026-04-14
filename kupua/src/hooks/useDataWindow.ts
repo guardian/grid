@@ -7,11 +7,13 @@
  * This hook mediates between the search store (which manages a windowed buffer
  * of ES results) and view components (which render them). It provides:
  *
- * 1. **Buffer-aware data access** — `getImage(index)` accepts a buffer-local
- *    index and returns the image, or undefined if that slot hasn't been loaded.
+ * 1. **Buffer-aware data access** — `getImage(index)` accepts an index and
+ *    returns the image, or undefined if that slot hasn't been loaded.
+ *    In normal mode, indices are buffer-local. In two-tier mode, indices
+ *    are global (the virtualizer spans all `total` items).
  *
  * 2. **Edge detection + extend triggers** — `reportVisibleRange(start, end)`
- *    tells the hook which buffer-local indices are on screen. When the viewport
+ *    tells the hook which indices are on screen. When the viewport
  *    approaches the buffer boundaries, the hook triggers `extendForward` or
  *    `extendBackward` to fetch more data.
  *
@@ -22,13 +24,22 @@
  * ## Buffer model
  *
  * The store holds a fixed-capacity buffer (`results[]`, max ~1000 entries)
- * with `bufferOffset` mapping buffer[0] to a global position. Views work
- * with buffer-local indices (0 to results.length). When they need global
- * positions (e.g. for the image counter "X of Y"), they add `bufferOffset`.
+ * with `bufferOffset` mapping buffer[0] to a global position.
+ *
+ * ### Normal mode (`twoTier = false`)
+ * Views work with buffer-local indices (0 to results.length). When they need
+ * global positions (e.g. for the image counter "X of Y"), they add `bufferOffset`.
+ *
+ * ### Two-tier mode (`twoTier = true`, when total is in the position-map-eligible range)
+ * `virtualizerCount = total`, so the scroll container spans all items.
+ * Indices from the virtualizer are global (0..total-1). `getImage()` maps
+ * global→buffer-local internally. Cells outside the buffer show skeletons.
+ * The scrubber drag directly scrolls the container (like a real scrollbar).
  */
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
+import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import type { Image } from "@/types/image";
 
 /**
@@ -37,6 +48,18 @@ import type { Image } from "@/types/image";
  * buffer boundary, we trigger extendBackward or extendForward respectively.
  */
 const EXTEND_THRESHOLD = 50;
+
+/**
+ * Debounce delay for scroll-triggered seeks in two-tier mode (ms).
+ * When the user scrolls (wheel/trackpad or scrubber drag) past the buffer,
+ * we wait this long before firing a seek — coalesces rapid scroll events.
+ * The existing seek abort pattern handles concurrent seeks, but rapid fire
+ * without debounce causes flicker.
+ */
+const SCROLL_SEEK_DEBOUNCE_MS = 200;
+
+/** Module-level debounce timer for scroll-triggered seek. */
+let _scrollSeekTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------------------
 // Post-seek backward extend suppression — REMOVED (Agent 10)
@@ -131,7 +154,7 @@ export interface DataWindow {
   bufferOffset: number;
   /** Total number of matching images in ES (may be >> buffer size). */
   total: number;
-  /** Number of rows the virtualizer should render (= buffer length). */
+  /** Number of items the virtualizer should render. In two-tier mode = total; otherwise = buffer length. */
   virtualizerCount: number;
   /** Whether a search or seek is currently in flight. */
   loading: boolean;
@@ -150,14 +173,30 @@ export interface DataWindow {
   /** Set the focused image ID. */
   setFocusedImageId: (id: string | null) => void;
   /**
-   * Report the currently visible buffer-local index range. The hook will
-   * detect proximity to buffer edges and trigger extend operations.
+   * Report the currently visible index range. In normal mode, indices are
+   * buffer-local. In two-tier mode, indices are global (0..total-1).
+   * The hook detects proximity to buffer edges and triggers extend/seek.
    */
   reportVisibleRange: (startIndex: number, endIndex: number) => void;
-  /** Get the image at a buffer-local index, or undefined if not loaded. */
+  /**
+   * Get the image at an index, or undefined if not loaded.
+   * In normal mode: buffer-local index. In two-tier mode: global index
+   * (returns undefined for positions outside the buffer window).
+   */
   getImage: (index: number) => Image | undefined;
-  /** Find the buffer-local index of an image by ID, or -1 if not in the buffer. */
+  /**
+   * Find the index of an image by ID.
+   * In normal mode: buffer-local index, or -1 if not in the buffer.
+   * In two-tier mode: global index, or -1 if not in the position map.
+   */
   findImageIndex: (imageId: string) => number;
+  /**
+   * Whether two-tier virtualisation is active. When true, the virtualizer
+   * spans all `total` items (not just the buffer), indices are global,
+   * and the scrubber drag directly scrolls the container.
+   * Derived from total range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`).
+   */
+  twoTier: boolean;
 }
 
 /**
@@ -187,9 +226,36 @@ export function useDataWindow(): DataWindow {
   const setFocusedImageId = useSearchStore((s) => s.setFocusedImageId);
   const imagePositions = useSearchStore((s) => s.imagePositions);
 
-  // The virtualizer count is simply the buffer length.
-  // When no results have loaded yet, use 0.
-  const virtualizerCount = results.length;
+  // ---------------------------------------------------------------------------
+  // Two-tier virtualisation
+  //
+  // Two-tier mode is active when total is in the position-map-eligible range
+  // (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD). The virtualizer
+  // spans all `total` items from the very first render — indices are global,
+  // cells outside the buffer show skeletons, the buffer slides via extends
+  // and seeks.
+  //
+  // IMPORTANT: twoTier is derived from total, NOT from positionMap being
+  // loaded. The position map is a performance optimization (faster seeks);
+  // twoTier is the coordinate-space decision. Deriving from positionMap
+  // caused a late coordinate-space flip when the map arrived after a seek
+  // (scrollHeight jumped from ~13k to ~2.6M, scrollTop stayed put → all
+  // cells showed skeletons forever). By basing on total, the coordinate
+  // space is stable from frame 1.
+  //
+  // When twoTier is false (total ≤ SCROLL_MODE_THRESHOLD or > threshold),
+  // everything is identical to the pre-two-tier behaviour — buffer-local
+  // indices, buffer-length virtualizer count, buffer-mode scrubber.
+  // ---------------------------------------------------------------------------
+  const twoTier = useSearchStore((s) =>
+    POSITION_MAP_THRESHOLD > 0 &&
+    s.total > SCROLL_MODE_THRESHOLD &&
+    s.total <= POSITION_MAP_THRESHOLD,
+  );
+
+  // In two-tier mode, the virtualizer spans all items. In normal mode, just
+  // the buffer length.
+  const virtualizerCount = twoTier ? total : results.length;
 
   // Use refs for values needed in the callback to keep it stable
   const bufferOffsetRef = useRef(bufferOffset);
@@ -202,12 +268,17 @@ export function useDataWindow(): DataWindow {
   resultsRef.current = results;
   const focusedImageIdRef = useRef(focusedImageId);
   focusedImageIdRef.current = focusedImageId;
+  const twoTierRef = useRef(twoTier);
+  twoTierRef.current = twoTier;
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
 
   const reportVisibleRange = useCallback(
     (startIndex: number, endIndex: number) => {
       const offset = bufferOffsetRef.current;
       const len = resultsLenRef.current;
       const t = totalRef.current;
+      const isTwoTier = twoTierRef.current;
 
       // Update module-level visible range for Scrubber (useSyncExternalStore)
       if (startIndex !== _visibleStart || endIndex !== _visibleEnd) {
@@ -216,24 +287,68 @@ export function useDataWindow(): DataWindow {
         _notifyVisibleListeners();
       }
 
-      // Near the end of the buffer → extend forward
-      if (endIndex >= len - EXTEND_THRESHOLD && offset + len < t) {
-        extendForward();
-      }
+      if (isTwoTier) {
+        // --- Two-tier mode: indices are global (0..total-1) ---
+        // Extend triggers use buffer-relative thresholds:
+        // fire only when the viewport overlaps or is near the buffer.
+        // When viewport is entirely outside the buffer, fire a debounced
+        // seek to reposition the buffer — extends can't bridge the gap.
+        const globalStart = startIndex;
+        const globalEnd = endIndex;
 
-      // Near the start of the buffer → extend backward
-      //
-      // APPROACH #4 (Agent 10): Removed _postSeekBackwardSuppress flag.
-      // Previously, a flag blocked extendBackward after seek until the user
-      // scrolled past EXTEND_THRESHOLD (~7 rows). This prevented swimming
-      // but also prevented scrolling UP after seek. With the 100ms cooldown
-      // (SEEK_COOLDOWN_MS) blocking ALL extends post-seek, and the deferred
-      // scroll firing at 150ms (after the virtualizer has settled), the
-      // first extendBackward should happen in a stable state where
-      // useLayoutEffect compensation is invisible. If swimming returns,
-      // increase SEEK_COOLDOWN_MS — don't re-add the flag.
-      if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
-        extendBackward();
+        const viewportOverlapsOrNearBuffer =
+          globalEnd > offset - EXTEND_THRESHOLD &&
+          globalStart < offset + len + EXTEND_THRESHOLD;
+
+        if (viewportOverlapsOrNearBuffer) {
+          // Cancel any pending scroll-triggered seek — the viewport is
+          // back near the buffer, extends can handle it.
+          if (_scrollSeekTimer) {
+            clearTimeout(_scrollSeekTimer);
+            _scrollSeekTimer = null;
+          }
+          // Near the end of the buffer → extend forward
+          if (globalEnd > offset + len - EXTEND_THRESHOLD && offset + len < t) {
+            extendForward();
+          }
+          // Near the start of the buffer → extend backward
+          if (globalStart < offset + EXTEND_THRESHOLD && offset > 0) {
+            extendBackward();
+          }
+        } else {
+          // Viewport entirely outside buffer — debounced seek to reposition.
+          // Skip extends — they work in PAGE_SIZE increments from buffer
+          // edges and can't bridge a gap of thousands of positions.
+          if (_scrollSeekTimer) clearTimeout(_scrollSeekTimer);
+          _scrollSeekTimer = setTimeout(() => {
+            _scrollSeekTimer = null;
+            seekRef.current(globalStart);
+          }, SCROLL_SEEK_DEBOUNCE_MS);
+          // Skip viewport anchor update — viewport is showing skeletons,
+          // no valid anchor available.
+          return;
+        }
+      } else {
+        // --- Normal mode: indices are buffer-local ---
+        // Near the end of the buffer → extend forward
+        if (endIndex >= len - EXTEND_THRESHOLD && offset + len < t) {
+          extendForward();
+        }
+
+        // Near the start of the buffer → extend backward
+        //
+        // APPROACH #4 (Agent 10): Removed _postSeekBackwardSuppress flag.
+        // Previously, a flag blocked extendBackward after seek until the user
+        // scrolled past EXTEND_THRESHOLD (~7 rows). This prevented swimming
+        // but also prevented scrolling UP after seek. With the 100ms cooldown
+        // (SEEK_COOLDOWN_MS) blocking ALL extends post-seek, and the deferred
+        // scroll firing at 150ms (after the virtualizer has settled), the
+        // first extendBackward should happen in a stable state where
+        // useLayoutEffect compensation is invisible. If swimming returns,
+        // increase SEEK_COOLDOWN_MS — don't re-add the flag.
+        if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
+          extendBackward();
+        }
       }
 
       // Update the viewport anchor — nearest image to the viewport centre.
@@ -241,7 +356,13 @@ export function useDataWindow(): DataWindow {
       const currentResults = resultsRef.current;
       if (currentResults.length > 0 && !focusedImageIdRef.current) {
         const midPoint = (startIndex + endIndex) / 2;
-        const anchorIndex = Math.min(Math.max(0, Math.round(midPoint)), currentResults.length - 1);
+        // In two-tier mode, convert global midpoint to buffer-local
+        const localMid = isTwoTier
+          ? Math.round(midPoint) - offset
+          : Math.round(midPoint);
+        // If outside buffer (viewport showing skeletons), skip — no anchor
+        if (localMid < 0 || localMid >= currentResults.length) return;
+        const anchorIndex = Math.min(Math.max(0, localMid), currentResults.length - 1);
         const anchorImage = currentResults[anchorIndex];
         if (anchorImage) {
           _viewportAnchorId = anchorImage.id;
@@ -253,25 +374,38 @@ export function useDataWindow(): DataWindow {
 
   const getImage = useCallback(
     (index: number): Image | undefined => {
+      if (twoTier) {
+        // Two-tier: index is global. Map to buffer-local.
+        const localIdx = index - bufferOffset;
+        if (localIdx < 0 || localIdx >= results.length) return undefined;
+        return results[localIdx];
+      }
+      // Normal: index is buffer-local
       if (index < 0 || index >= results.length) return undefined;
       return results[index];
     },
-    [results],
+    [results, twoTier, bufferOffset],
   );
 
   /**
-   * Find the buffer-local index of an image by ID.
-   * Returns -1 if the image is not in the current buffer.
+   * Find the index of an image by ID.
+   * Normal mode: returns buffer-local index, or -1 if not in the buffer.
+   * Two-tier mode: returns global index, or -1 if not in imagePositions.
    */
   const findImageIndex = useCallback(
     (imageId: string): number => {
       const globalIdx = imagePositions.get(imageId);
       if (globalIdx == null) return -1;
+      if (twoTier) {
+        // Two-tier: return global index directly (the virtualizer uses global)
+        return globalIdx;
+      }
+      // Normal: return buffer-local index
       const localIdx = globalIdx - bufferOffset;
       if (localIdx < 0 || localIdx >= results.length) return -1;
       return localIdx;
     },
-    [imagePositions, bufferOffset, results.length],
+    [imagePositions, bufferOffset, results.length, twoTier],
   );
 
   return {
@@ -290,5 +424,6 @@ export function useDataWindow(): DataWindow {
     reportVisibleRange,
     getImage,
     findImageIndex,
+    twoTier,
   };
 }

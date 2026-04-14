@@ -17,10 +17,12 @@
  * `<a>` + `e.preventDefault()` so the browser doesn't navigate eagerly.
  */
 
-import { resetSearchSync, resetScrollAndFocusSearch } from "@/lib/orchestration/search";
+import { resetSearchSync, resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
 import { useSearchStore } from "@/stores/search-store";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { resetViewportAnchor } from "@/hooks/useDataWindow";
+import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 /**
  * Reset all search/scroll/sync state, await fresh first-page data,
@@ -74,8 +76,21 @@ export async function resetToHome(navigate: () => void) {
   // has fresh page-1 data (bufferOffset=0) before the caller navigates.
   // This is the key to eliminating the table→grid flash: the grid mounts
   // with correct data instead of stale deep-offset content.
+  //
+  // Reset ALL URL-managed search params (not just query/offset). Without
+  // this, params like orderBy survive Home — the density-switch fix below
+  // restores _prevParamsSerialized to match the home URL ({nonFree:"true"}),
+  // so useUrlSearchSync's dedup bails out and never clears them from the store.
+  const searchKeys = URL_PARAM_KEYS.filter(
+    (k) => !URL_DISPLAY_KEYS.has(k)
+  );
+  const fullReset = Object.fromEntries(
+    searchKeys.map((k) => [k, undefined])
+  );
   const store = useSearchStore.getState();
-  store.setParams({ query: undefined, offset: 0 });
+  // Apply the full reset, then overlay the home defaults (DEFAULT_SEARCH).
+  // Single source of truth: if the home URL defaults change, this follows.
+  store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });
   try {
     await store.search();
   } catch {
@@ -83,7 +98,29 @@ export async function resetToHome(navigate: () => void) {
     // The error state will be displayed on the home page.
   }
 
-  // Suppress density-focus saves during the navigate() commit phase.
+  // Restore the URL sync dedup state after the direct search() above.
+  //
+  // resetSearchSync() cleared _prevParamsSerialized to "" (step 1) so that
+  // useUrlSearchSync would re-search on the next URL change. But when Home
+  // is clicked from grid view, navigate() goes to ?nonFree=true — which is
+  // already the current URL. The navigate is a no-op, useUrlSearchSync
+  // never fires, and _prevParamsSerialized stays "". The next real URL
+  // change (e.g. density switch adding ?density=table) finds a mismatch
+  // and fires search(), resetting the buffer to offset 0 — destroying the
+  // user's scroll position.
+  //
+  // Fix: after our direct search() completes, restore the dedup state to
+  // match the home URL params. We use DEFAULT_SEARCH (same source of truth
+  // as useUrlSearchSync), NOT store.params (which includes internal keys
+  // like offset/length that never appear in the URL).
+  const homeSearchOnly = Object.fromEntries(
+    Object.entries(DEFAULT_SEARCH).filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
+  setPrevParamsSerialized(JSON.stringify(homeSearchOnly));
+  setPrevSearchOnly({ ...homeSearchOnly });
+
+  // Suppress density-focus saves during the navigate() commit phase —
+  // BUT ONLY when a density switch is about to happen (Home from table).
   //
   // When search() completes, it sets bufferOffset=0 with 200 fresh results.
   // React may or may not commit this re-render before navigate() fires
@@ -97,7 +134,16 @@ export async function resetToHome(navigate: () => void) {
   // suppressDensityFocusSave() prevents the unmount save from writing.
   // The grid mount effect clears the suppress flag, restoring normal
   // density-switch behaviour for future interactions.
-  suppressDensityFocusSave();
+  //
+  // When Home is clicked from GRID view (no density switch — grid stays
+  // mounted), the suppress is unnecessary: there's no table unmount to
+  // suppress. Worse, the grid never remounts so the flag stays permanently
+  // true — breaking ALL subsequent density switches (the grid unmount save
+  // is suppressed, so the table mount finds no saved state and falls back
+  // to scrollToIndex which lands at the wrong position).
+  if (willSwitchDensity) {
+    suppressDensityFocusSave();
+  }
 
   // Navigate AFTER data is ready. The density switch (table→grid) now
   // sees bufferOffset=0 and fresh results — no flash.

@@ -29,6 +29,7 @@ import type {
   AggregationsResult,
   SortDistribution,
 } from "./types";
+import type { PositionMap } from "./position-map";
 import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
 
 // ---------------------------------------------------------------------------
@@ -563,6 +564,37 @@ export class MockDataSource implements ImageDataSource {
 
   async getKeywordDistribution(): Promise<SortDistribution | null> {
     return null;
+  }
+
+  async fetchPositionIndex(
+    params: SearchParams,
+    signal: AbortSignal,
+  ): Promise<PositionMap | null> {
+    this.requestCount++;
+    if (signal.aborted) return null;
+
+    const sortClause = buildSortClause(params.orderBy);
+    const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
+    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
+
+    const sortedIndices = needsCustomSort
+      ? this.getSortedIndices(sortClause)
+      : null;
+
+    const effectiveTotal = sortedIndices ? sortedIndices.length : this.totalImages;
+
+    const ids: string[] = [];
+    const sortValues: SortValues[] = [];
+
+    for (let pos = 0; pos < effectiveTotal; pos++) {
+      if (signal.aborted) return null;
+      const idx = sortedIndices ? sortedIndices[pos] : pos;
+      const img = this.getImageAt(idx)!;
+      ids.push(img.id);
+      sortValues.push(sortValuesForImage(img, sortClause));
+    }
+
+    return { length: ids.length, ids, sortValues };
   }
 }
 

@@ -4,7 +4,8 @@
 > anyone inheriting this codebase.
 >
 > **§0** frames why the architecture has this shape.
-> **§1–§3** are accessible to anyone familiar with web UIs.
+> **§1–§2** are accessible to anyone familiar with web UIs.
+> **§3** bridges UX and implementation.
 > **§4–§6** require understanding of React rendering, virtual scrolling, and
 > Elasticsearch internals.
 
@@ -62,16 +63,72 @@ access to any position:
 | immich | Full ID list in memory, client-side virtual scroll | Self-hosted; typical libraries are <1M items |
 
 At 9M docs × ~40 bytes per sort key = **360MB** just for the position map.
-At the historical peak of 57M (pre-deduplication), that's 2.3GB. We can't
-hold a position map. We can't random-access by offset past 100k. We had to
-invent a different approach.
+At the historical peak of 57M, that's 2.3GB. A position map for the full
+set is impossible. We can't random-access by offset past 100k.
+
+But most user interactions don't involve the full 9M. Filtered views, date
+ranges, and single-day queries typically return between a few hundred and
+~65,000 images. For these smaller result sets, a lightweight position map
+*is* feasible (~288 bytes/entry = ~18MB at 65k). This creates a natural
+boundary: below 65k, we can achieve Google-Photos-like instant scrolling;
+above it, we need a different approach.
+
+This observation is the origin of kupua's **three-tier architecture**.
 
 ---
 
-## §2 The Architecture at a Glance
+## §2 The Three Tiers
 
-Kupua uses a **windowed buffer** with **cursor-based pagination** and a
-**custom scrubber** that replaces the native scrollbar.
+The architecture has three distinct modes, selected automatically based on
+the size of the current result set. Each mode represents a different
+trade-off between data coverage and interaction fidelity.
+
+```
+ Result count     Mode                     Scrubber behaviour
+ ─────────────────────────────────────────────────────────────
+ ≤ 1,000          Scroll mode              Real scrollbar (all data loaded)
+ 1,001 – 65,000   Indexed scroll mode      Real scrollbar (position map + sliding buffer)
+ > 65,000         Seek mode                Seek control (teleport on release)
+```
+
+### Why three tiers and not one?
+
+Each tier exists because the one above it breaks at a certain scale:
+
+**Scroll mode (≤1,000)** downloads every image's full data into memory.
+The scroll container literally contains all items. The scrubber is a real
+scrollbar because the browser already knows where everything is. This is
+the simplest possible implementation — no position map, no skeleton
+placeholders, no seek-on-scroll. Just a normal scrollable list. It works
+perfectly but can't scale: 65k images × ~8KB each = 500MB, which would
+crash the browser.
+
+**Indexed scroll mode (1k–65k)** can't download all the data, but it
+*can* download a lightweight index of every image's position — just IDs and
+sort values, ~288 bytes/entry instead of ~8KB. This position map lets the
+virtualizer render `total` items (not just the ~1,000 in the buffer), giving
+the scroll container full physical height. The scrubber works exactly like a
+real scrollbar — drag directly scrolls the content. Cells outside the
+~1,000-item buffer show skeleton placeholders that fill in as the buffer
+slides around via extends and scroll-triggered seeks. This mode couldn't
+handle 9M images: 9M × 288 bytes = 2.5GB for the position map alone.
+
+**Seek mode (>65k)** can't build a position map (too much data), so the
+scrubber becomes a fundamentally different control. Dragging moves the thumb
+and shows a tooltip with the estimated position, but the content doesn't
+scroll. Releasing the thumb triggers a `seek()` — the buffer is cleared and
+refilled at the target position. This takes 200–600ms (one network
+round-trip). The user experiences a brief "teleport" rather than continuous
+scrolling. It works at any scale, from 100k to 9M.
+
+**Why not just use indexed scroll mode for ≤1,000?** You could, but it would
+be strictly worse: it would add an unnecessary background fetch for the
+position map, run the skeleton rendering machinery, and introduce the
+scroll-triggered seek debounce timer — all for zero benefit, since the
+buffer already contains every image. The simpler approach is faster and
+has no edge cases.
+
+### The architecture at a glance
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -90,37 +147,73 @@ Kupua uses a **windowed buffer** with **cursor-based pagination** and a
 │      Scrubber thumb ═══════════►  seek(globalOffset)    │
 │      (proportional to total)      clears buffer,        │
 │                                   refills at target     │
+│                                                         │
+│  Position Map (1k–65k only):                            │
+│  [id₀, sortValues₀] [id₁, sortValues₁] ... [idₙ, ...]   │
+│  ~288 bytes/entry, ~18MB at 65k. Enables exact seek     │
+│  + two-tier virtualisation (virtualizer spans total).   │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Three operations move through the data:**
+**Four operations move through the data:**
 
 1. **Extend forward/backward** — sequential browsing. `search_after` with
    a cursor. O(page_size), no depth limit. Appends or prepends to the
    buffer; evicts from the opposite end to stay within capacity.
 
-2. **Seek** — random access. Scrubber click/drag. Clears the buffer and
-   fills it at the target position. Uses `from/size` for shallow offsets
-   (<10k), percentile estimation for deep date/numeric sorts, composite
-   aggregation walk for deep keyword sorts.
+2. **Seek** — random access. Scrubber click/drag (seek mode) or
+   scroll-triggered reposition (indexed scroll mode). Clears the buffer and
+   fills it at the target position. Strategy depends on the tier (see §5).
 
 3. **Sort-around-focus** — after a sort change, finds the focused image's
    new position and seeks to it. The user sees "Never Lost" — their image
    stays focused regardless of how it reorders.
 
-**The Scrubber** replaces the native scrollbar. It's a vertical track with
-a proportional thumb, position tooltip with sort-context labels (dates,
-keywords), and tick marks that function as a density map. Two modes:
-- **Scroll mode** (≤1000 results): all data in buffer; drag directly
-  scrolls content.
-- **Seek mode** (>1000 results): drag previews position via tooltip;
-  release triggers seek.
+4. **Two-tier virtualisation** — in indexed scroll mode, the virtualizer
+   renders `total` items (not just the buffer). Cells outside the buffer
+   show skeleton placeholders. The buffer slides via extends and debounced
+   scroll-triggered seeks to fill them.
+
+### The central invariant: `twoTier`
+
+```ts
+const twoTier =
+  POSITION_MAP_THRESHOLD > 0 &&
+  total > SCROLL_MODE_THRESHOLD &&
+  total <= POSITION_MAP_THRESHOLD;
+```
+
+When `false`: every code path uses buffer-local indices. The virtualizer
+spans `results.length`. The scrubber is either a scrollbar (scroll mode)
+or a seek control (seek mode). Zero regression from the simplest case.
+
+When `true`: indices become global, the scroll container spans all `total`
+items, and the scrubber drag directly scrolls the container.
+
+**`twoTier` is derived from total, not from positionMap.** The position map
+is a **performance optimisation** (faster seeks via exact cursor lookup);
+the coordinate-space decision (`twoTier`) is based on total alone. Deriving
+it from `positionMap !== null` would cause a late coordinate-space flip
+whenever the map arrives after a seek — scrollHeight would jump from ~13k
+to ~2.6M while scrollTop stayed put, permanently deadlocking the viewport
+on skeletons. By basing on total, the coordinate space is stable from
+frame 1.
+
+**Consequence for transitions:** `search()` invalidates the position map
+(`positionMap: null`), but `twoTier` stays true as long as the new result
+set's total is in range (1k < total ≤ 65k). The virtualizer count, scroll
+height, and index coordinate space are all stable across the transition.
+The scrubber operates in scroll mode immediately (setting scrollTop
+directly), even before the position map reloads — skeletons appear at the
+correct position, and a scroll-triggered seek fills them within ~1-2s.
+`seek()` does not invalidate the position map — the data is still valid
+(same PIT, same sort order).
 
 ---
 
 ## §3 The User Experience — What It Feels Like
 
-### Normal scrolling
+### Normal scrolling (all tiers)
 
 The user scrolls with mouse wheel or trackpad. TanStack Virtual renders
 ~15–30 visible rows from the buffer. When the viewport approaches the
@@ -133,7 +226,17 @@ The user never sees loading states during normal scrolling. The 50-item
 threshold means extends fire ~3–5 screenfuls before the viewport runs out
 of data.
 
-### Deep seek (scrubber click at 50% of 1.3M results)
+### Scrolling past the buffer (indexed scroll mode)
+
+In indexed scroll mode, the scroll container spans all `total` items. The
+user can drag the scrubber or scroll rapidly past the ~1,000-item buffer.
+Cells outside the buffer appear as skeleton placeholders. After a 200ms
+debounce, a scroll-triggered `seek()` repositions the buffer at the
+viewport's current position. Skeletons fill in within ~200–450ms (PROD).
+Extends can't bridge the gap between the viewport and a distant buffer —
+only seek can reposition across thousands of items.
+
+### Deep seek (scrubber click at 50% of 1.3M results, seek mode)
 
 1. User clicks the scrubber track at 50% → `seek(650000)`.
 2. `seek()` sets `SEEK_COOLDOWN_MS = 100ms` — blocks all extends.
@@ -158,7 +261,8 @@ of data.
 10. Post-extend cooldown (50ms) prevents cascading compensations.
 
 Total time: ~250–600ms on real ES (one extra backward fetch, ~50-100ms).
-Settle-window content shift: **0 items** (was ~3 items before bidirectional seek).
+Settle-window content shift: **0 items** (bidirectional seek ensures all prepends
+happen off-screen).
 
 ### Sort-around-focus ("Never Lost")
 
@@ -168,7 +272,9 @@ Settle-window content shift: **0 items** (was ~3 items before bidirectional seek
    fresh results at position 0 within ~100ms.
 4. In the background: `_findAndFocusImage` runs:
    a. Fetches the focused image with current sort → gets its `sort[]` values.
-   b. `countBefore` → exact global offset (e.g. position 847,291).
+   b. `countBefore` → exact global offset (e.g. position 847,291). When
+      the position map is loaded, this step is skipped — the map already
+      knows the image's global offset.
    c. If offset is within the current buffer → just scroll to it. Done.
    d. If outside → `_loadBufferAroundImage` (bidirectional `search_after`
       from the cursor) → buffer centered on the image.
@@ -205,13 +311,20 @@ When switching from table to grid (or vice versa):
 
 ## §4 Swimming, Timing, and Limits
 
-### The swimming problem
+### The swimming problem (seek mode only)
 
 "Swimming" is when visible images shift position during buffer prepend
 operations. It's the central engineering challenge of prepend-then-compensate
-virtual scrolling.
+virtual scrolling, and it only arises in **scroll mode** and **seek mode**
+where the virtualizer count equals the buffer length and items are
+inserted/removed.
 
-When `extendBackward` prepends 200 items to the buffer:
+In **indexed scroll mode**, swimming does not exist. The virtualizer always
+spans `total` items. Prepend compensation and eviction are gated off — items
+are replaced at fixed global positions, not inserted or removed. There is no
+`scrollTop` adjustment to race against the paint.
+
+When `extendBackward` prepends 200 items to the buffer (in seek or scroll mode):
 
 1. React re-renders with 400 items (200 new + 200 existing).
 2. The virtualiser grows — new rows appear above the viewport.
@@ -242,19 +355,23 @@ headroom above. Both `extendBackward` and `extendForward` now operate on
 off-screen content — swimming is eliminated by construction, not timing.
 
 **Settle-window content shift: 0 items** (measured on both local and real
-1.3M-doc data; was ~3 items before).
+1.3M-doc data).
 
 This is the insight that matters: no amount of cooldown tuning can make a
 prepend-directly-above-the-viewport invisible on all hardware. But if the
 prepend happens 100 items above the viewport, it doesn't need to be
 invisible — it's literally off-screen.
 
-### The timing chain
+### The timing chain (seek and scroll modes)
 
 Bidirectional seek eliminated swimming, but the timing chain still serves
 two purposes: (1) preventing extends from racing against the buffer
 replacement during seek, and (2) spacing out consecutive prepends so each
 `scrollTop` compensation settles before the next fires.
+
+In indexed scroll mode, prepend compensation is disabled. The timing chain
+only applies to seek cooldowns (preventing extends from racing against
+seek-triggered buffer replacements).
 
 ```
 seek() called
@@ -286,10 +403,6 @@ seek() called
 | `POST_EXTEND_COOLDOWN_MS` | 50ms | Spaces out consecutive backward extends |
 | `SEARCH_FETCH_COOLDOWN_MS` | 2000ms | Blocks extends during in-flight search/abort |
 
-The timing chain was tuned in April 2026 (see changelog.md, "Scroll Test & Tune" sessions).
-Original values were 700 / 800 / 200 — reduced 5.3× with no stability regressions,
-grid jank improved 50% at fast scroll speed.
-
 ### What didn't work (historical)
 
 | Approach | Outcome |
@@ -310,13 +423,20 @@ Each seek path makes a different number of ES round-trips:
 |---|---|---|---|
 | Shallow from/size | 1 | 20–50ms | offset < 10k |
 | End key fast path | 1 | 50–100ms | offset + PAGE_SIZE ≥ total |
+| Position-map seek | 1–2 | 250–450ms (PROD) | 1k < total ≤ 65k, position map loaded |
 | Percentile (deep date/numeric) | 3–4 | 250–600ms | percentile + search_after + backward + countBefore |
 | Keyword composite (deep keyword) | 4–15 | 200–800ms | composite pages + search_after + countBefore ± binary search |
 | Null-zone seek | 3–4 | 250–600ms | distribution lookup + filtered search_after + backward + countBefore |
 
+Position-map seek is the fastest deep-seek path: exact cursor lookup from
+the map, parallel forward+backward `search_after` via `Promise.all`, no
+`countBefore` (offset is exact from the map). Saves ~250-350ms vs sequential.
+
 Normal scrolling (extend forward/backward) is always 1 round-trip, 10–50ms.
 Sort-around-focus is 2–4 round-trips (getById + countBefore + optional
-bidirectional search_after). First scrubber interaction pays 2 round-trips
+bidirectional search_after). When the position map is loaded, sort-around-focus
+skips `countBefore` (the map already knows the image's global offset).
+First scrubber interaction pays 2 round-trips
 for the sort distribution (stats + histogram, ~15–50ms for dates, ~200–500ms
 for keywords); cached after that.
 
@@ -332,7 +452,8 @@ error = 450k positions. This doesn't affect the user (we correct with
 the target — requiring the backward fetch to cover more ground. If error
 exceeds halfBuffer (100 items as headroom), the user sees content from the
 wrong neighbourhood for one frame before the correction. Not observed in
-practice, but the mechanism exists.
+practice, but the mechanism exists. (Only applies to seek mode — indexed
+scroll mode uses exact position-map lookup, not percentile estimation.)
 
 **`countBefore` on heavily skewed data.** `countBefore` is a single
 `_count` query — fast regardless of depth. But the compound boolean query
@@ -347,6 +468,8 @@ unique values this is 100+ pages × ~50ms = 5 seconds. Current fields peak
 at ~50k unique values (credit). A field with 1M+ unique values would need
 a different strategy (e.g. terms aggregation with min_doc_count, or
 percentile on the keyword's hash). Filename sort was removed as it took ~15s.
+(Only applies to seek mode — indexed scroll mode bypasses composite walks
+entirely via position-map cursor lookup.)
 
 **`search_after` cursor invalidation.** If the underlying data changes
 between the forward and backward fetches of a bidirectional seek (document
@@ -390,6 +513,10 @@ Point In Time (PIT) provides consistent pagination on non-local ES:
 - 404/410 fallback: retries without PIT. Graceful degradation at the
   cost of snapshot isolation for that single request.
 
+The position map fetch opens its own **dedicated PIT**, fully decoupled
+from the main search PIT. This prevents the 2–5 second background fetch
+from interfering with user-initiated seeks or extends.
+
 ### Image detail position restore
 
 When the user reloads the page while viewing image detail at a deep offset,
@@ -403,8 +530,8 @@ in the buffer regardless of depth.
 ## §5 Deep Seek — How We Random-Access Without Random Access
 
 ES `search_after` is sequential — it can only go forward from a known
-cursor. There is no "give me the document at position 500,000" API. We
-use different strategies depending on the sort field type and depth.
+cursor. There is no "give me the document at position 500,000" API. The
+strategy depends on the tier.
 
 ### Decision tree
 
@@ -413,6 +540,13 @@ seek(globalOffset)
   │
   ├─ offset + PAGE_SIZE >= total?
   │   └── YES: End key fast path — reverse search_after, no cursor
+  │
+  ├─ positionMap available? (1k < total ≤ 65k)
+  │   └── YES: Position-map fast path
+  │         1. cursorForPosition(posMap, offset) → exact search_after cursor
+  │         2. Parallel forward + backward fetch (Promise.all)
+  │         3. No countBefore needed (offset is exact from the map)
+  │         4. Saves 2-13 ES calls vs other deep-seek paths
   │
   ├─ offset < DEEP_SEEK_THRESHOLD (10k)?
   │   └── YES: Shallow seek — plain from/size
@@ -442,7 +576,27 @@ seek(globalOffset)
                ~11 countBefore queries, ~200ms total)
 ```
 
-### Percentile estimation
+The first three paths (End key, position map, shallow) give exact offsets
+and use `targetLocalIndex` directly for scroll positioning. The remaining
+paths (null-zone, percentile, keyword) produce approximate offsets and use
+reverse-computation from the user's current `scrollTop` to eliminate flash.
+
+### The position-map fast path
+
+When the position map is available (1k < total ≤ 65k), seek is trivial:
+look up the sort values at the target position in the map, issue
+`search_after` with those exact values. One network call for the forward
+fetch. Both the forward and backward cursors are known upfront from the
+map, so they run in parallel via `Promise.all` — saving ~250-350ms
+compared to the sequential fallback.
+
+The position map eliminates `countBefore` entirely (the offset is already
+exact), eliminates percentile estimation (no approximation needed), and
+eliminates composite aggregation walks (no bucket-walking for keyword
+sorts). It handles date, keyword, and null-zone sorts uniformly — the map
+stores whatever sort values ES returned, including nulls.
+
+### Percentile estimation (seek mode, >65k)
 
 For date-sorted views (the common case), ES's `percentiles` aggregation
 can estimate the sort value at any percentile of the distribution in O(1)
@@ -460,7 +614,7 @@ null values (e.g. `dateTaken` — 80% null), using `total` would compress the
 non-null distribution to a thin band. The sort distribution's `coveredCount`
 is fetched (and cached) on first scrubber interaction.
 
-### Binary search on SHA-1 hex
+### Binary search on SHA-1 hex (seek mode, >65k)
 
 When sorting by keyword (e.g. Credit), a single bucket can contain 400k+
 docs (all with credit "PA"). After landing at the bucket start via
@@ -488,7 +642,7 @@ steps. Total: ~100ms + network. Compared to the brute-force skip loop
 that preceded it (5 × `search_after(size=100k)` = ~50MB transfer, ~46s
 over SSH tunnel), this is a 99.99% network reduction.
 
-### `countBefore` — the universal position finder
+### `countBefore` — the universal position finder (seek mode)
 
 `countBefore(params, sortValues, sortClause)` answers: "how many documents
 sort before this cursor?" It constructs a compound boolean query:
@@ -503,7 +657,9 @@ For sort [uploadTime desc, id asc]:
 ```
 
 This is a single `_count` query — O(1) regardless of depth. It's how we
-convert any cursor into an exact global offset, and vice versa.
+convert any cursor into an exact global offset, and vice versa. In indexed
+scroll mode, `countBefore` is rarely needed — the position map provides
+exact offsets directly.
 
 **Null-zone awareness:** When the sort field is missing (`null`), ES sorts
 these docs to the end. `countBefore` adds an `exists` filter to count
@@ -532,16 +688,17 @@ and `maxThumbTop = trackHeight − thumbHeight`. The reverse mapping
 (`positionFromY`) uses the same denominator. This unification was the fix
 for the original coordinate bug.
 
-### Two modes
+### Three modes
 
-| | Scroll mode | Seek mode |
-|---|---|---|
-| **When** | `total ≤ SCROLL_MODE_THRESHOLD` (1000) | `total > threshold` |
-| **Data coverage** | All results in buffer | Windowed buffer (~1000 of total) |
-| **Drag interaction** | Directly scrolls content (real-time) | Moves thumb + tooltip only |
-| **Release** | No-op (already scrolled) | `seek(position)` → buffer replaced |
-| **Activation** | Immediate after two-phase fill | Immediate |
-| **Latency** | 0ms (local scroll) | 200–500ms (ES round-trip) |
+| | Scroll mode | Indexed scroll mode | Seek mode |
+|---|---|---|---|
+| **When** | `total ≤ SCROLL_MODE_THRESHOLD` (1000) | `1k < total ≤ POSITION_MAP_THRESHOLD` (65k) | `total > 65k` |
+| **Data coverage** | All results in buffer | Position map (ids + sort values) for all; buffer (full `_source`) for ~1000 | Windowed buffer (~1000 of total) |
+| **Virtualizer count** | `results.length` (buffer-local) | `total` (global — full scroll height, stable from frame 1) | `results.length` (buffer-local) |
+| **Drag interaction** | Directly scrolls content (real-time) | Directly scrolls content (real-time); skeletons for positions outside buffer | Moves thumb + tooltip only |
+| **Release** | No-op (already scrolled) | No-op (already scrolled; buffer slides to fill via extends/seeks) | `seek(position)` → buffer replaced |
+| **Activation** | Immediate after two-phase fill | Immediate (twoTier from total); position map loads in background (~2-5s) for faster seeks | Immediate |
+| **Latency** | 0ms (local scroll) | 0ms for in-buffer; ~200-450ms for scroll-triggered seek | 200–500ms (ES round-trip) |
 
 Scroll mode uses `_fillBufferForScrollMode()` — a two-phase fetch:
 
@@ -551,12 +708,29 @@ Scroll mode uses `_fillBufferForScrollMode()` — a two-phase fetch:
 2. **Phase 2:** Immediately after phase 1, if `total ≤ SCROLL_MODE_THRESHOLD`
    (env-configurable, default 1000), the store eagerly fetches all remaining
    items in `PAGE_SIZE` chunks via `search_after`. When the buffer contains
-   the full result set, `allDataInBuffer` flips true and the scrubber
-   transitions to scroll mode — typically ~200–500ms after the initial
-   search.
+   the full result set, the scrubber transitions to scroll mode — typically
+   ~200–500ms after the initial search.
 
 The user never waits for phase 2 — they see results instantly and gain
 smooth scroll-mode interaction a fraction of a second later.
+
+Indexed scroll mode uses `_fetchPositionMap()` — a background fetch:
+
+1. After the initial search, if `SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`,
+   `twoTier` is immediately true (derived from total, not from positionMap).
+   The virtualizer count is set to `total` from frame 1, giving the scroll
+   container its full height. The scrubber operates in scroll mode — drag
+   directly scrolls the content, showing skeletons for positions outside
+   the buffer. Scroll-triggered seeks reposition the buffer within ~1-2s.
+2. In parallel, the store fetches a lightweight `[id, sortValues]` index
+   for all results using `_source: false` in 10k-doc chunks via a
+   dedicated PIT (~2-5s).
+3. Before the position map loads, seeks use the standard deep-seek paths
+   (percentile estimation, composite walk, etc.). After it loads, seeks
+   use the fast position-map path (exact cursor lookup, parallel fetch,
+   no `countBefore`). The scrubber mode label transitions from `'seek'`
+   to `'indexed'`, but the user-facing behaviour is identical — drag
+   already scrolled the content directly from frame 1.
 
 ### Tick marks and density map
 
@@ -622,14 +796,16 @@ past the last doc with a value is the **null zone**:
 
 | File | Lines | Role |
 |---|---|---|
-| `stores/search-store.ts` | ~2.5k | Buffer management, seek, extend, sort-around-focus, PIT lifecycle |
-| `hooks/useScrollEffects.ts` | ~700 | All scroll effects: compensation, seek scroll-to-target, density-focus, sort-focus |
-| `hooks/useDataWindow.ts` | ~250 | Buffer-aware view interface, edge detection, extend triggers |
-| `components/Scrubber.tsx` | ~1.1k | Scroll/seek control, coordinate mapping, tick rendering |
+| `stores/search-store.ts` | ~3.2k | Buffer management, seek (5 strategy paths incl. position-map fast path + parallel fetch), extend, sort-around-focus, PIT lifecycle, position map background fetch |
+| `hooks/useScrollEffects.ts` | ~910 | All scroll effects: compensation (gated off in indexed scroll mode), seek scroll-to-target, density-focus, sort-focus. `isTwoTierFromTotal()` + `toVirtualizerIdx()` helpers for index-space conversion. |
+| `hooks/useDataWindow.ts` | ~430 | Buffer-aware view interface, edge detection, extend triggers, two-tier mode (`virtualizerCount=total`, scroll-triggered seek) |
+| `components/Scrubber.tsx` | ~1.17k | Three-mode control (scroll/indexed/seek), coordinate mapping, tick rendering |
 | `lib/sort-context.ts` | ~1k | Tooltip labels, tick generation, distribution lookup |
-| `constants/tuning.ts` | ~160 | All timing constants and buffer sizing |
-| `constants/layout.ts` | ~30 | Pixel constants (row heights, cell widths) |
-| `dal/es-adapter.ts` | ~1.1k | ES queries: searchAfter, countBefore, estimateSortValue, distributions |
+| `lib/scroll-container-ref.ts` | ~70 | Observable scroll container ref — generation counter + `useSyncExternalStore` hook. Scrubber subscribes to detect container changes across density switches. |
+| `dal/position-map.ts` | ~80 | `PositionMap` type, `cursorForPosition()` helper |
+| `dal/es-adapter.ts` | ~1.3k | ES queries: searchAfter, countBefore, estimateSortValue, distributions, fetchPositionIndex |
+| `constants/tuning.ts` | ~177 | All timing constants, buffer sizing, thresholds (`POSITION_MAP_THRESHOLD`, `SCROLL_MODE_THRESHOLD`) |
+| `constants/layout.ts` | ~27 | Pixel constants (row heights, cell widths) |
 
 ---
 
@@ -639,16 +815,20 @@ past the last doc with a value is the **null zone**:
 |---|---|
 | **Buffer** | Dense array of ~1000 `Image` objects. `buffer[0]` corresponds to global position `bufferOffset`. |
 | **`BUFFER_CAPACITY`** | Max buffer size (1000). Eviction trims from the opposite end when exceeded. |
-| **`countBefore`** | Single `_count` query that returns the exact global offset of any cursor. O(1). |
+| **`countBefore`** | Single `_count` query that returns the exact global offset of any cursor. O(1). Used in seek mode; skipped when position map is available. |
 | **Cursor** | ES `search_after` sort values tuple. Stored at buffer start (`startCursor`) and end (`endCursor`). |
 | **Density** | A viewing mode (table, grid, detail, fullscreen) — conceptually a zoom level of the same ordered list. |
 | **Extend** | Fetch a page and append/prepend to the buffer. Forward = append + evict start. Backward = prepend + evict end. |
 | **`EXTEND_THRESHOLD`** | How close to the buffer edge (50 items) before `reportVisibleRange` triggers an extend. |
+| **Indexed scroll mode** | The middle tier (1k–65k results). `twoTier` active (from total range), virtualizer spans `total`, scrubber drag = direct scroll, buffer slides via extends and scroll-triggered seeks. Position map loads in background for faster seeks. |
 | **"Never Lost"** | The principle that focus, scroll position, and context survive every transition. |
 | **Null zone** | Region of results where the sort field is `null`. Sorted by `uploadTime` fallback. |
 | **`PAGE_SIZE`** | Items per fetch (200). Used by seek, extend, and scroll-mode fill. One constant for all paths. |
 | **PIT** | ES Point In Time — lightweight index snapshot for pagination consistency. |
-| **Reverse-compute** | In seek: instead of setting `scrollTop` to the target, compute the target index that matches the user's *current* `scrollTop`. Eliminates flash. |
-| **Seek** | Clear buffer, refill at target global offset. Triggered by scrubber or sort-around-focus. |
-| **Swimming** | Visible content shift during prepend compensation. The central scroll engineering problem. |
-
+| **Position map** | Lightweight index: `[id, sortValues]` for every result (1k–65k). ~288 bytes/entry. Enables exact cursor lookup and two-tier virtualisation. |
+| **Reverse-compute** | In seek mode: instead of setting `scrollTop` to the target, compute the target index that matches the user's *current* `scrollTop`. Eliminates flash. |
+| **Scroll mode** | The simplest tier (≤1,000 results). All data in buffer. Scrubber is a plain scrollbar. |
+| **Seek** | Clear buffer, refill at target global offset. Triggered by scrubber (seek mode) or scroll-triggered reposition (indexed scroll mode). |
+| **Seek mode** | The fallback tier (>65k results). Scrubber drag previews position; release triggers seek. |
+| **Swimming** | Visible content shift during prepend compensation. Only affects scroll and seek modes. |
+| **`twoTier`** | Boolean derived from total range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`). When true, indexed scroll mode is active — indices are global, virtualizer spans `total`. Stable from frame 1 (not dependent on position map loading). |

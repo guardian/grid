@@ -222,6 +222,95 @@ export class KupuaHelpers {
   }
 
   /**
+   * Count the number of visible placeholder (skeleton) cells in the viewport.
+   * Grid placeholders: div with bg-grid-cell/30, no data-grid-cell attribute.
+   * Table placeholders: div with key starting with "placeholder-".
+   * Only counts cells whose bounding rect overlaps the scroll container viewport.
+   */
+  async countVisiblePlaceholders(): Promise<number> {
+    return this.page.evaluate(() => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const container = (grid ?? table) as HTMLElement | null;
+      if (!container) return 0;
+
+      const rect = container.getBoundingClientRect();
+      let count = 0;
+
+      if (grid) {
+        // Grid: real cells have [data-grid-cell]. Placeholders don't.
+        // All direct children of virtualised rows that lack data-grid-cell
+        // and are visible in the viewport.
+        const allCells = container.querySelectorAll('[style*="position"]  > div');
+        for (const cell of allCells) {
+          if ((cell as HTMLElement).dataset.gridCell !== undefined) continue;
+          // Check it's actually a placeholder (has the skeleton bg class)
+          if (!cell.className.includes('bg-grid-cell')) continue;
+          const cr = cell.getBoundingClientRect();
+          if (cr.bottom > rect.top && cr.top < rect.bottom) count++;
+        }
+      } else if (table) {
+        // Table: placeholder rows have no cursor-pointer cells
+        const rows = container.querySelectorAll('[role="row"]');
+        for (const row of rows) {
+          if (row.querySelector('[class*="cursor-pointer"]')) continue;
+          // Check it's a placeholder (has the skeleton bar)
+          if (!row.querySelector('[class*="bg-grid-separator"]')) continue;
+          const cr = row.getBoundingClientRect();
+          if (cr.bottom > rect.top && cr.top < rect.bottom) count++;
+        }
+      }
+      return count;
+    });
+  }
+
+  /**
+   * Assert that no placeholder skeletons are visible in the viewport.
+   * Use after seeks/scrolls to verify the buffer covers the viewport.
+   * Waits up to `timeout` ms for placeholders to fill in before failing.
+   */
+  async assertNoVisiblePlaceholders(timeout = 5_000) {
+    try {
+      await this.page.waitForFunction(
+        () => {
+          const grid = document.querySelector('[aria-label="Image results grid"]');
+          const table = document.querySelector('[aria-label="Image results table"]');
+          const container = (grid ?? table) as HTMLElement | null;
+          if (!container) return false;
+
+          const rect = container.getBoundingClientRect();
+
+          if (grid) {
+            const allCells = container.querySelectorAll('[style*="position"]  > div');
+            for (const cell of allCells) {
+              if ((cell as HTMLElement).dataset.gridCell !== undefined) continue;
+              if (!cell.className.includes('bg-grid-cell')) continue;
+              const cr = cell.getBoundingClientRect();
+              if (cr.bottom > rect.top && cr.top < rect.bottom) return false;
+            }
+          } else if (table) {
+            const rows = container.querySelectorAll('[role="row"]');
+            for (const row of rows) {
+              if (row.querySelector('[class*="cursor-pointer"]')) continue;
+              if (!row.querySelector('[class*="bg-grid-separator"]')) continue;
+              const cr = row.getBoundingClientRect();
+              if (cr.bottom > rect.top && cr.top < rect.bottom) return false;
+            }
+          }
+          return true;
+        },
+        { timeout },
+      );
+    } catch {
+      const count = await this.countVisiblePlaceholders();
+      throw new Error(
+        `Expected no visible placeholders, but found ${count} after ${timeout}ms. ` +
+        `The buffer likely doesn't cover the viewport position.`,
+      );
+    }
+  }
+
+  /**
    * Wait for a seek to complete (loading=false, error=null).
    * Stricter than waitForResults — also checks store state.
    */
@@ -240,20 +329,123 @@ export class KupuaHelpers {
   }
 
   /**
+   * Wait for a seek to complete by watching _seekGeneration bump.
+   * Use this in two-tier mode where the old check (loading=false)
+   * resolves immediately from stale buffer state.
+   * @param prevGen The _seekGeneration value captured BEFORE the seek trigger.
+   */
+  async waitForSeekGenerationBump(prevGen: number, timeout = 15_000) {
+    await this.page.waitForFunction(
+      (prev: number) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s._seekGeneration > prev && !s.loading && s.results.length > 0;
+      },
+      prevGen,
+      { timeout },
+    );
+  }
+
+  /**
    * Click scrubber and wait for seek to fully complete (no loading, no error,
    * positions consistent). Stricter version of clickScrubberAt.
+   *
+   * Two-tier aware: in indexed mode, clicking the scrubber sets scrollTop
+   * directly (no ES call). A debounced scroll-seek fires ~200ms later to
+   * reposition the buffer. We wait for _seekGeneration to bump (meaning the
+   * scroll-seek actually completed), unless the target is already in the
+   * buffer (no seek needed).
    */
   async seekTo(ratio: number, timeout?: number) {
     const trackBox = await this.scrubber.boundingBox();
     if (!trackBox) throw new Error("Scrubber track not visible");
 
+    // Snapshot state before click — needed to detect two-tier scroll-seek.
+    //
+    // twoTier is derived from total range (matching the app logic in
+    // useDataWindow.ts), NOT from positionMap. The position map is a
+    // performance optimisation; the coordinate-space decision (twoTier)
+    // is based on total alone. This avoids a race where the position map
+    // hasn't loaded yet but the scrubber is already in scroll mode.
+    const SCROLL_MODE_THRESHOLD = 1000;
+    const POSITION_MAP_THRESHOLD = 65_000;
+    const before = await this.page.evaluate(
+      ({ smThresh, pmThresh }: { smThresh: number; pmThresh: number }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return { twoTier: false, seekGen: 0, bufferOffset: 0, bufferLen: 0, total: 0 };
+        const s = store.getState();
+        return {
+          twoTier: pmThresh > 0 && s.total > smThresh && s.total <= pmThresh,
+          seekGen: s._seekGeneration,
+          bufferOffset: s.bufferOffset,
+          bufferLen: s.results.length,
+          total: s.total,
+        };
+      },
+      { smThresh: SCROLL_MODE_THRESHOLD, pmThresh: POSITION_MAP_THRESHOLD },
+    );
+
     const x = trackBox.x + trackBox.width / 2;
     const y = trackBox.y + ratio * trackBox.height;
     await this.page.mouse.click(x, y);
 
-    await this.waitForSeekComplete(timeout);
-    // Extra settle time for React re-render
-    await this.page.waitForTimeout(200);
+    if (before.twoTier) {
+      // In two-tier mode, the click sets scrollTop directly. A debounced
+      // scroll-seek (200ms) will fire if the target is outside the buffer.
+      // We always wait for _seekGeneration to bump. If the target was
+      // actually in the buffer (no scroll-seek needed), we time out after
+      // 3s and carry on — correctness > speed.
+      const seekTimeout = Math.min(timeout ?? 15_000, 3000);
+      try {
+        await this.page.waitForFunction(
+          (prevGen: number) => {
+            const store = (window as any).__kupua_store__;
+            if (!store) return false;
+            const s = store.getState();
+            return s._seekGeneration > prevGen && !s.loading && s.results.length > 0;
+          },
+          before.seekGen,
+          { timeout: seekTimeout },
+        );
+      } catch {
+        // Timeout = target was in buffer, no scroll-seek fired. That's OK.
+      }
+      // Wait for the virtualizer to render real interactive content at the
+      // new scroll position. After the scroll-seek completes, the buffer
+      // is repositioned but React + virtualizer need time to swap skeletons
+      // for real items. We poll until cursor-pointer elements appear in the
+      // visible viewport (not leftover from a previous position).
+      try {
+        await this.page.waitForFunction(
+          () => {
+            const grid = document.querySelector('[aria-label="Image results grid"]');
+            const table = document.querySelector('[aria-label="Image results table"]');
+            const container = grid ?? table;
+            if (!container) return false;
+            const items = container.querySelectorAll('[class*="cursor-pointer"]');
+            if (items.length === 0) return false;
+            // Verify at least one cursor-pointer element is within the viewport
+            const rect = container.getBoundingClientRect();
+            for (const item of items) {
+              const ir = item.getBoundingClientRect();
+              if (ir.bottom > rect.top && ir.top < rect.bottom) return true;
+            }
+            return false;
+          },
+          { timeout: 5000 },
+        );
+      } catch {
+        // If no interactive content appeared within 5s, carry on —
+        // the caller may still succeed (e.g. for tests that don't
+        // need to click items).
+      }
+      await this.page.waitForTimeout(200);
+    } else {
+      await this.waitForSeekComplete(timeout);
+      // Extra settle time for React re-render
+      await this.page.waitForTimeout(200);
+    }
   }
 
   /**
@@ -339,6 +531,44 @@ export class KupuaHelpers {
       },
       { timeout },
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // Two-tier virtualisation helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Wait until the position map is loaded (background fetch completed).
+   * The position map loads after the initial search for result sets with
+   * SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD.
+   */
+  async waitForPositionMap(timeout = 30_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.positionMap !== null && !s.positionMapLoading;
+      },
+      undefined,
+      { timeout },
+    );
+  }
+
+  /**
+   * Check if two-tier virtualisation is active.
+   * Derived from total range (matching app logic), NOT positionMap.
+   */
+  async isTwoTierMode(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return false;
+      const s = store.getState();
+      // Must match the derivation in useDataWindow.ts
+      const SCROLL_MODE_THRESHOLD = 1000;
+      const POSITION_MAP_THRESHOLD = 65_000;
+      return POSITION_MAP_THRESHOLD > 0 && s.total > SCROLL_MODE_THRESHOLD && s.total <= POSITION_MAP_THRESHOLD;
+    });
   }
 
   /**

@@ -10,7 +10,7 @@ Follow the Fresh Agent Protocol in copilot-instructions.md:
 If you DO see your own check-in in your conversation history, carry on.
 -->
 
-# Worklog — Current Task
+# Current Task
 
 [no current task]
 

@@ -34,6 +34,7 @@ import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
+import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export const searchRoute = createRoute({
@@ -60,7 +61,22 @@ function SearchPage() {
   const seek = useSearchStore((s) => s.seek);
   const visibleRange = useVisibleRange();
 
-  const currentPosition = bufferOffset + visibleRange.start;
+  // Position map state — drives the scrubber's tristate mode signal.
+  // When non-null, the scrubber enters 'indexed' mode (fast seek via map).
+  const positionMapLoaded = useSearchStore((s) => s.positionMap !== null);
+
+  // Two-tier mode — derived from total range, NOT from positionMap.
+  // See useDataWindow for the rationale: twoTier is the coordinate-space
+  // decision; positionMap is a performance optimization for seeks.
+  const twoTier = useSearchStore((s) =>
+    POSITION_MAP_THRESHOLD > 0 &&
+    s.total > SCROLL_MODE_THRESHOLD &&
+    s.total <= POSITION_MAP_THRESHOLD,
+  );
+
+  const currentPosition = twoTier
+    ? visibleRange.start           // two-tier: already global
+    : bufferOffset + visibleRange.start;  // normal: convert buffer-local to global
   const visibleCount = Math.max(1, visibleRange.end - visibleRange.start + 1);
 
   // Sort-context label for the scrubber tooltip.
@@ -143,6 +159,8 @@ function SearchPage() {
       getSortLabel={getSortLabel}
       onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}
+      positionMapLoaded={positionMapLoaded}
+      twoTier={twoTier}
     />
   );
 

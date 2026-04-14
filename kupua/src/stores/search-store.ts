@@ -28,6 +28,8 @@ import type {
   AggregationResult,
   SortDistribution,
 } from "@/dal";
+import type { PositionMap } from "@/dal/position-map";
+import { cursorForPosition } from "@/dal/position-map";
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
@@ -41,6 +43,7 @@ import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
   SCROLL_MODE_THRESHOLD,
+  POSITION_MAP_THRESHOLD,
   MAX_RESULT_WINDOW,
   DEEP_SEEK_THRESHOLD,
   NEW_IMAGES_POLL_INTERVAL,
@@ -52,6 +55,7 @@ import {
   SEARCH_FETCH_COOLDOWN_MS,
   POST_EXTEND_COOLDOWN_MS,
 } from "@/constants/tuning";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
@@ -254,6 +258,14 @@ interface SearchState {
   _seekTargetLocalIndex: number;
 
   /**
+   * Global index the seek targeted, for two-tier mode. When twoTier is active,
+   * effect #6 uses this instead of _seekTargetLocalIndex because the virtualizer's
+   * coordinate space is global (row 0 = global position 0).
+   * -1 means "not set" (use _seekTargetLocalIndex instead).
+   */
+  _seekTargetGlobalIndex: number;
+
+  /**
    * Sub-row pixel offset to preserve after seek. When the headroom pre-set
    * fires, the user's sub-row offset (scrollTop % rowHeight) must be restored
    * by effect #6 AFTER the new buffer is rendered (so scrollHeight is large
@@ -292,6 +304,20 @@ interface SearchState {
   nullZoneDistribution: SortDistribution | null;
   /** Cache key for null-zone distribution. */
   _nullZoneDistCacheKey: string | null;
+
+  // --- Position map (lightweight index for indexed scroll mode) ---
+  /**
+   * Complete [id, sortValues] index for all results, fetched in the background
+   * with `_source: false` after search when total is in the position-map range
+   * (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD).
+   *
+   * When available, seek() uses exact position→sortValues lookup (one search_after
+   * call) instead of percentile estimation or composite walks. Null when: not yet
+   * fetched, fetch in progress, total out of range, or fetch failed/aborted.
+   */
+  positionMap: PositionMap | null;
+  /** True while the background position map fetch is in progress. */
+  positionMapLoading: boolean;
 
   // Actions
   setParams: (params: Partial<SearchParams>) => void;
@@ -407,6 +433,9 @@ let _sortDistAbortController: AbortController | null = null;
 
 /** Abort controller for the null-zone (uploadTime) distribution request. */
 let _nullZoneDistAbortController: AbortController | null = null;
+
+/** Abort controller for the in-flight position map background fetch. */
+let _positionMapAbortController: AbortController | null = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -811,6 +840,64 @@ async function _fillBufferForScrollMode(
 }
 
 // ---------------------------------------------------------------------------
+// Position map background fetch — lightweight index for indexed scroll mode
+// ---------------------------------------------------------------------------
+
+/**
+ * After the initial search, if total is in the position-map range
+ * (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD), fetch a
+ * lightweight [id, sortValues] index for all results in the background.
+ *
+ * Uses the DAL's `fetchPositionIndex` which opens its own dedicated PIT
+ * (decoupled from the main search PIT lifecycle). All-or-nothing: if
+ * aborted or failed, the partial result is discarded and positionMap
+ * stays null.
+ *
+ * Aborted by search() — a new search invalidates the position map.
+ * Extends and seeks do NOT abort this fetch (separate abort controller).
+ */
+async function _fetchPositionMap(
+  dataSource: ImageDataSource,
+  params: SearchParams,
+  signal: AbortSignal,
+  get: () => SearchState,
+  set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
+): Promise<void> {
+  if (!dataSource.fetchPositionIndex) {
+    devLog("[position-map] dataSource does not implement fetchPositionIndex");
+    set({ positionMapLoading: false });
+    return;
+  }
+
+  devLog(`[position-map] Starting background fetch for ${get().total} positions...`);
+  set({ positionMapLoading: true, positionMap: null });
+
+  try {
+    const map = await dataSource.fetchPositionIndex(params, signal);
+
+    if (signal.aborted) {
+      set({ positionMapLoading: false });
+      return;
+    }
+
+    if (map) {
+      devLog(`[position-map] Complete — ${map.length} entries loaded`);
+      set({ positionMap: map, positionMapLoading: false });
+    } else {
+      devLog("[position-map] fetchPositionIndex returned null (aborted or empty)");
+      set({ positionMap: null, positionMapLoading: false });
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      set({ positionMapLoading: false });
+      return;
+    }
+    console.warn("[position-map] Background fetch failed:", e);
+    set({ positionMap: null, positionMapLoading: false });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared buffer-loading helper — "load a page centered on a known image"
 // ---------------------------------------------------------------------------
 
@@ -990,14 +1077,41 @@ async function _findAndFocusImage(
     const targetHit = sortResult.hits[0];
     const imageSortValues = sortResult.sortValues[0];
 
-    // Step 2: countBefore → exact global offset
+    // Step 2: countBefore → exact global offset.
+    // Fast path: if positionMap is available, look up the image's position
+    // directly (O(n) scan of ids array, ~<1ms for 65k strings). Saves one
+    // ES round-trip (~5-10ms countBefore call).
     if (signal.aborted) return;
-    const offset = await dataSource.countBefore(
-      fp,
-      imageSortValues,
-      sortClause,
-      signal,
-    );
+    let offset: number;
+    const posMap = get().positionMap;
+    if (posMap) {
+      const idx = posMap.ids.indexOf(imageId);
+      if (idx !== -1) {
+        offset = idx;
+        devLog(
+          `[sort-around-focus] position map hit: id=${imageId}, offset=${offset} (skipped countBefore)`,
+        );
+      } else {
+        // Image not in position map (stale map or image added since map was built).
+        // Fall back to countBefore.
+        offset = await dataSource.countBefore(
+          fp,
+          imageSortValues,
+          sortClause,
+          signal,
+        );
+        devLog(
+          `[sort-around-focus] position map miss: id=${imageId}, countBefore=${offset}`,
+        );
+      }
+    } else {
+      offset = await dataSource.countBefore(
+        fp,
+        imageSortValues,
+        sortClause,
+        signal,
+      );
+    }
 
     if (signal.aborted) return;
 
@@ -1078,7 +1192,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     offset: 0,
     length: PAGE_SIZE,
     orderBy: "-uploadTime",
-    nonFree: "true",
+    ...DEFAULT_SEARCH,
   },
   results: [],
   bufferOffset: 0,
@@ -1109,6 +1223,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _forwardEvictGeneration: 0,
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
+  _seekTargetGlobalIndex: -1,
   _seekSubRowOffset: 0,
   _pendingFocusAfterSeek: null,
 
@@ -1131,6 +1246,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   nullZoneDistribution: null,
   /** Cache key for null-zone distribution. */
   _nullZoneDistCacheKey: null,
+
+  // Position map state
+  positionMap: null,
+  positionMapLoading: false,
 
   setParams: (newParams) => {
     set((state) => ({
@@ -1166,6 +1285,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (_sortDistAbortController) _sortDistAbortController.abort();
     if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
     if (_expandedAggAbortController) _expandedAggAbortController.abort();
+    if (_positionMapAbortController) _positionMapAbortController.abort();
 
     // Clear extend-in-flight flags — the abort above cancels any in-flight
     // extends or scroll-mode fill from the previous search. Without this,
@@ -1175,6 +1295,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       _extendForwardInFlight: false, _extendBackwardInFlight: false,
       sortDistribution: null, _sortDistCacheKey: null,
       nullZoneDistribution: null, _nullZoneDistCacheKey: null,
+      positionMap: null, positionMapLoading: false,
     });
 
     // Close old PIT (fire-and-forget)
@@ -1243,6 +1364,24 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         startNewImagesPoll(get, set);
         // Fire async — stays loading until complete
         _findAndFocusImage(sortAroundFocusId, params, signal, get, set);
+
+        // Position map: start background fetch even in sort-around-focus path.
+        // The position map uses a dedicated PIT and abort controller, fully
+        // independent of _findAndFocusImage's range controller. Without this,
+        // switching sorts with a focused image leaves positionMap permanently
+        // null — all subsequent seeks use the slow deep-seek path, and in
+        // two-tier mode the inexact offset causes permanent skeletons.
+        if (
+          POSITION_MAP_THRESHOLD > 0 &&
+          result.total > SCROLL_MODE_THRESHOLD &&
+          result.total <= POSITION_MAP_THRESHOLD
+        ) {
+          _positionMapAbortController = new AbortController();
+          _fetchPositionMap(
+            dataSource, params,
+            _positionMapAbortController.signal, get, set,
+          );
+        }
       } else {
         set({
           results: result.hits,
@@ -1285,6 +1424,24 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _fillBufferForScrollMode(
             dataSource, params, result.hits.length, result.total,
             endCursor, result.pitId ?? newPitId, signal, get, set,
+          );
+        }
+
+        // -----------------------------------------------------------
+        // Position map: if total is in the indexed-scroll range
+        // (above scroll-mode threshold, at or below position-map
+        // threshold), fetch a lightweight [id, sortValues] index in
+        // the background. Uses a dedicated PIT and abort controller.
+        // -----------------------------------------------------------
+        if (
+          POSITION_MAP_THRESHOLD > 0 &&
+          result.total > SCROLL_MODE_THRESHOLD &&
+          result.total <= POSITION_MAP_THRESHOLD
+        ) {
+          _positionMapAbortController = new AbortController();
+          _fetchPositionMap(
+            dataSource, params,
+            _positionMapAbortController.signal, get, set,
           );
         }
       }
@@ -1620,6 +1777,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ loading: true, error: null });
 
     const seekStartTime = Date.now();
+    // Performance marks for DevTools profiling — visible in the Performance
+    // tab's "Timings" lane. Cleared at the start so only the latest seek shows.
+    // Clear only seek-specific marks/measures — don't wipe unrelated profiling.
+    for (const name of ['seek-start', 'seek-forward-done', 'seek-backward-done', 'seek-set-done', 'seek-painted']) {
+      performance.clearMarks(name);
+    }
+    for (const name of ['seek: forward fetch', 'seek: backward fetch', 'seek: compute + set()', 'seek: total (to paint)', 'seek: render + paint']) {
+      performance.clearMeasures(name);
+    }
+    performance.mark('seek-start');
 
     try {
       // Center the buffer around the target offset
@@ -1629,6 +1796,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       let result;
       let actualOffset = fetchStart;
       let usedNullZoneFilter = false;
+      // True when the seek path gives an exact offset (position-map, shallow).
+      // When true, use targetLocalIndex directly for scroll positioning instead
+      // of reverse-computing from the user's current scrollTop. This prevents
+      // the scrubber thumb from jumping after the seek settles.
+      let exactOffset = false;
       // Bidirectional seek: after the forward fetch completes (for deep paths),
       // we add a backward fetch to place the user in the MIDDLE of the buffer.
       // This eliminates swimming — both extendBackward and extendForward operate
@@ -1661,6 +1833,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           actualOffset = Math.max(0, total - result.hits.length);
         }
         skipBackwardFetch = true; // At the absolute end — nothing beyond to fetch
+        exactOffset = true; // Offset is known-exact (reverse from end)
       } else if (fetchStart < DEEP_SEEK_THRESHOLD) {
         // ---------------------------------------------------------------
         // Shallow seek — from/size is fast at small offsets (<10k)
@@ -1672,6 +1845,145 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           signal,
         );
         skipBackwardFetch = true; // from/size already centers buffer via fetchStart
+        exactOffset = true; // from/size gives exact positioning
+      } else if (get().positionMap && clampedOffset < get().positionMap!.length) {
+        // ---------------------------------------------------------------
+        // Position-map fast path — exact position→sortValues lookup.
+        //
+        // Both forward and backward cursors are known upfront from the map,
+        // so we run them in parallel via Promise.all. Saves ~250-350ms on
+        // TEST (max of two fetches instead of sequential sum).
+        //
+        // Handles date, keyword, and null-zone sorts uniformly — the
+        // position map stores the actual sort values ES returned (including
+        // null for null-zone entries).
+        // ---------------------------------------------------------------
+        const posMap = get().positionMap!;
+        const forwardCursor = cursorForPosition(posMap, clampedOffset);
+
+        devLog(
+          `[seek] POSITION MAP fast path: target=${clampedOffset}, ` +
+          `mapLength=${posMap.length}, cursor=${JSON.stringify(forwardCursor)}`,
+        );
+
+        if (forwardCursor === null) {
+          // Position 0 — fetch from the start (no search_after cursor)
+          result = await dataSource.searchAfter(
+            { ...params, length: PAGE_SIZE },
+            null,
+            effectivePitId,
+            signal,
+          );
+          actualOffset = 0;
+          exactOffset = true;
+          skipBackwardFetch = true; // at the start — nothing before to fetch
+        } else {
+          // --- Parallel forward + backward fetch ---
+
+          // Forward: fetch PAGE_SIZE items starting at clampedOffset
+          const fwdNz = detectNullZoneCursor(forwardCursor, params.orderBy);
+
+          // Backward: fetch halfBuffer items before clampedOffset.
+          // The backward cursor is the entry AT the target position — with
+          // reverse: true, search_after returns items strictly before it.
+          const skipBackward = clampedOffset < halfBuffer;
+          let backwardPromise: Promise<Awaited<ReturnType<typeof dataSource.searchAfter>> | null> | null = null;
+
+          if (!skipBackward) {
+            const backwardCursor = posMap.sortValues[clampedOffset];
+            if (backwardCursor) {
+              const bwdNz = detectNullZoneCursor(backwardCursor, params.orderBy);
+              backwardPromise = dataSource.searchAfter(
+                { ...params, length: halfBuffer },
+                bwdNz ? bwdNz.strippedCursor : backwardCursor,
+                effectivePitId,
+                signal,
+                true,  // reverse
+                false, // noSource
+                false, // missingFirst
+                bwdNz?.sortOverride,
+                bwdNz?.extraFilter,
+              ).then(bwdResult => {
+                // Remap backward sort values from null-zone shape
+                if (bwdNz && bwdResult.sortValues.length > 0) {
+                  bwdResult.sortValues = remapNullZoneSortValues(
+                    bwdResult.sortValues, bwdNz.sortClause, bwdNz.primaryField,
+                  );
+                }
+                return bwdResult;
+              });
+            }
+          }
+
+          // Forward fetch
+          const forwardPromise = fwdNz
+            ? dataSource.searchAfter(
+                { ...params, length: PAGE_SIZE },
+                fwdNz.strippedCursor,
+                effectivePitId,
+                signal,
+                false, false, false,
+                fwdNz.sortOverride,
+                fwdNz.extraFilter,
+              ).then(fwdResult => {
+                if (fwdResult.sortValues.length > 0) {
+                  fwdResult.sortValues = remapNullZoneSortValues(
+                    fwdResult.sortValues, fwdNz.sortClause, fwdNz.primaryField,
+                  );
+                }
+                usedNullZoneFilter = true;
+                return fwdResult;
+              })
+            : dataSource.searchAfter(
+                { ...params, length: PAGE_SIZE },
+                forwardCursor,
+                effectivePitId,
+                signal,
+              );
+
+          // Run in parallel
+          const [forwardResult, backwardResult] = await Promise.all([
+            forwardPromise,
+            backwardPromise ?? Promise.resolve(null),
+          ]);
+
+          if (signal.aborted) return;
+
+          // Combine results
+          result = forwardResult;
+
+          if (backwardResult && backwardResult.hits.length > 0) {
+            const combinedHits = [
+              ...backwardResult.hits,
+              ...forwardResult.hits,
+            ];
+            const combinedSortValues = [
+              ...backwardResult.sortValues,
+              ...forwardResult.sortValues,
+            ];
+
+            const newBufferStart = Math.max(0, clampedOffset - backwardResult.hits.length);
+
+            result = {
+              ...forwardResult,
+              hits: combinedHits,
+              sortValues: combinedSortValues,
+            };
+            actualOffset = newBufferStart;
+            backwardItemCount = backwardResult.hits.length;
+
+            devLog(
+              `[seek] POSITION MAP parallel: prepended ${backwardResult.hits.length} backward items, ` +
+              `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}`,
+            );
+          } else {
+            actualOffset = clampedOffset;
+          }
+
+          exactOffset = true;
+          // Skip the sequential backward-fetch block — we already did it in parallel
+          skipBackwardFetch = true;
+        }
       } else {
         // ---------------------------------------------------------------
         // Deep seek — percentile estimation + search_after + countBefore
@@ -2198,6 +2510,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
       }
 
+      performance.mark('seek-forward-done');
+
       // -----------------------------------------------------------------
       // Bidirectional seek — backward fetch (Idea B from scroll-architecture §7)
       //
@@ -2212,9 +2526,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // extendBackward and extendForward operate on off-screen content.
       //
       // Uses detectNullZoneCursor to handle null-zone cursors automatically
-      // (same pattern as _loadBufferAroundImage). Parallelisation not
-      // possible here because we need the forward result first to get the
-      // landed cursor — but the backward fetch is a single ~10-50ms call.
+      // (same pattern as _loadBufferAroundImage). The position-map path
+      // handles its own parallel backward fetch and sets skipBackwardFetch=true,
+      // so this block only runs for the deep seek path.
       // -----------------------------------------------------------------
       if (
         !skipBackwardFetch &&
@@ -2285,6 +2599,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
       }
 
+      performance.mark('seek-backward-done');
+
       // If this seek was superseded by a newer one, our signal is aborted.
       // Don't overwrite the store with stale results.
       if (signal.aborted) return;
@@ -2321,19 +2637,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       ));
       const targetWasClamped = rawTargetLocalIndex !== targetLocalIndex;
 
-      // FLASH PREVENTION: We must NOT change scrollTop here. Any scrollTop
-      // change before set() shifts the OLD content visibly (flash). Instead,
-      // we reverse-compute the local index that corresponds to the user's
-      // current scrollTop and use that as the target. The virtualizer renders
-      // new content at the user's current scroll position → zero flash.
+      // FLASH PREVENTION / THUMB-JUMP FIX:
       //
-      // This is done for ALL seeks, not just clamped ones. Even when the
-      // target is inside the buffer, the user's scrollTop may not match
-      // targetLocalIndex's pixel position (e.g. user at scrollTop=96 but
-      // target at index 28 → pixelTop 1212 → 1116px flash).
+      // For DEEP seeks (percentile estimation — inexact offset):
+      //   Reverse-compute a local index from the user's current scrollTop.
+      //   This prevents flash — the virtualizer renders new content at the
+      //   user's current scroll position, not the (drifted) target position.
       //
-      // The math is extracted into computeScrollTarget() for independent
-      // unit testing.
+      // For EXACT-OFFSET seeks (position-map and shallow — precise offset):
+      //   Use targetLocalIndex directly. The offset is known-correct, so the
+      //   target image IS at that local index. Using the reverse-compute here
+      //   would cause a scrubber thumb jump: visibleRange.start would differ
+      //   from the seek target, and the thumb would snap from the user's drag
+      //   position to the reverse-computed position when pendingSeekPosRef
+      //   clears. Direct targeting means the thumb stays put.
+      //
+      // The reverse-compute math is extracted into computeScrollTarget() for
+      // independent unit testing.
       const scrollEl = getScrollContainer();
       let scrollTargetIndex: number;
       let _seekSubRowOffset = 0;
@@ -2346,25 +2666,41 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       let _diagHeadroomFired = false;
 
       if (scrollEl) {
-        const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
-        const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
+        if (exactOffset) {
+          // EXACT-OFFSET PATH (position-map, shallow from/size):
+          // The offset is known-correct — the target image IS at targetLocalIndex.
+          // Use it directly. Using the reverse-compute here would cause the
+          // scrubber thumb to jump: visibleRange.start would differ from the
+          // seek target position, and the thumb would snap from the user's drag
+          // position when pendingSeekPosRef clears.
+          scrollTargetIndex = targetLocalIndex;
+          // No sub-row offset needed — we want to land exactly at the target.
+        } else {
+          // INEXACT-OFFSET PATH (deep seek with percentile estimation):
+          // Reverse-compute a local index from the user's current scrollTop.
+          // This prevents flash — the virtualizer renders new content at the
+          // user's current scroll position, not the (drifted) target position.
+          const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
+          const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
 
-        const computed = computeScrollTarget({
-          currentScrollTop: scrollEl.scrollTop,
-          isTable,
-          clientWidth: scrollEl.clientWidth,
-          clientHeight: scrollEl.clientHeight,
-          backwardItemCount,
-          bufferLength: result.hits.length,
-          total: effectiveTotal,
-          actualOffset,
-          clampedOffset,
-        });
+          const computed = computeScrollTarget({
+            currentScrollTop: scrollEl.scrollTop,
+            isTable,
+            clientWidth: scrollEl.clientWidth,
+            clientHeight: scrollEl.clientHeight,
+            backwardItemCount,
+            bufferLength: result.hits.length,
+            total: effectiveTotal,
+            actualOffset,
+            clampedOffset,
+          });
 
-        scrollTargetIndex = computed.scrollTargetIndex;
-        _seekSubRowOffset = computed.seekSubRowOffset;
+          scrollTargetIndex = computed.scrollTargetIndex;
+          _seekSubRowOffset = computed.seekSubRowOffset;
+        }
 
         // Populate diagnostics for the devLog
+        const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
         const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
         const cols = isTable ? 1 : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
         _diagOrigScrollTop = scrollEl.scrollTop;
@@ -2390,7 +2726,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // buffer is rendered (to avoid browser clamping on the old buffer).
 
       devLog(
-        `[seek-reverse-compute] scrollTop=${scrollEl?.scrollTop.toFixed(1)}, ` +
+        `[seek-scroll-target] exactOffset=${exactOffset}, scrollTop=${scrollEl?.scrollTop.toFixed(1)}, ` +
         `origScrollTop=${_diagOrigScrollTop}, currentRow=${_diagCurrentRow}, cols=${_diagCols}, ` +
         `reverseIndex=${_diagReverseIndex}, headroomFired=${_diagHeadroomFired}, ` +
         `scrollTargetIndex=${scrollTargetIndex}, ` +
@@ -2405,9 +2741,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         results: result.hits,
         bufferOffset: actualOffset,
-        // When a null-zone filter was used, result.total is the filtered
-        // count (docs missing the field), not the full corpus. Don't
-        // overwrite — keep the existing total from the initial search.
+        // ...existing comment about null-zone filter...
         total: usedNullZoneFilter ? get().total : result.total,
         loading: false,
         imagePositions: buildPositions(result.hits, actualOffset),
@@ -2418,9 +2752,48 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: scrollTargetIndex,
+        // In two-tier mode, effect #6 needs the global index to compute the
+        // correct pixel offset (virtualizer row 0 = global 0). Two-tier is
+        // active whenever total is in position-map-eligible range, regardless
+        // of whether the map has loaded yet.
+        //
+        // EXACT-OFFSET paths (position-map, shallow from/size): use clampedOffset
+        // — the buffer is guaranteed to cover that position.
+        //
+        // INEXACT-OFFSET paths (deep seek with percentile estimation):
+        // Use `actualOffset + backwardItemCount` — the bidirectional centre of
+        // the buffer. This is the global position where "interesting" content
+        // starts (100 items of headroom before, 200 forward).
+        //
+        // We can NOT use `clampedOffset` (the old code) because estimation
+        // drift in the null zone means clampedOffset may be thousands of
+        // positions away from actualOffset → Effect #6 forces scrollTop to
+        // a position outside the buffer → permanent skeletons.
+        //
+        // We can NOT use `actualOffset + scrollTargetIndex` (from
+        // computeScrollTarget) because that function clamps to buffer-local
+        // scroll bounds — in two-tier mode where scrollTop is a global pixel
+        // position, the reverse-computed index clamps to buffer end (299),
+        // placing the viewport at the last buffer row → no scroll-up headroom.
+        //
+        // `actualOffset + backwardItemCount` works for both cases:
+        // - Normal: ≈ clampedOffset (drift is small) → Effect #6 is a no-op
+        // - Null zone: ≈ buffer centre → Effect #6 jumps to the data we found
+        _seekTargetGlobalIndex: (() => {
+          const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
+          const inTwoTier =
+            POSITION_MAP_THRESHOLD > 0 &&
+            effectiveTotal > SCROLL_MODE_THRESHOLD &&
+            effectiveTotal <= POSITION_MAP_THRESHOLD;
+          if (!inTwoTier) return -1;
+          if (exactOffset) return clampedOffset;
+          return actualOffset + backwardItemCount;
+        })(),
         _seekSubRowOffset,
         seekTime: Date.now() - seekStartTime,
       });
+
+      performance.mark('seek-set-done');
 
       const writtenTotal = usedNullZoneFilter ? get().total : result.total;
 
@@ -2431,6 +2804,28 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : '') +
         (targetWasClamped ? ` CLAMPED→center=${scrollTargetIndex}` : ''),
       );
+
+      // Performance measures — these show up as named bars in DevTools
+      // Performance tab Timings lane, with duration in ms.
+      // Each wrapped individually so a missing mark doesn't block the rest.
+      try { performance.measure('seek: forward fetch', 'seek-start', 'seek-forward-done'); } catch { /* mark missing */ }
+      try { performance.measure('seek: backward fetch', 'seek-forward-done', 'seek-backward-done'); } catch { /* mark missing */ }
+      try { performance.measure('seek: compute + set()', 'seek-backward-done', 'seek-set-done'); } catch { /* mark missing */ }
+
+      // Defer the final marks to AFTER the browser paints — this captures
+      // React rendering + layout + paint, not just the synchronous set().
+      // Two rAFs: first fires before paint, second fires after paint.
+      // Guard: rAF doesn't exist in Vitest (Node/jsdom).
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            performance.mark('seek-painted');
+            try { performance.measure('seek: total (to paint)', 'seek-start', 'seek-painted'); } catch { /* */ }
+            try { performance.measure('seek: render + paint', 'seek-set-done', 'seek-painted'); } catch { /* */ }
+          });
+        });
+      }
+
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         // Don't set loading: false here — the newer seek/search that
@@ -2531,6 +2926,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: buf.targetLocalIndex,
+        _seekTargetGlobalIndex: -1,
         _seekSubRowOffset: 0,
       });
 

@@ -395,6 +395,7 @@ export function ImageTable() {
     results, total, bufferOffset, virtualizerCount, loading, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
+    twoTier,
   } = useDataWindow();
   const {
     config,
@@ -434,16 +435,19 @@ export function ImageTable() {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {
-        const img = results[idx];
+        const img = getImage(idx);
         const cursor = img ? extractSortValues(img, searchParamsRef.current.orderBy) : null;
-        storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParamsRef.current), cursor);
+        // In two-tier mode, idx from findImageIndex is already global.
+        // In normal mode, add bufferOffset to get global position.
+        const globalOffset = twoTier ? idx : bufferOffset + idx;
+        storeImageOffset(imageId, globalOffset, buildSearchKey(searchParamsRef.current), cursor);
       }
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, bufferOffset, results],
+    [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
   );
 
   // Column context menu — imperative handle; the component manages its own
@@ -519,6 +523,7 @@ export function ImageTable() {
     loadMore,
     focusedImageId,
     findImageIndex,
+    twoTier,
   });
 
 
@@ -545,7 +550,7 @@ export function ImageTable() {
     const images: Image[] = [];
     const ids: string[] = [];
     for (const vItem of virtualItems) {
-      const img = vItem.index < results.length ? results[vItem.index] : undefined;
+      const img = getImage(vItem.index);
       if (img) {
         images.push(img);
         ids.push(img.id);
@@ -566,7 +571,7 @@ export function ImageTable() {
     prevVisibleKeyRef.current = key;
     prevVisibleImagesRef.current = images;
     return images;
-  }, [virtualItems, results]);
+  }, [virtualItems, getImage]);
 
   const table = useReactTable({
     data: visibleImages,
@@ -747,7 +752,7 @@ export function ImageTable() {
       const PILL_GAP = 2;     // gap-0.5 = 0.125rem ≈ 2px
 
       for (const vItem of vItems) {
-        const image = vItem.index < results.length ? results[vItem.index] : undefined;
+        const image = getImage(vItem.index);
         if (!image) continue;
 
         let w: number;
@@ -769,7 +774,7 @@ export function ImageTable() {
 
       return Math.max(50, maxW + PADDING);
     },
-    [virtualizer, results, measureText]
+    [virtualizer, getImage, measureText]
   );
 
   // Resize a single column to fit its data

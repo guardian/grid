@@ -8,6 +8,7 @@
  */
 
 import type { Image } from "@/types/image";
+import type { PositionMap } from "./position-map";
 
 // ---------------------------------------------------------------------------
 // Sort values — opaque cursor for search_after pagination
@@ -344,5 +345,24 @@ export interface ImageDataSource {
     signal?: AbortSignal,
     extraFilter?: Record<string, unknown>,
   ): Promise<SortDistribution | null>;
+
+  /**
+   * Fetch a lightweight position index for all results — `[id, sortValues]`
+   * per document, fetched with `_source: false` in chunked `search_after`
+   * calls. Used by the scrubber to map any global position to exact sort
+   * values for O(1) seek.
+   *
+   * Opens and closes its own dedicated PIT (decoupled from the main search
+   * PIT lifecycle). Yields between chunks to avoid blocking the main thread.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param signal — AbortSignal for cancellation. Aborted fetches discard
+   *   partial results and return `null`.
+   * @returns The complete position map, or `null` if aborted or failed.
+   */
+  fetchPositionIndex?(
+    params: SearchParams,
+    signal: AbortSignal,
+  ): Promise<PositionMap | null>;
 }
 

@@ -41,6 +41,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
 import { resetToHome } from "@/lib/reset-to-home";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import type { Image } from "@/types/image";
@@ -50,7 +51,7 @@ interface ImageDetailProps {
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, bufferOffset, loadMore, findImageIndex } = useDataWindow();
+  const { results, total, bufferOffset, loadMore, findImageIndex, twoTier, getImage } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
   const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     () => findImageIndex(imageId),
     [findImageIndex, imageId],
   );
-  const imageFromResults = currentIndex >= 0 ? results[currentIndex] : undefined;
+  const imageFromResults = currentIndex >= 0 ? getImage(currentIndex) : undefined;
 
   // ── Restore search context from cached cursor ──────────────────────
   //
@@ -129,19 +130,25 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // otherwise fall back to the standalone fetch
   const image = imageFromResults ?? standaloneImage;
 
-  const prevImage = currentIndex > 0 ? results[currentIndex - 1] ?? undefined : undefined;
+  const prevImage = currentIndex > 0 ? getImage(currentIndex - 1) : undefined;
   const nextImage =
-    currentIndex >= 0 && currentIndex < results.length - 1
-      ? results[currentIndex + 1] ?? undefined
+    currentIndex >= 0 && currentIndex < (twoTier ? total : results.length) - 1
+      ? getImage(currentIndex + 1)
       : undefined;
 
   // Load more results when approaching the end of loaded data.
-  // Triggers when within 5 images of the edge.
+  // Triggers when within 5 images of the buffer's forward edge.
   useEffect(() => {
-    if (currentIndex >= 0 && results.length - currentIndex <= 5 && results.length < total) {
+    if (currentIndex < 0) return;
+    // In two-tier, currentIndex is global. In normal, it's buffer-local.
+    // Convert to distance-from-buffer-end in both cases.
+    const distFromEnd = twoTier
+      ? (bufferOffset + results.length) - currentIndex
+      : results.length - currentIndex;
+    if (distFromEnd <= 5 && bufferOffset + results.length < total) {
       loadMore();
     }
-  }, [currentIndex, results.length, total, loadMore]);
+  }, [currentIndex, results.length, total, loadMore, bufferOffset, twoTier]);
 
   // Navigate to prev/next image — replaces current history entry so browser
   // back always returns to the table, not through every viewed image.
@@ -151,9 +158,12 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     (id: string) => {
       const idx = findImageIndex(id);
       if (idx >= 0) {
-        const img = results[idx];
+        const img = getImage(idx);
         const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
-        storeImageOffset(id, bufferOffset + idx, searchKey, cursor);
+        // In two-tier mode, idx from findImageIndex is already global.
+        // In normal mode, add bufferOffset to get global position.
+        const globalOffset = twoTier ? idx : bufferOffset + idx;
+        storeImageOffset(id, globalOffset, searchKey, cursor);
       }
       navigate({
         to: "/search",
@@ -161,7 +171,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         replace: true,
       });
     },
-    [navigate, findImageIndex, searchKey, bufferOffset, results, searchParams.orderBy],
+    [navigate, findImageIndex, getImage, searchKey, bufferOffset, twoTier, searchParams.orderBy],
   );
 
   // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on
@@ -354,6 +364,8 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                  Hit area is a square matching the full bar height (h-11 = 44px).
                  Uses <a> (not <Link>) with e.preventDefault() so we can await
                  search() before navigating — prevents table→grid flash. */}
+            {/* href must match DEFAULT_SEARCH in src/lib/home-defaults.ts
+                 (static string for right-click "open in new tab") */}
             <a
               href="/search?nonFree=true"
               title="Grid — clear all filters"
@@ -361,7 +373,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
               onClick={(e) => {
                 e.preventDefault();
                 resetToHome(() =>
-                  navigate({ to: "/search", search: { nonFree: "true" } }),
+                  navigate({ to: "/search", search: DEFAULT_SEARCH }),
                 );
               }}
             >
@@ -400,7 +412,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           {/* Image position in results */}
           {currentIndex >= 0 && (
             <span className="text-sm text-grid-text-muted">
-              {bufferOffset + currentIndex + 1} of {total.toLocaleString()}
+              {(twoTier ? currentIndex : bufferOffset + currentIndex) + 1} of {total.toLocaleString()}
             </span>
           )}
         </header>

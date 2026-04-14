@@ -37,6 +37,8 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleReload = () => {
+    // Hard reload fallback — can't use the runtime DEFAULT_SEARCH constant.
+    // Must match DEFAULT_SEARCH in src/lib/home-defaults.ts.
     window.location.href = "/search?nonFree=true";
   };
 

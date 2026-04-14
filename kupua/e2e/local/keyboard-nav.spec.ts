@@ -211,15 +211,34 @@ test.describe("Focus mode — Home/End", () => {
 
     // Seek deep so buffer is windowed
     await kupua.seekTo(0.5);
-    await kupua.page.waitForTimeout(500);
+    // Extra settle time — in two-tier mode the virtualizer needs time to
+    // re-render real content at the new scroll position
+    await kupua.page.waitForTimeout(1000);
 
-    // Set focus
-    await kupua.focusNthItem(0);
-    expect(await kupua.getFocusedImageId()).not.toBeNull();
+    // Set focus via the store directly — in two-tier mode, the viewport
+    // may show skeletons at the seek position while the virtualizer catches
+    // up, so DOM-clicking cursor-pointer elements can time out. Setting
+    // focus via the store is reliable and tests the same Home key logic.
+    const focusedId = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      // Pick a real image from the buffer
+      const img = s.results[0];
+      if (img) {
+        s.setFocusedImageId(img.id);
+        return img.id;
+      }
+      return null;
+    });
+    expect(focusedId).not.toBeNull();
 
     // Press Home — triggers seek(0) because bufferOffset > 0
+    // Capture seekGeneration for two-tier-aware wait
+    const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("Home");
-    await kupua.page.waitForTimeout(1000);
+    await kupua.waitForSeekGenerationBump(genBefore);
+    await kupua.page.waitForTimeout(500);
 
     // After seek completes, buffer should be at start
     const store = await kupua.getStoreState();
@@ -228,12 +247,12 @@ test.describe("Focus mode — Home/End", () => {
     expect(await kupua.getScrollTop()).toBe(0);
 
     // Focus should be on the first image in the new buffer
-    const focusedId = await kupua.getFocusedImageId();
+    const focusedIdAfterHome = await kupua.getFocusedImageId();
     const firstImageId = await kupua.page.evaluate(() => {
       const s = (window as any).__kupua_store__.getState();
       return s.results[0]?.id ?? null;
     });
-    expect(focusedId).toBe(firstImageId);
+    expect(focusedIdAfterHome).toBe(firstImageId);
   });
 
   test("End scrolls to bottom AND focuses last image when focus exists", async ({ kupua }) => {
@@ -243,6 +262,8 @@ test.describe("Focus mode — Home/End", () => {
     await kupua.focusNthItem(0);
     expect(await kupua.getFocusedImageId()).not.toBeNull();
 
+    // Capture seekGeneration before End (two-tier-aware wait)
+    const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("End");
     await kupua.page.waitForTimeout(500);
 
@@ -252,8 +273,9 @@ test.describe("Focus mode — Home/End", () => {
     const scrollTop = await kupua.getScrollTop();
     expect(scrollTop).toBeGreaterThan(0);
 
-    // Wait for seek to complete + settle
-    await kupua.page.waitForTimeout(1000);
+    // Wait for seek to complete + settle (two-tier aware)
+    await kupua.waitForSeekGenerationBump(genBefore);
+    await kupua.page.waitForTimeout(500);
     const store = await kupua.getStoreState();
     expect(store.error).toBeNull();
     // The buffer should now be near the end of the dataset

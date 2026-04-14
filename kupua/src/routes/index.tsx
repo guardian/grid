@@ -8,11 +8,12 @@
 
 import { createRoute, redirect } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/search", search: { nonFree: "true" } });
+    throw redirect({ to: "/search", search: DEFAULT_SEARCH });
   },
 });

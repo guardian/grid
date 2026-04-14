@@ -68,40 +68,26 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Run tests in the foreground.** When running `npx playwright test`,
-`./scripts/run-e2e.sh`, or any test command, run it in the **foreground** (blocking
-call, not background). Do NOT pipe through `tail`/`head`. Do NOT use `sleep` to poll.
-The list reporter streams each result live (~70s total run). The user wants to watch
-results accumulate in real time.
+**Directive: Running tests.** All test commands MUST use `2>&1 | tee /tmp/kupua-test-output.txt`
+so output is captured even if the terminal times out. If the terminal does time out,
+`read_file /tmp/kupua-test-output.txt` to see results — **never re-run tests that are
+already running.** Run in the **foreground** (not background). Do NOT pipe through
+`tail`/`head`. Do NOT use `sleep` to poll. Before running any Playwright test, warn the
+user to stop any dev server on port 3000 (or 3010/3020/3030 for tier-matrix tests).
+Wait for confirmation.
+- After any `src/` change: `cd kupua && npm test 2>&1 | tee /tmp/kupua-test-output.txt`
+  (~5s, non-negotiable).
+- After changing components, hooks, store, scroll: also run
+  `cd kupua && npx playwright test 2>&1 | tee /tmp/kupua-test-output.txt` (~6min).
+- Perf (`run-audit.mjs`), smoke (`run-smoke.mjs`), tier-matrix (`test:e2e:tiers`):
+  **never habitual** — manual, purpose-driven, only when user asks.
 
-**Directive: Smoke tests against real ES.** `e2e/smoke/manual-smoke-test.spec.ts` and
-`e2e/smoke/smoke-scroll-stability.spec.ts` run against a live Elasticsearch cluster (TEST)
-via `./scripts/start.sh --use-TEST`. The agent **may** run these tests directly,
-after seeking EXPLICIT permission from the human user once per-session, using
-`node scripts/run-smoke.mjs <number>` (or Playwright commands against the smoke config)
-when the user confirms that TEST is available and `start.sh --use-TEST` is running.
-All smoke tests are **read-only** and auto-skip when connected to local ES
-(`total < 100k`), so accidental local runs are harmless. The agent may also use
-Playwright `--debug` or `page.pause()` for interactive browser diagnosis when
-that would speed up debugging, similarly after excplicit human consent once per-session.
-**Never** issue write operations against real ES —
-this is a read-only privilege. After every smoke session, follow the
-"Smoke → local feedback loop" procedure in `e2e/README.md`.
-
-**Directive: Dev server conflict.** Before running `npx playwright test` (any config),
-warn the user if port 3000 might be in use. The local test suite starts its own Vite
-dev server — if the user's manual `npm run dev` or `./scripts/start.sh` is still
-running on port 3000, tests will fail with `ERR_CONNECTION_REFUSED` or bind errors.
-Say: "I need to run the test suite — please stop any running dev server on port 3000
-first." Wait for confirmation before proceeding.
-
-**Directive: Habitual testing.** After any code change to `src/`:
-- Run `npm test` (unit + integration, ~5 seconds). This is non-negotiable.
-- After changing component structure, hooks, store subscriptions, or anything
-  that affects rendering: run `npx playwright test` (E2E, ~70 seconds). Ask
-  the user to stop any running dev server on port 3000 first.
-- Never run perf tests (`run-audit.mjs`) or smoke tests (`run-smoke.mjs`)
-  habitually — those are manual, purpose-driven.
+**Directive: Smoke tests against real ES.** Requires EXPLICIT user permission once per
+session. Uses `node scripts/run-smoke.mjs <number>` while `start.sh --use-TEST` is
+running. Read-only — **never** issue write operations against real ES. Smoke tests
+auto-skip on local ES. After every smoke session, follow the "Smoke → local feedback
+loop" in `e2e/README.md`. Agent may use `--debug` / `page.pause()` for interactive
+diagnosis after user consent.
 
 **Directive: Ask rather than spiral.** If the agent has attempted a fix or approach and
 it didn't work, or if there are multiple plausible interpretations of a request with

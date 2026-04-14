@@ -186,6 +186,7 @@ export function ImageGrid() {
     results, total, bufferOffset, virtualizerCount, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
+    twoTier,
   } = useDataWindow();
   const searchParams = useSearch({ from: "/search" });
   const parentRef = useRef<HTMLDivElement>(null);
@@ -265,13 +266,16 @@ export function ImageGrid() {
     const fid = focusedImageIdRef.current;
     if (fid) {
       const { imagePositions, bufferOffset } = useSearchStore.getState();
+      const isTwoTier = twoTier; // from hook scope — already derived from total range
       const globalIdx = imagePositions.get(fid);
       if (globalIdx != null && globalIdx >= 0) {
-        const localIdx = globalIdx - bufferOffset;
-        if (localIdx >= 0) {
-          const rowTop = Math.floor(localIdx / cols) * ROW_HEIGHT;
+        // In two-tier mode, the virtualizer uses global indices directly.
+        // In normal mode, use buffer-local indices.
+        const virtIdx = isTwoTier ? globalIdx : globalIdx - bufferOffset;
+        if (virtIdx >= 0) {
+          const rowTop = Math.floor(virtIdx / cols) * ROW_HEIGHT;
           const ratio = (rowTop - el.scrollTop) / el.clientHeight;
-          return { imageIndex: localIdx, viewportRatio: ratio };
+          return { imageIndex: virtIdx, viewportRatio: ratio };
         }
       }
     }
@@ -327,6 +331,7 @@ export function ImageGrid() {
     loadMore,
     focusedImageId,
     findImageIndex,
+    twoTier,
   });
 
   // -------------------------------------------------------------------------
@@ -379,16 +384,19 @@ export function ImageGrid() {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {
-        const img = results[idx];
+        const img = getImage(idx);
         const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
-        storeImageOffset(imageId, bufferOffset + idx, buildSearchKey(searchParams), cursor);
+        // In two-tier mode, idx from findImageIndex is already global.
+        // In normal mode, add bufferOffset to get global position.
+        const globalOffset = twoTier ? idx : bufferOffset + idx;
+        storeImageOffset(imageId, globalOffset, buildSearchKey(searchParams), cursor);
       }
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, searchParams, bufferOffset, results],
+    [navigate, setFocusedImageId, findImageIndex, getImage, searchParams, bufferOffset, twoTier],
   );
 
   // -------------------------------------------------------------------------

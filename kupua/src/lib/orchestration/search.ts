@@ -1,19 +1,4 @@
-/**
- * Orchestration: search — imperative coordination functions for search workflows.
- *
- * This module holds module-level mutable state and exported functions that are
- * called by multiple UI components (SearchBar, ImageTable, ImageMetadata,
- * ImageDetail) and hooks (useScrollEffects, useUrlSearchSync).
- *
- * Previously these lived inside components and hooks, creating cross-component
- * imports (ImageTable importing from SearchBar, etc.). Moving them here makes
- * the dependency direction strictly downward:
- *   components → hooks → lib → dal
- *
- * **No logic was changed.** Every function body is verbatim from its original
- * location.
- */
-
+import { devLog } from "@/lib/dev-log";
 import { useSearchStore } from "@/stores/search-store";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { resetVisibleRange } from "@/hooks/useDataWindow";
@@ -191,6 +176,7 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }):
  *  to force a re-search on the next URL change or re-render). */
 export let _prevParamsSerialized = "";
 export function setPrevParamsSerialized(s: string) {
+  devLog("[setPrevParams]", s);
   _prevParamsSerialized = s;
 }
 
@@ -208,6 +194,7 @@ export function setPrevSearchOnly(obj: Record<string, unknown>) {
  * when the URL search params haven't actually changed.
  */
 export function resetSearchSync() {
+  devLog("[resetSearchSync] clearing (was", _prevParamsSerialized, ")");
   _prevParamsSerialized = "";
   _prevSearchOnly = {};
 }

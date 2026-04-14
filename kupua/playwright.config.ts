@@ -22,8 +22,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e/local",
   testMatch: "**/*.spec.ts",
-  /* Only local E2E specs live in e2e/local/ — no testIgnore needed.
-   * Smoke tests are in e2e/smoke/, perf tests in e2e-perf/. */
+  /* Exclude the tier-matrix spec — it runs only via playwright.tiers.config.ts
+   * which starts three separate Vite servers with different env vars. */
+  testIgnore: "**/tier-matrix.spec.ts",
 
   /* Verify ES + sample data before starting any tests.
    * Fails fast with a clear message instead of 46 individual timeouts. */

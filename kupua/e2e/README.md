@@ -8,8 +8,10 @@
 e2e/
   local/                          ← npx playwright test (habitual)
     scrubber.spec.ts
+    keyboard-nav.spec.ts
     buffer-corruption.spec.ts
     ui-features.spec.ts
+    tier-matrix.spec.ts           ← cross-tier only (own config)
     visual-baseline.spec.ts
     visual-baseline.spec.ts-snapshots/
   smoke/                          ← node scripts/run-smoke.mjs (TEST)
@@ -33,8 +35,9 @@ e2e-perf/                         ← separate (own configs, own results)
 | Mode | Command | Data | When to use |
 |------|---------|------|-------------|
 | **Unit/Integration** | `npm test` | In-memory mock | After any `src/` change. ~5s. Non-negotiable. |
-| **Local E2E** | `npm run test:e2e` | Docker ES, 10k docs | After changing components, hooks, store, scroll effects. ~70s. |
+| **Local E2E** | `npm run test:e2e` | Docker ES, 10k docs | After changing components, hooks, store, scroll effects. ~6min. |
 | **Local E2E (full)** | `npm run test:e2e:full` | Docker ES, 10k docs | Same as above but orchestrates Docker + data loading first. |
+| **Cross-tier matrix** | `npm run test:e2e:tiers` | Docker ES, 10k docs | 18 tests × 3 tiers (buffer/two-tier/seek). Starts 3 Vite servers on ports 3010/3020/3030. ~4min. Manual, not habitual. |
 | **Smoke (TEST)** | `npm run test:smoke` | Real ES, 1.3M docs | After behavioural changes. Requires `start.sh --use-TEST`. |
 | **Perf** | `npm run test:perf` | Real ES, 1.3M docs | Manual, purpose-driven. Never habitual. |
 | **Experiment** | `npm run test:experiment` | Local or real ES | Agent-driven A/B tuning. Requires user consent for TEST. |
@@ -101,10 +104,21 @@ but they determine how the app behaves during tests.
 
 ## Which Command Do I Run?
 
-1. **Changed `src/`?** → `npm test` then `npm run test:e2e`
-2. **Need to validate on real data?** → Ask user for TEST consent → `npm run test:smoke`
-3. **Running a tuning experiment?** → Ask user for TEST consent → `npm run test:experiment`
-4. **Investigating scrubber coordinate mapping?** → `npm run test:diag`
+Not every suite needs to run every time. The suites are designed at different
+cadences — running the wrong one wastes minutes (or requires a live cluster).
+
+| Changed… | Run | Why | Skip |
+|----------|-----|-----|------|
+| Anything in `src/` | `npm test` (~36s) | Unit/integration. **Always.** Non-negotiable. | Never skip. |
+| Components, hooks, store, scroll effects | + `npx playwright test` (~6min) | Tests real browser behaviour: scroll races, focus drift, buffer corruption. | Skip for doc-only, pure-util, or test-only changes. |
+| Scroll thresholds, seek logic, density-switch, Home/End handlers, scrubber | + `npm run test:e2e:tiers` (~4min) | Same 18 operations at all three tier boundaries (buffer/two-tier/seek). This is where bugs hide. | Skip if you only changed a panel, table column, or UI feature. |
+| Need to validate at real scale (1M+ docs) | `npm run test:smoke` | Catches data-shape bugs (null sort values, missing fields) that 10k sample data can't reproduce. | Requires `start.sh --use-TEST` + explicit user permission. |
+| Tuning overscan, buffer capacity, etc. | `npm run test:perf` or `test:experiment` | Measures actual metrics. Never habitual — purpose-driven only. | Don't run "just in case". |
+| Scrubber coordinate-space investigation | `npm run test:diag` | Headed diagnostic scan. Not pass/fail. | Only when debugging scrubber mapping. |
+
+**Rule of thumb:** `npm test` is always the first thing you run. `npx playwright test`
+is the second (for rendering-related changes). Everything else is purpose-driven —
+you should have a specific reason to run it.
 
 ## Common Mistakes
 
@@ -130,10 +144,12 @@ but they determine how the app behaves during tests.
 
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `local/scrubber.spec.ts` | ~74 | Seek accuracy, scroll preservation, flash prevention, settle-window stability, density switch, sort change, keyboard nav, buffer extension, scroll-up after seek, scroll mode, bug regressions (#1–#18) |
-| `local/buffer-corruption.spec.ts` | ~13 | Logo click / metadata click / query change after deep seek — stale prepend regression |
+| `local/scrubber.spec.ts` | ~82 | Seek accuracy, scroll preservation, flash prevention, settle-window stability, density switch, sort change, keyboard nav, buffer extension, scroll-up after seek, scroll mode, two-tier (T1–T4, T9, T12), bug regressions (#1–#18) |
+| `local/keyboard-nav.spec.ts` | 15 | Two-mode keyboard nav (no-focus scroll vs focused movement), Home/End, search box key trapping, row-aligned snapping |
+| `local/buffer-corruption.spec.ts` | 12 | Logo click / metadata click / query change after deep seek — stale prepend regression |
 | `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
+| `local/tier-matrix.spec.ts` | 18 | Cross-tier tests (seek, Home/End, density switch, sort-around-focus) — runs via `playwright.tiers.config.ts` only |
 
 ### Smoke (`npm run test:smoke` — `playwright.smoke.config.ts` → `e2e/smoke/`)
 

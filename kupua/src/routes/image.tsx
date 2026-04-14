@@ -8,6 +8,7 @@
 
 import { createRoute, redirect } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 export const imageRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -15,7 +16,7 @@ export const imageRoute = createRoute({
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/search",
-      search: { nonFree: "true", image: params.imageId },
+      search: { ...DEFAULT_SEARCH, image: params.imageId },
     });
   },
 });

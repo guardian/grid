@@ -19,9 +19,11 @@ import {
   _prevSearchOnly,
   setPrevSearchOnly,
 } from "@/lib/orchestration/search";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
-/** Default search params applied when the URL has none at all. */
-const DEFAULT_SEARCH: Partial<UrlSearchParams> = { nonFree: "true" };
+// Re-export so existing consumers don't need to change their imports yet.
+// New code should import directly from "@/lib/home-defaults".
+export { DEFAULT_SEARCH };
 
 /**
  * Strips undefined values from search params so they don't appear in the URL

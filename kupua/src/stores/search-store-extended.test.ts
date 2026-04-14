@@ -713,14 +713,16 @@ describe("large-scale consistency", () => {
 // ---------------------------------------------------------------------------
 
 describe("ES request count", () => {
-  it("basic search makes exactly 1 searchAfter request", async () => {
+  it("basic search makes exactly 1 searchAfter request (+1 position map)", async () => {
     mock.requestCount = 0;
     await actions().search();
-    // 1 searchAfter for the first page (+ possibly PIT open, but mock skips it on local)
-    expect(mock.requestCount).toBe(1);
+    // 1 searchAfter for the first page + 1 fetchPositionIndex (background,
+    // because 10k > SCROLL_MODE_THRESHOLD and ≤ POSITION_MAP_THRESHOLD).
+    // PIT open skipped on local ES.
+    expect(mock.requestCount).toBe(2);
   });
 
-  it("sort-around-focus in first page makes only 1 extra request", async () => {
+  it("sort-around-focus in first page makes only 1 extra request (+1 position map)", async () => {
     await actions().search();
     mock.requestCount = 0;
 
@@ -728,9 +730,10 @@ describe("ES request count", () => {
     await actions().search("img-50");
     await flush();
 
-    // 1 for the search itself. The image is in the first page,
-    // so _findAndFocusImage should not be called (no extra requests).
-    expect(mock.requestCount).toBe(1);
+    // 1 for the search itself + 1 fetchPositionIndex (background).
+    // The image is in the first page, so _findAndFocusImage should not be
+    // called (no extra requests beyond search + position map).
+    expect(mock.requestCount).toBe(2);
   });
 
   it("sort-around-focus outside first page makes ≤5 requests", async () => {

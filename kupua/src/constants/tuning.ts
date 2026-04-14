@@ -48,6 +48,23 @@ export const SCROLL_MODE_THRESHOLD = Number(
 );
 
 /**
+ * Maximum total result count for which the store will build a lightweight
+ * position map (id + sort values, ~288 bytes/entry) in the background after
+ * the initial search. When total ≤ this value AND > SCROLL_MODE_THRESHOLD,
+ * the scrubber enters "indexed scroll mode" — any seek is resolved via
+ * exact position→sortValues lookup (one search_after call) instead of
+ * percentile estimation or composite walks.
+ *
+ * At 65k: ~18MB V8 heap, ~5s background fetch (Phase 0 measurements).
+ * Set to 0 to disable the position map entirely.
+ *
+ * Configurable via VITE_POSITION_MAP_THRESHOLD env var (set in .env).
+ */
+export const POSITION_MAP_THRESHOLD = Number(
+  import.meta.env.VITE_POSITION_MAP_THRESHOLD ?? 65_000,
+);
+
+/**
  * Maximum number of rows addressable via `from/size` pagination.
  *
  * Must match the ES index's `max_result_window` setting.

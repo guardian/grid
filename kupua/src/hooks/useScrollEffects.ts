@@ -29,10 +29,29 @@ import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
-import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
-import { devLog } from "@/lib/dev-log";
+import { SEEK_DEFERRED_SCROLL_MS, SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
+import { devLog } from "@/lib/dev-log";
+
+/**
+ * Check whether two-tier virtualisation is active from imperative store state.
+ * Mirrors the reactive derivation in useDataWindow — must stay in sync.
+ */
+function isTwoTierFromTotal(total: number): boolean {
+  return POSITION_MAP_THRESHOLD > 0 &&
+    total > SCROLL_MODE_THRESHOLD &&
+    total <= POSITION_MAP_THRESHOLD;
+}
+
+/**
+ * Convert a global image index to the index the virtualizer expects.
+ * In two-tier mode the virtualizer uses global indices (0..total-1).
+ * In normal mode it uses buffer-local indices (0..results.length-1).
+ */
+function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: boolean): number {
+  return isTwoTier ? globalIdx : globalIdx - bufferOffset;
+}
 
 // ---------------------------------------------------------------------------
 // Density-focus bridge (previously src/lib/density-focus.ts)
@@ -190,6 +209,13 @@ export interface UseScrollEffectsConfig {
 
   /** From useDataWindow: find buffer-local index by image ID. */
   findImageIndex: (imageId: string) => number;
+
+  /**
+   * Whether two-tier virtualisation is active. When true, virtualizerCount
+   * is `total` (not buffer length), indices are global, and scroll
+   * compensation (prepend/evict) must NOT fire.
+   */
+  twoTier: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +246,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     loadMore,
     focusedImageId,
     findImageIndex,
+    twoTier,
   } = config;
 
   const searchParams = useSearch({ from: "/search" });
@@ -256,12 +283,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   useEffect(() => {
     registerScrollToFocused(() => {
-      const { focusedImageId: fid, imagePositions, bufferOffset: bo } =
+      const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } =
         useSearchStore.getState();
       if (!fid) return;
       const globalIdx = imagePositions.get(fid);
       if (globalIdx == null) return;
-      const localIdx = globalIdx - bo;
+      // In two-tier mode, virtualizer row 0 = global 0
+      const localIdx = toVirtualizerIdx(globalIdx, bo, isTwoTierFromTotal(t));
       if (localIdx < 0) return;
       const geo = geometryRef.current;
       const rowIdx = Math.floor(localIdx / geo.columns);
@@ -279,6 +307,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   resultsLengthRef.current = resultsLength;
   const totalRef = useRef(total);
   totalRef.current = total;
+  const bufferOffsetRef = useRef(bufferOffset);
+  bufferOffsetRef.current = bufferOffset;
 
   // A.1: Stabilise virtualizer ref (new object every render)
   const virtualizerRef = useRef(virtualizer);
@@ -291,6 +321,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // Geometry ref — columns can change mid-render for grid
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
+
+  // Two-tier ref — used in handleScroll for loadMore guard
+  const twoTierRef = useRef(twoTier);
+  twoTierRef.current = twoTier;
 
   // Register geometry for external consumers (e.g. Scrubber, diagnostics)
   registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns });
@@ -316,9 +350,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
     }
 
-    // Fallback loadMore near bottom
+    // Fallback loadMore near bottom — guard with buffer coverage check.
+    // In two-tier mode, resultsLength < total is always true (buffer is 1000,
+    // total is 12k), so we check bufferOffset + resultsLength < total instead.
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (scrollBottom < 500 && resultsLengthRef.current < totalRef.current) {
+    if (scrollBottom < 500 && bufferOffsetRef.current + resultsLengthRef.current < totalRef.current) {
       loadMoreRef.current();
     }
   }, [reportVisibleRange, parentRef]);
@@ -352,6 +388,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   useLayoutEffect(() => {
     if (prependGeneration === prevPrependGenRef.current) return;
     prevPrependGenRef.current = prependGeneration;
+    // In two-tier mode, virtualizerCount is constant (total). Items are
+    // replaced at fixed global positions, not inserted. No compensation needed.
+    if (twoTier) return;
     const el = parentRef.current;
     if (!el || lastPrependCount <= 0) return;
 
@@ -378,7 +417,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     el.scrollTop += rowDelta * geo.rowHeight;
     // DIAG: prepend compensation
     devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} firstVisibleRow=${firstVisibleRow} firstVisibleIndex=${firstVisibleIndex} shiftedRow=${shiftedRow} rowDelta=${rowDelta} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
-  }, [prependGeneration, lastPrependCount, parentRef]);
+  }, [prependGeneration, lastPrependCount, parentRef, twoTier]);
 
   // -------------------------------------------------------------------------
   // 5. Forward evict scroll compensation
@@ -390,6 +429,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   useLayoutEffect(() => {
     if (forwardEvictGeneration === prevForwardEvictGenRef.current) return;
     prevForwardEvictGenRef.current = forwardEvictGeneration;
+    // In two-tier mode, no scroll compensation — items replaced at fixed positions.
+    if (twoTier) return;
     const el = parentRef.current;
     if (!el || lastForwardEvictCount <= 0) return;
     const geo = geometryRef.current;
@@ -406,7 +447,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const rowDelta = firstVisibleRow - shiftedRow;
     el.scrollTop -= rowDelta * geo.rowHeight;
-  }, [forwardEvictGeneration, lastForwardEvictCount, parentRef]);
+  }, [forwardEvictGeneration, lastForwardEvictCount, parentRef, twoTier]);
 
   // -------------------------------------------------------------------------
   // 6. Seek scroll-to-target
@@ -414,6 +455,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   // seekGeneration already subscribed in section 4 above.
   const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
+  const seekTargetGlobalIndex = useSearchStore((s) => s._seekTargetGlobalIndex);
   const seekSubRowOffset = useSearchStore((s) => s._seekSubRowOffset);
   const prevSeekGenRef = useRef(seekGeneration);
   useLayoutEffect(() => {
@@ -421,7 +463,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     prevSeekGenRef.current = seekGeneration;
 
     const geo = geometryRef.current;
-    const targetIdx = seekTargetLocalIndex >= 0 ? seekTargetLocalIndex : 0;
+    // In two-tier mode, the virtualizer's coordinate space is global (row 0 =
+    // global position 0). Use the global index for pixel computation.
+    const targetIdx = twoTier && seekTargetGlobalIndex >= 0
+      ? seekTargetGlobalIndex       // two-tier: virtualizer row 0 = global 0
+      : seekTargetLocalIndex >= 0
+        ? seekTargetLocalIndex      // buffer-local, as today
+        : 0;
     const targetPixelTop = localIndexToPixelTop(targetIdx, geo);
     // When the store passes a sub-row offset (headroom pre-set couldn't apply
     // it synchronously because the old buffer's scrollHeight was too small),
@@ -492,7 +540,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       }, SEEK_DEFERRED_SCROLL_MS);
       return () => clearTimeout(timer);
     }
-  }, [seekGeneration, seekTargetLocalIndex, seekSubRowOffset, virtualizer, parentRef]);
+  }, [seekGeneration, seekTargetLocalIndex, seekTargetGlobalIndex, seekSubRowOffset, twoTier, virtualizer, parentRef]);
 
   // -------------------------------------------------------------------------
   // 7. Search params scroll reset (with sort-around-focus detection)
@@ -537,7 +585,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const store = useSearchStore.getState();
       const gIdx = store.imagePositions.get(focusedImageId);
       if (gIdx != null) {
-        const localIdx = gIdx - store.bufferOffset;
+        // In two-tier mode, virtualizer row 0 = global 0
+        const localIdx = toVirtualizerIdx(gIdx, store.bufferOffset, isTwoTierFromTotal(store.total));
         if (localIdx >= 0) {
           const geo = geometryRef.current;
           const rowTop = localIndexToPixelTop(localIdx, geo);
@@ -558,7 +607,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     virtualizer.scrollToOffset(0);
   }, [searchParams, virtualizer, focusedImageId, parentRef]);
 
-  // -------------------------------------------------------------------------
   // 8. BufferOffset→0 guard — primary scroll-reset for "go home" transitions
   // -------------------------------------------------------------------------
   //
@@ -575,6 +623,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   useLayoutEffect(() => {
     const prev = prevBufferOffsetRef.current;
     prevBufferOffsetRef.current = bufferOffset;
+    // NOTE: no twoTier guard here. In two-tier mode, bufferOffset→0 happens
+    // in two cases: (a) the user scrolled to the top naturally (scrollTop is
+    // already ~0 — the reset is a harmless no-op), or (b) a search()/resetToHome
+    // replaced the buffer (scrollTop may be at ~1.3M — must be reset to 0).
+    // Case (b) would fail without the reset, and case (a) is safe, so we
+    // always fire. The original twoTier guard was added assuming only case (a)
+    // exists, but the position-map-independent twoTier derivation makes
+    // case (b) real.
     if (prev > 0 && bufferOffset === 0) {
       const el = parentRef.current;
       if (el) {
@@ -589,7 +645,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
       }
     }
-  }, [bufferOffset, virtualizer, parentRef]);
+  }, [bufferOffset, virtualizer, parentRef, twoTier]);
 
   // -------------------------------------------------------------------------
   // 9. Sort-around-focus generation — scroll to focused image at new position
@@ -654,10 +710,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (!id) return;
 
     const saved = peekDensityFocusRatio();
-    // For initial idx: convert saved globalIndex to local, or use findImageIndex
+    // For initial idx: convert saved globalIndex to local, or use findImageIndex.
+    // In two-tier mode, virtualizer uses global indices — no subtraction needed.
     const store = useSearchStore.getState();
     const idx = saved != null
-      ? saved.globalIndex - store.bufferOffset
+      ? toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total))
       : findImageIndex(id);
     if (idx < 0) return;
 
@@ -724,8 +781,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           // because the viewport anchor can be overwritten by the NEW
           // component's initial scroll/render before rAF2 fires — causing
           // the re-lookup to find a completely different image near the top.
-          const { bufferOffset: boNow } = useSearchStore.getState();
-          const idxNow = saved.globalIndex - boNow;
+          const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
+          const idxNow = toVirtualizerIdx(saved.globalIndex, boNow, isTwoTierFromTotal(totalNow));
 
           // Recompute with the now-correct geometry
           const geoNow = geometryRef.current;
@@ -786,9 +843,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // scrollToIndex also may not work on mount — defer similarly
       const raf1 = requestAnimationFrame(() => {
         const raf2 = requestAnimationFrame(() => {
-          // Re-derive local index from the stable global index
-          const { bufferOffset: boNow } = useSearchStore.getState();
-          const idxNow = anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx;
+          // Re-derive local index from the stable global index.
+          // In two-tier mode, the virtualizer uses global indices.
+          const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
+          const isTT = isTwoTierFromTotal(totalNow);
+          const idxNow = isTT
+            ? (anchorGlobalIdx >= 0 ? anchorGlobalIdx : idx)
+            : (anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx);
           const geoNow = geometryRef.current;
           const colsNow = geoNow.minCellWidth
             ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
@@ -814,13 +875,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     return () => {
       const el = parentRef.current;
       if (!el) return;
-      const { focusedImageId: fid, imagePositions, bufferOffset: bo } = useSearchStore.getState();
+      const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } = useSearchStore.getState();
       // Fall back to viewport anchor when no explicit focus
       const anchorId = fid ?? getViewportAnchorId();
       if (!anchorId) return;
       const globalIdx = imagePositions.get(anchorId) ?? -1;
       if (globalIdx < 0) return;
-      const localIdx = globalIdx - bo;
+      // In two-tier mode, the virtualizer uses global indices.
+      const localIdx = toVirtualizerIdx(globalIdx, bo, isTwoTierFromTotal(t));
       if (localIdx < 0) return;
       const geo = geometryRef.current;
       const rowTop = localIndexToPixelTop(localIdx, geo);
