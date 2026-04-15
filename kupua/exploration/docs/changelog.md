@@ -14,6 +14,41 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 15 April 2026 — Fix restoreAroundCursor infinite loop in two-tier mode
+
+**Root cause:** Two interacting bugs caused an infinite restore → seek → restore loop
+when reloading a page with ImageDetail open in two-tier mode (1k < total ≤ 65k).
+
+- **Bug A (primary):** `restoreAroundCursor` in `search-store.ts` hardcoded
+  `_seekTargetGlobalIndex: -1`. In two-tier mode, effect6 (`useScrollEffects.ts`)
+  needs the global index to compute the correct pixel position — with `-1` it falls
+  back to the buffer-local index (~100), computing scrollTop ≈ 7,575px instead of the
+  correct ≈ 1,445,310px (for an image at global offset 23,852). The wrong scrollTop
+  triggers a scroll-based seek that relocates the buffer to a completely different
+  region, losing the target image.
+
+- **Bug B (amplifier):** The restore effect in `ImageDetail.tsx` reset
+  `offsetRestoreAttempted` to `false` whenever `currentIndex >= 0`. After
+  `restoreAroundCursor` briefly places the image in buffer (`currentIndex >= 0` →
+  flag resets), Bug A pushes the buffer away (`currentIndex = -1`), and restore fires
+  again. Each cycle: ~250-300ms, ~20 unnecessary ES round-trips in the first 3s.
+
+**Wider blast radius:** Grid scroll position corruption after closing ImageDetail,
+scrubber thumb twitching, React render thrash on all grid/scrubber subscribers.
+Position map, PIT, and aggregations unaffected.
+
+**Fixes:**
+- `search-store.ts`: `restoreAroundCursor` now computes
+  `_seekTargetGlobalIndex = exactOffset` in two-tier mode (same pattern as `seek()`'s
+  exact-offset path). Scroll mode and three-tier unchanged (`-1`).
+- `ImageDetail.tsx`: Added `restoreAttemptedForRef` to track which imageId the restore
+  was attempted for. The flag only resets when `imageId` changes (user navigates to a
+  different image), preventing re-triggering when buffer briefly contains then loses
+  the same image.
+
+**Verification:** All 291 unit tests pass. User confirmed fix on TEST (51,306 results) —
+`restoreAroundCursor` fires once, effect6 scrolls to correct pixel, no cycling.
+
 ### 15 April 2026 — Traversal refactor, fixes, and (minimal) UI
 
 **Traversal refactor** — created `useImageTraversal` hook (210 lines, 21 unit tests)

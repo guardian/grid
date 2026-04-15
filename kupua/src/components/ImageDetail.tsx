@@ -78,10 +78,23 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // the image. With a cursor this is exact at any depth. Without one
   // (old cache format) falls back to approximate seek.
   const offsetRestoreAttempted = useRef(false);
+  // Track which imageId the restore was attempted for — only reset the
+  // flag when navigating to a DIFFERENT image. Without this, the flag
+  // resets when the image briefly appears in the buffer (currentIndex >= 0)
+  // and a subsequent buffer change (e.g. wrong scrollTop in two-tier mode
+  // triggering a scroll-seek) pushes it back out — causing an infinite
+  // restoreAroundCursor loop.
+  const restoreAttemptedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (currentIndex >= 0) {
-      // Image is already in results — no restore needed
-      offsetRestoreAttempted.current = false;
+      // Image is already in results — no restore needed.
+      // Only reset the flag if this is a different image from the one
+      // we already restored — allows re-restore after user navigates
+      // to a new image, but prevents re-triggering for the same image
+      // when the buffer briefly contains it then loses it.
+      if (restoreAttemptedForRef.current !== imageId) {
+        offsetRestoreAttempted.current = false;
+      }
       return;
     }
     // Don't attempt restore until the initial search has returned —
@@ -91,6 +104,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     const cached = getImageOffset(imageId, searchKey);
     if (cached == null) return; // no cached position — standalone mode
     offsetRestoreAttempted.current = true;
+    restoreAttemptedForRef.current = imageId;
     restoreAroundCursor(imageId, cached.cursor, cached.offset);
   }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);
 

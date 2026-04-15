@@ -2913,6 +2913,27 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
+      // In two-tier mode, effect #6 needs the global index to compute the
+      // correct pixel position (virtualizer row 0 = global 0). Without this,
+      // effect6 falls back to the buffer-local targetLocalIndex — which maps
+      // to a pixel position near the top of the full scroll range instead of
+      // the image's actual global position. That wrong scrollTop triggers a
+      // scroll-seek that relocates the buffer away from the image, and the
+      // restore effect fires again — infinite loop.
+      // exactOffset is known-exact (from countBefore) — same as the seek()
+      // exact-offset path.
+      const seekTargetGlobalIndex = (() => {
+        const inTwoTier =
+          POSITION_MAP_THRESHOLD > 0 &&
+          buf.total > SCROLL_MODE_THRESHOLD &&
+          buf.total <= POSITION_MAP_THRESHOLD;
+        // In scroll mode (total ≤ SCROLL_MODE_THRESHOLD) the virtualizer is
+        // 1:1 with the buffer, so -1 (buffer-local) is correct. In three-tier
+        // (total > POSITION_MAP_THRESHOLD) the seek pipeline handles its own
+        // scrollTop computation. Only two-tier needs the explicit global index.
+        return inTwoTier ? exactOffset : -1;
+      })();
+
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
@@ -2926,7 +2947,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
         _seekTargetLocalIndex: buf.targetLocalIndex,
-        _seekTargetGlobalIndex: -1,
+        _seekTargetGlobalIndex: seekTargetGlobalIndex,
         _seekSubRowOffset: 0,
       });
 
