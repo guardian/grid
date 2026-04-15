@@ -198,12 +198,14 @@ function SearchPage() {
         </PanelLayout>
       </div>
 
-      {/* Image detail overlay — rendered when image is in URL */}
-      {showImageDetail && <ImageDetail imageId={image} />}
-
       {/* Fullscreen preview — always mounted (hidden until activated by `f` key).
           Uses the Fullscreen API for true edge-to-edge display. */}
       <FullscreenPreview />
+
+      {/* Image detail overlay — rendered when image is in URL.
+          Must be AFTER FullscreenPreview so its `f` shortcut wins the
+          keyboard shortcut stack (most-recently-registered = top). */}
+      {showImageDetail && <ImageDetail imageId={image} />}
     </>
   );
 }

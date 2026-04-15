@@ -19,10 +19,16 @@
  * Arrow keys navigate between images while in fullscreen preview, matching
  * ImageDetail's arrow key behaviour. The focused image in the grid/table
  * updates accordingly, so exiting fullscreen lands on the last-viewed image.
+ *
+ * Traversal uses the shared `useImageTraversal` hook which handles all three
+ * scroll modes (buffer, two-tier, seek) — triggering extends/seeks when
+ * the adjacent image is outside the buffer.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchStore } from "@/stores/search-store";
+import { useImageTraversal } from "@/hooks/useImageTraversal";
+import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
@@ -41,29 +47,6 @@ function resolveFocusedImage(): Image | null {
   const localIdx = globalIdx - bufferOffset;
   if (localIdx < 0 || localIdx >= results.length) return null;
   return results[localIdx] ?? null;
-}
-
-/**
- * Navigate to the previous or next image in the buffer.
- * Updates focusedImageId in the store. Returns the new image, or null if
- * at the boundary.
- */
-function navigateImage(direction: "prev" | "next"): Image | null {
-  const { focusedImageId, imagePositions, bufferOffset, results, setFocusedImageId } =
-    useSearchStore.getState();
-  if (!focusedImageId) return null;
-  const globalIdx = imagePositions.get(focusedImageId);
-  if (globalIdx == null) return null;
-  const localIdx = globalIdx - bufferOffset;
-
-  const newLocalIdx = direction === "prev" ? localIdx - 1 : localIdx + 1;
-  if (newLocalIdx < 0 || newLocalIdx >= results.length) return null;
-
-  const newImage = results[newLocalIdx];
-  if (!newImage) return null;
-
-  setFocusedImageId(newImage.id);
-  return newImage;
 }
 
 function getImageUrl(image: Image): string | undefined {
@@ -85,12 +68,34 @@ export function FullscreenPreview() {
   // Track whether we initiated the fullscreen (vs. ImageDetail's fullscreen)
   const initiatedRef = useRef(false);
 
-  // Direction-aware prefetch — same pipeline as ImageDetail.
-  // Throttle ref for arrow-key navigation; null on initial enter (no throttle).
-  const directionRef = useRef<"forward" | "backward">("forward");
-  const lastPrefetchRef = useRef(0);
+  // Cooldown after entering fullscreen — Chrome shows a permission overlay
+  // ("Press Esc to exit full screen") that swallows the first keypress.
+  // Ignore all keyboard input during this window to prevent broken state.
+  // Also suppresses nav button hover during macOS fullscreen animation.
+  const cooldownRef = useRef(false);
+  const [navReady, setNavReady] = useState(false);
 
-  /** Resolve the local index of an image in the buffer. */
+  // ── Traversal via shared hook ──────────────────────────────────
+  // The hook manages prev/next, buffer extension, seek, and prefetch.
+  // We pass focusedImageId as the current image — the hook tracks
+  // position in the global result set.
+  const focusedImageId = useSearchStore((s) => s.focusedImageId);
+
+  const onNavigate = useCallback(
+    (image: Image, _globalIndex: number, _direction: "forward" | "backward") => {
+      useSearchStore.getState().setFocusedImageId(image.id);
+      setCurrentImage(image);
+      setImageUrl(getImageUrl(image));
+    },
+    [],
+  );
+
+  const { prevImage, nextImage, goToPrev, goToNext } = useImageTraversal(
+    isActive ? focusedImageId : null,
+    onNavigate,
+  );
+
+  /** Resolve the local index of an image in the buffer (for initial prefetch). */
   const resolveLocalIndex = useCallback((image: Image): number => {
     const { imagePositions, bufferOffset } = useSearchStore.getState();
     const globalIdx = imagePositions.get(image.id);
@@ -118,10 +123,23 @@ export function FullscreenPreview() {
 
     // Enter fullscreen — the div is always in the DOM (hidden via CSS when
     // not active). requestFullscreen() makes it visible and fullscreen in
-    // one step.
-    el.requestFullscreen().catch(() => {
+    // one step. Cooldown prevents double-fire of `f` during Chrome's
+    // permission overlay.
+    cooldownRef.current = true;
+    setNavReady(false);
+    el.requestFullscreen().then(() => {
+      // Focus the container so keyboard events reach our listeners immediately.
+      // Without this, some browsers hold focus on the permission overlay for
+      // up to ~1s after the fullscreen transition completes.
+      el.focus();
+      setTimeout(() => {
+        cooldownRef.current = false;
+        setNavReady(true);
+      }, 500);
+    }).catch(() => {
       setIsActive(false);
       initiatedRef.current = false;
+      cooldownRef.current = false;
     });
   }, [resolveLocalIndex]);
 
@@ -131,6 +149,8 @@ export function FullscreenPreview() {
     }
     setIsActive(false);
     initiatedRef.current = false;
+    cooldownRef.current = false;
+    setNavReady(false);
 
     // After exiting fullscreen, the focused image may have moved off-screen
     // during arrow-key traversal. Scroll it into view (align: "auto" — only
@@ -160,7 +180,17 @@ export function FullscreenPreview() {
   // Register `f` shortcut — when no image detail is mounted, this is the
   // active handler. When ImageDetail mounts, its `f` registration pushes
   // on top (stack semantics) and this one becomes dormant.
-  useKeyboardShortcut("f", isActive ? exitPreview : enterPreview);
+  // Register `f` shortcut — gated by cooldown to prevent double-fire
+  // during Chrome's fullscreen permission overlay.
+  const handleF = useCallback(() => {
+    if (cooldownRef.current) return;
+    if (isActive) {
+      exitPreview();
+    } else {
+      enterPreview();
+    }
+  }, [isActive, exitPreview, enterPreview]);
+  useKeyboardShortcut("f", handleF);
 
   // Keyboard navigation while in fullscreen preview
   useEffect(() => {
@@ -172,47 +202,57 @@ export function FullscreenPreview() {
           e.preventDefault();
           exitPreview();
           break;
-        case "ArrowLeft": {
+        case "ArrowLeft":
           e.preventDefault();
-          directionRef.current = "backward";
-          const prev = navigateImage("prev");
-          if (prev) {
-            setCurrentImage(prev);
-            setImageUrl(getImageUrl(prev));
-            const { results } = useSearchStore.getState();
-            const localIdx = resolveLocalIndex(prev);
-            if (localIdx >= 0) {
-              prefetchNearbyImages(localIdx, results, "backward", lastPrefetchRef);
-            }
-          }
+          goToPrev();
           break;
-        }
-        case "ArrowRight": {
+        case "ArrowRight":
           e.preventDefault();
-          directionRef.current = "forward";
-          const next = navigateImage("next");
-          if (next) {
-            setCurrentImage(next);
-            setImageUrl(getImageUrl(next));
-            const { results } = useSearchStore.getState();
-            const localIdx = resolveLocalIndex(next);
-            if (localIdx >= 0) {
-              prefetchNearbyImages(localIdx, results, "forward", lastPrefetchRef);
-            }
-          }
+          goToNext();
           break;
-        }
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isActive, exitPreview, resolveLocalIndex]);
+  }, [isActive, exitPreview, goToPrev, goToNext]);
 
   const alt =
     currentImage?.metadata?.title ??
     currentImage?.metadata?.description ??
     "";
+
+  // ── Hide cursor after 2s of inactivity (YouTube-style) ─────────
+  // Cursor stays visible while hovering nav zones.
+  const [cursorHidden, setCursorHidden] = useState(false);
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overNavRef = useRef(false);
+
+  useEffect(() => {
+    if (!isActive) {
+      setCursorHidden(false);
+      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
+      return;
+    }
+
+    const resetTimer = () => {
+      setCursorHidden(false);
+      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
+      cursorTimerRef.current = setTimeout(() => {
+        if (!overNavRef.current) setCursorHidden(true);
+      }, 2000);
+    };
+
+    resetTimer(); // start the timer on enter
+    document.addEventListener("mousemove", resetTimer);
+    return () => {
+      document.removeEventListener("mousemove", resetTimer);
+      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
+    };
+  }, [isActive]);
+
+  const navMouseEnter = useCallback(() => { overNavRef.current = true; }, []);
+  const navMouseLeave = useCallback(() => { overNavRef.current = false; }, []);
 
   // The container div is always in the DOM but invisible when not active.
   // When active, the Fullscreen API makes it fill the screen — no CSS
@@ -220,32 +260,36 @@ export function FullscreenPreview() {
   return (
     <div
       ref={containerRef}
-      className={`${
+      tabIndex={-1}
+      className={`outline-none ${
         isActive
-          ? "bg-black flex items-center justify-center"
+          ? `bg-black flex items-center justify-center${cursorHidden ? " cursor-none" : ""}`
           : "hidden"
       }`}
     >
       {isActive && (
-        imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={alt}
-            className="w-full h-full object-contain select-none"
-            draggable={false}
-          />
-        ) : (
-          <div className="text-white/60 text-sm">No preview available</div>
-        )
+        <>
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt=""
+              className="w-full h-full object-contain select-none"
+              draggable={false}
+              onLoad={(e) => { (e.target as HTMLImageElement).alt = alt; }}
+            />
+          ) : (
+            <div className="text-white/60 text-sm">No preview available</div>
+          )}
+
+          {/* Navigation strips — hidden during animation and when cursor hidden */}
+          {navReady && !cursorHidden && prevImage && (
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+          )}
+          {navReady && !cursorHidden && nextImage && (
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+          )}
+        </>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-
-

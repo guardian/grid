@@ -54,16 +54,32 @@ for arg in "$@"; do
 done
 
 # ---------------------------------------------------------------------------
-# 1. Docker check
+# 1. Docker check (supports Docker Desktop and Colima)
 # ---------------------------------------------------------------------------
 if [ "$SKIP_INFRA" = false ]; then
   if ! docker info > /dev/null 2>&1; then
-    echo -e "${red}ERROR: Docker is not running.${plain}"
+    echo -e "${red}ERROR: Docker daemon is not running.${plain}"
     echo "  E2E tests need Elasticsearch on port 9220."
-    echo "  Start Docker Desktop and try again."
+    echo ""
+    echo "  If you use Docker Desktop: start Docker Desktop."
+    echo "  If you use Colima:         colima start"
     echo "  Or use --skip-infra if ES is already running elsewhere."
     exit 1
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Docker Compose compatibility — same shim as start.sh
+# v2: `docker compose` (subcommand, ships with Docker Desktop)
+# v1: `docker-compose` (standalone binary, also used by Colima's brew formula)
+# ---------------------------------------------------------------------------
+if docker compose version &> /dev/null; then
+  dc() { docker compose "$@"; }
+elif command -v docker-compose &> /dev/null; then
+  dc() { docker-compose "$@"; }
+else
+  echo -e "${red}ERROR: Neither 'docker compose' nor 'docker-compose' found.${plain}"
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -72,7 +88,7 @@ fi
 if [ "$SKIP_INFRA" = false ]; then
   echo -e "${cyan}[1/4] Starting Elasticsearch (port 9220)...${plain}"
   cd "$KUPUA_DIR"
-  docker compose up -d 2>&1 | grep -v "^$" || true
+  dc up -d 2>&1 | grep -v "^$" || true
 
   # Wait for ES to be healthy
   echo -e "${yellow}      Waiting for ES to be ready...${plain}"
@@ -82,7 +98,7 @@ if [ "$SKIP_INFRA" = false ]; then
     retry=$((retry + 1))
     if [ $retry -ge $max_retries ]; then
       echo -e "${red}ERROR: Elasticsearch not available after ${max_retries} attempts (60s).${plain}"
-      echo "  Check docker logs: docker compose -f kupua/docker-compose.yml logs"
+      echo "  Check docker logs: docker-compose -f kupua/docker-compose.yml logs"
       exit 1
     fi
     printf "      Waiting... (%d/%d)\r" "$retry" "$max_retries"

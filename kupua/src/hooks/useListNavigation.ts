@@ -371,6 +371,10 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const handleBubble = (e: KeyboardEvent) => {
       const c = configRef.current;
       if (c.imageParam) return;
+      // When FullscreenPreview is active (browser Fullscreen API), all keyboard
+      // navigation is handled by FullscreenPreview — bail out to prevent double-
+      // processing (e.g. ArrowLeft moving focus twice, skipping an image).
+      if (document.fullscreenElement) return;
       if (isNativeInputTarget(e)) return;
 
       const cols = c.columnsPerRow;
@@ -445,6 +449,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const handleCapture = (e: KeyboardEvent) => {
       const c = configRef.current;
       if (c.imageParam) return;
+      if (document.fullscreenElement) return;
       if (isNativeInputTarget(e)) return;
 
       const hasFocus = c.focusedImageId !== null;

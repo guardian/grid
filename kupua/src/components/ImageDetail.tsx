@@ -36,10 +36,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
-import { prefetchNearbyImages } from "@/lib/image-prefetch";
+import { NavStrip } from "@/components/NavStrip";
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
@@ -51,7 +52,7 @@ interface ImageDetailProps {
 }
 
 export function ImageDetail({ imageId }: ImageDetailProps) {
-  const { results, total, bufferOffset, loadMore, findImageIndex, twoTier, getImage } = useDataWindow();
+  const { total, findImageIndex, getImage } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
   const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
   const navigate = useNavigate();
@@ -130,73 +131,29 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // otherwise fall back to the standalone fetch
   const image = imageFromResults ?? standaloneImage;
 
-  const prevImage = currentIndex > 0 ? getImage(currentIndex - 1) : undefined;
-  const nextImage =
-    currentIndex >= 0 && currentIndex < (twoTier ? total : results.length) - 1
-      ? getImage(currentIndex + 1)
-      : undefined;
+  // ── Traversal via shared hook ──────────────────────────────────
+  // The hook manages prev/next availability, buffer extension, seek,
+  // and prefetch. It works identically in all three scroll modes.
+  const searchParamsOrderBy = searchParams.orderBy;
+  const onNavigate = useCallback(
+    (img: Image, globalIndex: number, _direction: "forward" | "backward") => {
+      // Store the target image's offset + sort cursor in sessionStorage so
+      // the counter and prev/next survive page reload.
+      const cursor = extractSortValues(img, searchParamsOrderBy);
+      storeImageOffset(img.id, globalIndex, searchKey, cursor);
 
-  // Load more results when approaching the end of loaded data.
-  // Triggers when within 5 images of the buffer's forward edge.
-  useEffect(() => {
-    if (currentIndex < 0) return;
-    // In two-tier, currentIndex is global. In normal, it's buffer-local.
-    // Convert to distance-from-buffer-end in both cases.
-    const distFromEnd = twoTier
-      ? (bufferOffset + results.length) - currentIndex
-      : results.length - currentIndex;
-    if (distFromEnd <= 5 && bufferOffset + results.length < total) {
-      loadMore();
-    }
-  }, [currentIndex, results.length, total, loadMore, bufferOffset, twoTier]);
-
-  // Navigate to prev/next image — replaces current history entry so browser
-  // back always returns to the table, not through every viewed image.
-  // Stores the target image's offset + sort cursor in sessionStorage so
-  // the counter and prev/next survive page reload.
-  const goToImage = useCallback(
-    (id: string) => {
-      const idx = findImageIndex(id);
-      if (idx >= 0) {
-        const img = getImage(idx);
-        const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
-        // In two-tier mode, idx from findImageIndex is already global.
-        // In normal mode, add bufferOffset to get global position.
-        const globalOffset = twoTier ? idx : bufferOffset + idx;
-        storeImageOffset(id, globalOffset, searchKey, cursor);
-      }
       navigate({
         to: "/search",
-        search: (prev: Record<string, unknown>) => ({ ...prev, image: id }),
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id }),
         replace: true,
       });
     },
-    [navigate, findImageIndex, getImage, searchKey, bufferOffset, twoTier, searchParams.orderBy],
+    [navigate, searchKey, searchParamsOrderBy],
   );
 
-  // Ref-stabilise prevImage/nextImage so goToPrev/goToNext don't churn on
-  // every off-screen loadRange (which changes results reference → prevImage/
-  // nextImage identity → callback → keyboard listener teardown/re-register).
-  const prevImageRef = useRef(prevImage);
-  prevImageRef.current = prevImage;
-  const nextImageRef = useRef(nextImage);
-  nextImageRef.current = nextImage;
-
-  // Track movement direction for direction-aware prefetch.
-  // Updated on every prev/next navigation. Default "forward" because
-  // entering detail view from the grid is conceptually "going into" the
-  // list — the user's next action is more likely → than ←.
-  const directionRef = useRef<"forward" | "backward">("forward");
-
-  const goToPrev = useCallback(() => {
-    directionRef.current = "backward";
-    if (prevImageRef.current) goToImage(prevImageRef.current.id);
-  }, [goToImage]);
-
-  const goToNext = useCallback(() => {
-    directionRef.current = "forward";
-    if (nextImageRef.current) goToImage(nextImageRef.current.id);
-  }, [goToImage]);
+  const {
+    prevImage, nextImage, goToPrev, goToNext, currentGlobalIndex,
+  } = useImageTraversal(imageId, onNavigate);
 
   // Close image detail — navigate to the search list by stripping the
   // `image` param from the URL.  This is NOT history.back() — it's a
@@ -287,24 +244,6 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   const imageUrl = imgLoadFailed ? undefined : (fullUrl ?? thumbUrl);
 
-  // ── Prefetch nearby images (direction-aware pipeline) ─────────
-  //
-  // Fire-and-forget: on every navigation, prefetch 4 images in the
-  // movement direction + 1 behind. Uses shared pipeline from
-  // image-prefetch.ts (also used by FullscreenPreview).
-  //
-  // Throttle gate (T=150ms): at held-arrow-key speeds (<150ms/step),
-  // skip prefetch batches to reduce imgproxy contention.
-  const lastPrefetchRef = useRef(0);
-  useEffect(() => {
-    if (currentIndex < 0) return;
-    prefetchNearbyImages(
-      currentIndex,
-      results,
-      directionRef.current,
-      lastPrefetchRef,
-    );
-  }, [currentIndex, results]);
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
   // (tab reload, cached ES responses).  Only appears after 500ms of waiting.
@@ -410,9 +349,9 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           <span className="flex-1" />
 
           {/* Image position in results */}
-          {currentIndex >= 0 && (
+          {currentGlobalIndex >= 0 && (
             <span className="text-sm text-grid-text-muted">
-              {(twoTier ? currentIndex : bufferOffset + currentIndex) + 1} of {total.toLocaleString()}
+              {currentGlobalIndex + 1} of {total.toLocaleString()}
             </span>
           )}
         </header>
@@ -465,51 +404,9 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
             </div>
           )}
 
-          {/* Prev button — semi-transparent, appears on hover */}
-          {prevImage && (
-            <button
-              onClick={goToPrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
-              style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
-              title="Previous image (←)"
-              aria-label="Previous image"
-            >
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-          )}
-
-          {/* Next button — semi-transparent, appears on hover */}
-          {nextImage && (
-            <button
-              onClick={goToNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-colors opacity-0 hover:opacity-100 focus:opacity-100 cursor-pointer"
-              style={{ transition: "opacity 150ms, background-color 150ms, color 150ms" }}
-              title="Next image (→)"
-              aria-label="Next image"
-            >
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-            </button>
-          )}
+          {/* Prev/next navigation strips */}
+          {prevImage && <NavStrip direction="prev" onClick={goToPrev} />}
+          {nextImage && <NavStrip direction="next" onClick={goToNext} />}
         </div>
 
         {/* Metadata sidebar — hidden in fullscreen */}

@@ -476,4 +476,271 @@ test.describe("URL state", () => {
   });
 });
 
+// ===========================================================================
+// Fullscreen preview — arrow navigation (Bug: skip-one-image)
+// ===========================================================================
+
+test.describe("Fullscreen preview — navigation", () => {
+  test("ArrowLeft in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Focus an image in the middle of the grid (not the edge — avoids boundary issues)
+    await kupua.focusNthItem(5);
+    const beforeId = await kupua.getFocusedImageId();
+    expect(beforeId).not.toBeNull();
+
+    // Get the global position and the expected prev image
+    const beforeState = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const gIdx = s.imagePositions.get(s.focusedImageId);
+      const prevLocalIdx = (gIdx - 1) - s.bufferOffset;
+      return {
+        globalIdx: gIdx,
+        expectedPrevId: s.results[prevLocalIdx]?.id ?? null,
+      };
+    });
+    expect(beforeState.expectedPrevId).not.toBeNull();
+
+    // Press 'f' to enter fullscreen preview
+    await kupua.page.keyboard.press("f");
+    // Wait for the fullscreen element to appear (FullscreenPreview uses
+    // the browser Fullscreen API — headless Chromium supports it)
+    await kupua.page.waitForFunction(
+      () => document.fullscreenElement !== null,
+      { timeout: 3000 },
+    ).catch(() => {
+      // If fullscreen doesn't work in this environment, skip the test
+      // rather than fail with a misleading error.
+      test.skip(true, "Fullscreen API not available in this environment");
+    });
+
+    // Press ArrowLeft — should move focus to exactly the previous image
+    await kupua.page.keyboard.press("ArrowLeft");
+    await kupua.page.waitForTimeout(200);
+
+    // The focused image should be exactly one position back — not two
+    const afterId = await kupua.getFocusedImageId();
+    expect(afterId).toBe(beforeState.expectedPrevId);
+    expect(afterId).not.toBe(beforeId); // sanity: it did move
+
+    // Press ArrowRight — should return to the original image
+    await kupua.page.keyboard.press("ArrowRight");
+    await kupua.page.waitForTimeout(200);
+    const returnedId = await kupua.getFocusedImageId();
+    expect(returnedId).toBe(beforeId);
+
+    // Exit fullscreen
+    await kupua.page.keyboard.press("Escape");
+  });
+
+  test("ArrowRight in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Focus an image in the middle of the grid
+    await kupua.focusNthItem(5);
+    const beforeId = await kupua.getFocusedImageId();
+    expect(beforeId).not.toBeNull();
+
+    // Get the expected next image
+    const beforeState = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const gIdx = s.imagePositions.get(s.focusedImageId);
+      const nextLocalIdx = (gIdx + 1) - s.bufferOffset;
+      return {
+        globalIdx: gIdx,
+        expectedNextId: s.results[nextLocalIdx]?.id ?? null,
+      };
+    });
+    expect(beforeState.expectedNextId).not.toBeNull();
+
+    // Enter fullscreen preview
+    await kupua.page.keyboard.press("f");
+    await kupua.page.waitForFunction(
+      () => document.fullscreenElement !== null,
+      { timeout: 3000 },
+    ).catch(() => {
+      test.skip(true, "Fullscreen API not available in this environment");
+    });
+
+    // Press ArrowRight — should move focus to exactly the next image
+    await kupua.page.keyboard.press("ArrowRight");
+    await kupua.page.waitForTimeout(200);
+
+    const afterId = await kupua.getFocusedImageId();
+    expect(afterId).toBe(beforeState.expectedNextId);
+    expect(afterId).not.toBe(beforeId);
+
+    // Exit fullscreen
+    await kupua.page.keyboard.press("Escape");
+  });
+});
+
+// ===========================================================================
+// Image detail — traversal past buffer boundary
+// ===========================================================================
+
+test.describe("Image detail — buffer boundary traversal", () => {
+  /**
+   * Proves that arrow-key traversal in image detail works across buffer
+   * boundaries — the bug that `hasNavigatedRef` was added to fix.
+   *
+   * Mechanism: after a seek, the buffer starts at a non-zero offset.
+   * Navigating backward via ArrowLeft should trigger `extendBackward`
+   * when we approach the buffer start, and pending navigation should
+   * resolve when the extend completes.
+   *
+   * The forward direction uses the same code path (extendForward) and
+   * is covered by 21 useImageTraversal unit tests. E2E only tests the
+   * backward direction because it's easy to position near the backward
+   * edge after a seek (seekTargetLocalIndex ≈ 100, so local index 5
+   * is only 5 items from the backward edge). The forward edge is at
+   * local index ~200 which requires 200 keyboard steps to reach — not
+   * practical in an E2E test.
+   */
+  test("arrow-left past backward buffer edge triggers extend and continues navigation", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Seek to ~50% so bufferOffset > 0
+    await kupua.seekTo(0.5);
+
+    const state0 = await kupua.getStoreState();
+    expect(state0.bufferOffset).toBeGreaterThan(100);
+    const startOffset = state0.bufferOffset;
+
+    // Programmatically focus an image near the backward edge of the buffer
+    // (local index ~5, i.e. 5 items from bufferOffset).
+    const nearBackEdge = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const localIdx = 5;
+      const img = s.results[localIdx];
+      if (!img) return null;
+      store.getState().setFocusedImageId(img.id);
+      return {
+        id: img.id,
+        globalPos: s.imagePositions.get(img.id) ?? -1,
+      };
+    });
+    expect(nearBackEdge).not.toBeNull();
+
+    // Open image detail via URL navigation
+    await kupua.page.goto(
+      `/search?nonFree=true&image=${nearBackEdge!.id}`,
+    );
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        return store && store.getState().results.length > 0;
+      },
+      { timeout: 10_000 },
+    );
+    await kupua.page.waitForTimeout(500);
+
+    // Navigate backward with waited steps to cross bufferOffset
+    for (let i = 0; i < 15; i++) {
+      try {
+        await kupua.detailPrevAndWait(5000);
+      } catch {
+        break; // Hit dataset start or navigation stalled
+      }
+    }
+
+    await kupua.page.waitForTimeout(1000);
+
+    // Read final state
+    const state1 = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      return {
+        bufferOffset: s.bufferOffset,
+        resultsLength: s.results.length,
+        focusedGlobalPos: s.focusedImageId
+          ? s.imagePositions.get(s.focusedImageId) ?? -1
+          : -1,
+        error: s.error,
+      };
+    });
+
+    // The focused image should have moved backward past the original offset
+    expect(state1.focusedGlobalPos).toBeLessThan(startOffset);
+    // The buffer should have extended backward
+    expect(state1.bufferOffset).toBeLessThan(startOffset);
+    expect(state1.error).toBeNull();
+    await kupua.assertPositionsConsistent();
+  });
+});
+
+// ===========================================================================
+// Stability — no infinite restoreAroundCursor loop on reload
+// ===========================================================================
+
+test.describe("Stability — image detail reload", () => {
+  test("reload in image detail does not cause restoreAroundCursor flood", async ({ kupua }) => {
+    await kupua.goto();
+
+    // Seek to ~50% to get a deep bufferOffset
+    await kupua.seekTo(0.5);
+    const preSeek = await kupua.getStoreState();
+    expect(preSeek.bufferOffset).toBeGreaterThan(100);
+
+    // Open image detail for an item at this deep position
+    await kupua.openDetailForNthItem(3);
+    const detailImageId = await kupua.getDetailImageId();
+    expect(detailImageId).toBeTruthy();
+
+    // Wait for things to settle before reload
+    await kupua.page.waitForTimeout(1000);
+
+    // Start console capture BEFORE reload so we catch all post-reload logs
+    kupua.startConsoleCapture();
+
+    // Reload the page — this is the scenario that triggered the infinite loop
+    await kupua.page.reload({ waitUntil: "load" });
+
+    // Wait for the page to recover: image detail should appear (URL has ?image=)
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10_000 },
+    );
+
+    // Wait for data to load and stabilise
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.results.length > 0 && !s.loading;
+      },
+      { timeout: 15_000 },
+    );
+
+    // Give the system time to either stabilise or start looping
+    await kupua.page.waitForTimeout(3000);
+
+    // Count restoreAroundCursor log entries — should be small, not flooding.
+    // A healthy reload has 1-3 restoreAroundCursor calls (initial restore +
+    // possible position map reload). The infinite loop bug produced 50+ in 3s.
+    const restoreLogs = kupua.getConsoleLogs(/\[restoreAroundCursor]/);
+    const seekAdjustLogs = kupua.getConsoleLogs(/\[effect6-seek] ADJUSTING/);
+
+    // Threshold: ≤10 is healthy. >15 indicates a loop.
+    expect(restoreLogs.length).toBeLessThanOrEqual(10);
+    expect(seekAdjustLogs.length).toBeLessThanOrEqual(10);
+
+    // The page should still be functional — image detail should show the image
+    const postReloadImageId = await kupua.getDetailImageId();
+    expect(postReloadImageId).toBe(detailImageId);
+
+    // Verify no error in the store
+    const finalState = await kupua.getStoreState();
+    expect(finalState.error).toBeNull();
+    expect(finalState.resultsLength).toBeGreaterThan(0);
+  });
+});
 

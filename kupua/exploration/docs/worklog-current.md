@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-[no current task]
+(none — fresh session)
 
 ## Session Log
 
-[empty]
+(empty)

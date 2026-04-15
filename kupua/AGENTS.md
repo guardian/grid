@@ -31,6 +31,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 |---|---|
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
 | **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
+| **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts` |
@@ -62,8 +63,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Grid | `components/ImageGrid.tsx` | 510 | Responsive thumbnails, scroll anchoring on width change |
 | Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
 | Scroll | `hooks/useScrollEffects.ts` | 890 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
-| Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Prefetch, fullscreen, position cache. |
-| Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Another density of the same list. |
+| Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. |
+| Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Uses `useImageTraversal`. Nav buttons. |
+| Traversal | `hooks/useImageTraversal.ts` | 210 | Shared prev/next for detail + fullscreen. Proactive extend, pending nav, prefetch. All scroll modes. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
 | Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
@@ -74,8 +76,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **270 Vitest** unit/integration tests (~36s) — `npm test`
-- **128 Playwright E2E** tests (~5.8min) — `npx playwright test`
+- **291 Vitest** unit/integration tests (~36s) — `npm test`
+- **132 Playwright E2E** tests (~5.8min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`

@@ -14,6 +14,61 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 15 April 2026 — Traversal refactor, fixes, and (minimal) UI
+
+**Traversal refactor** — created `useImageTraversal` hook (210 lines, 21 unit tests)
+to replace the separate, broken traversal logic in ImageDetail and FullscreenPreview.
+Previous bugs: FullscreenPreview walked buffer-local indices only and stopped at buffer
+edges; ImageDetail used `getImage(globalIdx ± 1)` which returned undefined at buffer
+edges in two-tier mode, hiding prev/next buttons; neither triggered extend/seek to slide
+the buffer.
+
+The hook works in global index space across all three scroll modes (buffer, two-tier,
+seek). Features: proactive extend within 20 items of buffer edge, pending navigation
+with auto-completion when buffer arrives, direction-aware prefetch (throttled).
+
+**ImageDetail refactored** — removed manual loadMore effect, prefetch effect,
+prevImageRef/nextImageRef, directionRef. Position counter uses `currentGlobalIndex`
+from hook. Net -100 lines.
+
+**FullscreenPreview rewritten** — uses shared hook. Added:
+- Nav strip hover zones (`NavStrip` component) — full-height strips at left/right edges
+  with chevron circles on hover (`group-hover:opacity-100`). Shared with ImageDetail.
+  Optical centring (1px nudge in arrow direction).
+- `f` key cooldown (500ms) — prevents double-fire during Chrome's fullscreen permission
+  overlay. Arrow keys NOT gated (user needs immediate nav).
+- `navReady` state — suppresses nav button render during macOS fullscreen animation.
+- Cursor auto-hide (YouTube-style) — `cursor-none` after 2s inactivity. `overNavRef`
+  prevents hide while mouse is over a nav zone.
+- No alt text flash — `<img alt="">` + `onLoad` sets real alt.
+
+**Bug fixes:**
+- *Fullscreen arrow skip-one-image* — FullscreenPreview's keydown and
+  `useListNavigation`'s keydown both processed ArrowLeft/Right, causing double-move in
+  grid (cols > 1). Fix: `if (document.fullscreenElement) return` guard in
+  `useListNavigation.ts` (both handleBubble and handleCapture).
+- *`f` key wrong stack winner after reload* — FullscreenPreview rendered after
+  ImageDetail in `search.tsx`, so its `useKeyboardShortcut("f")` registered last and
+  won the stack. Fix: swapped JSX order so ImageDetail registers after FullscreenPreview.
+- *Infinite restoreAroundCursor loop on reload in two-tier* — `useImageTraversal`'s
+  proactive extend effect fired on every `results`/`bufferOffset` change. After reload,
+  restoreAroundCursor updated store → extend effect saw image "near edge" → fired
+  `extendForward()` → store update → restoreAroundCursor re-triggered → ∞. Fix:
+  `hasNavigatedRef` — proactive extend only fires after user has pressed an arrow key.
+  Deeper scroll-system root cause (scrollTop resetting to 0 each cycle) flagged for
+  separate investigation (see `scroll-restore-loop-handoff.md`).
+
+**E2E tests added (4):**
+- 2 fullscreen preview nav tests (ArrowLeft/ArrowRight move focus by exactly 1 image).
+- 1 buffer boundary traversal (arrow-left past backward buffer edge after seek →
+  extendBackward fires, positions stay consistent).
+- 1 restoreAroundCursor flood regression (reload in detail, count console entries ≤10).
+
+**Other:**
+- `run-e2e.sh` — added docker-compose v1/v2 shim (same as `start.sh`) for Colima.
+
+Test counts: 291 Vitest, 132 Playwright E2E. Zero regressions.
+
 ### 14 April 2026 — Code audit action items 1 & 2
 
 Executed two low-priority refactors from the two-tier virtualisation code audit
