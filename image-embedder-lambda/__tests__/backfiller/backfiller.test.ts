@@ -10,7 +10,10 @@ import { Context } from 'aws-lambda';
 jest.mock('../../src/backfiller/elasticSearch');
 
 import { queryElasticSearch } from '../../src/backfiller/elasticSearch';
-import { backfillOneBatch } from '../../src/backfiller/backfiller.ts';
+import {
+	backfillOneBatch,
+	CROWDED_QUEUE,
+} from '../../src/backfiller/backfiller.ts';
 
 const ELASTIC_SEARCH_URL = 'http://localhost:9200';
 const BACKFILL_SQS_QUEUE =
@@ -56,7 +59,7 @@ describe('handler – queue is too crowded', () => {
 	it('skips processing when the queue size exceeds the threshold', async () => {
 		// Return a queue size above the CROWDED_QUEUE threshold (20)
 		sqsMock.on(GetQueueAttributesCommand).resolves({
-			Attributes: { ApproximateNumberOfMessages: '21' },
+			Attributes: { ApproximateNumberOfMessages: `${CROWDED_QUEUE + 1}` },
 		});
 
 		await backfillOneBatch(

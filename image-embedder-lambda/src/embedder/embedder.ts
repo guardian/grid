@@ -1,4 +1,6 @@
 import 'source-map-support/register';
+import * as https from 'https';
+import {NodeHttpHandler} from '@smithy/node-http-handler';
 import {
   Context,
   SQSBatchItemFailure,
@@ -17,10 +19,11 @@ import {KinesisClient} from '@aws-sdk/client-kinesis';
 import {ValidVector} from "./models";
 import {CachedImageResolver, ImageResolver, S3ImageResolver} from "./imageResolver";
 import {S3Fetcher} from "./s3Fetcher";
-import {createProductionBedrockClient, embedImage} from "./imageEmbedder";
+import {createBedrockClient, embedImage} from "./imageEmbedder";
 import {ThrallEventPublisher} from "./thrallEventPublisher";
 import {S3VectorStore} from "./s3VectorStore";
 import {SQSMessageBody} from "../shared/sqsMessageBody";
+
 
 export interface Environment {
   isLocal: boolean;
@@ -33,6 +36,7 @@ export interface AWSClients {
   kinesis: KinesisClient;
   s3: S3Client;
   s3VectorsClient: S3VectorsClient;
+	bedrockClient: BedrockRuntimeClient;
 }
 
 // Once the clients are warmed up, keep them in cache at the module level
@@ -43,10 +47,19 @@ function initializeAwsClients(): AWSClients {
   if (awsClientsCache) {
     return awsClientsCache;
   }
+
+  // Each service gets its own agent so their pools don't compete with each other.
+  // maxSockets: 5 caps the number of concurrent connections per service, preventing
+  // unbounded socket accumulation across warm invocations.
+  const makeHandler = () => new NodeHttpHandler({
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 5 }),
+  });
+
   awsClientsCache = {
-    kinesis: new KinesisClient({region: 'eu-west-1'}),
-    s3: new S3Client({region: 'eu-west-1'}),
-    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1'}),
+    kinesis: new KinesisClient({region: 'eu-west-1', requestHandler: makeHandler()}),
+    s3: new S3Client({region: 'eu-west-1', requestHandler: makeHandler()}),
+    s3VectorsClient: new S3VectorsClient({region: 'eu-west-1', requestHandler: makeHandler()}),
+		bedrockClient: createBedrockClient(),
   }
   return awsClientsCache;
 }
@@ -118,6 +131,7 @@ export const computeEmbeddingForSQSEvent = async (
   event: SQSEvent,
   environment: Environment,
 ): Promise<SQSBatchResponse> => {
+
   const thrallEventPublisher = new ThrallEventPublisher(
     clients.kinesis,
     environment.thrallKinesisStreamArn,
@@ -134,11 +148,8 @@ export const computeEmbeddingForSQSEvent = async (
 
   const s3VectorStore = new S3VectorStore(clients.s3VectorsClient, `image-embeddings-${environment.stage}`.toLowerCase());
 
-
-  const bedrockClient = createProductionBedrockClient();
-
-  const { vectors, batchItemFailures, imageIdToMessageId } =
-    await generateVectors(event.Records, imageResolver, bedrockClient);
+	const { vectors, batchItemFailures, imageIdToMessageId } =
+		await generateVectors(event.Records, imageResolver, clients.bedrockClient);
 
 	if (vectors.length > 0) {
 		const shortenedVectors = thrallEventPublisher.matryoshkaEmbeddingToElasticsearchDimensions(vectors);
@@ -152,7 +163,7 @@ export const computeEmbeddingForSQSEvent = async (
 		console.log(`No vectors to store`);
 	}
 
-  return {batchItemFailures};
+	return {batchItemFailures};
 };
 
 export const handler = async (

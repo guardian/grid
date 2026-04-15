@@ -12,11 +12,26 @@ import {
   aws_s3 as s3,
   Stack,
 } from 'aws-cdk-lib';
+import { Schedule } from 'aws-cdk-lib/aws-events';
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
 import {CfnIndex, CfnVectorBucket} from 'aws-cdk-lib/aws-s3vectors';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
+
+const CONCURRENCY: Record<string, { backfill: number; loader: number; total: number }> = {
+	'PROD': {
+		backfill: 20,
+		loader: 5,
+		total: 25,
+	},
+	'TEST': {
+		backfill: 2,
+		loader: 3,
+		total: 5,
+	}
+
+}
 
 export class ImageEmbedder extends GuStack {
   constructor(scope: App, id: string, props: GuStackProps) {
@@ -87,27 +102,34 @@ export class ImageEmbedder extends GuStack {
     });
 
     const imageEmbedderLambda = new GuLambdaFunction(
-      this,
-      'ImageEmbedderHandler',
-      {
-        fileName: `${appName}.zip`,
-        functionName: `${appName}-${props.stage}`,
-        runtime: LAMBDA_NODE_VERSION,
-        architecture: Architecture.ARM_64,
-        handler: 'embedder.handler',
-        app: `${appName}-lambda`,
-        environment: {
-          STAGE: props.stage,
-          DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
-          THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
-        },
-        memorySize: 2048,
-        timeout: Duration.minutes(1),
-      },
-    );
+			this,
+			'ImageEmbedderHandler',
+			{
+				fileName: `${appName}.zip`,
+				functionName: `${appName}-${props.stage}`,
+				runtime: LAMBDA_NODE_VERSION,
+				architecture: Architecture.ARM_64,
+				handler: 'embedder.handler',
+				app: `${appName}-lambda`,
+				environment: {
+					STAGE: props.stage,
+					DOWNSCALED_IMAGE_BUCKET: downscaledImageBucketName,
+					THRALL_KINESIS_STREAM_ARN: thrallStreamArn.valueAsString,
+				},
+				memorySize: 2048,
+				timeout: Duration.minutes(1),
+				reservedConcurrentExecutions: CONCURRENCY[this.stage]?.total ?? 1,
+			},
+		);
 
     const vpc = GuVpc.fromIdParameter(this, "AccountVPC");
     const subnets = GuVpc.subnetsFromParameter(this);
+
+		const everyMinute = {
+			schedule: Schedule.rate(Duration.minutes(1)),
+			description: 'Frequency of execution of the backfiller',
+		};
+
 
     const backfiller = new GuScheduledLambda(
       this,
@@ -126,13 +148,7 @@ export class ImageEmbedder extends GuStack {
         },
         memorySize: 512,
         timeout: Duration.minutes(1),
-        rules: [
-					// Schedule TBD
-					// {
-					// 	schedule: Schedule.rate(Duration.days(1)),
-					// 	description: 'Frequency of execution of the backfiller',
-					// }
-				],
+        rules: this.stage === 'TEST' ? [] : [everyMinute],
         monitoringConfiguration: {
           noMonitoring: true,
         },
@@ -153,23 +169,20 @@ export class ImageEmbedder extends GuStack {
 
 
     imageEmbedderLambda.addEventSource(
-      new SqsEventSource(imageEmbedderQueue, {
-        reportBatchItemFailures: true,
-        batchSize: 5,
-        // We are seeing Bedrock client hanging under heavy load.
-        // While we get to the bottom of this, we'd like to prevent this scenario
-        // by aggressively limiting the concurrent lambda executions.
-        maxConcurrency: 3,
-      }),
-    );
+			new SqsEventSource(imageEmbedderQueue, {
+				reportBatchItemFailures: true,
+				batchSize: 5,
+				maxConcurrency: CONCURRENCY[this.stage]?.loader ?? 1,
+			}),
+		);
 
     imageEmbedderLambda.addEventSource(
-      new SqsEventSource(backfillQueue, {
-        reportBatchItemFailures: true,
-        batchSize: 1,
-        maxConcurrency: 2,
-      }),
-    );
+			new SqsEventSource(backfillQueue, {
+				reportBatchItemFailures: true,
+				batchSize: 5,
+				maxConcurrency: CONCURRENCY[this.stage]?.backfill ?? 1,
+			}),
+		);
 
     const downscaledImageBucket = new GuS3Bucket(
       this,
