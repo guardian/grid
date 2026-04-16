@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
+import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
@@ -223,36 +224,7 @@ export function FullscreenPreview() {
     "";
 
   // ── Hide cursor after 2s of inactivity (YouTube-style) ─────────
-  // Cursor stays visible while hovering nav zones.
-  const [cursorHidden, setCursorHidden] = useState(false);
-  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const overNavRef = useRef(false);
-
-  useEffect(() => {
-    if (!isActive) {
-      setCursorHidden(false);
-      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
-      return;
-    }
-
-    const resetTimer = () => {
-      setCursorHidden(false);
-      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
-      cursorTimerRef.current = setTimeout(() => {
-        if (!overNavRef.current) setCursorHidden(true);
-      }, 2000);
-    };
-
-    resetTimer(); // start the timer on enter
-    document.addEventListener("mousemove", resetTimer);
-    return () => {
-      document.removeEventListener("mousemove", resetTimer);
-      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
-    };
-  }, [isActive]);
-
-  const navMouseEnter = useCallback(() => { overNavRef.current = true; }, []);
-  const navMouseLeave = useCallback(() => { overNavRef.current = false; }, []);
+  const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isActive);
 
   // The container div is always in the DOM but invisible when not active.
   // When active, the Fullscreen API makes it fill the screen — no CSS

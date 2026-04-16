@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 16 April 2026 — Extract `useCursorAutoHide` and apply to ImageDetail fullscreen
+
+Cursor auto-hide (YouTube-style: disappear after 2s idle, reappear on mouse move) was
+only implemented in `FullscreenPreview` (fullscreen from grid/table). Entering fullscreen
+from `ImageDetail` (detail view → press `f`) did not hide the cursor — same feature,
+two code paths, one was missed.
+
+**Fix:** Extracted the inline cursor-hide logic (~25 lines of state + effect + refs) from
+`FullscreenPreview` into a shared `useCursorAutoHide(isActive)` hook. Both consumers now
+call the hook with one line. `FullscreenPreview` passes `isActive`, `ImageDetail` passes
+`isFullscreen`. NavStrip rendering is gated on `!cursorHidden` in fullscreen mode in both
+components, with `navMouseEnter`/`navMouseLeave` callbacks keeping the cursor visible
+while hovering nav zones.
+
+**Why two code paths exist:** `FullscreenPreview` is a lightweight shortcut from the list
+(no route change, own fullscreen lifecycle, exit → list). `ImageDetail` fullscreen is
+within the detail overlay (URL-routed, has metadata sidebar, exit → detail view). They
+share `useImageTraversal`, `NavStrip`, `image-prefetch`, and now `useCursorAutoHide`, but
+diverge on exit semantics, navigation mechanism, and container management.
+
+All 291 unit tests pass.
+
 ### 15 April 2026 — Fix restoreAroundCursor infinite loop in two-tier mode
 
 **Root cause:** Two interacting bugs caused an infinite restore → seek → restore loop

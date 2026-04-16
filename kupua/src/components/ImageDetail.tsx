@@ -38,6 +38,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { NavStrip } from "@/components/NavStrip";
@@ -62,6 +63,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
+  const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
 
   // Find the current image in search results (handles sparse array)
   const currentIndex = useMemo(
@@ -379,7 +381,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           ref={containerRef}
           className={`flex items-center justify-center relative ${
             isFullscreen
-              ? "w-full h-full"
+              ? `w-full h-full${cursorHidden ? " cursor-none" : ""}`
               : "bg-grid-bg flex-1 min-w-0"
           }`}
         >
@@ -418,9 +420,13 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
             </div>
           )}
 
-          {/* Prev/next navigation strips */}
-          {prevImage && <NavStrip direction="prev" onClick={goToPrev} />}
-          {nextImage && <NavStrip direction="next" onClick={goToNext} />}
+          {/* Prev/next navigation strips — hidden when cursor auto-hides in fullscreen */}
+          {!(isFullscreen && cursorHidden) && prevImage && (
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+          )}
+          {!(isFullscreen && cursorHidden) && nextImage && (
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+          )}
         </div>
 
         {/* Metadata sidebar — hidden in fullscreen */}
