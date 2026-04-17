@@ -125,7 +125,7 @@ Node.js server that:
 - `VITE_S3_PROXY_ENABLED` — feature flag for the UI
 
 **To replace:** In Phase 3, delete the proxy and use Grid API signed URLs.
-See `kupua/exploration/docs/s3-proxy.md` for full migration instructions.
+See `kupua/exploration/docs/00 Architecture and philosophy/s3-proxy.md` for full migration instructions.
 
 ---
 
@@ -157,7 +157,7 @@ format conversion is needed.
 - `IMGPROXY_DOWNLOAD_TIMEOUT: 10` — seconds to wait for S3 download.
   Default is 5s; the 510MP test image takes ~5.1s to download.
 
-See `kupua/exploration/docs/imgproxy-research.md` for full background.
+See `kupua/exploration/docs/01 Research/imgproxy-research.md` for full background.
 
 ---
 

@@ -10,7 +10,7 @@
  * to the panel store → localStorage. ImageGrid's ResizeObserver fires on
  * the main content container and handles scroll anchoring.
  *
- * See kupua/exploration/docs/panels-plan.md for the full design.
+ * See kupua/exploration/docs/zz Archive/panels-plan.md for the full design.
  */
 
 import {

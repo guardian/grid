@@ -484,7 +484,7 @@ You are working on kupua, a React frontend for Grid (the Guardian's image manage
 system). kupua lives at `kupua/` inside the Grid monorepo.
 
 Read `kupua/AGENTS.md` first — it has full project context, architecture, and conventions.
-Then read `kupua/exploration/docs/05-kupua-realistic-work-plan.md` — Session 2 section
+Then read `kupua/exploration/docs/03 Ce n'est pas une pipe dream/kupua-05-realistic-work-plan.md` — Session 2 section
 has the full rationale and file-level plan.
 
 ## Your task: Extract imperative orchestration (Session 2 of 3)
@@ -730,7 +730,7 @@ You are working on kupua, a React frontend for Grid (the Guardian's image manage
 system). kupua lives at `kupua/` inside the Grid monorepo.
 
 Read `kupua/AGENTS.md` first — it has full project context, architecture, and conventions.
-Then read `kupua/exploration/docs/05-kupua-realistic-work-plan.md` — Session 3 section
+Then read `kupua/exploration/docs/03 Ce n'est pas une pipe dream/kupua-05-realistic-work-plan.md` — Session 3 section
 has the full rationale and file-level plan.
 
 ## Your task: DAL boundary cleanup (Session 3 of 3)

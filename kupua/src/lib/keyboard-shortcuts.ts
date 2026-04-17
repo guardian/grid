@@ -16,7 +16,7 @@
  * Components register/unregister shortcuts via `registerShortcut()` /
  * `unregisterShortcut()`, or more commonly via the `useKeyboardShortcut` hook.
  *
- * See kupua/exploration/docs/panels-plan.md Decision #7 and deviations.md.
+ * See kupua/exploration/docs/zz Archive/panels-plan.md Decision #7 and deviations.md.
  */
 
 // ---------------------------------------------------------------------------

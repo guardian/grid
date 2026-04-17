@@ -391,7 +391,7 @@ what to skip, and what protocols to follow.
    Done" section for architecture overview. Skim "What's Next" for
    priorities. Don't read the full Performance paragraph in detail — it's
    historical.
-3. **`kupua/exploration/docs/buffer-corruption-fix.md`** — the bug that
+3. **`kupua/exploration/docs/zz Archive/Scrolling bonanza/buffer-corruption-fix.md`** — the bug that
    motivated this consolidation. Read sections 1-3 (what, root cause, fix).
    Skim section 8 (broader implications). This is essential context for
    understanding *why* the scroll logic is fragmented and what the
@@ -418,13 +418,13 @@ component code:
 
 - **`kupua/exploration/docs/changelog.md`** — 1000+ lines of historical
   blow-by-blow. Useful for archaeology, useless for this task. Skip.
-- **`kupua/exploration/docs/DISASTAH-NOT-PERF.md`** — post-mortem of a
+- **`kupua/exploration/docs/zz Archive/DISASTAH-NOT-PERF.md`** — post-mortem of a
   failed session. Its analysis incorrectly attributed bugs to the wrong
   commits. The buffer-corruption-fix.md supersedes it. Skip.
-- **`kupua/exploration/docs/post-perf-fixes.md`** — handoff doc from the
+- **`kupua/exploration/docs/zz Archive/Scrolling bonanza/scroll-post-perf-fixes-handoff.md`** — handoff doc from the
   session that produced the broken commits. Its fix recommendations were
   wrong. Skip.
-- **`kupua/exploration/docs/focus-drift-and-scroll-handoff.md`** and
+- **`kupua/exploration/docs/zz Archive/Scrolling bonanza/focus-drift-and-scroll-handoff.md`** and
   **`focus-drift-and-scroll-handoff-v2.md`** — same: useful analysis,
   wrong fix recommendations. Skip.
 - **`kupua/src/dal/`** — the data access layer is not touched by this

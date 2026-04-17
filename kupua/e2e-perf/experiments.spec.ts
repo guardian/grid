@@ -1397,7 +1397,7 @@ test.describe("Tuning Experiments", () => {
    * Browser cache is cleared before EACH speed tier to prevent cross-tier
    * contamination. Without this, moderate warms the cache for fast, and
    * fast warms it for rapid — making later tiers appear artificially fast.
-   * See exploration/docs/traversal-perf-investigation.md for the full
+   * See exploration/docs/zz Archive/traversal-perf-investigation.md for the full
    * analysis that motivated this (Phase 1 baseline showed 100% cache hits
    * on E4-fast because E4-moderate had warmed the same images).
    */
@@ -1480,7 +1480,7 @@ test.describe("Tuning Experiments", () => {
    * image changes (no exit/re-enter flicker).
    *
    * Browser cache is cleared before EACH speed tier — same rationale as E4.
-   * See exploration/docs/traversal-perf-investigation.md.
+   * See exploration/docs/zz Archive/traversal-perf-investigation.md.
    *
    * slow tier dropped — same rationale as E4.
    */

@@ -116,17 +116,15 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Frontend philosophy | `exploration/docs/00 Architecture and philosophy/01-frontend-philosophy.md` | Density continuum, "Never Lost", click-to-search |
 | Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
 | `search_after` plan | `exploration/docs/search-after-plan.md` | Windowed buffer, PIT, scrubber, sort-around-focus |
-| Scrubber dual-mode | `exploration/docs/scrubber-dual-mode-ideation.md` | Scroll mode vs seek mode, tooltip, visual philosophy |
+| Scrubber dual-mode | `exploration/docs/zz Archive/Scrolling bonanza/scrubber-dual-mode-ideation.md` | Scroll mode vs seek mode, tooltip, visual philosophy |
 | Scrubber ticks & labels | `exploration/docs/00 Architecture and philosophy/scrubber-ticks-and-labels.md` | Coordinate system, tick placement, null zone |
-| Panels plan | `exploration/docs/panels-plan.md` | Left/right panels, resize, keyboard, agg safeguards |
+| Panels plan | `exploration/docs/zz Archive/panels-plan.md` | Left/right panels, resize, keyboard, agg safeguards |
 | ES audit | `exploration/docs/es-audit.md` | 9 issues found, 4 fixed |
-| Performance | `exploration/docs/perf-measurement-report.md` | Phases 0–C measured results |
-| Rendering perf plan | `exploration/docs/rendering-perf-plan.md` | Issue taxonomy (A–F), quantitative gates |
-| Position map workplan | `exploration/docs/scroll-real-scrolling-through-24-workplan.md` | 8-phase plan for 65k scroll-like scrubber (Phases 0-4a done, 4b-7 superseded) |
-| Two-tier virtualisation | `exploration/docs/scroll-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
-| Two-tier handoff | `exploration/docs/two-tier-virtualisation-handoff.md` | Assessment + detailed plan for next agent |
-| Position map measurements | `exploration/docs/01 Research/scroll-position-map-measurements.md` | Phase 0 results + decisions |
-| Phase 1 handoff | `exploration/docs/phase1-handoff.md` | Next-agent handoff for position map data layer |
+| Performance | `exploration/docs/zz Archive/perf-measurement-report.md` | Phases 0–C measured results |
+| Rendering perf plan | `exploration/docs/zz Archive/rendering-perf-plan.md` | Issue taxonomy (A–F), quantitative gates |
+| Position map workplan | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-through-24-workplan.md` | 8-phase plan for 65k scroll-like scrubber (Phases 0-4a done, 4b-7 superseded) |
+| Two-tier virtualisation | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
+| Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 ## Tech Stack

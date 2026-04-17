@@ -309,7 +309,7 @@ is negligible (browser deduplicates same-URL requests). At extreme rapid
 speeds the throttle gate halves the request volume. The net effect is
 dramatically better: 0ms landing at moderate/fast speeds vs 400-540ms.
 
-Full experiment data: `exploration/docs/traversal-perf-investigation.md`.
+Full experiment data: `exploration/docs/zz Archive/traversal-perf-investigation.md`.
 
 ---
 

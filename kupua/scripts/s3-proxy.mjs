@@ -23,7 +23,7 @@
  *   2. Remove the /s3 proxy from vite.config.ts
  *   3. Remove the s3-proxy startup from start.sh
  *   4. Update src/lib/image-urls.ts to use Grid API URLs
- *   See kupua/exploration/docs/s3-proxy.md for full documentation.
+ *   See kupua/exploration/docs/00 Architecture and philosophy/s3-proxy.md for full documentation.
  *
  * SAFETY:
  *   - Read-only: only GetObject is used, never PutObject/DeleteObject

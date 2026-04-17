@@ -17,9 +17,9 @@ fast it flows in and out.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `BUFFER_CAPACITY` | **1000** | — | constants/tuning.ts:24 |
-| `PAGE_SIZE` | **200** | — | constants/tuning.ts:30 |
-| `EXTEND_THRESHOLD` | **50** | — | useDataWindow.ts:35 |
+| `BUFFER_CAPACITY` | **1000** | — | constants/tuning.ts:27 |
+| `PAGE_SIZE` | **200** | — | constants/tuning.ts:33 |
+| `EXTEND_THRESHOLD` | **50** | — | useDataWindow.ts:49 |
 
 ### BUFFER_CAPACITY (1000)
 
@@ -102,9 +102,9 @@ Controls how the scrubber/keyboard seeks to arbitrary positions.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `MAX_RESULT_WINDOW` | **500** (local) / **100,000** (TEST/PROD) | `VITE_MAX_RESULT_WINDOW` | constants/tuning.ts:60, .env, start.sh |
-| `DEEP_SEEK_THRESHOLD` | **200** (.env.development) / **500** (.env) / **10,000** (TEST/PROD) | `VITE_DEEP_SEEK_THRESHOLD` | constants/tuning.ts:73 |
-| `MAX_BISECT` | **50** | — | search-store.ts:1822 |
+| `MAX_RESULT_WINDOW` | **500** (local) / **100,000** (TEST/PROD) | `VITE_MAX_RESULT_WINDOW` | constants/tuning.ts:83, .env, start.sh |
+| `DEEP_SEEK_THRESHOLD` | **200** (.env.development) / **500** (.env) / **10,000** (TEST/PROD) | `VITE_DEEP_SEEK_THRESHOLD` | constants/tuning.ts:95 |
+| `MAX_BISECT` | **50** | — | search-store.ts:2377 |
 
 ### MAX_RESULT_WINDOW (500 local / 100,000 real)
 
@@ -170,11 +170,11 @@ Controls the composite aggregation walk for keyword sort seeking.
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `BUCKET_SIZE` (findKeywordSortValue) | **10,000** | `VITE_KEYWORD_SEEK_BUCKET_SIZE` | es-adapter.ts:779 |
-| `MAX_PAGES` (findKeywordSortValue) | **50** | — | es-adapter.ts:782 |
-| `TIME_CAP_MS` (findKeywordSortValue) | **8,000** | — | es-adapter.ts:783 |
-| `BUCKET_SIZE` (getKeywordDistribution) | **10,000** | — | es-adapter.ts:909 |
-| `MAX_PAGES` (getKeywordDistribution) | **5** | — | es-adapter.ts:910 |
+| `BUCKET_SIZE` (findKeywordSortValue) | **10,000** | `VITE_KEYWORD_SEEK_BUCKET_SIZE` | es-adapter.ts:804 |
+| `MAX_PAGES` (findKeywordSortValue) | **50** | — | es-adapter.ts:807 |
+| `TIME_CAP_MS` (findKeywordSortValue) | **8,000** | — | es-adapter.ts:808 |
+| `BUCKET_SIZE` (getKeywordDistribution) | **10,000** | — | es-adapter.ts:934 |
+| `MAX_PAGES` (getKeywordDistribution) | **5** | — | es-adapter.ts:935 |
 
 ### BUCKET_SIZE (10,000)
 
@@ -222,44 +222,36 @@ accuracy degrades gracefully for very high-cardinality fields.
 
 | Knob | Value | Location |
 |---|---|---|
-| `overscan` (table) | **5** | ImageTable.tsx:484 |
-| `overscan` (grid) | **5** | ImageGrid.tsx:301 |
+| `overscan` (table) | **15** | ImageTable.tsx:488 |
+| `overscan` (grid) | **5** | ImageGrid.tsx:306 |
 
-### overscan (5 for both)
+### overscan (table: 15, grid: 5)
 
 **What it does:** Number of rows rendered beyond the visible viewport in
-each direction. At 5: table renders ~5 extra rows (5 items); grid renders
+each direction. Table renders ~15 extra rows (15 items); grid renders
 ~5 extra rows (5 × columns items).
 
-**Performance impact:** Reducing from 20→5 was the single biggest
-rendering win: severe jank −61% (36→14), P95 −49% (67→34ms), DOM churn
-−44% (76k→42k). At overscan 20, React reconciled ~40 off-screen rows
-per scroll frame — in grid that's 240 extra DOM elements. Most of that
-work was invisible to the user but dominated frame time.
+**Performance history:** The original reduction from 20→5 was the single
+biggest rendering win: severe jank −61% (36→14), P95 −49% (67→34ms), DOM
+churn −44% (76k→42k). At overscan 20, React reconciled ~40 off-screen
+rows per scroll frame — in grid that's 240 extra DOM elements. The table
+was subsequently bumped from 5→15 because table rows are cheap (32px,
+minimal DOM per row) and the extra headroom significantly reduces blank
+flashes during fast scroll. The grid stays at 5 because grid rows are
+heavy (303px, thumbnail + metadata) and 5 already provides ~1,515px of
+headroom.
 
 **The trade-off (jank vs flashes):** Lower overscan = less work per
 frame = smoother scrolling, but new rows enter the viewport before React
 has rendered their content → brief blank flashes (1-2 frames, ~16-32ms).
 Higher overscan = rows pre-rendered further ahead = fewer flashes, but
-each frame does proportionally more DOM work → stuttery scrolling. **We
-chose smooth over flash-free.** Users perceive jank as "broken"; they
-perceive brief flashes as "fast."
+each frame does proportionally more DOM work → stuttery scrolling.
 
-**Pixel headroom is very different between views:**
-- **Table:** overscan 5 × 32px = **160px** beyond viewport. At fast
-  scroll this is consumed in 2-3 frames. Tight — flashes more likely.
+**Pixel headroom per view:**
+- **Table:** overscan 15 × 32px = **480px** beyond viewport. Comfortable
+  headroom even during fast scroll.
 - **Grid:** overscan 5 × 303px = **1,515px** beyond viewport. That's
   ~1.5 viewports of headroom. Very generous — flashes rare.
-
-This means the grid has ~10× more effective headroom from the same
-overscan value. The table is where flashes are most visible.
-
-**Could we use different overscan for each?** Yes — trivially. Each view
-has its own `useVirtualizer()` call. Table overscan 8 would add 3 rows ×
-32px = 96px (total 256px) at the cost of ~18 extra DOM elements — modest
-compared to grid's 30 extra elements at overscan 5. The perf experiments
-were table-specific (P8), so the marginal cost of 5→8 in table should be
-small. **Candidate for a focused A/B experiment.**
 
 **Coupled to:**
 - `EXTEND_THRESHOLD` — extends trigger based on buffer-local indices, not
@@ -274,11 +266,21 @@ already-buffered items are rendered in the DOM, not how many are fetched.)
 
 ---
 
-## 5. Scroll Mode (constants/tuning.ts)
+## 5. Scroll Mode & Position Map (constants/tuning.ts)
 
 | Knob | Value | Env var | Location |
 |---|---|---|---|
-| `SCROLL_MODE_THRESHOLD` | **1000** | `VITE_SCROLL_MODE_THRESHOLD` | constants/tuning.ts:46 |
+| `SCROLL_MODE_THRESHOLD` | **1000** | `VITE_SCROLL_MODE_THRESHOLD` | constants/tuning.ts:49 |
+| `POSITION_MAP_THRESHOLD` | **65,000** | `VITE_POSITION_MAP_THRESHOLD` | constants/tuning.ts:67 |
+
+Three tiers based on total result count:
+- **total ≤ SCROLL_MODE_THRESHOLD (1000):** scroll mode — all results
+  in buffer, scrubber drag directly scrolls.
+- **1000 < total ≤ POSITION_MAP_THRESHOLD (65,000):** two-tier mode —
+  position map built in background, scrubber seeks via exact
+  position→sortValues lookup (one search_after call).
+- **total > 65,000:** seek mode — scrubber uses percentile estimation
+  or composite aggregation walks.
 
 ### SCROLL_MODE_THRESHOLD (1000)
 
@@ -294,10 +296,43 @@ complexity. For large result sets (>1000), no effect.
   holds the entire result set. If threshold > capacity, the buffer would
   overflow and evict — which defeats scroll mode.
 - `PAGE_SIZE` — fill fetches `ceil((total - 200) / 200)` chunks.
+- `POSITION_MAP_THRESHOLD` — defines the boundary between two-tier and
+  seek mode. Must be < POSITION_MAP_THRESHOLD (otherwise there's no
+  two-tier range).
 
 **Corpus scaling:** This is a threshold on `total` (search result count),
 not corpus size. A query that returns 500 results uses scroll mode
 regardless of whether the corpus is 10k or 9M. **Not corpus-dependent.**
+
+### POSITION_MAP_THRESHOLD (65,000)
+
+**What it does:** When `SCROLL_MODE_THRESHOLD < total ≤ 65,000`, the store
+builds a lightweight position map in the background after the initial
+search. The map stores id + sort values (~288 bytes/entry) for every
+document via `_source: false` search_after walks. Once loaded, any
+scrubber seek resolves via exact position→sortValues lookup — one
+`search_after` call instead of percentile estimation or composite walks.
+
+The virtualizer in this range uses "two-tier mode": it spans all `total`
+items (not just the buffer), showing skeleton cells outside the loaded
+window. The scrubber drag directly scrolls the container (like a real
+scrollbar) rather than seeking on pointer-up.
+
+**Performance impact:**
+- At 65k: ~18MB V8 heap, ~5s background fetch. Acceptable.
+- At 100k: ~28MB heap, ~8s fetch. Marginal.
+- Set to 0 to disable the position map entirely.
+
+**Coupled to:**
+- `SCROLL_MODE_THRESHOLD` — defines the lower boundary.
+- `useDataWindow` — switches between normal and two-tier mode based
+  on whether total is in the position-map range.
+- `SCROLL_SEEK_DEBOUNCE_MS` (200ms in useDataWindow.ts) — debounces
+  scroll-triggered seeks in two-tier mode when scrolling past the buffer.
+
+**Corpus scaling:** The threshold is on `total` (search result count).
+A broad query on a 9M corpus returns 9M total → seek mode (no map).
+A filtered query returning 40k → two-tier mode. **Not corpus-dependent.**
 
 ---
 
@@ -305,16 +340,19 @@ regardless of whether the corpus is 10k or 9M. **Not corpus-dependent.**
 
 | Knob | Value | Location | Purpose |
 |---|---|---|---|
-| `SEEK_COOLDOWN_MS` (seek data arrival) | **700ms** | constants/tuning.ts:98 | Prevent extends during seek settle |
-| `SEEK_DEFERRED_SCROLL_MS` (after seek) | **800ms** | constants/tuning.ts:108 | Re-fire reportVisibleRange after cooldown expires |
-| `POST_EXTEND_COOLDOWN_MS` | **200ms** | constants/tuning.ts:126 | Space out backward extends to prevent cascading compensation |
-| `SEARCH_FETCH_COOLDOWN_MS` (search/abort) | **2000ms** | constants/tuning.ts:138 | Prevent extends during search/reset |
-| Density-switch cooldown | **2000ms** | useScrollEffects.ts:576 (via abortExtends) | Prevent extends during density settle |
-| `AGG_DEBOUNCE_MS` | **500ms** | constants/tuning.ts:148 | Debounce aggregation fetches |
-| `AGG_CIRCUIT_BREAKER_MS` | **2000ms** | constants/tuning.ts:151 | Disable auto-fetch if aggs are slow |
-| `NEW_IMAGES_POLL_INTERVAL` | **10,000ms** | constants/tuning.ts:141 | Ticker poll interval |
-| Prefetch throttle gate | **150ms** | image-prefetch.ts:64 | Skip prefetch batches at held-key speed |
-| Tooltip flash suppression | **1500ms** | Scrubber.tsx:248 | Tooltip fade after seek |
+| `SEEK_COOLDOWN_MS` (seek data arrival) | **100ms** | constants/tuning.ts:115 | Prevent extends during seek settle |
+| `SEEK_DEFERRED_SCROLL_MS` (after seek) | **150ms** (cooldown + 50) | constants/tuning.ts:125 | Re-fire reportVisibleRange after cooldown expires |
+| `POST_EXTEND_COOLDOWN_MS` | **50ms** | constants/tuning.ts:144 | Space out backward extends to prevent cascading compensation |
+| `SEARCH_FETCH_COOLDOWN_MS` (search/abort) | **2000ms** | constants/tuning.ts:156 | Prevent extends during search/reset |
+| Density-switch cooldown | **2000ms** | useScrollEffects.ts:737 (via abortExtends) | Prevent extends during density settle |
+| `AGG_DEBOUNCE_MS` | **500ms** | constants/tuning.ts:163 | Debounce aggregation fetches |
+| `AGG_CIRCUIT_BREAKER_MS` | **2000ms** | constants/tuning.ts:166 | Disable auto-fetch if aggs are slow |
+| `NEW_IMAGES_POLL_INTERVAL` | **10,000ms** | constants/tuning.ts:159 | Ticker poll interval |
+| `SCROLL_SEEK_DEBOUNCE_MS` | **200ms** | useDataWindow.ts:61 | Debounce scroll-triggered seeks in two-tier mode |
+| `EXTEND_AHEAD` (detail/fullscreen) | **20** | useImageTraversal.ts:57 | Proactive extend trigger during image traversal |
+| Search query debounce | **300ms** | SearchBar.tsx:60 | Debounce CQL input → URL update |
+| Prefetch throttle gate | **150ms** | image-prefetch.ts:60 | Skip prefetch batches at held-key speed |
+| Tooltip flash suppression | **1500ms** | Scrubber.tsx:323 | Tooltip fade after seek |
 
 **Corpus scaling:** The timing values are UI-feel constants, not
 corpus-dependent. The only exception is `AGG_CIRCUIT_BREAKER_MS` — if
@@ -327,13 +365,12 @@ auto-fetch. **Monitor agg response times on PROD.**
 
 | Knob | Value | Location |
 |---|---|---|
-| `TABLE_ROW_HEIGHT` | **32px** | constants/layout.ts:14 |
-| `TABLE_HEADER_HEIGHT` | **45px** | constants/layout.ts:17 |
-| `GRID_ROW_HEIGHT` | **303px** | constants/layout.ts:20 |
-| `GRID_MIN_CELL_WIDTH` | **280px** | constants/layout.ts:23 |
-| `GRID_CELL_GAP` | **8px** | constants/layout.ts:26 |
-| Fallback loadMore threshold | **500px** | useScrollEffects.ts:283 |
-| Detail auto-load threshold | **5 images** | ImageDetail.tsx:141 |
+| `TABLE_ROW_HEIGHT` | **32px** | constants/layout.ts:15 |
+| `TABLE_HEADER_HEIGHT` | **45px** | constants/layout.ts:18 |
+| `GRID_ROW_HEIGHT` | **303px** | constants/layout.ts:21 |
+| `GRID_MIN_CELL_WIDTH` | **280px** | constants/layout.ts:24 |
+| `GRID_CELL_GAP` | **8px** | constants/layout.ts:28 |
+| Fallback loadMore threshold | **500px** | useScrollEffects.ts:357 |
 
 **These are design constants, not tuning knobs.** They define the visual
 grid and are coupled to Tailwind classes (h-8, h-11, etc). Changing them
@@ -349,8 +386,8 @@ E2E test assertions use these values.
 
 | Knob | Value | Location |
 |---|---|---|
-| `AGG_DEFAULT_SIZE` | **10** | constants/tuning.ts:154 |
-| `AGG_EXPANDED_SIZE` | **100** | constants/tuning.ts:157 |
+| `AGG_DEFAULT_SIZE` | **10** | constants/tuning.ts:169 |
+| `AGG_EXPANDED_SIZE` | **100** | constants/tuning.ts:172 |
 
 ### AGG_DEFAULT_SIZE (10)
 
@@ -417,6 +454,13 @@ MAX_RESULT_WINDOW ───── DEEP_SEEK_THRESHOLD (must be ≤)
 
 DEEP_SEEK_THRESHOLD ─── seek path selection (shallow vs deep)
 
+SCROLL_MODE_THRESHOLD ── POSITION_MAP_THRESHOLD (must be <)
+                      └── BUFFER_CAPACITY (must be ≤)
+
+POSITION_MAP_THRESHOLD ── two-tier vs seek mode boundary
+                        ├── useDataWindow mode selection
+                        └── position map memory budget
+
 Seek cooldowns ──────── extend suppression window
                      └── scroll handler re-fire timing
 ```
@@ -429,7 +473,8 @@ Seek cooldowns ──────── extend suppression window
 |---|---|---|
 | Buffer/page sizes | No (constants, need rebuild) | Could make env-var-driven. Low value — these are stable. |
 | Seek thresholds | Yes (env vars, need restart) | Already done for local vs real. |
-| Overscan | No (constant, need rebuild) | **Candidate for dynamic tuning** — but would need careful testing. |
+| Scroll/position-map thresholds | Yes (env vars, need restart) | Already done — `VITE_SCROLL_MODE_THRESHOLD`, `VITE_POSITION_MAP_THRESHOLD`. |
+| Overscan | No (constant, need rebuild) | Table was tuned to 15 empirically. Grid at 5 is optimal. Stable. |
 | Timing/cooldowns | No (constants) | No reason to. These are UI-feel values. |
 | Layout constants | No (tied to CSS) | No. Design decisions. |
 | Source excludes | No (constant) | Could be env-driven. Low value. |
@@ -454,10 +499,10 @@ Seek cooldowns ──────── extend suppression window
    High-cardinality fields may show "?" beyond that. Increase MAX_PAGES
    if needed.
 
-5. **The overscan/flash trade-off is unsolvable at this layer.** The
-   cell content flash during fast scroll is a React reconciliation
-   latency issue, not a configuration issue. Increasing overscan trades
-   flash for jank. The current 5 is the measured optimum.
+5. **The overscan/flash trade-off is view-specific.** Table overscan
+   was bumped from 5→15 because table rows are cheap (32px, minimal
+   DOM). Grid stays at 5 (303px rows with thumbnails are expensive).
+   The grid's 5 × 303px = 1,515px headroom is already generous.
 
 ---
 
@@ -470,7 +515,7 @@ Automated A/B testing of tuning knobs. Agent-driven, human-supervised.
 | File | Purpose |
 |---|---|
 | `playwright.experiments.config.ts` | Playwright config — headed browser, no safety gate, long timeouts |
-| `e2e-perf/experiments.spec.ts` | Experiment scenarios (E1–E3) with full probe collection |
+| `e2e-perf/experiments.spec.ts` | Experiment scenarios (E1–E6) with full probe collection |
 | `e2e-perf/results/experiments/` | JSON result files, one per run |
 | `e2e-perf/results/experiments/experiments-log.md` | Human-readable comparison tables |
 
@@ -497,9 +542,12 @@ EXP_OVERSCAN_TABLE=8 npx playwright test --config playwright.experiments.config.
 
 | Experiment | Scenario | Key metrics |
 |---|---|---|
-| **E1** | Table fast scroll (30 × 800px wheels) | flashes, severe jank, maxFrame, domChurn, scroll velocity |
-| **E2** | Grid fast scroll (30 × 1500px wheels) | flashes, severe jank, maxFrame, domChurn, scroll velocity |
-| **E3** | Density switch (seek 50%, focus, toggle 4×) | CLS, flashes, severe jank, extend counts |
+| **E1** | Table scroll — slow/fast/turbo | flashes, severe jank, maxFrame, domChurn, scroll velocity |
+| **E2** | Grid scroll — slow/fast/turbo | flashes, severe jank, maxFrame, domChurn, scroll velocity |
+| **E3** | Density switch baseline (seek + toggle 4×) | CLS, flashes, severe jank, extend counts |
+| **E4** | Image detail traversal — slow/moderate/fast/rapid | traversal latency, prefetch timing, extend counts |
+| **E5** | Fullscreen traversal — slow/moderate/fast/rapid | traversal latency, prefetch timing |
+| **E6** | Smooth autoscroll — brisk/fast/turbo | flashes, jank, CLS, scroll velocity |
 
 ### Every result records
 
@@ -509,14 +557,14 @@ EXP_OVERSCAN_TABLE=8 npx playwright test --config playwright.experiments.config.
 - Full perf snapshot (CLS, LoAF, jank, DOM, scroll velocity, flashes, network)
 - Store state (buffer offset, extend/evict counts)
 
-### Experiment catalogue (planned)
+### Experiment catalogue
 
-| ID | Knob | Values | Scenarios | Status |
-|---|---|---|---|---|
-| E1 | `overscan` (table) | 5, 8, 12 | table fast scroll | Ready |
-| E2 | `overscan` (grid) | 3, 5, 8 | grid fast scroll | Ready |
-| E3 | density switch | (baseline) | seek + toggle 4× | Ready |
-| E4 | `EXTEND_THRESHOLD` | 30, 50, 100 | table scroll to eviction | Planned |
-| E5 | `PAGE_SIZE` | 100, 200, 300 | table scroll + seek | Planned |
-| E6 | visual assessment | overscan variants | human watches headed browser | Human-only |
+| ID | Scenario | Status |
+|---|---|---|
+| E1 | Table scroll — slow/fast/turbo | Implemented |
+| E2 | Grid scroll — slow/fast/turbo | Implemented |
+| E3 | Density switch baseline | Implemented |
+| E4 | Image detail traversal — slow/moderate/fast/rapid | Implemented |
+| E5 | Fullscreen traversal — slow/moderate/fast/rapid | Implemented |
+| E6 | Smooth autoscroll — brisk/fast/turbo | Implemented |
 

@@ -7,7 +7,7 @@
  * Two panel zones: left (filters + collections) and right (metadata).
  * Each has two states only: visible or hidden. No overlay, no lock.
  *
- * See kupua/exploration/docs/panels-plan.md for the full design.
+ * See kupua/exploration/docs/zz Archive/panels-plan.md for the full design.
  */
 
 import { create } from "zustand";

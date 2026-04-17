@@ -8,7 +8,7 @@
  * Aggregations are fetched lazily — only when the Filters accordion section
  * is expanded (see panels-plan.md Decision #9, #13).
  *
- * See kupua/exploration/docs/panels-plan.md §Facet Filters for the full design.
+ * See kupua/exploration/docs/zz Archive/panels-plan.md §Facet Filters for the full design.
  */
 
 import { useEffect, useCallback, useRef } from "react";

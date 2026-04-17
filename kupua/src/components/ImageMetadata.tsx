@@ -27,7 +27,7 @@
  *   - List fields (keywords, subjects, people) are rendered as search pills
  *   - Section padding ~10px (py-2.5) matches kahuna's image-info__group padding
  *
- * See kupua/exploration/docs/metadata-display-plan.md for the full design.
+ * See kupua/exploration/docs/zz Archive/metadata-display-plan.md for the full design.
  */
 
 import { useCallback } from "react";

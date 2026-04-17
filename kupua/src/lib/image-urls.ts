@@ -6,7 +6,7 @@
  *
  * Full-size images: served via imgproxy, which resizes and converts to WebP
  *   on the fly. This avoids sending 50MB originals to the browser.
- *   See kupua/exploration/docs/imgproxy-research.md for background.
+ *   See kupua/exploration/docs/01 Research/imgproxy-research.md for background.
  *
  * HOW TO REPLACE THIS (Phase 3):
  *   When kupua connects to the Grid media-api, thumbnails will be served
