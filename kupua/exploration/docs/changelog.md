@@ -14,6 +14,30 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 April 2026 — Two alternative integration plans produced
+
+Two competing plans for integrating kupua with Grid's backend, both for engineer review:
+
+**Direct-ES plan** (`integration-plan.md`): Keep direct Elasticsearch as kupua's core,
+layer media-api incrementally for auth, config, image detail, writes. Zero media-api
+changes. 7 phases, ~8–12 weeks. Ships fast, no external dependencies, but bakes Grid
+internals into the frontend (ES query DSL, S3 proxying, TypeScript cost calculator).
+
+**API-first plan** (`integration-plan-api-first.md`): Kupua becomes a pure HATEOAS client
+of media-api — one URL, no direct ES/S3/imgproxy access. Requires ~8 additive media-api
+endpoints (PIT, search_after, count, aggregations, distributions, percentiles, config).
+All changes backwards-compatible — legacy clients unaffected. 10 phases, ~10–14 weeks
+with ~2.5 weeks of Scala developer time. Cost/validity in search results is free (already
+computed by ImageResponse.create per hit). Portable to any Grid deployment (eelpie, BBC).
+
+Both plans share Phases 0–1 (auth, config) and the write phases. A hybrid path is
+documented: start with direct-ES, swap to API-first when endpoints are ready — the
+`ImageDataSource` interface makes this a clean swap.
+
+Also: deleted `api-first-integration-handoff.md` (superseded by the plan itself),
+created mermaid architecture diagrams for both plans, added imgproxy-as-Grid-infrastructure
+as a parallel workstream in the API-first plan.
+
 ### 16 April 2026 — Extract `useCursorAutoHide` and apply to ImageDetail fullscreen
 
 Cursor auto-hide (YouTube-style: disappear after 2s idle, reappear on mouse move) was

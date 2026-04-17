@@ -111,6 +111,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Doc | Path | Summary |
 |---|---|---|
 | Migration plan | `exploration/docs/migration-plan.md` | Phased plan (1–6), kahuna feature inventory |
+| Integration plan (direct-ES) | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan.md` | Phased plan for Grid backend integration (direct-ES + media-api hybrid) |
+| API-first plan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | Detailed API-first integration plan: additive media-api endpoints, phased rollout, elastic4s specs |
 | Frontend philosophy | `exploration/docs/00 Architecture and philosophy/01-frontend-philosophy.md` | Density continuum, "Never Lost", click-to-search |
 | Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
 | `search_after` plan | `exploration/docs/search-after-plan.md` | Windowed buffer, PIT, scrubber, sort-around-focus |
