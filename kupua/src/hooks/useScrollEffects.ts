@@ -575,13 +575,15 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const sortOnly = orderByChanged && !nonSortChanged;
 
-    // Skip scroll-reset when sort-around-focus is active. Capture the
-    // anchor item's viewport ratio BEFORE the sort.
+    // Skip scroll-reset when sort-around-focus is active OR when focus
+    // preservation is active (non-sort change with a focused image — e.g.
+    // clicking a metadata value). Capture the anchor item's viewport ratio
+    // BEFORE the change so effect 9 can restore exact position.
     // NOTE: sort-focus ratio does NOT include headerOffset — it measures
     // the pure row-to-viewport ratio. Density-focus DOES include headerOffset
     // because the two density modes have different headers and need to
     // compensate. These are independent save/restore cycles.
-    if (sortOnly && focusedImageId) {
+    if (focusedImageId) {
       const store = useSearchStore.getState();
       const gIdx = store.imagePositions.get(focusedImageId);
       if (gIdx != null) {

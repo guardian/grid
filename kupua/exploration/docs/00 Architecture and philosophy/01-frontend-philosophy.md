@@ -27,6 +27,10 @@ The transition between any two adjacent levels should feel like a smooth zoom, n
 
 ### Context is Sacred — The "Never Lost" Principle
 
+> **Deep dive:** The full focus model, phantom focus, position-preservation engine, and
+> relaxation model are in `02-focus-and-position-preservation.md`. This section is the
+> summary; that document is the spec.
+
 Because views are a continuum (not separate pages), **all user context must survive every density change.** This is an architectural line in the sand:
 
 - **Focus** survives density changes. If image #47 is focused in the table, it stays focused in the grid, and vice versa.

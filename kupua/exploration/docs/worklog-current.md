@@ -12,8 +12,10 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none)
+No active task. Session 1 of focus/position preservation workplan committed.
+See `exploration/docs/focus-position-preservation-workplan.md` for Sessions 2-6.
+See `exploration/docs/changelog.md` top entry for Session 1 details.
 
 ## Session Log
 
-(empty)
+(empty — new session)

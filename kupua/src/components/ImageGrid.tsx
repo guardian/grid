@@ -37,6 +37,10 @@ import {
   GRID_MIN_CELL_WIDTH as MIN_CELL_WIDTH,
   GRID_CELL_GAP as CELL_GAP,
 } from "@/constants/layout";
+import {
+  SCROLL_MODE_THRESHOLD,
+  POSITION_MAP_THRESHOLD,
+} from "@/constants/tuning";
 
 // ---------------------------------------------------------------------------
 // Tooltip helpers
@@ -265,8 +269,12 @@ export function ImageGrid() {
     // Prefer the focused image as anchor
     const fid = focusedImageIdRef.current;
     if (fid) {
-      const { imagePositions, bufferOffset } = useSearchStore.getState();
-      const isTwoTier = twoTier; // from hook scope — already derived from total range
+      const { imagePositions, bufferOffset, total } = useSearchStore.getState();
+      // Derive twoTier from current store state — NOT from the hook scope,
+      // which is stale inside the ResizeObserver closure (useEffect deps=[]).
+      const isTwoTier = POSITION_MAP_THRESHOLD > 0
+        && total > SCROLL_MODE_THRESHOLD
+        && total <= POSITION_MAP_THRESHOLD;
       const globalIdx = imagePositions.get(fid);
       if (globalIdx != null && globalIdx >= 0) {
         // In two-tier mode, the virtualizer uses global indices directly.

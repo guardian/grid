@@ -100,8 +100,7 @@ export function useUrlSearchSync() {
     if (serialized === _prevParamsSerialized) return;
 
     // Detect sort-only change: orderBy changed, nothing else did.
-    // If so and there's a focused image (or a viewport anchor), pass its ID
-    // to search() for sort-around-focus ("Never Lost").
+    // Used below to decide relaxation behaviour for phantom focus.
     const prev = _prevSearchOnly;
     const isSortOnly =
       _prevParamsSerialized !== "" && // not the first search
@@ -109,10 +108,18 @@ export function useUrlSearchSync() {
       Object.keys({ ...prev, ...searchOnly }).every(
         (k) => k === "orderBy" || searchOnly[k] === prev[k]
       );
-    const sortAroundFocusId =
-      isSortOnly
-        ? useSearchStore.getState().focusedImageId
-        : null;
+
+    // "Never Lost" — pass focusedImageId to search() so the store can find
+    // the image in the new results and scroll to it. This applies to ALL
+    // search context changes (query, filter, sort), not just sort changes.
+    // The _findAndFocusImage machinery handles failure gracefully: if the
+    // image isn't in the new results, focus is cleared and the view resets
+    // to top. The cost of trying and failing is one extra ES lookup.
+    //
+    // isSortOnly is preserved for future use (Session 4: phantom focus
+    // relaxation — skip viewport anchor for sort-only changes).
+    const focusPreserveId =
+      useSearchStore.getState().focusedImageId ?? null;
 
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });
@@ -129,7 +136,7 @@ export function useUrlSearchSync() {
       searchKeys.map((k) => [k, undefined])
     );
     setParams({ ...reset, ...searchOnly });
-    search(sortAroundFocusId);
+    search(focusPreserveId);
   }, [searchParams, setParams, search, navigate]);
 }
 

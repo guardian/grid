@@ -440,6 +440,94 @@ describe("sort-around-focus", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: Focus survives search context change
+// ---------------------------------------------------------------------------
+
+describe("focus survives search context change", () => {
+  it("preserves focus when image exists in new results (first page)", async () => {
+    await actions().search();
+    // Focus an image that is in the first page (index < 200 = PAGE_SIZE)
+    actions().setFocusedImageId("img-50");
+    expect(state().focusedImageId).toBe("img-50");
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Simulate a query change by searching with the focused image ID.
+    // The image is in the first page, so it should be found immediately.
+    await actions().search("img-50");
+    await flush();
+
+    expect(state().focusedImageId).toBe("img-50");
+    expect(state().loading).toBe(false);
+    expect(state().sortAroundFocusStatus).toBeNull();
+    // Generation should bump so the view scrolls to the focused image
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+  });
+
+  it("preserves focus when image exists but outside first page", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    actions().setFocusedImageId("img-500");
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Search with focus — image is outside the first page (200 items)
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "focus-preserve completes",
+    );
+
+    expect(state().focusedImageId).toBe("img-500");
+    expect(state().loading).toBe(false);
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+    // Image should be in the buffer now
+    expect(state().results.some((r) => r?.id === "img-500")).toBe(true);
+  });
+
+  it("clears focus and shows first-page results when image not in new results", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    actions().setFocusedImageId("img-500");
+
+    // Search for a non-existent image (simulates query change that
+    // filters out the focused image)
+    await actions().search("img-99999");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "focus-preserve failure clears status",
+    );
+
+    // Focus should be cleared
+    expect(state().focusedImageId).toBeNull();
+    expect(state().loading).toBe(false);
+    // Buffer should contain the first page of new results (not stale data)
+    expect(state().bufferOffset).toBe(0);
+    expect(state().results.length).toBeGreaterThan(0);
+    expect(state().results[0]?.id).toBe("img-0");
+  });
+
+  it("does not attempt focus preservation when focusedImageId is null", async () => {
+    await actions().search();
+    expect(state().focusedImageId).toBeNull();
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Search without focus — should behave normally
+    await actions().search(null);
+    await flush();
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state().sortAroundFocusGeneration).toBe(genBefore);
+    expect(state().loading).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: Buffer eviction
 // ---------------------------------------------------------------------------
 

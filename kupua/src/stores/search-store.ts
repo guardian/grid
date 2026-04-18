@@ -411,6 +411,20 @@ let _newImagesPollGeneration = 0;
 let _rangeAbortController = new AbortController();
 
 /**
+ * Dedicated abort controller for _findAndFocusImage (Steps 1-2: find image
+ * sort values + countBefore). Only aborted by search() — NOT by seek().
+ *
+ * Why: when search() sets a new `total` (e.g. 1.3M → 30k), the virtualizer
+ * re-renders, browser clamps scrollTop, reportVisibleRange fires, and
+ * two-tier mode schedules a debounced seek(). That seek aborts
+ * _rangeAbortController, which used to kill _findAndFocusImage mid-flight.
+ * This dedicated controller isolates the focus-finding work from seek
+ * interference. _findAndFocusImage's Step 3 (the actual buffer load) still
+ * uses _rangeAbortController via its own seekSignal.
+ */
+let _findFocusAbortController = new AbortController();
+
+/**
  * Cooldown timestamp after a seek. Extends are suppressed until this time
  * to prevent a cascade of backward extends when the virtualizer starts at
  * scrollTop=0 after a seek (visible range [0..20], bufferOffset > 0 →
@@ -1038,9 +1052,22 @@ async function _loadBufferAroundImage(
 async function _findAndFocusImage(
   imageId: string,
   params: SearchParams,
-  signal: AbortSignal,
   get: () => SearchState,
   set: (s: Partial<SearchState>) => void,
+  /** First-page results to fall back to if the image isn't found. When
+   *  provided, failure shows these results at offset 0 instead of leaving
+   *  a stale buffer (important for query/filter changes where the old
+   *  buffer is from a different search context). */
+  fallbackFirstPage?: {
+    hits: Image[];
+    startCursor: SortValues | null;
+    endCursor: SortValues | null;
+    pitId: string | null;
+    /** The correct total for the new query. _findAndFocusImage sets this
+     *  atomically with the new buffer so the virtualizer never sees a
+     *  total/buffer mismatch (which triggers scroll-clamp → seek → flash). */
+    total: number;
+  },
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1048,41 +1075,95 @@ async function _findAndFocusImage(
 
   set({ sortAroundFocusStatus: "Finding image…" });
 
-  // Timeout: if the whole process takes longer than 8s, give up gracefully.
-  // This prevents "Seeking... forever" if ES is slow or queries are expensive.
+  // Use _findFocusAbortController for Steps 1-2 (find sort values +
+  // countBefore). This is NOT shared with seek() — only search() can
+  // abort it. This prevents the race where two-tier mode's scroll-triggered
+  // seek aborts the focus-finding work.
+  const findFocusSignal = _findFocusAbortController.signal;
+
+  // Timeout controller: if the process takes longer than 8s, abort the
+  // in-flight ES requests and fall back gracefully. This prevents both
+  // "Seeking... forever" AND the flash bug where the timeout shows fallback
+  // results but the function continues and later overwrites them.
+  const timeoutController = new AbortController();
+  const combinedSignal = AbortSignal.any
+    ? AbortSignal.any([findFocusSignal, timeoutController.signal])
+    : findFocusSignal; // Fallback for environments without AbortSignal.any
   const timeoutId = setTimeout(() => {
     console.warn("[sort-around-focus] Timed out after 8s");
-    set({ sortAroundFocusStatus: null, loading: false });
+    timeoutController.abort();
+    if (fallbackFirstPage) {
+      set({
+        results: fallbackFirstPage.hits,
+        bufferOffset: 0,
+        total: fallbackFirstPage.total,
+        loading: false,
+        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+        startCursor: fallbackFirstPage.startCursor,
+        endCursor: fallbackFirstPage.endCursor,
+        pitId: fallbackFirstPage.pitId ?? get().pitId,
+        focusedImageId: null,
+        sortAroundFocusStatus: null,
+      });
+    } else {
+      set({ sortAroundFocusStatus: null, loading: false });
+    }
   }, 8000);
 
   try {
     // Step 1: Search for this specific image with the current sort to get
     // both the image and its sort[] values in one request.
-    if (signal.aborted) return;
+    if (combinedSignal.aborted) return;
     const sortClause = buildSortClause(fp.orderBy);
     const sortResult = await dataSource.searchAfter(
       { ...fp, ids: imageId, length: 1 },
       null,
       null,
-      signal,
+      combinedSignal,
     );
 
-    if (signal.aborted) return;
+    if (combinedSignal.aborted) return;
     if (sortResult.hits.length === 0 || sortResult.sortValues.length === 0) {
-      // Image not in results (maybe filtered out) — degrade gracefully
-      set({ sortAroundFocusStatus: null, loading: false });
+      // Image not in results (maybe filtered out) — degrade gracefully.
+      // If we have first-page results, show them (query/filter changes leave
+      // the old buffer stale). Otherwise just clear loading (sort changes
+      // where the old buffer is still from the same query).
+      if (fallbackFirstPage) {
+        set({
+          results: fallbackFirstPage.hits,
+          bufferOffset: 0,
+          total: fallbackFirstPage.total,
+          loading: false,
+          imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+          startCursor: fallbackFirstPage.startCursor,
+          endCursor: fallbackFirstPage.endCursor,
+          pitId: fallbackFirstPage.pitId ?? get().pitId,
+          focusedImageId: null,
+          sortAroundFocusStatus: null,
+        });
+      } else {
+        set({ sortAroundFocusStatus: null, loading: false });
+      }
       return;
     }
 
     const targetHit = sortResult.hits[0];
     const imageSortValues = sortResult.sortValues[0];
 
-    // Step 2: countBefore → exact global offset.
-    // Fast path: if positionMap is available, look up the image's position
-    // directly (O(n) scan of ids array, ~<1ms for 65k strings). Saves one
-    // ES round-trip (~5-10ms countBefore call).
-    if (signal.aborted) return;
+    // Step 2: Determine the image's global offset.
+    //
+    // Three paths, fast → slow:
+    // A. Position map available → O(n) scan (~<1ms for 65k strings).
+    // B. Position map miss → synchronous countBefore (stale map edge case).
+    // C. No position map (>65k deep-seek mode) → SKIP countBefore entirely.
+    //    Use offset=0 as placeholder, load the buffer immediately (Step 3),
+    //    then correct bufferOffset asynchronously when countBefore resolves.
+    //    This eliminates the 2-5s bottleneck on large datasets — the buffer
+    //    data is correct (uses sort-value cursors, not offsets), only the
+    //    scrubber thumb and position counter are temporarily wrong.
+    if (combinedSignal.aborted) return;
     let offset: number;
+    let offsetIsEstimate = false;
     const posMap = get().positionMap;
     if (posMap) {
       const idx = posMap.ids.indexOf(imageId);
@@ -1093,36 +1174,44 @@ async function _findAndFocusImage(
         );
       } else {
         // Image not in position map (stale map or image added since map was built).
-        // Fall back to countBefore.
+        // Fall back to countBefore — this is rare and fast (position map
+        // means ≤65k results, so countBefore is ~5-10ms).
         offset = await dataSource.countBefore(
           fp,
           imageSortValues,
           sortClause,
-          signal,
+          combinedSignal,
         );
         devLog(
           `[sort-around-focus] position map miss: id=${imageId}, countBefore=${offset}`,
         );
       }
     } else {
-      offset = await dataSource.countBefore(
-        fp,
-        imageSortValues,
-        sortClause,
-        signal,
+      // No position map → >65k results (deep-seek mode). countBefore would
+      // take 2-5s. Use placeholder offset and correct asynchronously.
+      offset = 0;
+      offsetIsEstimate = true;
+      devLog(
+        `[sort-around-focus] no position map, using estimated offset=0 (will correct async)`,
       );
     }
 
-    if (signal.aborted) return;
+    if (combinedSignal.aborted) return;
 
     // Step 3: Check if the offset is within the current buffer
+    // (Only meaningful when offset is exact — estimated offset=0 will
+    // almost never match the current buffer for deep-seek images.)
     const { bufferOffset, results } = get();
     const bufferEnd = bufferOffset + results.length;
-    const isInBuffer = offset >= bufferOffset && offset < bufferEnd;
+    const isInBuffer = !offsetIsEstimate &&
+      offset >= bufferOffset && offset < bufferEnd;
 
     if (isInBuffer) {
-      // Image is in the buffer — just focus it
+      // Image is in the buffer — just focus it.
+      // Guard: if the timeout already fired, don't overwrite fallback state.
+      if (timeoutController.signal.aborted) return;
       set({
+        ...(fallbackFirstPage ? { total: fallbackFirstPage.total } : {}),
         focusedImageId: imageId,
         sortAroundFocusStatus: null,
         loading: false,
@@ -1132,21 +1221,25 @@ async function _findAndFocusImage(
       // Outside buffer — load a page centered on the image
       set({ sortAroundFocusStatus: "Seeking…" });
 
-      // Abort any in-flight extends from the previous search and create
-      // a fresh controller for our own requests. Note: this aborts the
-      // parent `signal` (which came from the same controller), so we must
-      // NOT check `signal.aborted` after this point — only `seekSignal`.
+      // Abort any in-flight extends/scroll-seeks from the previous search
+      // and create a fresh controller for post-focus extends. We use
+      // combinedSignal (from _findFocusAbortController) for the actual
+      // buffer load — NOT _rangeAbortController — so that scroll-triggered
+      // seeks in two-tier mode can't abort this work.
       _rangeAbortController.abort();
       _rangeAbortController = new AbortController();
-      const seekSignal = _rangeAbortController.signal;
 
       const buf = await _loadBufferAroundImage(
         targetHit, imageSortValues, offset, fp,
-        get().pitId, seekSignal, dataSource,
+        get().pitId, combinedSignal, dataSource,
       );
       if (!buf) return; // aborted
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+      // Guard: if the timeout fired while _loadBufferAroundImage was
+      // running, don't overwrite the fallback state with stale results.
+      if (timeoutController.signal.aborted) return;
 
       // NOTE: we intentionally do NOT bump _seekGeneration here.
       // sortAroundFocusGeneration is the sole scroll trigger — its effect
@@ -1169,12 +1262,58 @@ async function _findAndFocusImage(
         sortAroundFocusStatus: null,
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
       });
+
+      // Async offset correction: if we used an estimated offset, fire
+      // countBefore in the background and correct bufferOffset +
+      // imagePositions when it resolves. Uses the same combinedSignal
+      // so it's cancelled if a new search starts.
+      if (offsetIsEstimate) {
+        dataSource.countBefore(fp, imageSortValues, sortClause, combinedSignal)
+          .then((exactOffset) => {
+            if (combinedSignal.aborted) return;
+            const state = get();
+            // Only correct if the buffer still belongs to this focus operation
+            // (focusedImageId unchanged and results are the same reference).
+            if (state.focusedImageId !== imageId) return;
+            if (state.results !== buf.combinedHits) return;
+            const correctedOffset = Math.max(
+              0, exactOffset - buf.targetLocalIndex,
+            );
+            devLog(
+              `[sort-around-focus] offset corrected: ${buf.bufferStart} → ${correctedOffset} (countBefore=${exactOffset})`,
+            );
+            set({
+              bufferOffset: correctedOffset,
+              imagePositions: buildPositions(state.results, correctedOffset),
+            });
+          })
+          .catch((e) => {
+            if (e instanceof DOMException && e.name === "AbortError") return;
+            console.warn("[sort-around-focus] async offset correction failed:", e);
+            // Non-fatal — buffer data is correct, only scrubber position is off.
+          });
+      }
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
-    // Any failure → degrade gracefully (stay at top)
+    // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
-    set({ sortAroundFocusStatus: null, loading: false });
+    if (fallbackFirstPage) {
+      set({
+        results: fallbackFirstPage.hits,
+        bufferOffset: 0,
+        total: fallbackFirstPage.total,
+        loading: false,
+        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+        startCursor: fallbackFirstPage.startCursor,
+        endCursor: fallbackFirstPage.endCursor,
+        pitId: fallbackFirstPage.pitId ?? get().pitId,
+        focusedImageId: null,
+        sortAroundFocusStatus: null,
+      });
+    } else {
+      set({ sortAroundFocusStatus: null, loading: false });
+    }
   } finally {
     clearTimeout(timeoutId);
   }
@@ -1278,6 +1417,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // prepend stale data.
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
     _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
     const signal = _rangeAbortController.signal;
 
@@ -1349,7 +1490,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // -----------------------------------------------------------------
       if (sortAroundFocusId && !focusedInFirstPage && result.total > 0) {
         set({
-          total: result.total,
+          // NOTE: total is NOT set here. _findAndFocusImage sets it
+          // atomically with the new buffer. Setting it here would cause
+          // the virtualizer to re-render with a mismatched total/buffer,
+          // triggering scroll-clamp → scroll-seek → flash of wrong content.
           took: result.took ?? null,
           seekTime: null,
           params: { ...params, offset: 0 },
@@ -1362,8 +1506,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // neighbourhood is loaded, preventing flash of wrong content.
         });
         startNewImagesPoll(get, set);
-        // Fire async — stays loading until complete
-        _findAndFocusImage(sortAroundFocusId, params, signal, get, set);
+        // Fire async — stays loading until complete.
+        // Pass the first-page results as fallback so the view shows
+        // correct content if the focused image isn't in the new results
+        // (e.g. query change where the image was filtered out).
+        _findAndFocusImage(sortAroundFocusId, params, get, set, {
+          hits: result.hits,
+          startCursor,
+          endCursor,
+          pitId: result.pitId ?? newPitId,
+          total: result.total,
+        });
 
         // Position map: start background fetch even in sort-around-focus path.
         // The position map uses a dedicated PIT and abort controller, fully

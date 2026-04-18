@@ -39,6 +39,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
+| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `focus-position-preservation-workplan.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
@@ -114,6 +115,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Integration plan (direct-ES) | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan.md` | Phased plan for Grid backend integration (direct-ES + media-api hybrid) |
 | API-first plan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | Detailed API-first integration plan: additive media-api endpoints, phased rollout, elastic4s specs |
 | Frontend philosophy | `exploration/docs/00 Architecture and philosophy/01-frontend-philosophy.md` | Density continuum, "Never Lost", click-to-search |
+| Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Focus, phantom focus, position engine, relaxation model, mobile |
+| Focus workplan | `exploration/docs/focus-position-preservation-workplan.md` | 6-session implementation plan: search-context survival → phantom mode |
 | Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
 | `search_after` plan | `exploration/docs/search-after-plan.md` | Windowed buffer, PIT, scrubber, sort-around-focus |
 | Scrubber dual-mode | `exploration/docs/zz Archive/Scrolling bonanza/scrubber-dual-mode-ideation.md` | Scroll mode vs seek mode, tooltip, visual philosophy |

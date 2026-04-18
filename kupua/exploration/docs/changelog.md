@@ -14,6 +14,47 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 April 2026 — Focus survives search context change
+
+Session 1 of the focus/position preservation workplan. When a user clicks a metadata
+value in the detail panel (e.g. credit: "AFP"), the focused image now stays focused and
+in view after the search context changes — no flash, no scroll reset, no position loss.
+
+**Core mechanism:** `useUrlSearchSync` renamed `sortAroundFocusId` → `focusPreserveId`
+and now always passes `focusedImageId` to `search()` (not just for sort-only changes).
+`_findAndFocusImage` relocates the image in the new result set using sort values +
+bidirectional `search_after`. `isSortOnly` is still computed but unused — preserved
+for Session 4 (phantom focus relaxation).
+
+**Exact position preservation:** Effect 7 in `useScrollEffects` now saves the
+`sortFocusRatio` for any search param change when a focused image exists (not just
+sort-only). Effect 9 restores the exact pixel position via `consumeSortFocusRatio()`.
+
+**Performance:** In deep-seek mode (>65k results, no position map), `countBefore` was
+the bottleneck (2-5s on 1.3M results). Now skipped entirely — `offset=0` placeholder,
+buffer loads immediately via sort-value cursors, `bufferOffset` corrected asynchronously
+when `countBefore` resolves. Scrubber thumb and position counter temporarily wrong for
+~1-5s; buffer data always correct. Net effect: focus-preserve drops from 3-6s to
+~200-300ms on large datasets.
+
+**Bug fixes (4):**
+- Flash of first page: timeout/abort race in `_findAndFocusImage`. Fixed with
+  `AbortSignal.any` pattern — timeout aborts in-flight requests, guards prevent
+  overwrite of fallback state.
+- Focus-find silently aborted: scroll-seek in two-tier mode aborted shared
+  `_rangeAbortController`. Fixed with dedicated `_findFocusAbortController` that
+  only `search()` can abort.
+- Flash of unwanted content: (a) early `total` set caused virtualizer resize →
+  scroll-clamp → scroll-seek. Fixed by deferring `total` to `_findAndFocusImage`.
+  (b) Effect 7 reset `scrollTop=0`. Fixed by skipping reset when `focusedImageId` set.
+- Stale `twoTier` in `captureAnchor` (pre-existing): closure captured initial value
+  from `useEffect(deps=[])`. Fixed by deriving `isTwoTier` from store state at call
+  time. Explicit focus now survives resize/panel-toggle in two-tier mode.
+
+**Files:** `useUrlSearchSync.ts`, `search-store.ts`, `useScrollEffects.ts`,
+`ImageGrid.tsx`, `search-store.test.ts` (4 new unit tests),
+`focus-preservation.spec.ts` (2 new E2E tests). 295 unit + 134 E2E pass.
+
 ### 17 April 2026 — Two alternative integration plans produced
 
 Two competing plans for integrating kupua with Grid's backend, both for engineer review:
