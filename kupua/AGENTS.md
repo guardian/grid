@@ -77,8 +77,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **310 Vitest** unit/integration tests (~36s) — `npm test`
-- **137 Playwright E2E** tests (~6min) — `npx playwright test`
+- **315 Vitest** unit/integration tests (~36s) — `npm test`
+- **140 Playwright E2E** tests (~6min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
@@ -89,6 +89,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
 - **P4b focusDrift:** Partially fixed. May have secondary cause.
+- ~~**Scrubber thumb flash-to-top:**~~ Fixed (Session 5). DOM guard in Scrubber.tsx.
 
 ### Backlog
 

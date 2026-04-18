@@ -1,7 +1,7 @@
 # Focus & Position Preservation — Multi-Session Workplan
 
 > **Created:** 2026-04-17
-> **Status:** Session 3 complete.
+> **Status:** Session 5 complete.
 > **Architecture doc:** `00 Architecture and philosophy/02-focus-and-position-preservation.md`
 > **Goal:** Implement the full position-preservation engine described in the
 > architecture doc — focus survives search context, focus survives seek (with
@@ -21,6 +21,7 @@
 | Focus survives search context change | ✅ Session 1 | `useUrlSearchSync.ts` passes `focusedImageId` on all search changes |
 | Neighbour fallback (focused image gone → find nearest survivor) | ✅ Session 2 | `search-store.ts` `_captureNeighbours`, `_findAndFocusImage` fallback |
 | Arrow snap-back to focused image after distant seek | ✅ Session 3 | `seekToFocused()`, `_pendingFocusDelta`, effect #9 |
+| Phantom focus promotion (viewport anchor → search-context survival) | ✅ Session 4 | `useUrlSearchSync.ts`, `search-store.ts` (phantomOnly flag) |
 | Phantom focus mode (hidden focus, click-to-detail) | ❌ Not implemented | — |
 | `focusMode` preference | ❌ Not implemented | — |
 
@@ -292,12 +293,16 @@ verify you're back at the focused image.
 
 ---
 
-## Session 4 — Phantom Focus Promotion
+## Session 4 — Phantom Focus Promotion ✅
+
+**Status:** Complete. 315 unit tests, 140 E2E tests pass.
 
 **Delivers:** The viewport anchor (`_viewportAnchorId`) gets the same
 search-context-change guarantee as explicit focus. When phantom focus is all
 we have (no explicit focus), changing query/filters still tries to keep the
-anchor image in view.
+anchor image in view. The `phantomOnly` flag ensures the focus ring never
+appears — promoted phantom focus uses the seek scroll mechanism instead of
+`sortAroundFocusGeneration`.
 
 **Pre-condition:** Sessions 1–2 complete. (No dependency on Session 3 —
 snap-back and phantom promotion are independent. Sessions 3 and 4 can be
@@ -363,7 +368,47 @@ specifically for this session's relaxation logic. No new computation needed.
 
 ---
 
-## Session 5a — Phantom Focus Mode: Click & Keyboard Behaviour
+## Session 5 — Smoke Polish on Real TEST Cluster
+
+**Status:** Complete.
+
+**Delivered:** 6 smoke tests validated against real TEST cluster (~1.3M images).
+All pass. Scrubber thumb flash-to-top bug found and fixed.
+
+**Pre-condition:** Sessions 1–4 complete. `start.sh --use-TEST` running on port 3000.
+Explicit user permission for smoke tests against real ES (read-only).
+**Post-condition:** `e2e/smoke/focus-preservation-smoke.spec.ts` with 6 headed test
+scenarios (T1–T6). 315/315 unit tests pass. 140/140 local E2E pass. 6/6 smoke pass.
+
+### Test scenarios
+
+| ID | Scenario | What it checks | Result |
+|----|----------|---------------|--------|
+| T1 | Phantom promotion — clear filter | Target visible, same position (±1 row), no focus ring, scrubber stable, no column shift | PASS |
+| T2 | Explicit focus — clear filter | Focus ring preserved, same viewport position, scrubber stable | PASS |
+| T3 | Explicit focus — sort change | Focus ring preserved, viewport position restored via ratio | PASS |
+| T4 | Neighbour fallback | Focus moves to surviving neighbour, near original position | PASS |
+| T5 | Arrow snap-back | Image re-fetched from deep position, focus on adjacent image | PASS |
+| T6 | Scrubber thumb stability | Thumb does not flash to top during phantom promotion | PASS |
+
+### Fixed issues
+
+- **Scrubber thumb flash-to-top:** In deep-seek mode (>65k results), `_findAndFocusImage`
+  uses `offset=0` as placeholder before async `countBefore` corrects. This caused the
+  scrubber thumb to briefly jump to position 0. Fix: DOM-level flash guard in
+  `Scrubber.tsx` — if `prevThumbTop > 50px && newThumbTop < 10px`, skip the DOM write.
+  The correction arrives ~100ms later and writes the correct position.
+
+### Not-an-issue (from Session 4 concerns)
+
+- **Row shift:** Not reproducible in smoke tests. Column count stable across transitions.
+- **Scrubber thumb jump (store-level):** `bufferOffset` still goes `327k → 0 → 785k`
+  internally. This is expected — the store sets the placeholder offset atomically with
+  `loading: false`. The DOM guard prevents the visual artefact.
+
+---
+
+## Session 6a — Phantom Focus Mode: Click & Keyboard Behaviour
 
 **Delivers:** A `focusMode: "explicit" | "phantom"` preference. When
 `"phantom"`: single-click enters detail, arrows scroll rows, no focus ring,
@@ -389,7 +434,7 @@ the device class changes mid-session.
 
 ### Steps
 
-**S5a.1 — `focusMode` store + preference** (~30 min)
+**S6a.1 — `focusMode` store + preference** (~30 min)
 
 Add a `useUiPrefsStore` (or add to an existing non-search store):
 - `focusMode: "explicit" | "phantom"` — persisted in localStorage.
@@ -398,7 +443,7 @@ Add a `useUiPrefsStore` (or add to an existing non-search store):
 
 Use `matchMedia("(pointer: coarse)")` with a change event listener.
 
-**S5a.2 — Click behaviour** (~45 min)
+**S6a.2 — Click behaviour** (~45 min)
 
 In `ImageGrid.tsx` and `ImageTable.tsx`:
 - `effectiveFocusMode === "explicit"`: single-click → `setFocusedImageId`.
@@ -412,7 +457,7 @@ combination: grid click, table click, grid double-click (should still work
 in explicit), table double-click. Also consider: what happens if the user
 switches mode while an image is focused? Clear focus? Keep it?
 
-**S5a.3 — Keyboard behaviour** (~30 min)
+**S6a.3 — Keyboard behaviour** (~30 min)
 
 In `useListNavigation.ts`:
 - `effectiveFocusMode === "phantom"`: arrow keys → `scrollByRows` (existing
@@ -420,12 +465,12 @@ In `useListNavigation.ts`:
   No focus is ever set via keyboard.
 - `effectiveFocusMode === "explicit"`: today's behaviour unchanged.
 
-**S5a.4 — Focus ring visibility** (~15 min)
+**S6a.4 — Focus ring visibility** (~15 min)
 
 In the grid cell / table row components, gate the focus ring CSS on
 `effectiveFocusMode === "explicit"`.
 
-**S5a.5 — E2E tests** (~1 hour)
+**S6a.5 — E2E tests** (~1 hour)
 
 1. **Phantom mode: tap-to-enter works.** Click image → detail opens.
 2. **Phantom mode: arrows scroll, no focus ring.** Press ↓ → viewport
@@ -435,17 +480,17 @@ In the grid cell / table row components, gate the focus ring CSS on
 
 ---
 
-## Session 5b — Phantom Focus Mode: Return-from-Detail & Density Interactions
+## Session 6b — Phantom Focus Mode: Return-from-Detail & Density Interactions
 
 **Delivers:** Return-from-detail in phantom mode preserves position.
 Density switches in phantom mode preserve position via viewport anchor.
 
-**Pre-condition:** Session 5a complete.
+**Pre-condition:** Session 6a complete.
 **Post-condition:** Full round-trip works in phantom mode.
 
 ### Steps
 
-**S5b.1 — Return-from-detail in phantom mode** (~45 min)
+**S6b.1 — Return-from-detail in phantom mode** (~45 min)
 
 When user presses Backspace from detail in phantom mode:
 - Set `_viewportAnchorId` to the image that was open (so the engine knows
@@ -459,14 +504,14 @@ navigation, density-focus save/restore, and the mount effect in
 `useScrollEffects`. Test the full round-trip: click → detail → Backspace →
 list → verify position → density switch → verify position again.
 
-**S5b.2 — Density switch in phantom mode** (~30 min)
+**S6b.2 — Density switch in phantom mode** (~30 min)
 
 Verify that density switches (grid↔table) preserve position when only
 the viewport anchor is set (no explicit focus). The existing
 `DensityFocusState` uses `focusedImageId ?? getViewportAnchorId()` — this
 should work, but needs E2E verification.
 
-**S5b.3 — E2E tests** (~1 hour)
+**S6b.3 — E2E tests** (~1 hour)
 
 1. **Phantom mode: return from detail preserves position.** Enter detail,
    Backspace, assert same image neighbourhood visible.
@@ -477,13 +522,13 @@ should work, but needs E2E verification.
 
 ---
 
-## Session 6 — Selection Foundation (Separate Workstream, Sketched Only)
+## Session 7 — Selection Foundation (Separate Workstream, Sketched Only)
 
 > This session is intentionally vague. Selection is a separate feature that
 > will be designed in detail when we begin. Included here to show where it
 > fits in the dependency chain.
 
-**Pre-condition:** Session 5b complete (both focus modes fully working).
+**Pre-condition:** Session 6b complete (both focus modes fully working).
 
 **Key decisions needed before implementation:**
 - Selection gesture in explicit mode: checkbox? Ctrl/Cmd-click? Both?

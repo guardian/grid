@@ -137,7 +137,7 @@ function consumeSortFocusRatio(): number | null {
   return r;
 }
 
-
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Geometry descriptor — captures grid vs table structural differences
 // ---------------------------------------------------------------------------
@@ -479,18 +479,18 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     const el = parentRef.current;
 
-    // Only adjust scrollTop if there's a large difference (> 1 row).
-    // The store's seek() reverse-computes _seekTargetLocalIndex from the
-    // user's current scrollTop, so the delta is typically 0–15px (sub-row
-    // rounding). Skipping small adjustments prevents visible flash — any
-    // scrollTop change, however small, shifts the currently-rendered content.
-    // Large deltas (> rowHeight) indicate browser clamping (new buffer is
-    // shorter) or first seek from a distant position — those must be applied.
-    //
-    // When seekSubRowOffset > 0 (headroom zone seek), always apply — the
-    // store's pre-set was clamped by the browser, so el.scrollTop is wrong
-    // and needs correction regardless of delta size.
     if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight)) {
+      // Only adjust scrollTop if there's a large difference (> 1 row).
+      // The store's seek() reverse-computes _seekTargetLocalIndex from the
+      // user's current scrollTop, so the delta is typically 0–15px (sub-row
+      // rounding). Skipping small adjustments prevents visible flash — any
+      // scrollTop change, however small, shifts the currently-rendered content.
+      // Large deltas (> rowHeight) indicate browser clamping (new buffer is
+      // shorter) or first seek from a distant position — those must be applied.
+      //
+      // When seekSubRowOffset > 0 (headroom zone seek), always apply — the
+      // store's pre-set was clamped by the browser, so el.scrollTop is wrong
+      // and needs correction regardless of delta size.
       devLog(
         `[effect6-seek] ADJUSTING scrollTop: ${el.scrollTop.toFixed(1)} → ${targetWithSubRow.toFixed(1)} ` +
         `(targetPixelTop=${targetPixelTop.toFixed(1)}, subRowOffset=${seekSubRowOffset.toFixed(1)}, ` +
@@ -583,11 +583,20 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // the pure row-to-viewport ratio. Density-focus DOES include headerOffset
     // because the two density modes have different headers and need to
     // compensate. These are independent save/restore cycles.
-    if (focusedImageId) {
+    //
+    // Phantom promotion: when there's no explicit focus but there IS a
+    // viewport anchor and the change isn't sort-only, phantom focus
+    // promotion will fire in search(). Save the anchor's viewport ratio
+    // and return — same path as explicit focus. Effect #9 will restore
+    // the ratio when sortAroundFocusGeneration bumps.
+    //
+    // Explicit focus: save the focused image's viewport ratio for
+    // restoration by effect #9 after the buffer swap.
+    const preserveId = focusedImageId ?? (!sortOnly ? getViewportAnchorId() : null);
+    if (preserveId) {
       const store = useSearchStore.getState();
-      const gIdx = store.imagePositions.get(focusedImageId);
+      const gIdx = store.imagePositions.get(preserveId);
       if (gIdx != null) {
-        // In two-tier mode, virtualizer row 0 = global 0
         const localIdx = toVirtualizerIdx(gIdx, store.bufferOffset, isTwoTierFromTotal(store.total));
         if (localIdx >= 0) {
           const geo = geometryRef.current;
@@ -661,17 +670,51 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // dep change), we must skip the normal scroll-to-focus to avoid flashing
   // from "center" to "start".
   const snapBackHandledGenRef = useRef(0);
+
+  // Persist the sort-focus ratio across re-fires within the same generation.
+  // In deep-seek mode (>65k), _findAndFocusImage uses a placeholder offset
+  // (bufferOffset=0) and corrects it async via countBefore. The correction
+  // changes findImageIndex → re-fires this effect. Without the ref, the
+  // ratio is already consumed and the re-fire falls to align:"start",
+  // losing the viewport row. With the ref, the re-fire recomputes scroll
+  // from the correct pixel coordinates using the same ratio.
+  const sortFocusRatioRef = useRef<number | null>(null);
+  const sortFocusRatioGenRef = useRef(0);
+  // Persist the phantom focus image ID across re-fires within the same
+  // generation. _phantomFocusImageId is cleared after the first fire, but
+  // countBefore correction may re-fire this effect. Without persisting the
+  // ID, the re-fire bails (both focusedImageId and _phantomFocusImageId are
+  // null) and the corrected pixel position is never applied.
+  const phantomIdRef = useRef<string | null>(null);
+
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
-    const id = useSearchStore.getState().focusedImageId;
+    const store = useSearchStore.getState();
+
+    // On a new generation, capture the IDs and ratio. Re-fires for the
+    // same generation reuse the refs.
+    const isNewGen = sortAroundFocusGeneration !== sortFocusRatioGenRef.current;
+    if (isNewGen) {
+      const moduleRatio = consumeSortFocusRatio();
+      sortFocusRatioRef.current = moduleRatio;
+      phantomIdRef.current = store._phantomFocusImageId;
+      sortFocusRatioGenRef.current = sortAroundFocusGeneration;
+    }
+
+    const id = store.focusedImageId ?? phantomIdRef.current;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;
 
+    // Consume phantom focus — it's a one-shot positioning aid, not persistent.
+    if (store._phantomFocusImageId) {
+      useSearchStore.setState({ _phantomFocusImageId: null });
+    }
+
     const el = parentRef.current;
-    const savedRatio = consumeSortFocusRatio();
     const geo = geometryRef.current;
+    const savedRatio = sortFocusRatioRef.current;
 
     // -------------------------------------------------------------------
     // Arrow snap-back: if there's a pending delta, skip the initial

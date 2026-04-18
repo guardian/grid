@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
+import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import {
   _prevParamsSerialized,
@@ -116,10 +117,19 @@ export function useUrlSearchSync() {
     // image isn't in the new results, focus is cleared and the view resets
     // to top. The cost of trying and failing is one extra ES lookup.
     //
-    // isSortOnly is preserved for future use (Session 4: phantom focus
-    // relaxation — skip viewport anchor for sort-only changes).
-    const focusPreserveId =
-      useSearchStore.getState().focusedImageId ?? null;
+    // Phantom focus promotion (Session 4): when there's no explicit focus,
+    // fall back to the viewport anchor — the image nearest the viewport
+    // centre. This gives "Never Lost" position preservation even when the
+    // user never clicked an image. phantomOnly prevents setting
+    // focusedImageId — the user never sees a focus ring from this path.
+    //
+    // Sort-only relaxation: when only orderBy changed and there's no
+    // explicit focus, skip the viewport anchor. The user wants to see
+    // "what's first in the new order," not where their phantom anchor
+    // ended up in a differently-sorted list.
+    const explicitFocus = useSearchStore.getState().focusedImageId;
+    const phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
+    const focusPreserveId = explicitFocus ?? phantomAnchor;
 
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });
@@ -136,7 +146,7 @@ export function useUrlSearchSync() {
       searchKeys.map((k) => [k, undefined])
     );
     setParams({ ...reset, ...searchOnly });
-    search(focusPreserveId);
+    search(focusPreserveId, phantomAnchor ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds() } : undefined);
   }, [searchParams, setParams, search, navigate]);
 }
 

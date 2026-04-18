@@ -97,6 +97,35 @@ export function resetViewportAnchor(): void {
   _viewportAnchorId = null;
 }
 
+/**
+ * Get the IDs of images currently visible in the viewport, ordered by
+ * distance from the viewport centre (nearest first). Excludes the
+ * viewport anchor itself (it's already the primary search target).
+ * Used by phantom focus promotion to restrict neighbour fallback to
+ * images the user actually saw.
+ */
+export function getVisibleImageIds(): string[] {
+  const { results, bufferOffset } = useSearchStore.getState();
+  const ids: string[] = [];
+  const centre = Math.round((_visibleStart + _visibleEnd) / 2);
+  const half = Math.ceil((_visibleEnd - _visibleStart) / 2) + 1;
+
+  for (let d = 1; d <= half; d++) {
+    for (const i of [centre + d, centre - d]) {
+      if (i < _visibleStart || i > _visibleEnd) continue;
+      // In two-tier mode indices are global; in normal mode buffer-local.
+      // Try global→local first, fall back to using index directly.
+      let localIdx = i - bufferOffset;
+      if (localIdx < 0 || localIdx >= results.length) localIdx = i;
+      if (localIdx >= 0 && localIdx < results.length) {
+        const img = results[localIdx];
+        if (img?.id) ids.push(img.id);
+      }
+    }
+  }
+  return ids;
+}
+
 // ---------------------------------------------------------------------------
 // Visible-range external store (module-level, no React re-renders on write)
 // ---------------------------------------------------------------------------

@@ -528,6 +528,107 @@ describe("focus survives search context change", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: Phantom focus promotion
+// ---------------------------------------------------------------------------
+
+describe("phantom focus promotion", () => {
+  it("preserves position without setting focusedImageId (first page)", async () => {
+    await actions().search();
+    // No explicit focus — focusedImageId is null
+    expect(state().focusedImageId).toBeNull();
+
+    const focusGenBefore = state().sortAroundFocusGeneration;
+
+    // Simulate phantom promotion: pass an image ID with phantomOnly flag
+    await actions().search("img-50", { phantomOnly: true });
+    await flush();
+
+    // focusedImageId must stay null — no focus ring
+    expect(state().focusedImageId).toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state().sortAroundFocusStatus).toBeNull();
+    // sortAroundFocusGeneration bumps (same Effect #9 path as explicit focus)
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(focusGenBefore);
+    // _phantomFocusImageId set for Effect #9 to consume
+    // (cleared by the effect after scroll positioning — in unit tests
+    // there's no effect running, so it stays set)
+    expect(state()._phantomFocusImageId).toBe("img-50");
+  });
+
+  it("preserves position without focus when image requires seek", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    expect(state().focusedImageId).toBeNull();
+
+    const focusGenBefore = state().sortAroundFocusGeneration;
+
+    // Pass an image outside the first page with phantomOnly
+    await actions().search("img-500", { phantomOnly: true });
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "phantom promotion completes",
+    );
+
+    // focusedImageId must stay null
+    expect(state().focusedImageId).toBeNull();
+    expect(state().loading).toBe(false);
+    // sortAroundFocusGeneration bumps
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(focusGenBefore);
+    // Image should be in the buffer
+    expect(state().results.some((r) => r?.id === "img-500")).toBe(true);
+  });
+
+  it("clears gracefully when viewport anchor not in new results", async () => {
+    await actions().search();
+    expect(state().focusedImageId).toBeNull();
+
+    // Pass a non-existent ID with phantomOnly
+    await actions().search("img-nonexistent", { phantomOnly: true });
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      2000,
+      "phantom anchor not found clears",
+    );
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state()._phantomFocusImageId).toBeNull();
+    expect(state().loading).toBe(false);
+    // Falls back to first page at offset 0 — no special scroll positioning
+    expect(state().bufferOffset).toBe(0);
+  });
+
+  it("null sortAroundFocusId does not trigger focus machinery", async () => {
+    await actions().search();
+    expect(state().focusedImageId).toBeNull();
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Sort-only relaxation: null passed (no phantom anchor)
+    await actions().search(null);
+    await flush();
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state().sortAroundFocusGeneration).toBe(genBefore);
+  });
+
+  it("explicit focus still promotes normally (not phantom)", async () => {
+    await actions().search();
+    actions().setFocusedImageId("img-50");
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Without phantomOnly — normal focus preservation
+    await actions().search("img-50");
+    await flush();
+
+    expect(state().focusedImageId).toBe("img-50");
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests: Buffer eviction
 // ---------------------------------------------------------------------------
 

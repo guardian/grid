@@ -207,11 +207,16 @@ interface SearchState {
 
   // Focus
   focusedImageId: string | null;
+  /** Image ID for phantom focus promotion — drives scroll positioning via
+   *  sortAroundFocusGeneration + Effect #9 but never renders a focus ring.
+   *  Cleared by Effect #9 after scroll positioning. */
+  _phantomFocusImageId: string | null;
 
   /** Non-null while sort-around-focus is finding the image's new position. */
   sortAroundFocusStatus: string | null;
   /**
-   * Incremented each time sort-around-focus completes and sets focusedImageId.
+   * Incremented each time sort-around-focus completes and sets focusedImageId
+   * (or _phantomFocusImageId for phantom promotion).
    * Views watch this to scroll to the focused image at its new position.
    */
   sortAroundFocusGeneration: number;
@@ -345,7 +350,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -1135,6 +1140,10 @@ async function _findAndFocusImage(
    *  the offset hint in deep-seek mode (>65k results) to avoid the 0-placeholder
    *  that makes the scrubber/position counter wrong until async correction. */
   hintOffset?: number | null,
+  /** When true, position the buffer around the image but do NOT set
+   *  focusedImageId. Uses the seek scroll mechanism instead of
+   *  sortAroundFocusGeneration. Used by phantom focus promotion. */
+  phantomOnly?: boolean,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1170,6 +1179,7 @@ async function _findAndFocusImage(
         endCursor: fallbackFirstPage.endCursor,
         pitId: fallbackFirstPage.pitId ?? get().pitId,
         focusedImageId: null,
+        _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
       });
     } else {
@@ -1220,7 +1230,7 @@ async function _findAndFocusImage(
                   // Recurse: find-and-focus the surviving neighbour.
                   // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
                   clearTimeout(timeoutId);
-                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly);
                   return;
                 }
               }
@@ -1243,6 +1253,7 @@ async function _findAndFocusImage(
           endCursor: fallbackFirstPage.endCursor,
           pitId: fallbackFirstPage.pitId ?? get().pitId,
           focusedImageId: null,
+          _phantomFocusImageId: null,
           sortAroundFocusStatus: null,
         });
       } else {
@@ -1316,17 +1327,28 @@ async function _findAndFocusImage(
       offset >= bufferOffset && offset < bufferEnd;
 
     if (isInBuffer) {
-      // Image is in the buffer — just focus it.
+      // Image is in the buffer — just focus it (or scroll to it in phantom mode).
       // Guard: if the timeout already fired, don't overwrite fallback state.
       if (timeoutController.signal.aborted) return;
-      set({
-        ...(fallbackFirstPage ? { total: fallbackFirstPage.total } : {}),
-        focusedImageId: imageId,
-        _focusedImageKnownOffset: offset,
-        sortAroundFocusStatus: null,
-        loading: false,
-        sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
-      });
+      if (phantomOnly) {
+        // Phantom promotion: position around image but don't set focusedImageId.
+        // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
+        // handles scroll positioning (same path as explicit focus).
+        set({
+          _phantomFocusImageId: imageId,
+          sortAroundFocusStatus: null,
+          loading: false,
+          sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+        });
+      } else {
+        set({
+          focusedImageId: imageId,
+          _focusedImageKnownOffset: offset,
+          sortAroundFocusStatus: null,
+          loading: false,
+          sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+        });
+      }
     } else {
       // Outside buffer — load a page centered on the image
       set({ sortAroundFocusStatus: "Seeking…" });
@@ -1351,12 +1373,15 @@ async function _findAndFocusImage(
       // running, don't overwrite the fallback state with stale results.
       if (timeoutController.signal.aborted) return;
 
-      // NOTE: we intentionally do NOT bump _seekGeneration here.
-      // sortAroundFocusGeneration is the sole scroll trigger — its effect
+      // NOTE: we intentionally do NOT bump _seekGeneration here (in non-phantom
+      // mode). sortAroundFocusGeneration is the sole scroll trigger — its effect
       // scrolls to the focused image with align: "center". Bumping
       // _seekGeneration too would fire the seek scroll effect (align:
       // "start") in the same layout pass, causing two conflicting
       // scroll positions and a visible grid-cell recomposition twitch.
+      //
+      // In phantom mode, we use _seekGeneration instead (no focusedImageId
+      // to drive the sort-around-focus scroll effect).
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
@@ -1368,10 +1393,19 @@ async function _findAndFocusImage(
         pitId: buf.pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
-        focusedImageId: imageId,
-        _focusedImageKnownOffset: buf.bufferStart + buf.targetLocalIndex,
         sortAroundFocusStatus: null,
-        sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+        ...(phantomOnly
+          ? {
+              // Phantom: scroll to image via Effect #9, no focus ring
+              _phantomFocusImageId: imageId,
+              sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            }
+          : {
+              // Explicit: set focus + bump generation for scroll effect #9
+              focusedImageId: imageId,
+              _focusedImageKnownOffset: buf.bufferStart + buf.targetLocalIndex,
+              sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            }),
       });
 
       // Async offset correction: if we used an estimated offset, fire
@@ -1430,6 +1464,7 @@ async function _findAndFocusImage(
         endCursor: fallbackFirstPage.endCursor,
         pitId: fallbackFirstPage.pitId ?? get().pitId,
         focusedImageId: null,
+        _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
       });
     } else {
@@ -1470,6 +1505,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _pitGeneration: 0,
 
   focusedImageId: null,
+  _phantomFocusImageId: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
 
@@ -1547,19 +1583,22 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[] }) => {
     const { dataSource, params, pitId: oldPitId } = get();
 
     // Capture neighbours of the focused image BEFORE the search replaces
     // the buffer. Used for neighbour fallback if the focused image
     // disappears from the new results.
+    // When visibleNeighbours is provided (phantom mode), use those instead
+    // of _captureNeighbours — restricts fallback to images the user actually
+    // saw, not ±20 buffer positions that may include off-screen images.
     const prevNeighbours = sortAroundFocusId
-      ? _captureNeighbours(
+      ? (options?.visibleNeighbours ?? _captureNeighbours(
           sortAroundFocusId,
           get().results,
           get().bufferOffset,
           get().imagePositions,
-        )
+        ))
       : null;
 
     // Stop the new-images poll IMMEDIATELY — before any async work.
@@ -1568,7 +1607,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // reappear despite the user having just clicked it to refresh.
     stopNewImagesPoll();
 
-    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0, _pendingFocusDelta: null });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0, _pendingFocusDelta: null, _phantomFocusImageId: null });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -1677,7 +1716,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours);
+        }, prevNeighbours, null, options?.phantomOnly);
 
         // Position map: start background fetch even in sort-around-focus path.
         // The position map uses a dedicated PIT and abort controller, fully
@@ -1709,7 +1748,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
-          focusedImageId: focusedInFirstPage ? sortAroundFocusId! : null,
+          focusedImageId: (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
           newCount: 0,
           newCountSince: now,
           _extendForwardInFlight: false,
@@ -1718,8 +1757,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // generation so the view scrolls to its new position. Without
           // this, the scroll-reset effect leaves scrollTop=0 and the
           // focused image may be off-screen in its new sort position.
+          //
+          // In phantom mode, use seek scroll mechanism instead — no
+          // focusedImageId means the sort-around-focus effect would no-op.
           ...(focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
+            : {}),
+          ...(focusedInFirstPage && options?.phantomOnly
+            ? { _phantomFocusImageId: sortAroundFocusId! }
             : {}),
         });
         startNewImagesPoll(get, set);

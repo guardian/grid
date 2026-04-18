@@ -453,9 +453,29 @@ export function Scrubber({
   //
   // In scroll mode, the continuous sync effect below handles positioning
   // from the actual scroll ratio — skip here to avoid the two fighting.
+  //
+  // Flash guard: during sort-around-focus, bufferOffset briefly goes to 0
+  // (estimated placeholder) before async countBefore corrects it. This
+  // makes thumbTop flash to ~0 then back. We detect this pattern (large
+  // drop to near-zero) and suppress the DOM write for one cycle. The
+  // correction arrives within ~100ms and the next effect run writes the
+  // correct position.
+  const prevStableThumbTopRef = useRef(thumbTop);
   useEffect(() => {
     if (isDragging || pendingSeekPosRef.current != null) return;
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
+
+    // Flash guard: if thumb would jump from a deep position to near-zero,
+    // suppress this one write. The async offset correction will arrive
+    // shortly and trigger the correct position.
+    const prevTop = prevStableThumbTopRef.current;
+    if (prevTop > 50 && thumbTop < 10) {
+      // Don't update prevStableThumbTopRef — keep the old reference point
+      // so we can detect when the correction arrives.
+      return;
+    }
+
+    prevStableThumbTopRef.current = thumbTop;
     const thumbEl = thumbRef.current;
     if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
     const tipEl = tooltipRef.current;

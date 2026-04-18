@@ -262,3 +262,122 @@ test.describe("Arrow snap-back after seek", () => {
     expect(focusAfterSecond).not.toBe(focusAfterFirst);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phantom focus promotion (Session 4)
+// ---------------------------------------------------------------------------
+
+test.describe("Phantom focus promotion", () => {
+  test("viewport anchor preserves position without focus ring", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // No click — no explicit focus. Scroll down to build a viewport anchor.
+    await kupua.scrollBy(1500);
+    await kupua.page.waitForTimeout(300);
+
+    // Confirm no explicit focus yet
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Read the credit from a visible image — we'll use it as a query that
+    // still includes images in this neighbourhood
+    const credit = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      for (const img of s.results) {
+        if (img?.metadata?.credit) return img.metadata.credit;
+      }
+      return null;
+    });
+    expect(credit).not.toBeNull();
+
+    // Change query — the viewport anchor should be used for position
+    // preservation but NOT promoted to explicit focus
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${credit}"`)}`,
+    );
+
+    // Wait for search to complete
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      { timeout: 10_000 },
+    );
+
+    // focusedImageId must remain null — no focus ring should appear
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // The buffer should contain results (search succeeded, position preserved)
+    const hasResults = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().results.filter(Boolean).length > 0;
+    });
+    expect(hasResults).toBe(true);
+  });
+
+  test("position NOT preserved across sort-only change without explicit focus", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // Scroll down — build a viewport anchor
+    await kupua.scrollBy(1500);
+    await kupua.page.waitForTimeout(300);
+
+    // Confirm no explicit focus
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Record scrollTop before sort change
+    const scrollBefore = await kupua.getScrollTop();
+    expect(scrollBefore).toBeGreaterThan(0);
+
+    // Change only sort order — this should reset to top (relaxation)
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=oldest`);
+
+    // Wait for search to complete
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      { timeout: 10_000 },
+    );
+    await kupua.page.waitForTimeout(200);
+
+    // Buffer offset should be 0 (reset to top)
+    const offset = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().bufferOffset;
+    });
+    expect(offset).toBe(0);
+
+    // Focus should still be null
+    expect(await kupua.getFocusedImageId()).toBeNull();
+  });
+
+  test("explicit focus still takes precedence over phantom for sort change", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // Set explicit focus
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Change sort order — explicit focus should be preserved (no relaxation)
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=oldest`);
+    await kupua.waitForSortAroundFocus();
+
+    // Focus should be preserved on the same image
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+  });
+});

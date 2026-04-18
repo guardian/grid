@@ -14,6 +14,115 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 April 2026 — Session 5: Smoke polish on TEST cluster
+
+Validated Sessions 1–4 focus preservation against real TEST cluster (~1.3M images).
+Wrote 12 smoke tests in `e2e/smoke/focus-preservation-smoke.spec.ts`:
+- T1 phantom promotion (clear filter), T2 explicit focus (clear filter),
+  T3 explicit focus (sort change), T4 neighbour fallback, T5 arrow snap-back,
+  T6 scrubber thumb stability, T7 focus→clear focus→clear filter,
+  T8 phantom with details panel, T9 rapid filter toggle,
+  T10 focus→panel→clear filter, T11 phantom near top, T12 phantom near end.
+
+**Bug 1 — scrubber thumb flash-to-top.** In deep-seek mode (>65k results),
+`_findAndFocusImage` sets `offset=0` as placeholder before async `countBefore`
+corrects (~100ms). The scrubber thumb would briefly flash to top.
+Two prop-level freeze approaches tried and abandoned (both failed because the
+store atomically sets `loading: false, sortAroundFocusStatus: null, bufferOffset: 0`).
+Final fix: DOM-level flash guard in `Scrubber.tsx` — `prevStableThumbTopRef` tracks
+last known good position; if `prevTop > 50 && thumbTop < 10`, skip the DOM write.
+
+**Bug 2 — viewport row not preserved after countBefore correction.** Effect #9
+consumed the sort-focus ratio on first fire. When async `countBefore` corrected
+`bufferOffset` and re-fired the effect, the ratio was gone — image landed at
+`align: "start"` instead of its original viewport row. Fix: persist ratio and
+phantom image ID in refs (`sortFocusRatioRef`, `phantomIdRef`) keyed by
+`sortAroundFocusGeneration`. Re-fires reuse the persisted values.
+
+Deleted throwaway `phantom-diag.spec.ts` (superseded by T1).
+
+**Test results:** 315/315 unit, 140/140 local E2E, 12/12 smoke tests pass.
+
+Deleted throwaway `phantom-diag.spec.ts` (superseded by T1 in the real smoke suite).
+
+### 18 April 2026 — Phantom focus rewrite: share Effect #9 with explicit focus
+
+The initial phantom promotion (see entry below) used a parallel scroll mechanism
+— seek-based (`_seekGeneration` + `_phantomSeekRatio` via Effect #6) rather than
+the sort-around-focus path (Effect #9) that explicit focus uses. Manual testing
+against the real TEST cluster (~1.3M images) revealed three bugs, each rooted in
+this parallel approach:
+
+**Bug 1 — Flash-of-top.** Effect #7 scroll reset fired before phantom search
+completed. Initially fixed by suppressing Effect #7 when phantom active.
+
+**Bug 2 — Off-screen neighbours.** `_captureNeighbours` scanned ±20 buffer
+positions including off-screen images. Fixed by adding `getVisibleImageIds()`
+to `useDataWindow.ts` — restricts to the tracked visible range, distance-ordered
+from viewport centre. Passed as `visibleNeighbours` option. This fix survives
+the rewrite.
+
+**Bug 3 — ~100-position offset.** Effect #8 (bufferOffset→0 guard) undid
+Effect #6's phantom scroll. Diagnosed via throwaway Playwright test
+(`e2e/smoke/phantom-diag.spec.ts`) against TEST cluster. Initially fixed with
+a `_phantomSeekJustApplied` flag.
+
+**Bug 4 — Details panel incompatibility.** Phantom used Effect #6 (seek), which
+fires BEFORE Effect #8. Explicit focus uses Effect #9, which fires AFTER. Opening
+the details panel exposed the ordering mismatch.
+
+**Root cause:** All four bugs stemmed from building a parallel scroll mechanism
+instead of reusing the proven Effect #9 path. User directive: "the whole idea
+was phantom reuses what's already working for focus."
+
+**Rewrite:** Removed ~50 lines of phantom seek infrastructure (`_phantomSeekRatio`,
+`_phantomSeekJustApplied`, `savePhantomSeekRatio`, `consumePhantomSeekRatio`,
+Effect #6 phantom ratio code, Effect #8 phantom guard). Added
+`_phantomFocusImageId: string | null` to the store. All phantom `phantomOnly`
+success paths now set `_phantomFocusImageId` + bump `sortAroundFocusGeneration`
+(same trigger as explicit focus). Effect #9 reads
+`focusedImageId ?? _phantomFocusImageId` and clears the phantom ID after scroll
+positioning. Effect #7 merged the phantom/focus ratio save into a single
+`preserveId` path using `saveSortFocusRatio`.
+
+**Result:** Phantom and explicit focus now share the identical scroll restoration
+path. All four bugs resolved structurally.
+
+**Files changed:** `useScrollEffects.ts` (rewrite — removed parallel mechanism,
+Effect #9 reads phantom ID), `useDataWindow.ts` (`getVisibleImageIds`),
+`useUrlSearchSync.ts` (`visibleNeighbours` option, phantom anchor logic),
+`search-store.ts` (`_phantomFocusImageId`, success/failure path updates),
+`search-store.test.ts` (updated phantom tests for `sortAroundFocusGeneration`).
+
+**Tests:** 315/315 unit tests pass. Diagnostic smoke test verified on real cluster.
+
+### 18 April 2026 — Phantom Focus Promotion (initial implementation)
+
+Implemented phantom focus promotion — the viewport anchor (`getViewportAnchorId()`)
+now serves as a fallback for position preservation when no explicit focus is set.
+Changing query/filters without an explicit focus tries to keep the viewport-centre
+image in the new results.
+
+**Key design decision:** Promoted phantom focus must NEVER show a focus ring. A
+`phantomOnly` flag was added to `search()` and `_findAndFocusImage()`. When
+`phantomOnly: true`, `focusedImageId` is never set — no ring appears.
+
+**Changes:**
+- `useUrlSearchSync.ts`: Falls back to `getViewportAnchorId()` when `focusedImageId`
+  is null. Passes `{ phantomOnly: true }` when using the viewport anchor. Sort-only
+  relaxation: viewport anchor NOT used for sort-only changes (resets to top per
+  architecture doc §4).
+- `search-store.ts`: `search()` and `_findAndFocusImage()` accept optional
+  `{ phantomOnly?: boolean }`. Three success paths modified. Also removed dead
+  `fallbackFirstPage` spread in the isInBuffer branch.
+
+**Note:** The initial implementation used the seek scroll mechanism for phantom
+(separate from explicit focus's Effect #9 path). This caused four bugs on real
+data — see "Phantom focus rewrite" entry above. The final implementation shares
+Effect #9 with explicit focus via `_phantomFocusImageId`.
+
+**Tests:** 5 new unit tests (315 total), 3 new E2E tests (140 total). All green.
+
 ### 18 April 2026 — bufferOffset wrong after snap-back on large datasets
 
 On datasets >65k (no position map), arrow snap-back left `bufferOffset` at 0

@@ -12,14 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none — between tasks)
-
-## Tips for next agent
-
-**Running tests:** Read `e2e/README.md` for all test commands. The terminal tool
-strips `cd` prefixes, so always use absolute paths or `cd /Users/mkarpow/code/grid/kupua &&`
-at the start of commands. `npm test` and `npm run test:e2e` work fine from kupua dir.
+Session 5 complete and committed. No active task.
 
 ## Session Log
 
-(empty)
+(empty — start of new session)
