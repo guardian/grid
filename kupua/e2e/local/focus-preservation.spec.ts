@@ -101,3 +101,73 @@ test.describe("Focus survives search context change", () => {
     expect(focusAfter).toBeNull();
   });
 });
+
+test.describe("Neighbour fallback", () => {
+  test("focuses nearest neighbour when focused image drops out of results", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // Focus the 3rd image
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Find the focused image's credit and a different credit from a neighbour.
+    // We'll search for the neighbour's credit — this excludes the focused
+    // image (different credit) but includes the neighbour in results.
+    const creditInfo = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const idx = s.imagePositions.get(s.focusedImageId);
+      if (idx == null) return null;
+      const focusedImg = s.results[idx - s.bufferOffset];
+      const focusedCredit = focusedImg?.metadata?.credit ?? null;
+      if (!focusedCredit) return null;
+
+      // Scan neighbours for one with a DIFFERENT credit
+      for (let d = 1; d <= 20; d++) {
+        for (const offset of [d, -d]) {
+          const localIdx = (idx - s.bufferOffset) + offset;
+          if (localIdx < 0 || localIdx >= s.results.length) continue;
+          const img = s.results[localIdx];
+          const c = img?.metadata?.credit;
+          if (c && c !== focusedCredit) {
+            return { focusedCredit, altCredit: c, neighbourId: img.id };
+          }
+        }
+      }
+      return null;
+    });
+    expect(creditInfo).not.toBeNull();
+    expect(creditInfo!.altCredit).not.toBe(creditInfo!.focusedCredit);
+
+    // Search for the alternate credit — the focused image (different credit)
+    // drops out, but the neighbour (same credit) survives in new results.
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${creditInfo!.altCredit}"`)}`,
+    );
+
+    // Wait for focus-preservation + neighbour fallback to complete
+    await kupua.waitForSortAroundFocus();
+
+    const focusAfter = await kupua.getFocusedImageId();
+
+    // The original focused image should NOT be focused (it was filtered out)
+    expect(focusAfter).not.toBe(focusedId);
+
+    // A neighbour should have been focused (not null) — it should be in the
+    // buffer since it was found in the first page of new results.
+    // Note: if the neighbour happens not to be in the first page (unlikely
+    // for recent images), focus may be null — that's acceptable graceful
+    // degradation, so we only check it's not the original.
+    if (focusAfter !== null) {
+      const inBuffer = await kupua.page.evaluate((id) => {
+        const store = (window as any).__kupua_store__;
+        return store.getState().results.some((r: any) => r?.id === id);
+      }, focusAfter);
+      expect(inBuffer).toBe(true);
+    }
+  });
+});

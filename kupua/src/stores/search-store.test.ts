@@ -946,3 +946,232 @@ describe("scroll mode — buffer fill", () => {
     assertPositionsConsistent("after aborted fill");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: Stale buffer — isInBuffer must not serve old content after query change
+// ---------------------------------------------------------------------------
+
+describe("stale buffer prevention", () => {
+  it("buffer is refreshed when focused image survives query change (no stale content)", async () => {
+    // Regression: _findAndFocusImage had an isInBuffer shortcut that, when the
+    // focused image's new offset fell within the old buffer's range, just set
+    // focusedImageId without replacing the buffer. After a query change the old
+    // buffer is from the PREVIOUS query — stale content stays permanently visible.
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    // Focus img-50 — it will SURVIVE the query change.
+    actions().setFocusedImageId("img-50");
+    expect(state().focusedImageId).toBe("img-50");
+
+    // Simulate a query change that excludes some of img-50's neighbours
+    // but NOT img-50 itself (like `-colourModel:CMYK` where img-50 is RGB
+    // but img-51, img-52 are CMYK).
+    mock.removedIds.add("img-51");
+    mock.removedIds.add("img-52");
+    mock.removedIds.add("img-53");
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "focus-preserve completes",
+    );
+
+    // img-50 should still be focused (it survived)
+    expect(state().focusedImageId).toBe("img-50");
+    expect(state().loading).toBe(false);
+
+    // CRITICAL: removed images must NOT be in the buffer.
+    // Before the fix, isInBuffer would fire and leave the old buffer
+    // (containing img-51, img-52, img-53) permanently visible.
+    expect(state().results.every((r) => r?.id !== "img-51")).toBe(true);
+    expect(state().results.every((r) => r?.id !== "img-52")).toBe(true);
+    expect(state().results.every((r) => r?.id !== "img-53")).toBe(true);
+
+    // img-50 must be in the new buffer
+    expect(state().results.some((r) => r?.id === "img-50")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Neighbour fallback
+// ---------------------------------------------------------------------------
+
+describe("neighbour fallback", () => {
+  it("focuses nearest neighbour when focused image leaves results", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    // Focus img-50 — its neighbours are img-49, img-51, etc.
+    actions().setFocusedImageId("img-50");
+    expect(state().focusedImageId).toBe("img-50");
+
+    // Remove img-50 so it won't be found in new results.
+    // Neighbours img-49 and img-51 still exist.
+    mock.removedIds.add("img-50");
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "neighbour fallback completes",
+    );
+
+    // Nearest neighbour (img-51 at +1 or img-49 at -1) should be focused.
+    // _captureNeighbours alternates: +1 first, then -1.
+    expect(state().focusedImageId).toBe("img-51");
+    expect(state().loading).toBe(false);
+    expect(state().results.length).toBeGreaterThan(0);
+    // Buffer must NOT contain the removed image — stale content from the
+    // previous search must never survive into the post-state.
+    expect(state().results.every((r) => r?.id !== "img-50")).toBe(true);
+  });
+
+  it("prefers nearest neighbour over more distant ones", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    // Focus img-50
+    actions().setFocusedImageId("img-50");
+
+    // Remove img-50 and its immediate neighbours (±1, ±2).
+    // The nearest survivor should be img-53 (distance +3).
+    mock.removedIds.add("img-50");
+    mock.removedIds.add("img-51");
+    mock.removedIds.add("img-49");
+    mock.removedIds.add("img-52");
+    mock.removedIds.add("img-48");
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "distant neighbour fallback completes",
+    );
+
+    // _captureNeighbours order: +1, -1, +2, -2, +3, -3, ...
+    // +1 (img-51) removed, -1 (img-49) removed, +2 (img-52) removed,
+    // -2 (img-48) removed, +3 (img-53) should be the first survivor.
+    expect(state().focusedImageId).toBe("img-53");
+    expect(state().loading).toBe(false);
+    // No removed images should survive in the buffer.
+    for (const id of ["img-50", "img-51", "img-49", "img-52", "img-48"]) {
+      expect(state().results.every((r) => r?.id !== id)).toBe(true);
+    }
+  });
+
+  it("clears focus when no neighbours survive", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    // Focus img-50
+    actions().setFocusedImageId("img-50");
+
+    // Remove img-50 and ALL neighbours within ±20 range
+    for (let i = 30; i <= 70; i++) {
+      mock.removedIds.add(`img-${i}`);
+    }
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "no-neighbour fallback completes",
+    );
+
+    // No neighbours survived — focus should be cleared, first page shown.
+    expect(state().focusedImageId).toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state().bufferOffset).toBe(0);
+    expect(state().results.length).toBeGreaterThan(0);
+    // Buffer must be the new first page — no removed images.
+    for (let i = 30; i <= 70; i++) {
+      expect(state().results.every((r) => r?.id !== `img-${i}`)).toBe(true);
+    }
+  });
+
+  it("bumps sortAroundFocusGeneration when neighbour is focused", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    actions().setFocusedImageId("img-50");
+    const genBefore = state().sortAroundFocusGeneration;
+
+    mock.removedIds.add("img-50");
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "neighbour fallback gen bump",
+    );
+
+    // Generation should bump so the view scrolls to the neighbour
+    expect(state().focusedImageId).toBe("img-51");
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+  });
+
+  it("does not bump sortAroundFocusGeneration when no neighbour found", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    actions().setFocusedImageId("img-50");
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // Remove everything in ±20 range
+    for (let i = 30; i <= 70; i++) {
+      mock.removedIds.add(`img-${i}`);
+    }
+
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "no-neighbour gen check",
+    );
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state().sortAroundFocusGeneration).toBe(genBefore);
+  });
+
+  it("works when focused image is deep in buffer (not in first page)", async () => {
+    // Simulate deep scroll: focus an image far from the first page.
+    // After removal, the neighbour should still be found via ES batch check
+    // and the buffer should be repositioned around it.
+    mock = new MockDataSource(10_000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+
+    // Seek to position 8000 so img-8000 is in the buffer
+    await actions().seek(8000);
+    await flush();
+
+    // Focus img-8000
+    actions().setFocusedImageId("img-8000");
+
+    // Remove img-8000 — its neighbour img-8001 survives
+    mock.removedIds.add("img-8000");
+
+    await actions().search("img-8000");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      5000,
+      "deep neighbour fallback completes",
+    );
+
+    // Nearest neighbour (img-8001) should be focused
+    expect(state().focusedImageId).toBe("img-8001");
+    expect(state().loading).toBe(false);
+    // Buffer should be repositioned around the neighbour, NOT at offset 0
+    expect(state().results.some((r) => r?.id === "img-8001")).toBe(true);
+    // Removed image must NOT be in the buffer.
+    expect(state().results.every((r) => r?.id !== "img-8000")).toBe(true);
+  });
+});

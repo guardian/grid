@@ -1,7 +1,7 @@
 # Focus & Position Preservation — Multi-Session Workplan
 
 > **Created:** 2026-04-17
-> **Status:** Session 1 complete.
+> **Status:** Session 2 complete.
 > **Architecture doc:** `00 Architecture and philosophy/02-focus-and-position-preservation.md`
 > **Goal:** Implement the full position-preservation engine described in the
 > architecture doc — focus survives search context, focus survives seek (with
@@ -19,7 +19,7 @@
 | Density-change position restoration (focus + phantom fallback) | ✅ Working | `useScrollEffects.ts` `DensityFocusState` |
 | Focus survives seek (durable `focusedImageId` not cleared) | ✅ Working | `search-store.ts` `seek()` |
 | Focus survives search context change | ✅ Session 1 | `useUrlSearchSync.ts` passes `focusedImageId` on all search changes |
-| Neighbour fallback (focused image gone → find nearest survivor) | ❌ Not implemented | — |
+| Neighbour fallback (focused image gone → find nearest survivor) | ✅ Session 2 | `search-store.ts` `_captureNeighbours`, `_findAndFocusImage` fallback |
 | Arrow snap-back to focused image after distant seek | ❌ Not implemented | — |
 | Phantom focus mode (hidden focus, click-to-detail) | ❌ Not implemented | — |
 | `focusMode` preference | ❌ Not implemented | — |
@@ -193,6 +193,16 @@ search and lost my place" in practice, add the ES check later.
 Similar to S1.4 but specifically set up data where the focused image leaves
 results but adjacent images don't.
 
+### Implementation note (from Session 1 agent)
+
+The failure path in `_findAndFocusImage` now shows `fallbackFirstPage` results
+(with correct `total`) instead of leaving a stale buffer. The neighbour scan
+should happen inside this `fallbackFirstPage` branch — before the `set()` that
+clears focus and resets to first-page results. The plan above says "before
+clearing focus" which is correct, but the specific insertion point is the
+`if (fallbackFirstPage)` block inside the "image not found" path (~line 1130)
+and the catch/timeout paths that also use `fallbackFirstPage`.
+
 ---
 
 ## Session 3 — Arrow Snap-Back After Seek
@@ -204,6 +214,20 @@ to the focused image's position first, then moves from there.
 **Pre-condition:** Sessions 1–2 complete.
 **Post-condition:** New unit + E2E tests verify snap-back.
 
+### Implementation notes (from Session 2 agent)
+
+**`fallbackFirstPage` semantics have shifted.** Since the Session 2 stale-buffer
+fix, `fallbackFirstPage` doubles as a "buffer is stale" signal — it gates the
+`isInBuffer` shortcut in `_findAndFocusImage`. Snap-back should call
+`_findAndFocusImage` with `fallbackFirstPage: null` (or use a lighter code
+path) — the buffer IS current (same query/sort), so `isInBuffer` should
+correctly fire when the image is already loaded. Do NOT pass a fallback
+"just in case" or the shortcut will be bypassed, forcing a redundant seek.
+
+**`_findAndFocusImage` signature:** The optional `prevNeighbours` parameter
+is only meaningful when called from `search()`. Snap-back callers should
+omit it (or pass `null`). Same applies to Session 4's phantom promotion.
+
 ### Steps
 
 **S3.1 — Detect "focus distant from viewport"** (~30 min)
@@ -211,6 +235,9 @@ to the focused image's position first, then moves from there.
 In `useListNavigation.ts`, when an arrow key is pressed in "has focus"
 mode, check whether `focusedImageId` is in the current buffer AND visible
 (within the virtualizer's visible range).
+
+`imagePositions.has(focusedImageId)` is O(1) — use it for the "in buffer?"
+check. For "visible?", compare against the virtualizer's visible range.
 
 - If the focused image is in view → normal behaviour (move focus by delta).
 - If the focused image is in the buffer but off-screen → scroll to it
@@ -228,7 +255,17 @@ Add a store action or orchestration function: `seekToFocused()`. This:
    and seek the buffer there.
 3. After seek, the focused image is back in the buffer and visible.
 
-The arrow key handler calls this, awaits completion, then applies the delta.
+**Design choice — keydown handlers are synchronous.** Two options:
+
+- **(a) Snap-back only on first press:** Arrow press triggers seek back to
+  focused image (no delta). User presses again to move. Simplest — zero new
+  state, no async coordination. Recommended.
+- **(b) Queue the delta in a promise chain:** First press seeks, then applies
+  the delta when seek completes. More complex, potentially janky if seek
+  takes 200ms+. Classic over-engineering for a keystroke that takes <100ms
+  to repeat.
+
+Recommend option (a) unless user explicitly wants (b).
 
 **S3.3 — Handle edge case: focused image no longer in index** (~30 min)
 
@@ -262,7 +299,9 @@ search-context-change guarantee as explicit focus. When phantom focus is all
 we have (no explicit focus), changing query/filters still tries to keep the
 anchor image in view.
 
-**Pre-condition:** Sessions 1–3 complete.
+**Pre-condition:** Sessions 1–2 complete. (No dependency on Session 3 —
+snap-back and phantom promotion are independent. Sessions 3 and 4 can be
+done in either order or in parallel.)
 **Post-condition:** Phantom focus preserves position across query changes.
 
 ### Steps
@@ -302,6 +341,10 @@ const sortAroundFocusId =
   useSearchStore.getState().focusedImageId
   ?? (isSortOnly ? null : getViewportAnchorId());
 ```
+
+**Implementation note (from Session 1 agent):** `isSortOnly` is already
+computed in `useUrlSearchSync.ts` but deliberately unused — preserved
+specifically for this session's relaxation logic. No new computation needed.
 
 **S4.4 — Tests** (~1 hour)
 
@@ -406,3 +449,13 @@ When user presses Backspace from detail in phantom mode:
 
 Existing E2E helpers (`focusNthItem`, `getFocusedImageId`, `waitForSortAroundFocus`)
 cover the infrastructure. New specs extend the same helpers.
+
+---
+
+## Performance Note (Session 1)
+
+`_findAndFocusImage` Step 2 (`countBefore`) was the bottleneck on >65k datasets
+(2-5s on 1.3M results). Now skipped in deep-seek mode — buffer loads immediately
+via sort-value cursors, `bufferOffset` corrected asynchronously. Focus-preserve
+drops from 3-6s to ~200-300ms. This is already implemented and shipped; no future
+session needs to address it.

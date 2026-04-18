@@ -1,6 +1,6 @@
 <img align="right" width="250px" src="https://github.com/user-attachments/assets/0649d9f1-a25d-4173-b054-a3e9ff77e530">
 
-# Kupua (kjˈuː.pju.ːə)
+# Kupua (kʊˈpʊ.wə)
 
 **Modern frontend WIP PROPOSAL for [Grid](https://github.com/guardian/grid)** – the Guardian's image DAM. Or just a plaything, really.
 

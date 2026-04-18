@@ -14,6 +14,46 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 April 2026 — Neighbour fallback (Session 2)
+
+Session 2 of the focus/position preservation workplan. When the focused image
+disappears after a search context change (query/filter excludes it), the engine
+now scans its old buffer neighbours and focuses the nearest survivor. If no
+neighbours survive, focus clears gracefully.
+
+**Implementation:**
+- `_captureNeighbours()` in `search-store.ts`: captures ±20 neighbour IDs in
+  alternating distance order (+1, -1, +2, -2, ...) before the buffer is replaced.
+- Called at the start of `search()` when `sortAroundFocusId` is set.
+- Passed through to `_findAndFocusImage`, which uses a batch ES `ids` query to
+  check all ±20 neighbours against the new query in a single round-trip. Works
+  regardless of scroll position (unlike the initial first-page-only scan approach
+  which failed for deep scroll). The nearest survivor is then recursed into
+  `_findAndFocusImage` to reuse the full sort-value + seek machinery, supporting
+  all three scroll modes (<1k scroll, 1k-65k position map, >65k deep-seek).
+- When a neighbour is found: sets `focusedImageId` + bumps
+  `sortAroundFocusGeneration` so the view scrolls to it.
+
+**Bug fix — stale buffer after query change (isInBuffer shortcut):**
+Pre-existing bug exposed by Session 1's wiring of `focusPreserveId` for all
+search changes. `_findAndFocusImage` had an `isInBuffer` shortcut that checked
+whether the target image's new offset fell within the current buffer's range.
+When called from `search()` after a query change, the buffer is from the
+PREVIOUS query — stale content. On medium datasets (1k-65k) where the position
+map provides exact offsets, the shortcut would fire and leave permanently stale
+results visible (e.g. CMYK images visible after `-colourModel:CMYK`). Fixed by
+adding `!fallbackFirstPage` guard: when the buffer hasn't been replaced for this
+search, always load fresh content via `_loadBufferAroundImage`.
+
+**MockDataSource:** Added `removedIds: Set<string>` and `_filterRemoved()` to
+simulate image deletion in tests. All `searchAfter` return paths post-filter.
+
+**Tests:** 7 new unit tests (nearest neighbour, distance preference, no survivors,
+generation bump, generation no-bump, deep-scroll neighbour, stale buffer prevention).
+1 new E2E test (credit-based query exclusion triggers neighbour fallback).
+Stale-content assertions on all neighbour fallback tests.
+302 unit tests, 135 E2E tests pass.
+
 ### 18 April 2026 — Focus survives search context change
 
 Session 1 of the focus/position preservation workplan. When a user clicks a metadata

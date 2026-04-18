@@ -584,6 +584,38 @@ function evictPositions(
   return newMap;
 }
 
+/**
+ * Capture the IDs of the focused image's nearest neighbours from the buffer.
+ * Returns an ordered array: alternating forward/backward (±1, ±2, … ±N),
+ * so the nearest neighbour is first. Used for neighbour fallback when the
+ * focused image disappears after a search context change.
+ */
+function _captureNeighbours(
+  focusedImageId: string,
+  results: (Image | undefined)[],
+  bufferOffset: number,
+  imagePositions: Map<string, number>,
+  count = 20,
+): string[] {
+  const globalIdx = imagePositions.get(focusedImageId);
+  if (globalIdx === undefined) return [];
+  const localIdx = globalIdx - bufferOffset;
+  if (localIdx < 0 || localIdx >= results.length) return [];
+
+  const neighbours: string[] = [];
+  for (let d = 1; d <= count; d++) {
+    const fwd = localIdx + d;
+    if (fwd < results.length && results[fwd]?.id) {
+      neighbours.push(results[fwd]!.id);
+    }
+    const bwd = localIdx - d;
+    if (bwd >= 0 && results[bwd]?.id) {
+      neighbours.push(results[bwd]!.id);
+    }
+  }
+  return neighbours;
+}
+
 // ---------------------------------------------------------------------------
 // search_after anchor helpers
 // ---------------------------------------------------------------------------
@@ -1068,6 +1100,10 @@ async function _findAndFocusImage(
      *  total/buffer mismatch (which triggers scroll-clamp → seek → flash). */
     total: number;
   },
+  /** Ordered neighbour IDs from the old buffer (nearest first). When the
+   *  focused image isn't found, the engine scans this list for the nearest
+   *  survivor in the first page of new results. */
+  prevNeighbours?: string[] | null,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1129,6 +1165,43 @@ async function _findAndFocusImage(
       // the old buffer stale). Otherwise just clear loading (sort changes
       // where the old buffer is still from the same query).
       if (fallbackFirstPage) {
+        // Neighbour fallback: batch-check which old neighbours survive in the
+        // new result set. Uses a single ES ids query — works regardless of
+        // where the user was scrolled (unlike first-page-only scanning).
+        if (prevNeighbours && prevNeighbours.length > 0 && !combinedSignal.aborted) {
+          try {
+            const batchResult = await dataSource.searchAfter(
+              { ...fp, ids: prevNeighbours.join(","), length: prevNeighbours.length },
+              null,
+              null,
+              combinedSignal,
+            );
+            if (!combinedSignal.aborted && batchResult.hits.length > 0) {
+              // Build a set of surviving IDs for O(1) lookup
+              const survivorIds = new Set(batchResult.hits.map((h) => h.id));
+              // Walk prevNeighbours in distance order → first hit is nearest
+              for (const nId of prevNeighbours) {
+                if (survivorIds.has(nId)) {
+                  devLog(
+                    `[sort-around-focus] neighbour fallback: focused=${imageId} gone, ` +
+                    `nearest survivor=${nId} (batch ES check)`,
+                  );
+                  // Recurse: find-and-focus the surviving neighbour.
+                  // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
+                  clearTimeout(timeoutId);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage);
+                  return;
+                }
+              }
+            }
+          } catch (e) {
+            // Batch check failed (abort, network error) — fall through to clear focus
+            if (!(e instanceof DOMException && e.name === "AbortError")) {
+              console.warn("[sort-around-focus] neighbour batch check failed:", e);
+            }
+          }
+        }
+
         set({
           results: fallbackFirstPage.hits,
           bufferOffset: 0,
@@ -1198,12 +1271,16 @@ async function _findAndFocusImage(
 
     if (combinedSignal.aborted) return;
 
-    // Step 3: Check if the offset is within the current buffer
-    // (Only meaningful when offset is exact — estimated offset=0 will
-    // almost never match the current buffer for deep-seek images.)
+    // Step 3: Check if the offset is within the current buffer.
+    // Two guards:
+    //  - offsetIsEstimate: deep-seek placeholder offset=0, never trust it.
+    //  - fallbackFirstPage: the buffer is from the PREVIOUS search (different
+    //    query or sort). Even if the numeric offset falls within the old
+    //    buffer's range, the content at that position is stale. Always load
+    //    fresh content in this case.
     const { bufferOffset, results } = get();
     const bufferEnd = bufferOffset + results.length;
-    const isInBuffer = !offsetIsEstimate &&
+    const isInBuffer = !fallbackFirstPage && !offsetIsEstimate &&
       offset >= bufferOffset && offset < bufferEnd;
 
     if (isInBuffer) {
@@ -1401,6 +1478,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   search: async (sortAroundFocusId?: string | null) => {
     const { dataSource, params, pitId: oldPitId } = get();
 
+    // Capture neighbours of the focused image BEFORE the search replaces
+    // the buffer. Used for neighbour fallback if the focused image
+    // disappears from the new results.
+    const prevNeighbours = sortAroundFocusId
+      ? _captureNeighbours(
+          sortAroundFocusId,
+          get().results,
+          get().bufferOffset,
+          get().imagePositions,
+        )
+      : null;
+
     // Stop the new-images poll IMMEDIATELY — before any async work.
     // Without this, a dangling in-flight poll count() can resolve after
     // search completes and overwrite newCount: 0, causing the ticker to
@@ -1516,7 +1605,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        });
+        }, prevNeighbours);
 
         // Position map: start background fetch even in sort-around-focus path.
         // The position map uses a dedicated PIT and abort controller, fully

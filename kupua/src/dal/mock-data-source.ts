@@ -183,6 +183,9 @@ export class MockDataSource implements ImageDataSource {
   readonly sparseFields?: SparseFieldConfig[];
   private _images: Map<number, Image> = new Map();
 
+  /** IDs to treat as "removed" — searchAfter with ids= won't find them. */
+  removedIds: Set<string> = new Set();
+
   /** Track how many ES requests this mock has served (for load testing). */
   requestCount = 0;
 
@@ -204,12 +207,31 @@ export class MockDataSource implements ImageDataSource {
 
   /** Find an image by ID. Returns [image, globalIndex] or [undefined, -1]. */
   private findById(id: string): [Image | undefined, number] {
+    if (this.removedIds.has(id)) return [undefined, -1];
     // IDs are "img-{index}" so we can extract the index directly
     const match = id.match(/^img-(\d+)$/);
     if (!match) return [undefined, -1];
     const idx = parseInt(match[1], 10);
     const img = this.getImageAt(idx);
     return img ? [img, idx] : [undefined, -1];
+  }
+
+  /** Post-filter search results to exclude removed IDs. */
+  private _filterRemoved(result: SearchAfterResult): SearchAfterResult {
+    if (this.removedIds.size === 0) return result;
+    const filteredHits: Image[] = [];
+    const filteredSortValues: SortValues[] = [];
+    for (let i = 0; i < result.hits.length; i++) {
+      if (!this.removedIds.has(result.hits[i].id)) {
+        filteredHits.push(result.hits[i]);
+        filteredSortValues.push(result.sortValues[i]);
+      }
+    }
+    return {
+      hits: filteredHits,
+      total: result.total - this.removedIds.size,
+      sortValues: filteredSortValues,
+    };
   }
 
   /**
@@ -375,7 +397,7 @@ export class MockDataSource implements ImageDataSource {
           sortVals.push(sortValuesForImage(img, sortClause));
         }
       }
-      return { hits, total: this.totalImages, sortValues: sortVals };
+      return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
     }
 
     // If from/size (no cursor), return from offset
@@ -389,7 +411,7 @@ export class MockDataSource implements ImageDataSource {
         hits.push(img);
         sortVals.push(sortValuesForImage(img, sortClause));
       }
-      return { hits, total: this.totalImages, sortValues: sortVals };
+      return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
     }
 
     // search_after with cursor — find the position of the cursor.
@@ -468,7 +490,7 @@ export class MockDataSource implements ImageDataSource {
       }
     }
 
-    return { hits, total: this.totalImages, sortValues: sortVals };
+    return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
   }
 
   async countBefore(
