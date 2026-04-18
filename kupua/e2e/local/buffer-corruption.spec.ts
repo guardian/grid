@@ -195,10 +195,13 @@ test.describe("Buffer corruption — logo click from ImageDetail after deep seek
     expect(detailImageId).not.toBeNull();
     // Navigate to detail overlay via URL
     await kupua.page.evaluate((id: string) => {
+      const router = (window as any).__kupua_router__;
+      if (!router) throw new Error("Router not exposed on window");
       const url = new URL(window.location.href);
-      url.searchParams.set("image", id);
-      window.history.pushState({}, "", url.toString());
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      const search: Record<string, string> = {};
+      url.searchParams.forEach((v, k) => { search[k] = v; });
+      search.image = id;
+      router.navigate({ to: url.pathname, search });
     }, detailImageId!);
     await kupua.page.waitForFunction(
       () => new URL(window.location.href).searchParams.has("image"),
@@ -251,10 +254,13 @@ test.describe("Buffer corruption — metadata click from ImageDetail after deep 
     });
     expect(detailId).not.toBeNull();
     await kupua.page.evaluate((id: string) => {
+      const router = (window as any).__kupua_router__;
+      if (!router) throw new Error("Router not exposed on window");
       const url = new URL(window.location.href);
-      url.searchParams.set("image", id);
-      window.history.pushState({}, "", url.toString());
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      const search: Record<string, string> = {};
+      url.searchParams.forEach((v, k) => { search[k] = v; });
+      search.image = id;
+      router.navigate({ to: url.pathname, search });
     }, detailId!);
     await kupua.page.waitForFunction(
       () => new URL(window.location.href).searchParams.has("image"),

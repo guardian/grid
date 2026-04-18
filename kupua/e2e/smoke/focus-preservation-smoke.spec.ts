@@ -39,14 +39,22 @@ async function requireRealData(kupua: KupuaHelpers): Promise<number> {
 
 // ---------------------------------------------------------------------------
 // SPA navigation helper (no full reload, preserves React/Zustand state)
+// Uses TanStack Router's navigate() — simulates user-initiated navigation,
+// NOT browser back/forward (which fires popstate and skips focus-preservation).
 // ---------------------------------------------------------------------------
 async function spaNavigate(
   page: import("@playwright/test").Page,
   path: string,
 ) {
   await page.evaluate((p) => {
-    window.history.pushState({}, "", p);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    const router = (window as any).__kupua_router__;
+    if (!router) throw new Error("Router not exposed on window");
+    const markUserNav = (window as any).__kupua_markUserNav__;
+    if (markUserNav) markUserNav();
+    const url = new URL(p, window.location.origin);
+    const search: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { search[k] = v; });
+    router.navigate({ to: url.pathname, search });
   }, path);
 }
 

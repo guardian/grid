@@ -199,3 +199,43 @@ export function resetSearchSync() {
   _prevSearchOnly = {};
 }
 
+// ===========================================================================
+// User-initiated navigation detection
+// ===========================================================================
+
+/**
+ * Module-level flag set by `useUpdateSearchParams()` BEFORE calling
+ * `navigate()`. When true, `useUrlSearchSync` knows the param change was
+ * caused by user interaction (filter toggle, sort change, query commit)
+ * and should preserve focus/position ("Never Lost").
+ *
+ * When false (the default), the param change came from somewhere else —
+ * most likely browser back/forward (popstate). In that case, focus
+ * preservation is skipped and the view resets to the top of the restored
+ * search context.
+ *
+ * Why invert the flag (mark user-initiated instead of popstate)?
+ * TanStack Router's popstate handler is async — by the time the React
+ * effect runs, a simple popstate flag may have been consumed by an
+ * intermediate no-op effect run (the dedup guard bails early, but the
+ * flag is already cleared). Marking user-initiated navigations is
+ * synchronous and happens immediately before navigate(), so the flag
+ * is guaranteed to be set when the effect processes the resulting
+ * param change.
+ */
+let _isUserInitiatedNavigation = false;
+
+/** Call immediately before navigate() in useUpdateSearchParams(). */
+export function markUserInitiatedNavigation() {
+  _isUserInitiatedNavigation = true;
+}
+
+/**
+ * Read and clear the user-initiated flag.
+ */
+export function consumeUserInitiatedFlag(): boolean {
+  const was = _isUserInitiatedNavigation;
+  _isUserInitiatedNavigation = false;
+  return was;
+}
+

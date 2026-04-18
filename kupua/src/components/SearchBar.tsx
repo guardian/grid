@@ -60,7 +60,7 @@ export function SearchBar() {
         // chips when the user presses + or - to open the field selector.
         // Only update the URL when there's real query content.
         const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
-        updateSearch({ query: meaningful ? queryStr : undefined });
+        updateSearch({ query: meaningful ? queryStr : undefined }, { replace: true });
       }, 300));
     },
     [updateSearch]

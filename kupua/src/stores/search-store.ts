@@ -350,7 +350,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[] }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.

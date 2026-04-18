@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Session 5 complete and committed. No active task.
+(none — previous task complete)
 
 ## Session Log
 
-(empty — start of new session)
+(empty)

@@ -14,13 +14,21 @@ import { test, expect } from "../shared/helpers";
 
 /**
  * Navigate within the SPA without a full page reload.
- * Uses history.pushState + popstate to trigger TanStack Router,
- * preserving Zustand state (including focusedImageId).
+ * Uses TanStack Router's navigate() via the exposed router instance.
+ * This simulates a user-initiated navigation (pushState) — NOT a
+ * browser back/forward (popstate). The distinction matters because
+ * useUrlSearchSync skips focus-preservation on popstate navigations.
  */
 async function spaNavigate(page: import("@playwright/test").Page, path: string) {
   await page.evaluate((p) => {
-    window.history.pushState({}, "", p);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    const router = (window as any).__kupua_router__;
+    if (!router) throw new Error("Router not exposed on window");
+    const markUserNav = (window as any).__kupua_markUserNav__;
+    if (markUserNav) markUserNav();
+    const url = new URL(p, window.location.origin);
+    const search: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { search[k] = v; });
+    router.navigate({ to: url.pathname, search });
   }, path);
 }
 

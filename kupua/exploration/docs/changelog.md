@@ -14,6 +14,71 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 April 2026 — Browser back/forward navigation (Sessions 6–7)
+
+Fixed two problems that completely broke browser back/forward navigation.
+
+**Problem 1 — No history entries for search changes.**
+`useUpdateSearchParams()` hardcoded `replace: true` for all navigations, so
+filter toggles, sort changes, query commits, and date range changes never
+created history entries. Back/forward had nothing to navigate between (except
+image-open and logo-click).
+
+Fix: `useUpdateSearchParams()` now accepts `options?: { replace?: boolean }`
+defaulting to `false` (push). Only SearchBar's debounced `handleQueryChange`
+passes `{ replace: true }` so intermediate keystrokes don't pollute history.
+All committed discrete actions (filter toggle, sort change, date range) use
+the default push.
+
+**Problem 2 — Popstate carried focus into wrong search context.**
+When back/forward fired, `useUrlSearchSync` ran focus-preservation logic
+uniformly: it read the current `focusedImageId` or promoted a phantom anchor
+and passed it to `search()`. This caused the current focused image from
+"dogs" results to be carried into the restored "cats" results, landing the
+user deep at a random-seeming position.
+
+Fix: Module-level user-initiated flag in `orchestration/search.ts`.
+`markUserInitiatedNavigation()` is called synchronously in
+`useUpdateSearchParams()` before `navigate()`. `useUrlSearchSync` reads
+`consumeUserInitiatedFlag()` — if true (user-initiated), preserve focus;
+if false (popstate/programmatic), skip focus preservation, reset `offset: 0`,
+call `search(null)` to start from the top.
+
+Initially tried a popstate-listener flag (`markPopstateNavigation` on
+`window.popstate`), but TanStack Router's `onPushPopEvent` handler is async —
+by the time the React effect ran, the flag could be consumed by an intermediate
+no-op effect run (the dedup guard bails early but the flag is already cleared).
+Inverting the flag to mark user-initiated navigations (synchronous, set right
+before `navigate()`) solved this.
+
+**Case-specific popstate behaviour:**
+- Back from image detail (same search context, only `image` key removed) →
+  display-only key guard skips re-search, focus preserved. Correct.
+- Back to different search context (query/filter/sort changed) → `search(null)`,
+  reset to top. Correct.
+- Image traversal in detail view → uses `replace: true`, never creates history
+  entries. Back from detail always returns to the entry point. Correct.
+
+**E2E tests:** New `e2e/local/browser-history.spec.ts` with 5 tests:
+sort-back, query-back, forward, no-focus-carry-on-back, image-detail-back.
+All `spaNavigate` helpers across test files updated to call
+`markUserInitiatedNavigation()` via `window.__kupua_markUserNav__` (exposed in
+dev mode alongside `__kupua_router__`).
+
+Files changed:
+- `src/hooks/useUrlSearchSync.ts` — push-by-default, user-initiated flag check
+- `src/lib/orchestration/search.ts` — `markUserInitiatedNavigation()` /
+  `consumeUserInitiatedFlag()`
+- `src/main.tsx` — expose `__kupua_markUserNav__` for E2E
+- `src/components/SearchBar.tsx` — `{ replace: true }` for debounce
+- `e2e/local/browser-history.spec.ts` — NEW (5 tests)
+- `e2e/local/focus-preservation.spec.ts` — spaNavigate updated
+- `e2e/local/buffer-corruption.spec.ts` — spaNavigate updated
+- `e2e/smoke/focus-preservation-smoke.spec.ts` — spaNavigate updated
+- `exploration/docs/browser-history-analysis.md` — rewritten to describe current state
+
+315/315 unit tests, 145/145 local E2E.
+
 ### 18 April 2026 — Session 5: Smoke polish on TEST cluster
 
 Validated Sessions 1–4 focus preservation against real TEST cluster (~1.3M images).

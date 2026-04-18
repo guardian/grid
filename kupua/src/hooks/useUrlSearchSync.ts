@@ -19,6 +19,8 @@ import {
   setPrevParamsSerialized,
   _prevSearchOnly,
   setPrevSearchOnly,
+  consumeUserInitiatedFlag,
+  markUserInitiatedNavigation,
 } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
@@ -100,6 +102,19 @@ export function useUrlSearchSync() {
     const serialized = JSON.stringify(searchOnly);
     if (serialized === _prevParamsSerialized) return;
 
+    // Read and clear the user-initiated flag. True means this param change
+    // was caused by user interaction (via useUpdateSearchParams → navigate()),
+    // false means it came from somewhere else — most likely browser back/forward.
+    //
+    // Why mark user-initiated instead of popstate? TanStack Router's popstate
+    // handler is async, so a popstate flag can be consumed by an intermediate
+    // no-op effect run (the dedup guard bails early but the flag is already
+    // cleared). The user-initiated flag is set synchronously right before
+    // navigate(), so it's guaranteed to be present when the effect processes
+    // the resulting param change.
+    const isUserInitiated = consumeUserInitiatedFlag();
+    const isPopstate = !isUserInitiated;
+
     // Detect sort-only change: orderBy changed, nothing else did.
     // Used below to decide relaxation behaviour for phantom focus.
     const prev = _prevSearchOnly;
@@ -110,26 +125,29 @@ export function useUrlSearchSync() {
         (k) => k === "orderBy" || searchOnly[k] === prev[k]
       );
 
-    // "Never Lost" — pass focusedImageId to search() so the store can find
-    // the image in the new results and scroll to it. This applies to ALL
-    // search context changes (query, filter, sort), not just sort changes.
-    // The _findAndFocusImage machinery handles failure gracefully: if the
-    // image isn't in the new results, focus is cleared and the view resets
-    // to top. The cost of trying and failing is one extra ES lookup.
+    // Focus-preservation strategy:
     //
-    // Phantom focus promotion (Session 4): when there's no explicit focus,
-    // fall back to the viewport anchor — the image nearest the viewport
-    // centre. This gives "Never Lost" position preservation even when the
-    // user never clicked an image. phantomOnly prevents setting
-    // focusedImageId — the user never sees a focus ring from this path.
+    // Browser back/forward (isPopstate=true): DON'T carry focus into the
+    // restored search context. The user is returning to a previous search
+    // and expects to see it from the top. Passing focusedImageId from the
+    // CURRENT context into OLD results would place them at a random-seeming
+    // position (or trigger an unnecessary ES lookup for an image that may
+    // not exist in the old results).
     //
-    // Sort-only relaxation: when only orderBy changed and there's no
-    // explicit focus, skip the viewport anchor. The user wants to see
-    // "what's first in the new order," not where their phantom anchor
-    // ended up in a differently-sorted list.
-    const explicitFocus = useSearchStore.getState().focusedImageId;
-    const phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
-    const focusPreserveId = explicitFocus ?? phantomAnchor;
+    // User-initiated changes (isPopstate=false): "Never Lost" — pass
+    // focusedImageId to search() so the store can find the image in the
+    // new results and scroll to it.
+    //
+    // Phantom focus promotion: when there's no explicit focus, fall back
+    // to the viewport anchor — the image nearest the viewport centre.
+    // Sort-only relaxation: skip viewport anchor when only orderBy changed.
+    let focusPreserveId: string | null = null;
+    let phantomAnchor: string | null = null;
+    if (!isPopstate) {
+      const explicitFocus = useSearchStore.getState().focusedImageId;
+      phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
+      focusPreserveId = explicitFocus ?? phantomAnchor;
+    }
 
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });
@@ -145,7 +163,7 @@ export function useUrlSearchSync() {
     const reset = Object.fromEntries(
       searchKeys.map((k) => [k, undefined])
     );
-    setParams({ ...reset, ...searchOnly });
+    setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
     search(focusPreserveId, phantomAnchor ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds() } : undefined);
   }, [searchParams, setParams, search, navigate]);
 }
@@ -166,12 +184,13 @@ export function useUpdateSearchParams() {
   paramsRef.current = currentParams;
 
   return useCallback(
-    (updates: Partial<UrlSearchParams>) => {
+    (updates: Partial<UrlSearchParams>, options?: { replace?: boolean }) => {
+      markUserInitiatedNavigation();
       const merged = { ...paramsRef.current, ...updates };
       navigate({
         to: "/search",
         search: cleanParams(merged as Record<string, string | undefined>),
-        replace: true,
+        replace: options?.replace ?? false,
       });
     },
     [navigate]
