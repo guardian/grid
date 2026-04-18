@@ -656,8 +656,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
+  // Track which generation was handled by snap-back delta consumption.
+  // When async offset correction re-fires this effect (via findImageIndex
+  // dep change), we must skip the normal scroll-to-focus to avoid flashing
+  // from "center" to "start".
+  const snapBackHandledGenRef = useRef(0);
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
+    if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
     const id = useSearchStore.getState().focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
@@ -666,6 +672,38 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     const savedRatio = consumeSortFocusRatio();
     const geo = geometryRef.current;
+
+    // -------------------------------------------------------------------
+    // Arrow snap-back: if there's a pending delta, skip the initial
+    // scroll-to-focus and go straight to the delta target. Two sequential
+    // scrolls in one effect cause a visible flash (first scroll paints at
+    // "start", second repaints at "center").
+    // -------------------------------------------------------------------
+    const pendingDelta = useSearchStore.getState()._pendingFocusDelta;
+    if (pendingDelta != null) {
+      useSearchStore.setState({ _pendingFocusDelta: null });
+      const state = useSearchStore.getState();
+      const focusId = state.focusedImageId;
+      if (focusId) {
+        const globalIdx = state.imagePositions.get(focusId);
+        if (globalIdx != null) {
+          const targetGlobalIdx = Math.max(0, Math.min(state.total - 1, globalIdx + pendingDelta));
+          const targetLocalIdx = targetGlobalIdx - state.bufferOffset;
+          if (targetLocalIdx >= 0 && targetLocalIdx < state.results.length) {
+            const nextImage = state.results[targetLocalIdx];
+            if (nextImage) {
+              useSearchStore.setState({ focusedImageId: nextImage.id, _focusedImageKnownOffset: targetGlobalIdx });
+              const nextIdx = twoTier ? targetGlobalIdx : targetLocalIdx;
+              const rowIdx = localIndexToRowIndex(nextIdx, geo);
+              virtualizer.scrollToIndex(rowIdx, { align: "center" });
+            }
+          }
+        }
+      }
+      snapBackHandledGenRef.current = sortAroundFocusGeneration;
+      return; // skip the normal scroll-to-focus below
+    }
+
     if (el && savedRatio != null) {
       // Restore the focused item at the same viewport ratio — "Never Lost".
       const rowTop = localIndexToPixelTop(idx, geo);

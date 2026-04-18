@@ -14,6 +14,52 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 April 2026 — bufferOffset wrong after snap-back on large datasets
+
+On datasets >65k (no position map), arrow snap-back left `bufferOffset` at 0
+because: (1) deep-seek mode uses offset=0 placeholder, and (2) the async
+`countBefore` correction guard rejected when delta consumption changed
+`focusedImageId` before correction resolved. Result: image at real position
+~1.28M displayed as position ~101.
+
+**Fixes:**
+- Relaxed async correction guard: removed `focusedImageId` check; buffer
+  reference check is sufficient (delta consumption changes focus within the
+  same buffer)
+- Added `_focusedImageKnownOffset` state field: saved when focus is set
+  (from `imagePositions`), passed as `hintOffset` to `_findAndFocusImage`
+  via `seekToFocused()`. Deep-seek mode uses this instead of 0.
+- Updated all `set()` calls that write `focusedImageId` to also write
+  `_focusedImageKnownOffset`: `setFocusedImageId`, isInBuffer branch,
+  !isInBuffer branch, delta consumption in effect #9, async correction
+
+**Tests:** 3 new unit tests (310 total), 137 E2E all pass.
+
+### 18 April 2026 — Arrow Snap-Back After Seek
+
+Implemented option (b) from the focus-position-preservation workplan: when the
+focused image is outside the current buffer (e.g. after a scrubber seek), pressing
+an arrow key snaps back to the focused image AND applies the movement delta in a
+single keypress, matching the in-buffer UX (one press = one move).
+
+**Store changes (`search-store.ts`):**
+- Added `_pendingFocusDelta: number | null` state field
+- Added `seekToFocused()` action: calls `_findAndFocusImage` with no fallback/neighbours
+  to re-centre the buffer around the focused image. If the image no longer exists
+  (generation doesn't bump), clears focus and delta.
+- `search()` clears `_pendingFocusDelta` to prevent stale deltas
+
+**Navigation changes (`useListNavigation.ts`):**
+- `moveFocus` and `pageFocus`: when `findImageIndex(currentId) < 0`, store
+  `_pendingFocusDelta = delta` and call `seekToFocused()`, return early
+
+**Effect changes (`useScrollEffects.ts`):**
+- Effect #9 (sortAroundFocusGeneration): after scroll-to-focus, consumes
+  `_pendingFocusDelta` — computes target global index, finds the image at that
+  buffer-local position, sets it as focused, scrolls to it
+
+**Tests:** 5 unit tests (307 total), 2 E2E tests (137 total). All pass.
+
 ### 18 April 2026 — Neighbour fallback (Session 2)
 
 Session 2 of the focus/position preservation workplan. When the focused image

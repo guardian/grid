@@ -1,7 +1,7 @@
 # Focus & Position Preservation — Multi-Session Workplan
 
 > **Created:** 2026-04-17
-> **Status:** Session 2 complete.
+> **Status:** Session 3 complete.
 > **Architecture doc:** `00 Architecture and philosophy/02-focus-and-position-preservation.md`
 > **Goal:** Implement the full position-preservation engine described in the
 > architecture doc — focus survives search context, focus survives seek (with
@@ -20,7 +20,7 @@
 | Focus survives seek (durable `focusedImageId` not cleared) | ✅ Working | `search-store.ts` `seek()` |
 | Focus survives search context change | ✅ Session 1 | `useUrlSearchSync.ts` passes `focusedImageId` on all search changes |
 | Neighbour fallback (focused image gone → find nearest survivor) | ✅ Session 2 | `search-store.ts` `_captureNeighbours`, `_findAndFocusImage` fallback |
-| Arrow snap-back to focused image after distant seek | ❌ Not implemented | — |
+| Arrow snap-back to focused image after distant seek | ✅ Session 3 | `seekToFocused()`, `_pendingFocusDelta`, effect #9 |
 | Phantom focus mode (hidden focus, click-to-detail) | ❌ Not implemented | — |
 | `focusMode` preference | ❌ Not implemented | — |
 
@@ -330,6 +330,11 @@ const sortAroundFocusId =
 Now non-sort search changes also attempt to preserve position around the
 viewport anchor when there's no explicit focus.
 
+**Implementation note (from Session 3 agent):** `_findAndFocusImage` now
+has a 7th parameter `hintOffset?: number | null`. Phantom promotion callers
+should pass `null` (or omit it) — the viewport anchor's global offset isn't
+tracked like `_focusedImageKnownOffset`. Only `seekToFocused` uses hintOffset.
+
 **S4.3 — Relaxation: skip phantom anchor for sort changes** (~15 min)
 
 When `isSortOnly && !focusedImageId`, do NOT pass the viewport anchor.
@@ -358,7 +363,7 @@ specifically for this session's relaxation logic. No new computation needed.
 
 ---
 
-## Session 5 — Phantom Focus Mode (UI Skin)
+## Session 5a — Phantom Focus Mode: Click & Keyboard Behaviour
 
 **Delivers:** A `focusMode: "explicit" | "phantom"` preference. When
 `"phantom"`: single-click enters detail, arrows scroll rows, no focus ring,
@@ -366,20 +371,34 @@ specifically for this session's relaxation logic. No new computation needed.
 preference.
 
 **Pre-condition:** Sessions 1–4 complete.
-**Post-condition:** Both modes work. E2E tests for both.
+**Post-condition:** Both modes work for click and keyboard. E2E tests.
+
+### Implementation notes (from Session 3 agent)
+
+**Separate UI preferences store.** `focusMode` is a UI concern, not search
+state. Putting it in `search-store` couples it to search subscriptions and
+makes the store harder to reason about. Consider a lightweight
+`useUiPrefsStore` (Zustand, localStorage-persisted). The search store already
+has ~50 fields — don't add more unless they affect search behaviour.
+
+**`matchMedia` listener, not one-time check.** `pointer: coarse` detection
+must use `matchMedia("(pointer: coarse)").addEventListener("change", ...)`
+to react to runtime changes (iPad detaching keyboard, Chrome DevTools
+toggling device emulation). A one-time check at startup will be wrong when
+the device class changes mid-session.
 
 ### Steps
 
-**S5.1 — `focusMode` store + preference** (~30 min)
+**S5a.1 — `focusMode` store + preference** (~30 min)
 
-Add to a UI preferences store (or `search-store`):
+Add a `useUiPrefsStore` (or add to an existing non-search store):
 - `focusMode: "explicit" | "phantom"` — persisted in localStorage.
 - `effectiveFocusMode` — derived: if `pointer: coarse` → `"phantom"`,
   else → stored preference.
 
-Use a `matchMedia("(pointer: coarse)")` listener for the detection.
+Use `matchMedia("(pointer: coarse)")` with a change event listener.
 
-**S5.2 — Click behaviour** (~45 min)
+**S5a.2 — Click behaviour** (~45 min)
 
 In `ImageGrid.tsx` and `ImageTable.tsx`:
 - `effectiveFocusMode === "explicit"`: single-click → `setFocusedImageId`.
@@ -387,7 +406,13 @@ In `ImageGrid.tsx` and `ImageTable.tsx`:
 - `effectiveFocusMode === "phantom"`: single-click → enter detail directly
   (set phantom focus as side-effect). No double-click handler needed.
 
-**S5.3 — Keyboard behaviour** (~30 min)
+**Complexity warning:** This changes the fundamental meaning of click across
+grid cells, table rows, AND potentially the metadata panel. Test every
+combination: grid click, table click, grid double-click (should still work
+in explicit), table double-click. Also consider: what happens if the user
+switches mode while an image is focused? Clear focus? Keep it?
+
+**S5a.3 — Keyboard behaviour** (~30 min)
 
 In `useListNavigation.ts`:
 - `effectiveFocusMode === "phantom"`: arrow keys → `scrollByRows` (existing
@@ -395,12 +420,32 @@ In `useListNavigation.ts`:
   No focus is ever set via keyboard.
 - `effectiveFocusMode === "explicit"`: today's behaviour unchanged.
 
-**S5.4 — Focus ring visibility** (~15 min)
+**S5a.4 — Focus ring visibility** (~15 min)
 
 In the grid cell / table row components, gate the focus ring CSS on
 `effectiveFocusMode === "explicit"`.
 
-**S5.5 — Return-from-detail in phantom mode** (~30 min)
+**S5a.5 — E2E tests** (~1 hour)
+
+1. **Phantom mode: tap-to-enter works.** Click image → detail opens.
+2. **Phantom mode: arrows scroll, no focus ring.** Press ↓ → viewport
+   scrolls, no ring appears.
+3. **Explicit mode: existing behaviour unchanged.** (Run existing E2E suite.)
+4. **`pointer: coarse` override.** (May need Playwright device emulation.)
+
+---
+
+## Session 5b — Phantom Focus Mode: Return-from-Detail & Density Interactions
+
+**Delivers:** Return-from-detail in phantom mode preserves position.
+Density switches in phantom mode preserve position via viewport anchor.
+
+**Pre-condition:** Session 5a complete.
+**Post-condition:** Full round-trip works in phantom mode.
+
+### Steps
+
+**S5b.1 — Return-from-detail in phantom mode** (~45 min)
 
 When user presses Backspace from detail in phantom mode:
 - Set `_viewportAnchorId` to the image that was open (so the engine knows
@@ -409,15 +454,26 @@ When user presses Backspace from detail in phantom mode:
 - Position restoration already works via `DensityFocusState` — verify it
   picks up the viewport anchor.
 
-**S5.6 — E2E tests** (~1.5 hours)
+This is more complex than it sounds — the return path touches router
+navigation, density-focus save/restore, and the mount effect in
+`useScrollEffects`. Test the full round-trip: click → detail → Backspace →
+list → verify position → density switch → verify position again.
 
-1. **Phantom mode: tap-to-enter works.** Click image → detail opens.
-2. **Phantom mode: arrows scroll, no focus ring.** Press ↓ → viewport
-   scrolls, no ring appears.
-3. **Phantom mode: return from detail preserves position.** Enter detail,
+**S5b.2 — Density switch in phantom mode** (~30 min)
+
+Verify that density switches (grid↔table) preserve position when only
+the viewport anchor is set (no explicit focus). The existing
+`DensityFocusState` uses `focusedImageId ?? getViewportAnchorId()` — this
+should work, but needs E2E verification.
+
+**S5b.3 — E2E tests** (~1 hour)
+
+1. **Phantom mode: return from detail preserves position.** Enter detail,
    Backspace, assert same image neighbourhood visible.
-4. **Explicit mode: existing behaviour unchanged.** (Run existing E2E suite.)
-5. **`pointer: coarse` override.** (May need Playwright device emulation.)
+2. **Phantom mode: density switch after return from detail.** Enter detail,
+   Backspace, switch grid↔table, verify position preserved.
+3. **Phantom mode: return + continued scroll.** Enter detail, Backspace,
+   scroll down — verify no glitches.
 
 ---
 
@@ -427,7 +483,7 @@ When user presses Backspace from detail in phantom mode:
 > will be designed in detail when we begin. Included here to show where it
 > fits in the dependency chain.
 
-**Pre-condition:** Session 5 complete (both focus modes working).
+**Pre-condition:** Session 5b complete (both focus modes fully working).
 
 **Key decisions needed before implementation:**
 - Selection gesture in explicit mode: checkbox? Ctrl/Cmd-click? Both?

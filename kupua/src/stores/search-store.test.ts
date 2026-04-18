@@ -1175,3 +1175,166 @@ describe("neighbour fallback", () => {
     expect(state().results.every((r) => r?.id !== "img-8000")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: seekToFocused (arrow snap-back)
+// ---------------------------------------------------------------------------
+
+describe("seekToFocused (arrow snap-back)", () => {
+  it("seeks back to focused image after distant seek", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    // Focus an image near the start
+    actions().setFocusedImageId("img-50");
+    expect(state().imagePositions.has("img-50")).toBe(true);
+
+    // Seek far away — focused image leaves the buffer
+    await actions().seek(800);
+    await waitPastCooldown();
+    expect(state().imagePositions.has("img-50")).toBe(false);
+    // Focus is still set (durable) but image is not in buffer
+    expect(state().focusedImageId).toBe("img-50");
+
+    const genBefore = state().sortAroundFocusGeneration;
+
+    // seekToFocused should bring it back
+    await actions().seekToFocused();
+    await waitFor(
+      () => state().sortAroundFocusGeneration > genBefore,
+      3000,
+      "seekToFocused completes",
+    );
+
+    expect(state().focusedImageId).toBe("img-50");
+    expect(state().imagePositions.has("img-50")).toBe(true);
+    expect(state().sortAroundFocusStatus).toBeNull();
+    expect(state().loading).toBe(false);
+  });
+
+  it("clears focus when focused image no longer exists", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    actions().setFocusedImageId("img-50");
+
+    // Seek away
+    await actions().seek(800);
+    await waitPastCooldown();
+
+    // Simulate image deletion
+    mock.removedIds.add("img-50");
+
+    // seekToFocused should detect failure and clear focus
+    await actions().seekToFocused();
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "seekToFocused failure clears status",
+    );
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state()._pendingFocusDelta).toBeNull();
+  });
+
+  it("succeeds immediately when focused image is already in buffer", async () => {
+    await actions().search();
+    actions().setFocusedImageId("img-50");
+
+    // Image is in the buffer — seekToFocused should still work (isInBuffer path)
+    const genBefore = state().sortAroundFocusGeneration;
+    await actions().seekToFocused();
+
+    expect(state().focusedImageId).toBe("img-50");
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+  });
+
+  it("no-ops when focusedImageId is null", async () => {
+    await actions().search();
+    expect(state().focusedImageId).toBeNull();
+
+    const genBefore = state().sortAroundFocusGeneration;
+    await actions().seekToFocused();
+
+    expect(state().sortAroundFocusGeneration).toBe(genBefore);
+  });
+
+  it("clears pending delta on search", async () => {
+    useSearchStore.setState({ _pendingFocusDelta: 4 });
+    expect(state()._pendingFocusDelta).toBe(4);
+
+    await actions().search();
+
+    expect(state()._pendingFocusDelta).toBeNull();
+  });
+
+  it("saves _focusedImageKnownOffset when focusing via setFocusedImageId", async () => {
+    await actions().search();
+    const globalIdx = state().imagePositions.get("img-50");
+    expect(globalIdx).toBeDefined();
+
+    actions().setFocusedImageId("img-50");
+    expect(state()._focusedImageKnownOffset).toBe(globalIdx);
+  });
+
+  it("uses known offset so bufferOffset is correct after snap-back (no placeholder 0)", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    // Seek to position 500 so img-500 is in the buffer
+    await actions().seek(500);
+    await waitPastCooldown();
+    expect(state().imagePositions.has("img-500")).toBe(true);
+
+    // Focus the image — should save its known offset
+    actions().setFocusedImageId("img-500");
+    const knownOffset = state()._focusedImageKnownOffset;
+    expect(knownOffset).toBe(500);
+
+    // Seek far away
+    await actions().seek(100);
+    await waitPastCooldown();
+    expect(state().imagePositions.has("img-500")).toBe(false);
+    expect(state().focusedImageId).toBe("img-500");
+
+    // seekToFocused should use hintOffset=500, not 0
+    await actions().seekToFocused();
+    await waitFor(
+      () => state().imagePositions.has("img-500"),
+      3000,
+      "seekToFocused brings image back",
+    );
+
+    // bufferOffset should be close to 500 (not 0)
+    // The buffer is ~300 items centred on img-500, so bufferOffset ≈ 500 - 150
+    expect(state().bufferOffset).toBeGreaterThan(100);
+    assertPositionsConsistent("snap-back offset");
+  });
+
+  it("clears _focusedImageKnownOffset when focus is cleared on failed snap-back", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    actions().setFocusedImageId("img-50");
+    expect(state()._focusedImageKnownOffset).toBe(50);
+
+    // Seek away and delete the image
+    await actions().seek(800);
+    await waitPastCooldown();
+    mock.removedIds.add("img-50");
+
+    await actions().seekToFocused();
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "seekToFocused clears status",
+    );
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state()._focusedImageKnownOffset).toBeNull();
+  });
+});

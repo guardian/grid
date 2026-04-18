@@ -12,9 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-No active task. Session 2 of focus/position preservation workplan complete.
-See `exploration/docs/focus-position-preservation-workplan.md` for Sessions 3-6.
-See `exploration/docs/changelog.md` top entry for Session 2 details.
+(none — between tasks)
 
 ## Tips for next agent
 
@@ -24,4 +22,4 @@ at the start of commands. `npm test` and `npm run test:e2e` work fine from kupua
 
 ## Session Log
 
-(empty — last session's log moved to changelog.md)
+(empty)

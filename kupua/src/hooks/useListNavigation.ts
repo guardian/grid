@@ -259,7 +259,13 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (count === 0 || !currentId) return;
 
     const currentIdx = findImageIndex(currentId);
-    if (currentIdx < 0) return;
+    if (currentIdx < 0) {
+      // Focused image not in buffer (user seeked away via scrubber).
+      // Snap back: seek to the focused image, then apply the delta.
+      useSearchStore.setState({ _pendingFocusDelta: delta });
+      useSearchStore.getState().seekToFocused();
+      return;
+    }
 
     const rawTarget = currentIdx + delta;
     let nextIdx = Math.max(0, Math.min(count - 1, rawTarget));
@@ -317,7 +323,15 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (!el || count === 0 || !currentId) return;
 
     const currentIdx = findImageIndex(currentId);
-    if (currentIdx < 0) return;
+    if (currentIdx < 0) {
+      // Focused image not in buffer — snap back with page-sized delta.
+      const viewportRowSpace = el.clientHeight - headerHeight;
+      const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));
+      const pageDelta = direction === "down" ? pageRows * cols : -(pageRows * cols);
+      useSearchStore.setState({ _pendingFocusDelta: pageDelta });
+      useSearchStore.getState().seekToFocused();
+      return;
+    }
 
     const viewportRowSpace = el.clientHeight - headerHeight;
     const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));

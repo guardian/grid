@@ -283,6 +283,25 @@ interface SearchState {
    */
   _pendingFocusAfterSeek: "first" | "last" | null;
 
+  /**
+   * Pending focus delta for arrow snap-back.
+   * When the user presses an arrow key but the focused image is not in the
+   * buffer (seeked away), the snap-back seek loads the buffer around the
+   * focused image. This field records the key's delta so effect #9
+   * (sortAroundFocusGeneration) can apply it after the scroll completes.
+   * Cleared by search() and consumed by the scroll effect.
+   */
+  _pendingFocusDelta: number | null;
+
+  /**
+   * Last known global offset of the focused image. Saved when focus is set
+   * (from imagePositions) so that seekToFocused can pass a reasonable offset
+   * to _findAndFocusImage instead of 0 on large datasets where countBefore
+   * would take 2-5s. Without this, bufferOffset stays at 0 and the scrubber
+   * / position counter show wrong values until the async correction resolves.
+   */
+  _focusedImageKnownOffset: number | null;
+
   // --- Aggregation state (unchanged from before) ---
   aggregations: AggregationsResult | null;
   aggTook: number | null;
@@ -372,6 +391,14 @@ interface SearchState {
   loadMore: () => Promise<void>;
 
   setFocusedImageId: (id: string | null) => void;
+  /**
+   * Seek the buffer back to the focused image's position.
+   * Used by arrow snap-back: when the user pressed an arrow key but the
+   * focused image is not in the buffer (seeked away via scrubber).
+   * Calls _findAndFocusImage with no fallback (same query/sort).
+   * On failure (image deleted), clears focus.
+   */
+  seekToFocused: () => Promise<void>;
   fetchAggregations: (force?: boolean) => Promise<void>;
   fetchExpandedAgg: (field: string) => Promise<void>;
   collapseExpandedAgg: (field: string) => void;
@@ -1104,6 +1131,10 @@ async function _findAndFocusImage(
    *  focused image isn't found, the engine scans this list for the nearest
    *  survivor in the first page of new results. */
   prevNeighbours?: string[] | null,
+  /** Known global offset of the image (e.g. from a previous focus). Used as
+   *  the offset hint in deep-seek mode (>65k results) to avoid the 0-placeholder
+   *  that makes the scrubber/position counter wrong until async correction. */
+  hintOffset?: number | null,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1261,11 +1292,12 @@ async function _findAndFocusImage(
       }
     } else {
       // No position map → >65k results (deep-seek mode). countBefore would
-      // take 2-5s. Use placeholder offset and correct asynchronously.
-      offset = 0;
+      // take 2-5s. Use hintOffset if available (e.g. saved from when the user
+      // focused the image), otherwise 0 as placeholder. Correct asynchronously.
+      offset = hintOffset ?? 0;
       offsetIsEstimate = true;
       devLog(
-        `[sort-around-focus] no position map, using estimated offset=0 (will correct async)`,
+        `[sort-around-focus] no position map, using ${hintOffset != null ? `hint offset=${offset}` : "estimated offset=0"} (will correct async)`,
       );
     }
 
@@ -1290,6 +1322,7 @@ async function _findAndFocusImage(
       set({
         ...(fallbackFirstPage ? { total: fallbackFirstPage.total } : {}),
         focusedImageId: imageId,
+        _focusedImageKnownOffset: offset,
         sortAroundFocusStatus: null,
         loading: false,
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
@@ -1336,6 +1369,7 @@ async function _findAndFocusImage(
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         focusedImageId: imageId,
+        _focusedImageKnownOffset: buf.bufferStart + buf.targetLocalIndex,
         sortAroundFocusStatus: null,
         sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
       });
@@ -1349,9 +1383,10 @@ async function _findAndFocusImage(
           .then((exactOffset) => {
             if (combinedSignal.aborted) return;
             const state = get();
-            // Only correct if the buffer still belongs to this focus operation
-            // (focusedImageId unchanged and results are the same reference).
-            if (state.focusedImageId !== imageId) return;
+            // Only correct if the buffer still belongs to this focus operation.
+            // Check buffer reference (not focusedImageId — delta consumption
+            // in the scroll effect may have changed focus to an adjacent image
+            // within the same buffer, and the correction is still valid).
             if (state.results !== buf.combinedHits) return;
             const correctedOffset = Math.max(
               0, exactOffset - buf.targetLocalIndex,
@@ -1363,6 +1398,15 @@ async function _findAndFocusImage(
               bufferOffset: correctedOffset,
               imagePositions: buildPositions(state.results, correctedOffset),
             });
+            // Also update _focusedImageKnownOffset for whichever image is
+            // currently focused (may have changed via delta consumption).
+            const currentFocus = get().focusedImageId;
+            if (currentFocus) {
+              const correctedGlobalIdx = get().imagePositions.get(currentFocus);
+              if (correctedGlobalIdx != null) {
+                set({ _focusedImageKnownOffset: correctedGlobalIdx });
+              }
+            }
           })
           .catch((e) => {
             if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1442,6 +1486,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _seekTargetGlobalIndex: -1,
   _seekSubRowOffset: 0,
   _pendingFocusAfterSeek: null,
+  _pendingFocusDelta: null,
+  _focusedImageKnownOffset: null,
 
   // Aggregation state
   aggregations: null,
@@ -1473,7 +1519,33 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }));
   },
 
-  setFocusedImageId: (id) => set({ focusedImageId: id }),
+  setFocusedImageId: (id) => {
+    const offset = id ? get().imagePositions.get(id) ?? null : null;
+    set({ focusedImageId: id, _focusedImageKnownOffset: offset });
+  },
+
+  seekToFocused: async () => {
+    const { focusedImageId, params } = get();
+    if (!focusedImageId) {
+      set({ _pendingFocusDelta: null });
+      return;
+    }
+
+    const genBefore = get().sortAroundFocusGeneration;
+    const hintOffset = get()._focusedImageKnownOffset;
+    // No fallbackFirstPage — buffer is current (same query/sort), so the
+    // isInBuffer shortcut in _findAndFocusImage fires correctly.
+    // No prevNeighbours — not a search context change.
+    // Pass hintOffset so deep-seek mode uses the known position instead of 0.
+    await _findAndFocusImage(focusedImageId, params, get, set, undefined, undefined, hintOffset);
+
+    // If generation didn't bump, the image wasn't found (deleted/expired).
+    // Clear focus and pending delta so the user isn't stuck with ghost focus.
+    if (get().sortAroundFocusGeneration === genBefore) {
+      devLog(`[seekToFocused] image ${focusedImageId} not found — clearing focus`);
+      set({ focusedImageId: null, _pendingFocusDelta: null, _focusedImageKnownOffset: null });
+    }
+  },
 
   search: async (sortAroundFocusId?: string | null) => {
     const { dataSource, params, pitId: oldPitId } = get();
@@ -1496,7 +1568,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // reappear despite the user having just clicked it to refresh.
     stopNewImagesPoll();
 
-    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0 });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0, _pendingFocusDelta: null });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset

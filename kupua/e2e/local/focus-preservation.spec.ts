@@ -171,3 +171,94 @@ test.describe("Neighbour fallback", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Arrow snap-back after distant seek
+// ---------------------------------------------------------------------------
+
+test.describe("Arrow snap-back after seek", () => {
+  test("arrow key snaps back to focused image and moves focus", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // Focus the 5th image (gives some room for delta)
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Verify the focused image is in the buffer
+    const inBufferBefore = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferBefore).toBe(true);
+
+    // Seek far away via scrubber — focused image should leave the buffer
+    await kupua.dragScrubberTo(0.9);
+
+    const inBufferAfterSeek = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferAfterSeek).toBe(false);
+
+    // Focus should still be set (durable)
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Press ArrowDown — should snap back to focused image + move focus
+    await kupua.page.keyboard.press("ArrowDown");
+
+    // Wait for snap-back seek to complete
+    await kupua.waitForSortAroundFocus();
+
+    // The original focused image should now be back in the buffer
+    const inBufferAfterSnap = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferAfterSnap).toBe(true);
+
+    // Focus should have moved to a DIFFERENT image (the delta was applied)
+    const focusAfterSnap = await kupua.getFocusedImageId();
+    expect(focusAfterSnap).not.toBeNull();
+    expect(focusAfterSnap).not.toBe(focusedId);
+
+    // The new focused image should be in the buffer
+    const newFocusInBuffer = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusAfterSnap);
+    expect(newFocusInBuffer).toBe(true);
+  });
+
+  test("snap-back works then normal arrow navigation continues", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+
+    // Focus the 5th image
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Seek far away
+    await kupua.dragScrubberTo(0.9);
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Snap back with ArrowDown
+    await kupua.page.keyboard.press("ArrowDown");
+    await kupua.waitForSortAroundFocus();
+
+    const focusAfterFirst = await kupua.getFocusedImageId();
+    expect(focusAfterFirst).not.toBe(focusedId);
+
+    // Now press ArrowDown again — should move focus normally (no seek)
+    await kupua.page.keyboard.press("ArrowDown");
+    await kupua.page.waitForTimeout(200);
+
+    const focusAfterSecond = await kupua.getFocusedImageId();
+    expect(focusAfterSecond).not.toBeNull();
+    expect(focusAfterSecond).not.toBe(focusAfterFirst);
+  });
+});
