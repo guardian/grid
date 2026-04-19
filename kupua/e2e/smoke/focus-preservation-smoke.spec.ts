@@ -75,10 +75,12 @@ interface ViewportSnapshot {
   seekGeneration: number;
   /** IDs of the first few images in the buffer (for identity checks) */
   firstBufferIds: string[];
-  /** ID of the image nearest viewport centre */
+  /** ID of the image nearest viewport centre (pixel-math estimate) */
   centreImageId: string | null;
   /** Global index of the centre image */
   centreImageGlobalIdx: number;
+  /** The real viewport anchor ID from the virtualizer (null if not exposed) */
+  realViewportAnchorId: string | null;
 }
 
 async function captureViewport(
@@ -117,6 +119,10 @@ async function captureViewport(
         if (s.results[i]?.id) firstIds.push(s.results[i].id);
       }
 
+      // Read the real viewport anchor set by the virtualizer (if exposed).
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      const realAnchorId: string | null = typeof getAnchor === "function" ? getAnchor() : null;
+
       return {
         scrollTop,
         scrollHeight,
@@ -132,6 +138,7 @@ async function captureViewport(
         firstBufferIds: firstIds,
         centreImageId: centreId,
         centreImageGlobalIdx: centreGlobalIdx,
+        realViewportAnchorId: realAnchorId,
       };
     },
     { ROW_HEIGHT: GRID_ROW_HEIGHT, MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH },
@@ -204,7 +211,7 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
 
     console.log(`[T1] BEFORE: total=${before.total}, bufferOffset=${before.bufferOffset}, ` +
       `scrollTop=${before.scrollTop}, centreImage=${before.centreImageId}, ` +
-      `centreGlobalIdx=${before.centreImageGlobalIdx}`);
+      `centreGlobalIdx=${before.centreImageGlobalIdx}, realAnchor=${before.realViewportAnchorId}`);
 
     expect(before.centreImageId).not.toBeNull();
     expect(before.focusedImageId).toBeNull(); // no explicit focus — this is phantom
@@ -236,7 +243,9 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     expect(after.sortAroundFocusStatus).toBeNull();
 
     // 4. Position check: the anchor image should be VISIBLE (not just in buffer).
-    //    Check that it's within a few rows of the viewport.
+    //    Use the real viewport anchor from the virtualizer — pixel-math diverges
+    //    in two-tier mode.
+    const anchorId = before.realViewportAnchorId ?? before.centreImageId;
     const anchorVisibility = await page.evaluate(
       ({ targetId, ROW_HEIGHT, MIN_CELL_WIDTH }: { targetId: string; ROW_HEIGHT: number; MIN_CELL_WIDTH: number }) => {
         const store = (window as any).__kupua_store__;
@@ -256,7 +265,7 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
         const rowDelta = Math.abs(imageRow - centreRow);
         return { survived: true, visible, rowDelta };
       },
-      { targetId: before.centreImageId!, ROW_HEIGHT: GRID_ROW_HEIGHT, MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH },
+      { targetId: anchorId!, ROW_HEIGHT: GRID_ROW_HEIGHT, MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH },
     );
 
     // 5. Scrubber thumb stability: should not jump more than 50px
@@ -842,7 +851,9 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     console.log(`[T7] After gap click: focusedImageId=${afterClear.focusedImageId}, scrollTop=${afterClear.scrollTop}`);
 
     const scrollTopBeforeTransition = afterClear.scrollTop;
-    const centreImageBeforeTransition = afterClear.centreImageId;
+    // Use the real viewport anchor (set by the virtualizer) rather than the
+    // pixel-math estimate — the two diverge in two-tier mode.
+    const anchorBeforeTransition = afterClear.realViewportAnchorId ?? afterClear.centreImageId;
 
     // Now clear the credit filter — phantom promotion should fire
     await spaNavigate(page, `/search?nonFree=true&until=${STABLE_UNTIL}`);
@@ -851,16 +862,16 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     const after = await captureViewport(page);
     console.log(`[T7] AFTER clear filter: total=${after.total}, bufferOffset=${after.bufferOffset}, ` +
       `scrollTop=${after.scrollTop}, centreImage=${after.centreImageId}, ` +
-      `focusedImageId=${after.focusedImageId}`);
+      `focusedImageId=${after.focusedImageId}, realAnchor=${afterClear.realViewportAnchorId}`);
 
     // Check: the anchor image from before the transition should be in the buffer
-    const anchorSurvived = centreImageBeforeTransition
+    const anchorSurvived = anchorBeforeTransition
       ? await page.evaluate(
           (targetId: string) => {
             const store = (window as any).__kupua_store__;
             return store?.getState().results.some((r: any) => r?.id === targetId) ?? false;
           },
-          centreImageBeforeTransition,
+          anchorBeforeTransition,
         )
       : false;
 
@@ -869,7 +880,9 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
       focusedOffset,
       focusCleared: afterClear.focusedImageId === null,
       scrollTopBeforeTransition,
-      centreImageBeforeTransition,
+      anchorBeforeTransition,
+      realViewportAnchorId: afterClear.realViewportAnchorId,
+      centreImageBeforeTransition: afterClear.centreImageId,
       afterTotal: after.total,
       afterBufferOffset: after.bufferOffset,
       afterScrollTop: after.scrollTop,
@@ -923,13 +936,14 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     console.log(`[T8] AFTER: total=${after.total}, bufferOffset=${after.bufferOffset}, ` +
       `scrollTop=${after.scrollTop}, cols=${after.cols}, centreImage=${after.centreImageId}`);
 
-    const anchorSurvived = before.centreImageId
+    const anchorId = before.realViewportAnchorId ?? before.centreImageId;
+    const anchorSurvived = anchorId
       ? await page.evaluate(
           (targetId: string) => {
             const store = (window as any).__kupua_store__;
             return store?.getState().results.some((r: any) => r?.id === targetId) ?? false;
           },
-          before.centreImageId,
+          anchorId,
         )
       : false;
 
@@ -1105,13 +1119,14 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     console.log(`[T11] AFTER: total=${after.total}, bufferOffset=${after.bufferOffset}, ` +
       `scrollTop=${after.scrollTop}, centreImage=${after.centreImageId}`);
 
-    const anchorSurvived = before.centreImageId
+    const anchorId = before.realViewportAnchorId ?? before.centreImageId;
+    const anchorSurvived = anchorId
       ? await page.evaluate(
           (targetId: string) => {
             const store = (window as any).__kupua_store__;
             return store?.getState().results.some((r: any) => r?.id === targetId) ?? false;
           },
-          before.centreImageId,
+          anchorId,
         )
       : false;
 
@@ -1156,13 +1171,14 @@ test.describe("Focus Preservation Smoke (real TEST cluster)", () => {
     console.log(`[T12] AFTER: total=${after.total}, bufferOffset=${after.bufferOffset}, ` +
       `scrollTop=${after.scrollTop}, centreImage=${after.centreImageId}`);
 
-    const anchorSurvived = before.centreImageId
+    const anchorId = before.realViewportAnchorId ?? before.centreImageId;
+    const anchorSurvived = anchorId
       ? await page.evaluate(
           (targetId: string) => {
             const store = (window as any).__kupua_store__;
             return store?.getState().results.some((r: any) => r?.id === targetId) ?? false;
           },
-          before.centreImageId,
+          anchorId,
         )
       : false;
 

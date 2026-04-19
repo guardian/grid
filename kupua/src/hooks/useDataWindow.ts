@@ -456,3 +456,11 @@ export function useDataWindow(): DataWindow {
     twoTier,
   };
 }
+
+// Expose viewport-anchor helpers on window in dev mode for E2E inspection.
+// Smoke tests need the real anchor ID (set by the virtualizer) rather than
+// re-deriving it from pixel math, which diverges in two-tier mode.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__kupua_getViewportAnchorId__ = getViewportAnchorId;
+  (window as unknown as Record<string, unknown>).__kupua_getVisibleImageIds__ = getVisibleImageIds;
+}
