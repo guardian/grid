@@ -184,6 +184,15 @@ function aggregateMetrics(allRunMetrics) {
       clsMax: median(entries.map((e) => e.clsMax)),
       maxFrame: Math.round(median(entries.map((e) => e.maxFrame))),
       severe: Math.round(median(entries.map((e) => e.severe))),
+      // severeRate = severe per 1000 frames — refresh-rate-independent.
+      // Computed from raw data when available, falls back to severe/frameCount.
+      severeRate: (() => {
+        const rates = entries.map((e) =>
+          e.severeRate != null ? e.severeRate
+            : e.frameCount > 0 ? Math.round(e.severe / e.frameCount * 1000 * 10) / 10
+            : 0);
+        return Math.round(median(rates) * 10) / 10;
+      })(),
       p95Frame: Math.round(median(entries.map((e) => e.p95Frame))),
       domChurn: Math.round(median(entries.map((e) => e.domChurn))),
       loafBlocking: Math.round(median(entries.map((e) => e.loafBlocking))),
@@ -225,11 +234,11 @@ function writeAuditLog(log) {
 // Markdown generation
 // ---------------------------------------------------------------------------
 
-const METRIC_COLS = ["cls", "maxFrame", "severe", "p95Frame", "domChurn", "loafBlocking"];
+const METRIC_COLS = ["cls", "maxFrame", "severeRate", "p95Frame", "domChurn", "loafBlocking"];
 const METRIC_LABELS = {
   cls: "CLS",
   maxFrame: "Max frame",
-  severe: "Severe (>50ms)",
+  severeRate: "Severe/1k frames",
   p95Frame: "P95 frame",
   domChurn: "DOM churn",
   loafBlocking: "LoAF blocking",
@@ -237,7 +246,7 @@ const METRIC_LABELS = {
 const METRIC_UNITS = {
   cls: "",
   maxFrame: "ms",
-  severe: "",
+  severeRate: "‰",
   p95Frame: "ms",
   domChurn: "",
   loafBlocking: "ms",
@@ -246,15 +255,17 @@ const METRIC_UNITS = {
 function formatValue(key, value) {
   const unit = METRIC_UNITS[key] ?? "";
   if (key === "cls") return value.toFixed(4);
+  if (key === "severeRate") return `${value.toFixed(1)}${unit}`;
   return `${value}${unit}`;
 }
 
 function formatDelta(key, delta) {
   const unit = METRIC_UNITS[key] ?? "";
-  if (Math.abs(delta) < 0.0001 && key === "cls") return "(0)";
+  if (Math.abs(delta) < 0.0001 && (key === "cls" || key === "severeRate")) return "(0)";
   if (delta === 0) return "(0)";
   const sign = delta > 0 ? "+" : "";
   if (key === "cls") return `(${sign}${delta.toFixed(4)})`;
+  if (key === "severeRate") return `(${sign}${delta.toFixed(1)}${unit})`;
   return `(${sign}${delta}${unit})`;
 }
 
@@ -266,7 +277,11 @@ function buildBaselineTable(entry) {
   const sep = `|------|${METRIC_COLS.map(() => "---").join("|")}|`;
   const rows = ids.map((id) => {
     const m = entry.metrics[id];
-    const cells = METRIC_COLS.map((k) => formatValue(k, m[k]));
+    const cells = METRIC_COLS.map((k) => {
+      const val = m[k] ?? (k === "severeRate" && m.frameCount > 0
+        ? Math.round(m.severe / m.frameCount * 1000 * 10) / 10 : 0);
+      return formatValue(k, val);
+    });
     return `| ${id} | ${cells.join(" | ")} |`;
   });
 
@@ -283,27 +298,44 @@ function buildDiffTable(current, previous) {
     const cur = current.metrics[id];
     const prev = previous.metrics[id];
     const cells = METRIC_COLS.map((k) => {
-      const val = formatValue(k, cur[k]);
+      // For severeRate: compute from severe/frameCount if not stored directly
+      const curVal = cur[k] ?? (k === "severeRate" && cur.frameCount > 0
+        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : 0);
+      const val = formatValue(k, curVal);
       if (!prev) return val;
+      const prevVal = prev[k] ?? (k === "severeRate" && prev.frameCount > 0
+        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : 0);
       const delta = k === "cls"
-        ? parseFloat((cur[k] - prev[k]).toFixed(4))
-        : Math.round(cur[k] - prev[k]);
+        ? parseFloat((curVal - prevVal).toFixed(4))
+        : k === "severeRate"
+          ? Math.round((curVal - prevVal) * 10) / 10
+          : Math.round(curVal - prevVal);
       return `${val} ${formatDelta(k, delta)}`;
     });
     return `| ${id} | ${cells.join(" | ")} |`;
   });
 
   // Verdict: any metric worse by >10%?
+  // Use severeRate (per-1000-frames) instead of raw severe count for
+  // refresh-rate-independent comparison. Falls back to computing from
+  // severe/frameCount for old entries that lack severeRate.
   let verdict = "No regression detected.";
   const regressions = [];
   for (const id of ids) {
     const cur = current.metrics[id];
     const prev = previous.metrics[id];
     if (!prev) continue;
-    for (const k of ["maxFrame", "severe", "p95Frame"]) {
-      const prevVal = prev[k];
-      if (prevVal > 0 && (cur[k] - prevVal) / prevVal > 0.1) {
-        regressions.push(`${id}.${k}: ${prevVal} → ${cur[k]} (+${(((cur[k] - prevVal) / prevVal) * 100).toFixed(0)}%)`);
+    for (const k of ["maxFrame", "severeRate", "p95Frame"]) {
+      const curVal = cur[k] ?? (k === "severeRate" && cur.frameCount > 0
+        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : 0);
+      const prevVal = prev[k] ?? (k === "severeRate" && prev.frameCount > 0
+        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : 0);
+      if (prevVal > 0 && (curVal - prevVal) / prevVal > 0.1) {
+        const label = k === "severeRate" ? `${id}.severeRate` : `${id}.${k}`;
+        const fmt = k === "severeRate"
+          ? `${prevVal.toFixed(1)}‰ → ${curVal.toFixed(1)}‰`
+          : `${prevVal} → ${curVal}`;
+        regressions.push(`${label}: ${fmt} (+${(((curVal - prevVal) / prevVal) * 100).toFixed(0)}%)`);
       }
     }
   }

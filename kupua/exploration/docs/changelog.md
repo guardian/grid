@@ -14,6 +14,50 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 19 April 2026 — severeRate: refresh-rate-independent perf metric
+
+**Problem:** P14 traversal severe frames appeared to double (4→9) after position-preservation
+commits. Investigation traced 12 commits — no code regression found. Root cause: hardware
+change from 60Hz NEC monitor to 120Hz MacBook Pro ProMotion. At 120Hz, rAF reports 2× frames
+so absolute >50ms spike counts roughly double. Evidence: frameCount doubled across ALL tests
+(335→641), p95Frame halved (18ms→9ms = 1/60→1/120), and severe/frameCount ratio stayed within
+historical range (12.5–14.0‰ vs 6.0–21.3‰).
+
+**Fix:** Replaced absolute `severe` count with `severeRate` (severe per 1000 frames) throughout
+the perf infrastructure:
+- `perf.spec.ts` `emitMetric()` — emits `severeRate` alongside raw `severe`
+- `run-audit.mjs` `aggregateMetrics()` — computes `severeRate` from raw data
+- `run-audit.mjs` tables, formatValue, formatDelta, regression detection — all use `severeRate`
+- Old audit-log entries without `severeRate` get it computed on-the-fly from `severe/frameCount`
+
+Clean 120Hz baseline established (3 runs, all 19 tests). LoAF blocking increase (141→192ms for
+P14a) noted but not actionable — likely the tighter 8.3ms frame budget at 120Hz.
+
+### 19 April 2026 — P13 perf test fix (test assumption error, not app bug)
+
+**Problem:** P13 perf test ("image detail enter/exit — scroll restoration") failed with
+scroll delta 3000px (threshold <606px). Appeared after position-preservation commits
+(872734dd8–9d12d4db1).
+
+**Root cause:** The test's measurement was wrong, not the app. `focusNthItem(2)` triggers
+position-preservation which scrolls the viewport from 3000px to ~845px (the focused image's
+natural position in the sorted grid). Then `cells.nth(2).dblclick()` hits a *different*
+image because the virtualizer re-rendered at the new scroll position. The CSS toggle
+(`contents` → `absolute inset-0`) resets scrollTop to 0, and `useReturnFromDetail` doesn't
+restore because `wasViewing === previousFocus`.
+
+Confirmed on real TEST data (1.3M images) via A/B diagnostic test. User visually verified
+that both dblclick paths correctly return to the focused image's natural position.
+
+**Fix (perf.spec.ts — P13, P14, P15):**
+1. Record `scrollBefore` AFTER `focusNthItem` settles (not before the focus).
+2. Dblclick the focused cell via `[data-grid-cell][class*="ring-2"]` instead of
+   `cells.nth(N)` which may target a different cell after scroll moved.
+3. Added 300ms settle wait between `focusNthItem` and scroll measurement.
+
+**Verification:** 315 unit tests pass, 145 E2E tests pass, P13/P14/P15 perf re-run
+(3 runs each) all green. P13a max frame improved 133→91ms.
+
 ### 18 April 2026 — Browser back/forward navigation (Sessions 6–7)
 
 Fixed two problems that completely broke browser back/forward navigation.

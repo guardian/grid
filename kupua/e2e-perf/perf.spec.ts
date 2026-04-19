@@ -652,6 +652,11 @@ async function resetPerfProbes(kupua: any) {
 // ---------------------------------------------------------------------------
 
 function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unknown>) {
+  // severeRate = severe per 1000 frames — refresh-rate-independent.
+  // Raw `severe` count doubles at 120Hz vs 60Hz; severeRate stays stable.
+  const severeRate = snap.jank.frameCount > 0
+    ? Math.round(snap.jank.jankyFrames50ms / snap.jank.frameCount * 1000 * 10) / 10
+    : 0;
   const line = JSON.stringify({
     id,
     timestamp: new Date().toISOString(),
@@ -659,6 +664,7 @@ function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unkno
     clsMax: Number(snap.cls.maxSingle.toFixed(4)),
     maxFrame: Math.round(snap.jank.maxFrameMs),
     severe: snap.jank.jankyFrames50ms,
+    severeRate,
     p95Frame: Math.round(snap.jank.p95FrameMs),
     domChurn: snap.dom.totalChurn,
     loafBlocking: Math.round(snap.loaf.totalBlockingMs),
@@ -1359,24 +1365,29 @@ test.describe("Rendering Performance Smoke", () => {
     }
     await kupua.page.waitForTimeout(500);
 
-    // Note scroll position before entering detail
-    const scrollBefore = await kupua.getScrollTop();
+    // Focus the 3rd visible item. Position-preservation may adjust
+    // scroll to where the focused image naturally lives — that's correct.
+    // Record scrollBefore AFTER the focus settles.
     await kupua.focusNthItem(2);
     const focusedId = await kupua.getFocusedImageId();
+    await kupua.page.waitForTimeout(300);
+    const scrollBefore = await kupua.getScrollTop();
     console.log(`  [P13] Focused: ${focusedId}, scrollTop=${scrollBefore}`);
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(300);
     await resetPerfProbes(kupua);
 
-    // Double-click to open image detail
+    // Double-click the focused cell to open image detail.
+    // Use the ring-2 focus indicator rather than nth(2), because
+    // position-preservation may have changed which cell is at nth(2).
     console.log(`  [P13] Opening image detail...`);
     if (await kupua.isGridView()) {
-      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
-      await cells.nth(2).dblclick();
+      const focusedCell = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
+      await focusedCell.dblclick();
     } else {
-      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
-      await rows.nth(2).dblclick();
+      const focusedRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="ring-2"]');
+      await focusedRow.dblclick();
     }
     await kupua.page.waitForTimeout(1500);
 
@@ -1394,11 +1405,11 @@ test.describe("Rendering Performance Smoke", () => {
     logPerfReport("P13b: Exit Image Detail", snapExit);
     emitMetric("P13b", snapExit);
 
-    // Check scroll position was restored
+    // Check scroll position was restored to the focused image's position
     const scrollAfter = await kupua.getScrollTop();
     const scrollDelta = Math.abs(scrollAfter - scrollBefore);
     console.log(`  [P13] Scroll before=${scrollBefore}, after=${scrollAfter}, delta=${scrollDelta}px`);
-    // Scroll position should be restored to within ~1 row height
+    // Scroll should return to where the focused image naturally lives
     expect(scrollDelta).toBeLessThan(GRID_ROW_HEIGHT * 2);
   });
 
@@ -1423,14 +1434,15 @@ test.describe("Rendering Performance Smoke", () => {
     await gotoPerfSearch(kupua);
     await requireRealData(kupua);
 
-    // Enter detail on the 3rd image
+    // Enter detail on the 4th image
     await kupua.focusNthItem(3);
+    await kupua.page.waitForTimeout(300);
     if (await kupua.isGridView()) {
-      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
-      await cells.nth(3).dblclick();
+      const focusedCell = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
+      await focusedCell.dblclick();
     } else {
-      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
-      await rows.nth(3).dblclick();
+      const focusedRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="ring-2"]');
+      await focusedRow.dblclick();
     }
     await kupua.page.waitForTimeout(1500);
 
@@ -1509,12 +1521,13 @@ test.describe("Rendering Performance Smoke", () => {
 
     // Enter detail
     await kupua.focusNthItem(3);
+    await kupua.page.waitForTimeout(300);
     if (await kupua.isGridView()) {
-      const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
-      await cells.nth(3).dblclick();
+      const focusedCell = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
+      await focusedCell.dblclick();
     } else {
-      const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
-      await rows.nth(3).dblclick();
+      const focusedRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="ring-2"]');
+      await focusedRow.dblclick();
     }
     await kupua.page.waitForTimeout(1500);
 
