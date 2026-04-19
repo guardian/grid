@@ -540,7 +540,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       }, SEEK_DEFERRED_SCROLL_MS);
       return () => clearTimeout(timer);
     }
-  }, [seekGeneration, seekTargetLocalIndex, seekTargetGlobalIndex, seekSubRowOffset, twoTier, virtualizer, parentRef]);
+  }, [seekGeneration, seekTargetLocalIndex, seekTargetGlobalIndex, seekSubRowOffset, twoTier, parentRef]);
 
   // -------------------------------------------------------------------------
   // 7. Search params scroll reset (with sort-around-focus detection)
@@ -827,8 +827,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       //   Frame 1: ResizeObserver fires, React re-renders with real columns
       //   Frame 2: virtualizer spacer has correct total size, scrollHeight is valid
       // Then we can safely set scrollTop directly on the DOM.
+      let raf2 = 0;
       const raf1 = requestAnimationFrame(() => {
-        const raf2 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
           // Extremum snapping: if the source density was at the very top
           // (scrollTop=0), snap the target to 0 instead of computing from
           // the ratio. The ratio math maps viewport-centre positions between
@@ -913,9 +914,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           // so this event was always redundant. Removing it eliminates the drift.
           clearDensityFocusRatio();
         });
-        return () => cancelAnimationFrame(raf2);
       });
-      return () => cancelAnimationFrame(raf1);
+      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     } else {
       // No saved density-focus state — scroll the anchor into view.
       // Capture the anchor's global index NOW (mount time), before the
@@ -924,8 +924,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
 
       // scrollToIndex also may not work on mount — defer similarly
+      let raf2 = 0;
       const raf1 = requestAnimationFrame(() => {
-        const raf2 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
           // Re-derive local index from the stable global index.
           // In two-tier mode, the virtualizer uses global indices.
           const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
@@ -941,9 +942,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
           clearDensityFocusRatio();
         });
-        return () => cancelAnimationFrame(raf2);
       });
-      return () => cancelAnimationFrame(raf1);
+      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);

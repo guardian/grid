@@ -437,6 +437,54 @@ describe("sort-around-focus", () => {
     expect(state().sortAroundFocusStatus).toBeNull();
     expect(state().focusedImageId).toBe("img-500");
   });
+
+  it("builds correctly centered buffer around focused image", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    actions().setFocusedImageId("img-500");
+
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+
+    const { results, bufferOffset, total, imagePositions, startCursor, endCursor, focusedImageId } = state();
+
+    // Buffer is centered around image 500
+    expect(focusedImageId).toBe("img-500");
+    expect(total).toBe(1000);
+
+    // Target image is present in the buffer
+    const targetLocalIdx = results.findIndex((img) => img?.id === "img-500");
+    expect(targetLocalIdx).toBeGreaterThanOrEqual(0);
+
+    // imagePositions maps the target to its global offset
+    const globalIdx = imagePositions.get("img-500");
+    expect(globalIdx).toBeDefined();
+    expect(globalIdx).toBe(bufferOffset + targetLocalIdx);
+
+    // Buffer has backward + target + forward hits (approximately PAGE_SIZE)
+    // Each direction fetches floor(PAGE_SIZE/2) = 100 items, plus the target = ~201
+    expect(results.length).toBeGreaterThanOrEqual(100);
+    expect(results.length).toBeLessThanOrEqual(201);
+
+    // Cursors are set (non-null for a mid-buffer position)
+    expect(startCursor).not.toBeNull();
+    expect(endCursor).not.toBeNull();
+
+    // bufferOffset is correct: target is at global position ~500,
+    // backward fetch returns ~100 items before it
+    expect(bufferOffset).toBeGreaterThan(0);
+    expect(bufferOffset).toBeLessThanOrEqual(500);
+    expect(bufferOffset + targetLocalIdx).toBe(globalIdx);
+
+    // Positions map is consistent across the entire buffer
+    assertPositionsConsistent("buffer-around-image");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1437,5 +1485,129 @@ describe("seekToFocused (arrow snap-back)", () => {
 
     expect(state().focusedImageId).toBeNull();
     expect(state()._focusedImageKnownOffset).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: restoreAroundCursor (image-detail reload)
+// ---------------------------------------------------------------------------
+
+describe("restoreAroundCursor", () => {
+  it("restores a centered buffer around a known image", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+
+    // Pick an image in the buffer and grab its sort values as cursor
+    const targetId = "img-500";
+    // Seek to 500 so we can read img-500's sort values from the buffer
+    await actions().seek(500);
+    await waitPastCooldown();
+
+    const targetIdx = state().results.findIndex((img) => img?.id === targetId);
+    expect(targetIdx).toBeGreaterThanOrEqual(0);
+
+    // Build cursor from the image's data (mock uses [uploadTime, id])
+    const targetImg = state().results[targetIdx]!;
+    const cursor = [new Date(targetImg.uploadTime).getTime(), targetImg.id];
+    const cachedOffset = state().bufferOffset + targetIdx;
+
+    const seekGenBefore = state()._seekGeneration;
+
+    // Now restore — simulating what ImageDetail does on reload
+    await actions().restoreAroundCursor(targetId, cursor, cachedOffset);
+
+    // Buffer should be centered around the target
+    const { results, bufferOffset, imagePositions, loading, _seekGeneration } = state();
+
+    expect(loading).toBe(false);
+    expect(_seekGeneration).toBeGreaterThan(seekGenBefore);
+
+    // Target image must be in the buffer
+    const localIdx = results.findIndex((img) => img?.id === targetId);
+    expect(localIdx).toBeGreaterThanOrEqual(0);
+
+    // Global offset correct
+    const globalIdx = imagePositions.get(targetId);
+    expect(globalIdx).toBe(bufferOffset + localIdx);
+    expect(globalIdx).toBe(cachedOffset);
+
+    // Buffer is reasonably sized (~201: 100 back + target + 100 forward)
+    expect(results.length).toBeGreaterThanOrEqual(100);
+    expect(results.length).toBeLessThanOrEqual(201);
+
+    assertPositionsConsistent("restoreAroundCursor");
+  });
+
+  it("falls back gracefully when image not found", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+
+    // Restore for a non-existent image
+    await actions().restoreAroundCursor("img-nonexistent", [0, "img-nonexistent"], 500);
+
+    expect(state().loading).toBe(false);
+  });
+
+  it("falls back to seek when cursor is null", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+
+    const seekGenBefore = state()._seekGeneration;
+    await actions().restoreAroundCursor("img-500", null, 500);
+    await waitPastCooldown();
+
+    // Should have used seek() fallback — seekGeneration bumped
+    expect(state()._seekGeneration).toBeGreaterThan(seekGenBefore);
+    assertPositionsConsistent("restoreAroundCursor null cursor");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: fetchAggregations debounce
+// ---------------------------------------------------------------------------
+
+describe("fetchAggregations", () => {
+  it("second call during debounce does not leave first promise hanging", async () => {
+    mock = new MockDataSource(500);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    await flush();
+
+    // Fire first call — enters 500ms debounce await
+    const p1 = actions().fetchAggregations();
+
+    // Before timer fires, fire second call — kills first timer
+    await flush();
+    const p2 = actions().fetchAggregations();
+
+    // Both promises must resolve within a reasonable time.
+    // Before the fix, p1 would hang forever (zombie promise).
+    const timeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 3000));
+    const result = await Promise.race([
+      Promise.all([p1, p2]).then(() => "resolved" as const),
+      timeout,
+    ]);
+
+    expect(result).toBe("resolved");
+  });
+
+  it("force=true bypasses debounce entirely", async () => {
+    mock = new MockDataSource(500);
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().search();
+    await flush();
+
+    // force=true should skip debounce and complete quickly
+    await actions().fetchAggregations(true);
+    // No hang — if we get here, the promise resolved
+    expect(state().aggLoading).toBe(false);
   });
 });

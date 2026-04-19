@@ -12,11 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none — starting fresh)
-
-## Context for next agent
-
-Previous work committed. P13 perf test fix + severeRate refresh-rate-independent metric.
-Clean 120Hz baseline in audit-log (3 runs, entry labelled "120Hz baseline — severeRate metric").
+(none)
 
 ## Session Log
+
+(empty — previous session's Part A work moved to changelog.md)

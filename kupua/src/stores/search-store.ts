@@ -468,6 +468,9 @@ let _seekCooldownUntil = 0;
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Resolve function for the pending debounce promise (prevents zombie leak). */
+let _aggDebouncedResolve: (() => void) | null = null;
+
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
 
@@ -1021,32 +1024,32 @@ async function _loadBufferAroundImage(
   const nz = detectNullZoneCursor(sortValues, params.orderBy);
   const effectiveCursor = nz ? nz.strippedCursor : sortValues;
 
-  // Forward page: items after the target image
-  const forwardResult = await dataSource.searchAfter(
-    { ...params, length: Math.floor(PAGE_SIZE / 2) },
-    effectiveCursor,
-    pitId,
-    signal,
-    false, // reverse
-    false, // noSource
-    false, // missingFirst
-    nz?.sortOverride,
-    nz?.extraFilter,
-  );
-  if (signal.aborted) return null;
-
-  // Backward page: items before the target image
-  const backwardResult = await dataSource.searchAfter(
-    { ...params, length: Math.floor(PAGE_SIZE / 2) },
-    effectiveCursor,
-    pitId,
-    signal,
-    true, // reverse
-    false, // noSource
-    false, // missingFirst
-    nz?.sortOverride,
-    nz?.extraFilter,
-  );
+  // Forward + backward pages are independent ES requests against the same
+  // cursor/PIT — run in parallel (same pattern as seek() position-map path).
+  const [forwardResult, backwardResult] = await Promise.all([
+    dataSource.searchAfter(
+      { ...params, length: Math.floor(PAGE_SIZE / 2) },
+      effectiveCursor,
+      pitId,
+      signal,
+      false, // reverse
+      false, // noSource
+      false, // missingFirst
+      nz?.sortOverride,
+      nz?.extraFilter,
+    ),
+    dataSource.searchAfter(
+      { ...params, length: Math.floor(PAGE_SIZE / 2) },
+      effectiveCursor,
+      pitId,
+      signal,
+      true, // reverse
+      false, // noSource
+      false, // missingFirst
+      nz?.sortOverride,
+      nz?.extraFilter,
+    ),
+  ]);
   if (signal.aborted) return null;
 
   // Remap sort values from null-zone shape back to full sort clause shape
@@ -1716,7 +1719,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, null, options?.phantomOnly);
+        }, prevNeighbours, null, options?.phantomOnly)
+          .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
         // The position map uses a dedicated PIT and abort controller, fully
@@ -3236,20 +3240,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     try {
       const sortClause = buildSortClause(params.orderBy);
 
-      // Step 1: countBefore to get the exact global offset of the cursor.
-      // This is cheap (~5-10ms) and gives us the precise bufferOffset.
-      const exactOffset = await dataSource.countBefore(
-        params, cursor, sortClause, signal,
-      );
-      if (signal.aborted) return;
-
-      // Step 2: Fetch the target image by ID — we need the hit object and
-      // its current sort values (which may differ from the cached cursor if
-      // the sort field was updated between store & reload).
-      const targetResult = await dataSource.searchAfter(
-        { ...params, ids: imageId, length: 1 },
-        null, null, signal,
-      );
+      // Steps 1 + 2 are independent — run in parallel.
+      // Step 1: countBefore for exact global offset.
+      // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
+      const [exactOffset, targetResult] = await Promise.all([
+        dataSource.countBefore(params, cursor, sortClause, signal),
+        dataSource.searchAfter(
+          { ...params, ids: imageId, length: 1 },
+          null, null, signal,
+        ),
+      ]);
       if (signal.aborted) return;
 
       const targetHit = targetResult.hits[0];
@@ -3339,12 +3339,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (!force && key === _aggCacheKey) return;
     if (!force && aggCircuitOpen) return;
 
+    if (_aggDebouncedResolve) _aggDebouncedResolve();
     if (_aggDebounceTimer) clearTimeout(_aggDebounceTimer);
     if (_aggAbortController) _aggAbortController.abort();
 
     if (!force) {
       await new Promise<void>((resolve) => {
-        _aggDebounceTimer = setTimeout(resolve, AGG_DEBOUNCE_MS);
+        _aggDebouncedResolve = resolve;
+        _aggDebounceTimer = setTimeout(() => {
+          _aggDebouncedResolve = null;
+          resolve();
+        }, AGG_DEBOUNCE_MS);
       });
     }
 

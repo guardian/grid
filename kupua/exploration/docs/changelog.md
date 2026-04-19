@@ -14,6 +14,45 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 19 April 2026 — Part A: small fixes to big files
+
+Six correctness fixes across `search-store.ts` and `useScrollEffects.ts`, identified
+during a deep review of the five core files.
+
+**search-store.ts (4 fixes):**
+- **A1:** `_loadBufferAroundImage` — parallelised sequential fwd/bwd `searchAfter` calls
+  with `Promise.all`. Both use the same cursor and PIT, are fully independent. Mirrors
+  existing pattern in `seek()` position-map path.
+- **A2:** `restoreAroundCursor` — parallelised sequential countBefore/searchAfter-by-ID
+  (Step 1 & 2) with `Promise.all`. Neither uses PIT, no shared state. Step 3 depends on
+  both outputs.
+- **A3:** `fetchAggregations` debounce zombie promise — when a second call arrived during
+  the debounce window, `clearTimeout` killed the timer but the first caller's `resolve`
+  never fired, leaking a dangling promise + closure. Fix: module-level `_aggDebouncedResolve`
+  stores the pending resolve; new call resolves old promise before clearing timer. Old caller
+  resumes and exits via existing cache-key guard.
+- **A4:** Fire-and-forget `_findAndFocusImage` — appended `.catch(console.error)` as
+  belt-and-suspenders (internal try/catch + 8s timeout + finally already handles all known
+  paths).
+
+**useScrollEffects.ts (2 fixes):**
+- **A5:** Effect #10 (density-focus mount restore) — nested `requestAnimationFrame`
+  pattern had `raf2` declared inside `raf1` callback; the `return () => cancelAnimationFrame(raf2)`
+  was the rAF callback's return value (silently discarded). Hoisted `let raf2 = 0` to outer
+  scope in both branches; cleanup now cancels both handles.
+- **A6:** Effect #6 (seek) — removed `virtualizer` from dependency array. The effect body
+  never references it; `useVirtualizer` returns a new object every render, causing spurious
+  re-fires (generation guard made them no-ops but wasted work).
+
+**Tests added (6):**
+- A1: "builds correctly centered buffer around focused image" (sort-around-focus describe)
+- A2: 3 tests for `restoreAroundCursor` — centered restore, image-not-found fallback,
+  null-cursor seek fallback
+- A3: 2 tests for `fetchAggregations` — zombie promise detection (confirmed failure pre-fix),
+  force=true debounce bypass
+
+**Validation:** 321/321 Vitest, 145/145 Playwright E2E.
+
 ### 19 April 2026 — severeRate: refresh-rate-independent perf metric
 
 **Problem:** P14 traversal severe frames appeared to double (4→9) after position-preservation
