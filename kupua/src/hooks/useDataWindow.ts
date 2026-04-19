@@ -40,6 +40,7 @@
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { Image } from "@/types/image";
 
 /**
@@ -114,13 +115,10 @@ export function getVisibleImageIds(): string[] {
     for (const i of [centre + d, centre - d]) {
       if (i < _visibleStart || i > _visibleEnd) continue;
       // In two-tier mode indices are global; in normal mode buffer-local.
-      // Try global→local first, fall back to using index directly.
-      let localIdx = i - bufferOffset;
-      if (localIdx < 0 || localIdx >= results.length) localIdx = i;
-      if (localIdx >= 0 && localIdx < results.length) {
-        const img = results[localIdx];
-        if (img?.id) ids.push(img.id);
-      }
+      const localIdx = i - bufferOffset;
+      if (localIdx < 0 || localIdx >= results.length) continue;
+      const img = results[localIdx];
+      if (img?.id) ids.push(img.id);
     }
   }
   return ids;
@@ -276,11 +274,7 @@ export function useDataWindow(): DataWindow {
   // everything is identical to the pre-two-tier behaviour — buffer-local
   // indices, buffer-length virtualizer count, buffer-mode scrubber.
   // ---------------------------------------------------------------------------
-  const twoTier = useSearchStore((s) =>
-    POSITION_MAP_THRESHOLD > 0 &&
-    s.total > SCROLL_MODE_THRESHOLD &&
-    s.total <= POSITION_MAP_THRESHOLD,
-  );
+  const twoTier = useSearchStore((s) => isTwoTierFromTotal(s.total));
 
   // In two-tier mode, the virtualizer spans all items. In normal mode, just
   // the buffer length.

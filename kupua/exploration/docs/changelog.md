@@ -14,6 +14,57 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 19 April 2026 — Part B: tiny loose ends from core review
+
+Seven small hardening/maintenance fixes from the combined deep review of the five core
+files. Applied after Part A (same review session).
+
+**search-store.ts (3 fixes):**
+- **B3:** `computeScrollTarget` — `Math.round` → `Math.floor` for `currentRow`. At the
+  headroom boundary row, `Math.round` snapped to the next row at 50% scroll, causing the
+  headroom check to fail and producing negative `seekSubRowOffset` values. `Math.floor`
+  is semantically correct ("on a row until fully scrolled past it"). Added Case 10
+  boundary test + updated existing test expectations.
+- **B5:** `fetchAggregations` — snapshot `frozenParams` once at top and reuse. Previously
+  called 4 times across the async function; params drift between calls could store wrong
+  cache key.
+- **B7:** `seek()` — typed `let result: SearchAfterResult | undefined` (was untyped `let
+  result;`) and added `if (!result)` guard before first access. Pure safety net for future
+  edits that might introduce a new code path without assignment.
+
+**useScrollEffects.ts (1 fix):**
+- **B2:** Replaced hardcoded `303` with `GRID_ROW_HEIGHT` in bottom-extremum snap and
+  in `scroll-geometry-ref.ts` default.
+
+**useDataWindow.ts (1 fix):**
+- **C2:** `getVisibleImageIds` — replaced fallback `localIdx = i` with `continue`. In
+  two-tier mode the fallback could index into `results[12000]` (past array length). The
+  `img?.id` guard prevented crashes but the intent was obscured.
+
+**New shared utility:**
+- **B1:** Extracted `isTwoTierFromTotal()` to `lib/two-tier.ts`. Was duplicated in
+  `useScrollEffects.ts` and `useDataWindow.ts` with a "must stay in sync" comment.
+  Both files now import from single source of truth.
+
+**Other:**
+- **F1:** Removed misleading `@deprecated` from `loadMore` — it's the canonical public API.
+
+**Skipped with reason:**
+- B4 (`_pendingFocusDelta` orphan): practically impossible, `search()` clears at top.
+- B6 (`registerScrollGeometry` in effect): not worth it — plain module-level assignment.
+- E0c (`dangerouslySetInnerHTML` in Scrubber tooltip): user chose to leave — values internal.
+- F2 (position map fetch dedup): not worth control-flow reshuffling for 6 lines.
+- F3 (perf marks on abort): very minor, DevTools only.
+- F4 (timeout + offset correction race): harmless no-op.
+
+**Housekeeping:**
+- Deleted superseded April 2025 single-file reviews (search-store, useScrollEffects).
+- Annotated combined review summary table with done/skipped status.
+- Moved combined review to `zz Archive/`.
+
+**Validation:** 322/322 Vitest, 145/145 Playwright E2E (1 flaky retry — T3 two-tier drag,
+confirmed timing flake via 5/5 repeat-each, not a regression).
+
 ### 19 April 2026 — Part A: small fixes to big files
 
 Six correctness fixes across `search-store.ts` and `useScrollEffects.ts`, identified

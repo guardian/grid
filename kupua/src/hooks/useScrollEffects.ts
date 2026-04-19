@@ -29,20 +29,12 @@ import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
-import { SEEK_DEFERRED_SCROLL_MS, SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
+import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
+import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import { devLog } from "@/lib/dev-log";
-
-/**
- * Check whether two-tier virtualisation is active from imperative store state.
- * Mirrors the reactive derivation in useDataWindow — must stay in sync.
- */
-function isTwoTierFromTotal(total: number): boolean {
-  return POSITION_MAP_THRESHOLD > 0 &&
-    total > SCROLL_MODE_THRESHOLD &&
-    total <= POSITION_MAP_THRESHOLD;
-}
 
 /**
  * Convert a global image index to the index the virtualizer expects.
@@ -847,11 +839,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           // row of) the bottom edge, snap to the target's maxScroll. The
           // ratio-based restore uses the viewport-centre anchor which is
           // naturally a few rows above the bottom — landing 2-3 rows short.
-          // Use 303 (grid row height) as threshold — the largest row height
+          // Use GRID_ROW_HEIGHT as threshold — the largest row height
           // of any density, so this catches "near bottom" in both table and grid.
           const targetMaxScroll = el.scrollHeight - el.clientHeight;
           if (saved.sourceMaxScroll > 0 &&
-              saved.sourceMaxScroll - saved.sourceScrollTop < 303) {
+              saved.sourceMaxScroll - saved.sourceScrollTop < GRID_ROW_HEIGHT) {
             devLog(`[density-focus RESTORE] extremum snap → maxScroll=${targetMaxScroll} (source was at bottom: scrollTop=${saved.sourceScrollTop} maxScroll=${saved.sourceMaxScroll} gap=${saved.sourceMaxScroll - saved.sourceScrollTop})`);
             el.scrollTop = targetMaxScroll;
             clearDensityFocusRatio();

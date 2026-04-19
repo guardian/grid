@@ -10,12 +10,14 @@
  * zero React, zero prop-drilling.
  */
 
+import { GRID_ROW_HEIGHT } from "@/constants/layout";
+
 export interface ScrollGeometrySnapshot {
   rowHeight: number;
   columns: number;
 }
 
-let _geo: ScrollGeometrySnapshot = { rowHeight: 303, columns: 1 };
+let _geo: ScrollGeometrySnapshot = { rowHeight: GRID_ROW_HEIGHT, columns: 1 };
 
 /** Register the current scroll geometry. Call on mount and when columns change. */
 export function registerScrollGeometry(geo: ScrollGeometrySnapshot): void {

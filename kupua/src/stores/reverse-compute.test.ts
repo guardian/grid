@@ -97,7 +97,7 @@ describe("computeScrollTarget", () => {
   // -------------------------------------------------------------------------
   // Case 2: Half-row sub-pixel preservation
   //
-  // User at scrollTop=150 (half a grid row of 303px). Round(150/303)=0,
+  // User at scrollTop=150 (half a grid row of 303px). floor(150/303)=0,
   // so reverseIndex=0 < backwardItemCount=100 → headroom fires.
   // Sub-row offset = 150 - 0*303 = 150.
   // reverseIndex = 0 + 100 = 100.
@@ -114,30 +114,24 @@ describe("computeScrollTarget", () => {
   });
 
   it("scrollTop=150 in table preserves sub-row offset", () => {
-    // TABLE_ROW_HEIGHT=32. round(150/32)=5. reverseIndex=5*1=5.
-    // 5 < 100 → headroom fires. subRow = 150 - 5*32 = 150-160 = -10.
-    // Actually Math.round(150/32) = Math.round(4.6875) = 5.
-    // subRow = 150 - 5*32 = -10. That's negative...
-    // Let me recalculate: 150/32 = 4.6875, round = 5, 5*32=160.
-    // subRow = 150 - 160 = -10. This is because Math.round overshoots.
-    // This is the existing behaviour — the sub-row offset can be negative
-    // (effect #6 handles it). The important thing is it's preserved.
+    // TABLE_ROW_HEIGHT=32. floor(150/32)=4. reverseIndex=4*1=4.
+    // 4 < 100 → headroom fires. subRow = 150 - 4*32 = 22.
     const result = computeScrollTarget(tableInput({
       currentScrollTop: 150,
       backwardItemCount: 100,
     }));
 
-    // reverseIndex = round(150/32) * 1 = 5. 5 < 100 → headroom.
-    // target = 5 + 100 = 105.
-    expect(result.scrollTargetIndex).toBe(105);
-    // subRow = 150 - 5*32 = -10
-    expect(result.seekSubRowOffset).toBe(-10);
+    // reverseIndex = floor(150/32) * 1 = 4. 4 < 100 → headroom.
+    // target = 4 + 100 = 104.
+    expect(result.scrollTargetIndex).toBe(104);
+    // subRow = 150 - 4*32 = 22
+    expect(result.seekSubRowOffset).toBe(22);
   });
 
   // -------------------------------------------------------------------------
   // Case 3: Deep scroll (10 rows deep, 6 cols)
   //
-  // scrollTop=3030. Grid 6-col: round(3030/303)=10. reverseIndex=10*6=60.
+  // scrollTop=3030. Grid 6-col: floor(3030/303)=10. reverseIndex=10*6=60.
   // 60 < 100 → headroom fires. subRow = 3030 - 10*303 = 0.
   // reverseIndex = 60 + 100 = 160.
   // -------------------------------------------------------------------------
@@ -259,7 +253,7 @@ describe("computeScrollTarget", () => {
       backwardItemCount: 100,
     }));
 
-    // round(5151/303) = round(17.0) = 17. reverseIndex = 17*6 = 102.
+    // round(5151/303) = round(17.0) = 17 (same as floor). reverseIndex = 17*6 = 102.
     // 102 ≥ 100 → no headroom. reverseIndex stays 102.
     expect(result.scrollTargetIndex).toBe(102);
     expect(result.seekSubRowOffset).toBe(0);
@@ -267,7 +261,7 @@ describe("computeScrollTarget", () => {
 
   it("fractional boundary: row 16 with sub-row offset (sub-row preserved)", () => {
     // 6 cols, 100 backward items. 100/6 = 16.67 rows.
-    // scrollTop=4948 → 4948/303 = 16.33, round=16. reverseIndex=16*6=96.
+    // scrollTop=4948 → 4948/303 = 16.33, floor=16. reverseIndex=16*6=96.
     // 96 < 100 → headroom fires. reverseIndex = 96 + 100 = 196.
     // subRow = 4948 - 16*303 = 4948 - 4848 = 100.
     const result = computeScrollTarget(gridInput({
@@ -291,9 +285,9 @@ describe("computeScrollTarget", () => {
   it("buffer-shrink: reversePixelTop exceeds maxScroll → clamp", () => {
     // Grid 4 cols, 200 items = 50 rows. scrollHeight = 50 * 303 = 15150.
     // viewport 800 → maxScroll = 15150 - 800 = 14350.
-    // User at scrollTop = 15000 (row ~49.5). round(15000/303) = round(49.5) = 50.
-    // reverseIndex = 50 * 4 = 200. No backward items.
-    // reversePixelTop = floor(200/4)*303 = 50*303 = 15150 ≥ 14350 → clamp.
+    // User at scrollTop = 15000 (row ~49.5). floor(15000/303) = 49.
+    // reverseIndex = 49 * 4 = 196. No backward items.
+    // reversePixelTop = floor(196/4)*303 = 49*303 = 14847 ≥ 14350 → clamp.
     // lastVisibleRow = floor(14350/303) = floor(47.36) = 47.
     // scrollTargetIndex = min(47*4, 199) = min(188, 199) = 188.
     const result = computeScrollTarget(gridInput({
@@ -314,7 +308,7 @@ describe("computeScrollTarget", () => {
   // -------------------------------------------------------------------------
 
   it("large scrollTop past headroom → no headroom adjustment", () => {
-    // 4 cols. scrollTop = 10000. round(10000/303) = round(33.0) = 33.
+    // 4 cols. scrollTop = 10000. floor(10000/303) = 33.
     // reverseIndex = 33*4 = 132. 132 ≥ 100 → no headroom.
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 10000,
@@ -330,7 +324,7 @@ describe("computeScrollTarget", () => {
   // -------------------------------------------------------------------------
 
   it("table: deep scroll past headroom", () => {
-    // TABLE_ROW_HEIGHT=32. scrollTop=5000. round(5000/32)=round(156.25)=156.
+    // TABLE_ROW_HEIGHT=32. scrollTop=5000. floor(5000/32)=156.
     // reverseIndex=156*1=156. 156 ≥ 100 → no headroom.
     const result = computeScrollTarget(tableInput({
       currentScrollTop: 5000,
@@ -344,9 +338,9 @@ describe("computeScrollTarget", () => {
   it("table: buffer-shrink clamp", () => {
     // 1 col, 200 items. scrollHeight = 200 * 32 = 6400.
     // viewport 800 → maxScroll = 5600.
-    // scrollTop = 6000. round(6000/32)=round(187.5)=188.
-    // reverseIndex = 188. No backward items.
-    // reversePixelTop = 188*32 = 6016 ≥ 5600 → clamp.
+    // scrollTop = 6000. floor(6000/32)=187.
+    // reverseIndex = 187. No backward items.
+    // reversePixelTop = 187*32 = 5984 ≥ 5600 → clamp.
     // lastVisibleRow = floor(5600/32) = 175.
     // scrollTargetIndex = min(175, 199) = 175.
     const result = computeScrollTarget(tableInput({
@@ -365,7 +359,7 @@ describe("computeScrollTarget", () => {
 
   it("matches E2E observed values: scrollTop=7725, offset=5057, len=300", () => {
     // From Phase 1 test output: scrollTop=7725, offset=5057, len=300, visiblePos=5157.
-    // 4-col grid. round(7725/303) = round(25.495) = 25.
+    // 4-col grid. floor(7725/303) = 25.
     // reverseIndex = 25*4 = 100. With backwardItemCount=100: 100 ≥ 100 → no headroom.
     // reversePixelTop = floor(100/4)*303 = 25*303 = 7575.
     // totalRows = ceil(300/4) = 75. scrollHeight = 75*303 = 22725.
@@ -381,6 +375,37 @@ describe("computeScrollTarget", () => {
 
     expect(result.scrollTargetIndex).toBe(100);
     expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 10: Headroom boundary — past 50% of last headroom row
+  //
+  // This is the case that caught the Math.round bug. With 6 cols and 100
+  // backward items, the last headroom row is 16 (reverseIndex=96 < 100).
+  // At scrollTop = 16*303 + 152 = 5000 (past 50% of row 16):
+  //   Math.round would give row 17 → reverseIndex=102 ≥ 100 → headroom
+  //   SKIPPED → wrong content.
+  //   Math.floor gives row 16 → reverseIndex=96 < 100 → headroom FIRES
+  //   → correct adjustment.
+  // -------------------------------------------------------------------------
+
+  it("headroom boundary: past 50% of last headroom row → headroom still fires", () => {
+    const result = computeScrollTarget({
+      currentScrollTop: 5000, // row 16 + 152px (past 50% of 303px row)
+      isTable: false,
+      clientWidth: GRID_COLS_6,
+      clientHeight: VIEWPORT_HEIGHT,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      total: 10000,
+      actualOffset: 5000,
+      clampedOffset: 5100,
+    });
+
+    // floor(5000/303) = 16. reverseIndex = 16*6 = 96. 96 < 100 → headroom fires.
+    // reverseIndex = 96 + 100 = 196. subRow = 5000 - 16*303 = 152.
+    expect(result.scrollTargetIndex).toBe(196);
+    expect(result.seekSubRowOffset).toBe(152);
   });
 });
 

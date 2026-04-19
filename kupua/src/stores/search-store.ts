@@ -27,6 +27,7 @@ import type {
   AggregationsResult,
   AggregationResult,
   SortDistribution,
+  SearchAfterResult,
 } from "@/dal";
 import type { PositionMap } from "@/dal/position-map";
 import { cursorForPosition } from "@/dal/position-map";
@@ -119,7 +120,13 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
   const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
   const cols = isTable ? 1 : Math.max(1, Math.floor(clientWidth / GRID_MIN_CELL_WIDTH));
 
-  const currentRow = Math.round(currentScrollTop / rowH);
+  // Math.floor, not Math.round: you're "on" a row until you've fully scrolled
+  // past it. Math.round snaps to the NEXT row at 50%, which (a) causes the
+  // headroom check below to miss the boundary row when scrollTop is in the
+  // upper half — skipping the essential reverseIndex += backwardItemCount
+  // adjustment — and (b) produces negative seekSubRowOffset values that
+  // bypass the `seekSubRowOffset > 0` guard in effect #6.
+  const currentRow = Math.floor(currentScrollTop / rowH);
   let reverseIndex = currentRow * cols;
   let seekSubRowOffset = 0;
 
@@ -391,8 +398,7 @@ interface SearchState {
     cachedOffset: number,
   ) => Promise<void>;
 
-  // Legacy compatibility — thin wrapper over extendForward
-  /** @deprecated Use extendForward instead. Kept for view compatibility during migration. */
+  // Thin wrapper over extendForward — the canonical public API for views.
   loadMore: () => Promise<void>;
 
   setFocusedImageId: (id: string | null) => void;
@@ -2156,7 +2162,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       const halfBuffer = Math.floor(PAGE_SIZE / 2);
       const fetchStart = Math.max(0, clampedOffset - halfBuffer);
 
-      let result;
+      let result: SearchAfterResult | undefined;
       let actualOffset = fetchStart;
       let usedNullZoneFilter = false;
       // True when the seek path gives an exact offset (position-map, shallow).
@@ -2968,6 +2974,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Don't overwrite the store with stale results.
       if (signal.aborted) return;
 
+      // Safety net: all branches above should assign result, but guard
+      // against a future edit that introduces a path without assignment.
+      if (!result) {
+        set({ loading: false });
+        return;
+      }
+
       if (result.hits.length === 0) {
         set({ loading: false });
         return;
@@ -3067,7 +3080,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
         const cols = isTable ? 1 : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
         _diagOrigScrollTop = scrollEl.scrollTop;
-        _diagCurrentRow = Math.round(scrollEl.scrollTop / rowH);
+        _diagCurrentRow = Math.floor(scrollEl.scrollTop / rowH);
         _diagCols = cols;
         let reverseIndex = _diagCurrentRow * cols;
         if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
@@ -3203,7 +3216,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   // -------------------------------------------------------------------------
-  // Legacy compatibility wrappers
+  // Thin wrapper — loadMore delegates to extendForward
   // -------------------------------------------------------------------------
 
   loadMore: async () => {
@@ -3335,7 +3348,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   fetchAggregations: async (force) => {
     const { dataSource, aggCircuitOpen, _aggCacheKey } = get();
 
-    const key = aggCacheKey(frozenParams(get().params, get));
+    const params = frozenParams(get().params, get);
+    const key = aggCacheKey(params);
     if (!force && key === _aggCacheKey) return;
     if (!force && aggCircuitOpen) return;
 
@@ -3353,8 +3367,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       });
     }
 
+    // Re-check after debounce — params may have changed while waiting
     const currentKey = aggCacheKey(frozenParams(get().params, get));
     if (!force && currentKey === get()._aggCacheKey) return;
+
+    // Snapshot params for the actual ES call — use these consistently
+    // for the request AND the cache key stored with the result.
+    const callParams = frozenParams(get().params, get);
 
     _aggAbortController = new AbortController();
     set({ aggLoading: true });
@@ -3363,7 +3382,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       const result = await dataSource.getAggregations(
-        frozenParams(get().params, get),
+        callParams,
         AGG_FIELDS,
         _aggAbortController.signal,
       );
@@ -3374,7 +3393,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         aggregations: result,
         aggTook: result.took ?? null,
         aggLoading: false,
-        _aggCacheKey: aggCacheKey(frozenParams(get().params, get)),
+        _aggCacheKey: aggCacheKey(callParams),
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
         expandedAggs: {},
         expandedAggsLoading: new Set(),

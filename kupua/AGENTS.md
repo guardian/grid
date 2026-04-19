@@ -58,12 +58,12 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 |---|---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
 | Position Map | `dal/position-map.ts` | 80 | `PositionMap` struct-of-arrays (ids + sortValues), `cursorForPosition()` helper |
-| Store | `stores/search-store.ts` | 3,040 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil, position map, parallel seek |
-| Data Window | `hooks/useDataWindow.ts` | 415 | Buffer↔view bridge. Two-tier mode (`virtualizerCount=total`), scroll-triggered seek, extend triggers |
+| Store | `stores/search-store.ts` | 3,580 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil, position map, parallel seek |
+| Data Window | `hooks/useDataWindow.ts` | 460 | Buffer↔view bridge. Two-tier mode (`virtualizerCount=total`), scroll-triggered seek, extend triggers |
 | Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
 | Grid | `components/ImageGrid.tsx` | 510 | Responsive thumbnails, scroll anchoring on width change |
 | Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
-| Scroll | `hooks/useScrollEffects.ts` | 890 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
+| Scroll | `hooks/useScrollEffects.ts` | 985 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
 | Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. |
 | Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Uses `useImageTraversal`. Nav buttons. |
 | Traversal | `hooks/useImageTraversal.ts` | 210 | Shared prev/next for detail + fullscreen. Proactive extend, pending nav, prefetch. All scroll modes. |
@@ -77,8 +77,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **315 Vitest** unit/integration tests (~36s) — `npm test`
-- **140 Playwright E2E** tests (~6min) — `npx playwright test`
+- **322 Vitest** unit/integration tests (~36s) — `npm test`
+- **145 Playwright E2E** tests (~6min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
