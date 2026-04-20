@@ -13,6 +13,9 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO this will need to be changed
+// search_query is for text search
+// search_document is for embedded images
 sealed trait InputType {
   def value: String
 }
@@ -22,6 +25,9 @@ object InputType {
   }
   case object SearchDocument extends InputType {
     val value = "search_document"
+  }
+  case object SearchQuery extends InputType {
+    val value = "search_query"
   }
 }
 
@@ -34,7 +40,8 @@ object Bedrock {
   private case class BedrockTextRequest(
     input_type: String,
     embedding_types: List[String],
-    texts: List[String]
+    texts: List[String],
+    output_dimension: 256
   )
 
   private implicit val bedrockImageRequestFormat: OFormat[BedrockImageRequest] = Json.format[BedrockImageRequest]
@@ -68,7 +75,16 @@ class Bedrock(config: CommonConfig)
         val body = Bedrock.BedrockTextRequest(
           input_type = inputType.value,
           embedding_types = List("float"),
-          texts = inputData
+          texts = inputData,
+          output_dimension = 256
+        )
+        Json.toJson(body).toString()
+      case InputType.SearchQuery =>
+        val body = Bedrock.BedrockTextRequest(
+          input_type = inputType.value,
+          embedding_types = List("float"),
+          texts = inputData,
+          output_dimension = 256
         )
         Json.toJson(body).toString()
     }
@@ -79,7 +95,7 @@ class Bedrock(config: CommonConfig)
         .accept("*/*")
         .body(SdkBytes.fromUtf8String(jsonBody))
         .contentType("application/json")
-        .modelId("cohere.embed-english-v3")
+        .modelId("global.cohere.embed-v4:0")
         .build()
     }
     request
