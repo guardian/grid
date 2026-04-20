@@ -11,6 +11,12 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — openDetailForNthItem uses dblclick which sets
+// focus in explicit mode; Home logo tests should be mode-stable.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 // ---------------------------------------------------------------------------
 // Bug 1: Scrubber thumb stays at old position after Home logo click
 // ---------------------------------------------------------------------------

@@ -12,6 +12,12 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — these tests validate focus-ring behaviour,
+// sort-around-focus, and neighbour fallback which are explicit-mode features.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 /**
  * Navigate within the SPA without a full page reload.
  * Uses TanStack Router's navigate() via the exposed router instance.

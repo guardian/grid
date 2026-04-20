@@ -725,6 +725,37 @@ export class KupuaHelpers {
   }
 
   // -------------------------------------------------------------------------
+  // Focus mode pinning
+  // -------------------------------------------------------------------------
+
+  /**
+   * Pin focus mode to "explicit" via localStorage before any navigation.
+   * Must be called BEFORE goto() / page.goto(). Uses addInitScript so the
+   * value is set on every subsequent navigation within the test.
+   */
+  async ensureExplicitMode() {
+    await this.page.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "explicit" }, version: 0 }),
+      );
+    });
+  }
+
+  /**
+   * Pin focus mode to "phantom" via localStorage before any navigation.
+   * Must be called BEFORE goto() / page.goto().
+   */
+  async ensurePhantomMode() {
+    await this.page.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "phantom" }, version: 0 }),
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Focus
   // -------------------------------------------------------------------------
 
@@ -897,12 +928,15 @@ export class KupuaHelpers {
   // -------------------------------------------------------------------------
 
   /**
-   * Open image detail for the Nth visible item (double-click in grid,
-   * double-click row in table). Returns the image ID that was opened.
+   * Open image detail for the Nth visible item. Returns the image ID.
+   * Mode-independent: uses dblclick which works in both explicit and phantom.
+   * Gets the image ID from the store directly (no click-to-focus dependency).
    */
   async openDetailForNthItem(n: number): Promise<string> {
-    await this.focusNthItem(n);
-    const id = await this.getFocusedImageId();
+    const id = await this.page.evaluate((idx) => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().results[idx]?.id ?? null;
+    }, n);
     if (!id) throw new Error(`No image at index ${n}`);
 
     if (await this.isGridView()) {

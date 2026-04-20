@@ -11,6 +11,12 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — openDetailForNthItem uses dblclick which sets
+// focus in explicit mode; screenshots should be consistent across default changes.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 test.describe("Visual regression baselines", () => {
   test("grid view baseline", async ({ kupua, page }) => {
     await kupua.goto();

@@ -18,6 +18,11 @@ import { test, expect, KupuaHelpers } from "../shared/helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH } from "@/constants/layout";
 import { recordResult } from "./smoke-report";
 
+// Pin to explicit focus mode — all tests validate focus-ring preservation.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 // ---------------------------------------------------------------------------
 // Corpus pinning — freeze results for reproducibility
 // ---------------------------------------------------------------------------

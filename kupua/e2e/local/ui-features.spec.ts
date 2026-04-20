@@ -13,6 +13,12 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — tests validate focus ring, Enter-to-open,
+// return-from-detail with focus, and fullscreen entry which are explicit-only.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 // ===========================================================================
 // Image detail — opening
 // ===========================================================================

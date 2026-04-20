@@ -14,6 +14,34 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20 April 2026 — Focus-mode test hardening
+
+Hardened test infrastructure so the suite is resilient if phantom focus ever
+becomes the default. Audited all tests, found 47 `focusNthItem()` call sites
+across 11 files that would break (click navigates to detail in phantom mode
+instead of setting focus).
+
+**Changes to `e2e/shared/helpers.ts`:**
+- Added `ensureExplicitMode()` / `ensurePhantomMode()` — set localStorage
+  via `addInitScript` before page load, same pattern phantom-focus.spec.ts
+  already used.
+- Rewrote `openDetailForNthItem()` to be mode-independent: reads image ID
+  from store via `page.evaluate()`, uses `.dblclick()` (works in both modes).
+  No longer calls `focusNthItem()` internally.
+
+**12 test files pinned to explicit mode** via `test.beforeEach` calling
+`ensureExplicitMode()`: browser-history, focus-preservation, keyboard-nav,
+scrubber, ui-features, visual-baseline, tier-matrix (local E2E);
+manual-smoke-test, focus-preservation-smoke, home-logo-diag (smoke);
+perf.spec.ts, experiments.spec.ts (perf).
+
+**3 files skipped** (no pinning needed): phantom-focus.spec.ts (already sets
+mode), buffer-corruption.spec.ts (no focus), smoke-scroll-stability.spec.ts
+(no clicks).
+
+Impact report archived to `zz Archive/focus-mode-test-impact-report.md`.
+All 153 Playwright + 322 Vitest tests pass.
+
 ### 21 April 2026 — Phantom Focus Mode (kahuna-style click-to-open)
 
 Implemented `focusMode: "explicit" | "phantom"` user preference with full

@@ -63,6 +63,11 @@ import {
   TABLE_ROW_HEIGHT,
 } from "@/constants/layout";
 
+// Pin to explicit focus mode — experiments use focusNthItem.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXPERIMENTS_DIR = resolve(__dirname, "results/experiments");
 const EXPERIMENT_LOG = resolve(EXPERIMENTS_DIR, "experiments-log.md");

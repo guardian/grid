@@ -78,8 +78,11 @@ async function assertNotRealEs() {
   _realEsCheckResult = null; // safe — mark as checked
 }
 
-test.beforeEach(async () => {
+test.beforeEach(async ({ kupua }) => {
   await assertNotRealEs();
+  // Pin to explicit focus mode — sort-around-focus, density-switch preservation,
+  // and Home/End tests use focusNthItem which requires click-to-focus.
+  await kupua.ensureExplicitMode();
 });
 
 // ---------------------------------------------------------------------------

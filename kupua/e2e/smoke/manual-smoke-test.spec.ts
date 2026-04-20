@@ -25,6 +25,11 @@ import { test, expect, KupuaHelpers } from "../shared/helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { recordResult, resetReport } from "./smoke-report";
 
+// Pin to explicit focus mode — S7/S8/S9 use focusNthItem (click-to-focus).
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 // ---------------------------------------------------------------------------
 // Corpus pinning — static dates for result-set stability across runs.
 // New images are ingested daily; without pinning, total and positions drift

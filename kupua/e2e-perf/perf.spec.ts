@@ -39,6 +39,11 @@ import {
   TABLE_ROW_HEIGHT,
 } from "@/constants/layout";
 
+// Pin to explicit focus mode — P4a/b, P6, P12–P15 use focusNthItem.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const METRICS_FILE = resolve(__dirname, "results/.metrics-tmp.jsonl");
 

@@ -16,6 +16,12 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — keyboard nav tests validate focus-ring movement
+// (ArrowDown moves focus, Home/End focus first/last) which is explicit-only.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 // Grid row height from layout constants — used for row-alignment assertions.
 const GRID_ROW_HEIGHT = 303;
 const TABLE_ROW_HEIGHT = 32;

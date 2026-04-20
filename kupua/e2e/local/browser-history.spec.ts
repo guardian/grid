@@ -17,6 +17,11 @@
 
 import { test, expect } from "../shared/helpers";
 
+// Pin to explicit focus mode — tests validate focus state across history entries.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
 /**
  * Navigate via TanStack Router (user-initiated, NOT popstate).
  * This creates a history entry (push) because the router uses pushState.
