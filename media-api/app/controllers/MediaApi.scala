@@ -566,13 +566,22 @@ class MediaApi(
 //    TODO - add image to image in again
     if (_searchParams.useAISearch.contains(true)) {
       _searchParams.query match {
+        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
+        case _ if _searchParams.length == 0 =>
+          Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
         case Some(q) if !q.isBlank =>
           for {
             embedding <- embedder.createQueryEmbedding(q)
             k = 100
             SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
             imageEntities = hits map (hitToImageEntity _).tupled
-          } yield respondCollection(imageEntities, Some(0), Some(totalCount), None, List())
+          } yield respondCollection(
+            data = imageEntities,
+            offset = Some(0),
+            total = Some(totalCount),
+            maybeExtraCounts = None,
+            links = Nil
+          )
         case _ =>
           Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
       }
