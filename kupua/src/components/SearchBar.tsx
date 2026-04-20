@@ -15,6 +15,7 @@ import {
 } from "@/lib/orchestration/search";
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { SettingsMenu } from "./SettingsMenu";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
@@ -171,6 +172,9 @@ export function SearchBar() {
           </span>
         )}
       </span>
+
+      {/* Settings menu — three-dot, far right */}
+      <SettingsMenu />
     </header>
   );
 }

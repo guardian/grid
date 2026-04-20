@@ -921,6 +921,32 @@ effect consumes it. Falls back to `align: "start"` if no ratio was saved.
 place the item near the edge of the viewport if it was near the edge
 before the sort. Edge clamping ensures the item is always visible.
 
+### 27. Explicit focus mode — click-to-select with double-click-to-open
+
+Kahuna uses single-click to open image detail (what kupua calls "phantom"
+mode). There is no concept of a focused image in the grid — clicking
+always navigates to detail.
+
+Kupua adds a second interaction model: **explicit focus mode**. In this mode, single-click sets a visible focus ring on an image
+without navigating. Double-click opens detail. Arrow keys move focus between
+images. `Enter` and `f` operate on the focused image (open detail / fullscreen
+preview). This enables keyboard-driven browsing and gives the position engine
+an anchor for sort-around-focus, density-switch preservation, and
+return-from-detail scroll restoration.
+
+A `focusMode` preference (`"explicit"` or `"phantom"`) is stored in
+`ui-prefs-store.ts` and exposed via a three-dot settings menu in the search
+bar. On `pointer: coarse` devices (touch screens, iPads), the effective mode
+is always phantom regardless of the stored preference — the settings menu
+disables the explicit option with a "(touch device)" label. This matches
+kahuna's behaviour on mobile, where double-tap to open would be friction.
+
+**Trade-off:** Explicit mode changes the meaning of click for desktop users
+who are used to kahuna's click-to-open. The three-dot menu lets them switch
+back to phantom (kahuna-like) behaviour. The default was chosen as explicit
+because the focus infrastructure (ring, keyboard nav, sort-around-focus)
+provides significant value on desktop that kahuna lacks.
+
 ---
 
 ### DPR-aware image sizing uses a two-tier step function, not raw `devicePixelRatio`

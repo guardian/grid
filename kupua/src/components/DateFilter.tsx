@@ -455,6 +455,7 @@ export function DateFilter() {
                 value={toDateInputValue(draftSince)}
                 max={toDateInputValue(draftUntil)}
                 onChange={handleFromChange}
+                onKeyDown={(e) => { if (e.key === "Enter" && !draftMatchesUrl) handleSave(); }}
                 className="w-full px-2 py-1 bg-grid-bg border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button
@@ -476,6 +477,7 @@ export function DateFilter() {
                 value={toDateInputValue(draftUntil)}
                 min={toDateInputValue(draftSince)}
                 onChange={handleToChange}
+                onKeyDown={(e) => { if (e.key === "Enter" && !draftMatchesUrl) handleSave(); }}
                 className="w-full px-2 py-1 bg-grid-bg border border-grid-border rounded text-sm text-grid-text focus:outline-none focus:border-grid-accent [color-scheme:dark]"
               />
               <button

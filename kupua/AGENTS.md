@@ -39,7 +39,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `focus-position-preservation-workplan.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
+| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `focus-position-preservation-workplan.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
@@ -71,6 +71,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
 | URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
+| UI Prefs | `stores/ui-prefs-store.ts` | 75 | `focusMode` preference (explicit/phantom), `pointer: coarse` auto-detection, localStorage-persisted |
+| Settings | `components/SettingsMenu.tsx` | 115 | Three-dot menu in SearchBar. Click mode toggle (explicit↔phantom). Coarse pointer disables explicit. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | 478 | `@guardian/cql` Web Component + CQL→ES translator |
 
 > Detailed descriptions of each: `exploration/docs/00 Architecture and philosophy/component-detail.md`
@@ -78,7 +80,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ### Testing Summary
 
 - **322 Vitest** unit/integration tests (~36s) — `npm test`
-- **145 Playwright E2E** tests (~6min) — `npx playwright test`
+- **153 Playwright E2E** tests (~6min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
@@ -89,16 +91,17 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
 - **P4b focusDrift:** Partially fixed. May have secondary cause.
-- ~~**Scrubber thumb flash-to-top:**~~ Fixed (Session 5). DOM guard in Scrubber.tsx.
+- ~~**Scrubber thumb flash-to-top:**~~ Fixed. DOM guard in Scrubber.tsx.
 
 ### Backlog
 
 - [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
 - [x] ~~Raise scroll-mode threshold beyond 1000~~ → Position map Phases 0-4a complete
-- [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Sessions 1-3 complete
+- [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Complete
 - [ ] Column reordering via drag-and-drop
 - [x] ~~Consolidate hardcoded `nonFree: "true"` to `DEFAULT_SEARCH`~~ → `home-defaults.ts`
+- [x] ~~Phantom focus mode (click-to-open, settings menu, coarse pointer)~~ → `ui-prefs-store.ts`, `SettingsMenu.tsx`
 
 ### Deferred to Later Phases
 
@@ -169,4 +172,3 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 11. **TanStack Table column ID caveat** — dot-path accessors get dots→underscores in IDs. Maps keyed by column ID must use underscores.
 
 12. **Two-tier virtualisation** — When total is in the position-map-eligible range (1k < total ≤ 65k), `virtualizerCount = total`, indices become global, scrubber drag directly scrolls the container. `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background performance optimisation (faster seeks), not a coordinate-space decision. Buffer slides via extends and scroll-triggered seeks. `search()` invalidates the map (→ reverts to buffer-local); `seek()` preserves it. Parallel forward+backward fetch saves ~250-350ms. Full design: `scroll-two-tier-virtualisation-workplan.md`.
-

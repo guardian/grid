@@ -411,8 +411,8 @@ scenarios (T1–T6). 315/315 unit tests pass. 140/140 local E2E pass. 6/6 smoke 
 ## Session 6a — Phantom Focus Mode: Click & Keyboard Behaviour
 
 **Delivers:** A `focusMode: "explicit" | "phantom"` preference. When
-`"phantom"`: single-click enters detail, arrows scroll rows, no focus ring,
-`Enter`/`f` disabled. On `pointer: coarse`, always phantom regardless of
+`"phantom"`: single-click enters detail, arrows and PgUp/Down scroll rows and pages directly, no focus ring,
+`Enter`/`f` disabled in list and grid. On `pointer: coarse`, always phantom regardless of
 preference.
 
 **Pre-condition:** Sessions 1–4 complete.

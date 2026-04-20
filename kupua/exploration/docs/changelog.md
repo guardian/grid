@@ -14,6 +14,62 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 April 2026 — Phantom Focus Mode (kahuna-style click-to-open)
+
+Implemented `focusMode: "explicit" | "phantom"` user preference with full
+click, keyboard, and return-from-detail behaviour. Phantom mode makes
+single-click open image detail (matching kahuna). Explicit mode adds
+click-to-focus with double-click-to-open.
+
+**New files:**
+- `src/stores/ui-prefs-store.ts` — Zustand store for UI preferences, separate
+  from search-store. Persists `focusMode` in localStorage (`kupua-ui-prefs`).
+  Runtime `_pointerCoarse` flag via `matchMedia("(pointer: coarse)")` change
+  listener. `effectiveFocusMode` derived: coarse → phantom, else stored pref.
+  Switching to phantom clears `focusedImageId` via search-store.
+- `src/components/SettingsMenu.tsx` — Three-dot menu (Material more_vert SVG)
+  in SearchBar far-right. Two radio options: "Click to focus" (explicit) and
+  "Click to open" (phantom). Coarse pointer disables explicit option.
+  Closes on outside click or Escape. Button flush-right (mirrors Home logo
+  flush-left pattern with `-mr-3`).
+- `e2e/local/phantom-focus.spec.ts` — 8 E2E tests covering phantom click
+  (grid + table), no focus ring, arrow scroll, Enter no-op, return-from-detail
+  position, explicit click ring, explicit double-click.
+
+**Modified files:**
+- `ImageGrid.tsx` — Extracted `enterDetail()` callback shared by phantom
+  single-click and double-click. `handleCellClick` dispatches on mode;
+  returns early on Shift/Alt (modifier clicks are click-to-search, not detail).
+  Focus ring gated: `isFocused` requires `getEffectiveFocusMode() === "explicit"`.
+  Background click is no-op in phantom mode.
+- `ImageTable.tsx` — Same pattern: `handleRowClick` dispatches on mode,
+  returns early on Shift/Alt, focus ring gated on explicit.
+- `useListNavigation.ts` — `hasFocus` condition now includes
+  `getEffectiveFocusMode() === "explicit"` gate. Applies to both bubble
+  handler (arrow/page/Enter) and capture handler (Home/End). Enter gated
+  with early break when no focus.
+- `FullscreenPreview.tsx` — `f` key entry gated on explicit mode (phantom
+  returns early). Exit from fullscreen still works in both modes.
+- `SearchBar.tsx` — Added `<SettingsMenu />` after ES timing display.
+- `routes/search.tsx` — `FocusedImageMetadata` uses reactive
+  `useEffectiveFocusMode()` hook; returns null in phantom mode so metadata
+  panel shows "Focus an image to see its metadata" instead of stale data.
+- `DateFilter.tsx` — Enter key on From/To date inputs now triggers the
+  Filter button when draft differs from URL state. No-op when unchanged
+  or when date input is empty/invalid (native `type="date"` only produces
+  valid values).
+
+**E2E test fixes:**
+- `page.addInitScript` instead of `page.evaluate` for localStorage setup
+  (SecurityError on `about:blank`).
+- Scoped ring selector to `[data-grid-cell][class*="ring-2"]` — SearchBar
+  and SearchFilters also use `ring-grid-accent` class.
+
+**Existing behaviour unchanged:** 145 existing E2E tests pass with zero
+regressions. Return-from-detail works in phantom mode via existing
+`useReturnFromDetail` mechanism (sets focusedImageId for position engine;
+ring hidden by gate).
+
 ### 20 April 2026 — Yet another Home bug fixed
 
 Two real bugs (and one defence-in-depth hardening) in the Home logo reset path.

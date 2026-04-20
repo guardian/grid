@@ -30,6 +30,7 @@ import { FacetFilters, AggTiming } from "@/components/FacetFilters";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
+import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
@@ -221,8 +222,12 @@ function FocusedImageMetadata() {
   const imagePositions = useSearchStore((s) => s.imagePositions);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const results = useSearchStore((s) => s.results);
+  const effectiveMode = useEffectiveFocusMode();
 
   const image = (() => {
+    // In phantom mode, focusedImageId is only a position anchor — don't
+    // show metadata for it. The panel should stay empty.
+    if (effectiveMode === "phantom") return null;
     if (!focusedImageId) return null;
     const globalIdx = imagePositions.get(focusedImageId);
     if (globalIdx == null) return null;

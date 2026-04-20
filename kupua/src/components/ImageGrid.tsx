@@ -31,6 +31,7 @@ import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -100,7 +101,7 @@ interface GridCellProps {
   isFocused: boolean;
   cellWidth: number;
   dateLine?: string;
-  onCellClick: (imageId: string) => void;
+  onCellClick: (imageId: string, e: React.MouseEvent) => void;
   onCellDoubleClick: (imageId: string) => void;
 }
 
@@ -136,7 +137,7 @@ const GridCell = memo(function GridCell({
           : "hover:bg-grid-hover/15"
       }`}
       style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
-      onClick={() => onCellClick(image.id)}
+      onClick={(e) => onCellClick(image.id, e)}
       onDoubleClick={() => onCellDoubleClick(image.id)}
     >
       {/* Thumbnail area — 190px block, image top-aligned, horizontally centred (matches Kahuna) */}
@@ -367,27 +368,8 @@ export function ImageGrid() {
   // Click handlers (match table: single=focus, double=open detail)
   // -------------------------------------------------------------------------
 
-  const handleCellClick = useCallback(
-    (imageId: string) => {
-      setFocusedImageId(imageId);
-    },
-    [setFocusedImageId],
-  );
-
-  /** Clear focus when clicking the grid background (gaps between cells). */
-  const handleBackgroundClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      // If the click originated inside a cell, the cell's own onClick already
-      // handled it. We only clear focus for clicks on the background — the
-      // scroll container, the sizer div, or the row flex containers (gaps).
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-grid-cell]")) return;
-      setFocusedImageId(null);
-    },
-    [setFocusedImageId],
-  );
-
-  const handleCellDoubleClick = useCallback(
+  /** Navigate to image detail overlay (shared by single-click in phantom, double-click in explicit). */
+  const enterDetail = useCallback(
     (imageId: string) => {
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
@@ -406,6 +388,36 @@ export function ImageGrid() {
     },
     [navigate, setFocusedImageId, findImageIndex, getImage, searchParams, bufferOffset, twoTier],
   );
+
+  const handleCellClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      // Shift/Alt+click are click-to-search gestures — never enter detail.
+      if (e.shiftKey || e.altKey) return;
+      if (getEffectiveFocusMode() === "phantom") {
+        // Phantom mode: single-click enters detail directly (like Kahuna).
+        enterDetail(imageId);
+        return;
+      }
+      setFocusedImageId(imageId);
+    },
+    [setFocusedImageId, enterDetail],
+  );
+
+  /** Clear focus when clicking the grid background (gaps between cells). */
+  const handleBackgroundClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (getEffectiveFocusMode() === "phantom") return;
+      // If the click originated inside a cell, the cell's own onClick already
+      // handled it. We only clear focus for clicks on the background — the
+      // scroll container, the sizer div, or the row flex containers (gaps).
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-grid-cell]")) return;
+      setFocusedImageId(null);
+    },
+    [setFocusedImageId],
+  );
+
+  const handleCellDoubleClick = enterDetail;
 
   // -------------------------------------------------------------------------
   // Ref for focused image — used by captureAnchor (scroll anchoring).
@@ -507,7 +519,7 @@ export function ImageGrid() {
                   <GridCell
                     key={imageIdx}
                     image={image}
-                    isFocused={!!image && image.id === focusedImageId}
+                    isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit"}
                     cellWidth={cellWidth}
                     dateLine={image ? getCellDateLine(image, searchParams.orderBy) : undefined}
                     onCellClick={handleCellClick}

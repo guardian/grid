@@ -22,6 +22,7 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useColumnStore } from "@/stores/column-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
@@ -238,7 +239,7 @@ interface TableBodyProps {
   rows: Row<Image>[];
   handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
   handleRowDoubleClick: (imageId: string) => void;
-  handleRowClick: (imageId: string) => void;
+  handleRowClick: (imageId: string, e: React.MouseEvent) => void;
   focusedImageId: string | null;
   /** Number of visible columns — used to bust memo when column visibility changes. */
   visibleColumnCount: number;
@@ -321,7 +322,7 @@ const TableBody = memo(function TableBody({
           );
         }
 
-        const isFocused = image.id === focusedImageId;
+        const isFocused = image.id === focusedImageId && getEffectiveFocusMode() === "explicit";
         return (
           <div
             key={row.id}
@@ -337,7 +338,7 @@ const TableBody = memo(function TableBody({
               height: `${virtualRow.size}px`,
               transform: `translateY(${virtualRow.start}px)`,
             }}
-            onClick={() => handleRowClick(image.id)}
+            onClick={(e) => handleRowClick(image.id, e)}
             onDoubleClick={() => handleRowDoubleClick(image.id)}
           >
             {row.getVisibleCells().map((cell) => {
@@ -418,18 +419,11 @@ export function ImageTable() {
   // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
   const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
 
-  // Single-click a row → set focus (sticky highlight).
-  const handleRowClick = useCallback(
-    (imageId: string) => {
-      setFocusedImageId(imageId);
-    },
-    [setFocusedImageId],
-  );
-
   // Double-click a row → show image detail overlay by adding image to URL.
   // Also sets focus so returning from image detail highlights this row.
   // Uses push (not replace) so browser back returns to the table at the
   // exact scroll position.
+  // Also used by single-click in phantom mode.
   const handleRowDoubleClick = useCallback(
     (imageId: string) => {
       setFocusedImageId(imageId);
@@ -448,6 +442,23 @@ export function ImageTable() {
       });
     },
     [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
+  );
+
+  // Single-click a row → set focus (explicit) or enter detail (phantom).
+  // Shift/Alt+click are click-to-search gestures — never enter detail.
+  const handleRowClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      if (e.shiftKey || e.altKey) {
+        // Let handleCellClick (click-to-search) handle it; don't enter detail or set focus.
+        return;
+      }
+      if (getEffectiveFocusMode() === "phantom") {
+        handleRowDoubleClick(imageId);
+        return;
+      }
+      setFocusedImageId(imageId);
+    },
+    [setFocusedImageId, handleRowDoubleClick],
   );
 
   // Column context menu — imperative handle; the component manages its own

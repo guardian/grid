@@ -27,6 +27,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { NavStrip } from "@/components/NavStrip";
@@ -188,6 +189,9 @@ export function FullscreenPreview() {
     if (isActive) {
       exitPreview();
     } else {
+      // In phantom mode, f-to-enter-preview is disabled from the list/grid.
+      // (f still works from ImageDetail, which registers its own shortcut.)
+      if (getEffectiveFocusMode() === "phantom") return;
       enterPreview();
     }
   }, [isActive, exitPreview, enterPreview]);

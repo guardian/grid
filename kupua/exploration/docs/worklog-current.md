@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none)
+(No active task.)
 
 ## Session Log
 
-(cleared after commit — see changelog.md "20 April 2026 — Yet another Home bug fixed")
+(Empty — new session.)

@@ -37,6 +37,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -392,7 +393,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (isNativeInputTarget(e)) return;
 
       const cols = c.columnsPerRow;
-      const hasFocus = c.focusedImageId !== null;
+      // In phantom mode, keyboard never enters focus mode — always scroll.
+      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
 
       switch (e.key) {
         case "ArrowUp":
@@ -442,6 +444,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
           }
           break;
         case "Enter": {
+          // In phantom mode, Enter doesn't open detail (no visible focus to act on).
+          if (!hasFocus) break;
           const id = c.focusedImageId;
           if (id) {
             e.preventDefault();
@@ -466,7 +470,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (document.fullscreenElement) return;
       if (isNativeInputTarget(e)) return;
 
-      const hasFocus = c.focusedImageId !== null;
+      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
 
       switch (e.key) {
         case "Home":
