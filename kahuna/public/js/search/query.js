@@ -15,6 +15,7 @@ import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-sort-control/gr-extended-sort-control';
 import '../components/gr-permissions-filter/gr-permissions-filter';
 import '../components/gr-my-uploads/gr-my-uploads';
+import '../components/gr-my-crops/gr-my-crops';
 import { sendTelemetryForQuery } from '../services/telemetry';
 import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
@@ -39,7 +40,8 @@ export var query = angular.module('kahuna.search.query', [
     'gr.sortControl',
     'gr.extendedSortControl',
     'gr.permissionsFilter',
-    'gr.myUploads'
+    'gr.myUploads',
+    'gr.myCrops'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -68,7 +70,8 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.filter = {
-        uploadedByMe: false
+        uploadedByMe: false,
+        croppedByMe: false
     };
 
     ctrl.dateFilter = {
@@ -77,6 +80,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
+    ctrl.filterMyCrops = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
@@ -85,6 +89,7 @@ query.controller('SearchQueryCtrl', [
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
     }
+    ctrl.shouldDisplayMyCrops = getFeatureSwitchActive("enable-my-crops");
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -149,6 +154,47 @@ query.controller('SearchQueryCtrl', [
         raiseUploadedByCheckEvent();
       }
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
+    }
+
+    function manageCroppedBy(filter, sender) {
+      if (!ctrl.usePermissionsFilter) {
+        const myCropsCheckbox = filter.croppedByMe;
+        const structuredQuery = structureQuery(filter.query) || [];
+        const croppedByIndex = structuredQuery.findIndex(item => item.key === 'croppedBy');
+
+        if (myCropsCheckbox && croppedByIndex === -1) {
+          // Add croppedBy chip to query
+          structuredQuery.push({
+            type: "filter",
+            filterType: "inclusion",
+            key: "croppedBy",
+            value: ctrl.user.email
+          });
+          ctrl.filter.query = renderQuery(structuredQuery);
+        } else if (!myCropsCheckbox && croppedByIndex >= 0) {
+          // Remove croppedBy chip from query
+          structuredQuery.splice(croppedByIndex, 1);
+          ctrl.filter.query = renderQuery(structuredQuery);
+        }
+      } else {
+        if (sender === "selectMyCrops") {
+          const structuredQuery = structureQuery(filter.query) || [];
+          const croppedByIndex = structuredQuery.findIndex(item => item.key === 'croppedBy');
+          if (ctrl.filterMyCrops && croppedByIndex === -1) {
+            structuredQuery.push({
+              type: "filter",
+              filterType: "inclusion",
+              key: "croppedBy",
+              value: ctrl.user ? ctrl.user.email : undefined
+            });
+            ctrl.filter.query = renderQuery(structuredQuery);
+          } else if (!ctrl.filterMyCrops && croppedByIndex >= 0) {
+            structuredQuery.splice(croppedByIndex, 1);
+            ctrl.filter.query = renderQuery(structuredQuery);
+          }
+        }
+      }
+      storage.setJs("isCroppedByMe", ctrl.filter.croppedByMe, true);
     }
 
     function manageDefaultNonFree(filter) {
@@ -273,6 +319,7 @@ query.controller('SearchQueryCtrl', [
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
+      manageCroppedBy(newFilter, sender);
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
 
@@ -309,6 +356,18 @@ query.controller('SearchQueryCtrl', [
       onChange: selectMyUploads
     };
     //-end my uploads
+
+    //-my-crops-
+    function selectMyCrops(myCropsChecked) {
+      ctrl.filterMyCrops = myCropsChecked;
+      watchSearchChange(ctrl.filter, "selectMyCrops");
+    }
+
+    ctrl.myCropsProps = {
+      myCrops: ctrl.filterMyCrops,
+      onChange: selectMyCrops
+    };
+    //-end my crops
 
     //-sort control-
     function updateSortChips (sortSel) {
@@ -477,6 +536,7 @@ query.controller('SearchQueryCtrl', [
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
+    // eslint-disable-next-line complexity
     mediaApi.getSession().then(session => {
         //-uploaded by me-
         const isUploadedByMe = storage.getJs("isUploadedByMe", true);
@@ -493,6 +553,23 @@ query.controller('SearchQueryCtrl', [
           } else {
             ctrl.filter.uploadedByMe = isUploadedByMe;
             ctrl.filterMyUploads = isUploadedByMe;
+          }
+        }
+
+        //-cropped by me-
+        const isCroppedByMe = storage.getJs("isCroppedByMe", true);
+        if (isCroppedByMe === null) {
+          ctrl.filter.croppedByMe = ctrl.filter.croppedBy === ctrl.user.email;
+          ctrl.filterMyCrops = ctrl.filter.croppedByMe;
+          storage.setJs("isCroppedByMe", ctrl.filter.croppedByMe);
+        } else {
+          if ((ctrl.filter.croppedBy === ctrl.user.email) && !isCroppedByMe) {
+            ctrl.filter.croppedByMe = true;
+            ctrl.filterMyCrops = ctrl.filter.croppedByMe;
+            storage.setJs("isCroppedByMe", ctrl.filter.croppedByMe);
+          } else {
+            ctrl.filter.croppedByMe = isCroppedByMe;
+            ctrl.filterMyCrops = isCroppedByMe;
           }
         }
 

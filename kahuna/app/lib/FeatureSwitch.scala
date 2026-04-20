@@ -22,6 +22,12 @@ object EnableAISearch extends FeatureSwitch(
   default = false
 )
 
+object EnableMyCrops extends FeatureSwitch(
+  key = "enable-my-crops",
+  title = "Enable the use of 'My crops' filter",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".

@@ -69,6 +69,14 @@
                 </label>
             </li>
 
+            <li ng-if="searchQuery.canUpload && searchQuery.shouldDisplayMyCrops" id="my-crops-checkbox" class="search__modifier-item search__modifier-checkbox">
+                <label>
+                    <input type="checkbox"
+                           ng-model="searchQuery.filter.croppedByMe" />
+                    My crops
+                </label>
+            </li>
+
             <li ng-if="searchQuery.maybeOrgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
