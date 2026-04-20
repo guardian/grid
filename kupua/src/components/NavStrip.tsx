@@ -14,6 +14,8 @@ interface NavStripProps {
   onClick: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /** Additional classes on the outer button (e.g. responsive visibility). */
+  className?: string;
 }
 
 const CHEVRON = {
@@ -21,7 +23,7 @@ const CHEVRON = {
   next: { points: "9 6 15 12 9 18", nudge: "translate-x-px", side: "right-0" },
 } as const;
 
-export function NavStrip({ direction, onClick, onMouseEnter, onMouseLeave }: NavStripProps) {
+export function NavStrip({ direction, onClick, onMouseEnter, onMouseLeave, className }: NavStripProps) {
   const { points, nudge, side } = CHEVRON[direction];
   const label = direction === "prev" ? "Previous image" : "Next image";
   const key = direction === "prev" ? "←" : "→";
@@ -32,10 +34,11 @@ export function NavStrip({ direction, onClick, onMouseEnter, onMouseLeave }: Nav
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       tabIndex={-1}
-      className={`group absolute ${side} top-0 bottom-0 z-10 w-16 flex items-center justify-center cursor-pointer outline-none`}
+      className={`group absolute ${side} top-0 bottom-0 z-10 w-16 items-center justify-center cursor-pointer outline-none${className ? " " + className : " flex"}`}
       title={`${label} (${key})`}
       aria-label={label}
     >
+      {/* Reveal on hover (mouse). Hidden on mobile — swipe replaces buttons. */}
       <div className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         <svg
           className={`w-5 h-5 ${nudge}`}

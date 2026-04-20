@@ -32,7 +32,7 @@
  *   (so back always returns to the table, not through every viewed image).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
@@ -40,12 +40,14 @@ import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { NavStrip } from "@/components/NavStrip";
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import type { Image } from "@/types/image";
 
 interface ImageDetailProps {
@@ -62,6 +64,10 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
+  // Carousel strip — the inner element translated by swipe gestures.
+  const stripRef = useRef<HTMLDivElement>(null);
+  // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
   const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
 
@@ -195,6 +201,40 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // Alt+f works when focus is in an editable field.
   useKeyboardShortcut("f", toggleFullscreen);
 
+  // Swipe carousel: horizontal swipe with visual slide-in animation.
+  // Listens on the image container so swipe works in both normal and fullscreen.
+  // `enabled` toggles when the image loads — forces the effect to re-run after
+  // the container DOM element exists (on reload, the loading spinner renders first).
+  const { swipedRef } = useSwipeCarousel({
+    containerRef,
+    stripRef,
+    onSwipeLeft: nextImage ? goToNext : undefined,
+    onSwipeRight: prevImage ? goToPrev : undefined,
+    enabled: !!image,
+  });
+
+  // Tap-to-fullscreen handler for touch devices.
+  // On desktop: double-click toggles fullscreen (or closes detail).
+  // On mobile: single tap on the image toggles fullscreen. The swipedRef
+  // guard prevents entering fullscreen at the end of a swipe gesture.
+  const handleImageClick = useCallback(() => {
+    if (swipedRef.current) return; // was a swipe, not a tap
+    if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
+    toggleFullscreen();
+  }, [swipedRef, toggleFullscreen]);
+
+  // Reset carousel strip when imageId changes. The carousel's commitStripReset
+  // already handles the visual transition imperatively (no flash), but React
+  // re-renders with new panel content — this ensures the strip is cleanly at
+  // translateX(0) for the new image.
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (strip) {
+      strip.style.transition = "none";
+      strip.style.transform = "";
+    }
+  }, [imageId]);
+
   // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
   // single-character shortcuts, so they don't go through the shortcut
   // registry. They only work when not typing in an input.
@@ -251,6 +291,30 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   );
   const fullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
   const thumbUrl = image ? getThumbnailUrl(image) : undefined;
+
+  // Prev/next image URLs for the swipe carousel.
+  // Uses the same imgproxy screen size so they match the prefetch cache.
+  const prevImageUrl = useMemo(() => {
+    if (!prevImage) return undefined;
+    return getFullImageUrl(prevImage, {
+      width: window.screen.width,
+      height: window.screen.height,
+      nativeWidth: prevImage.source?.dimensions?.width,
+      nativeHeight: prevImage.source?.dimensions?.height,
+    }) ?? getThumbnailUrl(prevImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable per prev image
+  }, [prevImage?.id]);
+
+  const nextImageUrl = useMemo(() => {
+    if (!nextImage) return undefined;
+    return getFullImageUrl(nextImage, {
+      width: window.screen.width,
+      height: window.screen.height,
+      nativeWidth: nextImage.source?.dimensions?.width,
+      nativeHeight: nextImage.source?.dimensions?.height,
+    }) ?? getThumbnailUrl(nextImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable per next image
+  }, [nextImage?.id]);
 
   // Track whether the image failed to load (imgproxy down, S3 404, etc.)
   // so we can show a graceful fallback instead of browser's broken-image
@@ -373,65 +437,119 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
         </header>
       )}
 
-      {/* Main content area — flex row in normal mode (image + sidebar),
-          single fullscreen container when fullscreened. */}
-      <div className={`flex-1 flex min-h-0 ${isFullscreen ? "" : "flex-row"}`}>
-        {/* Image container — this div is fullscreened */}
+      {/* Main content area.
+          Desktop: flex-row (image fills left, metadata sidebar right). No scroll on outer.
+          Mobile: single scrollable column (image top, metadata below).
+          Fullscreen: image fills viewport, no sidebar. */}
+      <div
+        ref={mobileScrollRef}
+        className={
+          isFullscreen
+            ? "flex-1 flex min-h-0"
+            : "flex-1 flex min-h-0 overflow-y-auto sm:overflow-hidden overscroll-y-contain overscroll-x-none flex-col sm:flex-row touch-pan-y sm:touch-auto"
+        }
+      >
+        {/* Image container — this div is fullscreened. overflow-hidden clips
+            the carousel's off-screen prev/next panels.
+            touch-action: none — we handle all gestures ourselves (swipe carousel).
+            h-[55svh] — svh (small viewport height) is stable when address bar
+            shows/hides, avoiding the twitch on fullscreen exit. */}
         <div
           ref={containerRef}
-          className={`flex items-center justify-center relative ${
+          className={`relative overflow-hidden ${
             isFullscreen
               ? `w-full h-full${cursorHidden ? " cursor-none" : ""}`
-              : "bg-grid-bg flex-1 min-w-0"
+              : "bg-grid-bg shrink-0 sm:flex-1 min-w-0 h-[55svh] sm:h-full touch-none sm:touch-auto"
           }`}
         >
-          {/* The image — object-contain preserves aspect ratio.
-              Normal: constrained to container.
-              Fullscreen: fills the entire viewport. */}
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              fetchPriority="high"
-              alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
-              className={
-                isFullscreen
-                  ? "w-full h-full object-contain select-none"
-                  : "max-w-full max-h-full object-contain select-none"
-              }
-              draggable={false}
-              onDoubleClick={isFullscreen ? toggleFullscreen : closeDetail}
-              onError={(e) => {
-                // imgproxy failed — try thumbnail as fallback
-                const target = e.target as HTMLImageElement;
-                if (thumbUrl && target.src !== thumbUrl) {
-                  target.src = thumbUrl;
-                } else {
-                  // Both imgproxy and thumbnail failed — show text fallback
-                  setImgLoadFailed(true);
-                }
-              }}
-            />
-          ) : (
-            <div className="text-grid-text-muted text-sm text-center p-4">
-              <p>Image preview not available</p>
-              <p className="mt-1 text-grid-text-dim">
-                Run with <code>--use-TEST</code> to enable image viewing
-              </p>
-            </div>
-          )}
+          {/* Carousel strip — three panels (prev | current | next).
+              Translated by useSwipeCarousel during horizontal swipe.
+              Prev/next are offset ±100% so only the current panel is visible at rest. */}
+          <div ref={stripRef} className="absolute inset-0 will-change-transform">
+            {/* Previous image (off-screen left) — same sizing as current for seamless swipe */}
+            {prevImageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(-100%)" }}>
+                <img
+                  src={prevImageUrl}
+                  alt=""
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                />
+              </div>
+            )}
 
-          {/* Prev/next navigation strips — hidden when cursor auto-hides in fullscreen */}
+            {/* Current image */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  fetchPriority="high"
+                  alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                  onClick={handleImageClick}
+                  onDoubleClick={isFullscreen ? toggleFullscreen : closeDetail}
+                  onError={(e) => {
+                    // imgproxy failed — try thumbnail as fallback
+                    const target = e.target as HTMLImageElement;
+                    if (thumbUrl && target.src !== thumbUrl) {
+                      target.src = thumbUrl;
+                    } else {
+                      // Both imgproxy and thumbnail failed — show text fallback
+                      setImgLoadFailed(true);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="text-grid-text-muted text-sm text-center p-4">
+                  <p>Image preview not available</p>
+                  <p className="mt-1 text-grid-text-dim">
+                    Run with <code>--use-TEST</code> to enable image viewing
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Next image (off-screen right) — same sizing as current for seamless swipe */}
+            {nextImageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(100%)" }}>
+                <img
+                  src={nextImageUrl}
+                  alt=""
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Prev/next navigation strips — desktop only (mobile uses swipe).
+              Positioned on top of the carousel strip. */}
           {!(isFullscreen && cursorHidden) && prevImage && (
-            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
           )}
           {!(isFullscreen && cursorHidden) && nextImage && (
-            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
           )}
         </div>
 
-        {/* Metadata sidebar — hidden in fullscreen */}
+        {/* Metadata — hidden in fullscreen.
+            Desktop: fixed-width right column, scrolls independently.
+            Mobile: flows below the image in the single scroll container. */}
         {!isFullscreen && (
-          <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto p-3">
+          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto p-3">
             <ImageMetadata image={displayImage} />
           </aside>
         )}

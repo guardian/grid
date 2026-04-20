@@ -64,9 +64,10 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Grid | `components/ImageGrid.tsx` | 510 | Responsive thumbnails, scroll anchoring on width change |
 | Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
 | Scroll | `hooks/useScrollEffects.ts` | 985 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
-| Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. |
+| Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. Stacked layout on mobile (flex-col, image top, metadata below). |
 | Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Uses `useImageTraversal`. Nav buttons. |
 | Traversal | `hooks/useImageTraversal.ts` | 210 | Shared prev/next for detail + fullscreen. Proactive extend, pending nav, prefetch. All scroll modes. |
+| Swipe Carousel | `hooks/useSwipeCarousel.ts` | ~200 | Visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, commitStripReset. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
 | Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |

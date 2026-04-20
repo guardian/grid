@@ -14,6 +14,69 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20–21 April 2026 — Mobile image detail layout (Issue #4)
+
+Implemented stacked layout for image detail view on narrow/touch screens.
+Previously the metadata sidebar (`w-72 shrink-0`) consumed 288px of a 390px
+phone screen, leaving the image invisible.
+
+**Layout (ImageDetail.tsx):**
+- Main content area switches from `flex-row` to `flex-col` below `sm` (640px).
+  Image container `h-[55svh]` on mobile (uncapped on desktop), `shrink-0`.
+  Metadata sidebar becomes full-width scrollable area below the image.
+- Uses `svh` units (not `dvh`) for stable height when Android address bar
+  shows/hides — `dvh` caused a twitch on fullscreen exit.
+- `touch-action: none` on image container (carousel needs full touch control),
+  `touch-action: pan-y` on outer scroll container (vertical scroll only).
+- Desktop layout completely untouched — all changes behind `sm:` breakpoints
+  or `pointer:coarse` media queries.
+
+**Visual swipe carousel (useSwipeCarousel.ts, new):**
+- 3-panel strip (prev|current|next) as absolutely-positioned divs, animated
+  with `translateX`. Drag moves strip in real-time, release commits or snaps.
+- Velocity-aware: fast flick (>400px/s) commits at any distance, slow drag
+  needs >35% of container width. Velocity via exponential moving average.
+- Snap animation 200ms ease-out.
+- `commitStripReset()` — on transitionend, imperatively copies the swiped-to
+  panel's img.src to the center panel, resets strip to translateX(0), THEN
+  calls navigate(). Eliminates the async gap between animation end and React
+  re-render — no flash of wrong image, regardless of compositor timing.
+- ResizeObserver handles orientation change mid-animation (kills transition,
+  commits immediately via commitStripReset).
+- `swipedRef` exposed so onClick handlers can suppress tap after swipe.
+- Prev/next image URLs computed with same imgproxy opts as prefetch pipeline
+  → browser cache hits, no re-download.
+
+**Flash/twitch bug journey:**
+Three approaches tried before finding the right one:
+1. **visibility:hidden** during async gap between swipe commit and React
+   re-render — failed on Android Chrome (compositor paints independently
+   of main thread, so hiding is too late).
+2. **navigatingRef** guard to prevent ResizeObserver from resetting strip
+   during the gap — added complexity, still didn't prevent the flash.
+3. **commitStripReset** (final solution) — eliminates the gap entirely by
+   doing imperative DOM manipulation in transitionend BEFORE calling
+   navigate(). Center panel already shows the correct image when React
+   re-renders, making it a visual no-op.
+
+**Other mobile changes:**
+- NavStrip prev/next buttons hidden on mobile (`hidden sm:flex`), swipe
+  replaces them. NavStrip accepts `className` prop for this.
+- Tap on image enters/exits fullscreen on `pointer:coarse` devices via
+  Fullscreen API. Guarded by `swipedRef` (no fullscreen after swipe).
+- `overscroll-behavior-x: none` on image container suppresses horizontal
+  rubber-band on Android.
+- `enabled` flag on carousel hook, set to `!!image` — prevents swipe
+  registration before image data loads (fixes swipe-after-reload).
+
+**Cleanup:**
+- Deleted `useSwipeNavigation.ts` (original simple swipe hook, replaced
+  entirely by useSwipeCarousel).
+- Removed `navigatingRef` from both hook and component.
+
+All 322 Vitest tests pass. Tested manually on Android Chrome (portrait +
+landscape, orientation changes, swipe in both directions, tap-to-fullscreen).
+
 ### 20 April 2026 — Focus-mode test hardening
 
 Hardened test infrastructure so the suite is resilient if phantom focus ever
