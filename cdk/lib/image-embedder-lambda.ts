@@ -12,7 +12,6 @@ import {
   aws_s3 as s3,
   Stack,
 } from 'aws-cdk-lib';
-import { Schedule } from 'aws-cdk-lib/aws-events';
 import {PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {Architecture} from 'aws-cdk-lib/aws-lambda';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -125,39 +124,32 @@ export class ImageEmbedder extends GuStack {
     const vpc = GuVpc.fromIdParameter(this, "AccountVPC");
     const subnets = GuVpc.subnetsFromParameter(this);
 
-		const everyMinute = {
-			schedule: Schedule.rate(Duration.minutes(1)),
-			description: 'Frequency of execution of the backfiller',
-		};
 
-
-    const backfiller = new GuScheduledLambda(
-      this,
-      'ImageEmbedderBackfiller',
-      {
-        fileName: `${appName}.zip`,
-        functionName: `${appName}-backfill-${props.stage}`,
-        runtime: LAMBDA_NODE_VERSION,
-        architecture: Architecture.ARM_64,
-        handler: 'backfiller.handler',
-        app: `${appName}-backfill-lambda`,
-        environment: {
-          STAGE: props.stage,
-          ELASTIC_SEARCH_URL: elasticSearchUrl.valueAsString,
-          BACKFILL_SQS_QUEUE: backfillQueue.queueUrl,
-        },
-        memorySize: 512,
-        timeout: Duration.minutes(1),
-        rules: this.stage === 'TEST' ? [] : [everyMinute],
-        monitoringConfiguration: {
-          noMonitoring: true,
-        },
-        vpc: vpc,
-        vpcSubnets: {
-          subnets: subnets,
-        }
-      },
-    );
+    const backfiller = new GuScheduledLambda(this, 'ImageEmbedderBackfiller', {
+			fileName: `${appName}.zip`,
+			functionName: `${appName}-backfill-${props.stage}`,
+			runtime: LAMBDA_NODE_VERSION,
+			architecture: Architecture.ARM_64,
+			handler: 'backfiller.handler',
+			app: `${appName}-backfill-lambda`,
+			environment: {
+				STAGE: props.stage,
+				ELASTIC_SEARCH_URL: elasticSearchUrl.valueAsString,
+				BACKFILL_SQS_QUEUE: backfillQueue.queueUrl,
+			},
+			memorySize: 512,
+			timeout: Duration.minutes(1),
+			// anyone wanting to enable the backfill would have to add a rule that triggers the production lambda every minute
+			// { schedule: Schedule.rate(Duration.minutes(1)) }
+			rules: [],
+			monitoringConfiguration: {
+				noMonitoring: true,
+			},
+			vpc: vpc,
+			vpcSubnets: {
+				subnets: subnets,
+			},
+		});
 
     backfillQueue.grantSendMessages(backfiller);
     backfiller.role?.addToPrincipalPolicy(
