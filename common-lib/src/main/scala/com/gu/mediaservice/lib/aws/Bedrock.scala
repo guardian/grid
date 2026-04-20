@@ -41,7 +41,7 @@ object Bedrock {
     input_type: String,
     embedding_types: List[String],
     texts: List[String],
-    output_dimension: 256
+    output_dimension: Int
   )
 
   private implicit val bedrockImageRequestFormat: OFormat[BedrockImageRequest] = Json.format[BedrockImageRequest]

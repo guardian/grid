@@ -563,37 +563,17 @@ class MediaApi(
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
+//    TODO - add image to image in again
     if (_searchParams.useAISearch.contains(true)) {
-
-      val imageIdsFuture: Future[ImageIds] = _searchParams.query match {
+      _searchParams.query match {
         case Some(q) if !q.isBlank =>
-          // Check if it's an image-to-image similarity search
-          q.split(" ").find(_.startsWith("similar:")) match {
-            case Some(similarQuery) =>
-              val extractedImageId = similarQuery.split(":")(1)
-              embedder.imageToImageSearch(extractedImageId)
-            case None => embedder.createEmbeddingAndSearch(q)
-          }
-        // Empty queries do not make sense for AI search as we can
-        // only rank results once we have a meaningful vector to compare with.
-        // So return 0 results if the query was empty.
-        case _ => Future(ImageIds(Nil))
-      }
-
-      imageIdsFuture.flatMap { case ImageIds(ids) =>
-        SearchParams(
-          query = _searchParams.query,
-          ids = Some(ids),
-          tier = request.user.accessor.tier,
-        )
-
-        for {
-          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-          imageEntities = hits map (hitToImageEntity _).tupled
-          links = List()
-        } yield {
-          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
-        }
+          for {
+            embedding <- embedder.createQueryEmbedding(q)
+            SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = _searchParams.length, numCandidates = Math.max(_searchParams.length * 2, 100))
+            imageEntities = hits map (hitToImageEntity _).tupled
+          } yield respondCollection(imageEntities, Some(0), Some(totalCount), None, List())
+        case _ =>
+          Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
       }
     } else {
 
