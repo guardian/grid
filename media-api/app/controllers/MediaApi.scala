@@ -569,7 +569,8 @@ class MediaApi(
         case Some(q) if !q.isBlank =>
           for {
             embedding <- embedder.createQueryEmbedding(q)
-            SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = _searchParams.length, numCandidates = Math.max(_searchParams.length * 2, 100))
+            k = 100
+            SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
             imageEntities = hits map (hitToImageEntity _).tupled
           } yield respondCollection(imageEntities, Some(0), Some(totalCount), None, List())
         case _ =>
