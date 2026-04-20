@@ -16,27 +16,20 @@ import scala.concurrent.{ExecutionContext, Future}
 // TODO this will need to be changed
 // search_query is for text search
 // search_document is for embedded images
-sealed trait InputType {
-  def value: String
-}
+
+sealed trait InputType
 object InputType {
-  case object Image extends InputType {
-    val value = "image"
-  }
-  case object SearchDocument extends InputType {
-    val value = "search_document"
-  }
-  case object SearchQuery extends InputType {
-    val value = "search_query"
-  }
+  case object Text extends InputType
+  case object Image extends InputType
 }
 
 object Bedrock {
   private case class BedrockImageRequest(
-   input_type: String,
-   embedding_types: List[String],
-   images: List[String]
- )
+    input_type: String,
+    embedding_types: List[String],
+    images: List[String],
+    output_dimension: Int
+  )
   private case class BedrockTextRequest(
     input_type: String,
     embedding_types: List[String],
@@ -66,22 +59,15 @@ class Bedrock(config: CommonConfig)
     val jsonBody = inputType match {
       case InputType.Image =>
         val body = Bedrock.BedrockImageRequest(
-          input_type = inputType.value,
+          input_type = "search_query",
           embedding_types = List("float"),
-          images = inputData
-        )
-        Json.toJson(body).toString()
-      case InputType.SearchDocument =>
-        val body = Bedrock.BedrockTextRequest(
-          input_type = inputType.value,
-          embedding_types = List("float"),
-          texts = inputData,
+          images = inputData,
           output_dimension = 256
         )
         Json.toJson(body).toString()
-      case InputType.SearchQuery =>
+      case InputType.Text =>
         val body = Bedrock.BedrockTextRequest(
-          input_type = inputType.value,
+          input_type = "search_query",
           embedding_types = List("float"),
           texts = inputData,
           output_dimension = 256
