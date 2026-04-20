@@ -20,9 +20,9 @@ import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 const CONCURRENCY: Record<string, { backfill: number; loader: number; total: number }> = {
 	'PROD': {
-		backfill: 20,
+		backfill: 25,
 		loader: 5,
-		total: 25,
+		total: 30,
 	},
 	'TEST': {
 		backfill: 2,
