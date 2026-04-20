@@ -75,6 +75,11 @@ async function assertCleanTopState(kupua: any, label: string) {
   const scrollTop = await kupua.getScrollTop();
   expect(scrollTop, `${label}: scrollTop`).toBeLessThan(50);
 
+  // Scrubber thumb must be at or near the top — a stuck thumb after
+  // Home/reset was a regression (flash guard blocked legitimate resets).
+  const thumbTop = await kupua.getScrubberThumbTop();
+  expect(thumbTop, `${label}: scrubber thumb`).toBeLessThan(10);
+
   // Position map must be consistent
   await kupua.assertPositionsConsistent();
 
@@ -222,6 +227,9 @@ test.describe("Buffer corruption — logo click from ImageDetail after deep seek
 
     const afterLogo = await kupua.getStoreState();
     expect(afterLogo.firstImageId).toBe(firstImageBefore);
+    // focusedImageId must be null after Home — useReturnFromDetail must
+    // not re-set it to the deep image when resetToHome cleared it.
+    expect(afterLogo.focusedImageId, "focusedImageId should be null after Home from detail").toBeNull();
   });
 });
 

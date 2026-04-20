@@ -14,7 +14,7 @@
  * (useEffect watching results/bufferOffset) is tested via E2E.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 

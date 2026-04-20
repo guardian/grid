@@ -39,7 +39,6 @@
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
-import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { Image } from "@/types/image";
 

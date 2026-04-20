@@ -2481,6 +2481,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
     // Verify at top
     const atTop = await getViewState(kupua.page);
     expect(atTop!.scrollTop).toBeLessThan(100);
+    expect(await kupua.getScrubberThumbTop(), "thumb at top after Home").toBeLessThan(10);
 
     // Now seek to ~50% again
     await kupua.seekTo(0.5);
@@ -2575,6 +2576,8 @@ test.describe("Home button — sort reset", () => {
     expect(afterHome.error).toBeNull();
     // First image should match the default sort again
     expect(afterHome.firstImageId).toBe(defaultFirstId);
+    // Scrubber thumb must be at top
+    expect(await kupua.getScrubberThumbTop(), "thumb at top").toBeLessThan(10);
   });
 
   test("Home resets sort order after changing sort direction", async ({ kupua }) => {
@@ -2597,6 +2600,7 @@ test.describe("Home button — sort reset", () => {
     expect(afterHome.orderBy).toBeUndefined();
     expect(afterHome.firstImageId).toBe(defaultFirstId);
     expect(afterHome.error).toBeNull();
+    expect(await kupua.getScrubberThumbTop(), "thumb at top").toBeLessThan(10);
   });
 
   test("Home from table view resets sort order and switches to grid", async ({ kupua }) => {
@@ -2620,6 +2624,7 @@ test.describe("Home button — sort reset", () => {
     expect(afterHome.orderBy).toBeUndefined();
     expect(afterHome.firstImageId).toBe(defaultFirstId);
     expect(afterHome.error).toBeNull();
+    expect(await kupua.getScrubberThumbTop(), "thumb at top").toBeLessThan(10);
   });
 });
 

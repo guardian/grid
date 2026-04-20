@@ -17,8 +17,8 @@
  * `<a>` + `e.preventDefault()` so the browser doesn't navigate eagerly.
  */
 
-import { resetSearchSync, resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
-import { useSearchStore } from "@/stores/search-store";
+import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
+import { useSearchStore, suppressNextRestore, clearSuppressRestore } from "@/stores/search-store";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { resetViewportAnchor } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
@@ -42,10 +42,29 @@ import { DEFAULT_SEARCH } from "@/lib/home-defaults";
  *   degradation — the user gets to the home state, possibly with an error).
  */
 export async function resetToHome(navigate: () => void) {
-  // Force useUrlSearchSync to re-search even if params haven't
-  // changed (e.g. already at ?nonFree=true). Without this, clicking
-  // the logo when already at the default state would be a no-op.
-  resetSearchSync();
+  // Pre-compute the home URL dedup key BEFORE clearing state. This is set
+  // on _prevParamsSerialized immediately to prevent useUrlSearchSync from
+  // firing a rogue search() during the await below. Without this, the race
+  // is: resetSearchSync() clears dedup → React re-renders → useUrlSearchSync
+  // sees "" !== current and fires search(viewportAnchor) → _findAndFocusImage
+  // overwrites the fresh first-page buffer with deep-offset data.
+  const homeSearchOnly = Object.fromEntries(
+    Object.entries(DEFAULT_SEARCH).filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
+
+  // Set the dedup to match the home URL params IMMEDIATELY, so
+  // useUrlSearchSync sees a match and doesn't fire during the await.
+  // We still call store.search() directly below — this just blocks the
+  // URL sync hook from racing.
+  setPrevParamsSerialized(JSON.stringify(homeSearchOnly));
+  setPrevSearchOnly({ ...homeSearchOnly });
+
+  // Suppress the next restoreAroundCursor call. When search() replaces
+  // the buffer with first-page data, ImageDetail (still mounted because
+  // navigate() hasn't been processed yet) sees its deep image vanish and
+  // fires restoreAroundCursor, overwriting bufferOffset with the deep
+  // offset. This one-shot flag prevents that.
+  suppressNextRestore();
 
   // Clear focus BEFORE the density switch — the table unmount saves the
   // focused image's viewport ratio, and the grid mount restores it —
@@ -98,26 +117,9 @@ export async function resetToHome(navigate: () => void) {
     // The error state will be displayed on the home page.
   }
 
-  // Restore the URL sync dedup state after the direct search() above.
-  //
-  // resetSearchSync() cleared _prevParamsSerialized to "" (step 1) so that
-  // useUrlSearchSync would re-search on the next URL change. But when Home
-  // is clicked from grid view, navigate() goes to ?nonFree=true — which is
-  // already the current URL. The navigate is a no-op, useUrlSearchSync
-  // never fires, and _prevParamsSerialized stays "". The next real URL
-  // change (e.g. density switch adding ?density=table) finds a mismatch
-  // and fires search(), resetting the buffer to offset 0 — destroying the
-  // user's scroll position.
-  //
-  // Fix: after our direct search() completes, restore the dedup state to
-  // match the home URL params. We use DEFAULT_SEARCH (same source of truth
-  // as useUrlSearchSync), NOT store.params (which includes internal keys
-  // like offset/length that never appear in the URL).
-  const homeSearchOnly = Object.fromEntries(
-    Object.entries(DEFAULT_SEARCH).filter(([, v]) => v !== undefined)
-  ) as Record<string, string>;
-  setPrevParamsSerialized(JSON.stringify(homeSearchOnly));
-  setPrevSearchOnly({ ...homeSearchOnly });
+  // The dedup state was already set to match the home URL at the top of
+  // this function (preventing useUrlSearchSync races during the await).
+  // No need to set it again — it's already correct.
 
   // Suppress density-focus saves during the navigate() commit phase —
   // BUT ONLY when a density switch is about to happen (Home from table).
@@ -148,6 +150,11 @@ export async function resetToHome(navigate: () => void) {
   // Navigate AFTER data is ready. The density switch (table→grid) now
   // sees bufferOffset=0 and fresh results — no flash.
   navigate();
+
+  // Safety cleanup: if restoreAroundCursor never fires (e.g. ImageDetail
+  // unmounts before its effect runs), clear the suppress flag so it doesn't
+  // block a legitimate restore on a future back-navigation.
+  setTimeout(clearSuppressRestore, 2000);
 
   // Focus the CQL search input AFTER navigation. resetScrollAndFocusSearch
   // already attempts focus, but skips it when the URL still has ?image=

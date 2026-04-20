@@ -62,6 +62,17 @@ export function getCqlInputGeneration() {
 let _virtualizerReset: (() => void) | null = null;
 
 /**
+ * Generation counter incremented by resetScrollAndFocusSearch().
+ * The Scrubber's flash guard reads this to distinguish legitimate Home
+ * resets (allow through) from transient sort-around-focus corrections
+ * (suppress). See Scrubber.tsx discrete thumb sync effect.
+ */
+let _thumbResetGeneration = 0;
+export function getThumbResetGeneration(): number {
+  return _thumbResetGeneration;
+}
+
+/**
  * Register the virtualizer's scrollToOffset(0) callback.
  * Called by useScrollEffects on mount; cleared on unmount.
  */
@@ -153,6 +164,13 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }):
   // visual signal that "I'm going home" without flashing wrong images.
   const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
   if (thumb) thumb.style.top = "0px";
+
+  // Bump the thumb-reset generation so the Scrubber's flash guard knows
+  // the next deep→0 thumbTop transition is a legitimate Home reset, not
+  // a transient sort-around-focus correction. Without this, the flash
+  // guard blocks the 0px write and the thumb stays stuck at the old
+  // position permanently.
+  _thumbResetGeneration++;
 
   // Focus CQL input — but only if we're in search/results view, not image
   // detail view. The CQL input exists in the DOM even when image detail is

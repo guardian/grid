@@ -14,6 +14,74 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20 April 2026 — Yet another Home bug fixed
+
+Two real bugs (and one defence-in-depth hardening) in the Home logo reset path.
+
+**Bug 1 — Scrubber thumb stuck at deep position after Home (Scrubber.tsx):**
+The flash guard added in commit 4baad73eb ("Phantom focus promotion") suppressed
+DOM writes when thumbTop dropped from deep (>50px) to near-zero (<10px). This was
+intended to prevent a visual flash during sort-around-focus, but it also blocked the
+legitimate Home-logo reset. After `resetScrollAndFocusSearch` set `thumb.style.top =
+"0px"`, a React re-render with stale deep `currentPosition` wrote ~518px back. When
+`search()` completed and thumbTop tried to settle at ~0, the flash guard permanently
+blocked the correction.
+
+*Fix:* Generation-based bypass in `Scrubber.tsx`. `resetScrollAndFocusSearch()` now
+bumps `_thumbResetGeneration` (in `orchestration/search.ts`). The Scrubber's discrete
+sync effect tracks this generation: when it changes and thumbTop is still deep, it
+skips the stale write (preserving DOM 0px); when thumbTop settles near 0, it consumes
+the generation and falls through. Sort-around-focus flash guard is unaffected (gen
+never increments for that path).
+
+**Bug 2 — Grid scrolls back to old position after Home from deep image detail
+(search-store.ts + reset-to-home.ts):**
+When `resetToHome` awaits `search()` and gets fresh first-page data (bufferOffset=0),
+`ImageDetail` is still mounted (navigate() hasn't been processed yet). Its restore
+effect sees the deep image vanish from the now-shallow buffer → fires
+`restoreAroundCursor` → loads the deep image's neighbourhood → overwrites
+bufferOffset back to ~671k. The user sees the grid snap back to the old position.
+
+*Root cause identified via* diagnostic polling in smoke tests: 100ms samples of
+scrollTop/bufferOffset/store state for 5 seconds after Home click. Showed bufferOffset
+bouncing from 0 back to deep ~500ms after search() completed.
+
+*Fix:* One-shot `_suppressRestore` flag in `search-store.ts`. `resetToHome` sets
+`suppressNextRestore()` before calling `search()`. `restoreAroundCursor` checks and
+consumes the flag at entry, skipping the spurious restore. A 2-second safety timeout
+clears the flag after `navigate()` in case `restoreAroundCursor` never fires.
+
+**This bug only manifests on TEST/PROD (>65k docs, seek mode).** On local ES (10k
+docs, two-tier/scroll mode), the image is always in the first-page buffer, so
+`restoreAroundCursor` never triggers. **Local e2e cannot catch this — requires smoke
+tests against a real cluster.**
+
+**Defence-in-depth — useUrlSearchSync dedup (reset-to-home.ts):**
+Previously `resetSearchSync()` cleared `_prevParamsSerialized` to `""` at the top of
+`resetToHome`, opening a race window: during `await search()`, React re-renders →
+`useUrlSearchSync` sees `"" !== current` → fires `search(viewportAnchor)` pointing
+to the deep image. This race wasn't the one firing in practice (restoreAroundCursor
+was faster), but it's a real timing-dependent hole. Now `_prevParamsSerialized` is set
+to the home params immediately, so `useUrlSearchSync` sees a match and skips. This
+also removed the need for `resetSearchSync()` (now dead code, left as escape hatch).
+
+**Secondary fix — useReturnFromDetail.ts:**
+Added null guard: if `focusedImageIdRef.current === null`, skip re-focus. Prevents
+the detail→absent transition from re-setting focusedImageId after `resetToHome`
+intentionally cleared it.
+
+**Test changes:**
+- New: `e2e/smoke/home-logo-diag.spec.ts` — 4 diagnostic smoke tests (scrubber thumb
+  grid/table, Home from deep detail with polling, Home from shallow detail)
+- Amended: `buffer-corruption.spec.ts` — `assertCleanTopState` now checks thumb < 10;
+  detail→Home test asserts `focusedImageId === null`
+- Amended: `scrubber.spec.ts` — all Home tests assert thumb < 10
+
+**Files changed:** `Scrubber.tsx`, `orchestration/search.ts`, `search-store.ts`,
+`reset-to-home.ts`, `useReturnFromDetail.ts`, `buffer-corruption.spec.ts`,
+`scrubber.spec.ts`, `useDataWindow.ts` (unused import), `useImageTraversal.test.ts`
+(unused import). New: `home-logo-diag.spec.ts`.
+
 ### 19 April 2026 — Part B: tiny loose ends from core review
 
 Seven small hardening/maintenance fixes from the combined deep review of the five core

@@ -61,7 +61,13 @@ export function useReturnFromDetail({
     // Only act on the transition: image param was set → now gone
     if (!wasViewing || imageParam) return;
 
+    // If focusedImageId was cleared before the image param disappeared,
+    // something intentionally reset focus (e.g. resetToHome). Don't undo
+    // that by re-setting focus to the old image — it causes flashes when
+    // the Home logo navigates away from a deep detail view.
     const previousFocus = focusedImageIdRef.current;
+    if (previousFocus === null) return;
+
     setFocusedImageId(wasViewing);
 
     // If the user navigated to a different image (prev/next in detail),

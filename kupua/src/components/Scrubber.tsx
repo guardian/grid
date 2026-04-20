@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getScrollContainer, useScrollContainerGeneration } from "@/lib/scroll-container-ref";
+import { getThumbResetGeneration } from "@/lib/orchestration/search";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -461,6 +462,7 @@ export function Scrubber({
   // correction arrives within ~100ms and the next effect run writes the
   // correct position.
   const prevStableThumbTopRef = useRef(thumbTop);
+  const prevThumbResetGenRef = useRef(getThumbResetGeneration());
   useEffect(() => {
     if (isDragging || pendingSeekPosRef.current != null) return;
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
@@ -468,8 +470,29 @@ export function Scrubber({
     // Flash guard: if thumb would jump from a deep position to near-zero,
     // suppress this one write. The async offset correction will arrive
     // shortly and trigger the correct position.
+    //
+    // EXCEPTION: if resetScrollAndFocusSearch() bumped the thumb-reset
+    // generation, this is a legitimate Home/logo reset. But we can't just
+    // let the write through — the first render after reset still has a
+    // stale deep thumbTop (~518). We must SKIP that stale write (preserving
+    // the direct DOM 0px set by resetScrollAndFocusSearch), then ACCEPT
+    // when thumbTop settles near 0 after search() completes with fresh data.
+    const resetGen = getThumbResetGeneration();
+    const isHomeReset = resetGen !== prevThumbResetGenRef.current;
+
     const prevTop = prevStableThumbTopRef.current;
-    if (prevTop > 50 && thumbTop < 10) {
+    if (isHomeReset) {
+      if (thumbTop < 10) {
+        // Fresh data arrived, thumbTop settled at ~0. Consume the
+        // generation and fall through to write 0px.
+        prevThumbResetGenRef.current = resetGen;
+      } else {
+        // Still stale deep value — skip write to preserve the direct
+        // DOM 0px. Don't consume the generation so we keep waiting.
+        return;
+      }
+    } else if (prevTop > 50 && thumbTop < 10) {
+      // Original flash guard for sort-around-focus transients.
       // Don't update prevStableThumbTopRef — keep the old reference point
       // so we can detect when the correction arrives.
       return;

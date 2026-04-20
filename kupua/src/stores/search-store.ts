@@ -471,6 +471,26 @@ let _findFocusAbortController = new AbortController();
  */
 let _seekCooldownUntil = 0;
 
+/**
+ * One-shot flag to suppress the next `restoreAroundCursor` call.
+ *
+ * When resetToHome runs, its `search()` replaces the deep buffer with
+ * first-page data (bufferOffset=0). ImageDetail — still mounted because
+ * `navigate()` hasn't been processed — sees its image disappear from the
+ * buffer and fires `restoreAroundCursor`, which overwrites bufferOffset
+ * with the deep offset. Setting this flag prevents that one spurious call.
+ *
+ * Consumed (set back to false) by `restoreAroundCursor` itself, or cleared
+ * by a safety timeout in resetToHome if restoreAroundCursor never fires.
+ */
+let _suppressRestore = false;
+
+/** Set the suppress flag. Called by resetToHome before search(). */
+export function suppressNextRestore(): void { _suppressRestore = true; }
+
+/** Clear the suppress flag. Safety cleanup for resetToHome's timeout. */
+export function clearSuppressRestore(): void { _suppressRestore = false; }
+
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -3229,6 +3249,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     cursor: SortValues | null,
     cachedOffset: number,
   ) => {
+    // Suppress flag set by resetToHome — prevents the race where
+    // ImageDetail fires restoreAroundCursor after search() replaces the
+    // deep buffer with first-page data. See _suppressRestore declaration.
+    if (_suppressRestore) {
+      _suppressRestore = false;
+      return;
+    }
+
     // Without a cursor, fall back to the approximate seek. This covers
     // old cache entries and images with missing sort fields. Shallow
     // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
