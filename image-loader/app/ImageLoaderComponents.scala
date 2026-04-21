@@ -33,11 +33,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val maybeEmbedder: Option[Embedder] = config.maybeImageEmbedderQueueUrl
     .filter(_ => config.shouldEmbed)
     .map {queueUrl =>
-      new Embedder(
-        new S3Vectors(config),
-        new Bedrock(config),
-        new SimpleSqsMessageConsumer(queueUrl, config)
-      )
+      new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(queueUrl, config))(ec)
     }
 
   val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth)

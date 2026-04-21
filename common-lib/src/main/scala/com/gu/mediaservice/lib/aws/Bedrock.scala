@@ -13,10 +13,6 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO this will need to be changed
-// search_query is for text search
-// search_document is for embedded images
-
 sealed trait InputType
 object InputType {
   case object Text extends InputType
