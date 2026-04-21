@@ -590,8 +590,18 @@ class MediaApi(
             case SimilarSearch(imageId) =>
               val k = 100
               for {
-                ImageIds(ids) <- embedder.imageToImageSearch(imageId)
-                SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = 0, length = k)
+                maybeImage <- elasticSearch.getImageById(imageId)
+                maybeEmbedding = maybeImage
+                  .filter(image => isVisibleToAccessor(request.user, image))
+                  .flatMap(_.embedding)
+                  .flatMap(_.cohereEmbedV4)
+                  .map(_.image.map(_.toFloat))
+                SearchResults(hits, totalCount, _) <- maybeEmbedding match {
+                  case Some(embedding) =>
+                    elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+                  case None =>
+                    Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+                }
                 imageEntities = hits map (hitToImageEntity _).tupled
               } yield respondCollection(
                 data = imageEntities,
