@@ -32,6 +32,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
 | **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
 | **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts` |
+| **Touch gestures (swipe-dismiss, pinch-zoom)** | `touch-gestures-handoff.md`, `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `ImageDetail.tsx` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts` |
@@ -67,7 +68,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. Stacked layout on mobile (flex-col, image top, metadata below). |
 | Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Uses `useImageTraversal`. Nav buttons. |
 | Traversal | `hooks/useImageTraversal.ts` | 210 | Shared prev/next for detail + fullscreen. Proactive extend, pending nav, prefetch. All scroll modes. |
-| Swipe Carousel | `hooks/useSwipeCarousel.ts` | ~200 | Visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, commitStripReset. |
+| Swipe Carousel | `hooks/useSwipeCarousel.ts` | ~290 | Visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, commitStripReset. |
+| Swipe Dismiss | `hooks/useSwipeDismiss.ts` | ~140 | Pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only. |
+| Pinch Zoom | `hooks/usePinchZoom.ts` | ~260 | Two-finger pinch 1x–5x, single-finger pan, double-tap 1x↔2x. Fullscreen-only. Exposes scaleRef. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
 | Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |

@@ -41,20 +41,28 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
+import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
+import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
 import { NavStrip } from "@/components/NavStrip";
 import { resetToHome } from "@/lib/reset-to-home";
+import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import type { Image } from "@/types/image";
 
+/** Delay before acting on single-tap in fullscreen — allows double-tap-to-zoom. */
+const DOUBLE_TAP_MS = 300;
+
 interface ImageDetailProps {
   imageId: string;
+  /** Ref to the grid/list container behind the detail — animated during dismiss. */
+  gridContainerRef?: React.RefObject<HTMLElement | null>;
 }
 
-export function ImageDetail({ imageId }: ImageDetailProps) {
+export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const { total, findImageIndex, getImage } = useDataWindow();
   const dataSource = useSearchStore((s) => s.dataSource);
   const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
@@ -64,8 +72,16 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
 
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
+  // The imageId the user entered detail with — used to detect traversal.
+  // Only set once (on mount). If the user navigates prev/next, imageId changes
+  // but entryImageIdRef stays the same.
+  const entryImageIdRef = useRef(imageId);
+  // Wrapper around the entire detail view — animated during swipe-to-dismiss.
+  const detailWrapperRef = useRef<HTMLDivElement>(null);
   // Carousel strip — the inner element translated by swipe gestures.
   const stripRef = useRef<HTMLDivElement>(null);
+  // Center panel's <img> — transform target for pinch-zoom.
+  const imageRef = useRef<HTMLImageElement>(null);
   // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
@@ -201,6 +217,14 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   // Alt+f works when focus is in an editable field.
   useKeyboardShortcut("f", toggleFullscreen);
 
+  // Pinch-to-zoom: two-finger pinch on the image. Fullscreen-only.
+  // Exposes scaleRef so carousel and dismiss can skip when zoomed.
+  const { scaleRef } = usePinchZoom({
+    containerRef,
+    imageRef,
+    enabled: !!image && isFullscreen,
+  });
+
   // Swipe carousel: horizontal swipe with visual slide-in animation.
   // Listens on the image container so swipe works in both normal and fullscreen.
   // `enabled` toggles when the image loads — forces the effect to re-run after
@@ -211,29 +235,107 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
     onSwipeLeft: nextImage ? goToNext : undefined,
     onSwipeRight: prevImage ? goToPrev : undefined,
     enabled: !!image,
+    scaleRef,
+  });
+
+  // Swipe-to-dismiss: pull down on the image to close detail view.
+  // Only on mobile, only outside fullscreen (tap exits fullscreen instead).
+  const _pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
+  useSwipeDismiss({
+    containerRef,
+    wrapperRef: detailWrapperRef,
+    backdropRef: gridContainerRef,
+    onDismiss: closeDetail,
+    onDragStart: () => {
+      // Pre-scroll the hidden grid to the current image so it's in the
+      // right place as it fades in during the dismiss gesture.
+      // BUT: only if the user traversed to a different image. If they're
+      // still on the entry image, the grid's scroll position is already
+      // perfect (preserved via opacity:0). Scrolling would re-center the
+      // image when it was originally at a viewport edge.
+      if (imageId !== entryImageIdRef.current) {
+        useSearchStore.getState().setFocusedImageId(imageId);
+        scrollFocusedIntoView();
+      }
+    },
+    enabled: !!image && _pointerCoarse && !isFullscreen,
+    scaleRef,
+    imageId,
+  });
+
+  // Swipe-to-dismiss in fullscreen: pull down to exit fullscreen.
+  // Same gesture, different target: animates the fullscreen container itself
+  // (the wrapper is outside the fullscreen viewport). No hero animation,
+  // no backdrop — just slide-down + exit. Disabled when zoomed (scaleRef > 1).
+  // dragTargetRef = imageRef: the image moves visually while the container bg
+  // goes transparent (without this, movement is invisible — black on black).
+  useSwipeDismiss({
+    containerRef,
+    wrapperRef: containerRef, // fullscreen container IS the animated element
+    onDismiss: toggleFullscreen,
+    enabled: !!image && _pointerCoarse && isFullscreen,
+    scaleRef,
+    dragTargetRef: imageRef,
   });
 
   // Tap-to-fullscreen handler for touch devices.
   // On desktop: double-click toggles fullscreen (or closes detail).
-  // On mobile: single tap on the image toggles fullscreen. The swipedRef
-  // guard prevents entering fullscreen at the end of a swipe gesture.
+  // On mobile (non-fullscreen): single tap enters fullscreen instantly.
+  // In fullscreen: single tap exits after 300ms delay (to distinguish from
+  // double-tap-to-zoom). The delay on EXIT is acceptable — retreating feels
+  // natural with a slight pause. ENTERING fullscreen stays instant.
+  const fullscreenTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleImageClick = useCallback(() => {
     if (swipedRef.current) return; // was a swipe, not a tap
     if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
-    toggleFullscreen();
-  }, [swipedRef, toggleFullscreen]);
+    if (isFullscreen) {
+      // In fullscreen: delay exit to allow double-tap-to-zoom.
+      // If double-tap fires (zooms in), scaleRef.current > 1 when the
+      // timer executes, so the exit is suppressed — no coupling needed.
+      if (fullscreenTapTimer.current) {
+        // Second tap arrived while waiting — cancel the exit timer.
+        // Double-tap-to-zoom is handled by usePinchZoom via touch events.
+        clearTimeout(fullscreenTapTimer.current);
+        fullscreenTapTimer.current = null;
+        return;
+      }
+      fullscreenTapTimer.current = setTimeout(() => {
+        fullscreenTapTimer.current = null;
+        // Guard: if a double-tap zoom happened between scheduling and firing,
+        // don't exit fullscreen — the user zoomed in, not tapped to exit.
+        if (scaleRef.current > 1) return;
+        toggleFullscreen();
+      }, DOUBLE_TAP_MS);
+    } else {
+      toggleFullscreen(); // enter fullscreen instantly
+    }
+  }, [swipedRef, toggleFullscreen, isFullscreen, scaleRef]);
 
-  // Reset carousel strip when imageId changes. The carousel's commitStripReset
-  // already handles the visual transition imperatively (no flash), but React
-  // re-renders with new panel content — this ensures the strip is cleanly at
-  // translateX(0) for the new image.
+  // Reset carousel strip and zoom when imageId changes. The carousel's
+  // commitStripReset handles the visual transition imperatively (no flash),
+  // but React re-renders with new panel content — this ensures the strip is
+  // cleanly at translateX(0) for the new image. Also cancels any pending
+  // fullscreen-exit tap timer from the previous image.
   useLayoutEffect(() => {
     const strip = stripRef.current;
     if (strip) {
       strip.style.transition = "none";
       strip.style.transform = "";
     }
-  }, [imageId]);
+    // Cancel pending fullscreen tap timer from previous image
+    if (fullscreenTapTimer.current) {
+      clearTimeout(fullscreenTapTimer.current);
+      fullscreenTapTimer.current = null;
+    }
+    // Reset pinch-zoom state — new image starts at 1x
+    scaleRef.current = 1;
+    const img = imageRef.current;
+    if (img) {
+      img.style.transform = "";
+      img.style.willChange = "";
+      img.style.transition = "";
+    }
+  }, [imageId, scaleRef]);
 
   // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
   // single-character shortcuts, so they don't go through the shortcut
@@ -373,7 +475,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
   const displayImage = image!;
 
   return (
-    <>
+    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg">
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
         <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
@@ -458,7 +560,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           ref={containerRef}
           className={`relative overflow-hidden ${
             isFullscreen
-              ? `w-full h-full${cursorHidden ? " cursor-none" : ""}`
+              ? `w-full h-full touch-none${cursorHidden ? " cursor-none" : ""}`
               : "bg-grid-bg shrink-0 sm:flex-1 min-w-0 h-[55svh] sm:h-full touch-none sm:touch-auto"
           }`}
         >
@@ -486,6 +588,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
             <div className="absolute inset-0 flex items-center justify-center">
               {imageUrl ? (
                 <img
+                  ref={imageRef}
                   src={imageUrl}
                   fetchPriority="high"
                   alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
@@ -496,7 +599,14 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
                   }
                   draggable={false}
                   onClick={handleImageClick}
-                  onDoubleClick={isFullscreen ? toggleFullscreen : closeDetail}
+                  onDoubleClick={
+                    // Desktop: double-click toggles fullscreen / closes detail.
+                    // Mobile (coarse pointer): suppressed in fullscreen — double-tap
+                    // is handled by usePinchZoom for zoom, not fullscreen toggle.
+                    _pointerCoarse && isFullscreen ? undefined
+                      : isFullscreen ? toggleFullscreen
+                      : closeDetail
+                  }
                   onError={(e) => {
                     // imgproxy failed — try thumbnail as fallback
                     const target = e.target as HTMLImageElement;
@@ -554,7 +664,7 @@ export function ImageDetail({ imageId }: ImageDetailProps) {
           </aside>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

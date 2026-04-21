@@ -64,6 +64,11 @@ function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
     const centerImg = centerPanel.querySelector("img");
     if (targetImg && centerImg) {
       centerImg.src = targetImg.src;
+      // Reset any pinch-zoom transform on the center image —
+      // the incoming image should always appear at 1x zoom.
+      centerImg.style.transform = "";
+      centerImg.style.willChange = "";
+      centerImg.style.transition = "";
     }
   }
 
@@ -84,6 +89,8 @@ interface UseSwipeCarouselOptions {
   /** When false, the effect is a no-op. Toggle to re-attach listeners when
    *  the container DOM element becomes available (e.g. after async image load). */
   enabled?: boolean;
+  /** When scale > 1, suppress swipe (let pinch-zoom handle pan instead). */
+  scaleRef?: RefObject<number>;
 }
 
 interface UseSwipeCarouselReturn {
@@ -98,6 +105,7 @@ export function useSwipeCarousel({
   onSwipeLeft,
   onSwipeRight,
   enabled = true,
+  scaleRef,
 }: UseSwipeCarouselOptions): UseSwipeCarouselReturn {
   // Store callbacks in refs so the effect closure always sees current values
   // without re-attaching listeners on every render.
@@ -127,6 +135,7 @@ export function useSwipeCarousel({
 
     function onTouchStart(e: TouchEvent) {
       if (animating || e.touches.length !== 1) return;
+      if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — let pinchZoom handle pan
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       lastX = startX;
@@ -140,6 +149,12 @@ export function useSwipeCarousel({
 
     function onTouchMove(e: TouchEvent) {
       if (animating || e.touches.length !== 1) return;
+      // Guard: if zoomed in (pinch happened after touchstart), bail — let pinchZoom pan
+      if (scaleRef?.current && scaleRef.current > 1) {
+        tracking = false;
+        decided = false;
+        return;
+      }
       const currentX = e.touches[0].clientX;
       const dx = currentX - startX;
       const dy = e.touches[0].clientY - startY;
@@ -209,9 +224,6 @@ export function useSwipeCarousel({
           () => {
             animating = false;
             pendingCb = null;
-            // Imperatively copy next panel's image to center and reset strip.
-            // This eliminates the async gap — center panel shows the correct
-            // image BEFORE navigate() fires. React's re-render is a visual no-op.
             commitStripReset(strip, "left");
             cb();
           },

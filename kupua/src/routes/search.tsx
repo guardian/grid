@@ -165,6 +165,9 @@ function SearchPage() {
     />
   );
 
+  // Ref to the grid/list container — passed to ImageDetail for dismiss animation.
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+
   return (
     <>
       {/* Search UI — always mounted, always laid out at full size.
@@ -173,6 +176,7 @@ function SearchPage() {
           display:none would reset scrollTop to 0. The absolute + inset-0
           keeps it in the same space as the image detail overlay. */}
       <div
+        ref={gridContainerRef}
         className={
           showImageDetail
             ? "absolute inset-0 flex flex-col opacity-0 pointer-events-none"
@@ -206,7 +210,7 @@ function SearchPage() {
       {/* Image detail overlay — rendered when image is in URL.
           Must be AFTER FullscreenPreview so its `f` shortcut wins the
           keyboard shortcut stack (most-recently-registered = top). */}
-      {showImageDetail && <ImageDetail imageId={image} />}
+      {showImageDetail && <ImageDetail imageId={image} gridContainerRef={gridContainerRef} />}
     </>
   );
 }

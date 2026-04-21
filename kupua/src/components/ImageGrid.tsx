@@ -131,6 +131,7 @@ const GridCell = memo(function GridCell({
   return (
     <div
       data-grid-cell
+      data-image-id={image.id}
       className={`shrink-0 flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"

@@ -327,6 +327,7 @@ const TableBody = memo(function TableBody({
           <div
             key={row.id}
             role="row"
+            data-image-id={image.id}
             aria-rowindex={virtualRow.index + 2} // +2: 1-based, header is row 1
             aria-selected={isFocused}
             className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
