@@ -563,27 +563,59 @@ class MediaApi(
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
+    sealed trait AiSearchMode
+    case class TextSearch(query: String) extends AiSearchMode
+    case class SimilarSearch(imageId: String) extends AiSearchMode
+
+    def parseAiSearchMode(query: String): AiSearchMode = {
+      query
+        .split("\\s+")
+        .find(_.startsWith("similar:"))
+        .flatMap(_.split(":", 2).lift(1).filter(_.nonEmpty))
+        .map(SimilarSearch)
+        .getOrElse(TextSearch(query))
+    }
+
+    def emptyAiSearchResponse =
+      Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+
 //    TODO - add image to image in again
     if (_searchParams.useAISearch.contains(true)) {
       _searchParams.query match {
         // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
         case _ if _searchParams.length == 0 =>
-          Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+          emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          for {
-            embedding <- embedder.createQueryEmbedding(q)
-            k = 100
-            SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
-            imageEntities = hits map (hitToImageEntity _).tupled
-          } yield respondCollection(
-            data = imageEntities,
-            offset = Some(0),
-            total = Some(totalCount),
-            maybeExtraCounts = None,
-            links = Nil
-          )
+          parseAiSearchMode(q) match {
+            case SimilarSearch(imageId) =>
+              val k = 100
+              for {
+                ImageIds(ids) <- embedder.imageToImageSearch(imageId)
+                SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = 0, length = k)
+                imageEntities = hits map (hitToImageEntity _).tupled
+              } yield respondCollection(
+                data = imageEntities,
+                offset = Some(0),
+                total = Some(totalCount),
+                maybeExtraCounts = None,
+                links = Nil
+              )
+            case TextSearch(query) =>
+              for {
+                embedding <- embedder.createQueryEmbedding(query)
+                k = 100
+                SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+                imageEntities = hits map (hitToImageEntity _).tupled
+              } yield respondCollection(
+                data = imageEntities,
+                offset = Some(0),
+                total = Some(totalCount),
+                maybeExtraCounts = None,
+                links = Nil
+              )
+          }
         case _ =>
-          Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+          emptyAiSearchResponse
       }
     } else {
 
