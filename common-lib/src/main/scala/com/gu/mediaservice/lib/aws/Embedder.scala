@@ -21,7 +21,7 @@ class Embedder(bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: Exe
   def createQueryEmbedding(query: String)(implicit logMarker: LogMarker): Future[List[Float]] = {
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     for {
-      embedding <- bedrock.createEmbedding(InputType.Text, query)
+      embedding <- bedrock.createTextEmbedding(query)
     } yield embedding
   }
 

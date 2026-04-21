@@ -13,19 +13,7 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait InputType
-object InputType {
-  case object Text extends InputType
-  case object Image extends InputType
-}
-
 object Bedrock {
-  private case class BedrockImageRequest(
-    input_type: String,
-    embedding_types: List[String],
-    images: List[String],
-    output_dimension: Int
-  )
   private case class BedrockTextRequest(
     input_type: String,
     embedding_types: List[String],
@@ -33,7 +21,6 @@ object Bedrock {
     output_dimension: Int
   )
 
-  private implicit val bedrockImageRequestFormat: OFormat[BedrockImageRequest] = Json.format[BedrockImageRequest]
   private implicit val bedrockTextRequestFormat: OFormat[BedrockTextRequest] = Json.format[BedrockTextRequest]
 }
 
@@ -50,26 +37,14 @@ class Bedrock(config: CommonConfig)
       .build()
   }
 
-  private def createRequestBody(inputType: InputType, inputData: List[String]): InvokeModelRequest = {
-
-    val jsonBody = inputType match {
-      case InputType.Image =>
-        val body = Bedrock.BedrockImageRequest(
-          input_type = "search_query",
-          embedding_types = List("float"),
-          images = inputData,
-          output_dimension = 256
-        )
-        Json.toJson(body).toString()
-      case InputType.Text =>
-        val body = Bedrock.BedrockTextRequest(
-          input_type = "search_query",
-          embedding_types = List("float"),
-          texts = inputData,
-          output_dimension = 256
-        )
-        Json.toJson(body).toString()
-    }
+  private def createRequestBody(inputData: String): InvokeModelRequest = {
+    val body = Bedrock.BedrockTextRequest(
+      input_type = "search_query",
+      embedding_types = List("float"),
+      texts = List(inputData),
+      output_dimension = 256
+    )
+    val jsonBody = Json.toJson(body).toString()
 
     val request: InvokeModelRequest = {
       InvokeModelRequest
@@ -101,8 +76,8 @@ class Bedrock(config: CommonConfig)
     }
   }
 
-  def createEmbedding(inputType: InputType, inputData: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
-    val requestBody = createRequestBody(inputType, List(inputData))
+  def createTextEmbedding(inputData: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
+    val requestBody = createRequestBody(inputData)
     val bedrockFuture = Future { sendBedrockEmbeddingRequest(requestBody) }
     bedrockFuture.map { response =>
       val responseBody = response.body().asUtf8String()
