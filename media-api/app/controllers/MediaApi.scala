@@ -579,51 +579,59 @@ class MediaApi(
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
-//    TODO - add image to image in again
+    def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
+      val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
+      respondCollection(
+        data = imageEntities,
+        offset = Some(0),
+        total = Some(searchResults.total),
+        maybeExtraCounts = None,
+        links = Nil
+      )
+    }
+
+    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+      for {
+        maybeImage <- elasticSearch.getImageById(imageId)
+        maybeEmbedding = maybeImage
+          .filter(image => isVisibleToAccessor(request.user, image))
+          .flatMap(_.embedding)
+          .flatMap(_.cohereEmbedV4)
+          .map(_.image.map(_.toFloat))
+        searchResults <- maybeEmbedding match {
+          // If we have an embedding, perform the KNN search. If not, return an empty result set.
+          case Some(embedding) =>
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+          case None =>
+            Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+        }
+      } yield searchResults
+    }
+
+    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
+      for {
+        embedding <- embedder.createQueryEmbedding(query)
+        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+      } yield searchResults
+    }
+
+    def performAiSearchAndRespond(query: String): Future[Result] = {
+      val k = 200
+      val searchResultsFuture = parseAiSearchMode(query) match {
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
+      }
+
+      searchResultsFuture.map(aiSearchResponseFromResults)
+    }
+
     if (_searchParams.useAISearch.contains(true)) {
       _searchParams.query match {
         // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
         case _ if _searchParams.length == 0 =>
           emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          parseAiSearchMode(q) match {
-            case SimilarSearch(imageId) =>
-              val k = 100
-              for {
-                maybeImage <- elasticSearch.getImageById(imageId)
-                maybeEmbedding = maybeImage
-                  .filter(image => isVisibleToAccessor(request.user, image))
-                  .flatMap(_.embedding)
-                  .flatMap(_.cohereEmbedV4)
-                  .map(_.image.map(_.toFloat))
-                SearchResults(hits, totalCount, _) <- maybeEmbedding match {
-                  case Some(embedding) =>
-                    elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
-                  case None =>
-                    Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
-                }
-                imageEntities = hits map (hitToImageEntity _).tupled
-              } yield respondCollection(
-                data = imageEntities,
-                offset = Some(0),
-                total = Some(totalCount),
-                maybeExtraCounts = None,
-                links = Nil
-              )
-            case TextSearch(query) =>
-              for {
-                embedding <- embedder.createQueryEmbedding(query)
-                k = 100
-                SearchResults(hits, totalCount, _) <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
-                imageEntities = hits map (hitToImageEntity _).tupled
-              } yield respondCollection(
-                data = imageEntities,
-                offset = Some(0),
-                total = Some(totalCount),
-                maybeExtraCounts = None,
-                links = Nil
-              )
-          }
+          performAiSearchAndRespond(q)
         case _ =>
           emptyAiSearchResponse
       }
