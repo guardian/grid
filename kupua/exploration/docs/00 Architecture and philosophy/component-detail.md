@@ -50,7 +50,11 @@ Shared keyboard navigation for all density views, parameterised by `ListNavigati
 
 ## Image Traversal (`useImageTraversal.ts`, ~260 lines)
 
-Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniformly across all three scroll modes (buffer, two-tier, seek). If the adjacent image is in the buffer → navigate immediately; if near buffer edge → trigger extend, store pending navigation, resolve when buffer grows; if at absolute boundary → no-op. All logic in global indices. Fires `prefetchNearbyImages` on every successful navigation (direction-aware, throttled).
+Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniformly across all three scroll modes (buffer, two-tier, seek). If the adjacent image is in the buffer → navigate immediately; if near buffer edge → trigger extend, store pending navigation, resolve when buffer grows; if at absolute boundary → no-op. All logic in global indices. Fires `prefetchNearbyImages` on every successful navigation (direction-aware).
+
+## Prefetch Pipeline (`image-prefetch.ts`, ~470 lines)
+
+Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). The session records an EMA-smoothed cadence (interval between `prefetchNearbyImages` calls, weight 0.4). During fast bursts (cadence < 350ms), only i±1 + far lookahead i±6 are prefetched; at stable cadence, the full radius (i+4 ahead, i-1 behind) is issued. A 280ms post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests are cancelled via `img.src = ""` when they leave the desired set. `fetchPriority` hints (`"high"` for i+1 full-res and i±1 thumbnails, `"low"` for the rest) keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. Session auto-closes after 2s idle. All thresholds are tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
 
 ## Prepend Transform (`prepend-transform.ts`, ~140 lines)
 
@@ -106,7 +110,7 @@ Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus 
 
 ## Image Detail (`ImageDetail.tsx`, ~440 lines)
 
-Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), direction-aware prefetch pipeline (shared `image-prefetch.ts`, T=150ms throttle gate), fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing).
+Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), cadence-aware prefetch pipeline (shared `image-prefetch.ts` session model), fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing).
 
 ## Fullscreen Preview (`FullscreenPreview.tsx`, ~270 lines)
 

@@ -14,6 +14,53 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 April 2026 — Cadence-aware prefetch + traversal convergence
+
+Rewrote `image-prefetch.ts` around a **TraversalSession** state machine that
+tracks user navigation cadence (EMA-smoothed interval between prev/next calls)
+and adapts prefetch strategy accordingly. Executed Sessions 1–4 + 6 of the
+`prefetch-cadence-workplan.md` plan (now in `zz Archive/`). Session 5
+(StableImg→bare `<img>` on desktop) skipped — risk/reward poor for primary surface.
+
+**Session 1 — Scaffolding (no behaviour change):** 6 tuning constants in
+`tuning.ts` (FAST_CADENCE_MS=350, BURST_END_MS=280, SESSION_TIMEOUT_MS=2000,
+FAR_LOOKAHEAD=6, FULL_RADIUS_AHEAD=4, FULL_RADIUS_BEHIND=1). TraversalSession
+type + module-level singleton. `tunable()` helper reads localStorage overrides
+(`kupua.prefetch.<key>`) fresh each call for DevTools tuning without rebuilds.
+`computeCadence()` pure EMA function. `prefetchLog()` ring buffer +
+`getPrefetchStats()` + `__resetPrefetchForTests()` test harness.
+
+**Session 2 — Cancellation + fetchPriority + thumbnail-first:** Rewrote
+`prefetchNearbyImages` to open/reuse a session, track in-flight requests in a
+`Map<imageId, HTMLImageElement>`, cancel stale requests via `img.src = ""`
+(aborts on Chromium/WebKit, frees connection slot on Firefox). `fetchPriority`
+hints: `"high"` for i+1 full-res + i±1 thumbnails, `"low"` for rest. Mobile
+issues thumbnails before full-res within each batch. Dropped old 150ms throttle
+gate. Renamed `Image` type import → `ImageRecord` to avoid DOM collision.
+
+**Session 3 — Cadence-aware skipping + post-burst debounce:** During fast
+bursts (cadence < 350ms), skip middle radius — only prefetch i±1 + far
+lookahead i±6. After burst settles (280ms debounce), fire full-radius
+prefetch around resting position. Session auto-closes after 2s idle.
+
+**Session 4 — FullscreenPreview convergence:** Deleted inline `getImageUrl()`;
+replaced with shared `getCarouselImageUrl`. Added `fetchPriority="high"` to
+the `<img>`. Removed dead `getFullImageUrl`/`getThumbnailUrl` imports.
+
+**Session 6 — Cleanup:** Dropped `lastPrefetchTime` param from
+`prefetchNearbyImages` (session manages timing). Removed `lastPrefetchRef`
+from `useImageTraversal`. Stripped stale throttle comments. Added comprehensive
+top-of-file doc comment describing the session model.
+
+**Tests:** 20 new unit tests in `image-prefetch.test.ts` (cadence EMA × 6,
+session behaviour × 8, cadence-aware behaviour × 6). All 342 tests pass.
+
+**Perf audit (3 runs × 19 tests):** No regressions vs "Post-carousel-cleanup"
+baseline. Key traversal metrics: P14a maxFrame 67ms, P14d (rapid 12/s)
+maxFrame 60ms. Zero blank flashes. CLS ~0 everywhere.
+
+Workplan: `zz Archive/prefetch-cadence-workplan.md` (Sessions 1–4+6 ✅, 5 ⏭️, 7 not attempted).
+
 ### 22 April 2026 — Browser gestures in viewer + perf results page
 
 **Browser back/forward swipe gesture restored on desktop (ImageDetail.tsx).**

@@ -32,8 +32,7 @@ import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
-import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
-import { prefetchNearbyImages } from "@/lib/image-prefetch";
+import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import type { Image } from "@/types/image";
 
@@ -51,14 +50,11 @@ function resolveFocusedImage(): Image | null {
   return results[localIdx] ?? null;
 }
 
+/** Resolve the display URL for a fullscreen image.
+ *  Uses getCarouselImageUrl (shared with prefetch + ImageDetail side panels)
+ *  so the HTTP-cache-warmed URL matches what the DOM receives. */
 function getImageUrl(image: Image): string | undefined {
-  const fullUrl = getFullImageUrl(image, {
-    width: window.screen.width,
-    height: window.screen.height,
-    nativeWidth: image.source?.dimensions?.width,
-    nativeHeight: image.source?.dimensions?.height,
-  });
-  return fullUrl ?? getThumbnailUrl(image);
+  return getCarouselImageUrl(image);
 }
 
 export function FullscreenPreview() {
@@ -120,7 +116,7 @@ export function FullscreenPreview() {
     const { results } = useSearchStore.getState();
     const localIdx = resolveLocalIndex(image);
     if (localIdx >= 0) {
-      prefetchNearbyImages(localIdx, results, "forward", null);
+      prefetchNearbyImages(localIdx, results, "forward");
     }
 
     // Enter fullscreen — the div is always in the DOM (hidden via CSS when
@@ -251,6 +247,7 @@ export function FullscreenPreview() {
               alt=""
               className="w-full h-full object-contain select-none"
               draggable={false}
+              fetchPriority="high"
               onLoad={(e) => { (e.target as HTMLImageElement).alt = alt; }}
             />
           ) : (

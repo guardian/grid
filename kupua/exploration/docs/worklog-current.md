@@ -15,3 +15,5 @@ If you DO see your own check-in in your conversation history, carry on.
 (No active task.)
 
 ## Session Log
+
+(Empty — previous session's log moved to changelog.md.)

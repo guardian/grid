@@ -111,7 +111,6 @@ export function useImageTraversal(
 ): ImageTraversalResult {
   const directionRef = useRef<"forward" | "backward">("forward");
   const pendingRef = useRef<"forward" | "backward" | null>(null);
-  const lastPrefetchRef = useRef(0);
   // Track whether the user has navigated at least once. Proactive extend
   // only fires after a navigation — not on mount, which would cause infinite
   // loops when ImageDetail opens deep in the result set and restoreAroundCursor
@@ -165,7 +164,6 @@ export function useImageTraversal(
   // ── Initial prefetch on mount ──────────────────────────────────
   // When the detail view first opens, prefetch images around the current
   // position so decoded bitmaps are ready by the time the user swipes.
-  // Uses null for lastPrefetchTime to bypass the throttle gate.
   // Only fires once (empty deps + guard on hasNavigatedRef).
   useEffect(() => {
     if (hasNavigatedRef.current) return; // already navigating, prefetch handled there
@@ -173,7 +171,7 @@ export function useImageTraversal(
     const { results: res, bufferOffset: bo } = useSearchStore.getState();
     const localIdx = currentGlobalIndex - bo;
     if (localIdx >= 0 && localIdx < res.length) {
-      prefetchNearbyImages(localIdx, res, "forward", null);
+      prefetchNearbyImages(localIdx, res, "forward");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once when position is known
   }, [currentGlobalIndex]);
@@ -205,7 +203,7 @@ export function useImageTraversal(
       const { results: res, bufferOffset: bo } = useSearchStore.getState();
       const localIdx = targetGlobalIdx - bo;
       if (localIdx >= 0 && localIdx < res.length) {
-        prefetchNearbyImages(localIdx, res, dir, lastPrefetchRef);
+        prefetchNearbyImages(localIdx, res, dir);
       }
     }
   }, [results, bufferOffset]);
@@ -238,7 +236,7 @@ export function useImageTraversal(
       const { results: res, bufferOffset: bo } = useSearchStore.getState();
       const localIdx = targetGlobalIdx - bo;
       if (localIdx >= 0 && localIdx < res.length) {
-        prefetchNearbyImages(localIdx, res, direction, lastPrefetchRef);
+        prefetchNearbyImages(localIdx, res, direction);
       }
     } else {
       // Target is outside the buffer — request a buffer slide and pend.

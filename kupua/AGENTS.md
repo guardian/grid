@@ -31,8 +31,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 |---|---|
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
 | **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
-| **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts` |
-| **Touch gestures (swipe carousel, dismiss, pinch-zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `zz Archive/swipe-carousel-review.md` |
+| **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-prefetch.test.ts` |
+| **Touch gestures (swipe carousel, dismiss, pinch-zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `zz Archive/swipe-carousel-review.md`, `zz Archive/prefetch-cadence-workplan.md` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts` |
@@ -83,7 +83,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **322 Vitest** unit/integration tests (~36s) — `npm test`
+- **342 Vitest** unit/integration tests (~37s) — `npm test`
 - **153 Playwright E2E** tests (~6min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
@@ -136,6 +136,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Position map workplan | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-through-24-workplan.md` | 8-phase plan for 65k scroll-like scrubber (Phases 0-4a done, 4b-7 superseded) |
 | Two-tier virtualisation | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
 | Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
+| Prefetch cadence workplan | `exploration/docs/zz Archive/prefetch-cadence-workplan.md` | Traversal session model, cadence EMA, 7-session plan (1–4+6 done, 5 skipped) |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 ## Tech Stack

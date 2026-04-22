@@ -174,3 +174,49 @@ export const AGG_DEFAULT_SIZE = 10;
 /** Bucket count for "show more" — single-field on-demand request. */
 export const AGG_EXPANDED_SIZE = 100;
 
+// ---------------------------------------------------------------------------
+// Prefetch / traversal session
+// ---------------------------------------------------------------------------
+// These control the cadence-aware prefetch pipeline in image-prefetch.ts.
+// Starting values are educated guesses — tune after Session 3 lands.
+// All overridable at runtime via localStorage (see `tunable()` in
+// image-prefetch.ts) so you can tweak on a real device without rebuilds:
+//   localStorage.setItem('kupua.prefetch.fastCadenceMs', '500')
+
+/**
+ * Cadence below which we consider the user mid-burst (ms between
+ * navigations). Below this: skip middle radius, prefetch only i±1 +
+ * far lookahead. Above: full radius.
+ */
+export const PREFETCH_FAST_CADENCE_MS = 350;
+
+/**
+ * No navigation for this long → burst is over; fire the
+ * full-radius post-burst prefetch around the resting position.
+ */
+export const PREFETCH_BURST_END_MS = 280;
+
+/**
+ * No navigation for this long → close the session entirely; next
+ * prefetch call opens a fresh one with reset cadence.
+ */
+export const PREFETCH_SESSION_TIMEOUT_MS = 2000;
+
+/**
+ * During fast burst, also prefetch i±FAR_LOOKAHEAD as a guess at
+ * where the user might stop.
+ */
+export const PREFETCH_FAR_LOOKAHEAD = 6;
+
+/**
+ * Stable cadence: prefetch i+1..i+FULL_RADIUS_AHEAD in the
+ * movement direction.
+ */
+export const PREFETCH_FULL_RADIUS_AHEAD = 4;
+
+/**
+ * Stable cadence: prefetch i-1..i-FULL_RADIUS_BEHIND opposite
+ * the movement direction.
+ */
+export const PREFETCH_FULL_RADIUS_BEHIND = 1;
+

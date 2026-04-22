@@ -1,27 +1,56 @@
 /**
- * Direction-aware image prefetch pipeline.
+ * Direction-aware image prefetch pipeline with traversal-session tracking.
  *
  * Shared between ImageDetail (traversal in detail view) and FullscreenPreview
  * (traversal in fullscreen peek). Both use the same screen-sized imgproxy URL
- * and the same 4-ahead + 1-behind strategy.
+ * via `getCarouselImageUrl()`.
  *
- * Uses `new Image().src` — the browser fetches and caches the response.
- * Completed prefetches are never cancelled — they warm the HTTP cache.
+ * ## Session model
  *
- * Throttle gate (T=150ms): at held-arrow-key speeds (<150ms/step), skip
- * prefetch batches to reduce imgproxy contention. The main <img> request
- * still fires every step (browser-managed). At ≥200ms/step, 200 > 150 →
- * throttle never triggers → pipeline runs at full capacity.
+ * A **TraversalSession** opens on the first `prefetchNearbyImages` call
+ * after idle and closes after `PREFETCH_SESSION_TIMEOUT_MS` of inactivity.
+ * While open it tracks:
+ *   - **Cadence** — EMA-smoothed interval between navigation calls.
+ *   - **In-flight map** — `Map<imageId, HTMLImageElement>` of pending fetches.
+ *   - **Direction** — last known movement direction.
  *
- * Direction-aware allocation (PhotoSwipe model):
- *   Forward  → [i+1, i+2, i+3, i+4, i-1]
- *   Backward → [i-1, i-2, i-3, i-4, i+1]
- * Fired in distance order so the nearest image wins any connection
- * scheduling tie.
+ * ## Cadence-aware behaviour
+ *
+ * - **Stable cadence** (≥ `PREFETCH_FAST_CADENCE_MS`): full radius
+ *   (4 ahead + 1 behind in movement direction).
+ * - **Fast burst** (< threshold): sparse radius — only i±1 + far
+ *   lookahead (±`PREFETCH_FAR_LOOKAHEAD`). Skips middle to avoid
+ *   wasting bandwidth on images the user will swipe past.
+ * - **Post-burst debounce** (`PREFETCH_BURST_END_MS`): when the user
+ *   stops, fires a full-radius batch around the resting position.
+ *
+ * ## Cancellation + priority
+ *
+ * Each call cancels in-flight prefetches that left the desired radius
+ * (`img.src = ""` aborts fetch on Chromium/WebKit). `fetchPriority`
+ * hints (`"high"` for i+1 and i±1 thumbnails, `"low"` for rest) keep
+ * the most-needed image at the front of the browser's connection queue.
+ *
+ * On mobile, thumbnails are issued before full-res (cheap JPEG fallback
+ * for the `data-thumb` swap at COMMIT time in `useSwipeCarousel`).
+ *
+ * ## Tuning
+ *
+ * All constants live in `@/constants/tuning.ts` and are overridable at
+ * runtime via localStorage (e.g. `kupua.prefetch.fastCadenceMs`). See
+ * `tunable()` below.
  */
 
 import { getFullImageUrl, getThumbnailUrl, type FullImageOptions } from "@/lib/image-urls";
-import type { Image } from "@/types/image";
+import {
+  PREFETCH_FAST_CADENCE_MS,
+  PREFETCH_BURST_END_MS,
+  PREFETCH_SESSION_TIMEOUT_MS,
+  PREFETCH_FAR_LOOKAHEAD,
+  PREFETCH_FULL_RADIUS_AHEAD,
+  PREFETCH_FULL_RADIUS_BEHIND,
+} from "@/constants/tuning";
+import type { Image as ImageRecord } from "@/types/image";
 
 /** Screen-sized imgproxy options — stable across window resize / fullscreen. */
 const screenOpts: FullImageOptions = {
@@ -91,8 +120,138 @@ function _notifyListeners(imageId: string): void {
   for (const cb of _listeners) cb(imageId);
 }
 
+// ── Traversal session ───────────────────────────────────────────
+// A TraversalSession tracks one user burst (held arrow key or chain of
+// swipes). It opens on the first prefetchNearbyImages call after idle
+// and closes after SESSION_TIMEOUT_MS of inactivity. While open it
+// tracks cadence, in-flight requests, and cancels prefetches that
+// leave the desired radius.
+//
+// Module-level singleton — one session at a time.
+
+/** Runtime-tunable constant reader. Reads localStorage on every call so
+ *  DevTools edits take effect on the next navigation without rebuilds.
+ *  Falls back to the compiled constant when localStorage is absent or
+ *  the stored value is not a finite number. */
+function tunable(key: string, fallback: number): number {
+  if (typeof localStorage === "undefined" || typeof localStorage.getItem !== "function") return fallback;
+  const raw = localStorage.getItem(`kupua.prefetch.${key}`);
+  const n = raw == null ? NaN : Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** Read a prefetch tuning constant with localStorage override. */
+export function getTunable(key: string): number {
+  switch (key) {
+    case "fastCadenceMs":    return tunable(key, PREFETCH_FAST_CADENCE_MS);
+    case "burstEndMs":       return tunable(key, PREFETCH_BURST_END_MS);
+    case "sessionTimeoutMs": return tunable(key, PREFETCH_SESSION_TIMEOUT_MS);
+    case "farLookahead":     return tunable(key, PREFETCH_FAR_LOOKAHEAD);
+    case "fullRadiusAhead":  return tunable(key, PREFETCH_FULL_RADIUS_AHEAD);
+    case "fullRadiusBehind": return tunable(key, PREFETCH_FULL_RADIUS_BEHIND);
+    default:                 return NaN;
+  }
+}
+
+/**
+ * Compute exponentially-smoothed cadence (ms between navigations).
+ * Weight 0.4 on the new interval — responsive to speed changes but
+ * smooths jitter from inconsistent touch timing.
+ *
+ * Pure function — exported for unit testing.
+ */
+export function computeCadence(
+  prevCadence: number | null,
+  intervalMs: number,
+): number {
+  if (prevCadence == null) return intervalMs;
+  return prevCadence * 0.6 + intervalMs * 0.4;
+}
+
+/** State held by the current traversal session. */
+interface TraversalSession {
+  /** Timestamp of the last prefetchNearbyImages call. */
+  lastCallAt: number;
+  /** EMA-smoothed interval between calls (ms), or null before 2nd call. */
+  cadenceMs: number | null;
+  /** Last known movement direction. */
+  direction: "forward" | "backward";
+  /** In-flight prefetch requests keyed by image ID. */
+  inFlight: Map<string, HTMLImageElement>;
+  /** setTimeout handle for post-burst full-radius prefetch. */
+  pendingBurstEnd: ReturnType<typeof setTimeout> | null;
+  /** setTimeout handle for session timeout (close on inactivity). */
+  pendingTimeout: ReturnType<typeof setTimeout> | null;
+  /** Count of images cancelled in the most recent cancelLeftRadius call. */
+  lastCancelledCount: number;
+}
+
+/** The current traversal session, or null when idle. */
+let _currentSession: TraversalSession | null = null;
+
+// ── Dev-only instrumentation ────────────────────────────────────
+// Ring buffer of recent prefetch events for debugging. Only populated
+// in dev mode (import.meta.env.DEV).
+
+interface PrefetchLogEntry {
+  ts: number;
+  tag: string;
+  payload: unknown;
+}
+
+const PREFETCH_LOG_CAP = 200;
+const _prefetchLog: PrefetchLogEntry[] = [];
+
+/** Append to the dev-only prefetch log ring buffer. No-op in prod. */
+export function prefetchLog(tag: string, payload?: unknown): void {
+  if (!import.meta.env.DEV) return;
+  _prefetchLog.push({ ts: performance.now(), tag, payload });
+  if (_prefetchLog.length > PREFETCH_LOG_CAP) {
+    _prefetchLog.splice(0, _prefetchLog.length - PREFETCH_LOG_CAP);
+  }
+  // eslint-disable-next-line no-console
+  console.debug(`[prefetch] ${tag}`, payload ?? "");
+}
+
+/** Read the dev-only prefetch log (last 200 entries). */
+export function getPrefetchLog(): readonly PrefetchLogEntry[] {
+  return _prefetchLog;
+}
+
+/** Observable stats for the prefetch pipeline — used by tests and
+ *  future debug UI. */
+export interface PrefetchStats {
+  inFlightCount: number;
+  sessionOpen: boolean;
+  cadenceMs: number | null;
+  lastCancelledCount: number;
+  isFastBurst: boolean;
+}
+
+/** Snapshot of current prefetch pipeline state. */
+export function getPrefetchStats(): PrefetchStats {
+  const fastThreshold = tunable("fastCadenceMs", PREFETCH_FAST_CADENCE_MS);
+  return {
+    inFlightCount: _currentSession?.inFlight.size ?? 0,
+    sessionOpen: _currentSession != null,
+    cadenceMs: _currentSession?.cadenceMs ?? null,
+    lastCancelledCount: _currentSession?.lastCancelledCount ?? 0,
+    isFastBurst: _currentSession?.cadenceMs != null && _currentSession.cadenceMs < fastThreshold,
+  };
+}
+
+/** Reset all module-level prefetch state. Test-only. */
+export function __resetPrefetchForTests(): void {
+  if (_currentSession?.pendingBurstEnd) clearTimeout(_currentSession.pendingBurstEnd);
+  if (_currentSession?.pendingTimeout) clearTimeout(_currentSession.pendingTimeout);
+  _currentSession = null;
+  _loadedFullRes.clear();
+  _listeners.clear();
+  _prefetchLog.length = 0;
+}
+
 /** Resolve the prefetch URL for an image (screen-sized, with native cap). */
-function prefetchUrl(image: Image): string | undefined {
+function prefetchUrl(image: ImageRecord): string | undefined {
   return getCarouselImageUrl(image) ?? getThumbnailUrl(image);
 }
 
@@ -101,7 +260,7 @@ function prefetchUrl(image: Image): string | undefined {
  * screen dimensions + native cap. Shared between prefetch and panel
  * useMemos so the HTTP-cache-warmed URL matches what the DOM receives.
  */
-export function getCarouselImageUrl(image: Image): string | undefined {
+export function getCarouselImageUrl(image: ImageRecord): string | undefined {
   const opts: FullImageOptions = {
     ...screenOpts,
     nativeWidth: image.source?.dimensions?.width,
@@ -113,74 +272,268 @@ export function getCarouselImageUrl(image: Image): string | undefined {
 /**
  * Prefetch nearby images in the buffer around `currentIndex`.
  *
+ * Opens or reuses a TraversalSession. Cancels in-flight prefetches that
+ * left the desired radius, then issues missing ones with fetchPriority
+ * hints (thumbnails first on mobile, full-res ordered by distance).
+ *
  * @param currentIndex  — local index in `results` of the currently displayed image
  * @param results       — the buffer array from the search store
  * @param direction     — movement direction ("forward" or "backward")
- * @param lastPrefetchTime — ref holding the timestamp of the last prefetch call
- *                           (mutated in place). Pass `{ current: 0 }` for the first call.
- *                           When null, throttle is bypassed (use on initial enter).
  */
 export function prefetchNearbyImages(
   currentIndex: number,
-  results: readonly (Image | undefined)[],
+  results: readonly (ImageRecord | undefined)[],
   direction: "forward" | "backward",
-  lastPrefetchTime: { current: number } | null,
 ): void {
   if (currentIndex < 0 || currentIndex >= results.length) return;
 
-  // Throttle gate — skip if called faster than 150ms (held-arrow-key speed).
-  // Bypassed when lastPrefetchTime is null (initial enter, no throttle needed).
-  if (lastPrefetchTime) {
-    const now = performance.now();
-    if (now - lastPrefetchTime.current < 150) return;
-    lastPrefetchTime.current = now;
+  const now = performance.now();
+  const timeoutMs = tunable("sessionTimeoutMs", PREFETCH_SESSION_TIMEOUT_MS);
+
+  // Open or reuse session
+  if (!_currentSession || now - _currentSession.lastCallAt > timeoutMs) {
+    _closeSession();
+    _currentSession = {
+      lastCallAt: now,
+      cadenceMs: null,
+      direction,
+      inFlight: new Map(),
+      pendingBurstEnd: null,
+      pendingTimeout: null,
+      lastCancelledCount: 0,
+    };
+    prefetchLog("session:open");
+  } else {
+    // Update cadence
+    const interval = now - _currentSession.lastCallAt;
+    _currentSession.cadenceMs = computeCadence(_currentSession.cadenceMs, interval);
+    _currentSession.lastCallAt = now;
+    _currentSession.direction = direction;
+    prefetchLog("session:update", { cadenceMs: _currentSession.cadenceMs, direction });
   }
 
+  // Reset session timeout
+  if (_currentSession.pendingTimeout) clearTimeout(_currentSession.pendingTimeout);
+  _currentSession.pendingTimeout = setTimeout(() => {
+    _closeSession();
+  }, timeoutMs);
+
+  // Build desired neighbour set: image ID → priority tier
+  // Cadence-aware: fast burst → sparse radius, stable → full radius.
+  const fastThreshold = tunable("fastCadenceMs", PREFETCH_FAST_CADENCE_MS);
+  const isFastBurst = _currentSession.cadenceMs != null && _currentSession.cadenceMs < fastThreshold;
+  const desired = _buildDesiredSet(currentIndex, results, direction, isFastBurst);
+
+  // Cancel in-flight requests that left the radius
+  _cancelLeftRadius(desired);
+
+  // Issue missing prefetches (thumbnails first on mobile, then full-res)
+  _issueMissing(currentIndex, results, desired);
+
+  // Schedule post-burst full-radius prefetch
+  _scheduleBurstEnd(currentIndex, results, direction);
+}
+
+// ── Session helpers ─────────────────────────────────────────────
+
+/** Priority tier for a prefetch request. Maps to fetchPriority attribute. */
+type PriorityTier = "high" | "low";
+
+/** Desired prefetch entry: image index + priority tier. */
+interface DesiredEntry {
+  idx: number;
+  priority: PriorityTier;
+}
+
+/**
+ * Build the set of desired neighbours around currentIndex.
+ * Returns a Map of imageId → DesiredEntry for images that exist in the buffer.
+ *
+ * When `fastBurst` is true (cadence below FAST_CADENCE_MS), uses a sparse
+ * radius: only i±1 + far lookahead. Skips middle positions (i+2..i+N-1)
+ * to avoid wasting bandwidth on images the user will swipe past.
+ */
+function _buildDesiredSet(
+  currentIndex: number,
+  results: readonly (ImageRecord | undefined)[],
+  direction: "forward" | "backward",
+  fastBurst: boolean,
+): Map<string, DesiredEntry> {
+  const radiusAhead = tunable("fullRadiusAhead", PREFETCH_FULL_RADIUS_AHEAD);
+  const radiusBehind = tunable("fullRadiusBehind", PREFETCH_FULL_RADIUS_BEHIND);
+  const farLookahead = tunable("farLookahead", PREFETCH_FAR_LOOKAHEAD);
   const ahead = direction === "forward" ? 1 : -1;
-  const indices: number[] = [];
+  const desired = new Map<string, DesiredEntry>();
 
-  // 4 in movement direction (nearest first)
-  for (let i = 1; i <= 4; i++) {
-    const idx = currentIndex + ahead * i;
-    if (idx >= 0 && idx < results.length) indices.push(idx);
+  if (fastBurst) {
+    // Sparse radius: i±1 (immediate neighbours) + far lookahead
+    _addIfExists(desired, currentIndex + ahead, results, "high");
+    _addIfExists(desired, currentIndex - ahead, results, "low");
+    _addIfExists(desired, currentIndex + ahead * farLookahead, results, "low");
+    _addIfExists(desired, currentIndex - ahead * farLookahead, results, "low");
+  } else {
+    // Full radius: movement direction i+1 (high) + i+2..i+N (low) + behind
+    for (let i = 1; i <= radiusAhead; i++) {
+      _addIfExists(desired, currentIndex + ahead * i, results, i === 1 ? "high" : "low");
+    }
+    for (let i = 1; i <= radiusBehind; i++) {
+      _addIfExists(desired, currentIndex - ahead * i, results, "low");
+    }
   }
-  // 1 behind
-  const behindIdx = currentIndex - ahead;
-  if (behindIdx >= 0 && behindIdx < results.length) indices.push(behindIdx);
 
-  for (const idx of indices) {
+  return desired;
+}
+
+/** Add an image at `idx` to the desired set if it exists in the buffer. */
+function _addIfExists(
+  desired: Map<string, DesiredEntry>,
+  idx: number,
+  results: readonly (ImageRecord | undefined)[],
+  priority: PriorityTier,
+): void {
+  if (idx < 0 || idx >= results.length) return;
+  const image = results[idx];
+  if (!image) return;
+  desired.set(image.id, { idx, priority });
+}
+
+/**
+ * Cancel in-flight prefetches whose image ID is not in the desired set.
+ * Sets `img.src = ""` to abort the fetch (works on Chromium + WebKit;
+ * on Firefox the request continues but the connection slot is freed).
+ */
+function _cancelLeftRadius(desired: Map<string, DesiredEntry>): void {
+  if (!_currentSession) return;
+  let cancelled = 0;
+  for (const [id, img] of _currentSession.inFlight) {
+    if (!desired.has(id)) {
+      img.src = "";
+      _currentSession.inFlight.delete(id);
+      cancelled++;
+    }
+  }
+  _currentSession.lastCancelledCount = cancelled;
+  if (cancelled > 0) {
+    prefetchLog("cancel", { cancelled });
+  }
+}
+
+/**
+ * Issue prefetch requests for images in the desired set that aren't
+ * already in-flight or fully loaded. Order:
+ *   1. Thumbnails (mobile only) — cheap, critical for COMMIT fallback
+ *   2. Full-res i+1 (high priority)
+ *   3. Full-res remaining (low priority, in distance order)
+ */
+function _issueMissing(
+  currentIndex: number,
+  results: readonly (ImageRecord | undefined)[],
+  desired: Map<string, DesiredEntry>,
+): void {
+  if (!_currentSession) return;
+
+  // Sort entries by distance from current index (nearest first)
+  const entries = [...desired.entries()].sort(
+    (a, b) => Math.abs(a[1].idx - currentIndex) - Math.abs(b[1].idx - currentIndex),
+  );
+
+  // 1. Thumbnails first (mobile only) — i±1 get high priority, rest low
+  if (isTouchDevice) {
+    for (const [, { idx, priority }] of entries) {
+      const image = results[idx];
+      if (!image) continue;
+      const thumb = getThumbnailUrl(image);
+      if (!thumb) continue;
+      const img = new Image();
+      // fetchPriority is a newer attribute — type assertion needed
+      (img as unknown as Record<string, unknown>).fetchPriority =
+        Math.abs(idx - currentIndex) <= 1 ? "high" : "low";
+      img.src = thumb;
+    }
+  }
+
+  // 2. Full-res — skip already-loaded or already-in-flight
+  for (const [id, { idx, priority }] of entries) {
+    if (_loadedFullRes.has(id)) continue;
+    if (_currentSession.inFlight.has(id)) continue;
+
     const image = results[idx];
     if (!image) continue;
-    // Full-res: screen-sized imgproxy AVIF — the main prefetch target.
-    // On mobile: use img.decode() so we mark as available once the bitmap
-    // is fully rasterized (drives side-panel full-res vs thumbnail choice).
-    // On desktop: skip decode() — side panels aren't rendered, so the
-    // decoded bitmap is wasted CPU. HTTP cache warming is all we need.
     const url = prefetchUrl(image);
-    if (url && !_loadedFullRes.has(image.id)) {
-      const img = new Image();
-      const id = image.id;
-      img.src = url;
-      if (isTouchDevice) {
-        img.decode().then(
-          () => { _loadedFullRes.add(id); _evictOldest(); _notifyListeners(id); },
-          () => { /* decode failed (404, broken image) — don't mark */ },
-        );
-      }
-    }
-    // Thumbnail: tiny JPEG fallback for swipe side panels. Only needed
-    // for the immediate neighbours (i±1) — those are the panels visible
-    // during the next swipe animation. Images further ahead are never
-    // on a panel at COMMIT time. Mobile-only — desktop doesn't swipe.
-    const distance = Math.abs(idx - currentIndex);
-    if (isTouchDevice && distance <= 1) {
-      const thumb = getThumbnailUrl(image);
-      if (thumb) {
-        const img = new Image();
-        img.src = thumb;
-      }
+    if (!url) continue;
+
+    const img = new Image();
+    (img as unknown as Record<string, unknown>).fetchPriority = priority;
+    img.src = url;
+
+    // Track in-flight
+    _currentSession.inFlight.set(id, img);
+
+    // On mobile: decode() to populate _loadedFullRes for side-panel URL selection
+    if (isTouchDevice) {
+      const capturedId = id;
+      img.decode().then(
+        () => {
+          _loadedFullRes.add(capturedId);
+          _evictOldest();
+          _notifyListeners(capturedId);
+          // Remove from in-flight — it's done
+          _currentSession?.inFlight.delete(capturedId);
+        },
+        () => {
+          // Decode failed (404, broken image) — remove from in-flight but don't mark
+          _currentSession?.inFlight.delete(capturedId);
+        },
+      );
+    } else {
+      // Desktop: no decode(), just cache-warming. Track load completion.
+      const capturedId = id;
+      img.onload = () => { _currentSession?.inFlight.delete(capturedId); };
+      img.onerror = () => { _currentSession?.inFlight.delete(capturedId); };
     }
   }
+
+  prefetchLog("issue", {
+    desired: desired.size,
+    issued: _currentSession.inFlight.size,
+    skippedLoaded: [...desired.keys()].filter((id) => _loadedFullRes.has(id)).length,
+  });
+}
+
+/**
+ * Schedule the post-burst full-radius prefetch. Called on every navigation.
+ * Clears any previous pending burst-end, then sets a new one at BURST_END_MS.
+ * When it fires: recomputes desired at full (stable) radius, cancels stale
+ * in-flight, issues missing. The session stays open — SESSION_TIMEOUT_MS
+ * handles final close.
+ */
+function _scheduleBurstEnd(
+  currentIndex: number,
+  results: readonly (ImageRecord | undefined)[],
+  direction: "forward" | "backward",
+): void {
+  if (!_currentSession) return;
+  const burstEndMs = tunable("burstEndMs", PREFETCH_BURST_END_MS);
+
+  if (_currentSession.pendingBurstEnd) clearTimeout(_currentSession.pendingBurstEnd);
+  _currentSession.pendingBurstEnd = setTimeout(() => {
+    if (!_currentSession) return;
+    prefetchLog("burst:end", { currentIndex, direction });
+
+    // Recompute at full (stable) radius — not fast-burst
+    const desired = _buildDesiredSet(currentIndex, results, direction, false);
+    _cancelLeftRadius(desired);
+    _issueMissing(currentIndex, results, desired);
+  }, burstEndMs);
+}
+
+/** Close the current session. Let in-flight finish (don't cancel). */
+function _closeSession(): void {
+  if (!_currentSession) return;
+  if (_currentSession.pendingBurstEnd) clearTimeout(_currentSession.pendingBurstEnd);
+  if (_currentSession.pendingTimeout) clearTimeout(_currentSession.pendingTimeout);
+  prefetchLog("session:close", { inFlight: _currentSession.inFlight.size });
+  _currentSession = null;
 }
 
 
