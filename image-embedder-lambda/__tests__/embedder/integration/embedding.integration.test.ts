@@ -130,6 +130,6 @@ describe('Fetch → downscale → embed pipeline', () => {
 		expect(batchItemFailures).toEqual([]);
 		expect(vectors).toHaveLength(1);
 		expect(vectors[0].key).toBe(image.imageId);
-		expect(vectors[0].data?.float32?.length).toBe(1024);
+		expect(vectors[0].data?.float32?.length).toBe(1536);
 	});
 });
