@@ -72,6 +72,14 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const searchParams = useSearch({ from: "/search" });
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
+  // Mount timestamp — used to suppress stray dblclick events that leak
+  // from the grid/table in phantom focus mode. In phantom mode, single-click
+  // opens detail; if the user double-clicks, React re-renders fast enough
+  // that the second click lands on ImageDetail's <img>, and the browser
+  // synthesises a dblclick → closeDetail. Suppressing dblclick for 500ms
+  // after mount blocks this without affecting legitimate double-click-to-close.
+  const mountTimeRef = useRef(Date.now());
+
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
   // The imageId the user entered detail with — used to detect traversal.
@@ -637,9 +645,14 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                     // Desktop: double-click toggles fullscreen / closes detail.
                     // Mobile (coarse pointer): suppressed in fullscreen — double-tap
                     // is handled by usePinchZoom for zoom, not fullscreen toggle.
+                    // Mount guard: suppress stray dblclick from phantom-mode grid/table
+                    // click leaking through (see mountTimeRef).
                     _pointerCoarse && isFullscreen ? undefined
-                      : isFullscreen ? toggleFullscreen
-                      : closeDetail
+                      : () => {
+                          if (Date.now() - mountTimeRef.current < 500) return;
+                          if (isFullscreen) toggleFullscreen();
+                          else closeDetail();
+                        }
                   }
                   onError={(e) => {
                     // imgproxy failed — try thumbnail as fallback

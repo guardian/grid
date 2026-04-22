@@ -14,6 +14,22 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 April 2026 — Fix New Images ticker scroll + phantom dblclick leak
+
+**Ticker scroll-to-top (StatusBar.tsx):** Clicking the "x new" ticker button
+called `search()` but never scrolled to top. Added `resetScrollAndFocusSearch()`
+before `reSearch()` — same mechanism used by the Home logo. Covers both scroll
+mode (eager scrollTop=0) and seek mode (bumps `_thumbResetGeneration` for the
+Scrubber flash guard). Search context (query, filters, sort) is untouched.
+
+**Phantom dblclick leak (ImageDetail.tsx):** In phantom (click-to-open) mode,
+double-clicking a grid cell or table row opened detail then immediately closed
+it. Cause: click₁ navigates to detail, React mounts ImageDetail fast enough
+that click₂ lands on the `<img>`, browser synthesises a `dblclick` →
+`closeDetail`. Fix: 500ms mount guard on the `onDoubleClick` handler — stray
+dblclick from grid/table is always <300ms after mount (OS double-click
+threshold); legitimate double-click-to-close is always >500ms.
+
 ### 20–22 April 2026 — Fix rapid-swipe duplicate-image bug + carousel polish
 
 Two-day investigation into a mobile-only bug: aggressive swiping showed the

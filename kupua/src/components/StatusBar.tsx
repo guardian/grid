@@ -19,6 +19,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
+import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
@@ -91,7 +92,7 @@ export function StatusBar() {
       {/* New images ticker */}
       {newCount > 0 && (
         <button
-          onClick={() => reSearch()}
+          onClick={() => { resetScrollAndFocusSearch(); reSearch(); }}
           className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap"
           title={`${newCount.toLocaleString()} new images since ${
             newCountSince
