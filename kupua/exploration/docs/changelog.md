@@ -14,7 +14,55 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
-### 22 April 2026 — Cadence-aware prefetch + traversal convergence
+### 22 April 2026 — CQL chip composition no longer resets search results
+
+**Bug:** Composing a CQL chip expression (pressing `+`, selecting a field
+from the typeahead) triggered URL updates and ES searches with incomplete
+query fragments, resetting results to 0. Kahuna doesn't have this problem.
+
+**Root cause (two layers):**
+
+1. **Incomplete chips leaked to URL.** CQL's `queryChange` event emits a
+   normalised `queryStr` that includes in-progress chips — e.g. pressing `+`
+   after "climate" emits `"climate :"`, selecting `credit` emits
+   `"climate credit:"`. Kupua passed this straight to the URL, triggering an
+   ES search with a meaningless fragment. Kahuna avoids this because its
+   `renderQuery()` pipeline has `.filter(item => item.value)` which silently
+   drops chips with no value, plus `.distinctUntilChanged()` which suppresses
+   the update entirely when the rendered query is unchanged.
+
+2. **Trailing-space quoting diverged the query.** CQL's AST serialiser
+   wraps text in quotes when it contains whitespace. Typing "climate " (with
+   trailing space, preparatory to pressing `+`) emits `'"climate "'` — a
+   different string from `climate`, so the URL updated even though the search
+   intent was identical. Kahuna's `renderQuery` reconstructs from raw AST
+   values (no CQL quoting) and trims, so the trailing space is invisible.
+
+**Fix — CqlSearchInput.tsx:** Moved the defence into the `queryChange`
+handler inside `CqlSearchInput`, before `onChange` reaches `SearchBar`:
+
+- Strip incomplete chip expressions (`key:` with no value) via regex.
+- Strip CQL auto-quoting that's only caused by trailing/leading whitespace
+  (not real multi-word phrases).
+- Track the last "effective" query in a ref (`lastEffectiveQueryRef`) and
+  only call `onChange` when it changes — equivalent to kahuna's
+  `distinctUntilChanged()`.
+- Pre-set `lastEffectiveQueryRef` in the value-sync effect before
+  `setAttribute("value", …)` to prevent the synchronous `queryChange`
+  from being reported as a spurious change.
+- Gate the value-sync `setAttribute` with a `selfCausedChangeRef` flag:
+  when our own `queryChange` handler fires `onChange`, the flag is set so
+  the subsequent value-sync effect skips `setAttribute`, preserving the
+  CQL editor's ProseMirror state. Without this, backspacing through a
+  chip value (e.g. `colourModel:CMYK` → `colourModel:`) would cause the
+  stripped effective query (empty string) to flow back via props and
+  clobber the chip entirely. External value changes (back/forward
+  navigation, cell click) don't set the flag, so `setAttribute` fires
+  normally. Kahuna avoids this because `gr-cql-input` never syncs the
+  value attribute back from the URL.
+
+Files changed: `CqlSearchInput.tsx`, `SearchBar.tsx` (simplified — stripping
+logic moved upstream to CqlSearchInput).
 
 Rewrote `image-prefetch.ts` around a **TraversalSession** state machine that
 tracks user navigation cadence (EMA-smoothed interval between prev/next calls)

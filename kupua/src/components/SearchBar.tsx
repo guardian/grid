@@ -57,8 +57,8 @@ export function SearchBar() {
         }
         setExternalQuery(null);
 
-        // Ignore CQL structural noise — e.g. bare ":" or "-:" from empty
-        // chips when the user presses + or - to open the field selector.
+        // CqlSearchInput already strips incomplete chip expressions (key:
+        // with no value) — queryStr arriving here is the effective query.
         // Only update the URL when there's real query content.
         const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
         updateSearch({ query: meaningful ? queryStr : undefined }, { replace: true });

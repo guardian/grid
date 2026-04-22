@@ -118,6 +118,22 @@ export function CqlSearchInput({
   const onHasContentRef = useRef(onHasContentChange);
   onHasContentRef.current = onHasContentChange;
 
+  // Track the last "effective" query we reported to the parent — i.e. the
+  // queryStr with incomplete chip expressions stripped. We only call onChange
+  // when this changes, preventing URL/search updates during chip composition.
+  // Matches kahuna's renderQuery `.filter(item => item.value)` + distinctUntilChanged.
+  const lastEffectiveQueryRef = useRef(value);
+
+  // True when the most recent onChange was caused by the CQL editor's own
+  // queryChange event (user editing). Consumed by the value-sync effect to
+  // skip setAttribute — the CQL editor's ProseMirror state is richer than
+  // the stripped effective query (it may contain an empty-value chip like
+  // `colourModel:` that the user is still composing/editing). Without this
+  // guard, the stripped value would flow back via props and clobber the chip.
+  // Kahuna avoids this entirely because gr-cql-input never syncs the value
+  // attribute back from the URL.
+  const selfCausedChangeRef = useRef(false);
+
   const dataSource = useSearchStore((s) => s.dataSource);
 
   // Build typeahead from DAL — memoised so we don't rebuild on every render
@@ -176,8 +192,38 @@ export function CqlSearchInput({
     const handleQueryChange = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (detail?.queryStr !== undefined) {
-        onChangeRef.current(detail.queryStr);
+        // Always update the content indicator (drives the clear button)
         onHasContentRef.current?.(detail.queryStr.trim().length > 0);
+
+        // Strip incomplete CQL chip expressions (key: with no value) before
+        // reporting to parent. These appear while composing a new chip —
+        // pressing + inserts a bare ":", selecting a field produces "credit:",
+        // etc.  Sending them upstream would trigger URL/search updates with
+        // meaningless fragments that reset results to 0.
+        // In CQL normalised form complete chips are always "key:value" (no
+        // space between colon and value), so ":(?=\s|$)" identifies incomplete
+        // chips reliably.  Matches kahuna's renderQuery .filter(item => item.value).
+        const effective = detail.queryStr
+          // Strip incomplete chip expressions (key: with no value)
+          .replace(/[+\-]?[\w#~]*:(?=\s|$)/g, "")
+          // CQL wraps text in quotes when it contains whitespace. A trailing
+          // space alone (e.g. user typed "climate ") triggers quoting that
+          // adds no search meaning.  Strip these — keep only quotes around
+          // real multi-word phrases (and trim trailing space within them).
+          // Matches kahuna's renderQuery which re-renders from AST values
+          // (no CQL quoting) and trims the result.
+          .replace(/"([^"]*)"/g, (_match: string, inner: string) => {
+            const trimmed = inner.trim();
+            return trimmed.includes(" ") ? `"${trimmed}"` : trimmed;
+          })
+          .replace(/\s{2,}/g, " ")
+          .trim();
+
+        if (effective !== lastEffectiveQueryRef.current) {
+          lastEffectiveQueryRef.current = effective;
+          selfCausedChangeRef.current = true;
+          onChangeRef.current(effective);
+        }
       }
     };
     el.addEventListener("queryChange", handleQueryChange);
@@ -240,10 +286,25 @@ export function CqlSearchInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync value attribute when prop changes (e.g. back/forward navigation)
+  // Sync value attribute when prop changes (e.g. back/forward navigation).
+  // Update lastEffectiveQueryRef BEFORE setAttribute so the synchronous
+  // queryChange fired by the CQL web component sees the new baseline and
+  // doesn't re-report the same query as a change.
+  //
+  // Skip setAttribute when the value change was caused by our own queryChange
+  // handler (selfCausedChangeRef). The CQL editor's ProseMirror state is
+  // authoritative while the user is editing — it may contain empty-value
+  // chips (e.g. `colourModel:` after backspacing the last value character)
+  // that our stripping logic removed before reporting to the URL. Forcing
+  // the stripped value back would destroy the chip.
   useEffect(() => {
     if (cqlInputRef.current) {
-      cqlInputRef.current.setAttribute("value", value);
+      lastEffectiveQueryRef.current = value;
+      if (selfCausedChangeRef.current) {
+        selfCausedChangeRef.current = false;
+      } else {
+        cqlInputRef.current.setAttribute("value", value);
+      }
     }
   }, [value]);
 
