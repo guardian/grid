@@ -57,6 +57,12 @@ gr-icon-label .icon-label {
   padding-right: 6px;
 }
 
+.gr-sent-to-photosales-unpub-icon svg {
+  width: 42px;
+  height: 32px;
+  padding-right: 6px;
+}
+
 gr-library-add-icon    svg,
 gr-library-added-icon  svg,
 gr-library-locked-icon svg,
