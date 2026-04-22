@@ -19,6 +19,29 @@ node e2e-perf/run-audit.mjs P4a,P4b,P6 --label "Quick check"
 node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
 ```
 
+## Audit graphs page
+
+`results/audit-graphs.html` is a throwaway dashboard that plots one sparkline
+per test across every entry in `results/audit-log.json`.
+
+**Open it directly** — `open results/audit-graphs.html`. No server needed.
+The harness writes a sibling `audit-log.js` (just `window.__AUDIT_LOG__ = {…}`)
+which the HTML loads via `<script>`, sidestepping the browser's `file://`
+fetch ban. After each new audit run, just **refresh the page**.
+
+(The page also still falls back to `fetch('./audit-log.json')` if served over
+http, and to a drag-and-drop picker as a last resort.)
+
+The page is data-driven: it reads whatever tests/metrics are in the JSON
+and renders them. **If new metric or entry keys appear that the page doesn't
+recognise, it shows a red banner** asking you to update `KNOWN_METRICS` /
+`KNOWN_ENTRY_KEYS` near the top of `audit-graphs.html`.
+
+**Agents:** when adding a new metric to `perf.spec.ts` / `run-audit.mjs`,
+also add it to `KNOWN_METRICS` in `audit-graphs.html` (label, lowerIsBetter,
+defaultShow). When adding a new entry-level field, add the key to
+`KNOWN_ENTRY_KEYS`. The unknown-field banner is the contract.
+
 ## Test Inventory
 
 ### Network/ES Dependency

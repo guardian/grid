@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kupua perf audit — all runs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f85149;
+    --warn-bg: #3d1a1a;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; font-family: -apple-system, system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid #30363d; }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .controls { padding: 12px 24px; border-bottom: 1px solid #30363d; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; padding: 16px 24px; }
+  .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; }
+  .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+  .card .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  canvas { display: block; width: 100% !important; height: 180px !important; }
+  .legend { padding: 0 24px 12px; font-size: 11px; color: var(--muted); }
+  details { margin: 4px 24px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+
+  .warn-banner {
+    margin: 12px 24px; padding: 10px 14px;
+    background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px;
+    font-size: 13px; color: var(--fg);
+  }
+  .warn-banner strong { color: var(--warn); }
+  .warn-banner code { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .warn-banner .hint { color: var(--muted); margin-top: 6px; font-size: 12px; display: block; }
+
+  .picker {
+    margin: 24px; padding: 36px; border: 2px dashed #30363d; border-radius: 8px;
+    text-align: center; color: var(--muted);
+  }
+  .picker.hover { border-color: var(--accent); background: rgba(88,166,255,0.05); }
+  .picker h2 { color: var(--fg); margin: 0 0 12px; font-size: 16px; }
+  .picker code { background: var(--panel); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--fg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kupua rendering perf — all audited runs</h1>
+  <div class="sub" id="sub">Loading…</div>
+</header>
+
+<div id="picker" class="picker" hidden>
+  <h2>Couldn't auto-load <code>audit-log.json</code></h2>
+  <p>The page tried to <code>fetch('./audit-log.json')</code> but the browser blocked it
+     (typical for <code>file://</code> URLs). Pick or drop the file to continue:</p>
+  <p>
+    <input type="file" id="filepick" accept="application/json,.json" />
+    or drag <code>audit-log.json</code> onto this box.
+  </p>
+  <p class="hint">Tip: serve the dir with <code>python3 -m http.server</code> from
+     <code>e2e-perf/results/</code> then open <code>http://localhost:8000/audit-graphs.html</code>
+     to skip this step and get auto-reload via the button below.</p>
+</div>
+
+<div id="warnings"></div>
+
+<div class="controls" id="controls" hidden>
+  <label>Metric
+    <select id="metric"></select>
+  </label>
+  <label>Y-axis
+    <select id="yscale">
+      <option value="linear" selected>linear</option>
+      <option value="log">log</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="hideQuiet" checked /> hide quiet tests (max value &lt; 1)</label>
+  <label><input type="checkbox" id="showLabels" /> show run labels on x-axis</label>
+  <button id="reload" title="Re-fetch audit-log.json">↻ Reload data</button>
+</div>
+
+<details id="legend-details" hidden>
+  <summary>Run legend (chronological)</summary>
+  <ol id="runlist" style="font-size:12px; color: var(--muted); line-height:1.5;"></ol>
+</details>
+<div class="legend" id="legend-text" hidden>
+  Each card = one perf test. X-axis = audit runs in chronological order.
+  Latest run highlighted in red. Hover for run label + value. Caveat: many of
+  these runs are not directly comparable — corpus, methodology, frame-rate
+  target, and severe-rate normalisation all changed over time.
+</div>
+<div class="grid" id="grid"></div>
+
+<script src="./audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Known schema — keep in sync with run-audit.mjs / perf.spec.ts.
+// If audit-log.json contains keys not listed here, the page warns the user
+// and asks them to update this map. See ../README.md § "Audit graphs page".
+// ─────────────────────────────────────────────────────────────────────────────
+const KNOWN_METRICS = {
+  // metric key:        { label,                                lowerIsBetter, defaultShow }
+  severeRate:        { label: "severeRate (severe/1k frames)",  lowerIsBetter: true,  defaultShow: true  },
+  severe:            { label: "severe count",                   lowerIsBetter: true,  defaultShow: true  },
+  maxFrame:          { label: "maxFrame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
+  p95Frame:          { label: "p95Frame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
+  loafBlocking:      { label: "LoAF blocking (ms)",             lowerIsBetter: true,  defaultShow: true  },
+  domChurn:          { label: "DOM churn",                      lowerIsBetter: true,  defaultShow: true  },
+  cls:               { label: "CLS",                            lowerIsBetter: true,  defaultShow: true  },
+  clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true  },
+  frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
+  // Focus position tracking (P4a/b, P6, P12 — see README § Focus Position Tracking)
+  focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
+  focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
+  focusVisible:      { label: "focusVisible (1 = on screen)",   lowerIsBetter: false, defaultShow: true  },
+};
+const KNOWN_ENTRY_KEYS = new Set([
+  "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
+]);
+const KNOWN_METRIC_META_KEYS = new Set(["report"]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+const sub = document.getElementById("sub");
+const picker = document.getElementById("picker");
+const filepick = document.getElementById("filepick");
+const warnings = document.getElementById("warnings");
+const controls = document.getElementById("controls");
+const grid = document.getElementById("grid");
+const legendDetails = document.getElementById("legend-details");
+const legendText = document.getElementById("legend-text");
+const runlist = document.getElementById("runlist");
+const metricSel = document.getElementById("metric");
+const reloadBtn = document.getElementById("reload");
+
+let ENTRIES = [];
+let TESTS = [];
+const charts = new Map();
+
+async function tryFetch() {
+  try {
+    const res = await fetch("./audit-log.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    return json.entries ?? json;
+  } catch (e) {
+    console.warn("fetch failed:", e);
+    return null;
+  }
+}
+
+function loadFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const json = JSON.parse(reader.result);
+      onData(json.entries ?? json);
+    } catch (e) {
+      alert("Failed to parse JSON: " + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+filepick.addEventListener("change", (e) => { if (e.target.files[0]) loadFromFile(e.target.files[0]); });
+picker.addEventListener("dragover", (e) => { e.preventDefault(); picker.classList.add("hover"); });
+picker.addEventListener("dragleave", () => picker.classList.remove("hover"));
+picker.addEventListener("drop", (e) => {
+  e.preventDefault(); picker.classList.remove("hover");
+  if (e.dataTransfer.files[0]) loadFromFile(e.dataTransfer.files[0]);
+});
+reloadBtn.addEventListener("click", async () => {
+  const data = await tryFetch();
+  if (data) onData(data);
+  else alert("Reload failed — fetch is blocked on file:// URLs. Use the picker, or serve the directory with `python3 -m http.server`.");
+});
+
+function detectUnknowns(entries) {
+  const unknownEntryKeys = new Set();
+  const unknownMetricKeys = new Set();
+  for (const e of entries) {
+    for (const k of Object.keys(e)) if (!KNOWN_ENTRY_KEYS.has(k)) unknownEntryKeys.add(k);
+    if (!e.metrics) continue;
+    for (const test of Object.keys(e.metrics)) {
+      const m = e.metrics[test];
+      if (!m || typeof m !== "object") continue;
+      for (const k of Object.keys(m)) {
+        if (KNOWN_METRICS[k] || KNOWN_METRIC_META_KEYS.has(k)) continue;
+        unknownMetricKeys.add(k);
+      }
+    }
+  }
+  return { unknownEntryKeys, unknownMetricKeys };
+}
+
+function renderWarnings({ unknownEntryKeys, unknownMetricKeys }) {
+  warnings.innerHTML = "";
+  if (unknownEntryKeys.size === 0 && unknownMetricKeys.size === 0) return;
+
+  const div = document.createElement("div");
+  div.className = "warn-banner";
+  const parts = ["<strong>⚠ Unknown fields in audit-log.json</strong> "];
+  parts.push("— this page may not be displaying everything correctly.<br>");
+  if (unknownMetricKeys.size) {
+    parts.push("Unknown <em>metric</em> keys (per-test): ");
+    parts.push([...unknownMetricKeys].map(k => `<code>${k}</code>`).join(", "));
+    parts.push(". They've been added to the dropdown and graphed naively, but lack labels/units.<br>");
+  }
+  if (unknownEntryKeys.size) {
+    parts.push("Unknown <em>entry-level</em> keys: ");
+    parts.push([...unknownEntryKeys].map(k => `<code>${k}</code>`).join(", "));
+    parts.push(".<br>");
+  }
+  parts.push(`<span class="hint">→ Ask an agent to update <code>KNOWN_METRICS</code> / <code>KNOWN_ENTRY_KEYS</code> in <code>audit-graphs.html</code> (see <code>e2e-perf/README.md</code> § "Audit graphs page").</span>`);
+  div.innerHTML = parts.join("");
+  warnings.appendChild(div);
+}
+
+function buildMetricDropdown(unknownMetricKeys) {
+  metricSel.innerHTML = "";
+  for (const [key, meta] of Object.entries(KNOWN_METRICS)) {
+    if (!meta.defaultShow) continue;
+    const o = document.createElement("option");
+    o.value = key;
+    o.textContent = meta.label + (meta.lowerIsBetter ? " — lower better" : "");
+    if (key === "severeRate") o.selected = true;
+    metricSel.appendChild(o);
+  }
+  if (unknownMetricKeys.size) {
+    const grp = document.createElement("optgroup");
+    grp.label = "Unknown (no labels — please update page)";
+    for (const k of unknownMetricKeys) {
+      const o = document.createElement("option");
+      o.value = k;
+      o.textContent = k + " (?)";
+      grp.appendChild(o);
+    }
+    metricSel.appendChild(grp);
+  }
+}
+
+function pickValue(metric, m) {
+  if (!m) return null;
+  if (metric === "severeRate") {
+    if (typeof m.severeRate === "number") return m.severeRate;
+    if (m.severe != null && m.frameCount) return (m.severe / m.frameCount) * 1000;
+    return null;
+  }
+  const v = m[metric];
+  if (typeof v === "number") return v;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  return null;
+}
+
+function metricLabel(metric) {
+  return KNOWN_METRICS[metric]?.label ?? `${metric} (unknown)`;
+}
+
+function collectTests(entries) {
+  const seen = new Set();
+  const out = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    for (const k of Object.keys(entries[i].metrics || {})) {
+      if (!seen.has(k)) { seen.add(k); out.push(k); }
+    }
+  }
+  out.sort((a, b) => {
+    const re = /^P(\d+)([a-z]?)(?:@(\d+))?(?:[-_].*)?$/;
+    const pa = a.match(re); const pb = b.match(re);
+    if (!pa || !pb) return a.localeCompare(b);
+    return (+pa[1]) - (+pb[1])
+        || (pa[2] || "").localeCompare(pb[2] || "")
+        || (+(pa[3] || 0)) - (+(pb[3] || 0))
+        || a.localeCompare(b);
+  });
+  return out;
+}
+
+function buildCharts() {
+  const metric = metricSel.value;
+  const yscale = document.getElementById("yscale").value;
+  const hideQuiet = document.getElementById("hideQuiet").checked;
+  const showLabels = document.getElementById("showLabels").checked;
+
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  grid.innerHTML = "";
+
+  const xLabels = ENTRIES.map((e, i) => showLabels ? e.label : String(i + 1));
+
+  for (const t of TESTS) {
+    const data = ENTRIES.map(e => pickValue(metric, e.metrics?.[t]));
+    const finite = data.filter(v => v != null && Number.isFinite(v));
+    const max = finite.length ? Math.max(...finite) : 0;
+    if (hideQuiet && max < 1) continue;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — max ${max.toLocaleString(undefined, { maximumFractionDigits: max < 1 ? 4 : 1 })}</div><canvas></canvas>`;
+    grid.appendChild(card);
+    const ctx = card.querySelector("canvas").getContext("2d");
+
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: xLabels,
+        datasets: [{
+          data,
+          borderColor: "#58a6ff",
+          backgroundColor: "rgba(88,166,255,0.15)",
+          pointBackgroundColor: ENTRIES.map((_, i) => i === ENTRIES.length - 1 ? "#f85149" : "#58a6ff"),
+          pointRadius: ENTRIES.map((_, i) => i === ENTRIES.length - 1 ? 4 : 2.5),
+          tension: 0.2,
+          spanGaps: true,
+        }],
+      },
+      options: {
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const i = items[0].dataIndex;
+                const e = ENTRIES[i];
+                return `#${i + 1} ${e.label}`;
+              },
+              label: (item) => `${metricLabel(metric)}: ${item.raw == null ? "n/a" : item.raw.toLocaleString(undefined, { maximumFractionDigits: 4 })}`,
+              afterLabel: (item) => {
+                const e = ENTRIES[item.dataIndex];
+                return `${(e.timestamp || "").slice(0, 10)} · ${e.gitSha || "?"} · runs:${e.runs ?? "?"}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: "#8b949e", font: { size: 9 }, maxRotation: showLabels ? 60 : 0, autoSkip: true },
+            grid: { color: "#21262d" },
+          },
+          y: {
+            type: yscale,
+            ticks: { color: "#8b949e", font: { size: 10 } },
+            grid: { color: "#21262d" },
+            beginAtZero: yscale === "linear",
+          },
+        },
+      },
+    });
+    charts.set(t, chart);
+  }
+}
+
+function onData(entries) {
+  if (!Array.isArray(entries) || !entries.length) {
+    alert("audit-log.json is empty or not an array of entries.");
+    return;
+  }
+  ENTRIES = entries;
+  TESTS = collectTests(entries);
+
+  picker.hidden = true;
+  controls.hidden = false;
+  legendDetails.hidden = false;
+  legendText.hidden = false;
+
+  const distinctTests = new Set(entries.flatMap(e => Object.keys(e.metrics || {}))).size;
+  sub.textContent = `${entries.length} runs · ${distinctTests} distinct tests · loaded ${new Date().toLocaleTimeString()}`;
+
+  runlist.innerHTML = "";
+  entries.forEach((e) => {
+    const li = document.createElement("li");
+    li.textContent = `${e.label}  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)`;
+    runlist.appendChild(li);
+  });
+
+  const unknowns = detectUnknowns(entries);
+  renderWarnings(unknowns);
+  buildMetricDropdown(unknowns.unknownMetricKeys);
+  buildCharts();
+}
+
+metricSel.addEventListener("change", buildCharts);
+document.getElementById("yscale").addEventListener("change", buildCharts);
+document.getElementById("hideQuiet").addEventListener("change", buildCharts);
+document.getElementById("showLabels").addEventListener("change", buildCharts);
+
+(async () => {
+  // 1) Sibling JS file injected a global — works on file:// too. This is the
+  //    happy path; run-audit.mjs writes audit-log.js next to audit-log.json.
+  if (window.__AUDIT_LOG__) {
+    onData(window.__AUDIT_LOG__.entries ?? window.__AUDIT_LOG__);
+    return;
+  }
+  // 2) Fall back to fetch (works when served over http://).
+  const data = await tryFetch();
+  if (data) { onData(data); return; }
+  // 3) Last resort: ask the user to drop the file.
+  sub.textContent = "Couldn't auto-load (no audit-log.js sibling, and fetch is blocked). Pick or drop audit-log.json below.";
+  picker.hidden = false;
+})();
+</script>
+</body>
+</html>

@@ -228,6 +228,11 @@ function readAuditLog() {
 
 function writeAuditLog(log) {
   writeFileSync(AUDIT_JSON, JSON.stringify(log, null, 2) + "\n");
+  // Also emit a sibling JS file so audit-graphs.html can load the data over
+  // file:// (browsers block fetch() on file:// URLs). The HTML loads this via
+  // <script src="audit-log.js">, which has no such restriction.
+  const AUDIT_JS = AUDIT_JSON.replace(/\.json$/, ".js");
+  writeFileSync(AUDIT_JS, `window.__AUDIT_LOG__ = ${JSON.stringify(log)};\n`);
 }
 
 // ---------------------------------------------------------------------------

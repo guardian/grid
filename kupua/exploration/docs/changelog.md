@@ -14,6 +14,46 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 April 2026 — Browser gestures in viewer + perf results page
+
+**Browser back/forward swipe gesture restored on desktop (ImageDetail.tsx).**
+The image-detail container used `overflow-hidden` to clip the swipe-carousel's
+off-screen prev/next panels. Side-effect: macOS Safari/Chrome treat any
+horizontal-overflow-clipping element as a scroll container and *eat* the
+trackpad two-finger back-swipe gesture (browsers reserve it for elements that
+might scroll). Switched the two relevant clips to `overflow-clip` (paint-only,
+no scroll-container semantics): outer flex container `overflow-y-auto
+sm:overflow-clip`, image container `overflow-clip`. Also switched the
+metadata aside to `sm:overflow-x-clip` (keeps `overflow-y-auto` for vertical
+scrolling, prevents accidental horizontal scroll-container creation). Mobile
+swipe carousel unaffected — still works because mobile uses `touch-pan-y` /
+`touch-none` to opt out of native gestures explicitly.
+
+**Perf audit graphs page (e2e-perf/results/audit-graphs.html).** Throwaway
+single-page dashboard plotting one sparkline per perf test across every entry
+in `audit-log.json`. Chart.js, dark theme, metric switcher (severeRate by
+default, plus maxFrame, p95Frame, LoAF blocking, DOM churn, CLS, focusDrift*),
+linear/log toggle, latest-run highlighted in red, hover shows label/SHA/date.
+
+Loads via sibling `audit-log.js` (`window.__AUDIT_LOG__ = …`) so it works on
+plain `file://` opens — no http server needed. `run-audit.mjs` writes the
+sibling file alongside the JSON on every run; refresh page to see new data.
+Fetch + drag-drop fallbacks remain.
+
+Data-driven: reads whatever metrics/tests are in JSON. Allow-lists
+(`KNOWN_METRICS`, `KNOWN_ENTRY_KEYS`) declare what the page understands;
+unknown keys trigger a red banner pointing the next agent at the file to
+update. Documented in `e2e-perf/README.md` § "Audit graphs page" — agents
+adding metrics to `perf.spec.ts`/`run-audit.mjs` must update the HTML
+allow-list too. `audit-log.js` is git-ignored (derived from JSON).
+
+Also: ran `--runs 3` audit labelled "Post-carousel-cleanup — 22 Apr"
+(a2f5a80db). Headlines vs prior single-run baseline: P8 severeRate
+56.4‰→46.0‰ (-18%), P12-scroll LoAF blocking 77→28ms (-64%), P11b@85 LoAF
+32→12ms (-63%), P2 severeRate -34%, P9 maxFrame -19%. Auto-flagged
+"regressions" all small and within run-to-run jitter; the 1-vs-3-run
+comparison was asymmetric.
+
 ### 22 April 2026 — Fix New Images ticker scroll + phantom dblclick leak
 
 **Ticker scroll-to-top (StatusBar.tsx):** Clicking the "x new" ticker button

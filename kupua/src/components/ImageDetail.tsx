@@ -582,17 +582,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         className={
           isFullscreen
             ? "flex-1 flex min-h-0"
-            : "flex-1 flex min-h-0 overflow-y-auto sm:overflow-hidden overscroll-y-contain overscroll-x-none flex-col sm:flex-row touch-pan-y sm:touch-auto"
+            : "flex-1 flex min-h-0 overflow-y-auto sm:overflow-clip overscroll-y-contain overscroll-x-none flex-col sm:flex-row touch-pan-y sm:touch-auto"
         }
       >
-        {/* Image container — this div is fullscreened. overflow-hidden clips
-            the carousel's off-screen prev/next panels.
+        {/* Image container — this div is fullscreened. overflow-clip clips
+            the carousel's off-screen prev/next panels without creating a scroll
+            container — overflow-hidden would eat the macOS trackpad back-swipe.
             touch-action: none — we handle all gestures ourselves (swipe carousel).
             h-[55svh] — svh (small viewport height) is stable when address bar
             shows/hides, avoiding the twitch on fullscreen exit. */}
         <div
           ref={containerRef}
-          className={`relative overflow-hidden ${
+          className={`relative overflow-clip ${
             isFullscreen
               ? `w-full h-full touch-none${cursorHidden ? " cursor-none" : ""}`
               : "bg-grid-bg shrink-0 sm:flex-1 min-w-0 h-[55svh] sm:h-full touch-none sm:touch-auto"
@@ -707,7 +708,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             Desktop: fixed-width right column, scrolls independently.
             Mobile: flows below the image in the single scroll container. */}
         {!isFullscreen && (
-          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto p-3">
+          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip p-3">
             <ImageMetadata image={displayImage} />
           </aside>
         )}

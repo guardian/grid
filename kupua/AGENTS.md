@@ -46,7 +46,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
-| **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` |
+| **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — sparkline dashboard) |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
