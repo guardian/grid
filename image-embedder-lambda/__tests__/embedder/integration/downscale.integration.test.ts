@@ -9,7 +9,7 @@ import {
 	getTestImage,
 	writeOutputImage,
 } from './localTestFiles';
-import {downscaleImageIfNeeded} from "../../../src/embedder/resizeImage";
+import { downscaleImageIfNeeded } from '../../../src/embedder/resizeImage';
 
 /**
  * Integration tests for image downscaling.
