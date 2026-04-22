@@ -101,28 +101,39 @@ function orientationToRotation(exifOrientation: number | undefined): number {
 /**
  * Detect the effective DPR multiplier for image requests.
  *
- * Two-tier step function:
- *   DPR ≤ 1.3  →  1   (request CSS pixels — don't over-serve 1× displays)
- *   DPR > 1.3  →  1.5 (sharper on Retina, but not full 2× which would be
- *                       4× pixel count and ~2× file size / imgproxy time)
+ * Three-tier step function:
+ *   DPR ≤ 1.3            →  1    (request CSS pixels — don't over-serve 1× displays)
+ *   DPR > 1.3 + desktop  →  1.5  (sharper on Retina, but not full 2× which would be
+ *                                  4× pixel count and ~2× file size / imgproxy time)
+ *   DPR > 1.3 + mobile   →  2    (higher res for pinch-zoom headroom; phones have
+ *                                  smaller screens so absolute pixel count stays modest)
  *
  * Why 1.3 as the threshold: it's above 1× (so slight sub-pixel scaling
  * doesn't trigger the bump) and below common HiDPI ratios (1.5, 2, 3).
  * Some Windows laptops report 1.25 — those are closer to 1× perceptually,
  * so they stay in the 1× tier.
  *
- * Why 1.5 as the HiDPI multiplier: for photographic content, 1.5× is
- * visually indistinguishable from 2× for most viewers — the brain fills
- * in the gap via subpixel rendering and natural-image frequency content.
- * This is well-documented in display research. 1.5× is 56% more pixels
+ * Why 1.5 desktop: for photographic content, 1.5× is visually
+ * indistinguishable from 2× for most viewers. 1.5× is 56% more pixels
  * than 1× (vs 300% more for 2×).
+ *
+ * Why 2 mobile: phones support pinch-zoom up to 5× — at 1.5 DPR cap,
+ * zooming past ~1.5× shows visible blur. 2× gives ~1.3× zoom headroom
+ * before hitting native resolution. File size impact is moderate because
+ * phone screens are small (e.g. iPhone 15: 393×852 CSS → 786×1704 px,
+ * ~400KB AVIF vs ~226KB at 1.5).
+ *
+ * Mobile detection uses `pointer: coarse` (touch-primary device), matching
+ * the same heuristic used elsewhere in kupua (ui-prefs-store.ts).
  *
  * This is a deviation from kahuna, which uses full screen.width × screen.height
  * (but only for Firefox — see kahuna/public/js/imgops/service.js lines 14-20).
  */
 function detectDpr(): number {
   if (typeof window === "undefined") return 1;
-  return window.devicePixelRatio > 1.3 ? 1.5 : 1;
+  if (window.devicePixelRatio <= 1.3) return 1;
+  const isMobile = window.matchMedia("(pointer: coarse)").matches;
+  return isMobile ? 2 : 1.5;
 }
 
 /** Default imgproxy processing options, matching eelpie fork's approach. */

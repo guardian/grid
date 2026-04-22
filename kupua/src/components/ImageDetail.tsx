@@ -44,7 +44,9 @@ import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
 import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
 import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
+import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { NavStrip } from "@/components/NavStrip";
+import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
@@ -217,24 +219,32 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Alt+f works when focus is in an editable field.
   useKeyboardShortcut("f", toggleFullscreen);
 
-  // Pinch-to-zoom: two-finger pinch on the image. Fullscreen-only.
-  // Exposes scaleRef so carousel and dismiss can skip when zoomed.
-  const { scaleRef } = usePinchZoom({
-    containerRef,
-    imageRef,
-    enabled: !!image && isFullscreen,
-  });
+  // Shared scaleRef — written by usePinchZoom, read by useSwipeCarousel
+  // to suppress swipe when zoomed in. Created here to break the circular
+  // dependency (swipe needs scaleRef, zoom needs lastSwipeTimeRef from swipe).
+  const scaleRef = useRef(1);
 
   // Swipe carousel: horizontal swipe with visual slide-in animation.
   // Listens on the image container so swipe works in both normal and fullscreen.
   // `enabled` toggles when the image loads — forces the effect to re-run after
   // the container DOM element exists (on reload, the loading spinner renders first).
-  const { swipedRef } = useSwipeCarousel({
+  const { swipedRef, lastSwipeTimeRef } = useSwipeCarousel({
     containerRef,
     stripRef,
     onSwipeLeft: nextImage ? goToNext : undefined,
     onSwipeRight: prevImage ? goToPrev : undefined,
     enabled: !!image,
+    scaleRef,
+  });
+
+  // Pinch-to-zoom: two-finger pinch on the image. Fullscreen-only.
+  // Exposes scaleRef so carousel and dismiss can skip when zoomed.
+  // lastSwipeTimeRef: suppress zoom during post-swipe cooldown.
+  usePinchZoom({
+    containerRef,
+    imageRef,
+    enabled: !!image && isFullscreen,
+    lastSwipeTimeRef,
     scaleRef,
   });
 
@@ -287,6 +297,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const fullscreenTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleImageClick = useCallback(() => {
     if (swipedRef.current) return; // was a swipe, not a tap
+    // Post-swipe cooldown — suppress accidental taps shortly after swiping (250ms)
+    if (lastSwipeTimeRef.current && Date.now() - lastSwipeTimeRef.current < 250) return;
     if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
     if (isFullscreen) {
       // In fullscreen: delay exit to allow double-tap-to-zoom.
@@ -309,7 +321,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     } else {
       toggleFullscreen(); // enter fullscreen instantly
     }
-  }, [swipedRef, toggleFullscreen, isFullscreen, scaleRef]);
+  }, [swipedRef, lastSwipeTimeRef, toggleFullscreen, isFullscreen, scaleRef]);
 
   // Reset carousel strip and zoom when imageId changes. The carousel's
   // commitStripReset handles the visual transition imperatively (no flash),
@@ -395,28 +407,42 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const thumbUrl = image ? getThumbnailUrl(image) : undefined;
 
   // Prev/next image URLs for the swipe carousel.
-  // Uses the same imgproxy screen size so they match the prefetch cache.
+  // Use full-res AVIF when the prefetch pipeline has fully decoded it
+  // (img.decode() resolved → bitmap in Chrome's decoded-image cache).
+  // A new DOM <img> with the same URL finds the cached bitmap and
+  // paints immediately — no ⏳ window, no stale-compositor-texture
+  // duplication. When NOT decoded yet (rapid swipes outpace prefetch),
+  // fall back to thumbnail (~5KB JPEG, decodes in <10ms).
+  //
+  // prefetchGen triggers re-computation when a decode completes for one
+  // of the current side-panel images (upgrades THUMB → FULL-RES without
+  // waiting for a navigation-driven re-render).
+  const [prefetchGen, setPrefetchGen] = useState(0);
+  useEffect(() => {
+    return onFullResDecoded((id) => {
+      if (id === prevImage?.id || id === nextImage?.id) {
+        setPrefetchGen((g) => g + 1);
+      }
+    });
+  }, [prevImage?.id, nextImage?.id]);
+
   const prevImageUrl = useMemo(() => {
     if (!prevImage) return undefined;
-    return getFullImageUrl(prevImage, {
-      width: window.screen.width,
-      height: window.screen.height,
-      nativeWidth: prevImage.source?.dimensions?.width,
-      nativeHeight: prevImage.source?.dimensions?.height,
-    }) ?? getThumbnailUrl(prevImage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable per prev image
-  }, [prevImage?.id]);
+    if (isFullResLoaded(prevImage.id)) {
+      const fullRes = getCarouselImageUrl(prevImage);
+      if (fullRes) return fullRes;
+    }
+    return getThumbnailUrl(prevImage);
+  }, [prevImage?.id, prefetchGen]);
 
   const nextImageUrl = useMemo(() => {
     if (!nextImage) return undefined;
-    return getFullImageUrl(nextImage, {
-      width: window.screen.width,
-      height: window.screen.height,
-      nativeWidth: nextImage.source?.dimensions?.width,
-      nativeHeight: nextImage.source?.dimensions?.height,
-    }) ?? getThumbnailUrl(nextImage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable per next image
-  }, [nextImage?.id]);
+    if (isFullResLoaded(nextImage.id)) {
+      const fullRes = getCarouselImageUrl(nextImage);
+      if (fullRes) return fullRes;
+    }
+    return getThumbnailUrl(nextImage);
+  }, [nextImage?.id, prefetchGen]);
 
   // Track whether the image failed to load (imgproxy down, S3 404, etc.)
   // so we can show a graceful fallback instead of browser's broken-image
@@ -567,12 +593,15 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {/* Carousel strip — three panels (prev | current | next).
               Translated by useSwipeCarousel during horizontal swipe.
               Prev/next are offset ±100% so only the current panel is visible at rest. */}
-          <div ref={stripRef} className="absolute inset-0 will-change-transform">
-            {/* Previous image (off-screen left) — same sizing as current for seamless swipe */}
-            {prevImageUrl && (
+          <div ref={stripRef} className={`absolute inset-0${_pointerCoarse ? " will-change-transform" : ""}`}>
+            {/* Previous image (off-screen left) — used by swipe animation on mobile.
+                Gated on _pointerCoarse: desktop never swipes, so rendering off-screen
+                panels wastes 2 AVIF fetches + decodes per navigation. */}
+            {_pointerCoarse && prevImageUrl && (
               <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(-100%)" }}>
-                <img
+                <StableImg
                   src={prevImageUrl}
+                  data-thumb={prevImage ? getThumbnailUrl(prevImage) : undefined}
                   alt=""
                   className={
                     isFullscreen
@@ -584,11 +613,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               </div>
             )}
 
-            {/* Current image */}
+            {/* Current image — full-res via imageUrl */}
             <div className="absolute inset-0 flex items-center justify-center">
               {imageUrl ? (
-                <img
-                  ref={imageRef}
+                <StableImg
+                  imgRef={imageRef}
                   src={imageUrl}
                   fetchPriority="high"
                   alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
@@ -599,6 +628,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   }
                   draggable={false}
                   onClick={handleImageClick}
+                  onLoad={() => {
+                    // Mark this image as loaded so side-panel probes can use
+                    // full-res instead of thumbnail on future swipes.
+                    if (imageId) markFullResLoaded(imageId);
+                  }}
                   onDoubleClick={
                     // Desktop: double-click toggles fullscreen / closes detail.
                     // Mobile (coarse pointer): suppressed in fullscreen — double-tap
@@ -628,11 +662,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               )}
             </div>
 
-            {/* Next image (off-screen right) — same sizing as current for seamless swipe */}
-            {nextImageUrl && (
+            {/* Next image (off-screen right) — used by swipe animation on mobile. */}
+            {_pointerCoarse && nextImageUrl && (
               <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(100%)" }}>
-                <img
+                <StableImg
                   src={nextImageUrl}
+                  data-thumb={nextImage ? getThumbnailUrl(nextImage) : undefined}
                   alt=""
                   className={
                     isFullscreen

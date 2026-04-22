@@ -31,6 +31,9 @@ const DOUBLE_TAP_SCALE = 2;
 /** Snap-back animation duration (ms). */
 const ANIMATION_MS = 200;
 
+/** Post-swipe cooldown — suppress zoom triggers for this long after a swipe. */
+const SWIPE_ZOOM_COOLDOWN_MS = 400;
+
 interface UsePinchZoomOptions {
   /** Container element — for measuring bounds. */
   containerRef: RefObject<HTMLElement | null>;
@@ -38,6 +41,10 @@ interface UsePinchZoomOptions {
   imageRef: RefObject<HTMLImageElement | null>;
   /** When false, the effect is a no-op. */
   enabled?: boolean;
+  /** Timestamp of last committed swipe — suppress zoom during cooldown. */
+  lastSwipeTimeRef?: RefObject<number>;
+  /** Optional external scaleRef — if provided, used instead of internal. */
+  scaleRef?: RefObject<number>;
 }
 
 interface UsePinchZoomReturn {
@@ -97,8 +104,11 @@ export function usePinchZoom({
   containerRef,
   imageRef,
   enabled = true,
+  lastSwipeTimeRef,
+  scaleRef: externalScaleRef,
 }: UsePinchZoomOptions): UsePinchZoomReturn {
-  const scaleRef = useRef(1);
+  const internalScaleRef = useRef(1);
+  const scaleRef = externalScaleRef ?? internalScaleRef;
 
   useEffect(() => {
     if (!enabled) return;
@@ -171,6 +181,8 @@ export function usePinchZoom({
     }
 
     function onTouchStart(e: TouchEvent) {
+      // Suppress zoom during post-swipe cooldown
+      if (lastSwipeTimeRef?.current && Date.now() - lastSwipeTimeRef.current < SWIPE_ZOOM_COOLDOWN_MS) return;
       if (e.touches.length === 2) {
         // Start pinch
         isPinching = true;
@@ -349,6 +361,8 @@ export function usePinchZoom({
         const dt = now - lastTapTime;
 
         if (dt < DOUBLE_TAP_MS && dist < DOUBLE_TAP_DISTANCE) {
+          // Suppress double-tap zoom during post-swipe cooldown
+          if (lastSwipeTimeRef?.current && Date.now() - lastSwipeTimeRef.current < SWIPE_ZOOM_COOLDOWN_MS) return;
           // Double tap — toggle zoom
           lastTapTime = 0; // reset so triple-tap doesn't re-trigger
           if (scale > 1) {

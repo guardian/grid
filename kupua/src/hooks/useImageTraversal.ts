@@ -162,6 +162,22 @@ export function useImageTraversal(
     }
   }, [currentGlobalIndex, results, bufferOffset]);
 
+  // ── Initial prefetch on mount ──────────────────────────────────
+  // When the detail view first opens, prefetch images around the current
+  // position so decoded bitmaps are ready by the time the user swipes.
+  // Uses null for lastPrefetchTime to bypass the throttle gate.
+  // Only fires once (empty deps + guard on hasNavigatedRef).
+  useEffect(() => {
+    if (hasNavigatedRef.current) return; // already navigating, prefetch handled there
+    if (currentGlobalIndex < 0) return;
+    const { results: res, bufferOffset: bo } = useSearchStore.getState();
+    const localIdx = currentGlobalIndex - bo;
+    if (localIdx >= 0 && localIdx < res.length) {
+      prefetchNearbyImages(localIdx, res, "forward", null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once when position is known
+  }, [currentGlobalIndex]);
+
   // ── Pending navigation resolution ──────────────────────────────
   // When a navigation was requested but the target wasn't in the buffer,
   // watch for buffer changes (results/bufferOffset) and complete the

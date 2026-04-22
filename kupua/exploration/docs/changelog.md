@@ -14,6 +14,95 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20–22 April 2026 — Fix rapid-swipe duplicate-image bug + carousel polish
+
+Two-day investigation into a mobile-only bug: aggressive swiping showed the
+same image sliding in up to 4× before the correct one appeared. Desktop
+unaffected. Fully diagnosed and fixed.
+
+**Root cause:** AVIF images take 300–500ms to decode on phones. The 3-panel
+carousel (prev | center | next) slides an undecoded panel into view during
+the 200ms WAAPI animation — the browser shows the OLD compositor texture
+as a placeholder, creating a "duplicate image" illusion. This is a physical
+constraint (decode latency), not a code-level race condition. Eight code-level
+fixes were attempted and failed before this was understood.
+
+**Key discovery:** Chrome does NOT share decoded bitmaps between Image objects.
+A prefetched `new Image()` with `img.decode()` warms the HTTP cache but does
+NOT help a subsequent DOM `<img>` paint faster — each element does its own
+AVIF decode independently.
+
+**The fix (4 layered mechanisms):**
+1. `commitStripReset` — copies target panel src to center, clears side panel
+   srcs (`removeAttribute("src")`) to destroy stale compositor textures.
+2. `StableImg` — imperative `<img>` src management that prevents React from
+   redundantly re-setting URLs (which resets `img.complete` → re-decode).
+   Uses `data-committed` flag from commitStripReset to skip writes.
+3. **COMMIT-time `data-thumb` fallback** (the actual fix) — at swipe commit,
+   before WAAPI animation starts, checks target panel's `img.complete`. If
+   false (still decoding), swaps src to pre-cached thumbnail JPEG via
+   `data-thumb` attribute. Thumbnails decode from cache in <10ms.
+4. Prefetch pipeline with `onFullResDecoded` subscription — side panels get
+   full-res URLs when prefetch reports decoded, thumbnail otherwise.
+   `prefetchGen` state triggers useMemo recomputation on decode completion.
+
+**Result:** slow swipes show full-res (no quality transition). Rapid swipes
+show thumbnails (no duplication). Correct image always shown.
+
+**Review-driven cleanup (from fresh-agent critical review):**
+- Stripped all diagnostic code (`diagLog`, `diagStartFrameTracker`,
+  `SwipeDiagButton`) — `getComputedStyle()` per animation frame was forcing
+  synchronous layout reflow in production.
+- `_loadedFullRes: Map<string, HTMLImageElement>` → `Set<string>` — the Map
+  stored Image objects based on the disproved bitmap-sharing theory; freed
+  ~12MB of dead memory on phone.
+- Corrected doc comment claiming "keyed side panels" (never shipped).
+- Restricted thumbnail prefetch to i±1 (only immediate neighbours used by
+  data-thumb fallback; was prefetching 5 thumbnails per nav).
+- Extracted `getCarouselImageUrl()` — single source of truth for carousel
+  image URLs shared by prefetch and panel useMemos. Fixed the "same image,
+  different imgproxy URL" divergence that caused center panel re-decode
+  after landing (the "second slow swipe shows thumbnail" issue).
+- Moved `pendingCb`/`pendingDirection`/`pendingAnimation` above listeners.
+
+**Desktop optimizations:**
+- Side panels gated on `_pointerCoarse` — desktop never swipes, was wasting
+  2 AVIF fetches + decodes per arrow press (~66% bandwidth/CPU reduction).
+- `img.decode()` skipped on desktop prefetch — only HTTP cache warming
+  needed, saves ~400–750ms background CPU per navigation.
+- `will-change-transform` on strip made mobile-only (no GPU layer waste).
+
+**Other changes in this batch:**
+- Mobile DPR settled at 2 (was 1.5). `detectDpr()` in image-urls.ts:
+  3-tier (1× standard, 1.5× desktop HiDPI, 2× mobile HiDPI via
+  `pointer: coarse` heuristic). Better pinch-zoom headroom.
+- WAAPI rewrite kept — `strip.animate()` + `.finished` promise replaces
+  CSS transitions. Microtask resolution, no transitionend bubbling.
+- Zoom cooldown (400ms post-swipe), tap-to-exit cooldown (250ms).
+- Thumbnail prefetch mobile-only (`isTouchDevice` guard).
+- Initial prefetch on mount in `useImageTraversal`.
+
+**Known remaining items (not blocking):**
+- First image in detail view loads slower than before (likely related to
+  prefetch changes or StableImg's imperative src management). Deferred.
+- `touch-none` on image container blocks vertical scroll-through from image
+  area to metadata panel on mobile. Proper fix requires dynamic
+  `touch-action` management — deferred as separate task.
+- Prefetch `img.decode()` on mobile wastes CPU for images 2–4 ahead (the
+  decoded bitmap is never reused by DOM elements). Only the decode
+  *completion signal* matters for side-panel URL selection. Could switch
+  to `img.onload` or `<link rel="preload">` to avoid wasted decode CPU.
+- `prefetchGen` state could be removed from desktop path (only used for
+  side panel upgrades, which are now mobile-gated). Falls out naturally.
+
+**Files:** `useSwipeCarousel.ts`, `StableImg.tsx` (new), `ImageDetail.tsx`,
+`image-prefetch.ts`, `image-urls.ts`, `useImageTraversal.ts`,
+`usePinchZoom.ts`, `deviations.md`. Diagnostic files removed:
+`swipe-diag.ts`, `SwipeDiagButton.tsx`.
+
+**Investigation archive:** `zz Archive/swipe-carousel-review.md` (critical
+review with remaining recommendations), `zz Archive/touch-gestures-handoff.md`.
+
 ### 20–21 April 2026 — Mobile image detail layout (Issue #4)
 
 Implemented stacked layout for image detail view on narrow/touch screens.

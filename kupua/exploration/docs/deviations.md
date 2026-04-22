@@ -989,3 +989,21 @@ See `image-optimisation-research.md` for full format comparison data.
 **Trade-off:** None meaningful. The only downside is if we ever needed JPEG output
 for compatibility (e.g. downloading images for external use) — but that's a
 different feature (export/download) not a display concern.
+
+### Mobile DPR cap 2× (vs 1.5× desktop)
+
+**What:** `detectDpr()` in `image-urls.ts` now uses a 3-tier step function:
+standard displays → 1×, desktop HiDPI → 1.5×, mobile HiDPI → 2×. Mobile
+detection uses `pointer: coarse` (same heuristic as `ui-prefs-store.ts`).
+
+Kahuna uses full `screen.width × screen.height` (but only for Firefox).
+
+**Why:** Phones support pinch-zoom up to 5× via `usePinchZoom`. At 1.5× DPR cap,
+zooming past ~1.5× shows visible blur. 2× gives ~1.3× zoom headroom before
+hitting native resolution. File size impact is moderate because phone screens
+are small (e.g. iPhone 15: 393×852 CSS → ~786×1704 px, ~400KB AVIF vs ~226KB
+at 1.5×).
+
+**Trade-off:** ~1.8× larger files per image on mobile. Mitigated by prefetch
+pipeline (next 4 images preloaded). On slow connections (3G), initial load
+is noticeably slower; on 4G+, the difference is ~200ms per image.

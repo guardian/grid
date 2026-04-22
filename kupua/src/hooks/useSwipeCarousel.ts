@@ -13,12 +13,19 @@
  * The strip element should contain absolutely-positioned prev/current/next
  * panels offset by translateX(-100%/0/100%).
  *
- * Flash prevention: after a committed swipe animation, the strip is
- * immediately reset to translateX(0) and the swiped-to image is copied
- * imperatively to the center panel — all in the transitionend callback,
- * BEFORE calling navigate(). This eliminates the async gap between
- * animation end and React's DOM commit where the wrong image could flash.
- * React's subsequent re-render is a visual no-op (same src already set).
+ * Flash prevention: after a committed swipe animation, commitStripReset
+ * copies the target panel's img.src to the center panel, sets a
+ * `data-committed` flag, then resets the strip to translateX(0).
+ * StableImg checks the flag in useLayoutEffect — if present, it skips
+ * writing src (which would reset img.complete and cause the ⏳ cascade).
+ * Side panels are cleared (src removed) to destroy stale compositor
+ * textures — React writes fresh URLs on the next render.
+ *
+ * Duplicate-image prevention: at COMMIT time, if the target panel's
+ * img.complete is false (AVIF still decoding), its src is swapped to
+ * a pre-cached thumbnail via the data-thumb attribute. Thumbnails decode
+ * from cache in <10ms, ensuring the animation never shows stale pixels.
+ * See worklog-current.md for full investigation.
  */
 
 import { useEffect, useRef, type RefObject } from "react";
@@ -60,16 +67,36 @@ function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
   }
 
   if (centerPanel && targetPanel) {
-    const targetImg = targetPanel.querySelector("img");
     const centerImg = centerPanel.querySelector("img");
-    if (targetImg && centerImg) {
+    const targetImg = targetPanel.querySelector("img");
+    if (centerImg && targetImg) {
+      // Copy the swiped-to image into the center panel so it's visible
+      // the instant the strip resets to translateX(0). The data-committed
+      // flag tells StableImg to skip its next useLayoutEffect write —
+      // without it, StableImg would re-set the same-image URL (which
+      // may differ in imgproxy sizing params), resetting img.complete
+      // and causing the ⏳ cascade.
       centerImg.src = targetImg.src;
-      // Reset any pinch-zoom transform on the center image —
-      // the incoming image should always appear at 1x zoom.
+      centerImg.setAttribute("data-committed", "");
+      // Reset any pinch-zoom transform — incoming image starts at 1x.
       centerImg.style.transform = "";
       centerImg.style.willChange = "";
       centerImg.style.transition = "";
     }
+  }
+
+  // Clear side-panel bitmaps. The browser deprioritizes decoding off-screen
+  // images (translateX(±100%)), so even cached thumbnails can remain ⏳ for
+  // 50-60ms. During that window the <img> shows the OLD compositor texture —
+  // that's the "duplicate image" bug. Clearing the src destroys the stale
+  // bitmap. React will write new URLs in the next render; if decode isn't
+  // done when the next swipe starts, the panel is blank (invisible) instead
+  // of showing the wrong image. Side panels are off-screen here so clearing
+  // has zero visual impact.
+  for (const panel of panels) {
+    if (panel === centerPanel) continue;
+    const img = panel.querySelector("img");
+    if (img) img.removeAttribute("src");
   }
 
   // Reset strip — center panel now shows the correct image
@@ -97,6 +124,9 @@ interface UseSwipeCarouselReturn {
   /** True if a swipe gesture was in progress during the last touch sequence.
    *  Check this in onClick handlers to suppress tap actions after swipe. */
   swipedRef: RefObject<boolean>;
+  /** Timestamp (Date.now()) of the last committed swipe animation completing.
+   *  Used by zoom and tap handlers to enforce post-swipe cooldowns. */
+  lastSwipeTimeRef: RefObject<number>;
 }
 
 export function useSwipeCarousel({
@@ -117,6 +147,8 @@ export function useSwipeCarousel({
   // Exposed to callers so they can guard onClick handlers.
   // Set to true when a swipe gesture is detected, reset on next touchstart.
   const swipedRef = useRef(false);
+  // Timestamp of last committed swipe — for cooldown guards.
+  const lastSwipeTimeRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -133,16 +165,29 @@ export function useSwipeCarousel({
     let decided = false;  // true once direction is determined
     let animating = false;
 
+    // State for pending swipe animation — used by ResizeObserver and
+    // cleanup to cancel in-flight animations. Declared here (above the
+    // touch handlers) because the closures reference them.
+    let pendingCb: (() => void) | null = null;
+    let pendingDirection: "left" | "right" | null = null;
+    let pendingAnimation: Animation | null = null;
+
     function onTouchStart(e: TouchEvent) {
-      if (animating || e.touches.length !== 1) return;
+      // Always reset tracking state first — prevents stale flags from a
+      // previous touch sequence from leaking into this sequence's
+      // touchmove/touchend handlers.
+      tracking = false;
+      decided = false;
+
+      if (animating || e.touches.length !== 1) {
+        return;
+      }
       if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — let pinchZoom handle pan
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       lastX = startX;
       lastTime = e.timeStamp;
       velocity = 0;
-      tracking = false;
-      decided = false;
       swipedRef.current = false;
       strip.style.transition = "none";
     }
@@ -210,57 +255,77 @@ export function useSwipeCarousel({
       const commitRight = offset > 0 && cbRight.current &&
         (absVelocity > SNAP_VELOCITY || absOffset > w * SNAP_DISTANCE_RATIO);
 
-      strip.style.transition = `transform ${ANIMATION_MS}ms ease-out`;
+      if (commitLeft || commitRight) {
+        animating = true;
+        const direction: "left" | "right" = commitLeft ? "left" : "right";
+        const cb = commitLeft ? cbLeft.current! : cbRight.current!;
+        const targetX = commitLeft ? -w : w;
+        // Thumbnail fallback: if the target panel's image hasn't decoded
+        // (⏳), the browser will show a stale compositor texture during the
+        // animation — causing the "duplicate image" bug. Swap to thumbnail
+        // (pre-cached, <10ms decode) before the animation starts. The
+        // thumbnail src is stored as data-thumb on the <img> element.
+        const targetTranslateDir = commitLeft ? "translateX(100%)" : "translateX(-100%)";
+        for (const panel of Array.from(strip.children) as HTMLElement[]) {
+          if (panel.style.transform === targetTranslateDir) {
+            const img = panel.querySelector("img");
+            if (img && !img.complete) {
+              const thumb = img.getAttribute("data-thumb");
+              if (thumb) img.src = thumb;
+            }
+            break;
+          }
+        }
 
-      if (commitLeft) {
-        // Snap to next — animate strip fully left
-        animating = true;
-        const cb = cbLeft.current!;
         pendingCb = cb;
-        pendingDirection = "left";
-        strip.style.transform = `translateX(${-w}px)`;
-        strip.addEventListener(
-          "transitionend",
-          () => {
-            animating = false;
-            pendingCb = null;
-            commitStripReset(strip, "left");
-            cb();
-          },
-          { once: true },
+        pendingDirection = direction;
+
+        // Clear inline styles — WAAPI takes over from this frame.
+        strip.style.transition = "none";
+        strip.style.transform = "";
+
+        const anim = strip.animate(
+          [
+            { transform: `translateX(${offset}px)` },
+            { transform: `translateX(${targetX}px)` },
+          ],
+          { duration: ANIMATION_MS, easing: "ease-out", fill: "forwards" },
         );
-      } else if (commitRight) {
-        // Snap to prev — animate strip fully right
-        animating = true;
-        const cb = cbRight.current!;
-        pendingCb = cb;
-        pendingDirection = "right";
-        strip.style.transform = `translateX(${w}px)`;
-        strip.addEventListener(
-          "transitionend",
-          () => {
-            animating = false;
-            pendingCb = null;
-            commitStripReset(strip, "right");
-            cb();
-          },
-          { once: true },
-        );
+        pendingAnimation = anim;
+
+        anim.finished.then(() => {
+          // .finished resolves as a microtask — no touch events can fire
+          // between these lines. This closes the race window that
+          // transitionend (macrotask) left open.
+          pendingCb = null;
+          pendingDirection = null;
+          pendingAnimation = null;
+          commitStripReset(strip, direction);
+          anim.cancel(); // Remove WAAPI effect — inline transform is now ""
+          animating = false;
+          lastSwipeTimeRef.current = Date.now();
+          cb();
+        }).catch(() => {
+          // Cancelled by ResizeObserver or cleanup — state already handled
+        });
       } else {
         // Below threshold — snap back
         if (Math.abs(offset) < 1) {
-          // Already at rest, no transition needed
+          // Already at rest, no animation needed
           strip.style.transition = "none";
           strip.style.transform = "";
         } else {
-          strip.style.transform = "translateX(0)";
-          strip.addEventListener(
-            "transitionend",
-            () => {
-              strip.style.transition = "none";
-              strip.style.transform = "";
-            },
-            { once: true },
+          // Clear inline transform — WAAPI animates from offset to 0.
+          // When the animation ends (no fill), the inline "" takes over.
+          strip.style.transition = "none";
+          strip.style.transform = "";
+
+          strip.animate(
+            [
+              { transform: `translateX(${offset}px)` },
+              { transform: "translateX(0)" },
+            ],
+            { duration: ANIMATION_MS, easing: "ease-out" },
           );
         }
       }
@@ -271,16 +336,16 @@ export function useSwipeCarousel({
     container.addEventListener("touchend", onTouchEnd, { passive: true });
 
     // Handle container resize during animation (orientation change mid-swipe).
-    // Kill the transition and commit immediately.
-    let pendingCb: (() => void) | null = null;
-    let pendingDirection: "left" | "right" | null = null;
+    // Kill the animation and commit immediately.
     const ro = new ResizeObserver(() => {
-      if (animating && pendingCb) {
-        animating = false;
+      if (animating && pendingCb && pendingAnimation) {
         const cb = pendingCb;
         const dir = pendingDirection!;
+        pendingAnimation.cancel(); // triggers .catch() (no-op)
+        pendingAnimation = null;
         pendingCb = null;
         pendingDirection = null;
+        animating = false;
         commitStripReset(strip, dir);
         cb();
       }
@@ -291,9 +356,10 @@ export function useSwipeCarousel({
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
+      if (pendingAnimation) pendingAnimation.cancel();
       ro.disconnect();
     };
   }, [containerRef, stripRef, swipedRef, enabled]);
 
-  return { swipedRef };
+  return { swipedRef, lastSwipeTimeRef };
 }

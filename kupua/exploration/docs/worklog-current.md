@@ -12,8 +12,6 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(No active task)
+(No active task.)
 
 ## Session Log
-
-(empty)

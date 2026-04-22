@@ -32,7 +32,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
 | **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
 | **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts` |
-| **Touch gestures (swipe-dismiss, pinch-zoom)** | `touch-gestures-handoff.md`, `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `ImageDetail.tsx` |
+| **Touch gestures (swipe carousel, dismiss, pinch-zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `zz Archive/swipe-carousel-review.md` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts` |
