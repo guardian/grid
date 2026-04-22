@@ -85,7 +85,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
 
     val thumbUrl = config.cloudFrontDomainThumbBucket
-      .map(_ + fileUri.getPath.drop(1))
+      .map(domain => s"https://$domain${fileUri.getPath}")
       .getOrElse(s3SignedThumbUrl)
 
     val validityMap = checkUsageRestrictions(source, ImageExtras.validityMap(image, withWritePermission))
