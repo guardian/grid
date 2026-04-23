@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
@@ -19,7 +20,7 @@ import java.net.{URI, URLEncoder}
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
+class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota)
   extends EditsResponse with GridLogging {
 
   implicit val usageQuotas: UsageQuota = usageQuota
@@ -84,7 +85,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
 
     val thumbUrl = config.cloudFrontDomainThumbBucket
-      .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+      .map(domain => s"https://$domain${fileUri.getPath}")
       .getOrElse(s3SignedThumbUrl)
 
     val validityMap = checkUsageRestrictions(source, ImageExtras.validityMap(image, withWritePermission))

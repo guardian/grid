@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, S3Vectors, SimpleSqsMessageConsumer, ThrallMessageSender}
+import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, S3, S3Vectors, SimpleSqsMessageConsumer, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
@@ -16,7 +16,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
   val mediaApiMetrics = new MediaApiMetrics(config, actorSystem, applicationLifecycle)
 
-  val s3Client = new S3Client(config)
+  val s3Client = new S3(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
   usageQuota.quotaStore.update()

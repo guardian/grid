@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, S3, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -26,6 +26,9 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
+
+import scala.jdk.CollectionConverters._
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -38,7 +41,7 @@ class MediaApi(
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
+                s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation,
