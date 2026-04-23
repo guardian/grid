@@ -132,6 +132,14 @@ function handleKeyDown(e: KeyboardEvent): void {
     key = codeToKey(e.code) ?? key;
   }
 
+  // Caps Lock transparency: single-letter shortcuts are registered in
+  // lowercase. Without Shift held, Caps Lock should not prevent them from
+  // firing — pressing `f` with Caps Lock on yields `e.key === "F"`, which
+  // we normalise back to `"f"`. Shift+letter remains distinct (uppercase).
+  if (!e.shiftKey && key.length === 1 && key >= "A" && key <= "Z") {
+    key = key.toLowerCase();
+  }
+
   const stack = registry.get(key);
   if (!stack || stack.length === 0) return;
 

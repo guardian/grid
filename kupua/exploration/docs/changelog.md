@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Caps Lock no-op for shortcuts, CQL aggregations search context-aware
+
+Three small fixes:
+
+1. **Caps Lock transparency (keyboard-shortcuts.ts):** Single-letter shortcuts
+   (e.g. `f` for fullscreen) now normalise to lowercase when Shift is not held,
+   so Caps Lock no longer blocks them. Shift+letter remains distinct.
+
+2. **CQL typeahead query scoping (typeahead-fields.ts, CqlSearchInput.tsx):**
+   Typeahead suggestion aggregations previously used `getAggregation(field, undefined)`
+   which hit `match_all` — showing global top-50 values regardless of the active search.
+   Now uses `getAggregations(params, [{field, size}])` with full `buildQuery`, so
+   suggestions are scoped to current results (matching how FacetFilters already worked).
+   Added `getParams` callback to `buildTypeaheadFields`; `scopedAgg()` helper
+   centralises the fallback path.
+
+3. **Static-list suggestion sorting (typeahead-fields.ts):** `mergeWithCounts` now
+   sorts by doc count descending when counts are available, matching ES's native
+   ordering for dynamic fields. Items with no count sink to the bottom alphabetically.
+   Affects fileType, subject, and config alias fields.
+
 ### 23 April 2026 — Swipe-to-dismiss URL-stale + pinch-zoom anchor drift fixes
 
 Two mobile gesture bugs reported and fixed in image detail.

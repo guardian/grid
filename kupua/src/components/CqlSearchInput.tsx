@@ -146,7 +146,8 @@ export function CqlSearchInput({
   // Build typeahead from DAL — memoised so we don't rebuild on every render
   const typeahead = useMemo(() => {
     const getAggs = () => aggregationsRef.current;
-    const fieldDefs = buildTypeaheadFields(dataSource, getAggs);
+    const getParams = () => useSearchStore.getState().params;
+    const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams);
     const hiddenFieldIds = new Set(
       fieldDefs
         .filter((d) => d.showInKeySuggestions === false)

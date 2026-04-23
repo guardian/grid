@@ -15,7 +15,9 @@
 import type {
   ImageDataSource,
   AggregationBucket,
+  AggregationResult,
   AggregationsResult,
+  SearchParams,
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
@@ -98,10 +100,22 @@ function mergeWithCounts(
   const countMap = buckets
     ? new Map(buckets.map((b) => [mapBucketKey ? mapBucketKey(b.key) : b.key, b.count]))
     : undefined;
-  return prefixFilter(prefix, values).map((v) => ({
+  const suggestions = prefixFilter(prefix, values).map((v) => ({
     value: v,
     count: countMap?.get(v),
   }));
+  // Sort by volume (descending) when counts are available, matching
+  // the order ES returns for dynamic aggregation fields.
+  // Items without counts sink to the bottom in alphabetical order.
+  if (countMap) {
+    suggestions.sort((a, b) =>
+      a.count != null && b.count != null ? b.count - a.count
+      : a.count != null ? -1
+      : b.count != null ? 1
+      : a.value.localeCompare(b.value)
+    );
+  }
+  return suggestions;
 }
 
 /**
@@ -130,7 +144,21 @@ function storeBuckets(
 export function buildTypeaheadFields(
   dataSource: ImageDataSource,
   getAggregations?: () => AggregationsResult | null,
+  getParams?: () => SearchParams,
 ): TypeaheadFieldDef[] {
+  /** Fetch a single field's agg scoped to the current query.
+   *  Uses getAggregations (batched endpoint with buildQuery) so the
+   *  buckets reflect the user's current search — not the whole index. */
+  async function scopedAgg(field: string, size: number = 50): Promise<AggregationResult> {
+    const params = getParams?.();
+    if (params) {
+      const result = await dataSource.getAggregations(params, [{ field, size }]);
+      return result.fields[field] ?? { buckets: [], total: 0 };
+    }
+    // No params callback — fall back to unscoped (match_all)
+    return dataSource.getAggregation(field, undefined, size);
+  }
+
   const isOptions = buildIsOptions();
 
   // Field aliases from config that have search hints.
@@ -148,7 +176,7 @@ export function buildTypeaheadFields(
         if (cached) {
           return mergeWithCounts(value, fa.searchHintOptions!, cached);
         }
-        const { buckets } = await dataSource.getAggregation(fa.elasticsearchPath, undefined, 50);
+        const { buckets } = await scopedAgg(fa.elasticsearchPath);
         return mergeWithCounts(value, fa.searchHintOptions!, buckets);
       },
       showInKeySuggestions: fa.displaySearchHint,
@@ -164,7 +192,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("category", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("usageRights.category", undefined, 50);
+        const { buckets } = await scopedAgg("usageRights.category");
         return bucketFilter(value, buckets);
       },
     },
@@ -173,7 +201,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("credit", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("metadata.credit", undefined, 50);
+        const { buckets } = await scopedAgg("metadata.credit");
         return bucketFilter(value, buckets);
       },
     },
@@ -182,7 +210,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("label", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("userMetadata.labels", undefined, 50);
+        const { buckets } = await scopedAgg("userMetadata.labels");
         return bucketFilter(value, buckets);
       },
     },
@@ -191,7 +219,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("photoshoot", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("userMetadata.photoshoot.title", undefined, 50);
+        const { buckets } = await scopedAgg("userMetadata.photoshoot.title");
         return bucketFilter(value, buckets);
       },
     },
@@ -200,7 +228,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("source", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("metadata.source", undefined, 50);
+        const { buckets } = await scopedAgg("metadata.source");
         return bucketFilter(value, buckets);
       },
     },
@@ -209,7 +237,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("supplier", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("usageRights.supplier", undefined, 50);
+        const { buckets } = await scopedAgg("usageRights.supplier");
         return bucketFilter(value, buckets);
       },
     },
@@ -224,7 +252,7 @@ export function buildTypeaheadFields(
         if (cached) {
           return mergeWithCounts(value, FILE_TYPES, cached, (k) => k.replace("image/", ""));
         }
-        const { buckets } = await dataSource.getAggregation("source.mimeType", undefined, 50);
+        const { buckets } = await scopedAgg("source.mimeType");
         return mergeWithCounts(value, FILE_TYPES, buckets, (k) => k.replace("image/", ""));
       },
     },
@@ -237,7 +265,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("subject", getAggregations);
         if (cached) return mergeWithCounts(value, SUBJECTS, cached);
-        const { buckets } = await dataSource.getAggregation("metadata.subjects", undefined, 50);
+        const { buckets } = await scopedAgg("metadata.subjects");
         return mergeWithCounts(value, SUBJECTS, buckets);
       },
     },
@@ -255,7 +283,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("uploader", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("uploadedBy", undefined, 50);
+        const { buckets } = await scopedAgg("uploadedBy");
         return bucketFilter(value, buckets);
       },
     },
@@ -266,7 +294,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("croppedBy", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("exports.author", undefined, 50);
+        const { buckets } = await scopedAgg("exports.author");
         return bucketFilter(value, buckets);
       },
     },
@@ -279,7 +307,7 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const cached = storeBuckets("keyword", getAggregations);
         if (cached) return bucketFilter(value, cached);
-        const { buckets } = await dataSource.getAggregation("metadata.keywords", undefined, 50);
+        const { buckets } = await scopedAgg("metadata.keywords");
         return bucketFilter(value, buckets);
       },
     },
