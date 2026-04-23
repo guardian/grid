@@ -174,10 +174,8 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], offset: Int, length: Int, countAll: Boolean, numCandidates: Int)
+  def knnSearch(queryEmbedding: List[Float], k: Int, offset: Int, length: Int, countAll: Boolean, numCandidates: Int)
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    val k = offset + length
-
     if (length <= 0 || k <= 0) {
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
@@ -194,9 +192,19 @@ class ElasticSearch(
 
       executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        // In semantic search we expose a capped/approximate total based on the
+        // configured retrieval window (`k`) rather than an exact global corpus size.
+        // This aligns pagination semantics with the bounded nearest-neighbour set.
+        // Note: when trackTotalHits(false), ES may not populate totalHits.
+        val total = if (countAll) {
+          val totalHits = Option(r.result.totalHits).getOrElse(0L)
+          Math.min(totalHits, k.toLong)
+        } else {
+          0L
+        }
         SearchResults(
           hits = imageHits,
-          total = if (countAll) r.result.totalHits else 0,
+          total = total,
           extraCounts = None
         )
       }

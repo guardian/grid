@@ -600,7 +600,7 @@ class MediaApi(
     }
 
     def semanticSearchByImage(searchParams: SearchParams, imageId: String): Future[SearchResults] = {
-      val k = searchParams.offset + searchParams.length
+      val semanticRetrievalWindow = Math.max(config.aiSearchSemanticRetrievalWindow, searchParams.length)
       val countAll = searchParams.countAll.getOrElse(true)
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
@@ -614,10 +614,11 @@ class MediaApi(
           case Some(embedding) =>
             elasticSearch.knnSearch(
               embedding,
+              k = semanticRetrievalWindow,
               offset = searchParams.offset,
               length = searchParams.length,
               countAll = countAll,
-              numCandidates = Math.max(k * 2, 100)
+              numCandidates = Math.max(semanticRetrievalWindow * 2, 100)
             )
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
@@ -626,16 +627,17 @@ class MediaApi(
     }
 
     def semanticSearchByText(searchParams: SearchParams, query: String): Future[SearchResults] = {
-      val k = searchParams.offset + searchParams.length
+      val semanticRetrievalWindow = Math.max(config.aiSearchSemanticRetrievalWindow, searchParams.length)
       val countAll = searchParams.countAll.getOrElse(true)
       for {
         embedding <- embedder.createQueryEmbedding(query)
         searchResults <- elasticSearch.knnSearch(
           embedding,
+          k = semanticRetrievalWindow,
           offset = searchParams.offset,
           length = searchParams.length,
           countAll = countAll,
-          numCandidates = Math.max(k * 2, 100)
+          numCandidates = Math.max(semanticRetrievalWindow * 2, 100)
         )
       } yield searchResults
     }

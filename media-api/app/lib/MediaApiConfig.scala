@@ -76,6 +76,10 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
 
+  // Semantic search retrieves from a bounded nearest-neighbour window.
+  // This keeps KNN query cost predictable and makes result totals explicitly capped.
+  val aiSearchSemanticRetrievalWindow: Int = intOpt("ai.search.semanticRetrievalWindow").getOrElse(1000)
+
   val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
     filters.or(
       ingredients.flatMap {
