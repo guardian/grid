@@ -21,6 +21,7 @@ import {
   setPrevSearchOnly,
   consumeUserInitiatedFlag,
   markUserInitiatedNavigation,
+  setExternalQuery,
 } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
@@ -165,6 +166,15 @@ export function useUrlSearchSync() {
     );
     setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
     search(focusPreserveId, phantomAnchor ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds() } : undefined);
+
+    // Clear the external-query latch. cancelSearchDebounce(newQuery) sets
+    // _externalQuery so the debounce callback can detect stale updates from
+    // the CQL editor. Once the URL has changed and search() has fired, that
+    // guard has served its purpose. Without this clear, _externalQuery stays
+    // set permanently (the CqlSearchInput remount from the generation bump
+    // means no matching debounce ever fires to clear it), and every future
+    // debounced query from the CQL editor is silently dropped.
+    setExternalQuery(null);
   }, [searchParams, setParams, search, navigate]);
 }
 

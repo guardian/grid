@@ -750,3 +750,127 @@ test.describe("Stability — image detail reload", () => {
   });
 });
 
+// ===========================================================================
+// Click-to-search — metadata values and subsequent CQL input editing
+// ===========================================================================
+
+test.describe("Click-to-search", () => {
+  test("CQL input remains editable after metadata click launches search", async ({ kupua }) => {
+    // This tests for a bug where cancelSearchDebounce() set _externalQuery
+    // which was never cleared, permanently blocking debounced CQL input
+    // updates. Affected: metadata clicks, table cell clicks (plain, Shift, Alt).
+    await kupua.goto();
+
+    // Open image detail to see metadata
+    await kupua.openDetailForNthItem(0);
+
+    // Find the first clickable metadata value (ValueLink or SearchPill).
+    // Both have title containing "Shift+click to add".
+    const metadataButton = kupua.page
+      .locator('button[title*="Shift+click to add"]')
+      .first();
+    await expect(metadataButton).toBeVisible({ timeout: 5000 });
+
+    // Read the button's text — this becomes part of the search query
+    const clickedValue = (await metadataButton.textContent())!.trim();
+    expect(clickedValue.length).toBeGreaterThan(0);
+
+    // Click the metadata value — this triggers cancelSearchDebounce + updateSearch
+    await metadataButton.click();
+
+    // Should navigate back to search results (image param stripped)
+    await kupua.waitForDetailClosed();
+    await kupua.waitForResults();
+
+    // Verify the URL now has a query from the metadata click
+    const queryAfterClick = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("query"),
+    );
+    expect(queryAfterClick).toBeTruthy();
+    expect(queryAfterClick).toContain(clickedValue.split(" ")[0]);
+
+    // Now the critical part: edit the query via the CQL input.
+    // Focus the search input by clicking the search area, then select-all + type.
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+
+    // Small pause to let the remounted CQL input's ProseMirror initialise
+    await kupua.page.waitForTimeout(100);
+
+    // Select all existing text and replace with a new query.
+    // Meta+A = Cmd+A on macOS, selects all in the ProseMirror editor.
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("nonFree:true", { delay: 30 });
+
+    // Wait for the 300ms debounce + a buffer for the URL to update
+    await kupua.page.waitForFunction(
+      (prevQuery) => {
+        const q = new URL(window.location.href).searchParams.get("query");
+        return q !== prevQuery && q !== null;
+      },
+      queryAfterClick,
+      { timeout: 3000 },
+    );
+
+    // Verify the URL query changed to what we typed
+    const queryAfterEdit = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("query"),
+    );
+    expect(queryAfterEdit).toContain("nonFree");
+  });
+
+  test("CQL input remains editable after table cell Shift+click launches search", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+
+    // Shift+click a "By" (byline) cell to append by:value to the query.
+    // The "By" column cells have style containing --col-metadata_byline.
+    // Find the first row's byline cell that has a non-empty title (= has data).
+    const bylineCells = kupua.page.locator(
+      '[aria-label="Image results table"] [role="gridcell"][style*="--col-metadata_byline"]',
+    );
+    let targetCell: ReturnType<typeof bylineCells.nth> | null = null;
+    const count = await bylineCells.count();
+    for (let i = 0; i < Math.min(count, 20); i++) {
+      const title = await bylineCells.nth(i).getAttribute("title");
+      if (title && title !== "—" && title.trim().length > 0) {
+        targetCell = bylineCells.nth(i);
+        break;
+      }
+    }
+    expect(targetCell, "Need at least one image with a byline in local data").not.toBeNull();
+
+    // Shift+click triggers handleCellClick → cancelSearchDebounce → updateSearch
+    await targetCell!.click({ modifiers: ["Shift"] });
+    await kupua.waitForResults();
+
+    const queryAfterClick = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("query"),
+    );
+    expect(queryAfterClick).toBeTruthy();
+    expect(queryAfterClick).toContain("by:");
+
+    // Now the critical part: edit the query via the CQL input.
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+    await kupua.page.waitForTimeout(100);
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("nonFree:true", { delay: 30 });
+
+    // Wait for the 300ms debounce + buffer for URL to update
+    await kupua.page.waitForFunction(
+      (prevQuery) => {
+        const q = new URL(window.location.href).searchParams.get("query");
+        return q !== prevQuery && q !== null;
+      },
+      queryAfterClick,
+      { timeout: 3000 },
+    );
+
+    const queryAfterEdit = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("query"),
+    );
+    expect(queryAfterEdit).toContain("nonFree");
+  });
+});
+

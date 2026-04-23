@@ -14,6 +14,35 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Click-to-search fix: _externalQuery latch never cleared
+
+**Bug.** After clicking a metadata value (ImageDetail panel) or Shift/Alt-clicking
+a table cell to launch a search, the CQL search input became permanently
+unresponsive — typing, deleting chips, or any manual query edit was silently
+ignored. Only a full page reload recovered.
+
+**Root cause.** `cancelSearchDebounce(newQuery)` sets `_externalQuery` so the
+debounce callback can detect stale updates. The only clearing path was inside
+the debounce callback itself, when the query happened to match. But the
+`_cqlInputGeneration` bump (which forces CqlSearchInput to remount) meant the
+remounted editor's initial `queryChange` was suppressed by `lastEffectiveQueryRef`,
+so no matching debounce ever fired. Result: `_externalQuery` stayed set
+permanently, and `handleQueryChange`'s guard (`_externalQuery !== null &&
+queryStr !== _externalQuery`) silently dropped every future debounced update.
+
+**Affected paths.** All four click-to-search entry points: metadata plain click,
+Shift+click (AND), Alt+click (NOT) in ImageMetadata; and Shift/Alt cell click
+in ImageTable. All call `cancelSearchDebounce(newQuery)` → `updateSearch`.
+
+**Fix.** Clear `_externalQuery` in `useUrlSearchSync` after `search()` fires.
+At that point the URL has moved to the new query and the old debounce timer
+was already cancelled — the latch has served its purpose. One line:
+`setExternalQuery(null)` in `useUrlSearchSync.ts`.
+
+**Tests.** Two new E2E tests in `ui-features.spec.ts` (Click-to-search describe
+block): metadata click → edit CQL input, and table Shift+click → edit CQL input.
+Verified the test fails without the fix (3s timeout on URL update).
+
 ### 23 April 2026 — Velocity-aware forward-extend trigger (seek-mode wall mitigation)
 
 **Problem.** At sustained fast wheel/trackpad velocity in seek mode (>65k
