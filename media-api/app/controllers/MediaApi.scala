@@ -574,21 +574,31 @@ class MediaApi(
         .getOrElse(TextSearch(query))
     }
 
-    def emptyAiSearchResponse =
-      Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+    def emptyAiSearchResponse(searchParams: SearchParams) =
+      Future.successful(
+        respondCollection(
+          List.empty[EmbeddedEntity[JsValue]],
+          Some(searchParams.offset),
+          Some(0),
+          None,
+          List()
+        )
+      )
 
-    def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
+    def aiSearchResponseFromResults(searchParams: SearchParams, searchResults: SearchResults): Result = {
       val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
       respondCollection(
         data = imageEntities,
-        offset = Some(0),
+        offset = Some(searchParams.offset),
         total = Some(searchResults.total),
         maybeExtraCounts = None,
         links = Nil
       )
     }
 
-    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByImage(searchParams: SearchParams, imageId: String): Future[SearchResults] = {
+      val k = searchParams.offset + searchParams.length
+      val countAll = searchParams.countAll.getOrElse(true)
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
         maybeEmbedding = maybeImage
@@ -599,60 +609,74 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+            elasticSearch.knnSearch(
+              embedding,
+              offset = searchParams.offset,
+              length = searchParams.length,
+              countAll = countAll,
+              numCandidates = Math.max(k * 2, 100)
+            )
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByText(searchParams: SearchParams, query: String): Future[SearchResults] = {
+      val k = searchParams.offset + searchParams.length
+      val countAll = searchParams.countAll.getOrElse(true)
       for {
         embedding <- embedder.createQueryEmbedding(query)
-        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+        searchResults <- elasticSearch.knnSearch(
+          embedding,
+          offset = searchParams.offset,
+          length = searchParams.length,
+          countAll = countAll,
+          numCandidates = Math.max(k * 2, 100)
+        )
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(query: String): Future[Result] = {
-      val k = 200
+    def performAiSearchAndRespond(searchParams: SearchParams, query: String): Future[Result] = {
       val searchResultsFuture = parseAiSearchMode(query) match {
-        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
+        case SimilarSearch(imageId) => semanticSearchByImage(searchParams, imageId)
+        case TextSearch(textQuery) => semanticSearchByText(searchParams, textQuery)
       }
 
-      searchResultsFuture.map(aiSearchResponseFromResults)
+      searchResultsFuture.map(aiSearchResponseFromResults(searchParams, _))
     }
 
-    if (_searchParams.useAISearch.contains(true)) {
-      _searchParams.query match {
-        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
-        case _ if _searchParams.length == 0 =>
-          emptyAiSearchResponse
-        case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(q)
-        // Empty queries do not make sense for AI search as we can
-        // only rank results once we have a meaningful vector to compare with.
-        // So return 0 results if the query was empty.
-        case _ =>
-          emptyAiSearchResponse
-      }
-    } else {
-
-      val searchParams = if(canViewDeletedImages) {
-        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      }
-      else {
-        _searchParams
-      }
-
-      SearchParams.validate(searchParams).fold(
-        // TODO: respondErrorCollection?
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => performSearchAndRespond(params)
-      )
+    val searchParams = if(canViewDeletedImages) {
+      _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
     }
+    else {
+      _searchParams
+    }
+
+    SearchParams.validate(searchParams).fold(
+      // TODO: respondErrorCollection?
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      params => {
+        if (params.useAISearch.contains(true)) {
+          params.query match {
+            // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
+            case _ if params.length == 0 =>
+              emptyAiSearchResponse(params)
+            case Some(q) if !q.isBlank =>
+              performAiSearchAndRespond(params, q)
+            // Empty queries do not make sense for AI search as we can
+            // only rank results once we have a meaningful vector to compare with.
+            // So return 0 results if the query was empty.
+            case _ =>
+              emptyAiSearchResponse(params)
+          }
+        } else {
+          performSearchAndRespond(params)
+        }
+      }
+    )
   }
 
   private def getImageResponseFromES(

@@ -174,22 +174,34 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+  def knnSearch(queryEmbedding: List[Float], offset: Int, length: Int, countAll: Boolean, numCandidates: Int)
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val k = offset + length
+
+    if (length <= 0 || k <= 0) {
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
       val knn = Knn("embedding.cohereEmbedV4.image")
         .queryVector(queryEmbedding.map(_.toDouble))
         .k(k)
         .numCandidates(numCandidates)
 
       val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+        .trackTotalHits(countAll)
         .knn(knn)
-        .size(k)
+        .from(offset)
+        .size(length)
 
       executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+        SearchResults(
+          hits = imageHits,
+          total = if (countAll) r.result.totalHits else 0,
+          extraCounts = None
+        )
       }
     }
+  }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
