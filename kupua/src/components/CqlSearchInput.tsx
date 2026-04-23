@@ -136,19 +136,32 @@ export function CqlSearchInput({
 
   const dataSource = useSearchStore((s) => s.dataSource);
 
+  // Keep a ref to the store's aggregation cache so typeahead resolvers can
+  // read it at resolution time without forcing the typeahead to rebuild.
+  const aggregations = useSearchStore((s) => s.aggregations);
+  const aggregationsRef = useRef(aggregations);
+  aggregationsRef.current = aggregations;
+
   // Build typeahead from DAL — memoised so we don't rebuild on every render
   const typeahead = useMemo(() => {
-    const fieldDefs = buildTypeaheadFields(dataSource);
+    const getAggs = () => aggregationsRef.current;
+    const fieldDefs = buildTypeaheadFields(dataSource, getAggs);
+    const hiddenFieldIds = new Set(
+      fieldDefs
+        .filter((d) => d.showInKeySuggestions === false)
+        .map((d) => d.fieldName)
+    );
     const fields = fieldDefs.map(({ fieldName, resolver }) => {
       const cqlResolver = resolver
         ? async (_fieldName: string) => {
             const suggestions = Array.isArray(resolver)
               ? resolver
               : await resolver(_fieldName);
-            return suggestions.map((s) => ({
-              label: undefined as undefined,
-              value: s,
-            }));
+            return suggestions.map((s) =>
+              typeof s === "string"
+                ? { label: undefined as undefined, value: s }
+                : { label: undefined as undefined, value: s.value, count: s.count }
+            );
           }
         : undefined;
 
@@ -160,7 +173,7 @@ export function CqlSearchInput({
         "TEXT"
       );
     });
-    return new LazyTypeahead(fields);
+    return new LazyTypeahead(fields, hiddenFieldIds);
   }, [dataSource]);
 
   // Register custom element + create instance
@@ -272,6 +285,14 @@ export function CqlSearchInput({
 
     container.appendChild(el);
     cqlInputRef.current = el;
+
+    // Inject custom styles into the open shadow DOM for elements that
+    // CQL doesn't expose via theme or ::part.
+    if (el.shadowRoot) {
+      const style = document.createElement("style");
+      style.textContent = `.Cql__OptionCount { opacity: 0.7; margin-left: 1.5em; }`;
+      el.shadowRoot.appendChild(style);
+    }
 
     return () => {
       el.removeEventListener("queryChange", handleQueryChange);

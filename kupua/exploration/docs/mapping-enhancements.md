@@ -12,6 +12,42 @@
 
 ---
 
+## 0. The Problem — Features Blocked or Degraded by Current Mappings
+
+Nine name/place fields in Grid's ES index are mapped as `text` (analysed)
+without a `keyword` sub-field. This means they support free-text search but
+**cannot** support aggregations, sorting, exact match, or wildcards. These
+are: `byline`, `city`, `country`, `state`, `subLocation`, `copyright`,
+`peopleInImage`, `suppliersReference`, and `usageRights.photographer`.
+
+Two stemmed fields (`description`, `title`) lack an unstemmed sub-field,
+so phrase-exact search is impossible without stemming distortion.
+
+Ten of the twelve `standardAnalysed` fields lack ASCII folding, creating a
+silent accent gap: `by:Jose` can't find `José Oliva`, even though free-text
+`Jose` finds it via the catch-all (which does fold). See §5 for evidence.
+
+These gaps block or degrade the following Kupua features:
+
+### Already built — waiting on mapping changes
+
+| Feature | What works today | What's blocked |
+|---|---|---|
+| **Filters panel** | Facets with counts for all keyword fields (credit, source, category, uploader, subjects, keywords, file type, all `fileMetadata.*` aliases) | No facets for byline, city, country, state, copyright, peopleInImage — the most useful editorial facets ("who shot this?", "where?"). These fields are `text`, which can't produce terms aggregations. |
+| **CQL typeahead suggestions with counts** | Value suggestions with query-scoped counts for every keyword and alias field. Infrastructure in place: resolvers check the store's aggregation cache, fall back to independent ES calls, and thread `count` through to CQL's `TextSuggestionOption` (which renders counts flush-right in the popover). | No suggestions at all for `by:`, `city:`, `country:`, `person:`, `state:`, `copyright:`, `illustrator:`, `location:`, `suppliersReference:`. These are listed in `typeahead-fields.ts` as resolver-less entries because there's no keyword field to aggregate on. Adding `.keyword` sub-fields would close this gap with one-line changes per field in the field registry — the typeahead infrastructure already handles it. |
+| **Column sorting in image table** | Sort by credit, source, upload date, file type, all alias fields | Can't sort by byline, city, country, copyright — fields users would naturally want to sort by. Text fields don't support doc-value sorting. |
+
+### Future features — enabled by mapping changes
+
+| Feature | What it enables | Mapping dependency |
+|---|---|---|
+| **Wildcard search** | `by:Rob*` finds all photographers starting with "Rob". `suppliersReference:REX-2024*` finds all Rex references from 2024. | Wildcards only work on `keyword` fields. Currently impossible on text-analysed fields. `.keyword` sub-fields enable it. |
+| **Accent-insensitive field search** | `by:Jose` finds `José Oliva`. `city:Munster` finds `Münster`. `credit:Jurgen` finds `Jürgen Schwarz`. | Requires the proposed `standard_folding` analyser (§2c) on text fields, and `lowercase_asciifolding` normalizer on keyword fields. Currently, 10 of 12 text fields lack folding. |
+| **Exact phrase search (no stemming)** | `description:"running man"` finds exactly that phrase, not documents about "a man who runs". | Requires `.exact` sub-field on `description` and `title` (§2b). Currently, stemmed fields can only do stemmed search. |
+| **Grouping / deduplication** | Group results by photographer, by location, by copyright holder — useful for editorial workflows ("show me one image per photographer from this event"). | Needs keyword sub-fields for `terms` aggregation with `top_hits`. |
+
+---
+
 ## 1. The Current Situation
 
 Every string field in Grid's ES mapping uses one of four strategies:
@@ -57,6 +93,20 @@ catch-all re-analyses the copied value with asciifolding), but
 **field-specific search breaks**. A user who refines their search from
 `Benoit` to `by:Benoit` gets *fewer* results — the opposite of what you'd
 expect when narrowing to the right field.
+
+There's also a **relevance scoring** impact. Free-text queries use
+`multi_match` across all `matchFields` (see `MatchFields.scala`), which
+includes both `metadata.byline` and `metadata.englishAnalysedCatchAll`.
+When searching `Benoit`, the catch-all matches (via asciifolding) but the
+individual `byline` field doesn't. The missing match on the more specific
+field means a weaker relevance signal — ES scores documents higher when
+multiple fields agree. With `standard_folding` on byline, both paths would
+match, producing a stronger and more accurate relevance score.
+
+**Note on `copyright`:** This field has a **double disadvantage**. It is
+`standardAnalysed` (no folding), AND it does not `copy_to` the catch-all.
+So searching `© Münchner` as free text won't even benefit from the
+catch-all's folding — the accent gap is absolute, not just for field chips.
 
 The proposed `standard_folding` custom analyser (§2c) fixes this by giving
 the individual text fields the same folding that the catch-all already has.
@@ -246,7 +296,7 @@ Same trade-off: agg results are normalised. Use `_source` for display.
 | **`metadata.country`** | `standardAnalysed` | Same. Probably the most useful location agg (1,143 unique). |
 | **`metadata.state`** | `standardAnalysed` | Same (260 unique). |
 | **`metadata.subLocation`** | `standardAnalysed` | Same (540 unique). Lower priority. |
-| **`metadata.copyright`** | `standardAnalysed` | Rights management agg. Finite vocabulary in practice. |
+| **`metadata.copyright`** | `standardAnalysed` | Rights management agg. Finite vocabulary in practice. Also has a **double disadvantage**: no folding AND no `copy_to` catch-all, so accented copyright holders are invisible to both free-text and field search. |
 | **`metadata.peopleInImage`** | `standardAnalysed` | "Who appears most?" is a real editorial question. |
 | **`metadata.suppliersReference`** | `standardAnalysed` | Exact match on reference IDs. Wildcards (`REX-2024*`). |
 | **`usageRights.photographer`** | `standardAnalysed` | Same argument as byline. |
@@ -275,6 +325,17 @@ Same trade-off: agg results are normalised. Use `_source` for display.
 |---|---|---|
 | **`metadata.credit`** | `keyword` | Correct type. But case-sensitive and no folding. `credit:Jurgen` doesn't find `"Jürgen Schwarz"`. Normalizer would fix. |
 | **`metadata.source`** | `keyword` | Same. |
+
+### Precedent: the `usages` rollup pattern
+
+Grid has already applied a version of this idea for nested usage fields.
+`usages.status` and `usages.platform` are keyword fields inside a `nested`
+object — terms aggregations would require an expensive nested aggregation
+wrapper. To avoid this, each field has `copy_to` to a top-level keyword
+rollup field (`usagesStatus`, `usagesPlatform`). This is conceptually the
+same pattern as `.keyword` sub-fields: index the same data in a second form
+that supports aggregation. The mapping proposal just applies this principle
+systematically to the text-analysed fields that need it.
 
 ---
 
@@ -541,8 +602,10 @@ ES 9 (currently in development) brings:
 - **No mapping-level breaking changes** for the features we use. Multi-fields,
   analysers, normalizers, and sub-fields are unchanged.
 - **Removal of `_type`**: Already completed in ES 8. Grid already doesn't
-  use mapping types (the `imageType = "image"` constant in
-  `ElasticSearchClient.scala` is unused legacy).
+  use mapping types. (The `protected val imageType = "image"` constant in
+  `ElasticSearchClient.scala` is the old ES `_type` value — unrelated to
+  `metadata.imageType` which stores Photograph/Illustration/Composite and
+  is actively used. The constant appears unused.)
 - **TSDB and Logsdb index modes**: Not relevant to Grid's use case.
 - **Serverless Elasticsearch**: Elastic's managed offering removes some
   low-level settings (shard count, etc.) but keeps all mapping and
@@ -558,8 +621,10 @@ If Grid does a major ES upgrade, consider also cleaning up:
 - **`es6.url` config key** — rename to `es.url` (trivial, but confusing)
 - **Code comments referencing "Elastic 6"** — `ElasticSearchClient.scala`
   still says "Elastic 6 limits" and "Elastic 6 pagination limit"
-- **`imageType = "image"` constant** — leftover from ES 6 `_type` era,
-  unused since ES 7
+- **`imageType = "image"` constant in `ElasticSearchClient.scala`** —
+  leftover from ES 6 `_type` era, unused since ES 7. Not to be confused
+  with `metadata.imageType` (Photograph/Illustration/Composite), which
+  is a live keyword field used by search and the Filters panel.
 - **`max_result_window = 101000` override** — consider whether
   `search_after` (stable since ES 5) or point-in-time API (ES 7.10+)
   would be better for deep pagination than inflating `max_result_window`
@@ -573,6 +638,12 @@ This is a **Grid platform change** — benefits kahuna and any future consumer.
 - **Phase 2** (connect to live ES): Add mapping changes to `Mappings.scala` +
   `IndexSettings.scala`. Test with a CODE re-index.
 - **Phase 3** (Grid API): API endpoints automatically benefit. No API changes.
-- **Kupua**: Typeahead resolvers become simple terms aggs on `.keyword` fields.
-  CQL parser routes quoted values to `.exact`. One-line changes per field.
+- **Kupua**: Typeahead resolvers become simple terms aggs on `.keyword`
+  fields. CQL parser routes quoted values to `.exact`. The infrastructure
+  is already built: `FIELDS_BY_CQL_KEY` maps CQL keys → ES paths,
+  `storeBuckets()` resolves counts from the store's aggregation cache,
+  and `buildTypeaheadFields()` wires resolvers to the CQL popover.
+  When a text field gains a `.keyword` sub-field, updating `esSearchPath`
+  (or adding an `esAggPath`) in the field registry lights up both the
+  Filters panel and CQL typeahead automatically — one-line change per field.
 

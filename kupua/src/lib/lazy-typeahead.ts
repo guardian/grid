@@ -97,10 +97,17 @@ export class LazyTypeahead extends Typeahead {
   private _fieldOptions: TextSuggestionOption[];
   private _abortController: AbortController | undefined;
 
-  constructor(fields: TypeaheadField[]) {
+  /**
+   * @param fields          All typeahead fields (key + value resolvers).
+   * @param hiddenFieldIds  Field IDs that have value resolvers but should
+   *                        NOT appear in key suggestions (e.g. colourModel).
+   */
+  constructor(fields: TypeaheadField[], hiddenFieldIds?: Set<string>) {
     super(fields);
     this._fields = fields;
-    this._fieldOptions = fields.map((f) => f.toSuggestionOption());
+    this._fieldOptions = fields
+      .filter((f) => !hiddenFieldIds?.has(f.id))
+      .map((f) => f.toSuggestionOption());
   }
 
   // -----------------------------------------------------------------------

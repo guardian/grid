@@ -26,7 +26,7 @@ Single source of truth. `useUrlSearchSync` → store → search. Zod-validated p
 
 ## CQL
 
-`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`.
+`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via a ref-based getter to avoid rebuilding the typeahead on every render), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`.
 
 ## Image URLs (`lib/image-urls.ts`, ~250 lines)
 

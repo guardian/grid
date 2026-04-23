@@ -12,16 +12,30 @@
  * sub-fields or completion suggesters) will be added later.
  */
 
-import type { ImageDataSource } from "@/dal/types";
+import type {
+  ImageDataSource,
+  AggregationBucket,
+  AggregationsResult,
+} from "@/dal/types";
 import { gridConfig } from "./grid-config";
+import { FIELDS_BY_CQL_KEY } from "./field-registry";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
 // ---------------------------------------------------------------------------
 
+export interface TypeaheadSuggestion {
+  value: string;
+  count?: number;
+}
+
 export interface TypeaheadFieldDef {
   fieldName: string;
-  resolver?: ((value: string) => Promise<string[]>) | string[];
+  resolver?: ((value: string) => Promise<TypeaheadSuggestion[]>) | string[];
+  /** If false, the field won't appear in key suggestions but its value
+   *  resolver still fires when the user types the key manually.
+   *  Defaults to true when omitted. */
+  showInKeySuggestions?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +75,51 @@ function prefixFilter(prefix: string, values: string[]): string[] {
   return values.filter((v) => v.toLowerCase().startsWith(lower));
 }
 
+/** Filter ES aggregation buckets by prefix, preserving counts. */
+function bucketFilter(
+  prefix: string,
+  buckets: AggregationBucket[],
+): TypeaheadSuggestion[] {
+  const lower = prefix.toLowerCase();
+  return buckets
+    .filter((b) => b.key !== "" && b.key.toLowerCase().startsWith(lower))
+    .map((b) => ({ value: b.key, count: b.count }));
+}
+
+/** Merge a static value list with optional store-cached agg counts.
+ *  `mapBucketKey` transforms the ES bucket key to match the static value
+ *  (e.g. strip "image/" prefix from MIME types). */
+function mergeWithCounts(
+  prefix: string,
+  values: string[],
+  buckets?: AggregationBucket[],
+  mapBucketKey?: (key: string) => string,
+): TypeaheadSuggestion[] {
+  const countMap = buckets
+    ? new Map(buckets.map((b) => [mapBucketKey ? mapBucketKey(b.key) : b.key, b.count]))
+    : undefined;
+  return prefixFilter(prefix, values).map((v) => ({
+    value: v,
+    count: countMap?.get(v),
+  }));
+}
+
+/**
+ * Look up pre-cached agg buckets from the search store by CQL field name.
+ * Returns undefined when the store has no data for this field (e.g. Filters
+ * panel hasn't been opened, or the field isn't in the store's agg set).
+ */
+function storeBuckets(
+  cqlKey: string,
+  getAggregations?: () => AggregationsResult | null,
+): AggregationBucket[] | undefined {
+  if (!getAggregations) return undefined;
+  const fd = FIELDS_BY_CQL_KEY.get(cqlKey);
+  const esPath = fd?.esSearchPath;
+  if (!esPath || typeof esPath !== "string") return undefined;
+  return getAggregations()?.fields[esPath]?.buckets;
+}
+
 // ---------------------------------------------------------------------------
 // Build the typeahead field list
 //
@@ -69,103 +128,118 @@ function prefixFilter(prefix: string, values: string[]): string[] {
 // ---------------------------------------------------------------------------
 
 export function buildTypeaheadFields(
-  dataSource: ImageDataSource
+  dataSource: ImageDataSource,
+  getAggregations?: () => AggregationsResult | null,
 ): TypeaheadFieldDef[] {
   const isOptions = buildIsOptions();
 
-  // Field aliases from config that have search hints
+  // Field aliases from config that have search hints.
+  // displaySearchHint controls whether the key appears in key suggestions;
+  // value suggestions are always available when the user types the key.
+  // Counts come from the store's agg cache first; falls back to a direct
+  // ES agg on fa.elasticsearchPath. Because both paths come from config,
+  // switching from mocked to real config requires zero code changes.
   const aliasFields: TypeaheadFieldDef[] = gridConfig.fieldAliases
-    .filter((fa) => fa.displaySearchHint && fa.searchHintOptions?.length)
+    .filter((fa) => fa.searchHintOptions?.length)
     .map((fa) => ({
       fieldName: fa.alias,
-      resolver: async (value: string) =>
-        prefixFilter(value, fa.searchHintOptions!),
+      resolver: async (value: string) => {
+        const cached = storeBuckets(fa.alias, getAggregations);
+        if (cached) {
+          return mergeWithCounts(value, fa.searchHintOptions!, cached);
+        }
+        const { buckets } = await dataSource.getAggregation(fa.elasticsearchPath, undefined, 50);
+        return mergeWithCounts(value, fa.searchHintOptions!, buckets);
+      },
+      showInKeySuggestions: fa.displaySearchHint,
     }));
 
   const fields: TypeaheadFieldDef[] = [
-    // --- Dynamic resolvers (hit ES) ---
+    // --- Dynamic resolvers ---
+    // Each checks the search store's aggregation cache first (query-scoped,
+    // shared with the Filters panel, no extra ES call). Falls back to an
+    // independent ES call when the store has no data for this field.
     {
       fieldName: "category",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "usageRights.category",
-          undefined,
-          50
-        );
-        return prefixFilter(
-          value,
-          agg.buckets.map((b) => b.key).filter((k) => k !== "")
-        );
+        const cached = storeBuckets("category", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("usageRights.category", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "credit",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "metadata.credit",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("credit", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("metadata.credit", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "label",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "userMetadata.labels",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("label", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("userMetadata.labels", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "photoshoot",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "userMetadata.photoshoot.title",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("photoshoot", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("userMetadata.photoshoot.title", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "source",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "metadata.source",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("source", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("metadata.source", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "supplier",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "usageRights.supplier",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("supplier", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("usageRights.supplier", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
 
-    // --- Static resolvers (no ES query) ---
+    // --- Static resolvers ---
+    // Canonical value list, enriched with query-scoped counts from the
+    // store cache first, falling back to a direct ES agg.
     {
       fieldName: "fileType",
-      resolver: async (value: string) => prefixFilter(value, FILE_TYPES),
+      resolver: async (value: string) => {
+        const cached = storeBuckets("fileType", getAggregations);
+        if (cached) {
+          return mergeWithCounts(value, FILE_TYPES, cached, (k) => k.replace("image/", ""));
+        }
+        const { buckets } = await dataSource.getAggregation("source.mimeType", undefined, 50);
+        return mergeWithCounts(value, FILE_TYPES, buckets, (k) => k.replace("image/", ""));
+      },
     },
     {
       fieldName: "is",
-      resolver: isOptions,
+      resolver: isOptions,  // synthetic field — no counts possible
     },
     {
       fieldName: "subject",
-      resolver: async (value: string) => prefixFilter(value, SUBJECTS),
+      resolver: async (value: string) => {
+        const cached = storeBuckets("subject", getAggregations);
+        if (cached) return mergeWithCounts(value, SUBJECTS, cached);
+        const { buckets } = await dataSource.getAggregation("metadata.subjects", undefined, 50);
+        return mergeWithCounts(value, SUBJECTS, buckets);
+      },
     },
     {
       fieldName: "usages@status",
@@ -179,22 +253,21 @@ export function buildTypeaheadFields(
     {
       fieldName: "uploader",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation(
-          "uploadedBy",
-          undefined,
-          50
-        );
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("uploader", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("uploadedBy", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
 
     // --- Keyword-field resolvers (terms aggregation) ---
-    // These are keyword fields that can use standard terms aggs.
     {
       fieldName: "croppedBy",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation("exports.author", undefined, 50);
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("croppedBy", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("exports.author", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {
@@ -204,8 +277,10 @@ export function buildTypeaheadFields(
     {
       fieldName: "keyword",
       resolver: async (value: string) => {
-        const agg = await dataSource.getAggregation("metadata.keywords", undefined, 50);
-        return prefixFilter(value, agg.buckets.map((b) => b.key));
+        const cached = storeBuckets("keyword", getAggregations);
+        if (cached) return bucketFilter(value, cached);
+        const { buckets } = await dataSource.getAggregation("metadata.keywords", undefined, 50);
+        return bucketFilter(value, buckets);
       },
     },
     {

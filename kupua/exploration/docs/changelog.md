@@ -14,6 +14,42 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Typeahead value suggestions with aggregation counts
+
+Added count-annotated value suggestions to the CQL typeahead for all searchable
+fields. When the user types e.g. `credit:`, the dropdown now shows matching
+values with document counts (e.g. "AFP — 12,345") pulled from ES aggregations.
+
+**Store cache sharing:** Typeahead resolvers read from the search store's
+existing `aggregations` cache (populated by the batched `fetchAggregations()`
+call) via an `aggregationsRef` getter, avoiding duplicate ES requests. When
+the cache doesn't contain the needed field, resolvers fall back to a single-field
+`dataSource.getAggregation()` call.
+
+**Key implementation details:**
+
+- `typeahead-fields.ts`: New `TypeaheadSuggestion { value, count? }` type.
+  `mergeWithCounts(prefix, values, buckets?, mapBucketKey?)` merges static/
+  dynamic value lists with aggregation bucket counts. `storeBuckets(cqlKey,
+  getAggregations?)` looks up agg data from the store cache.
+- `mapBucketKey` parameter handles ES key → display value mismatches (e.g.
+  fileType stores `"image/jpeg"` but displays `"jpeg"`).
+- All alias fields (`fieldAliases` from config) now have resolvers that check
+  store cache first, then fall back to single-field ES calls. Static fields
+  (fileType, subject) also have fallback ES calls.
+- `showInKeySuggestions` flag on `TypeaheadFieldDef` + `hiddenFieldIds` param
+  on `LazyTypeahead` — alias fields with value resolvers appear in value
+  suggestions but are hidden from key suggestion dropdown (since they duplicate
+  their parent field).
+- CQL's native `TextSuggestionOption.count` renders counts flush-right. Custom
+  shadow DOM style injection for `.Cql__OptionCount` (opacity: 0.7,
+  margin-left: 1.5em).
+- Updated `mapping-enhancements.md`: added §0 "The Problem" (features blocked/
+  degraded by current mappings) + 6 amendments across existing sections.
+
+Files changed: `CqlSearchInput.tsx`, `typeahead-fields.ts`, `lazy-typeahead.ts`,
+`mapping-enhancements.md`.
+
 ### 22 April 2026 — CQL chip composition no longer resets search results
 
 **Bug:** Composing a CQL chip expression (pressing `+`, selecting a field
