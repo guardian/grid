@@ -77,7 +77,7 @@ jobs:
           npm test
       - name: Image Embedder bundling
         run: ./scripts/embedder-deploy/build.sh
-      - uses: guardian/actions-riff-raff@v4.2.4
+      - uses: guardian/actions-riff-raff@v4.3.0
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
