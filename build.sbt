@@ -53,6 +53,7 @@ val commonSettings = Seq(
     "org.scalatestplus" %% "mockito-3-4" % "3.1.4.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
+    "org.testcontainers" % "localstack" % "1.21.4" % Test
   ),
   dependencyOverrides ++= jacksonOverrides,
 
