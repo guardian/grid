@@ -23,6 +23,7 @@ import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScr
 import { resetViewportAnchor } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { isMobile } from "@/lib/is-mobile";
 
 /**
  * Reset all search/scroll/sync state, await fresh first-page data,
@@ -160,7 +161,10 @@ export async function resetToHome(navigate: () => void) {
   // already attempts focus, but skips it when the URL still has ?image=
   // (image detail view). By this point navigate() has removed the image
   // param, so the focus can proceed.
+  // Skip on touch devices: focus would pop the on-screen keyboard and
+  // obscure most of the app on phones/tablets.
   requestAnimationFrame(() => {
+    if (isMobile()) return;
     const cqlInput = document.querySelector("cql-input");
     if (cqlInput instanceof HTMLElement) cqlInput.focus();
   });

@@ -311,6 +311,63 @@ dramatically better: 0ms landing at moderate/fast speeds vs 400-540ms.
 
 Full experiment data: `exploration/docs/zz Archive/traversal-perf-investigation.md`.
 
+### 18. Mobile autofocus suppression for the search input
+
+**What:** On touch-primary devices (`(pointer: coarse)`), kupua does not
+autofocus the CQL search input. Three sites are gated:
+
+- `CqlSearchInput.tsx`: skips the `autofocus` attribute when mounting the
+  custom element on mobile.
+- `lib/orchestration/search.ts`: `resetScrollAndFocusSearch` skips the
+  post-navigate `cqlInput.focus()` call on mobile.
+- `lib/reset-to-home.ts`: same skip after the home reset.
+
+**Why:** Autofocus on mobile pops the on-screen keyboard, which obscures
+roughly half the viewport. Users navigating image results don't want the
+keyboard up by default — they tap the search bar explicitly when they
+want to type. Kahuna doesn't have this issue because it isn't designed
+for mobile use.
+
+**Trade-off:** Power users on tablets with attached keyboards lose the
+autofocus convenience. Acceptable: same users can tap the search bar to
+focus, and avoiding the dominant mobile case (phones, finger-only
+tablets) matters more.
+
+### 19. Caret position preserved across tab/window switch
+
+**What:** When the user moves focus away from the kupua tab/window
+(Cmd+Tab, browser tab switch, etc.) and returns, the caret in the CQL
+search input is restored to its pre-blur position. Implementation in
+[CqlSearchInput.tsx](../../src/components/CqlSearchInput.tsx) wraps
+`view.dispatch` to continuously cache the latest selection, snapshots
+it in a capture-phase `blur` listener (which runs **before** CQL's own
+plugin blur handler — see "Why" below), then restores via
+`view.dispatch(setSelection(...))` in both a microtask and a rAF on
+return.
+
+**Why:** Default behaviour reset the caret to position 0 on return.
+Two compounding causes:
+1. Browsers clear the DOM selection when the tab hides; on return,
+   `focusin` fires, ProseMirror's `selectionFromDOM` reads position 0
+   from the cleared DOM, and writes it to PM state.
+2. `@guardian/cql`'s own plugin dispatches `setSelection(near(0))` in
+   its `handleDOMEvents.blur` ([cql.ts L382](../../node_modules/@guardian/cql/src/cqlInput/editor/plugins/cql.ts#L382)).
+   This means by the time `window.blur` fires, PM's cached selection has
+   already been reset by the plugin — so the obvious "save on
+   visibilitychange:hidden" approach captures position 0.
+
+The fix uses **capture-phase** DOM blur to snapshot before the plugin
+reset transaction lands, plus continuous `lastKnownSelection` caching
+via a `view.dispatch` wrapper so we always have an authoritative
+position even if the plugin reset has already fired.
+
+**Trade-off:** Adds a small wrapper around every PM transaction (one
+object allocation per transaction — negligible). Reaches into CQL
+internals via the public `editorView` field on the custom element —
+brittle if CQL changes its API, but `editorView` is part of the public
+surface. See "Should this be upstreamed?" discussion in the
+23 April 2026 changelog entry.
+
 ---
 
 ## From library defaults / conventions

@@ -14,6 +14,74 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Mobile autofocus suppression + caret preservation across tab/window switch
+
+Two related fixes to CQL search input focus behaviour.
+
+**Mobile autofocus suppression.** On touch-primary devices, focusing the
+search input pops the on-screen keyboard which obscures roughly half the
+viewport. Three call sites now skip focus on `(pointer: coarse)`:
+
+- `CqlSearchInput.tsx`: skips the `autofocus` attribute on mount.
+- `lib/orchestration/search.ts`: `resetScrollAndFocusSearch` skips the
+  post-navigate `cqlInput.focus()`.
+- `lib/reset-to-home.ts`: same skip after the home reset.
+
+New `lib/is-mobile.ts` helper centralises the `(pointer: coarse)` check
+(matches existing pattern in `image-prefetch`, `image-urls`,
+`ui-prefs-store`).
+
+**Caret preservation across tab/window switch.** When the user moved the
+caret mid-text, switched to another browser tab or app via Cmd+Tab, then
+returned, the caret reset to position 0. Three previous attempts at this
+fix were tried and reverted (see prior worklog handoff).
+
+The hidden landmine — discovered by adding an on-page diagnostic overlay
+(necessary because opening DevTools steals focus from the app window
+and pollutes blur events) — is that `@guardian/cql`'s plugin
+[`handleDOMEvents.blur` dispatches `setSelection(near(0))`](../../node_modules/@guardian/cql/src/cqlInput/editor/plugins/cql.ts#L382)
+on every blur. By the time `window.blur` fires, PM's cached selection
+has already been reset to position 1 (PM's "near 0" lands at 1, the
+first node-edge position). Every previous attempt was reading position 1
+and faithfully restoring it.
+
+Fix has three pieces in `CqlSearchInput.tsx`:
+
+1. **Wrap `view.dispatch`** to continuously cache `lastKnownSelection`
+   on every PM transaction. Cost: one object allocation per transaction.
+2. **Capture-phase blur listener on `view.dom`** snapshots
+   `lastKnownSelection` into `savedSelection` BEFORE CQL's plugin
+   reset-to-0 fires (capture phase runs before bubble-phase plugin
+   handlers).
+3. **Restore on `visibilitychange:visible` / `window.focus`**: call
+   `view.focus()`, then dispatch `setSelection` in both a microtask
+   (to win the race against PM's synchronous focusin reset most of the
+   time) and a `requestAnimationFrame` (belt-and-braces for the cases
+   where the microtask loses).
+
+Listeners only fire on tab/window switch — zero per-keystroke cost
+beyond the tiny dispatch wrapper allocation. PM positions are integer
+offsets, not DOM Ranges, so they survive DOM mutation between save and
+restore.
+
+**Why CQL resets selection on blur:** Probably to prevent a stale
+selection range from being visible (highlighted) when the editor is not
+focused, particularly with chip nodes where the selection drawing might
+look odd without focus. May also be defensive against PM's normal
+behaviour of trying to restore the DOM selection on re-focus from PM
+state — by resetting on blur, CQL guarantees a clean focusin position
+regardless of where the user was last. **Worth a friendly upstream
+discussion**: a `preserveCaretOnBlur` option, or simply not resetting
+when the blur is caused by tab/window switch (vs. clicking elsewhere
+in the app), would let consumers like kupua avoid the workaround.
+
+Also added deviations §18 (mobile autofocus) and §19 (caret
+preservation), and `is-mobile.ts` helper.
+
+Files changed: `CqlSearchInput.tsx`, `lib/orchestration/search.ts`,
+`lib/reset-to-home.ts`, new `lib/is-mobile.ts`,
+`exploration/docs/deviations.md`.
+
 ### 23 April 2026 — Typeahead value suggestions with aggregation counts
 
 Added count-annotated value suggestions to the CQL typeahead for all searchable

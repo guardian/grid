@@ -18,6 +18,7 @@ import {
 import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
 import { buildTypeaheadFields } from "@/lib/typeahead-fields";
+import { isMobile } from "@/lib/is-mobile";
 
 // ---------------------------------------------------------------------------
 // Theme — matches kupua's dark palette
@@ -192,8 +193,11 @@ export function CqlSearchInput({
     // If autofocus fires on reload in image detail view, the hidden search box
     // steals focus — breaking keyboard shortcuts (e.g. 'f' for fullscreen)
     // because the shortcut system sees an editable target.
+    //
+    // Also skip autofocus on touch devices — focusing the input pops the
+    // on-screen keyboard, which obscures most of the app on phones/tablets.
     const imageDetailOpen = new URL(window.location.href).searchParams.has("image");
-    if (!imageDetailOpen) {
+    if (!imageDetailOpen && !isMobile()) {
       el.setAttribute("autofocus", "");
     }
 
@@ -294,7 +298,140 @@ export function CqlSearchInput({
       el.shadowRoot.appendChild(style);
     }
 
+    // ---------------------------------------------------------------------
+    // Caret preservation across tab/window switch.
+    //
+    // Problem: when the tab hides (or the window blurs via Cmd/Alt+Tab),
+    // the browser clears the DOM selection. On return, the browser
+    // refocuses the editable, ProseMirror's focusin handler runs
+    // selectionFromDOM, reads position 0 from the cleared DOM, and writes
+    // it to PM state — resetting the caret to the start of the field.
+    //
+    // Mechanism (three pieces):
+    //
+    //   1. Wrap view.dispatch to continuously cache the latest selection
+    //      (`lastKnownSelection`). PM positions are cheap integers — zero
+    //      per-keystroke cost beyond an object allocation.
+    //
+    //   2. Capture the editor DOM's `blur` event in the CAPTURE phase,
+    //      BEFORE CQL's own plugin blur handler fires. CQL dispatches
+    //      `setSelection(near(0))` on blur (cqlInput/editor/plugins/cql.ts
+    //      L382), which would otherwise clobber `lastKnownSelection`. By
+    //      snapshotting in the capture phase we record the real position.
+    //
+    //   3. On `visibilitychange:visible` / window `focus`, dispatch the
+    //      saved selection in a microtask AND in a rAF (belt-and-braces:
+    //      the microtask wins the race against PM's focusin reset most of
+    //      the time; the rAF re-dispatches if anything else interferes).
+    //
+    // Listeners only fire on tab/window switch (not on every keystroke or
+    // selection change), so per-keystroke cost is the dispatch wrapper's
+    // single object allocation.
+    // ---------------------------------------------------------------------
+    let savedSelection: { from: number; to: number } | null = null;
+    let lastKnownSelection: { from: number; to: number } | null = null;
+
+    type CqlEditorView = {
+      hasFocus(): boolean;
+      focus(): void;
+      dispatch(tr: unknown): void;
+      state: {
+        selection: {
+          from: number;
+          to: number;
+          constructor: { create(doc: unknown, from: number, to: number): unknown };
+        };
+        doc: { content: { size: number } };
+        tr: { setSelection(sel: unknown): unknown };
+      };
+      dom: HTMLElement;
+    };
+    const getView = (): CqlEditorView | undefined =>
+      (el as unknown as { editorView?: CqlEditorView }).editorView;
+
+    // Wire dispatch wrapper + editor-blur snapshot. CQL's connectedCallback
+    // creates editorView synchronously, but appendChild is async-ish in
+    // some browsers, so we retry once via rAF.
+    let dispatchWrapped = false;
+    const tryWrapDispatch = () => {
+      if (dispatchWrapped) return;
+      const view = getView();
+      if (!view) return;
+      const original = view.dispatch.bind(view);
+      view.dispatch = (tr: unknown) => {
+        original(tr);
+        lastKnownSelection = {
+          from: view.state.selection.from,
+          to: view.state.selection.to,
+        };
+      };
+      // Snapshot in capture phase, BEFORE CQL's plugin reset-to-0 fires.
+      view.dom.addEventListener("blur", () => {
+        // Only save if there's a meaningful position (skip empty editor).
+        if (lastKnownSelection && lastKnownSelection.from > 1) {
+          savedSelection = { ...lastKnownSelection };
+        }
+      }, true);
+      lastKnownSelection = {
+        from: view.state.selection.from,
+        to: view.state.selection.to,
+      };
+      dispatchWrapped = true;
+    };
+    tryWrapDispatch();
+    if (!dispatchWrapped) requestAnimationFrame(tryWrapDispatch);
+
+    const handleHide = () => {
+      // savedSelection is normally already populated by the editor-blur
+      // capture listener. Fall back to lastKnownSelection only if the
+      // editor never received a blur (e.g. page hidden via OS while editor
+      // had focus — some browsers fire visibilitychange without blur).
+      if (savedSelection) return;
+      if (lastKnownSelection && lastKnownSelection.from > 1) {
+        savedSelection = { ...lastKnownSelection };
+      }
+    };
+
+    const handleShow = () => {
+      const saved = savedSelection;
+      if (!saved) return;
+      savedSelection = null;
+      const view = getView();
+      if (!view) return;
+      const docSize = view.state.doc.content.size;
+      const from = Math.min(saved.from, docSize);
+      const to = Math.min(saved.to, docSize);
+      view.focus();
+
+      const dispatchSelection = () => {
+        const v = getView();
+        if (!v || v.state.selection.from === from) return;
+        try {
+          const SelCtor = v.state.selection.constructor;
+          const newSel = SelCtor.create(v.state.doc, from, to);
+          v.dispatch(v.state.tr.setSelection(newSel));
+        } catch {
+          // Defensive: doc may have changed shape; leave caret alone.
+        }
+      };
+      // Microtask wins the race vs PM's synchronous focusin reset most of
+      // the time; rAF re-dispatch covers the remaining cases.
+      queueMicrotask(dispatchSelection);
+      requestAnimationFrame(dispatchSelection);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") handleHide();
+      else handleShow();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", handleHide);
+    window.addEventListener("focus", handleShow);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", handleHide);
+      window.removeEventListener("focus", handleShow);
       el.removeEventListener("queryChange", handleQueryChange);
       el.removeEventListener("keydown", handleEscape, true);
       for (const type of ["keydown", "keyup", "keypress"]) {

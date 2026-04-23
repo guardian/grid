@@ -2,6 +2,7 @@ import { devLog } from "@/lib/dev-log";
 import { useSearchStore } from "@/stores/search-store";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { resetVisibleRange } from "@/hooks/useDataWindow";
+import { isMobile } from "@/lib/is-mobile";
 
 // ===========================================================================
 // Debounce cancellation (from SearchBar.tsx)
@@ -177,9 +178,11 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }):
   // open (it's part of the layout) — focusing it there steals keyboard
   // shortcuts (the 'f' fullscreen shortcut sees an editable target and
   // requires Alt, while bare 'f' types into the hidden search box).
+  // Also skip on touch devices: focus would pop the on-screen keyboard.
   requestAnimationFrame(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.has("image")) return;
+    if (isMobile()) return;
     const cqlInput = document.querySelector("cql-input");
     if (cqlInput instanceof HTMLElement) cqlInput.focus();
   });
