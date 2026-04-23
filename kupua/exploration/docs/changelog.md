@@ -14,6 +14,75 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Swipe-to-dismiss URL-stale + pinch-zoom anchor drift fixes
+
+Two mobile gesture bugs reported and fixed in image detail.
+
+**Bug 1 — swipe-down dismiss left URL stale.** Swiping to dismiss image
+detail completed visually but `image=` stayed in the URL and the wrapper
+kept intercepting touches, so the grid behind couldn't be scrolled. Root
+cause: `cbDismiss.current()` (= `closeDetail`, which strips the `image`
+URL param and unmounts the overlay) was fired inside the FLIP phantom's
+`transitionend` listener — about 280ms after commit. During that window
+the wrapper was `opacity:0` but still mounted with the original URL.
+
+Fix: in `useSwipeDismiss.ts`, fire `cbDismiss` immediately at commit
+time. The phantom is appended to `document.body` so its FLIP flight
+continues independently of `ImageDetail`'s React unmount. Backdrop
+cleanup moved to a `setTimeout` safety net (it outlives the unmount).
+Same change applied to the no-thumbnail fallback branch.
+
+**Regression caught during manual test.** The same pattern applied to
+the fullscreen-dismiss branch broke it: tapping image to enter
+fullscreen, swiping down to exit, left the image area visually empty.
+Root cause: `cbDismiss` in fullscreen is `toggleFullscreen()`, which
+calls `document.exitFullscreen()`. Exiting fullscreen mid-transition
+forces a layout change that interrupts the CSS transition →
+`transitionend` never fires → inline `opacity:0; transform:translateY(...)`
+styles stick on the image element. Reverted just the fullscreen branch
+to wait-for-transitionend (no URL-stale concern there since toggling
+fullscreen doesn't change the URL or unmount anything).
+
+**Bug 2 — pinch-zoom anchor drifted after pan.** First pinch from origin
+worked correctly; subsequent pinches (after panning the zoomed image)
+zoomed around the wrong screen point. Root cause: `usePinchZoom.onTouchMove`
+computed the pinch-stable midpoint relative to container centre with a
+formula that was missing a `* (scale / pinchScaleStart)` factor on
+`pinchTranslateStart`. From origin (`pinchTranslateStart = {0, 0}`) the
+factor disappears, so the bug was invisible. After any pan, the formula
+drifted.
+
+Fix: anchor pinch in image space. At touchstart, capture the image-space
+offset of the initial midpoint by inverting the current transform
+(`(mid − centre − translate) / scale`). On each move, compute the new
+translate so the same image-space anchor stays under the new midpoint
+(`newTranslate = newMid − centre − anchor × newScale`). Mathematically
+correct from any starting transform.
+
+**On the testing question raised mid-session.** The fullscreen-empty
+regression was caught manually, not by tests. Vitest can't repro it
+(needs real CSS + Fullscreen API + touch sequence + interleaving).
+Playwright can technically repro it but needs the assertion to be
+written knowing the failure mode. The general issue: the three touch
+hooks (`useSwipeCarousel`, `useSwipeDismiss`, `usePinchZoom`) share a
+hand-written imperative pattern with subtle invariants not enforced in
+code. Adding more e2e tests catches only known failures. Better lever:
+shrink the surface area. Captured a small refactor plan in
+`exploration/docs/touch-gestures-hardening-plan.md` — two pieces (an
+`animate()` helper that guarantees `onComplete` fires exactly once,
+and a pure pinch-math module that makes coordinate bugs unit-testable).
+Not started; pick up next time gesture code is touched or a third bug
+shows up there.
+
+Files changed:
+- `src/hooks/useSwipeDismiss.ts` — immediate `cbDismiss` in commit + fallback;
+  fullscreen branch unchanged (waits for `transitionend`).
+- `src/hooks/usePinchZoom.ts` — image-space pinch anchor.
+- `exploration/docs/touch-gestures-hardening-plan.md` — new, refactor plan.
+
+Tests: 342 vitest unit tests pass. Playwright not run (touch-hook changes
+verified manually on real device).
+
 ### 23 April 2026 — Mobile autofocus suppression + caret preservation across tab/window switch
 
 Two related fixes to CQL search input focus behaviour.

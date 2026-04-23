@@ -101,6 +101,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
+- [ ] Touch gestures hardening (`animate()` helper + pure pinch-math module) — see `touch-gestures-hardening-plan.md`. Pick up next time gesture code is touched or a third bug surfaces in the three touch hooks.
 - [x] ~~Raise scroll-mode threshold beyond 1000~~ → Position map Phases 0-4a complete
 - [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Complete
 - [ ] Column reordering via drag-and-drop

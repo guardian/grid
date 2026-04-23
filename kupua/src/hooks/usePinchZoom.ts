@@ -227,21 +227,24 @@ export function usePinchZoom({
         // Adjust translate to keep the pinch midpoint stable.
         // The midpoint on screen should map to the same image point
         // throughout the pinch.
+        //
+        // Anchor the pinch in IMAGE space, not screen space. The image-space
+        // offset of the initial midpoint (relative to the image's
+        // untransformed centre, which sits at container centre) is:
+        //   imgOff = (mid - centre - translate) / scale
+        // To keep that same image point under the new midpoint after rescale:
+        //   newTranslate = newMid - centre - imgOff * newScale
+        // Equivalent to the prior formula PLUS the missing scale-factor on
+        // pinchTranslateStart, which is why pinch was correct from origin
+        // but drifted after any pan.
         const cr = getContainerRect();
         const cx = cr.left + cr.width / 2;
         const cy = cr.top + cr.height / 2;
 
-        // Vector from container center to initial pinch midpoint
-        const dx0 = pinchMidStart.x - cx;
-        const dy0 = pinchMidStart.y - cy;
-        // Vector from container center to current pinch midpoint
-        const dx1 = mid.x - cx;
-        const dy1 = mid.y - cy;
-
-        // The translate that keeps the pinch-point stable:
-        // (translate + mid) / scale == (startTranslate + startMid) / startScale
-        translateX = pinchTranslateStart.x + dx1 - dx0 * (scale / pinchScaleStart);
-        translateY = pinchTranslateStart.y + dy1 - dy0 * (scale / pinchScaleStart);
+        const imgOffX = (pinchMidStart.x - cx - pinchTranslateStart.x) / pinchScaleStart;
+        const imgOffY = (pinchMidStart.y - cy - pinchTranslateStart.y) / pinchScaleStart;
+        translateX = (mid.x - cx) - imgOffX * scale;
+        translateY = (mid.y - cy) - imgOffY * scale;
 
         // Clamp translate
         const nat = getImageNaturalSize();

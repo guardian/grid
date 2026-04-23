@@ -276,35 +276,50 @@ export function useSwipeDismiss({
             phantom.style.opacity = "0";
           });
 
+          // Fire dismiss IMMEDIATELY — the URL must update right away so the
+          // wrapper unmounts and stops intercepting touches. The phantom is
+          // attached to document.body so its FLIP animation continues
+          // independently of ImageDetail's React unmount. The transitionend
+          // listener below only cleans up the phantom + backdrop (both
+          // outlive the unmount).
+          cbDismiss.current();
+          animating = false;
+
           phantom.addEventListener(
             "transitionend",
             () => {
               phantom.remove();
-              animating = false;
-              wrapper.style.transition = "";
-              wrapper.style.transform = "";
-              wrapper.style.opacity = "";
-              // Reset chrome opacity + bg from drag phase
-              if (headerEl) headerEl.style.opacity = "";
-              if (asideEl) asideEl.style.opacity = "";
-              container.style.opacity = "";
-              container.style.backgroundColor = "";
-              wrapper.style.backgroundColor = "";
-              if (scrollEl) scrollEl.style.overflow = "";
               if (backdrop) {
                 backdrop.style.transition = "";
                 backdrop.style.opacity = "";
               }
-              cbDismiss.current();
             },
             { once: true },
           );
+          // Safety: if transitionend doesn't fire (e.g. phantom interrupted),
+          // ensure cleanup still happens.
+          setTimeout(() => {
+            if (phantom.isConnected) phantom.remove();
+            if (backdrop) {
+              backdrop.style.transition = "";
+              backdrop.style.opacity = "";
+            }
+          }, HERO_ANIMATION_MS + 100);
         } else if (dragTarget) {
           // Fullscreen fallback: animate the drag target (image) down + fade
           dragTarget.style.transition = transition;
           dragTarget.style.transform = `translateY(${offset + 100}px) scale(0.85)`;
           dragTarget.style.opacity = "0";
 
+          // Fullscreen dismiss: wait for the transition to finish BEFORE
+          // calling cbDismiss (= toggleFullscreen). Calling toggleFullscreen
+          // mid-transition exits the Fullscreen API, which interrupts the
+          // CSS transition — transitionend never fires and the inline
+          // `opacity:0; transform:translateY(...)` styles stick, leaving the
+          // image area visually empty after the dismiss. Unlike the
+          // non-fullscreen path, fullscreen dismiss does NOT change the URL
+          // or unmount anything, so there's no URL-stale concern from
+          // delaying cbDismiss.
           dragTarget.addEventListener(
             "transitionend",
             () => {
@@ -328,27 +343,20 @@ export function useSwipeDismiss({
             backdrop.style.opacity = "1";
           }
 
-          wrapper.addEventListener(
-            "transitionend",
-            () => {
-              animating = false;
-              wrapper.style.transition = "";
-              wrapper.style.transform = "";
-              wrapper.style.opacity = "";
-              if (headerEl) headerEl.style.opacity = "";
-              if (asideEl) asideEl.style.opacity = "";
-              container.style.opacity = "";
-              container.style.backgroundColor = "";
-              wrapper.style.backgroundColor = "";
-              if (scrollEl) scrollEl.style.overflow = "";
-              if (backdrop) {
-                backdrop.style.transition = "";
-                backdrop.style.opacity = "";
-              }
-              cbDismiss.current();
-            },
-            { once: true },
-          );
+          // No phantom available (thumb not found in backdrop). Fire dismiss
+          // immediately so URL updates and wrapper unmounts — the slide-down
+          // animation gets cut short, but URL correctness wins over polish.
+          // Backdrop cleanup still needed (it outlives the unmount).
+          cbDismiss.current();
+          animating = false;
+          if (backdrop) {
+            // Schedule backdrop reset for after the brief animation would have
+            // completed, in case anything else queries its style.
+            setTimeout(() => {
+              backdrop.style.transition = "";
+              backdrop.style.opacity = "";
+            }, ANIMATION_MS);
+          }
         }
       } else {
         // Spring back
