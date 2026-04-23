@@ -226,6 +226,20 @@ The user never sees loading states during normal scrolling. The 50-item
 threshold means extends fire ~3–5 screenfuls before the viewport runs out
 of data.
 
+**Velocity-aware forward trigger.** At sustained fast wheel velocity (e.g.
+the table fast-scroll perf test eats ~1700 items/s) the user can chew
+through 50 items in less than a single ES round-trip (~100–500ms),
+pinning `scrollTop` at the buffer's bottom until the extend returns.
+`reportVisibleRange` mitigates this by tracking an EMA-smoothed forward
+velocity and widening the forward threshold to
+`EXTEND_THRESHOLD + velocity × VELOCITY_LOOKAHEAD_MS`, capped at
+`PAGE_SIZE = 200`. Effect: at rest the trigger is the bare 50; under a
+fast burst the extend fires up to ~150 items earlier, and the fetch
+overlaps with the user still consuming buffered content.
+
+Forward-only by design: backward extends pair with prepend compensation,
+which is the central swimming risk (§4), and are left strictly alone.
+
 ### Scrolling past the buffer (indexed scroll mode)
 
 In indexed scroll mode, the scroll container spans all `total` items. The

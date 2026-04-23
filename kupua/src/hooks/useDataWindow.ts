@@ -40,14 +40,79 @@
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
+import {
+  PAGE_SIZE,
+  EXTEND_THRESHOLD,
+  VELOCITY_EMA_ALPHA,
+  VELOCITY_LOOKAHEAD_MS,
+  VELOCITY_IDLE_RESET_MS,
+} from "@/constants/tuning";
 import type { Image } from "@/types/image";
 
+// ---------------------------------------------------------------------------
+// Velocity-aware forward-extend trigger
+//
+// Today the forward extend fires when the viewport's endIndex is within
+// EXTEND_THRESHOLD items of the buffer end. At sustained fast wheel velocity
+// the user eats that headroom in less than the ES round-trip (~100-500ms),
+// so the browser pins scrollTop at the bottom of the buffer until the
+// extend completes. To mitigate this, we track an EMA-smoothed velocity
+// (items/ms) and predict where the viewport will be in LOOKAHEAD_MS. The
+// effective forward threshold widens with velocity, capped at PAGE_SIZE
+// (no benefit beyond "one fetch in flight").
+//
+// Forward-only by design. Backward extends pair with prepend compensation
+// — the central swimming risk — and we leave them strictly alone.
+//
+// Constants live in constants/tuning.ts.
+// ---------------------------------------------------------------------------
+
+/** Module-level velocity state. Reset on idle gap > VELOCITY_IDLE_RESET_MS. */
+let _lastReportTime = 0;
+let _lastEndIndex = 0;
+/** EMA-smoothed velocity in items/ms. Signed; negative = scrolling up. */
+let _velocityEma = 0;
+
 /**
- * How close to the buffer edge before triggering an extend (buffer-local indices).
- * When the viewport's startIndex or endIndex is within this many items of the
- * buffer boundary, we trigger extendBackward or extendForward respectively.
+ * Compute the EMA-smoothed forward velocity (items/ms) given the current
+ * viewport endIndex and timestamp. Pure — separated for testability.
  */
-const EXTEND_THRESHOLD = 50;
+export function _updateForwardVelocity(
+  endIndex: number,
+  now: number,
+  prevTime: number,
+  prevEndIndex: number,
+  prevEma: number,
+): number {
+  const dt = now - prevTime;
+  if (prevTime === 0 || dt <= 0 || dt > VELOCITY_IDLE_RESET_MS) {
+    // Fresh start, idle reset, or non-monotonic clock — drop the sample.
+    return 0;
+  }
+  const instant = (endIndex - prevEndIndex) / dt;
+  return VELOCITY_EMA_ALPHA * instant + (1 - VELOCITY_EMA_ALPHA) * prevEma;
+}
+
+/**
+ * Compute the effective forward-extend threshold given current EMA velocity.
+ * Returns at least EXTEND_THRESHOLD; widens proportionally to predicted
+ * forward travel during one extend round-trip; caps at PAGE_SIZE.
+ *
+ * Pure — separated for testability.
+ */
+export function forwardExtendThreshold(velocityEma: number): number {
+  // Only widen on positive (downward) velocity. Negative (scrolling up)
+  // gets the base threshold — the forward extend isn't the relevant trigger.
+  const lookaheadItems = Math.max(0, velocityEma) * VELOCITY_LOOKAHEAD_MS;
+  return Math.min(PAGE_SIZE, EXTEND_THRESHOLD + lookaheadItems);
+}
+
+/** Test-only: reset velocity state. */
+export function _resetForwardVelocity(): void {
+  _lastReportTime = 0;
+  _lastEndIndex = 0;
+  _velocityEma = 0;
+}
 
 /**
  * Debounce delay for scroll-triggered seeks in two-tier mode (ms).
@@ -309,6 +374,20 @@ export function useDataWindow(): DataWindow {
         _notifyVisibleListeners();
       }
 
+      // Velocity-aware adaptive forward-extend threshold.
+      // Tracks EMA of items/ms (forward velocity) and widens the trigger
+      // threshold so a fast wheel/trackpad burst fires extendForward early
+      // enough that the round-trip completes before the viewport hits the
+      // buffer's bottom. Forward-only — backward extend keeps the static
+      // EXTEND_THRESHOLD because prepend compensation is the swimming risk.
+      const now = performance.now();
+      _velocityEma = _updateForwardVelocity(
+        endIndex, now, _lastReportTime, _lastEndIndex, _velocityEma,
+      );
+      _lastReportTime = now;
+      _lastEndIndex = endIndex;
+      const fwdThreshold = forwardExtendThreshold(_velocityEma);
+
       if (isTwoTier) {
         // --- Two-tier mode: indices are global (0..total-1) ---
         // Extend triggers use buffer-relative thresholds:
@@ -330,7 +409,7 @@ export function useDataWindow(): DataWindow {
             _scrollSeekTimer = null;
           }
           // Near the end of the buffer → extend forward
-          if (globalEnd > offset + len - EXTEND_THRESHOLD && offset + len < t) {
+          if (globalEnd > offset + len - fwdThreshold && offset + len < t) {
             extendForward();
           }
           // Near the start of the buffer → extend backward
@@ -352,8 +431,8 @@ export function useDataWindow(): DataWindow {
         }
       } else {
         // --- Normal mode: indices are buffer-local ---
-        // Near the end of the buffer → extend forward
-        if (endIndex >= len - EXTEND_THRESHOLD && offset + len < t) {
+        // Near the end of the buffer → extend forward (velocity-widened)
+        if (endIndex >= len - fwdThreshold && offset + len < t) {
           extendForward();
         }
 

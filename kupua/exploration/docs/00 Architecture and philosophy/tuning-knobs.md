@@ -19,7 +19,10 @@ fast it flows in and out.
 |---|---|---|---|
 | `BUFFER_CAPACITY` | **1000** | — | constants/tuning.ts:27 |
 | `PAGE_SIZE` | **200** | — | constants/tuning.ts:33 |
-| `EXTEND_THRESHOLD` | **50** | — | useDataWindow.ts:49 |
+| `EXTEND_THRESHOLD` | **50** | — | constants/tuning.ts |
+| `VELOCITY_EMA_ALPHA` | **0.4** | — | constants/tuning.ts |
+| `VELOCITY_LOOKAHEAD_MS` | **400** | — | constants/tuning.ts |
+| `VELOCITY_IDLE_RESET_MS` | **250** | — | constants/tuning.ts |
 
 ### BUFFER_CAPACITY (1000)
 
@@ -82,6 +85,10 @@ PAGE_SIZE × per-doc size, not with total docs.
 start), triggers `extendBackward`. When end index ≥ bufferLength - 50
 (near buffer end), triggers `extendForward`.
 
+For forward extends this is the *minimum* threshold — the actual trigger
+point widens with recent scroll velocity (see `VELOCITY_*` knobs below).
+Backward extends use the static value.
+
 **Performance impact:** Higher = extends trigger earlier (more headroom
 before user sees placeholder gaps). Lower = extends trigger later (less
 network but higher risk of visible gaps during fast scroll).
@@ -91,6 +98,36 @@ network but higher risk of visible gaps during fast scroll).
   the threshold as headroom.
 - Virtualizer overscan — with overscan 5, the rendered range is ~5 rows
   beyond visible. In table that's 5 extra items; in grid, 5 × columns.
+
+**Corpus scaling:** Not corpus-dependent.
+
+### VELOCITY_EMA_ALPHA (0.4), VELOCITY_LOOKAHEAD_MS (400), VELOCITY_IDLE_RESET_MS (250)
+
+**What they do:** Velocity-aware widening of the forward-extend trigger.
+`reportVisibleRange` tracks an EMA-smoothed forward velocity (items/ms);
+the effective forward threshold is `EXTEND_THRESHOLD + velocity ×
+LOOKAHEAD_MS`, capped at `PAGE_SIZE`. At rest the trigger is the bare
+`EXTEND_THRESHOLD = 50`; at sustained fast wheel velocity it expands
+toward `PAGE_SIZE = 200`, firing the extend earlier so the ES round-trip
+overlaps with the user still chewing through buffered items.
+
+`VELOCITY_EMA_ALPHA` is the new-sample weight (same convention as
+`image-prefetch.ts`). `VELOCITY_LOOKAHEAD_MS` matches a typical extend
+round-trip on real ES (200–500ms). `VELOCITY_IDLE_RESET_MS` drops stale
+velocity from an unrelated earlier burst once a scroll has paused.
+
+**Performance impact:** Pure win on fast-scroll metrics. P8 (table fast
+scroll, 80 wheel events) measured −33% maxFrame, −25% LoAF blocking,
+−21% DOM churn vs the static-threshold baseline (median of 3 runs).
+Slow-scroll behaviour is unchanged because velocity stays near zero and
+the threshold collapses back to 50.
+
+**Coupled to:**
+- `EXTEND_THRESHOLD` — the floor of the widened threshold.
+- `PAGE_SIZE` — the cap. There's no benefit to a threshold larger than
+  one in-flight fetch's worth of items.
+- Forward extends only. Backward extends pair with prepend compensation
+  (the central swimming risk) and are deliberately untouched.
 
 **Corpus scaling:** Not corpus-dependent.
 

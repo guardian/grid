@@ -14,6 +14,89 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 April 2026 — Velocity-aware forward-extend trigger (seek-mode wall mitigation)
+
+**Problem.** At sustained fast wheel/trackpad velocity in seek mode (>65k
+results), the browser pins `scrollTop` at the bottom of the buffered
+content while waiting for `extendForward` to return. The static
+`EXTEND_THRESHOLD = 50` was tuned for casual scrolling; under a real
+flick gesture (P8 perf test averages ~1700 items/s, peaks at 24,000) the
+user eats those 50 items in well under the ES round-trip, so the wall is
+hit on every fast scroll.
+
+**Why "do nothing" was tempting.** The architecture is at its right local
+optimum — windowed buffer + ES round-trip latency is fundamental, no
+client-side trick fully eliminates the wall. The first attempted fix
+(Option A: cap `virtualizerCount` at 100k with scaled coords above) was
+rejected because at 9M total it makes 1 virt-row = 90 global items, so
+slow trackpad scroll skips ~11 images per row — a worse UX than
+stoppage. Reverted.
+
+**The chosen approach: velocity-aware widening of the forward trigger.**
+Mirrors the prefetch-cadence work in `image-prefetch.ts` — same
+financial-data-style EMA smoothing of a noisy signal, applied to a
+different decision. `reportVisibleRange` tracks an EMA-smoothed forward
+velocity (items/ms) and the forward extend trigger widens to
+`EXTEND_THRESHOLD + velocity × VELOCITY_LOOKAHEAD_MS`, capped at
+`PAGE_SIZE = 200`. At rest the trigger is the bare 50; under a fast
+burst it expands toward 200, firing the extend earlier so the fetch
+overlaps with the user still chewing through buffered items. Same
+α = 0.4 convention as the prefetch cadence smoother.
+
+**Why this is safe.** Only changes *when* `extendForward` fires; the
+extend itself (fetch, set, eviction, compensation gating) is unchanged.
+Worst case extends fire earlier than today, never later — every guard
+(in-flight, seek cooldown, PIT generation) still applies. **Forward-only
+by design.** Backward extends pair with prepend compensation — the
+central swimming risk — and are deliberately untouched.
+
+**What it can't fix.** At sustained max velocity even prediction can't
+beat physics: if you eat 200 items in 200ms but the extend takes 500ms
+you'll still pin, just further from where you started. Better than
+today, not perfect.
+
+**Implementation.**
+- New constants in `constants/tuning.ts`: `EXTEND_THRESHOLD` (moved from
+  `useDataWindow.ts`), `VELOCITY_EMA_ALPHA = 0.4`,
+  `VELOCITY_LOOKAHEAD_MS = 400`, `VELOCITY_IDLE_RESET_MS = 250`.
+- `useDataWindow.ts`: pure helpers `_updateForwardVelocity()` and
+  `forwardExtendThreshold()` (exported for testability), module-level
+  velocity state `_lastReportTime`/`_lastEndIndex`/`_velocityEma`,
+  reset helper `_resetForwardVelocity()`. Both forward-extend triggers
+  (two-tier branch and normal-mode branch) now use the velocity-widened
+  threshold; backward triggers untouched.
+- `useDataWindow.test.ts`: 10 new unit tests covering threshold linearity,
+  PAGE_SIZE cap, idle reset, non-monotonic clock, EMA math, burst
+  smoothing, negative velocity.
+- `tuning-knobs.md`: documented the 4 knobs.
+- `03-scroll-architecture.md` §3 normal-scrolling: short note on the
+  velocity-aware trigger.
+
+**Verification.**
+- vitest: 352/352 pass (10 new).
+- Playwright local suite: 153/153 pass (6.3min).
+- Manual TEST repro on 1.3M-doc cluster: pin moves further out under fast
+  wheel; in slower scrolls behaviour is indistinguishable from before
+  (velocity stays near zero → threshold collapses to 50).
+- Perf audit `Velocity-EMA forward extend` (median of 3 headed runs vs
+  previous baseline `Prefetch-cadence-S1-S4-S6`):
+  - **P8 (table fast scroll, the worst case):** maxFrame 240 → 160 ms
+    (−33%), LoAF blocking 1732 → 1302 ms (−25%), DOM churn 120 726 →
+    95 737 (−21%), severeRate 54.8 → 48.2 ‰ (−12%), CLS 0.132 → 0.104
+    (−22%). Large, consistent moves all in the right direction.
+  - **All other tests:** within noise. Verdict-flagged "regressions"
+    (P3, P3b, P11@20, P11@60, P5b, P5c, P12-scroll, P14a) are tiny
+    absolute deltas (1–8 ms or 1–2 severe frames out of thousands) on
+    tests that don't fire forward extends — system load fluctuation
+    over a 30-min run, not signal.
+- No invariants violated. No tier-matrix regressions.
+
+**Tooling improvements (`run-audit.mjs`).** Added `--dry-run` /
+`--no-log` flag (run + diff vs last entry, skip writes to
+`audit-log.{json,js,md}`) and `--headed` flag (forward to Playwright).
+Both are useful for quick local sanity checks without polluting the
+audit log.
+
 ### 23 April 2026 — Caps Lock no-op for shortcuts, CQL aggregations search context-aware
 
 Three small fixes:

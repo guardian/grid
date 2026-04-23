@@ -30,6 +30,44 @@ export const BUFFER_CAPACITY = 1000;
 export const PAGE_SIZE = 200;
 
 /**
+ * How close (in buffer-local indices) the viewport must come to the buffer
+ * edge before we trigger `extendBackward` or `extendForward`. With
+ * BUFFER_CAPACITY = 1000 this is 5% of the buffer.
+ *
+ * For forward extends this is the *minimum* threshold — the actual trigger
+ * point widens with recent scroll velocity (see `VELOCITY_*` knobs below).
+ *
+ * Lower = extends fire later (less network, but higher risk of placeholder
+ * gaps during fast scroll). Higher = more headroom (more network).
+ */
+export const EXTEND_THRESHOLD = 50;
+
+/**
+ * EMA smoothing weight for forward-scroll velocity. New sample contribution.
+ * Same convention as image-prefetch.ts. 0 = ignore new samples;
+ * 1 = no smoothing (use latest sample only). 0.4 balances responsiveness
+ * to bursts against noise from individual wheel events.
+ */
+export const VELOCITY_EMA_ALPHA = 0.4;
+
+/**
+ * How far ahead (ms) the velocity-aware forward-extend trigger predicts.
+ * The effective forward threshold widens by `velocity × LOOKAHEAD_MS`,
+ * capped at `PAGE_SIZE`. 400ms ≈ a typical extend round-trip on real ES,
+ * so the predicted travel during a fetch is what we want to leave headroom
+ * for.
+ */
+export const VELOCITY_LOOKAHEAD_MS = 400;
+
+/**
+ * Reset velocity state if no scroll sample arrives within this window (ms).
+ * Avoids stale velocity carrying over from an unrelated earlier burst.
+ * Bigger than typical wheel-event spacing (~16-50ms) but small enough that
+ * a paused-then-resumed scroll starts with a clean slate.
+ */
+export const VELOCITY_IDLE_RESET_MS = 250;
+
+/**
  * Maximum total result count for which the store will eagerly fetch ALL
  * results into the buffer after the initial page. When total ≤ this value,
  * the scrubber enters "scroll mode" (drag directly scrolls content, no

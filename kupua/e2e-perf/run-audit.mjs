@@ -11,6 +11,8 @@
  *   node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
  *   node e2e-perf/run-audit.mjs P8             # run just P8, no label
  *   node e2e-perf/run-audit.mjs P3,P8,P9       # run P3, P8, P9
+ *   node e2e-perf/run-audit.mjs P8 --dry-run   # run + diff vs last entry, no log writes
+ *   node e2e-perf/run-audit.mjs P8 --headed    # run with visible browser
  *
  * Prerequisites:
  *   Terminal 1: ./scripts/start.sh --use-TEST
@@ -45,12 +47,18 @@ const args = process.argv.slice(2);
 let label = "";
 let runs = 1;
 let grepArg = "";
+let dryRun = false;
+let headed = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--label" && args[i + 1]) {
     label = args[++i];
   } else if (args[i] === "--runs" && args[i + 1]) {
     runs = parseInt(args[++i], 10);
+  } else if (args[i] === "--dry-run" || args[i] === "--no-log") {
+    dryRun = true;
+  } else if (args[i] === "--headed") {
+    headed = true;
   } else if (!args[i].startsWith("--")) {
     // Positional arg: test filter (e.g. "P8" or "P3,P8")
     const parts = args[i].split(",").map((s) => s.trim()).filter(Boolean);
@@ -112,6 +120,9 @@ function runPlaywright(grepPattern) {
 
     if (grepPattern) {
       pwArgs.push(`--grep=${grepPattern}`);
+    }
+    if (headed) {
+      pwArgs.push("--headed");
     }
 
     console.log(`\n  Running: npx ${pwArgs.join(" ")}`);
@@ -391,6 +402,8 @@ async function main() {
   console.log(`  Runs:         ${runs}`);
   console.log(`  Stable until: ${STABLE_UNTIL}`);
   console.log(`  Grep:         ${grepArg || "(all tests)"}`);
+  if (dryRun) console.log(`  Dry run:      audit-log.{json,js,md} will NOT be written`);
+  if (headed) console.log(`  Headed:       browser will be visible`);
   console.log();
 
   const allRunMetrics = [];
@@ -436,14 +449,27 @@ async function main() {
   const log = readAuditLog();
   const previousEntry = log.entries.length > 0 ? log.entries[log.entries.length - 1] : null;
 
-  // Append to log
-  log.entries.push(entry);
-  writeAuditLog(log);
-  console.log(`  Written: ${AUDIT_JSON}`);
+  if (dryRun) {
+    console.log(`  Dry run: skipping writes to audit-log.{json,js,md}`);
+    if (previousEntry) {
+      console.log();
+      console.log("─".repeat(70));
+      console.log(`  DIFF vs previous entry: ${previousEntry.label} (${previousEntry.gitSha}${previousEntry.gitDirty ? " dirty" : ""})`);
+      console.log("─".repeat(70));
+      console.log(buildDiffTable(entry, previousEntry));
+    } else {
+      console.log("  No previous entry to diff against.");
+    }
+  } else {
+    // Append to log
+    log.entries.push(entry);
+    writeAuditLog(log);
+    console.log(`  Written: ${AUDIT_JSON}`);
 
-  // Append to markdown
-  appendToMarkdown(entry, previousEntry);
-  console.log(`  Written: ${AUDIT_MD}`);
+    // Append to markdown
+    appendToMarkdown(entry, previousEntry);
+    console.log(`  Written: ${AUDIT_MD}`);
+  }
 
   // Print summary
   console.log();
