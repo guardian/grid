@@ -8,7 +8,7 @@ import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
 import play.api.http.HeaderNames
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
+import play.api.libs.json.{JsArray, JsObject, JsTrue, JsValue, Json, Reads}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -260,6 +260,11 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     authorisedRequest.post(Json.obj("data" -> data)).map { response => validateResponse(response, url)}
   }
 
+  def putArchived(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
+    val url = new URL(s"${services.metadataBaseUri}/metadata/$mediaId/archived")
+    val request = authFn(wsClient.url(url.toString))
+    request.put(Json.obj("data" -> JsTrue)).map { response => validateResponse(response, url)}
+  }
 }
 
 class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {

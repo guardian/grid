@@ -393,15 +393,19 @@ class MediaApi(
           && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
         logger.info(logMarker, s"undeleting image $id")
 
-        softDeletedMetadataTable.updateStatus(id, isDeleted = false)
-          .map { _ =>
-            messageSender.publish(
-              UpdateMessage(
-                subject = UnSoftDeleteImage,
-                id = Some(id)
-              )
+        for {
+          // Take an "undeletion" as a marker that the file should be kept and not reaped.
+          // Mark as archived before undeleting, to make sure the reaper doesn't immediately reap it.
+          _ <- gridClient.putArchived(id, auth.getOnBehalfOfPrincipal(request.user))
+          _ <- softDeletedMetadataTable.updateStatus(id, isDeleted = false)
+          _ = messageSender.publish(
+            UpdateMessage(
+              subject = UnSoftDeleteImage,
+              id = Some(id)
             )
-          }.map { _ => Accepted }
+          )
+        } yield Accepted
+
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
         Future.successful(ImageDeleteForbidden)
