@@ -126,6 +126,7 @@ export function useSwipeDismiss({
 
     function onTouchMove(e: TouchEvent) {
       if (animating || e.touches.length !== 1) return;
+      if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — pan, not dismiss
       const currentY = e.touches[0].clientY;
       const dy = currentY - startY;
       const dx = e.touches[0].clientX - startX;

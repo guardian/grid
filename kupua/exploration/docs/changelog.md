@@ -14,6 +14,22 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 24 April 2026 — Fix: swipe-to-dismiss bypassed zoom guard after double-tap
+
+**Bug:** Double-tap to zoom in (especially near image top edge), then swipe down
+→ dismiss fires despite `scaleRef > 1`. Reliably reproducible, no speed required.
+
+**Root cause:** Stale closure state in `useSwipeDismiss`. The `scaleRef > 1` guard
+only existed in `onTouchStart`. The second tap of the double-tap ran `onTouchStart`
+*before* usePinchZoom set `scaleRef = 2` (zoom happens in `onTouchEnd`). This left
+valid `startX/Y` and `decided = false` in the closure. The subsequent swipe's
+`onTouchStart` was correctly blocked by the guard, but `onTouchMove` had no guard
+and operated on the stale state from the double-tap, entering the direction-decision
+block and committing the dismiss.
+
+**Fix:** Added `scaleRef > 1` guard at the top of `onTouchMove` in `useSwipeDismiss`,
+matching the existing guard in `onTouchStart`. One line.
+
 ### 24 April 2026 — P2-4: Parallel PIT open (~131 ms off every search)
 
 **Goal:** Eliminate the sequential `await openPit → await searchAfter` in
