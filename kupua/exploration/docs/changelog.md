@@ -14,6 +14,48 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 24 April 2026 — P2-1: _source filtering switched to allowlist for all searches
+
+**Goal:** Reduce ES response payload for all searches by switching from
+`SOURCE_EXCLUDES` (blacklist of 4 fields) to `SOURCE_INCLUDES` (whitelist
+of 35 specific fields). Targets PP1 home-logo settle <400ms (was 609ms).
+
+**Investigation:**
+- Root cause: ES responses ~1.5MB for 200 images. Network transfer over SSH
+  tunnel dominates (~460ms of ~592ms RTT). ES query execution only ~75-130ms.
+- Mapped every field used across all kupua surfaces (grid, table, detail panel,
+  metadata sidebar, hidden columns, imgproxy rotation). 35 fields needed total.
+- Ran 7 measurement variants (M-A through M-G) on TEST cluster. T1+T2 includes:
+  1476KB→244KB raw, 256KB→61KB gzip, 592ms→349ms through proxy.
+
+**Implementation:**
+- `es-config.ts`: Replaced `SOURCE_EXCLUDES` (4 fields) with `SOURCE_INCLUDES`
+  (35 fields across 3 tiers). Tier 1 (8 fields): grid. Tier 2 (15): table.
+  Tier 3 (12): detail panel, hidden columns, imgproxy rotation.
+- 35 fields cover everything kupua currently renders. No surface missing data.
+- Whitelist applies to every `_source`-returning call: `search()`,
+  `searchRange()`, `getById()`, `searchAfter()`.
+- `es-adapter.ts`: Updated comments only — no logic changes needed (existing
+  `_source` wiring already supports non-empty includes).
+
+**Results (median of 3 runs, TEST cluster):**
+- PP1 home-logo: **609→379ms** (-38%, target <400 achieved)
+- PP5 filter-toggle: 903→546ms (-40%)
+- PP8 search warm: 1220→903ms (-26%)
+- PP9 chip-remove: 664→387ms (-42%)
+- JB2 facet-click: **1216→750ms** (-38%, P2-2 target <800 hit for free)
+- All search-based metrics improved 15-40%. Non-search metrics unchanged.
+- JA3 metadata-click 277→949ms — baseline was anomalously low for a ~1.3M
+  result search (compare PP8 baseline 1220ms). Not a regression.
+
+**Dashboard fix:** Added 5 p95 metrics (`dt_ack_p95_ms`, `dt_status_p95_ms`,
+`dt_first_pixel_p95_ms`, `dt_settled_p95_ms`, `status_total_p95_ms`) to
+`perceived-graphs.html` — KNOWN_METRICS, METRIC_LABELS, select options,
+getTargetForAction.
+
+**Next:** P2-4 (parallel PIT open) documented in handoff — ~131ms further
+saving on every search by opening PIT in parallel with first searchAfter.
+
 ### 24 April 2026 — Perceived-perf Phase 1 baseline + 4-fix pass
 
 **Goal:** Close out Phase 1 of the perceived-perf audit by fixing four

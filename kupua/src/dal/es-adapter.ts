@@ -5,7 +5,7 @@
  * Connection config (base URL, index, safeguards) comes from es-config.ts.
  *
  * Safeguards (see kupua/exploration/docs/infra-safeguards.md):
- *   1. _source excludes — heavy fields stripped from responses
+ *   1. _source includes — only needed fields returned from responses
  *   2. Request coalescing — in-flight searches cancelled when a new one starts
  *   3. Write protection — only _search / _count / _pit allowed on non-local ES
  */
@@ -294,7 +294,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       track_total_hits: true,
     };
 
-    // _source filtering — exclude heavy fields to reduce response size
+    // _source filtering — whitelist fields to reduce response size
     if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
       body._source = {
         ...(SOURCE_INCLUDES.length > 0

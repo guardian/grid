@@ -97,6 +97,11 @@
       <option value="dt_first_pixel_ms">First pixel (ms)</option>
       <option value="dt_settled_ms">Settled (ms)</option>
       <option value="status_total_ms">Banner total (ms)</option>
+      <option value="dt_ack_p95_ms">Ack p95 (ms)</option>
+      <option value="dt_status_p95_ms">Status p95 (ms)</option>
+      <option value="dt_first_pixel_p95_ms">First pixel p95 (ms)</option>
+      <option value="dt_settled_p95_ms">Settled p95 (ms)</option>
+      <option value="status_total_p95_ms">Banner total p95 (ms)</option>
     </select>
   </label>
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
@@ -139,6 +144,11 @@ const METRIC_LABELS = {
   dt_first_pixel_ms: "First pixel (ms)",
   dt_settled_ms: "Settled (ms)",
   status_total_ms: "Banner total (ms)",
+  dt_ack_p95_ms: "Ack p95 (ms)",
+  dt_status_p95_ms: "Status p95 (ms)",
+  dt_first_pixel_p95_ms: "First pixel p95 (ms)",
+  dt_settled_p95_ms: "Settled p95 (ms)",
+  status_total_p95_ms: "Banner total p95 (ms)",
 };
 
 // Contract: every numeric field on PerceivedMetrics that the dashboard
@@ -153,6 +163,11 @@ const KNOWN_METRICS = new Set([
   "dt_first_pixel_ms",
   "dt_settled_ms",
   "status_total_ms",
+  "dt_ack_p95_ms",
+  "dt_status_p95_ms",
+  "dt_first_pixel_p95_ms",
+  "dt_settled_p95_ms",
+  "status_total_p95_ms",
 ]);
 // Non-numeric fields on each per-scenario record. Listed so the
 // unknown-metric scan can ignore them rather than warning.
@@ -226,6 +241,12 @@ function getTargetForAction(action, metric) {
   if (metric === "dt_settled_ms") return t.settle ?? null;
   if (metric === "dt_first_pixel_ms") return t.settle ?? null;
   if (metric === "status_total_ms") return t.bannerCeiling ?? null;
+  // p95 variants — use ceiling as the target (p95 should stay under ceiling)
+  if (metric === "dt_ack_p95_ms") return t.ack ? t.ack * 2 : null;
+  if (metric === "dt_settled_p95_ms") return t.ceiling ?? null;
+  if (metric === "dt_first_pixel_p95_ms") return t.ceiling ?? null;
+  if (metric === "status_total_p95_ms") return t.bannerCeiling ?? null;
+  if (metric === "dt_status_p95_ms") return null;
   return null;
 }
 

@@ -81,3 +81,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | search | 0 | — | 606 | 606 | — |
 | JB4 | search | 0 | — | 571 | 769 | — |
 | JB5 | fullscreen-exit | — | — | — | 2 | — |
+
+---
+
+## [short] P2-1 source includes (35 fields) (a167de979 (dirty), 2026-04-24)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 379 | 379 | — |
+| PP2 | sort-no-focus | 42 | — | 324 | 324 | — |
+| PP3 | sort-around-focus | 44 | 357 | 683 | 683 | 348 |
+| PP4 | sort-around-focus | 46 | 321 | 657 | 657 | 336 |
+| PP5 | filter-toggle | 40 | 350 | — | 546 | 202 |
+| PP6 | density-swap | — | — | — | 210 | — |
+| PP7 | scrubber-seek | 1 | — | 744 | 744 | — |
+| PP7b | scrubber-seek | 1 | — | 824 | 824 | — |
+| PP7c | scrubber-scroll | — | — | — | 115 | — |
+| PP8 | search | 0 | 330 | 903 | 903 | 558 |
+| PP9 | search | 0 | — | 387 | 387 | — |
+| PP10 | position-map | — | — | — | 2347 | — |
+| PP6b | density-swap | — | — | — | 356 | — |
+| PP6c | density-swap | — | — | — | 321 | — |
+
+---
+
+## [long] P2-1 source includes (35 fields) (a167de979 (dirty), 2026-04-24)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 276 | 276 | — |
+| JA2 | open-detail | — | — | — | 97 | — |
+| JA3 | metadata-click | 45 | 603 | 949 | 949 | 361 |
+| JB1 | search | 0 | — | 300 | 300 | — |
+| JB2 | facet-click | 54 | — | 750 | 750 | — |
+| JB3 | facet-click | 46 | — | 348 | 348 | — |
+| JB4 | scrubber-scroll | — | — | — | 26 | — |
+| JB5 | fullscreen-exit | — | — | — | 5 | — |

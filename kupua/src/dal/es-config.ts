@@ -24,46 +24,84 @@ export const ES_BASE = import.meta.env.VITE_ES_BASE ?? "/es";
 export const ES_INDEX = import.meta.env.VITE_ES_INDEX ?? "images";
 
 /**
- * Heavy _source fields to exclude from search responses.
+ * _source fields to exclude from search responses.
  *
- * These fields are large (EXIF, XMP, ICC profiles, Getty metadata) and
- * aren't displayed in table columns. Excluding them reduces response
- * size from ~50-100KB/doc to ~5-10KB/doc — critical when querying a
- * real cluster with 9M documents.
- *
- * The fields we DO need from fileMetadata are:
- *   - fileMetadata.colourModel
- *   - fileMetadata.colourModelInformation.hasAlpha
- *   - fileMetadata.colourModelInformation.bitsPerSample
- *   - fileMetadata.iptc.Edit Status
- *   - fileMetadata.icc.Profile Description
- *   - fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType
- *   - fileMetadata.xmp.Iptc4xmpCore:Scene
- *
- * So we exclude the heavy parent objects and include specific sub-paths.
- * ES _source filtering supports wildcards and include/exclude together.
+ * Now empty — we use SOURCE_INCLUDES (whitelist) instead.
+ * Kept as an export so es-adapter.ts doesn't need a code change.
  */
-export const SOURCE_EXCLUDES = [
-  "fileMetadata.exif",
-  "fileMetadata.exifSub",
-  "fileMetadata.getty",
-  // We need specific fields from iptc, icc, xmp — but the rest is noise.
-  // Rather than excluding individual iptc/icc/xmp sub-fields, we use
-  // include + exclude together in the search request.
-  "embedding", // 1024-dim float vector — never displayed
-];
+export const SOURCE_EXCLUDES: string[] = [];
 
 /**
- * _source fields to explicitly include.
+ * _source fields to explicitly include in search responses (whitelist).
  *
- * When set, only these fields (plus any not excluded) are returned.
- * Using includes is more precise but risks missing new fields.
- * We use excludes (above) as the primary filter and only add includes
- * if we need further trimming.
+ * Only these fields are returned from ES. Everything else — the bulk of
+ * fileMetadata (EXIF, XMP sub-fields, Getty), embedding (1024-dim vector),
+ * usages, exports, leases, originalMetadata, originalUsageRights,
+ * collections, softDeletedMetadata, identifiers, userMetadata — is
+ * excluded implicitly.
  *
- * For now, this is empty — we rely on excludes only.
+ * Reduces response payload from ~1.5MB to ~250KB raw (~65KB gzip) for 200
+ * hits. See perceived-perf-phase-2-handoff.md §Measurement results.
+ *
+ * Tier 1 — grid density (thumbnail + overlay):
+ *   id, uploadTime, lastModified, metadata.description, metadata.title,
+ *   metadata.byline, metadata.credit, metadata.dateTaken
+ *
+ * Tier 2 — table density (extra columns):
+ *   metadata.imageType, metadata.copyright, metadata.source,
+ *   metadata.specialInstructions, metadata.subjects,
+ *   metadata.peopleInImage, metadata.subLocation, metadata.city,
+ *   metadata.state, metadata.country, uploadedBy, uploadInfo.filename,
+ *   source.dimensions, source.orientedDimensions, usageRights.category
+ *
+ * Tier 3 — detail panel, hidden table columns, imgproxy rotation:
+ *   metadata.suppliersReference, metadata.bylineTitle, metadata.keywords,
+ *   source.size, source.mimeType, source.orientationMetadata,
+ *   fileMetadata.colourModel, fileMetadata.colourModelInformation,
+ *   fileMetadata.iptc.Edit Status, fileMetadata.icc.Profile Description,
+ *   fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType,
+ *   fileMetadata.xmp.Iptc4xmpCore:Scene
  */
-export const SOURCE_INCLUDES: string[] = [];
+export const SOURCE_INCLUDES = [
+  // Tier 1 — grid
+  "id",
+  "uploadTime",
+  "lastModified",
+  "metadata.description",
+  "metadata.title",
+  "metadata.byline",
+  "metadata.credit",
+  "metadata.dateTaken",
+  // Tier 2 — table
+  "metadata.imageType",
+  "metadata.copyright",
+  "metadata.source",
+  "metadata.specialInstructions",
+  "metadata.subjects",
+  "metadata.peopleInImage",
+  "metadata.subLocation",
+  "metadata.city",
+  "metadata.state",
+  "metadata.country",
+  "uploadedBy",
+  "uploadInfo.filename",
+  "source.dimensions",
+  "source.orientedDimensions",
+  "usageRights.category",
+  // Tier 3 — detail panel, hidden table columns, imgproxy
+  "metadata.suppliersReference",
+  "metadata.bylineTitle",
+  "metadata.keywords",
+  "source.size",
+  "source.mimeType",
+  "source.orientationMetadata",
+  "fileMetadata.colourModel",
+  "fileMetadata.colourModelInformation",
+  "fileMetadata.iptc.Edit Status",
+  "fileMetadata.icc.Profile Description",
+  "fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType",
+  "fileMetadata.xmp.Iptc4xmpCore:Scene",
+];
 
 /**
  * Allowed ES API paths (for write protection).
