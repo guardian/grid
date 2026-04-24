@@ -106,19 +106,22 @@
 // and asks them to update this map. See ../README.md § "Audit graphs page".
 // ─────────────────────────────────────────────────────────────────────────────
 const KNOWN_METRICS = {
-  // metric key:        { label,                                lowerIsBetter, defaultShow }
+  // metric key:        { label,                                lowerIsBetter, defaultShow, quietThreshold }
+  // quietThreshold: "Hide quiet" filter hides tests whose max value is below this. Default 1 (suits ms/count metrics).
+  // Ratio-style metrics (CLS, focusDriftRatio) need a much smaller threshold or they get hidden entirely.
   severeRate:        { label: "severeRate (severe/1k frames)",  lowerIsBetter: true,  defaultShow: true  },
   severe:            { label: "severe count",                   lowerIsBetter: true,  defaultShow: true  },
   maxFrame:          { label: "maxFrame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
   p95Frame:          { label: "p95Frame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
   loafBlocking:      { label: "LoAF blocking (ms)",             lowerIsBetter: true,  defaultShow: true  },
   domChurn:          { label: "DOM churn",                      lowerIsBetter: true,  defaultShow: true  },
-  cls:               { label: "CLS",                            lowerIsBetter: true,  defaultShow: true  },
-  clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true  },
+  cls:               { label: "CLS",                            lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
+  clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
   frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
-  // Focus position tracking (P4a/b, P6, P12 — see README § Focus Position Tracking)
+  // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
+  // P12 logs per-cycle drift to the console only, not into the metrics dict, so it never appears here.
   focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
-  focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
+  focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
   focusVisible:      { label: "focusVisible (1 = on screen)",   lowerIsBetter: false, defaultShow: true  },
 };
 const KNOWN_ENTRY_KEYS = new Set([
@@ -298,7 +301,8 @@ function buildCharts() {
     const data = ENTRIES.map(e => pickValue(metric, e.metrics?.[t]));
     const finite = data.filter(v => v != null && Number.isFinite(v));
     const max = finite.length ? Math.max(...finite) : 0;
-    if (hideQuiet && max < 1) continue;
+    const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
+    if (hideQuiet && max < quietThreshold) continue;
 
     const card = document.createElement("div");
     card.className = "card";

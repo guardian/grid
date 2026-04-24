@@ -16,6 +16,7 @@ import {
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
+import { trace } from "@/lib/perceived-trace";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
@@ -97,6 +98,7 @@ export function SearchBar() {
         className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={(e) => {
           e.preventDefault();
+          trace("home-logo", "t_0");
           resetToHome(() =>
             navigate({ to: "/search", search: DEFAULT_SEARCH }),
           );

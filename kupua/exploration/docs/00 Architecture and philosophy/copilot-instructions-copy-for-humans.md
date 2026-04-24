@@ -68,26 +68,17 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Running tests.** All test commands MUST use `2>&1 | tee /tmp/kupua-test-output.txt`
-so output is captured even if the terminal times out. If the terminal does time out,
-`read_file /tmp/kupua-test-output.txt` to see results — **never re-run tests that are
-already running.** Run in the **foreground** (not background). Do NOT pipe through
-`tail`/`head`. Do NOT use `sleep` to poll. Before running any Playwright test, warn the
-user to stop any dev server on port 3000 (or 3010/3020/3030 for tier-matrix tests).
-Wait for confirmation.
-- After any `src/` change: `cd kupua && npm test 2>&1 | tee /tmp/kupua-test-output.txt`
-  (~5s, non-negotiable).
-- After changing components, hooks, store, scroll: also run
-  `cd kupua && npx playwright test 2>&1 | tee /tmp/kupua-test-output.txt` (~6min).
-- Perf (`run-audit.mjs`), smoke (`run-smoke.mjs`), tier-matrix (`test:e2e:tiers`):
-  **never habitual** — manual, purpose-driven, only when user asks.
+**Directive: Tests.** Run from repo root with `--prefix kupua` or absolute paths — **never `cd kupua && ...`** (terminal tool sometimes strips `cd`). Append `2>&1 | tee /tmp/kupua-test-output.txt`. Foreground. No `tail`/`head`/`sleep`. Never re-run a running test — `read_file /tmp/kupua-test-output.txt`.
 
-**Directive: Smoke tests against real ES.** Requires EXPLICIT user permission once per
-session. Uses `node scripts/run-smoke.mjs <number>` while `start.sh --use-TEST` is
-running. Read-only — **never** issue write operations against real ES. Smoke tests
-auto-skip on local ES. After every smoke session, follow the "Smoke → local feedback
-loop" in `e2e/README.md`. Agent may use `--debug` / `page.pause()` for interactive
-diagnosis after user consent.
+| Surface | Command | Agent runs | Agent suggests |
+|---|---|---|---|
+| Unit | `npm --prefix kupua test` | After any `kupua/src/` change | — |
+| Playwright e2e | `npm --prefix kupua exec -- playwright test` | After component/hook/store/scroll change | — |
+| Jank perf | `node kupua/e2e-perf/run-audit.mjs --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
+| Perceived perf | `node kupua/e2e-perf/run-audit.mjs --perceived-only --runs 3 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
+| Tier-matrix | `npm --prefix kupua run test:e2e:tiers` | Never | Only when user asks |
+
+Playwright + perf surfaces: stop dev server on :3000 (and :3010/3020/3030 for tier-matrix) first — warn user, wait. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.
 
 **Directive: Ask rather than spiral.** If the agent has attempted a fix or approach and
 it didn't work, or if there are multiple plausible interpretations of a request with

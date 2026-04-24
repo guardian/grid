@@ -11,7 +11,9 @@
  * ║    Terminal 2: node e2e-perf/run-audit.mjs --label "..."           ║
  * ║            or: node scripts/run-perf-smoke.mjs [P<N>]              ║
  * ║                                                                    ║
- * ║  All tests auto-skip if total < 100k (local ES).                  ║
+ * ║  Cluster gate enforced by run-audit.mjs (probes total ≥ 100k once     ║
+ * ║  at startup and refuses to run otherwise). Direct `npx playwright   ║
+ * ║  test` invocations bypass the gate — by design, for debugging.       ║
  * ╚══════════════════════════════════════════════════════════════════════╝
  *
  * These tests instrument the browser with:
@@ -58,7 +60,8 @@ const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
  *
  * `until` pins the corpus to a fixed point in time so metrics track code
  * changes, not data growth.  It is essential on real ES (STABLE_UNTIL is
- * always set by run-audit.mjs — requireRealData() enforces this).  It is
+ * always set by run-audit.mjs — the harness probes the cluster once at
+ * startup and refuses to run if it's missing).  It is
  * omitted for local ES where the total is tiny and date-filtering would
  * likely return zero results anyway.
  */
@@ -70,27 +73,12 @@ async function gotoPerfSearch(kupua: any, extraParams?: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Guard: skip all tests if not connected to a real cluster
+// Guard: per-test cluster checks live in the harness (run-audit.mjs probes
+// once at startup and refuses to run if total < 100k or PERF_STABLE_UNTIL is
+// missing). Tests assume real data and a pinned corpus. Direct invocations
+// via `npx playwright test --config=…` bypass that probe — by design, for
+// debugging — and produce meaningless metrics on local ES.
 // ---------------------------------------------------------------------------
-
-async function requireRealData(kupua: any): Promise<number> {
-  const store = await kupua.getStoreState();
-  if (store.total < 100_000) {
-    test.skip(true, `Skipping: connected to local ES (total=${store.total}). These tests require --use-TEST.`);
-  }
-  // On real data, PERF_STABLE_UNTIL MUST be set — otherwise the result corpus
-  // grows with every new upload and metrics drift between runs.
-  // Always invoke via run-audit.mjs (or scripts/run-perf-smoke.mjs), which
-  // computes and injects this env var automatically.
-  if (!STABLE_UNTIL) {
-    throw new Error(
-      "PERF_STABLE_UNTIL env var is not set but you are connected to a real ES cluster " +
-      `(total=${store.total}). Run via: node e2e-perf/run-audit.mjs  OR  ` +
-      "node scripts/run-perf-smoke.mjs — never invoke Playwright directly for perf tests.",
-    );
-  }
-  return store.total;
-}
 
 // ---------------------------------------------------------------------------
 // Focus position measurement — shared by P4, P6, P12
@@ -714,7 +702,7 @@ test.describe("Rendering Performance Smoke", () => {
     await kupua.waitForResults();
     await kupua.page.waitForTimeout(3000);
 
-    const total = await requireRealData(kupua);
+    const total = (await kupua.getStoreState()).total;
     console.log(`  [P1] total=${total}${STABLE_UNTIL ? `, stable_until=${STABLE_UNTIL}` : ""}`);
 
     const snap = await collectPerfSnapshot(kupua, "P1: Initial Load");
@@ -727,7 +715,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P2: Mousewheel scroll ────────────────────────────────────────
   test("P2: mousewheel scroll — jank, CLS, DOM churn during fast scroll", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
@@ -780,7 +768,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P3: Seek buffer replacement (date sort) ─────────────────────
   test("P3: scrubber seek to 50% — reflow and instability during buffer replacement", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
@@ -807,7 +795,7 @@ test.describe("Rendering Performance Smoke", () => {
   // path. P3 only tests date sort (percentile). This is the other major branch.
   test("P3b: keyword sort seek to 50% — composite-agg + binary-search path", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     // Switch to Credit sort (keyword field — composite agg path)
     await kupua.selectSort("Credit");
@@ -836,7 +824,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P4a: Grid → Table density switch ────────────────────────────
   test("P4a: density switch grid→table — CLS and DOM churn", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.focusNthItem(5);
     const focusedId = await kupua.getFocusedImageId();
@@ -870,7 +858,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P4b: Table → Grid density switch ────────────────────────────
   test("P4b: density switch table→grid — CLS and DOM churn", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);
@@ -906,7 +894,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P5: Panel toggle — layout reflow ─────────────────────────────
   test("P5: panel toggle — CLS during left/right panel open/close", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
@@ -944,7 +932,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P6: Sort change with focus — "Never Lost" path ───────────────
   test("P6: sort change — CLS and jank during sort-around-focus", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.focusNthItem(5);
     const focusedId = await kupua.getFocusedImageId();
@@ -980,7 +968,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P7: Scrubber drag — continuous DOM writes ────────────────────
   test("P7: scrubber drag — frame rate during continuous thumb tracking", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
@@ -1017,7 +1005,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P8: Table view scroll with extend/evict ──────────────────────
   test("P8: table scroll — jank during extend + evict cycles", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);
@@ -1057,7 +1045,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P9: Sort field change ───────────────────────────────────────
   test("P9: sort field change — CLS during full result set replacement", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(500);
@@ -1084,7 +1072,7 @@ test.describe("Rendering Performance Smoke", () => {
     );
     await injectPerfProbes(kupua);
     await kupua.waitForResults();
-    await requireRealData(kupua);
+    
 
     await kupua.page.waitForTimeout(2000);
     const snapLoad = await collectPerfSnapshot(kupua, "P10-load");
@@ -1150,7 +1138,7 @@ test.describe("Rendering Performance Smoke", () => {
   // Reduced to 3 seek positions (was 5). Credit sort variant → P11b.
   test("P11: thumbnail reflow — CLS from image loading after seek (3 positions)", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    const total = await requireRealData(kupua);
+    const total = (await kupua.getStoreState()).total;
     console.log(`  [P11] total=${total}`);
 
     const seekPositions = [0.2, 0.6, 0.85];
@@ -1186,7 +1174,7 @@ test.describe("Rendering Performance Smoke", () => {
   // Optional. Tests keyword sort seek path for CLS comparison.
   test("P11b: thumbnail reflow — keyword sort (Credit) 3 seeks", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.selectSort("Credit");
     await kupua.page.waitForTimeout(1500);
@@ -1213,7 +1201,7 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P12: Density drift + buffer boundary ─────────────────────────
   test("P12: density switch focus drift — image travels out of view", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    const total = await requireRealData(kupua);
+    const total = (await kupua.getStoreState()).total;
 
     const viewportInfo = await kupua.page.evaluate(() => ({
       innerWidth: window.innerWidth,
@@ -1358,7 +1346,7 @@ test.describe("Rendering Performance Smoke", () => {
   // scroll position restoration accuracy, CLS on return.
   test("P13: image detail enter/exit — overlay transition and scroll restoration", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     // Scroll down a bit so we have a non-trivial scroll position to restore
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
@@ -1437,7 +1425,7 @@ test.describe("Rendering Performance Smoke", () => {
   // prefetch results or cleanly loading only the landed-on image.
   test("P14: image traversal — normal, fast+settle, reverse fast+settle", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     // Enter detail on the 4th image
     await kupua.focusNthItem(3);
@@ -1522,7 +1510,7 @@ test.describe("Rendering Performance Smoke", () => {
   // Measures: jank during fullscreen toggle, CLS during image swap in fullscreen.
   test("P15: image detail fullscreen — persists across image traversal", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     // Enter detail
     await kupua.focusNthItem(3);
@@ -1581,7 +1569,7 @@ test.describe("Rendering Performance Smoke", () => {
   // Frame rate during drag should show near-zero React re-renders.
   test("P16: table column resize — drag and double-click fit", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
-    await requireRealData(kupua);
+    
 
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);

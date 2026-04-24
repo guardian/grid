@@ -32,6 +32,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -372,6 +373,7 @@ export function ImageGrid() {
   /** Navigate to image detail overlay (shared by single-click in phantom, double-click in explicit). */
   const enterDetail = useCallback(
     (imageId: string) => {
+      trace("open-detail", "t_0", { imageId });
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {

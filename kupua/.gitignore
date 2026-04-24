@@ -33,6 +33,8 @@ test-results/
 
 # Perf harness scratch file — overwritten on every run, not for git
 e2e-perf/results/.metrics-tmp.jsonl
+e2e-perf/results/.perceived-short-tmp.jsonl
+e2e-perf/results/.perceived-long-tmp.jsonl
 
 # Experiment result JSON files — machine-local, not for git
 # (README.md and experiments-log.md ARE tracked)

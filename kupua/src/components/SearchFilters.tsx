@@ -15,6 +15,8 @@ import { useSearch } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
 import { SORT_DROPDOWN_OPTIONS, DESC_BY_DEFAULT } from "@/lib/field-registry";
+import { useSearchStore } from "@/stores/search-store";
+import { trace } from "@/lib/perceived-trace";
 
 /** Sortable fields for the dropdown — derived from the field registry. */
 const SORTABLE_FIELDS = SORT_DROPDOWN_OPTIONS;
@@ -47,6 +49,7 @@ function FilterControls() {
   const updateSearch = useUpdateSearchParams();
 
   const handleFreeOnlyToggle = useCallback(() => {
+    trace("filter-toggle", "t_0", { filter: "nonFree", newValue: params.nonFree === "true" ? undefined : "true" });
     const newValue = params.nonFree === "true" ? undefined : "true";
     updateSearch({ nonFree: newValue });
   }, [params.nonFree, updateSearch]);
@@ -80,6 +83,7 @@ function SortControls() {
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
   const orderBy = params.orderBy ?? "-uploadTime";
   const { field: sortField, desc: sortDesc } = parsePrimarySort(orderBy);
@@ -95,6 +99,8 @@ function SortControls() {
 
   const handleSelectField = useCallback(
     (value: string, e: React.MouseEvent) => {
+      const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
+      trace(action, "t_0", { sort: value, focusedId: focusedImageId });
       if (e.shiftKey) {
         // Shift+click — manage secondary sort (same logic as table column headers)
         if (!secondary) {
@@ -125,16 +131,18 @@ function SortControls() {
       }
       setOpen(false);
     },
-    [updateSearch, sortField, sortDesc, primaryToken, secondary]
+    [updateSearch, sortField, sortDesc, primaryToken, secondary, focusedImageId]
   );
 
   const handleToggleDirection = useCallback(() => {
+    const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
+    trace(action, "t_0", { sort: sortField, dir: sortDesc ? "asc" : "desc", focusedId: focusedImageId });
     const secondaryPart = secondary
       ? `,${secondary.desc ? "-" : ""}${secondary.field}`
       : "";
     const newPrimary = sortDesc ? sortField : `-${sortField}`;
     updateSearch({ orderBy: `${newPrimary}${secondaryPart}` });
-  }, [sortField, sortDesc, secondary, updateSearch]);
+  }, [sortField, sortDesc, secondary, updateSearch, focusedImageId]);
 
   // Close dropdown on outside click
   useEffect(() => {

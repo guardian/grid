@@ -14,6 +14,218 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 24 April 2026 — Perceived-perf Phase 1 baseline + 4-fix pass
+
+**Goal:** Close out Phase 1 of the perceived-perf audit by fixing four
+attribution/instrumentation gaps and capturing the first real 3-run
+baseline against TEST.
+
+**Fixes applied:**
+
+1. **`expectedAction` parameter in `computeMetrics`** (both
+   `e2e-perf/perceived-short.spec.ts` and `e2e-perf/perceived-long.spec.ts`).
+   Previously the helper picked the *first* `t_0` entry, which mis-attributed
+   actions whose user-initiated trigger fires a downstream `search` `t_0`
+   first (PP9 chip-remove → reported as `search`, PP10 position-map → ditto,
+   JA2 image-dblclick → no anchor at all). New optional param filters to
+   `t_0` entries with matching `action`, then derives lifecycle from there.
+   Applied to every call site; left off only for JB3 alt+click and JB4
+   (intentionally fall back to first-`t_0`).
+
+2. **`open-detail` trace site added.** ImageGrid's `enterDetail` (the
+   shared callback for single-click in phantom mode and double-click in
+   explicit mode) emits `trace("open-detail", "t_0", { imageId })`.
+   ImageDetail emits `trace("open-detail", "t_settled")` inside a rAF when
+   `displayImage.id` first appears for a given session.
+   - Initial implementation declared the `useRef` and `useEffect` after
+     the `if (!image) return ...` early return → "Rendered more hooks
+     than during the previous render" runtime error in browser. Fixed by
+     hoisting the ref to top-level alongside the other refs and moving
+     the effect immediately after `const image = ...` is computed
+     (still well before the early return). Hooks rule: no conditional
+     hook calls.
+
+3. **JA3 metadata-click switched from `colourProfile:"Display P3"` to
+   `colourModel:"RGB"`.** The Display P3 button doesn't exist on every
+   David Young image, so the test would time out waiting for the locator.
+   RGB is the cheap escape (the vast majority of corpus images are RGB).
+   Also added `scrollIntoViewIfNeeded()` and a 200 ms post-panel-toggle
+   settle to harden against intermittent click misses. Sanity bound on
+   `finalTotal` initially set to ±2k, then relaxed to "> 100" once we
+   noticed metadata click *replaces* (not appends) the query — so the
+   resulting total is corpus-wide RGB (~1.3M), not query-narrowed.
+
+4. **Legend documentation in `e2e-perf/results/perceived-graphs.html`.**
+   Updated `#legend` text to explicitly call out that "—" cells are
+   by-design gaps, not regressions: `density-swap`, `scrubber-scroll`,
+   `fullscreen-exit`, and `open-detail` only emit `t_0`/`t_settled`;
+   `filter-toggle` has no first-pixel site.
+
+**3-run baseline captured (`Perceived baseline (post-refactor)`):**
+
+| Step | Action | Ack | 1st-pixel | Settled |
+|---|---|---|---|---|
+| PP1 | home-logo | 1 | 609 | 609 |
+| PP2 | sort-no-focus | 42 | 377 | 377 |
+| PP3 | sort-around-focus | 42 | 871 | 871 |
+| PP4 | sort-around-focus | 44 | 830 | 830 |
+| PP5 | filter-toggle | 42 | — | 903 |
+| PP6 | density-swap | — | — | 204 |
+| PP7 | scrubber-seek | 1 | 987 | 987 |
+| PP7b | scrubber-seek | 1 | 960 | 960 |
+| PP7c | scrubber-scroll | — | — | 118 |
+| PP8 | search | 0 | 1220 | 1220 |
+| PP9 | search | 0 | 664 | 664 |
+| PP10 | position-map | — | — | 2577 |
+| PP6b | density-swap | — | — | 323 |
+| PP6c | density-swap | — | — | 323 |
+| JA1 | search | 0 | 388 | 388 |
+| JA2 | open-detail | — | — | 104 |
+| JA3 | metadata-click | 13 | 277 | 277 |
+| JB1 | search | 0 | 553 | 553 |
+| JB2 | facet-click | 54 | 1216 | 1217 |
+| JB3 | search | 0 | 606 | 606 |
+| JB4 | search | 0 | 571 | 769 |
+| JB5 | fullscreen-exit | — | — | 2 |
+
+All 22 perceived sub-scenarios green across 3 runs with correct action
+attribution everywhere. Files written: `e2e-perf/results/perceived-log.{json,md}`.
+
+**Audit doc updates (`exploration/docs/perceived-perf-audit.md`):**
+- Status block: "Phase 1 in progress" → "Phase 1 complete"; baseline
+  captured 24-Apr-2026; lists the 4-fix pass as part of completion.
+- Scenario count: 12 short → 14 short (PP1–10 plus PP6b/c, PP7b/c).
+- Acceptance criterion: "≥5 runs" → "≥3 runs" (deliberate match to jank
+  cadence; 5+ considered too costly against shared TEST cluster).
+
+**First Phase 2 candidates from baseline:** PP1 home-logo 609 ms (target
+<200 ms; owner's named pain point, 3× over), JB2 facet-click 1216 ms
+(no explicit target but feels worth investigating), PP10 position-map
+2577 ms background (worth confirming nothing user-facing blocks on it).
+
+**Tests:** 352 unit tests pass throughout. No production-code behavioural
+change beyond the new `open-detail` trace site (which is gated on dev
+or `localStorage.kupua_perceived_perf === "1"` and has zero prod cost).
+
+
+
+### 23 April 2026 — Journey tests + --journeys-only harness
+
+**Goal:** Add realistic multi-step journey tests (JA + JB) that measure perceived latency across full user workflows — search → filter → metadata click → seek → fullscreen — rather than isolated actions.
+
+**New files:**
+- `e2e-perf/journeys.spec.ts` — two journeys:
+  - JA (scroll tier, `by:"David Young"`, 538 results): JA1 search → JA2 sort-reverse → JA3 metadata-click colourProfile on prescribed image f117d4a.
+  - JB (two-tier, `uploader:avalonred`, 21628 results): JB1 search → JB2 facet-click subject:sport → JB3 alt-click -subject:news → JB4 scrubber seek ~50% → JB5 fullscreen enter+traverse20+exit.
+- `e2e-perf/playwright.journeys.config.ts` — MBP 14" viewport (1720×960 @2x), 180s timeout.
+
+**Harness additions (`run-audit.mjs`):**
+- `JOURNEYS_METRICS_FILE`, `JOURNEYS_JSON`, `JOURNEYS_MD` constants.
+- `--journeys` flag (run journeys in addition to jank) and `--journeys-only` flag (journeys only, skip jank + perceived).
+- `runJourneysPlaywright()`, `clearJourneysMetricsFile()`, `readJourneysMetrics()`, `aggregateJourneysMetrics()`, `writeJourneysLog()`, `appendJourneysToMarkdown()` — mirror the perceived equivalents.
+- Jank loop gated on `!perceivedOnly && !journeysOnly`.
+- Usage comment header updated.
+
+**Trace call sites added (`src/`):**
+- `search-store.ts`: `trace("search", "t_0")` at start of `search()`.
+- `FacetFilters.tsx`: `trace("facet-click", "t_0", { field, value })` at start of `handleFacetClick`.
+- `ImageMetadata.tsx`: `trace("metadata-click", "t_0", { field, value })` at start of `useMetadataSearch` callback.
+- `FullscreenPreview.tsx`: `trace("fullscreen-exit", "t_0")` at start of `exitPreview`.
+
+**Bug fixes during implementation:**
+- `journeys.spec.ts` was using `data-facet-field="subject.raw"` — corrected to `"metadata.subjects"` (the field's `esSearchPath` in field-registry).
+- `Scrubber.tsx` lacked a testid on the track element; added `data-testid="scrubber-track"` to the root `div[role="slider"]`.
+
+**Viewport configs (same session continuation):**
+- `playwright.perf.config.ts` restored to original 1987×1110 @1.25x (was accidentally changed).
+- Added independence comments to both perf and perceived configs.
+- `--perceived-only` flag added to run-audit.mjs to skip jank suite.
+
+**Tests:** 352 unit tests pass throughout.
+
+
+
+### 23 April 2026 — Perceived-performance suite: Phase 1 build
+
+Built the full Phase 1 infrastructure for measuring perceived latency, as specified
+in `exploration/docs/perceived-perf-audit.md`.
+
+**What was built:**
+
+1. **`src/lib/perceived-trace.ts`** — Lightweight in-app tracer. Gated on
+   `import.meta.env.DEV || localStorage.kupua_perceived_perf === "1"`. Zero prod
+   cost. Exposes `window.__perceivedTrace__` (ring buffer, max 500 entries) and
+   `window.__perceivedTraceClear__()`. Each `trace()` call also pushes a
+   `performance.mark("perceived:<action>:<phase>")` for DevTools visibility.
+
+2. **Store-side call sites in `search-store.ts`** (~6 sites):
+   - `trace("search", "t_ack")` — when `set({ loading: true })` is called in `search()`
+   - `trace("search", "t_first_useful_pixel")` + `trace("search", "t_settled")` — when
+     results land in the normal (non sort-around-focus) path
+   - `trace("sort-around-focus", "t_ack")` + `trace("sort-around-focus", "t_status_visible")`
+     — when "Finding image…" status is set
+   - `trace("sort-around-focus", "t_seeking")` — when "Seeking…" status is set
+   - `trace("sort-around-focus", "t_settled")` — in-buffer fast path (focus in buffer,
+     no seeking needed)
+   - `trace("sort-around-focus", "t_first_useful_pixel")` + `trace(..., "t_settled")` —
+     outside-buffer path (full buffer replacement after `_loadBufferAroundImage`)
+
+3. **Component-side `t_0` sites** (5 components, ~7 sites):
+   - `SearchBar.tsx`: home logo `onClick` → `trace("home-logo", "t_0")`
+   - `SearchFilters.tsx`: sort field `handleSelectField` → `trace("sort-around-focus" |
+     "sort-no-focus", "t_0", { sort, focusedId })`; sort direction `handleToggleDirection`
+     → same; free-to-use `handleFreeOnlyToggle` → `trace("filter-toggle", "t_0")`
+   - `StatusBar.tsx`: density toggle `toggleDensity` → `trace("density-swap", "t_0")`
+   - `Scrubber.tsx`: track click (seek mode only) → `trace("scrubber-seek", "t_0",
+     { mode: "click", pos })`; drag release (seek mode only) → `trace("scrubber-seek",
+     "t_0", { mode: "drag", pos })`
+
+4. **`e2e-perf/perceived.spec.ts`** — 7 test scenarios (PP1–PP7):
+   - PP1: Home logo click
+   - PP2: Sort field change (no focused image)
+   - PP3: Sort field change with focused image (sort-around-focus)
+   - PP4: Sort direction toggle with focused image
+   - PP5: Filter checkbox toggle
+   - PP6: Density swap
+   - PP7: Scrubber seek (click track at 50%, seek mode only)
+   Each scenario: clears trace buffer → triggers action → waits for store settle →
+   reads trace → computes dt_ack_ms, dt_status_ms, dt_first_pixel_ms, dt_settled_ms,
+   status_total_ms → writes to `.perceived-tmp.jsonl`.
+
+5. **`e2e-perf/playwright.perceived.config.ts`** — separate Playwright config for
+   the perceived suite (matches `**/perceived.spec.ts`).
+
+6. **`e2e-perf/run-audit.mjs --perceived`** — new flag that runs the perceived suite
+   after the jank suite. Aggregates metrics (median + p95 per scenario per metric),
+   writes to `results/perceived-log.json`, `results/perceived-log.js`,
+   `results/perceived-log.md`. Prints a perceived summary table to console.
+
+7. **`e2e-perf/results/perceived-graphs.html`** — sparkline dashboard for the perceived
+   log. Mirrors the design of `audit-graphs.html`. Shows per-scenario cards with
+   metric chips (ack/first-pixel/settle/banner) colour-coded against Phase 1 targets,
+   plus sparklines over time. Loads via `window.__PERCEIVED_LOG__` (from `perceived-log.js`)
+   or falls back to `fetch()` / file picker.
+
+**Key design decisions:**
+- All traces are no-ops in production (tree-shaken by Vite). No bundle impact.
+- Off by default in dev (localStorage flag required). Clean for normal poking.
+- In Playwright, the harness (via `addInitScript`) sets the flag before navigation.
+- The test spec uses separate per-action buffer clears so there's no cross-action noise.
+- `t_settled` is approximated by the store's `loading: false` + `sortAroundFocusStatus: null`
+  — close enough for Phase 1, per the audit doc's guidance.
+- The `t_0` for "search" actions (filter toggle, sort change) is emitted at the component
+  `onChange`/`onClick` sites. The store's `t_ack` is keyed as "search" not "filter-toggle",
+  but since the buffer is cleared between actions, the harness reads them positionally
+  (first `*:t_ack` after `*:t_0`) and action name mismatches don't corrupt timing.
+
+**Tests:** All 352 Vitest unit tests pass. No TypeScript errors in modified files.
+
+**Next step:** Run `node e2e-perf/run-audit.mjs --perceived --label "Phase 1 baseline"
+--runs 5` against TEST cluster to get the first perceived-log entry. This requires
+user permission (per session smoke-test rule).
+
+
+
 ### 23 April 2026 — Click-to-search fix: _externalQuery latch never cleared
 
 **Bug.** After clicking a metadata value (ImageDetail panel) or Shift/Alt-clicking

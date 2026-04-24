@@ -46,7 +46,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
-| **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — sparkline dashboard) |
+| **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
+| **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}`, `exploration/docs/perceived-perf-audit.md` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
@@ -88,6 +89,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
+- **12 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
+- **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
 - Full reference: **`e2e/README.md`** (8 test modes, decision tree, env vars)
 - Logging: use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E)
 
@@ -101,7 +104,6 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
-- [ ] Touch gestures hardening (`animate()` helper + pure pinch-math module) — see `touch-gestures-hardening-plan.md`. Pick up next time gesture code is touched or a third bug surfaces in the three touch hooks.
 - [x] ~~Raise scroll-mode threshold beyond 1000~~ → Position map Phases 0-4a complete
 - [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Complete
 - [ ] Column reordering via drag-and-drop

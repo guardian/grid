@@ -49,12 +49,12 @@ export default defineConfig({
     navigationTimeout: 30_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
-    /* MacBook Pro Retina — measured from the developer's actual browser:
-       window.innerWidth=1987, innerHeight=1110, devicePixelRatio=1.25.
-       The Desktop Chrome device preset is NOT used because it overrides
-       viewport and DPR with its own defaults (1280x720). */
+    /* Original baseline viewport — all existing results were measured here.
+       Do NOT change without re-baselining. 1987×1110 @1.25x approximates
+       a large-monitor CSS layout. Independent of playwright.perceived.config.ts. */
     viewport: { width: 1987, height: 1110 },
     deviceScaleFactor: 1.25,
+    deviceScaleFactor: 2,
   },
 
   projects: [

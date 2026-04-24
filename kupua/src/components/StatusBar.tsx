@@ -20,6 +20,7 @@ import { useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
+import { trace } from "@/lib/perceived-trace";
 
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
@@ -38,7 +39,25 @@ export function StatusBar() {
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
   const toggleDensity = useCallback(() => {
+    trace("density-swap", "t_0", { from: isGrid ? "grid" : "table" });
     updateSearch({ density: isGrid ? "table" : undefined });
+    // t_settled = browser is idle after the density change.
+    //
+    // The previous rAF approach fired ~16ms after the click — well before
+    // the URL→router→store→ImageGrid/Table swap → virtualizer rebuild
+    // had finished, so dt_settled_ms was uninformatively constant.
+    //
+    // requestIdleCallback fires when the main thread has no pending work,
+    // which is the closest thing to "user perceives the swap as done"
+    // that this component can observe without coordination from the
+    // newly-mounted ImageGrid/ImageTable. Chrome-only — fall back to a
+    // longer setTimeout (200ms ≈ typical density-swap budget) elsewhere.
+    const emitSettled = () => trace("density-swap", "t_settled");
+    if (typeof (window as any).requestIdleCallback === "function") {
+      (window as any).requestIdleCallback(emitSettled, { timeout: 1500 });
+    } else {
+      setTimeout(emitSettled, 200);
+    }
   }, [isGrid, updateSearch]);
 
   // Prefetch aggregations on hover — intentionally invisible ("magic") UX.

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getScrollContainer, useScrollContainerGeneration } from "@/lib/scroll-container-ref";
 import { getThumbResetGeneration } from "@/lib/orchestration/search";
+import { trace } from "@/lib/perceived-trace";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -633,9 +634,12 @@ export function Scrubber({
 
       if (isScrollMode) {
         // All data in buffer or indexed mode — scroll the content container
+        trace("scrubber-scroll", "t_0", { mode: "click", pos });
         const maxPos = Math.max(1, total - thumbVisibleCount);
         scrollContentTo(pos / maxPos);
+        requestAnimationFrame(() => trace("scrubber-scroll", "t_settled"));
       } else {
+        trace("scrubber-seek", "t_0", { mode: "click", pos });
         pendingSeekPosRef.current = pos;
         onSeekRef.current(pos);
       }
@@ -723,6 +727,7 @@ export function Scrubber({
             scrollContentTo(latestPosition / maxPos);
           } else {
             // Single seek to the final position
+            trace("scrubber-seek", "t_0", { mode: "drag", pos: latestPosition });
             onSeekRef.current(latestPosition);
           }
         } else {
@@ -1118,6 +1123,7 @@ export function Scrubber({
     <div
       ref={trackCallbackRef}
       role="slider"
+      data-testid="scrubber-track"
       aria-label="Result set position"
       aria-valuemin={0}
       aria-valuemax={Math.max(0, total - 1)}

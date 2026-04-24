@@ -36,6 +36,7 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { cancelSearchDebounce } from "@/lib/orchestration/search";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
+import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import { SearchPill } from "./SearchPill";
 import {
@@ -55,6 +56,7 @@ function useMetadataSearch() {
 
   return useCallback(
     (cqlKey: string, value: string, e: React.MouseEvent) => {
+      trace("metadata-click", "t_0", { field: cqlKey, value });
       e.preventDefault();
       const currentQuery = searchParams.query ?? "";
       const negated = e.altKey;

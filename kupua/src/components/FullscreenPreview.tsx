@@ -34,6 +34,7 @@ import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
+import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 
 /**
@@ -142,6 +143,7 @@ export function FullscreenPreview() {
   }, [resolveLocalIndex]);
 
   const exitPreview = useCallback(() => {
+    trace("fullscreen-exit", "t_0");
     if (document.fullscreenElement && initiatedRef.current) {
       document.exitFullscreen().catch(() => {});
     }
@@ -155,6 +157,10 @@ export function FullscreenPreview() {
     // scrolls if needed, places at nearest edge).
     requestAnimationFrame(() => {
       scrollFocusedIntoView();
+      // t_settled: fires after the synchronous scroll restoration. If the
+      // focused image is out of buffer and sortAroundFocus fires async, its
+      // own t_settled (fired later) will be used instead by computeMetrics.
+      trace("fullscreen-exit", "t_settled");
     });
   }, []);
 

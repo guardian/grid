@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kupua perceived-perf — all runs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f85149;
+    --warn-bg: #3d1a1a;
+    --ok: #3fb950;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; font-family: -apple-system, system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid #30363d; }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .controls { padding: 12px 24px; border-bottom: 1px solid #30363d; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; padding: 16px 24px; }
+  .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; }
+  .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .card h3 { margin: 0; font-size: 13px; font-weight: 600; }
+  .card .action-tag { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 10px; }
+  .metrics-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .metric-chip { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 1px solid; }
+  .metric-chip.ok { color: var(--ok); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.08); }
+  .metric-chip.warn { color: var(--warn); border-color: rgba(248,81,73,0.3); background: rgba(248,81,73,0.08); }
+  .metric-chip.null { color: var(--muted); border-color: #30363d; }
+  canvas { display: block; width: 100% !important; height: 120px !important; }
+
+  .warn-banner {
+    margin: 12px 24px; padding: 10px 14px;
+    background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px;
+    font-size: 13px; color: var(--fg);
+  }
+  .warn-banner strong { color: var(--warn); }
+  .warn-banner code { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  .picker {
+    margin: 24px; padding: 36px; border: 2px dashed #30363d; border-radius: 8px;
+    text-align: center; color: var(--muted);
+  }
+  .picker h2 { color: var(--fg); margin: 0 0 12px; font-size: 16px; }
+  .picker code { background: var(--panel); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--fg); }
+  .legend { padding: 0 24px 12px; font-size: 11px; color: var(--muted); }
+
+  /* Targets reference — shown at page top */
+  .targets { padding: 10px 24px; background: var(--panel); border-bottom: 1px solid #30363d; font-size: 11px; color: var(--muted); }
+  .targets strong { color: var(--fg); }
+  .targets table { border-collapse: collapse; }
+  .targets td, .targets th { padding: 2px 10px; text-align: left; }
+  .targets th { color: var(--muted); font-weight: normal; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kupua perceived-perf — all audited runs</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div id="metricBanner" hidden style="margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.4);color:#f85149;font-size:13px;"></div>
+</header>
+
+<!-- Phase 1 targets (from perceived-perf-audit.md) -->
+<details class="targets">
+  <summary><strong>Phase 1 targets</strong> (from perceived-perf-audit.md) — click to expand</summary>
+  <table>
+    <tr><th>Action class</th><th>Target ack</th><th>Target settle (median)</th><th>Ceiling (p95)</th></tr>
+    <tr><td>Logo / home / reset / panel toggle</td><td>&lt;100 ms</td><td>&lt;200 ms</td><td>300 ms</td></tr>
+    <tr><td>Density swap</td><td>&lt;100 ms</td><td>&lt;400 ms</td><td>800 ms</td></tr>
+    <tr><td>Filter / sort toggle</td><td>&lt;100 ms</td><td>&lt;1 s</td><td>2 s</td></tr>
+    <tr><td>Search (warm)</td><td>&lt;100 ms</td><td>&lt;1.5 s first pixel</td><td>3 s</td></tr>
+    <tr><td>Search (cold)</td><td>&lt;100 ms</td><td>&lt;2.5 s first pixel</td><td>4 s</td></tr>
+    <tr><td>Sort-around-focus</td><td>&lt;100 ms</td><td>&lt;2 s</td><td>4 s; banner ≤2 s</td></tr>
+    <tr><td>Scrubber seek</td><td>&lt;100 ms click</td><td>&lt;1 s first pixel</td><td>2 s</td></tr>
+  </table>
+</details>
+
+<div id="picker" class="picker" hidden>
+  <h2>Couldn't auto-load <code>perceived-log.json</code></h2>
+  <p>Pick or drop the file:</p>
+  <p><input type="file" id="filepick" accept="application/json,.json" /></p>
+</div>
+
+<div id="warnings"></div>
+
+<div class="controls" id="controls" hidden>
+  <label>Metric
+    <select id="metric">
+      <option value="dt_ack_ms" selected>Ack (ms)</option>
+      <option value="dt_first_pixel_ms">First pixel (ms)</option>
+      <option value="dt_settled_ms">Settled (ms)</option>
+      <option value="status_total_ms">Banner total (ms)</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
+  <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
+  <button id="reload">↺ Reload</button>
+</div>
+
+<div id="grid" class="grid" hidden></div>
+<div class="legend" id="legend" hidden>Each sparkline point = one audit run. Hover for details. Targets from perceived-perf-audit.md. <strong>"—" cells are by-design gaps</strong>: not all actions instrument all four phases. Specifically: <code>density-swap</code>, <code>scrubber-scroll</code>, <code>fullscreen-exit</code> and <code>open-detail</code> only emit <code>t_0</code> and <code>t_settled</code> (no ack / first-pixel); <code>filter-toggle</code> has no first-pixel site. Empty cells reflect missing trace sites, not regressions.</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Targets (action → {ack, settle, ceiling} in ms)
+// ---------------------------------------------------------------------------
+const TARGETS = {
+  "home-logo":          { ack: 100, settle: 200,  ceiling: 300  },
+  "density-swap":       { ack: 100, settle: 400,  ceiling: 800  },
+  "filter-toggle":      { ack: 100, settle: 1000, ceiling: 2000 },
+  "sort-no-focus":      { ack: 100, settle: 1000, ceiling: 2000 },
+  "sort-around-focus":  { ack: 100, settle: 2000, ceiling: 4000, bannerCeiling: 2000 },
+  "scrubber-seek":      { ack: 100, settle: 2000, ceiling: 2000 },
+  "search":             { ack: 100, settle: 1500, ceiling: 3000 },
+};
+
+// Which metric to show in the sparkline (driven by the <select>)
+let currentMetric = "dt_ack_ms";
+// Which kinds to include (driven by checkboxes). Entries written before
+// the kind field existed are treated as "short" for back-compat.
+let showShort = true;
+let showLong = true;
+function entryKind(e) { return e.kind ?? "short"; }
+function visibleEntries(entries) {
+  return entries.filter((e) => {
+    const k = entryKind(e);
+    return (k === "short" && showShort) || (k === "long" && showLong);
+  });
+}
+const METRIC_LABELS = {
+  dt_ack_ms: "Ack (ms)",
+  dt_first_pixel_ms: "First pixel (ms)",
+  dt_settled_ms: "Settled (ms)",
+  status_total_ms: "Banner total (ms)",
+};
+
+// Contract: every numeric field on PerceivedMetrics that the dashboard
+// is allowed to render. If perceived-short.spec.ts (or anything else
+// writing the log) starts emitting a metric not in this list, the
+// dashboard will silently drop it — so we surface a red banner instead.
+// Update this set + METRIC_LABELS + the <select id="metric"> options
+// + getTargetForAction() when adding a new metric.
+const KNOWN_METRICS = new Set([
+  "dt_ack_ms",
+  "dt_status_ms",
+  "dt_first_pixel_ms",
+  "dt_settled_ms",
+  "status_total_ms",
+]);
+// Non-numeric fields on each per-scenario record. Listed so the
+// unknown-metric scan can ignore them rather than warning.
+const NON_METRIC_FIELDS = new Set(["id", "label", "action"]);
+
+// ---------------------------------------------------------------------------
+// Load data
+// ---------------------------------------------------------------------------
+
+let LOG = null;
+
+function ingestLog(data) {
+  LOG = typeof data === "string" ? JSON.parse(data) : data;
+  render();
+}
+
+// 1. Try window.__PERCEIVED_LOG__ (injected by perceived-log.js)
+if (window.__PERCEIVED_LOG__) {
+  ingestLog(window.__PERCEIVED_LOG__);
+} else {
+  // 2. Try fetch (works over http)
+  fetch("./perceived-log.json")
+    .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+    .then(ingestLog)
+    .catch(() => {
+      // 3. Show file picker fallback
+      document.getElementById("picker").hidden = false;
+    });
+}
+
+// File picker fallback
+document.getElementById("filepick").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => ingestLog(ev.target.result);
+  reader.readAsText(file);
+});
+
+document.getElementById("metric").addEventListener("change", (e) => {
+  currentMetric = e.target.value;
+  render();
+});
+document.getElementById("showShort").addEventListener("change", (e) => {
+  showShort = e.target.checked;
+  // Wipe cards — the visible set may shrink.
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("showLong").addEventListener("change", (e) => {
+  showLong = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+
+document.getElementById("reload").addEventListener("click", () => location.reload());
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+const charts = new Map(); // id → Chart instance
+
+function getTargetForAction(action, metric) {
+  const t = TARGETS[action] || {};
+  if (metric === "dt_ack_ms") return t.ack ?? null;
+  if (metric === "dt_settled_ms") return t.settle ?? null;
+  if (metric === "dt_first_pixel_ms") return t.settle ?? null;
+  if (metric === "status_total_ms") return t.bannerCeiling ?? null;
+  return null;
+}
+
+function chipClass(value, target) {
+  if (value == null) return "null";
+  if (target == null) return "";
+  return value <= target ? "ok" : "warn";
+}
+
+function render() {
+  if (!LOG) return;
+  const allEntries = LOG.entries ?? [];
+  if (allEntries.length === 0) {
+    document.getElementById("sub").textContent = "No entries in log.";
+    return;
+  }
+  // Contract check: warn loudly if the log contains metric fields the
+  // dashboard doesn't know how to render. Silent drop = bad data ergonomics.
+  const unknown = new Set();
+  for (const entry of allEntries) {
+    for (const rec of Object.values(entry.perceived ?? {})) {
+      if (!rec || typeof rec !== "object") continue;
+      for (const k of Object.keys(rec)) {
+        if (NON_METRIC_FIELDS.has(k)) continue;
+        if (!KNOWN_METRICS.has(k)) unknown.add(k);
+      }
+    }
+  }
+  const banner = document.getElementById("metricBanner");
+  if (unknown.size > 0) {
+    banner.hidden = false;
+    banner.innerHTML =
+      `<strong>Unknown metrics in log — dashboard not rendering:</strong> ${[...unknown].join(", ")}` +
+      `. Add to <code>KNOWN_METRICS</code>, <code>METRIC_LABELS</code>, the metric &lt;select&gt; options, ` +
+      `and <code>getTargetForAction()</code> in this file.`;
+  } else {
+    banner.hidden = true;
+  }
+  const entries = visibleEntries(allEntries);
+  if (entries.length === 0) {
+    document.getElementById("sub").textContent =
+      `${allEntries.length} entries in log, 0 visible (toggle short/long above).`;
+    document.getElementById("grid").innerHTML = "";
+    document.getElementById("controls").hidden = false;
+    return;
+  }
+
+  document.getElementById("picker").hidden = true;
+  document.getElementById("controls").hidden = false;
+  document.getElementById("grid").hidden = false;
+  document.getElementById("legend").hidden = false;
+
+  const latest = entries[entries.length - 1];
+  const shortCount = allEntries.filter((e) => entryKind(e) === "short").length;
+  const longCount  = allEntries.filter((e) => entryKind(e) === "long").length;
+  document.getElementById("sub").textContent =
+    `${allEntries.length} entries (${shortCount} short, ${longCount} long), ${entries.length} visible — latest: [${entryKind(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
+
+  // Collect all scenario IDs across all entries
+  const allIds = new Set();
+  for (const entry of entries) {
+    for (const id of Object.keys(entry.perceived ?? {})) {
+      allIds.add(id);
+    }
+  }
+
+  const gridEl = document.getElementById("grid");
+  // Create or update cards
+  for (const id of allIds) {
+    const latestMetrics = latest.perceived?.[id];
+    const action = latestMetrics?.action ?? id;
+
+    // Collect sparkline data across entries
+    const points = entries.map((e) => {
+      const m = e.perceived?.[id];
+      return m ? (m[currentMetric] ?? null) : null;
+    });
+
+    // Get or create card
+    let card = document.getElementById(`card-${id}`);
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "card";
+      card.id = `card-${id}`;
+      gridEl.appendChild(card);
+    }
+
+    const target = getTargetForAction(action, currentMetric);
+    const latest_val = latestMetrics ? latestMetrics[currentMetric] : null;
+
+    // Chips for latest values
+    const CHIP_METRICS = ["dt_ack_ms", "dt_first_pixel_ms", "dt_settled_ms", "status_total_ms"];
+    const chipsHtml = CHIP_METRICS.map((m) => {
+      const v = latestMetrics ? latestMetrics[m] : null;
+      const t = getTargetForAction(action, m);
+      const cls = chipClass(v, t);
+      const lbl = { dt_ack_ms: "ack", dt_first_pixel_ms: "px", dt_settled_ms: "settle", status_total_ms: "banner" }[m];
+      return `<span class="metric-chip ${cls}">${lbl}: ${v != null ? v + "ms" : "—"}</span>`;
+    }).join("");
+
+    card.innerHTML = `
+      <div class="card-header">
+        <h3>${id}: ${latestMetrics?.label ?? id}</h3>
+        <span class="action-tag">${action} · ${entryKind(latest)}</span>
+      </div>
+      <div class="metrics-row">${chipsHtml}</div>
+      <canvas id="canvas-${id}"></canvas>
+    `;
+
+    // Render sparkline
+    if (charts.has(id)) charts.get(id).destroy();
+    const ctx = document.getElementById(`canvas-${id}`).getContext("2d");
+    const labels = entries.map((e) => {
+      const d = new Date(e.timestamp);
+      return `${e.gitSha}${e.gitDirty ? "*" : ""} (${d.toLocaleDateString()})`;
+    });
+
+    const datasets = [{
+      label: METRIC_LABELS[currentMetric],
+      data: points,
+      borderColor: "#58a6ff",
+      backgroundColor: "rgba(88,166,255,0.15)",
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      tension: 0.2,
+      spanGaps: true,
+    }];
+
+    // Target line
+    if (target != null) {
+      datasets.push({
+        label: `Target (${target}ms)`,
+        data: entries.map(() => target),
+        borderColor: "rgba(63,185,80,0.4)",
+        borderDash: [4, 4],
+        pointRadius: 0,
+        tension: 0,
+      });
+    }
+
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1, labels: { color: "#8b949e", font: { size: 10 }, boxWidth: 20 } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                return v != null ? `${ctx.dataset.label}: ${v}ms` : `${ctx.dataset.label}: —`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: "#8b949e", font: { size: 9 }, maxRotation: 0 }, grid: { color: "#21262d" } },
+          y: {
+            ticks: { color: "#8b949e", font: { size: 9 }, callback: (v) => v + "ms" },
+            grid: { color: "#21262d" },
+            min: 0,
+          },
+        },
+      },
+    });
+    charts.set(id, chart);
+  }
+}
+</script>
+
+<!-- Load the sibling .js file first (data over file://) -->
+<script src="perceived-log.js" onerror="/* file may not exist yet */"></script>
+</body>
+</html>

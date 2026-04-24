@@ -57,6 +57,7 @@ import {
   POST_EXTEND_COOLDOWN_MS,
 } from "@/constants/tuning";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { trace } from "@/lib/perceived-trace";
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
@@ -379,7 +380,7 @@ interface SearchState {
    * Seek to a global offset — clear buffer and refill at the target position.
    * Used by scrubber drags and sort-around-focus.
    */
-  seek: (globalOffset: number) => Promise<void>;
+  seek: (globalOffset: number, traceAction?: string) => Promise<void>;
 
   /**
    * Restore the buffer around a specific image using its cached sort cursor.
@@ -977,6 +978,7 @@ async function _fetchPositionMap(
   }
 
   devLog(`[position-map] Starting background fetch for ${get().total} positions...`);
+  trace("position-map", "t_0");
   set({ positionMapLoading: true, positionMap: null });
 
   try {
@@ -989,6 +991,7 @@ async function _fetchPositionMap(
 
     if (map) {
       devLog(`[position-map] Complete — ${map.length} entries loaded`);
+      trace("position-map", "t_settled");
       set({ positionMap: map, positionMapLoading: false });
     } else {
       devLog("[position-map] fetchPositionIndex returned null (aborted or empty)");
@@ -1178,6 +1181,8 @@ async function _findAndFocusImage(
   // Apply frozen-until cap — sort-around-focus should not include new images.
   const fp = frozenParams(params, get);
 
+  trace("sort-around-focus", "t_ack");
+  trace("sort-around-focus", "t_status_visible", { status: "Finding image\u2026" });
   set({ sortAroundFocusStatus: "Finding image…" });
 
   // Use _findFocusAbortController for Steps 1-2 (find sort values +
@@ -1198,6 +1203,7 @@ async function _findAndFocusImage(
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
     if (fallbackFirstPage) {
+      trace("sort-around-focus", "t_settled");
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1212,6 +1218,7 @@ async function _findAndFocusImage(
         sortAroundFocusStatus: null,
       });
     } else {
+      trace("sort-around-focus", "t_settled");
       set({ sortAroundFocusStatus: null, loading: false });
     }
   }, 8000);
@@ -1272,6 +1279,7 @@ async function _findAndFocusImage(
           }
         }
 
+        trace("sort-around-focus", "t_settled");
         set({
           results: fallbackFirstPage.hits,
           bufferOffset: 0,
@@ -1286,6 +1294,7 @@ async function _findAndFocusImage(
           sortAroundFocusStatus: null,
         });
       } else {
+        trace("sort-around-focus", "t_settled");
         set({ sortAroundFocusStatus: null, loading: false });
       }
       return;
@@ -1363,6 +1372,7 @@ async function _findAndFocusImage(
         // Phantom promotion: position around image but don't set focusedImageId.
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
+        trace("sort-around-focus", "t_settled");
         set({
           _phantomFocusImageId: imageId,
           sortAroundFocusStatus: null,
@@ -1370,6 +1380,7 @@ async function _findAndFocusImage(
           sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
         });
       } else {
+        trace("sort-around-focus", "t_settled");
         set({
           focusedImageId: imageId,
           _focusedImageKnownOffset: offset,
@@ -1380,6 +1391,7 @@ async function _findAndFocusImage(
       }
     } else {
       // Outside buffer — load a page centered on the image
+      trace("sort-around-focus", "t_seeking");
       set({ sortAroundFocusStatus: "Seeking…" });
 
       // Abort any in-flight extends/scroll-seeks from the previous search
@@ -1411,6 +1423,16 @@ async function _findAndFocusImage(
       //
       // In phantom mode, we use _seekGeneration instead (no focusedImageId
       // to drive the sort-around-focus scroll effect).
+      // NOTE: t_first_useful_pixel and t_settled fire back-to-back here
+      // because the store can only observe "buffer state updated", not
+      // "browser painted the new row" or "scroll-to-focused-image effect
+      // ran". Both numbers will be equal in the dashboard until a future
+      // refactor wires t_settled emission into useScrollEffects (after
+      // the centring scroll completes) and t_first_useful_pixel into the
+      // virtualizer's first-row render. Treat them as a single
+      // "buffer-ready" signal for now.
+      trace("sort-around-focus", "t_first_useful_pixel");
+      trace("sort-around-focus", "t_settled");
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
@@ -1483,6 +1505,7 @@ async function _findAndFocusImage(
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (fallbackFirstPage) {
+      trace("sort-around-focus", "t_settled");
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1497,6 +1520,7 @@ async function _findAndFocusImage(
         sortAroundFocusStatus: null,
       });
     } else {
+      trace("sort-around-focus", "t_settled");
       set({ sortAroundFocusStatus: null, loading: false });
     }
   } finally {
@@ -1613,6 +1637,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[] }) => {
+    trace("search", "t_0");
     const { dataSource, params, pitId: oldPitId } = get();
 
     // Capture neighbours of the focused image BEFORE the search replaces
@@ -1636,6 +1661,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // reappear despite the user having just clicked it to refresh.
     stopNewImagesPoll();
 
+    trace("search", "t_ack");
     set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0, _pendingFocusDelta: null, _phantomFocusImageId: null });
 
     // Abort all in-flight extends from the previous search and set a
@@ -1766,6 +1792,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           );
         }
       } else {
+        trace("search", "t_first_useful_pixel", { total: result.total });
+        trace("search", "t_settled");
         set({
           results: result.hits,
           bufferOffset: 0,
@@ -2134,7 +2162,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  seek: async (globalOffset: number) => {
+  seek: async (globalOffset: number, traceAction: string = "seek") => {
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const params = frozenParams(rawParams, get);
 
@@ -2164,6 +2192,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
     set({ loading: true, error: null });
+    trace(traceAction, "t_ack");
 
     const seekStartTime = Date.now();
     // Performance marks for DevTools profiling — visible in the Performance
@@ -3134,6 +3163,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Effect #6 in useScrollEffects will only adjust scrollTop if there's
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
+      trace(traceAction, "t_first_useful_pixel");
+      trace(traceAction, "t_settled");
       set({
         results: result.hits,
         bufferOffset: actualOffset,

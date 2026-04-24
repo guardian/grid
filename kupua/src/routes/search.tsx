@@ -156,7 +156,7 @@ function SearchPage() {
       visibleCount={visibleCount}
       bufferLength={bufferLength}
       loading={loading}
-      onSeek={seek}
+      onSeek={(offset) => seek(offset, "scrubber-seek")}
       getSortLabel={getSortLabel}
       onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}
