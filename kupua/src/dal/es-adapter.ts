@@ -597,7 +597,14 @@ export class ElasticsearchDataSource implements ImageDataSource {
             hits: orderedHits.map((hit) => hit._source),
             total: fallbackResult.hits.total.value,
             took: fallbackResult.took,
-            sortValues: orderedHits.map((hit) => hit.sort),
+            sortValues: orderedHits.map((hit) =>
+              // Belt-and-braces: match the main return path's slice so stored
+              // cursors never grow to length-(N+1) if this path ever evolves
+              // to retain PIT. Currently a no-op (non-PIT ES returns length-N).
+              hit.sort.length > effectiveSort.length
+                ? hit.sort.slice(0, effectiveSort.length)
+                : hit.sort,
+            ),
             // No pitId — caller should open a new one if needed
           };
         } catch (fallbackErr) {

@@ -112,6 +112,9 @@
 <div id="grid" class="grid" hidden></div>
 <div class="legend" id="legend" hidden>Each sparkline point = one audit run. Hover for details. Targets from perceived-perf-audit.md. <strong>"—" cells are by-design gaps</strong>: not all actions instrument all four phases. Specifically: <code>density-swap</code>, <code>scrubber-scroll</code>, <code>fullscreen-exit</code> and <code>open-detail</code> only emit <code>t_0</code> and <code>t_settled</code> (no ack / first-pixel); <code>filter-toggle</code> has no first-pixel site. Empty cells reflect missing trace sites, not regressions.</div>
 
+<!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
+<script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
+
 <script>
 // ---------------------------------------------------------------------------
 // Targets (action → {ack, settle, ceiling} in ms)
@@ -184,19 +187,8 @@ function ingestLog(data) {
   render();
 }
 
-// 1. Try window.__PERCEIVED_LOG__ (injected by perceived-log.js)
-if (window.__PERCEIVED_LOG__) {
-  ingestLog(window.__PERCEIVED_LOG__);
-} else {
-  // 2. Try fetch (works over http)
-  fetch("./perceived-log.json")
-    .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-    .then(ingestLog)
-    .catch(() => {
-      // 3. Show file picker fallback
-      document.getElementById("picker").hidden = false;
-    });
-}
+// Autoload trigger — moved to bottom of script (after all declarations).
+// See IIFE at end of this <script> block.
 
 // File picker fallback
 document.getElementById("filepick").addEventListener("change", (e) => {
@@ -417,9 +409,21 @@ function render() {
     charts.set(id, chart);
   }
 }
-</script>
 
-<!-- Load the sibling .js file first (data over file://) -->
-<script src="perceived-log.js" onerror="/* file may not exist yet */"></script>
+(async () => {
+  // 1) Sibling JS file set window.__PERCEIVED_LOG__ — works on file:// too.
+  if (window.__PERCEIVED_LOG__) {
+    ingestLog(window.__PERCEIVED_LOG__);
+    return;
+  }
+  // 2) Fetch (works when served over http://).
+  try {
+    const res = await fetch("./perceived-log.json", { cache: "no-store" });
+    if (res.ok) { ingestLog(await res.json()); return; }
+  } catch (e) { /* blocked on file://, fall through */ }
+  // 3) Show file picker fallback.
+  document.getElementById("picker").hidden = false;
+})();
+</script>
 </body>
 </html>

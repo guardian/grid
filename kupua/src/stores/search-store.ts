@@ -1700,26 +1700,34 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
 
     try {
-      // Open a new PIT on non-local ES for consistent pagination
-      let newPitId: string | null = null;
-      if (!IS_LOCAL_ES) {
-        try {
-          newPitId = await dataSource.openPit("1m");
-          // Bump PIT generation so in-flight seek/extend operations that
-          // captured the old pitId know their PIT is stale and skip it
-          // instead of hitting a 404. See es-audit.md Issue #1.
-          set({ _pitGeneration: get()._pitGeneration + 1 });
-        } catch (e) {
-          console.warn("[search] Failed to open PIT, proceeding without:", e);
-        }
-      }
+      // Bump PIT generation BEFORE any await so in-flight seek/extend
+      // operations that captured the old pitId are immediately invalidated
+      // (previously bumped after openPit resolved — too late for extends
+      // that fire during the sequential PIT open). See es-audit.md Issue #1.
+      set({ _pitGeneration: get()._pitGeneration + 1 });
 
-      // Initial search — use searchAfter (first page, no cursor)
-      const result = await dataSource.searchAfter(
-        { ...params, length: PAGE_SIZE },
-        null, // no cursor — first page
-        newPitId,
-      );
+      // Open PIT and fire the first search in parallel to save ~131 ms per
+      // search (PIT open is pure network RTT). The first page doesn't use
+      // search_after cursors, so it doesn't need the PIT id upfront.
+      // First searchAfter passes pitId=null → index-prefixed /{index}/_search.
+      // PIT id from openPit() is stored in state for all subsequent
+      // extends/seeks/fills.
+      //
+      // CRITICAL: openPit is wrapped in .catch so a PIT rejection does NOT
+      // fail the whole Promise.all (naïve form would reject on first failure).
+      const [newPitId, result] = await Promise.all([
+        IS_LOCAL_ES
+          ? Promise.resolve(null)
+          : dataSource.openPit("1m").catch((e) => {
+              console.warn("[search] Failed to open PIT, proceeding without:", e);
+              return null as string | null;
+            }),
+        dataSource.searchAfter(
+          { ...params, length: PAGE_SIZE },
+          null, // no cursor — first page
+          null, // no PIT — index-prefixed /{index}/_search
+        ),
+      ]);
 
       const now = new Date().toISOString();
 

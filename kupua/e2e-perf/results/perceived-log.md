@@ -121,3 +121,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 46 | — | 348 | 348 | — |
 | JB4 | scrubber-scroll | — | — | — | 26 | — |
 | JB5 | fullscreen-exit | — | — | — | 5 | — |
+
+---
+
+## [short] P2-4 done (5c59f4d24 (dirty), 2026-04-24)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 412 | 412 | — |
+| PP2 | sort-no-focus | 41 | — | 250 | 250 | — |
+| PP3 | sort-around-focus | 44 | 242 | 599 | 599 | 358 |
+| PP4 | sort-around-focus | 46 | 260 | 633 | 633 | 367 |
+| PP5 | filter-toggle | 41 | 225 | — | 438 | 213 |
+| PP6 | density-swap | — | — | — | 200 | — |
+| PP7 | scrubber-seek | 1 | — | 708 | 708 | — |
+| PP7b | scrubber-seek | 1 | — | 683 | 683 | — |
+| PP7c | scrubber-scroll | — | — | — | 109 | — |
+| PP8 | search | 0 | 223 | 734 | 734 | 511 |
+| PP9 | search | 0 | — | 271 | 272 | — |
+| PP10 | position-map | — | — | — | 2290 | — |
+| PP6b | density-swap | — | — | — | 349 | — |
+| PP6c | density-swap | — | — | — | 313 | — |
+
+---
+
+## [long] P2-4 done (5c59f4d24 (dirty), 2026-04-24)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 181 | 181 | — |
+| JA2 | open-detail | — | — | — | 108 | — |
+| JA3 | metadata-click | 47 | 526 | 953 | 953 | 426 |
+| JB1 | search | 0 | — | 207 | 207 | — |
+| JB2 | facet-click | 61 | — | 473 | 473 | — |
+| JB3 | facet-click | 45 | — | 274 | 274 | — |
+| JB4 | scrubber-scroll | — | — | — | 27 | — |
+| JB5 | fullscreen-exit | — | — | — | 5 | — |

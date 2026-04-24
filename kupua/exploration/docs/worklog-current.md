@@ -12,8 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none — P2-1 _source filtering complete and committed 24-Apr-2026.
-Next up: P2-4 parallel PIT open, documented in perceived-perf-phase-2-handoff.md.)
+(none)
 
 ## Session Log
 

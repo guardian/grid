@@ -14,6 +14,46 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 24 April 2026 — P2-4: Parallel PIT open (~131 ms off every search)
+
+**Goal:** Eliminate the sequential `await openPit → await searchAfter` in
+`search()`. PIT open is pure network RTT (~131 ms over SSH tunnel). The first
+page doesn't use `search_after` cursors, so it doesn't need the PIT id upfront.
+
+**Implementation (search-store.ts):**
+- Replaced sequential `await openPit + await searchAfter` with `Promise.all`.
+- First `searchAfter` passes `pitId: null` → index-prefixed `/{index}/_search`.
+- `openPit` is wrapped in `.catch(→ null)` so a PIT rejection doesn't fail the
+  whole `Promise.all` (rejection isolation). Logs a warning and degrades to
+  `pitId=null` (same as `IS_LOCAL_ES` mode), which all extends/seeks handle.
+- `_pitGeneration` bump moved BEFORE the `await Promise.all(...)` (was after
+  `openPit` resolved). Ensures any concurrent extend that fires during the
+  parallel window is immediately invalidated, even if `openPit` fails.
+- `IS_LOCAL_ES` guard preserved: local ES short-circuits the PIT slot to
+  `Promise.resolve(null)` — `openPit` is never called on local.
+
+**Bundled defensive cleanup (es-adapter.ts):**
+- In the PIT-404/410 fallback return path, added the same `hit.sort.length >
+  effectiveSort.length` slice that the main return path already does. Currently
+  a no-op (non-PIT ES returns length-N sort values), but eliminates a latent
+  foot-gun if the fallback path ever evolves to retain PIT.
+
+**New tests (search-store-pit.test.ts, 5 tests, IS_LOCAL_ES mocked to false):**
+1. `openPit` rejection → search succeeds, `pitId=null`, no error state.
+2. `state.pitId` equals the id returned by `openPit` after search.
+3. `extendForward` works after a parallel-mode search.
+4. `_pitGeneration` is incremented synchronously before `Promise.all` resolves.
+5. `_pitGeneration` increments on each `search()`.
+
+**Test counts:** 352 → 357 (all passing).
+
+**Measured results (median of 3 runs, TEST cluster, label "P2-4 done"):**
+PP2 324→250ms, PP5 546→438ms, PP8 903→734ms, PP9 387→272ms,
+JA1 276→181ms, JB1 300→207ms, JB2 750→473ms, JB3 348→274ms.
+PP1 median 412ms (SSH jitter — best run 256ms, 3-run spread 172ms;
+P2-1 baseline 379ms was similarly noisy). All other search metrics
+improved 24–277ms. P2-4 confirmed effective.
+
 ### 24 April 2026 — P2-1: _source filtering switched to allowlist for all searches
 
 **Goal:** Reduce ES response payload for all searches by switching from

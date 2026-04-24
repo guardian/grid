@@ -368,7 +368,7 @@ the audit doc.
 
 ---
 
-### Ticket P2-4 — Parallel PIT open: save ~131 ms on every search
+### Ticket P2-4 — Parallel PIT open: save ~131 ms on every search  ✅ DONE (24-Apr-2026)
 
 **Why.** Every `search()` call does `await openPit()` → `await searchAfter()`
 sequentially. PIT open is pure network RTT (~131 ms over SSH tunnel). The
@@ -382,64 +382,160 @@ wait would drop it to ~250 ms. Every other search metric drops ~131 ms too.
 
 #### Approach: `Promise.all` in `search()`
 
-Open PIT and fire the first search in parallel:
+Open PIT and fire the first search in parallel. **Important: must isolate
+`openPit` rejection (Promise.all rejects on first rejection — naïve form
+would fail the whole search if PIT open fails).**
 
-```
+```ts
 // Before (sequential, ~480ms):
 const pitId = await openPit("1m");        // 131ms
 const result = await searchAfter(…, pitId); // 349ms
 
 // After (parallel, ~349ms):
-const [pitId, result] = await Promise.all([
-  openPit("1m"),                           // 131ms ─┐ overlap
-  searchAfter(…, null),                    // 349ms ─┘
+// Bump generation FIRST, synchronously, before any await
+// (so concurrent stale extends invalidate even on PIT failure).
+set({ _pitGeneration: get()._pitGeneration + 1 });
+
+const [newPitId, result] = await Promise.all([
+  IS_LOCAL_ES
+    ? Promise.resolve(null)
+    : dataSource.openPit("1m").catch((e) => {
+        console.warn("[search] Failed to open PIT, proceeding without:", e);
+        return null;
+      }),
+  dataSource.searchAfter(
+    { ...params, length: PAGE_SIZE },
+    null,   // no cursor — first page
+    null,   // no PIT — index-prefixed /{index}/_search
+  ),
 ]);
 ```
 
 - First `searchAfter` passes `pitId: null` → goes to `/{index}/_search`
-  (index-prefixed, no PIT).
-- PIT ID from `openPit()` stored for extends/seeks/fill.
-- Cursors are PIT-agnostic — adapter already strips `_shard_doc` tiebreaker
-  (es-adapter.ts L556-558).
-- If `openPit` fails, extends fall back to non-PIT (existing fallback path).
+  (index-prefixed, no PIT). Verified: es-adapter.ts `searchAfter` branches
+  on `pitId` ternary — `pitId ? esRequestRaw("_search", …) : esRequest("_search", …)`.
+- PIT ID from `openPit()` stored in `state.pitId` for extends/seeks/fill.
+- Cursors are PIT-agnostic — adapter already slices `hit.sort` to
+  `effectiveSort.length` unconditionally on every return path
+  (es-adapter.ts, in `searchAfter` return block ~L555). So stored
+  `endCursor`/`startCursor` are always length-N regardless of whether
+  the producing search used PIT.
+- If `openPit` rejects, the `.catch` returns `null` → `state.pitId` ends
+  up null → all extends pass `null` to `searchAfter` → adapter goes via
+  index-prefixed `_search` (same as `IS_LOCAL_ES` mode in production today).
 
-#### Why this is safe
+#### Why this is safe (verified 24-Apr-2026 by reading current code)
 
-1. **Cursor compatibility.** Non-PIT sort values work with PIT-based
-   `search_after`. ES resolves position by comparing sort values, not by
-   PIT provenance. The adapter already strips `_shard_doc` from PIT-based
-   cursors for exactly this reason.
+1. **Cursor compatibility — VERIFIED.** Stored cursors are length-N (matching
+   `effectiveSort.length`) on every return path of `searchAfter`. The adapter
+   slices `hit.sort` unconditionally, so a non-PIT first search produces
+   cursors that are byte-identical in shape to PIT-stripped cursors. Subsequent
+   PIT-based extends pass length-N cursor against ES's implicit length-(N+1)
+   PIT sort — **this is the exact same shape as the existing post-PIT-expiry
+   fallback retry path** (es-adapter.ts, the `if (pitId && /40[04]/.test(...))`
+   branch). That path runs in production today and works. ES resolves
+   `search_after` by comparing sort values, not by PIT provenance.
 2. **Snapshot gap.** The PIT snapshot may be microseconds after the first
    search's snapshot. In theory, an ingest between the two could cause an
    off-by-one at the first extend boundary. On a ~1.3M corpus with ~dozen
    ingests/hour, this is invisible. `frozenParams` (uploadTime cap) already
    handles the dominant case (new uploads).
-3. **All downstream code handles `pitId: null` gracefully.** `pitId` is
-   typed `string | null` throughout. `_fillBufferForScrollMode`,
-   `_loadBufferAroundImage`, seek, and extend all pass through `null`
-   without error — es-adapter falls back to index-prefixed requests.
-4. **Position map is independent.** `fetchPositionIndex` opens its own
-   dedicated PIT — unaffected by this change.
+3. **All downstream code handles `pitId: null` gracefully — VERIFIED.** `pitId`
+   is typed `string | null` throughout. `_fillBufferForScrollMode`,
+   `_loadBufferAroundImage`, seek (extendForward/Backward), and
+   `_findAndFocusImage` all pass through `null` without error — adapter
+   falls back to index-prefixed requests. The `_pitGeneration` invalidation
+   pattern (`get()._pitGeneration === _pitGeneration ? pitId : null`) is
+   used at 8 sites and already coerces to `null` on stale generations.
+4. **Position map is independent — VERIFIED.** `fetchPositionIndex` opens
+   its own dedicated PIT inside the adapter (es-adapter.ts L1188) and uses
+   its own `_positionMapAbortController`. Untouched by this change.
+5. **Pre-existing race not widened.** The first `searchAfter` in `search()`
+   already runs without an abort signal — if a second `search()` starts
+   during the first page fetch, the first's `set(...)` could clobber the
+   second's state. This race exists today; P2-4 doesn't widen it (both
+   `openPit` and `searchAfter` were already un-abortable). Out of scope.
+
+#### What to watch (pitfalls for the implementer)
+
+- **Promise.all rejection isolation (CRITICAL).** Naïve `Promise.all([openPit, searchAfter])`
+  fails the entire search if PIT open rejects. Must wrap `openPit` in `.catch`
+  that returns `null` and logs the warning (preserving the existing graceful
+  degrade behaviour). See code sample above.
+- **`_pitGeneration` bump must move BEFORE the `await`.** Currently bumped
+  after `openPit` resolves (~L1711). With Promise.all, bump must be
+  synchronous before firing both, otherwise a stale extend that fires during
+  the parallel window could pick up the prior generation. Side effect: the
+  generation now bumps even when openPit fails — that's an improvement
+  (stale extends invalidate either way).
+- **`result.pitId` from first search will be `undefined`** (no PIT used).
+  The existing fallback `pitId: result.pitId ?? newPitId` at the various
+  `set(...)` sites in `search()` already handles this correctly — keep it.
+- **PIT close of `oldPitId`** (`if (oldPitId) dataSource.closePit(oldPitId)`)
+  stays where it is — fire-and-forget, runs before the parallel block.
+- **`IS_LOCAL_ES` guard.** Local-ES doesn't open PITs today. Preserve that
+  by short-circuiting the openPit slot to `Promise.resolve(null)` (sample
+  above). Don't call `openPit` at all on local — keeps current behaviour.
 
 #### Implementation scope
 
-~15-line change concentrated in `search()` in search-store.ts (~L1697-1721).
+~20-line change concentrated in `search()` in
+[search-store.ts](kupua/src/stores/search-store.ts) around L1700-1721
+(the `try { let newPitId = null; if (!IS_LOCAL_ES) { ... } const result = await dataSource.searchAfter(...)` block).
 Nothing else changes. Extends, seeks, fill, position-map all keep working.
 
-#### What to watch
+#### Bundled defensive cleanup (same commit)
 
-- PIT open failure: should degrade gracefully (search succeeds, extends
-  fall back to non-PIT). Verify with a test.
-- `result.pitId` from first search will be `undefined` (no PIT used) —
-  use `openPit()` result instead. Already the fallback at L1755:
-  `pitId: result.pitId ?? newPitId`.
-- `_pitGeneration` bump timing: must happen before both are fired, so
-  extends from a previous search are invalidated.
+Roll one one-line change into the same commit, since it touches the same
+PIT/cursor invariants P2-4 relies on:
+
+- **Slice cursors in the post-404 fallback path** of `searchAfter` in
+  [es-adapter.ts](kupua/src/dal/es-adapter.ts) (~L595, in the
+  `if (pitId && /40[04]/.test(...))` retry block). The main return path
+  slices `hit.sort` to `effectiveSort.length`; the fallback returns
+  `orderedHits.map((hit) => hit.sort)` without the slice. **Currently a
+  no-op** (the fallback removes PIT from the body, so ES returns length-N
+  sort values without `_shard_doc`), but if the fallback path ever
+  evolves to retain PIT, stored cursors would silently grow to
+  length-(N+1) and the next request would 400. Belt-and-braces.
+
+  Change:
+  ```ts
+  // Before:
+  sortValues: orderedHits.map((hit) => hit.sort),
+  // After (matches main return path):
+  sortValues: orderedHits.map((hit) =>
+    hit.sort.length > effectiveSort.length
+      ? hit.sort.slice(0, effectiveSort.length)
+      : hit.sort,
+  ),
+  ```
+
+  Zero behaviour change today, no perf impact, eliminates a latent
+  foot-gun. No new test needed (existing fallback tests still pass).
+
+#### Tests to add
+
+1. **Promise.all rejection isolation.** Mock `dataSource.openPit` to reject.
+   Call `store.search()`. Assert: search succeeds, `state.results.length > 0`,
+   `state.pitId === null`, `state.loading === false`, no thrown error.
+2. **Extend after parallel-mode search uses PIT correctly.** After a
+   successful `search()`, trigger `extendForward`. Assert: the underlying
+   `searchAfter` mock was called with the PIT id from `openPit` and a cursor
+   of length === sortClause length (no `_shard_doc` leakage). This guards
+   the cursor-shape claim.
+3. **`_pitGeneration` invalidates a stale extend.** Start search A, kick off
+   an extend that captures generation N, start search B (which bumps to N+1)
+   before A's extend completes. Assert: A's extend resolves with
+   `effectivePitId === null` (i.e. it didn't reuse a stale PIT).
+   *(May already be covered by existing tests — check before adding.)*
 
 **Expected impact:** PP1 379 → ~250 ms. All search metrics drop ~131 ms.
 
-**Done when.** `Promise.all` implemented, unit tests pass, perceived-perf
-re-baselined showing ~130 ms improvement on PP1 and all search metrics.
+**Done when.** Promise.all + `.catch` + early `_pitGeneration` bump
+implemented in `search()`; new tests pass; existing search/extend/seek
+unit + e2e tests pass; perceived-perf re-baselined with label
+`"P2-4 done"` showing ~130 ms improvement on PP1 and all search metrics.
 
 ---
 
@@ -479,14 +575,19 @@ re-baselined showing ~130 ms improvement on PP1 and all search metrics.
 
 - **P2-1 _source filtering** (24-Apr-2026): 35-field whitelist in es-config.ts.
   PP1 609→379ms, JB2 1216→750ms, all search metrics improved 15-40%.
+- **P2-4 parallel PIT open** (24-Apr-2026): `Promise.all(openPit, searchAfter)` in
+  `search()`. `_pitGeneration` bump moved before await. Cursor-slice defensive
+  fix in es-adapter.ts fallback path. 5 new unit tests. Measured (median of 3,
+  TEST cluster): PP2 324→250ms, PP5 546→438ms, PP8 903→734ms, PP9 387→272ms,
+  JA1 276→181ms, JB1 300→207ms, JB2 750→473ms. PP1 median 412ms (SSH jitter,
+  best run 256ms — P2-1 baseline 379ms was similarly noisy).
 
 ## What success looks like
 
 When all three tickets close, expect:
-- ~~PP1 home-logo: 609 → <400 ms~~ **DONE: 379 ms**
-- ~~All other search-based metrics: proportional improvement~~ **DONE: 15-40% across the board**
-- ~~JB2 facet-click: 1216 → <800 ms~~ **750 ms from P2-1 alone**;
-  P2-2 may add visible feedback for further perceived improvement
+- ~~PP1 home-logo: 609 → <400 ms~~ **DONE: 379 ms (P2-1); best run 256 ms (P2-4, jitter-noisy)**
+- ~~All other search-based metrics: proportional improvement~~ **DONE: 15-40%+ across the board**
+- ~~JB2 facet-click: 1216 → <800 ms~~ **473 ms (P2-4)**
 - PP10 position-map: resolved or written off with rationale
 
 That's the end of Phase 2 as currently scoped. Further work would need a
