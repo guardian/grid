@@ -30,8 +30,10 @@ import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, Query
 
 import scala.jdk.CollectionConverters._
 import java.net.URI
+import java.util.concurrent.{Callable, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.google.common.cache.{Cache, CacheBuilder}
 
 class MediaApi(
                 auth: Authentication,
@@ -50,6 +52,15 @@ class MediaApi(
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
+
+  // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
+  // concurrent requests for the same query share a single in-flight Bedrock call, and
+  // subsequent requests within the TTL window skip Bedrock entirely.
+  private val embeddingCache: Cache[String, Future[List[Float]]] =
+    CacheBuilder.newBuilder()
+      .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
+      .expireAfterWrite(config.aiSearchEmbeddingCacheTtlSeconds, TimeUnit.SECONDS)
+      .build[String, Future[List[Float]]]()
 
   private val searchParamList = List(
     "q",
@@ -629,8 +640,31 @@ class MediaApi(
     def semanticSearchByText(searchParams: SearchParams, query: String): Future[SearchResults] = {
       val semanticRetrievalWindow = Math.max(config.aiSearchSemanticRetrievalWindow, searchParams.length)
       val countAll = searchParams.countAll.getOrElse(true)
+      // Normalise key so that "Dogs" and "dogs " share a cache entry.
+      val cacheKey = query.trim.toLowerCase
+      val queryHash = Integer.toHexString(cacheKey.hashCode)
+      val cachedEmbeddingFuture = Option(embeddingCache.getIfPresent(cacheKey))
+
+      cachedEmbeddingFuture.foreach { _ =>
+        logger.info(
+          logMarker,
+          s"AI search embedding cache hit queryHash=$queryHash queryLength=${query.length} cacheSize=${embeddingCache.size()}"
+        )
+      }
+
+      // cache.get(key, callable) is atomic: if two requests race on the same key, only one
+      // Callable fires and both callers receive the same Future.
+      val embeddingFuture = embeddingCache.get(cacheKey, new Callable[Future[List[Float]]] {
+        def call(): Future[List[Float]] = {
+          logger.info(
+            logMarker,
+            s"AI search embedding cache miss queryHash=$queryHash queryLength=${query.length} cacheSize=${embeddingCache.size()}"
+          )
+          embedder.createQueryEmbedding(query)
+        }
+      })
       for {
-        embedding <- embedder.createQueryEmbedding(query)
+        embedding <- embeddingFuture
         searchResults <- elasticSearch.knnSearch(
           embedding,
           k = semanticRetrievalWindow,
