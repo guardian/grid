@@ -27,7 +27,7 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
-import { cancelSearchDebounce } from "@/lib/orchestration/search";
+import { cancelSearchDebounce, pushNavigate } from "@/lib/orchestration/search";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { DataSearchPill } from "./SearchPill";
@@ -437,7 +437,7 @@ export function ImageTable() {
         const globalOffset = twoTier ? idx : bufferOffset + idx;
         storeImageOffset(imageId, globalOffset, buildSearchKey(searchParamsRef.current), cursor);
       }
-      navigate({
+      pushNavigate(navigate, {
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });

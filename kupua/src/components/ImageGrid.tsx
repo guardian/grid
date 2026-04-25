@@ -32,6 +32,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { pushNavigate } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import {
@@ -384,7 +385,7 @@ export function ImageGrid() {
         const globalOffset = twoTier ? idx : bufferOffset + idx;
         storeImageOffset(imageId, globalOffset, buildSearchKey(searchParams), cursor);
       }
-      navigate({
+      pushNavigate(navigate, {
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
       });

@@ -40,6 +40,9 @@ export function StatusBar() {
 
   const toggleDensity = useCallback(() => {
     trace("density-swap", "t_0", { from: isGrid ? "grid" : "table" });
+    // Deliberate push (not replace). Density is a useful view per the
+    // guiding philosophy: back after a density toggle re-toggles density
+    // without re-search (display-only-key dedup guard bails).
     updateSearch({ density: isGrid ? "table" : undefined });
     // t_settled = browser is idle after the density change.
     //

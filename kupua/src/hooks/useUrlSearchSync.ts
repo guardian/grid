@@ -83,6 +83,10 @@ export function useUrlSearchSync() {
         (v) => v !== undefined && v !== ""
       );
       if (!hasAnyParam) {
+        // Raw navigate — not pushNavigate(). Default-injection uses
+        // replace: true (invisible URL normalisation, not a push), so the
+        // user-initiated flag is moot. If this ever becomes a push, it
+        // must switch to pushNavigate().
         navigate({
           to: "/search",
           search: cleanParams(DEFAULT_SEARCH as Record<string, string | undefined>),

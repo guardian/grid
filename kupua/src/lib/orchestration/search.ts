@@ -260,3 +260,72 @@ export function consumeUserInitiatedFlag(): boolean {
   return was;
 }
 
+// ===========================================================================
+// Navigation helpers — explicit intent for every push navigate() call
+// ===========================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NavigateFn = (opts: any) => any;
+
+/**
+ * Module-level flag: true when the current detail was entered via SPA
+ * navigation (pushNavigate from grid/table), false when cold-loaded
+ * (paste, bookmark, reload). Consumed once by ImageDetail's deep-link
+ * synthesis effect to decide whether to synthesise a bare-list entry.
+ *
+ * SPA entry: the list entry already exists in history — no synthesis needed.
+ * Cold load: no prior kupua entry exists — synthesis is required so
+ * closeDetail's history.back() stays inside kupua.
+ */
+let _detailEnteredViaSpa = false;
+
+export function markDetailEnteredViaSpa(): void {
+  _detailEnteredViaSpa = true;
+}
+
+/** Consume (read-and-clear) the SPA-entry flag. */
+export function consumeDetailEnteredViaSpaFlag(): boolean {
+  const was = _detailEnteredViaSpa;
+  _detailEnteredViaSpa = false;
+  return was;
+}
+
+/**
+ * Push-navigate with user-initiated semantics (the default for most sites).
+ *
+ * Calls `markUserInitiatedNavigation()` immediately before `navigate()` so
+ * the resulting `useUrlSearchSync` effect knows this was a user action and
+ * preserves focus/position ("Never Lost").
+ *
+ * Also marks the navigation as SPA-initiated so that ImageDetail's
+ * deep-link synthesis knows not to insert a redundant bare-list entry
+ * (the list entry already exists from the pre-detail page).
+ *
+ * Use this for every raw `navigate()` push call **except** logo-reset
+ * (which deliberately opts out — see `pushNavigateAsPopstate`).
+ *
+ * Today, sites that touch only display-only keys (`image`, `density`) hit
+ * the dedup guard before reading the flag, so marking is a no-op — but it
+ * removes a footgun: any future change that makes one of these sites touch
+ * a search-affecting key would silently trigger popstate (reset-to-top)
+ * semantics without the mark.
+ */
+export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
+  markUserInitiatedNavigation();
+  markDetailEnteredViaSpa();
+  navigate(opts);
+}
+
+/**
+ * Push-navigate with popstate semantics (deliberately skips marking).
+ *
+ * The resulting `useUrlSearchSync` effect sees `consumeUserInitiatedFlag() === false`
+ * and treats the navigation as a popstate — resetting to offset 0 with no
+ * focus carry. This is the correct behaviour for logo-reset ("start over").
+ *
+ * Only logo-reset should use this. All other push sites use `pushNavigate`.
+ */
+export function pushNavigateAsPopstate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
+  navigate(opts);
+}
+

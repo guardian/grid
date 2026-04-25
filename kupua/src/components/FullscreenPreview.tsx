@@ -10,9 +10,17 @@
  *   Backspace → exits fullscreen, returns to grid/table
  *   f         → exits fullscreen, returns to grid/table (toggle)
  *
+ * When entered FROM ImageDetail (in detail at P → `f`):
+ *   Esc       → exits fullscreen, stays in ImageDetail at P
+ *   Backspace → exits fullscreen AND closes ImageDetail via history.back().
+ *              The detail at P remains forward-reachable (forward re-opens
+ *              detail at P in non-fullscreen — fullscreen is a UI mode of
+ *              detail, not a separate URL state).
+ *   f         → exits fullscreen, stays in ImageDetail at P (toggle)
+ *
  * This is deliberately separate from ImageDetail's fullscreen:
  *   - ImageDetail fullscreen: Esc exits fullscreen but stays in image detail.
- *     Backspace closes image detail.
+ *     Backspace closes image detail (via history.back()).
  *   - FullscreenPreview: Esc/Backspace/f all return to grid/table. No
  *     intermediate image detail view.
  *

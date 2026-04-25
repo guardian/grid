@@ -22,11 +22,19 @@
  *   `←/→` prev/next image,
  *   `Escape` exit fullscreen only (never navigates — close via the
  *   "← Back" button in the UI).
- * - "← Back" button navigates to the search list (strips `image` from
- *   URL params, replace: true). This is NOT history.back() — it always
- *   goes to the list regardless of history depth. Browser back is a
- *   separate operation (undoes the last navigation — may go to a
- *   previous image if the user manually edited the URL).
+ * - "← Back" button calls `history.back()` to pop the detail entry.
+ *   Forward then re-opens the detail. All four close affordances (back
+ *   button, double-click, Backspace, swipe-to-dismiss) share the same
+ *   `closeDetail` callback which calls `markUserInitiatedNavigation()`
+ *   then `history.back()`.
+ * - On mount, a bare-list entry is always synthesised below the detail
+ *   so that `history.back()` lands on a kupua search page (not the
+ *   referring site or a blank tab). This costs one extra browser-back
+ *   to leave kupua, but guarantees the in-app "Back to search" button
+ *   always works — regardless of how the user arrived.
+ *   Exception: when entered via SPA navigation (pushNavigate from
+ *   grid/table), synthesis is skipped because the list entry already
+ *   exists in history.
  * - Prev/next navigates through the search results stored in the Zustand
  *   search store, replacing `imageId` in the URL with `replace: true`
  *   (so back always returns to the table, not through every viewed image).
@@ -48,7 +56,7 @@ import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageU
 import { NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
-import { scrollFocusedIntoView } from "@/lib/orchestration/search";
+import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
@@ -87,6 +95,47 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Only set once (on mount). If the user navigates prev/next, imageId changes
   // but entryImageIdRef stays the same.
   const entryImageIdRef = useRef(imageId);
+
+  // ── Deep-link synthesis ────────────────────────────────────────────
+  //
+  // If the user landed directly on ?image=X (paste, bookmark, reload),
+  // synthesise a bare-list entry below the detail so closeDetail's
+  // history.back() has somewhere to go. Without this, history.back()
+  // would exit kupua (or the tab).
+  //
+  // Skip synthesis when the detail was entered via SPA navigation
+  // (pushNavigate from grid/table) — the list entry already exists in
+  // history. Without this check, every open-detail would insert a
+  // phantom bare-list entry, doubling the back-presses needed.
+  //
+  // Both replaceState + pushState fire in the same synchronous tick;
+  // Chrome and Firefox coalesce, so no rendered or URL-bar flicker.
+  //
+  // Result: stack goes from [...prior] [detail@A] to [...prior] [bare-list] [detail@A].
+  const hasSynthesizedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (hasSynthesizedRef.current) return;
+    hasSynthesizedRef.current = true;
+
+    // SPA navigation (grid/table click) — list entry already in history.
+    if (consumeDetailEnteredViaSpaFlag()) return;
+
+    // Save the current state and URL before replacing
+    const detailState = history.state;
+    const detailUrl = window.location.href;
+
+    // Build the bare-list URL (current URL minus ?image=...)
+    const url = new URL(detailUrl);
+    url.searchParams.delete("image");
+    const bareListUrl = url.pathname + url.search;
+
+    // Step 1: replace current entry with bare-list (null state — TSR will
+    // create its own state when it processes this entry via popstate)
+    history.replaceState(null, "", bareListUrl);
+    // Step 2: push the detail URL back with the original TSR state intact
+    history.pushState(detailState, "", detailUrl);
+  }, []);
+
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.
   const detailWrapperRef = useRef<HTMLDivElement>(null);
   // Carousel strip — the inner element translated by swipe gestures.
@@ -207,6 +256,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       const cursor = extractSortValues(img, searchParamsOrderBy);
       storeImageOffset(img.id, globalIndex, searchKey, cursor);
 
+      // Raw navigate — not pushNavigate(). Traversal uses replace: true
+      // (not a push), so the user-initiated flag is moot — the dedup guard
+      // bails on display-only-key-only changes. If this ever becomes a push,
+      // it must switch to pushNavigate().
       navigate({
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id }),
@@ -220,25 +273,22 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     prevImage, nextImage, goToPrev, goToNext, currentGlobalIndex,
   } = useImageTraversal(imageId, onNavigate);
 
-  // Close image detail — navigate to the search list by stripping the
-  // `image` param from the URL.  This is NOT history.back() — it's a
-  // deliberate "go to search view" action.  Browser back remains a
-  // separate operation (undoes the last navigation, which might be
-  // another image if the user manually edited the URL).
+  // Close image detail via history.back(). All four close affordances
+  // (← Back button, double-click, Backspace, swipe-to-dismiss) share this
+  // callback. Using history.back() instead of navigate({ replace: true })
+  // means the detail entry stays in the forward stack — forward re-opens
+  // the detail. Both close paths (explicit close and browser-back) now
+  // produce identical stacks.
   //
-  // Uses replace: true so the current image entry is replaced with the
-  // list — pressing browser back from the list won't bounce back to the
-  // image the user just closed.
+  // markUserInitiatedNavigation() before history.back() ensures the
+  // resulting popstate is treated as user-initiated by useUrlSearchSync,
+  // preserving focus/position. In the common case (only the display-only
+  // `image` key changed), the dedup guard bails before reading the flag,
+  // but the marking is belt-and-braces safety for edge cases.
   const closeDetail = useCallback(() => {
-    navigate({
-      to: "/search",
-      search: (prev: Record<string, unknown>) => {
-        const { image: _, ...rest } = prev;
-        return rest;
-      },
-      replace: true,
-    });
-  }, [navigate]);
+    markUserInitiatedNavigation();
+    history.back();
+  }, []);
 
   // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
   // Alt+f works when focus is in an editable field.
@@ -544,8 +594,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
               onClick={(e) => {
                 e.preventDefault();
+                // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
+                // Logo-reset should behave like a popstate: reset to offset 0, no focus
+                // carry. See SearchBar logo for the identical pattern.
                 resetToHome(() =>
-                  navigate({ to: "/search", search: DEFAULT_SEARCH }),
+                  pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
                 );
               }}
             >

@@ -12,6 +12,7 @@ import {
   setExternalQuery,
   cancelSearchDebounce,
   getCqlInputGeneration,
+  pushNavigateAsPopstate,
 } from "@/lib/orchestration/search";
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
@@ -47,6 +48,17 @@ export function SearchBar() {
 
   const handleQueryChange = useCallback(
     (queryStr: string) => {
+      // First keystroke of a new typing session: commit the current URL
+      // as a history entry so the pre-edit context is reachable via back.
+      // Without this, the debounced replace overwrites the current entry
+      // and the user loses access to their previous search context.
+      // Raw pushState copies the current entry exactly — no React re-render,
+      // no search, no side effects. The debounced replace then overwrites
+      // this copy with the new query.
+      if (!_debounceTimerId) {
+        history.pushState(history.state, "", window.location.href);
+      }
+
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
       setDebounceTimer(setTimeout(() => {
         setDebounceTimer(null);
@@ -99,8 +111,11 @@ export function SearchBar() {
         onClick={(e) => {
           e.preventDefault();
           trace("home-logo", "t_0");
+          // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
+          // Logo-reset should behave like a popstate: reset to offset 0, no focus
+          // carry. The flag-defaults-to-false rule gives these semantics for free.
           resetToHome(() =>
-            navigate({ to: "/search", search: DEFAULT_SEARCH }),
+            pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
           );
         }}
       >

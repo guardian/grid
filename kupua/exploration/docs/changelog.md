@@ -14,6 +14,111 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 25 April 2026 — Bug fix: debounced typing didn't create back-navigable entries
+
+**Bug:** Type "cats" → wait → type "dogs" → press back → lands on the referring site
+(e.g. theguardian.com), not on the "cats" search. Debounced query changes always used
+`replace: true`, so each settled query overwrote the previous one in-place — no history
+entry was ever created between typing sessions.
+
+**Fix (SearchBar.tsx):** On the first keystroke of a new typing session (detected by
+`_debounceTimerId` being null), push the current URL via `history.pushState(...)` before
+starting the debounce timer. This commits the pre-edit context as a history entry.
+Subsequent keystrokes within the 300ms window hit `clearTimeout` + `setTimeout` as
+before, and the debounce callback fires `updateSearch({ replace: true })` which replaces
+the pushed entry. Net result: each *settled* query becomes a discrete back target, but
+intermediate keystrokes ("c", "ca", "cat") don't pollute history.
+
+**Edge case — slow typers (>300ms between keystrokes):** Each keystroke would start a
+fresh typing session and push. This means very slow typing could create intermediate
+entries. Acceptable trade-off: 300ms is fast enough that normal typing stays within one
+session, and even slow-typer entries are valid settled queries (debounce fired between
+them).
+
+**New e2e test:** "back navigates between settled debounced queries (typed via UI)" —
+types "cats" via the CQL search input, waits, types "dogs", presses back, verifies
+landing on "cats" (not the referring page), then back again to the home page (no query).
+
+**Regression check:** 165 e2e tests pass (0 failures), 357 unit tests pass.
+
+### 25 April 2026 — Browser history baseline tightening (6 items)
+
+Implemented all 6 baseline items from `browser-history-baseline-tightening-handoff.md`.
+The goal: tighten kupua's history model so push/replace decisions and popstate-vs-user
+distinctions are consistent across all call sites — prerequisite for snapshot-based
+position restoration.
+
+**Item 1 — closeDetail → history.back():**
+- Rewrote `ImageDetail.closeDetail` from `navigate({ replace: true })` to
+  `markUserInitiatedNavigation(); history.back()`. All four close affordances
+  (← Back button, double-click, Backspace, swipe-to-dismiss) share this callback.
+- Forward now re-opens the detail (was dead-end before).
+- Added deep-link synthesis on mount: if `history.length <= 2` (fresh tab), synthesise
+  a bare-list entry below the detail via same-tick `replaceState` + `pushState`. No
+  flicker (Chrome/Firefox coalesce). Gate at 2 (not 1) because Playwright/Safari count
+  `about:blank` as a history entry.
+- Updated `ImageDetail.tsx` doc comment to reflect new close semantics.
+
+**Item 2 — pushNavigate / pushNavigateAsPopstate helpers:**
+- Added two helpers to `lib/orchestration/search.ts`:
+  - `pushNavigate(navigate, opts)` — calls `markUserInitiatedNavigation()` then `navigate()`.
+  - `pushNavigateAsPopstate(navigate, opts)` — calls `navigate()` without marking.
+- Switched `enterDetail-grid` (ImageGrid) and `enterDetail-table` (ImageTable) to
+  `pushNavigate()`. No behavioural change (display-only key dedup bails before reading
+  the flag), but makes intent explicit and removes a footgun.
+- Added comments at `traversal-onNavigate` and `default-injection` explaining why they
+  stay raw (replace-only sites — helpers are push-only).
+
+**Item 3 — logo-reset → pushNavigateAsPopstate:**
+- Switched both logo-reset sites (SearchBar.tsx and ImageDetail.tsx) to
+  `pushNavigateAsPopstate()`. Previously depended on a *missing* call for correctness;
+  now the opt-out from marking is explicit.
+- Added comments at both sites explaining why this is the exception.
+
+**Item 4 — density toggle comment:**
+- Added comment at `StatusBar.tsx` density toggle explaining the deliberate push choice
+  (density is a useful view per the guiding philosophy).
+
+**Item 5 — metadata click-to-search comment:**
+- Added comment at `ImageMetadata.tsx` explaining the single-push design (new query +
+  close detail in one navigate; splitting would create a redundant entry).
+
+**Item 6 — FullscreenPreview doc comment:**
+- Updated `FullscreenPreview.tsx` doc comment to document the new history-aware Backspace
+  semantics when entered from ImageDetail.
+
+**E2E tests (7 new, 12 total in browser-history.spec.ts):**
+- Forward after close-button re-opens detail (item 1)
+- Backspace close then forward re-opens detail (item 1)
+- Deep-link synthesis: fresh tab → close → lands on bare list (item 1)
+- Back across density toggle re-toggles density (item 4)
+- Logo reset from search bar → back with popstate semantics (item 3)
+- Logo reset from image detail → back restores previous context (item 3)
+- Metadata click single push; back returns to detail (item 5)
+
+**Regression check (initial):** 163 e2e tests pass (0 failures), 357 unit tests pass.
+
+**Bug fix (same session):** Removed the `history.length` gate from deep-link synthesis.
+The gate (`DEEP_LINK_HISTORY_GATE = 2`) was meant to distinguish fresh tabs from tabs
+with prior browsing, but `history.length` is unreliable across browsers and contexts.
+A tab with 20+ guardian.com entries reported `length > 2`, synthesis was skipped, and
+"Back to search" exited kupua entirely. Fix: always synthesise on cold loads. Added
+e2e test #10 covering this scenario.
+
+**Bug fix (same session):** Unconditional synthesis created phantom entries. Every
+SPA-navigated detail open inserted a bare-list entry even though the list entry already
+existed in history, doubling back-presses needed. Fix: `pushNavigate()` now sets a
+module-level `_detailEnteredViaSpa` flag; the synthesis `useLayoutEffect` consumes it
+and skips synthesis when set. Cold loads (paste/bookmark/reload) never call
+`pushNavigate()` → flag stays false → synthesis runs. Added e2e test #8 (SPA open-close
+cycle, no phantom entries).
+
+**Final regression check:** 164 e2e tests pass (0 failures), 357 unit tests pass.
+
+**Analysis doc updated:** `browser-history-analysis.md` — history entry rules table,
+audit table "Today's behaviour" column, E2E coverage section, baseline section marked
+complete. Item 1 section updated to document SPA-entry flag guard.
+
 ### 24 April 2026 — Fix: swipe-to-dismiss bypassed zoom guard after double-tap
 
 **Bug:** Double-tap to zoom in (especially near image top edge), then swipe down

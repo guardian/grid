@@ -77,6 +77,11 @@ function useMetadataSearch() {
       // results list — even if the query is unchanged (e.g. clicking the
       // same byline from a second image). In list/panel context `image`
       // is already absent (no-op).
+      // Metadata click-to-search: single push combining new query + close
+      // detail (image: undefined). Splitting into two pushes would insert a
+      // redundant [list@old-query] entry the user never asked to visit.
+      // The old-query list is reachable one further back from the detail
+      // entry anyway.
       updateSearch({ query: newQuery || undefined, image: undefined });
     },
     [searchParams.query, updateSearch],
