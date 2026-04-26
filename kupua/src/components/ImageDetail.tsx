@@ -57,6 +57,7 @@ import { NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
 import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
+import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-key";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
@@ -118,7 +119,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     hasSynthesizedRef.current = true;
 
     // SPA navigation (grid/table click) — list entry already in history.
-    if (consumeDetailEnteredViaSpaFlag()) return;
+    if (consumeDetailEnteredViaSpaFlag()) {
+      // Stamp the entry so that browser back/forward to this entry
+      // (which remounts ImageDetail) knows a bare-list entry already
+      // exists below it. Without this, the one-shot consume flag is
+      // gone and the synthesis would re-fire, truncating forward entries.
+      if (!history.state?._bareListSynthesized) {
+        history.replaceState({ ...history.state, _bareListSynthesized: true }, "");
+      }
+      return;
+    }
+
+    // Already synthesized on a previous mount (popstate back to this entry).
+    // The bare-list entry below us still exists — don't re-synthesize
+    // or we'll truncate forward history.
+    if (history.state?._bareListSynthesized) return;
 
     // Save the current state and URL before replacing
     const detailState = history.state;
@@ -129,11 +144,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     url.searchParams.delete("image");
     const bareListUrl = url.pathname + url.search;
 
-    // Step 1: replace current entry with bare-list (null state — TSR will
-    // create its own state when it processes this entry via popstate)
-    history.replaceState(null, "", bareListUrl);
+    // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
+    // so this synthesised entry can participate in the snapshot system.
+    history.replaceState({ kupuaKey: mintKupuaKey() }, "", bareListUrl);
     // Step 2: push the detail URL back with the original TSR state intact
-    history.pushState(detailState, "", detailUrl);
+    // (including its kupuaKey, if any). Stamp it so re-mounts skip.
+    history.pushState({ ...detailState, _bareListSynthesized: true }, "", detailUrl);
   }, []);
 
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.
@@ -264,6 +280,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id }),
         replace: true,
+        state: withCurrentKupuaKey(),
       });
     },
     [navigate, searchKey, searchParamsOrderBy],

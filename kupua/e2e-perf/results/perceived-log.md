@@ -161,3 +161,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 45 | — | 274 | 274 | — |
 | JB4 | scrubber-scroll | — | — | — | 27 | — |
 | JB5 | fullscreen-exit | — | — | — | 5 | — |
+
+---
+
+## [short] future-polish-restore (ca0b79bfc (dirty), 2026-04-25)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 307 | 307 | — |
+| PP2 | sort-no-focus | 43 | — | 232 | 232 | — |
+| PP3 | sort-around-focus | 46 | 253 | 638 | 638 | 369 |
+| PP4 | sort-around-focus | 44 | 232 | 643 | 643 | 381 |
+| PP5 | filter-toggle | 42 | 263 | — | 448 | 185 |
+| PP6 | density-swap | — | — | — | 201 | — |
+| PP7 | scrubber-seek | 1 | — | 729 | 729 | — |
+| PP7b | scrubber-seek | 1 | — | 835 | 835 | — |
+| PP7c | scrubber-scroll | — | — | — | 108 | — |
+| PP8 | search | 0 | 214 | 775 | 775 | 563 |
+| PP9 | search | 0 | — | 240 | 240 | — |
+| PP10 | position-map | — | — | — | 2346 | — |
+| PP6b | density-swap | — | — | — | 385 | — |
+| PP6c | density-swap | — | — | — | 306 | — |
+
+---
+
+## [long] future-polish-restore (ca0b79bfc (dirty), 2026-04-25)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 164 | 164 | — |
+| JA2 | open-detail | — | — | — | 99 | — |
+| JA3 | metadata-click | 45 | 494 | 940 | 940 | 423 |
+| JB1 | search | 0 | — | 210 | 210 | — |
+| JB2 | facet-click | 55 | — | 602 | 602 | — |
+| JB3 | facet-click | 46 | — | 278 | 278 | — |
+| JB4 | scrubber-scroll | — | — | — | 25 | — |
+| JB5 | fullscreen-exit | — | — | — | 7 | — |

@@ -119,7 +119,7 @@ export function suppressDensityFocusSave(): void {
 
 let _sortFocusRatio: number | null = null;
 
-function saveSortFocusRatio(ratio: number): void {
+export function saveSortFocusRatio(ratio: number): void {
   _sortFocusRatio = ratio;
 }
 
@@ -593,7 +593,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         if (localIdx >= 0) {
           const geo = geometryRef.current;
           const rowTop = localIndexToPixelTop(localIdx, geo);
-          saveSortFocusRatio((rowTop - el.scrollTop) / el.clientHeight);
+          const ratio = (rowTop - el.scrollTop) / el.clientHeight;
+          saveSortFocusRatio(ratio);
         }
       }
       return;
@@ -678,6 +679,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // ID, the re-fire bails (both focusedImageId and _phantomFocusImageId are
   // null) and the corrected pixel position is never applied.
   const phantomIdRef = useRef<string | null>(null);
+  // Track the results array reference at the time of the first successful
+  // scroll for this generation. Async offset correction re-fires DON'T
+  // change results (only bufferOffset + imagePositions), so the ref stays
+  // the same → re-fire is allowed. Buffer extends DO change results →
+  // ref mismatch → re-fire is skipped (prevents scroll teleport).
+  const scrollAppliedResultsRef = useRef<readonly unknown[] | null>(null);
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
@@ -692,6 +699,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       sortFocusRatioRef.current = moduleRatio;
       phantomIdRef.current = store._phantomFocusImageId;
       sortFocusRatioGenRef.current = sortAroundFocusGeneration;
+      scrollAppliedResultsRef.current = null; // reset for new generation
+    } else if (scrollAppliedResultsRef.current !== null &&
+               scrollAppliedResultsRef.current !== store.results) {
+      // Same generation, but the results array reference changed.
+      // This is a buffer extend (not async offset correction — offset
+      // correction only changes bufferOffset + imagePositions, not results).
+      // Skip re-fire to prevent scroll teleport back to the focused image.
+      return;
     }
 
     const id = store.focusedImageId ?? phantomIdRef.current;
@@ -754,6 +769,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const rowIdx = localIndexToRowIndex(idx, geo);
       virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
+
+    // Record which results array this scroll was applied against.
+    // Re-fires with the same results (async offset correction) are
+    // allowed. Re-fires with a different results (buffer extends)
+    // are blocked above to prevent scroll teleport.
+    scrollAppliedResultsRef.current = store.results;
   }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]);
 
   // -------------------------------------------------------------------------

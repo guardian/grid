@@ -68,14 +68,14 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Tests.** Run from repo root with `--prefix kupua` or absolute paths — **never `cd kupua && ...`** (terminal tool sometimes strips `cd`). Append `2>&1 | tee /tmp/kupua-test-output.txt`. Foreground. No `tail`/`head`/`sleep`. Never re-run a running test — `read_file /tmp/kupua-test-output.txt`.
+**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root — npm scripts set cwd=`kupua/` so configs and artefacts resolve correctly. **Never `cd kupua && ...`** (zsh strips `cd`). **Never `npm --prefix kupua exec`** or bare `npx playwright`/`vitest` — those keep cwd=root and dump `test-results/`/`playwright-report/` there. Tee to absolute `/tmp/kupua-test-output.txt`. Foreground. No `tail`/`head`/`sleep`. Don't re-run a running test — `read_file /tmp/kupua-test-output.txt`. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
 
 | Surface | Command | Agent runs | Agent suggests |
 |---|---|---|---|
 | Unit | `npm --prefix kupua test` | After any `kupua/src/` change | — |
-| Playwright e2e | `npm --prefix kupua exec -- playwright test` | After component/hook/store/scroll change | — |
-| Jank perf | `node kupua/e2e-perf/run-audit.mjs --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
-| Perceived perf | `node kupua/e2e-perf/run-audit.mjs --perceived-only --runs 3 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
+| Playwright e2e | `npm --prefix kupua run test:e2e` | After component/hook/store/scroll change | — |
+| Jank perf | `npm --prefix kupua run test:perf -- --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
+| Perceived perf | `npm --prefix kupua run test:perf -- --perceived-only --runs 3 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
 | Tier-matrix | `npm --prefix kupua run test:e2e:tiers` | Never | Only when user asks |
 
 Playwright + perf surfaces: stop dev server on :3000 (and :3010/3020/3030 for tier-matrix) first — warn user, wait. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.

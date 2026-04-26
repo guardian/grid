@@ -21,9 +21,24 @@ import {
   setPrevSearchOnly,
   consumeUserInitiatedFlag,
   markUserInitiatedNavigation,
+  markPushSnapshot,
   setExternalQuery,
 } from "@/lib/orchestration/search";
+import { withFreshKupuaKey, withCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { snapshotStore } from "@/lib/history-snapshot";
+import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
+import { buildSearchKey } from "@/lib/image-offset-cache";
+import { saveSortFocusRatio } from "@/hooks/useScrollEffects";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+
+// Track the kupuaKey of the entry we're currently "on". Updated at the
+// end of every effect run. On popstate, history.state already reflects
+// the DESTINATION — _lastKupuaKey still holds the SOURCE (the entry
+// we're leaving) so we can capture a snapshot for it.
+// Starts undefined — intentional: on the first effect run there is no
+// predecessor to capture a departure snapshot for.
+let _lastKupuaKey: string | undefined;
 
 // Re-export so existing consumers don't need to change their imports yet.
 // New code should import directly from "@/lib/home-defaults".
@@ -91,6 +106,7 @@ export function useUrlSearchSync() {
           to: "/search",
           search: cleanParams(DEFAULT_SEARCH as Record<string, string | undefined>),
           replace: true,
+          state: withCurrentKupuaKey(),
         });
         return; // navigate will re-trigger this effect with the new URL
       }
@@ -139,6 +155,10 @@ export function useUrlSearchSync() {
     // position (or trigger an unnecessary ES lookup for an image that may
     // not exist in the old results).
     //
+    // UNLESS we have a snapshot for this history entry — in that case,
+    // pass the snapshot's anchor as sortAroundFocusId to restore near
+    // where the user left this search context.
+    //
     // User-initiated changes (isPopstate=false): "Never Lost" — pass
     // focusedImageId to search() so the store can find the image in the
     // new results and scroll to it.
@@ -148,7 +168,82 @@ export function useUrlSearchSync() {
     // Sort-only relaxation: skip viewport anchor when only orderBy changed.
     let focusPreserveId: string | null = null;
     let phantomAnchor: string | null = null;
-    if (!isPopstate) {
+    let snapshotHints: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number } | undefined;
+    let frozenUntil: string | undefined;
+
+    if (isPopstate) {
+      // Capture a snapshot for the entry we're LEAVING before restoring
+      // the destination. The store still has the old state (setParams/
+      // search haven't fired yet). This enables forward navigation to
+      // restore the entry we just backed away from.
+      //
+      // Guard: only overwrite an existing snapshot when explicit focus
+      // provides a stable anchor. In phantom mode the push-time snapshot
+      // (from markPushSnapshot before navigate) has the most accurate
+      // anchor — it was taken while the phantomFocusImageId was still
+      // alive. By departure time that one-shot ID is consumed and
+      // getViewportAnchorId() may return a slightly different image due
+      // to sub-pixel scroll differences, causing an anchor-walk cascade
+      // on repeated back/forward cycles.
+      if (_lastKupuaKey) {
+        const existing = snapshotStore.get(_lastKupuaKey);
+        if (!existing || !existing.anchorIsPhantom) {
+          const departingSnap = buildHistorySnapshot();
+          snapshotStore.set(_lastKupuaKey, departingSnap);
+        }
+      }
+
+      // Snapshot-based restore on browser back/forward.
+      // Look up the snapshot for the current history entry's kupuaKey.
+      // suppressNextRestore is NOT checked here — it guards
+      // restoreAroundCursor (the ImageDetail race), not the URL sync
+      // popstate path. Logo-reset entries have no snapshot by construction
+      // (freshly minted kupuaKey), so they fall through to reset-to-top.
+      const kupuaKey = getCurrentKupuaKey();
+      const snapshot = kupuaKey ? snapshotStore.get(kupuaKey) : undefined;
+      if (snapshot && snapshot.anchorImageId) {
+        const currentSearchKey = buildSearchKey(
+          searchOnly as Record<string, string | undefined>,
+        );
+        const isStrictMatch = snapshot.searchKey === currentSearchKey;
+
+        if (isStrictMatch) {
+          if (snapshot.anchorIsPhantom) {
+            // Viewport anchor — restore position without promoting to
+            // explicit focus. Pass as phantom so search() positions the
+            // buffer but doesn't set focusedImageId.
+            phantomAnchor = snapshot.anchorImageId;
+          }
+          focusPreserveId = snapshot.anchorImageId;
+          snapshotHints = {
+            anchorCursor: snapshot.anchorCursor,
+            anchorOffset: snapshot.anchorOffset,
+          };
+          // Inject the viewport ratio so Effect #9 restores the image
+          // at the same row position, not always at the top of the viewport.
+          if (snapshot.viewportRatio != null) {
+            saveSortFocusRatio(snapshot.viewportRatio);
+          }
+          // Restore the freeze boundary so new images don't silently
+          // leak into back/forward results. Use the LATER of the
+          // snapshot's and the store's current newCountSince — this is
+          // a monotonic ratchet: history never advances the boundary to
+          // `now` (no surprise images), but also never rolls it backward
+          // (if the user absorbed new images via ticker on ANY entry,
+          // going back to an older entry still includes those images).
+          {
+            const snapshotSince = snapshot.newCountSince;
+            const storeSince = useSearchStore.getState().newCountSince;
+            const effective = snapshotSince && storeSince
+              ? (snapshotSince > storeSince ? snapshotSince : storeSince)
+              : snapshotSince ?? storeSince;
+            if (effective) {
+              frozenUntil = effective;
+            }
+          }
+        }
+      }
+    } else {
       const explicitFocus = useSearchStore.getState().focusedImageId;
       phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
       focusPreserveId = explicitFocus ?? phantomAnchor;
@@ -156,6 +251,7 @@ export function useUrlSearchSync() {
 
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });
+    _lastKupuaKey = getCurrentKupuaKey();
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed
@@ -169,7 +265,16 @@ export function useUrlSearchSync() {
       searchKeys.map((k) => [k, undefined])
     );
     setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
-    search(focusPreserveId, phantomAnchor ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds() } : undefined);
+    const searchOptions = phantomAnchor && snapshotHints
+      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil } as const
+      : phantomAnchor
+        ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), frozenUntil } as const
+        : snapshotHints
+          ? { snapshotHints, frozenUntil } as const
+          : frozenUntil
+            ? { frozenUntil } as const
+            : undefined;
+    search(focusPreserveId, searchOptions);
 
     // Clear the external-query latch. cancelSearchDebounce(newQuery) sets
     // _externalQuery so the debounce callback can detect stale updates from
@@ -199,12 +304,23 @@ export function useUpdateSearchParams() {
 
   return useCallback(
     (updates: Partial<UrlSearchParams>, options?: { replace?: boolean }) => {
+      const isReplace = options?.replace ?? false;
+      // Capture snapshot for the predecessor entry BEFORE navigate fires.
+      // Only on push — replaces don't create a new history entry, so the
+      // predecessor's snapshot (captured on the original push) stays valid.
+      if (!isReplace) {
+        markPushSnapshot();
+      }
       markUserInitiatedNavigation();
       const merged = { ...paramsRef.current, ...updates };
+      // kupuaKey: mint a fresh one on push (new history entry), re-pass
+      // the current one on replace (same entry, key must survive).
+      const state = isReplace ? withCurrentKupuaKey() : withFreshKupuaKey();
       navigate({
         to: "/search",
         search: cleanParams(merged as Record<string, string | undefined>),
-        replace: options?.replace ?? false,
+        replace: isReplace,
+        state,
       });
     },
     [navigate]

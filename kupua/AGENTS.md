@@ -44,6 +44,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
+| **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-rearchitecture-handoff.md` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
 | **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
@@ -84,8 +85,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **357 Vitest** unit/integration tests (~37s) — `npm test`
-- **165 Playwright E2E** tests (~6min) — `npx playwright test`
+- **396 Vitest** unit/integration tests (~37s) — `npm test`
+- **183 Playwright E2E** tests (~6min) — `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
@@ -97,7 +98,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ### Known Issues
 
 - **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
-- **P4b focusDrift:** Partially fixed. May have secondary cause.
+- ~~**P4b focusDrift:**~~ Fixed. Phantom drift (Bug A coordinate mismatch + Bug B anchor-walk), seek column-alignment.
 - ~~**Scrubber thumb flash-to-top:**~~ Fixed. DOM guard in Scrubber.tsx.
 
 ### Backlog
@@ -109,6 +110,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 - [ ] Column reordering via drag-and-drop
 - [x] ~~Consolidate hardcoded `nonFree: "true"` to `DEFAULT_SEARCH`~~ → `home-defaults.ts`
 - [x] ~~Phantom focus mode (click-to-open, settings menu, coarse pointer)~~ → `ui-prefs-store.ts`, `SettingsMenu.tsx`
+- [x] ~~Browser history Phases 1–4~~ → kupuaKey, snapshot capture, popstate restore, reload survival
+- [x] ~~Browser history Phase 5 — experimental flag retirement~~ → focus-as-anchor promoted, lenient match removed (dead code)
+- [x] ~~Phantom anchor drift on history back/forward~~ — Bug A (coordinate mismatch), Bug B (anchor-walk cascade), seek column-alignment fix. Rearchitecture handoff: `position-preservation-rearchitecture-handoff.md`
 
 ### Deferred to Later Phases
 
@@ -141,6 +145,14 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
 | Prefetch cadence workplan | `exploration/docs/zz Archive/prefetch-cadence-workplan.md` | Traversal session model, cadence EMA, 7-session plan (1–4+6 done, 5 skipped) |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
+
+## Stable Test Corpora (TEST cluster, pinned via `until`)
+
+| Mode | Total | URL search params |
+|---|---|---|
+| Scroll (<1k) | 958 | `nonFree=true&query=keyword:"mid length half celebration"&until=2026-03-04T00:00:00Z` |
+| Two-tier (1k–65k) | 14,399 | `nonFree=true&until=2026-03-04T00:00:00Z&query=city:Dublin` |
+| Seek (>65k) | 1,304,298 | `nonFree=true&until=2026-03-04T00:00:00Z` |
 
 ## Tech Stack
 

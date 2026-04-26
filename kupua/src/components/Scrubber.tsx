@@ -492,8 +492,12 @@ export function Scrubber({
         // DOM 0px. Don't consume the generation so we keep waiting.
         return;
       }
-    } else if (prevTop > 50 && thumbTop < 10) {
-      // Original flash guard for sort-around-focus transients.
+    } else if (loading && prevTop > 50 && thumbTop < 10) {
+      // Flash guard for sort-around-focus transients: bufferOffset briefly
+      // drops to 0 (placeholder) while _findAndFocusImage resolves the real
+      // deep offset. During that window loading is still true. When loading
+      // is false the position is final (e.g. sort change without focus that
+      // legitimately lands at the top) — let the write through.
       // Don't update prevStableThumbTopRef — keep the old reference point
       // so we can detect when the correction arrives.
       return;
@@ -507,7 +511,7 @@ export function Scrubber({
       const tipH = tipEl.offsetHeight || 28;
       tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
     }
-  }, [thumbTop, isDragging, trackHeight, isScrollMode]);
+  }, [thumbTop, isDragging, trackHeight, isScrollMode, loading]);
 
   // -------------------------------------------------------------------------
   // Scroll-mode continuous sync

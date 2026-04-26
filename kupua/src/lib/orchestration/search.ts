@@ -3,6 +3,9 @@ import { useSearchStore } from "@/stores/search-store";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { resetVisibleRange } from "@/hooks/useDataWindow";
 import { isMobile } from "@/lib/is-mobile";
+import { withFreshKupuaKey, getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
+import { snapshotStore } from "@/lib/history-snapshot";
 
 // ===========================================================================
 // Debounce cancellation (from SearchBar.tsx)
@@ -261,6 +264,32 @@ export function consumeUserInitiatedFlag(): boolean {
 }
 
 // ===========================================================================
+// Snapshot capture — per-entry position data for back/forward restoration
+// ===========================================================================
+
+/**
+ * Capture a snapshot of the current scroll/focus position, keyed by the
+ * **predecessor** entry's kupuaKey.
+ *
+ * Called inside push helpers BEFORE navigate(). At this point the store
+ * still shows pre-edit state — the URL being committed as a back target.
+ * This is load-bearing for debounced typing: the first-keystroke push
+ * captures the predecessor context, not the keystroke just typed.
+ *
+ * Reads the predecessor kupuaKey internally — callers don't pass it.
+ */
+export function markPushSnapshot(): void {
+  const predecessorKey = getCurrentKupuaKey();
+  if (!predecessorKey) {
+    devLog("[markPushSnapshot] no predecessor kupuaKey — skipping");
+    return;
+  }
+  const snap = buildHistorySnapshot();
+  snapshotStore.set(predecessorKey, snap);
+  devLog("[markPushSnapshot] captured for", predecessorKey, snap);
+}
+
+// ===========================================================================
 // Navigation helpers — explicit intent for every push navigate() call
 // ===========================================================================
 
@@ -311,9 +340,14 @@ export function consumeDetailEnteredViaSpaFlag(): boolean {
  * semantics without the mark.
  */
 export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
+  // Capture snapshot for the predecessor entry BEFORE navigate fires.
+  // The store is still showing pre-navigate state at this point.
+  markPushSnapshot();
   markUserInitiatedNavigation();
   markDetailEnteredViaSpa();
-  navigate(opts);
+  // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
+  // any caller-supplied state so both survive.
+  navigate({ ...opts, state: withFreshKupuaKey(opts.state) });
 }
 
 /**
@@ -326,6 +360,9 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
  * Only logo-reset should use this. All other push sites use `pushNavigate`.
  */
 export function pushNavigateAsPopstate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
-  navigate(opts);
+  // Mint a fresh kupuaKey even though logo-reset skips snapshot capture.
+  // The *next* push from this entry needs a predecessor key to capture
+  // a snapshot against.
+  navigate({ ...opts, state: withFreshKupuaKey(opts.state) });
 }
 

@@ -54,6 +54,18 @@ describe("buildSearchKey", () => {
     expect(with_).toBe(without);
   });
 
+  it("strips offset param (position within results, not search context)", () => {
+    const with_ = buildSearchKey({ query: "cats", offset: 0 });
+    const without = buildSearchKey({ query: "cats" });
+    expect(with_).toBe(without);
+  });
+
+  it("strips internal pagination fields (length, countAll)", () => {
+    const with_ = buildSearchKey({ query: "cats", length: 200, countAll: true });
+    const without = buildSearchKey({ query: "cats" });
+    expect(with_).toBe(without);
+  });
+
   it("strips null and empty-string values", () => {
     const key = buildSearchKey({ query: "cats", orderBy: null, nonFree: "" });
     expect(key).toBe(JSON.stringify([["query", "cats"]]));

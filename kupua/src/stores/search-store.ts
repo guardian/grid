@@ -358,7 +358,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[] }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -544,7 +544,7 @@ function sortDistCacheKey(params: SearchParams): string {
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
   const gen = ++_newImagesPollGeneration;
-  _newImagesPollTimer = setInterval(async () => {
+  const tick = async () => {
     if (gen !== _newImagesPollGeneration) return; // stale poll
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
@@ -565,7 +565,12 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
     } catch {
       // Silently ignore — ticker is non-critical
     }
-  }, NEW_IMAGES_POLL_INTERVAL);
+  };
+  // Fire immediately so the ticker appears without waiting a full interval.
+  // For fresh searches this counts 0 (harmless). For popstate restores with
+  // a frozenUntil timestamp, it shows the correct count right away.
+  tick();
+  _newImagesPollTimer = setInterval(tick, NEW_IMAGES_POLL_INTERVAL);
 }
 
 function stopNewImagesPoll() {
@@ -1095,20 +1100,36 @@ async function _loadBufferAroundImage(
     }
   }
 
+  // Column-align: trim backward hits so bufferStart is a multiple of
+  // columns. Without this, the target image lands at column
+  // `backwardHits.length % columns` — an arbitrary column determined by
+  // PAGE_SIZE, not by the image's actual position. After trimming,
+  // `targetLocalIndex % columns === exactOffset % columns` — the natural
+  // column for the image's global position.
+  const { columns: cols } = getScrollGeometry();
+  const rawBufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
+  const trim = cols > 1 ? Math.min(
+    (cols - (rawBufferStart % cols)) % cols,
+    backwardResult.hits.length,
+  ) : 0;
+
+  const bwHits = trim > 0 ? backwardResult.hits.slice(trim) : backwardResult.hits;
+  const bwSortValues = trim > 0 ? backwardResult.sortValues.slice(trim) : backwardResult.sortValues;
+
   // Combine: backward hits + target image + forward hits
   // The target image itself is NOT in either result (search_after is exclusive).
   const combinedHits: (Image | undefined)[] = [
-    ...backwardResult.hits,
+    ...bwHits,
     targetHit,
     ...forwardResult.hits,
   ];
   const combinedSortValues: SortValues[] = [
-    ...backwardResult.sortValues,
+    ...bwSortValues,
     sortValues,
     ...forwardResult.sortValues,
   ];
 
-  const bufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
+  const bufferStart = rawBufferStart + trim;
   const startCursor = combinedSortValues.length > 0
     ? combinedSortValues[0]
     : null;
@@ -1124,7 +1145,7 @@ async function _loadBufferAroundImage(
     total: forwardResult.total,
     pitId: forwardResult.pitId ?? pitId,
     /** Buffer-local index of the target image. */
-    targetLocalIndex: backwardResult.hits.length,
+    targetLocalIndex: bwHits.length,
   };
 }
 
@@ -1216,6 +1237,8 @@ async function _findAndFocusImage(
         focusedImageId: null,
         _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
+        _seekTargetLocalIndex: -1,
+        _seekTargetGlobalIndex: -1,
       });
     } else {
       trace("sort-around-focus", "t_settled");
@@ -1292,6 +1315,8 @@ async function _findAndFocusImage(
           focusedImageId: null,
           _phantomFocusImageId: null,
           sortAroundFocusStatus: null,
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
         });
       } else {
         trace("sort-around-focus", "t_settled");
@@ -1636,7 +1661,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[] }) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => {
     trace("search", "t_0");
     const { dataSource, params, pitId: oldPitId } = get();
 
@@ -1662,7 +1687,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     stopNewImagesPoll();
 
     trace("search", "t_ack");
-    set({ loading: true, error: null, sortAroundFocusStatus: null, newCount: 0, _pendingFocusDelta: null, _phantomFocusImageId: null });
+    // When restoring via frozenUntil (history back/forward), keep the
+    // current newCount so the ticker doesn't flash off and back on.
+    // The immediate poll tick will correct the count within milliseconds.
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _phantomFocusImageId: null });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -1723,13 +1751,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               return null as string | null;
             }),
         dataSource.searchAfter(
-          { ...params, length: PAGE_SIZE },
+          options?.frozenUntil
+            ? { ...params, length: PAGE_SIZE, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
+            : { ...params, length: PAGE_SIZE },
           null, // no cursor — first page
           null, // no PIT — index-prefixed /{index}/_search
         ),
       ]);
 
-      const now = new Date().toISOString();
+      // On popstate restore with a frozenUntil, reuse the original freeze
+      // timestamp so the ticker correctly counts new images since the
+      // user's original search — not since the back/forward navigation.
+      const now = options?.frozenUntil ?? new Date().toISOString();
 
       // Extract cursors from sort values
       const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
@@ -1761,7 +1794,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           seekTime: null,
           params: { ...params, offset: 0 },
           pitId: result.pitId ?? newPitId,
-          newCount: 0,
+          ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
           // Keep loading: true — _findAndFocusImage will set it to false.
           // Keep results/bufferOffset/imagePositions unchanged — old buffer
@@ -1779,7 +1812,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, null, options?.phantomOnly)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? null, options?.phantomOnly)
           .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
@@ -1815,10 +1848,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           focusedImageId: (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
-          newCount: 0,
+          ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
           _extendForwardInFlight: false,
           _extendBackwardInFlight: false,
+          // Clear stale seek targets — a search landing at offset 0 has no
+          // seek context. Without this, a previous seek's global index lingers
+          // and could confuse future effect #6 runs if _seekGeneration ever
+          // bumps without a fresh seek (defence-in-depth).
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
           // When sort-around-focus image is in the first page, bump the
           // generation so the view scrolls to its new position. Without
           // this, the scroll-reset effect leaves scrollTop=0 and the
@@ -3041,6 +3080,28 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       if (result.hits.length === 0) {
         set({ loading: false });
         return;
+      }
+
+      // Column-align the buffer start so images land in their natural column
+      // (globalIdx % columns). Without this, seek produces an arbitrary
+      // bufferOffset → localIdx % columns differs from the image's true
+      // column position, causing visible column shifts on history restore
+      // (which uses the column-aligned _loadBufferAroundImage path).
+      // Same trim logic as _loadBufferAroundImage.
+      const { columns: seekCols } = getScrollGeometry();
+      if (seekCols > 1 && actualOffset % seekCols !== 0) {
+        const seekTrim = (seekCols - (actualOffset % seekCols)) % seekCols;
+        if (seekTrim > 0 && seekTrim < result.hits.length) {
+          result = {
+            ...result,
+            hits: result.hits.slice(seekTrim),
+            sortValues: result.sortValues.slice(seekTrim),
+          };
+          actualOffset += seekTrim;
+          // Adjust backward item count so computeScrollTarget's headroom
+          // detection remains correct.
+          backwardItemCount = Math.max(0, backwardItemCount - seekTrim);
+        }
       }
 
       const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;

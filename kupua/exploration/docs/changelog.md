@@ -14,6 +14,194 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 26 April 2026 — History back/forward: new-images leak fix + monotonic ratchet
+
+**Problem:** Browser back/forward across different search contexts called `search()`,
+which opened a fresh PIT at `now` and set `newCountSince = now`. Images uploaded since
+the original search silently entered the results. The ticker (which counts images since
+`newCountSince`) reset to 0, hiding the fact that the user was seeing different results
+from what they had before.
+
+**Fix — `frozenUntil` option on `search()` (`search-store.ts`, `useUrlSearchSync.ts`):**
+- `HistorySnapshot` gains `newCountSince: string | null` — captured in
+  `buildHistorySnapshot()` from the store, persisted to sessionStorage.
+- `search()` accepts optional `frozenUntil` timestamp. When provided:
+  (a) initial `searchAfter` gets `until: frozenUntil` cap (uses earlier of user's
+  explicit `until` filter and `frozenUntil`); (b) `newCountSince` is set to
+  `frozenUntil` instead of `now`; (c) `newCount` is NOT zeroed (prevents ticker flash).
+- On popstate restore, `frozenUntil = max(snapshot.newCountSince, store.newCountSince)`.
+
+**Monotonic ratchet rule:** The max ensures two properties:
+1. History never advances the freeze boundary to `now` — no surprise new images.
+2. History never rolls back the freeze boundary — if the user absorbed new images via
+   ticker on any entry, going back to an older entry still includes those images.
+
+**Immediate ticker poll (`startNewImagesPoll`):**
+- Extracted the poll body into a `tick()` function, called immediately on poll start
+  (in addition to the 10s interval). On fresh searches this counts 0 (harmless); on
+  popstate restores with `frozenUntil` it shows the correct count instantly instead of
+  after a 10s delay.
+- Updated ES request count tests (+1 for the immediate ticker count()).
+
+**Files changed:** `history-snapshot.ts` (new field), `build-history-snapshot.ts`
+(capture), `search-store.ts` (frozenUntil option, immediate tick, conditional newCount
+reset), `useUrlSearchSync.ts` (ratchet computation, frozenUntil threading),
+`build-history-snapshot.test.ts` (+2 tests), `search-store-extended.test.ts` (count
+adjustments), `new-images-behaviour-comparison.md` (table + ratchet note).
+
+**Test counts:** 398 unit (all pass), 33 browser-history e2e (all pass).
+
+### 25–26 April 2026 — Browser history future polish: Phases 1–4 + flag retirement
+
+Four phases implementing kupuaKey identity, snapshot capture, popstate restore, and
+reload survival. Plus column alignment, scroll-teleport fix, and experimental flag
+retirement.
+
+**Phase 1 — kupuaKey identity (`lib/orchestration/history-key.ts`):**
+- Each history entry gets a unique `kupuaKey` in `history.state`, minted on push.
+- `getCurrentKupuaKey()` reads `window.history.state` (not TSR's internal copy) —
+  browser state is canonical because cold-load synthesis uses raw `replaceState`.
+- All push sites wired: `pushNavigate`, `pushNavigateAsPopstate`, `useUpdateSearchParams`.
+  Replace-only sites re-pass the current key. ImageDetail deep-link synthesis gets a
+  fresh key. `history.scrollRestoration = 'manual'` + `synthesiseKupuaKeyIfAbsent` on
+  app init.
+- 15 unit tests, 4 e2e tests. 372 unit / 169 e2e pass.
+
+**Phase 2 — Snapshot capture (`lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`):**
+- `HistorySnapshot` type: searchKey, anchorImageId, anchorIsPhantom, anchorCursor,
+  anchorOffset, scrollTop, viewportRatio.
+- `SnapshotStore` interface with `MapSnapshotStore` (in-memory) and
+  `SessionStorageSnapshotStore` (survives reload). Compile-time flags.
+- `buildHistorySnapshot()` reads store state + DOM geometry. Anchor selection:
+  explicit focus in click-to-focus mode, viewport-centre image (phantom) otherwise.
+- `markPushSnapshot()` wired into `pushNavigate` (captures before push).
+  `pushNavigateAsPopstate` does NOT capture (by design — it's a reset).
+- 18 unit tests, 2 e2e tests. 390 unit / 171 e2e pass.
+
+**Phase 3 — Popstate restore (`useUrlSearchSync.ts`):**
+- On popstate, looks up snapshot for destination kupuaKey. Strict searchKey match
+  (or lenient if flag was on — now removed). Passes anchor as `sortAroundFocusId` with
+  `snapshotHints` (cursor + offset) to `search()` — reuses the existing sort-around-focus
+  render gate, no new restore path.
+- Popstate departure capture: before restoring destination, captures snapshot for the
+  entry we're LEAVING (`_lastKupuaKey`). Enables forward-after-back.
+- Phantom anchor guard: `anchorIsPhantom` flag → `phantomOnly: true` in `search()` →
+  `_phantomFocusImageId` instead of `focusedImageId` — no spurious focus ring on restore.
+- scrollTop-only fallback for empty-result snapshots.
+- Pre-existing bug fix: ImageDetail deep-link synthesis re-fired on popstate back to a
+  detail entry (one-shot flag already consumed). Fix: stamp `_bareListSynthesized: true`
+  on `history.state` after synthesis; check before re-synthesising.
+- 6 e2e tests. 390 unit / 177 e2e pass.
+
+**Phase 4 — Reload survival (`main.tsx` pagehide handler):**
+- `pagehide` event handler captures snapshot for current kupuaKey before unload/bfcache.
+- Mount-time restore: strict-only searchKey matching (`isMount` check).
+- Bug fix: `buildSearchKey` didn't exclude `offset`/`length`/`countAll` — store params
+  included `length: 200` but URL-derived searchOnly didn't → key mismatch on mount.
+  The lenient flag had masked this for Phase 3.
+- 4 e2e tests (reload restore, reload-then-back, deep reload, bfcache survival).
+  392 unit / 181 e2e pass.
+
+**Viewport ratio preservation:**
+- `viewportRatio` field in snapshot: `(elRect.top - containerRect.top) / clientHeight`.
+- On restore, `saveSortFocusRatio(snapshot.viewportRatio)` before `search()` so Effect #9
+  positions the image at the same viewport fraction, not always at top row.
+- Exported `saveSortFocusRatio` from `useScrollEffects.ts`.
+
+**Column alignment (`search-store.ts`, `_loadBufferAroundImage`):**
+- Anchor image always landed in an arbitrary column (`PAGE_SIZE/2 % columns`). Fix: trim
+  0–(columns-1) items from backward results so `bufferStart % columns === 0`, preserving
+  the image's natural column position. Uses `getScrollGeometry().columns`.
+
+**Scroll teleport fix (`useScrollEffects.ts`, Effect #9):**
+- Buffer extends rebuilt `imagePositions` → new `findImageIndex` ref → Effect #9 re-fired
+  → repositioned at saved ratio. Phase 4's `saveSortFocusRatio` made this trivially
+  reproducible. Fix: `scrollAppliedResultsRef` tracks results array identity — same ref
+  (offset correction) → allow, different ref (extend) → block. New generation resets.
+- First approach (generation guard) failed: blocked essential async offset-correction
+  re-fires (4 scrubber tests failed). Results-identity approach precisely distinguishes
+  offset correction from extends.
+- Regression test: "no scroll teleport after reload restore — extends do not reposition".
+
+**Experimental flag retirement:**
+- `EXPERIMENTAL_FOCUS_AS_ANCHOR_IN_CLICK_TO_FOCUS` → promoted (always on), flag and
+  conditional removed. In click-to-focus mode the focused image is always the anchor;
+  viewport-centre fallback when no focus. Doc comment updated to explain the design.
+- `EXPERIMENTAL_LENIENT_SEARCHKEY_MATCH` → deleted (dead code). Analysis showed
+  `snapshot.searchKey` and URL-derived `currentSearchKey` are structurally identical on
+  every popstate — same `buildSearchKey()`, same exclusion list, store always synced to
+  URL at departure time. The lenient branch could never fire.
+
+**Code review triage (26 Apr):**
+- H1 fix: `withCurrentKupuaKey()` returned `{ kupuaKey }` only, dropping
+  `_bareListSynthesized` and other `history.state` fields on replace navigations.
+  Fix: spread `history.state` first. E2e test added (traverse → close → forward).
+  Unit tests 4→6 in `withCurrentKupuaKey` describe.
+- H2: deleted `scrollTopFallback` restore path (dead code). The path required
+  no-anchor (zero results) → scrollTop is always 0, and `window.scrollTo` was a no-op
+  on `overflow-hidden` root. Removed `scrollTop` from `HistorySnapshot`, capture, and tests.
+- M3 doc fixes: removed "strict-only" qualifier from mount-time restore description,
+  corrected test count 35→32, describe blocks 4→9, kupuaKey unit tests 4→6,
+  `anchorCursor` → `anchorOffset` in snapshotHints.
+- L1 comment: documented `_lastKupuaKey` invariant (undefined on cold load → correctly
+  skips departure-capture).
+- L3 comment: added "empty URL = keep current per HTML spec" to `replaceState(state, "")`.
+
+**Pre-existing Bug 1 fix — scrubber thumb stuck after sort change (26 Apr):**
+- Root cause: Scrubber.tsx flash guard (`prevTop > 50 && thumbTop < 10`) permanently
+  suppressed the DOM write on sort-without-focus. Unlike sort-around-focus (where
+  `_findAndFocusImage` corrects offset while loading=true), no async correction ever
+  arrives — the near-zero position IS final. `_seekTargetGlobalIndex` (originally
+  suspected) is guarded by `_seekGeneration` and was inert.
+- Fix: added `loading` to the flash guard condition — only suppress when `loading=true`
+  (transient). When `loading=false` the position is final. Added `loading` to effect deps.
+- Defence-in-depth: cleared `_seekTargetLocalIndex/-GlobalIndex` to -1 in `search()` else
+  branch and both `_findAndFocusImage` fallback paths.
+- New file: `Scrubber.test.tsx` — first unit test for the component (2 tests: thumb resets
+  when loading=false; flash guard suppresses when loading=true).
+
+**Phantom anchor drift fix — Bug A (coordinate mismatch) + Bug B (anchor-walk cascade):**
+- **Bug A:** `buildHistorySnapshot` computed `viewportRatio` via DOM `getBoundingClientRect`
+  (includes container `pt-1` = 4px padding). Effect #9 restores via `localIndexToPixelTop`
+  (geometry, no padding). The 4px offset accumulated linearly each back/forward cycle.
+  Fix: replaced DOM-based ratio with geometry-based computation — imports layout constants,
+  computes `virtualizerIdx` from anchor offset, derives `rowTop` from row arithmetic, then
+  `viewportRatio = (rowTop - scrollTop) / clientHeight`. Grid vs table detected via
+  `aria-label` attribute on the scroll container.
+- **Bug B:** On popstate-forward, the departing snapshot for the previous entry was
+  unconditionally overwritten. `buildHistorySnapshot` used `getViewportAnchorId()` which
+  returned a different image after phantom cleared (one-shot consumed). The overwritten
+  snapshot had the wrong anchor → next restore used wrong anchor → cascade compounded
+  ~1 row/cycle. Fix: skip departing snapshot overwrite when existing snapshot has
+  `anchorIsPhantom` — the push-time snapshot (from `markPushSnapshot` before navigate)
+  already has the accurate anchor.
+- Verified on TEST cluster (~1.3M images): 0px drift across 4 phantom cycles (was
+  0→4→432→735→1038), 0px drift across 3 explicit cycles (was +4px/cycle linear).
+- New handoff doc: `position-preservation-rearchitecture-handoff.md` — 24 divergence
+  points, 3 coordinate systems, stable corpora for future Option B unification.
+- Diagnostic test `phantom-drift-diag.spec.ts` kept for regression testing.
+
+**Seek column-alignment fix (`search-store.ts`, `seek()`):**
+- Root cause: `seek()` set `bufferOffset = actualOffset` without column alignment.
+  Images landed in arbitrary columns (`localIdx % cols`) rather than their natural
+  column (`globalIdx % cols`). The existing `_loadBufferAroundImage` (used by popstate
+  restore) already column-aligned, so restores showed the correct column while the
+  original seek view showed the wrong one — visible as a column shift (and sometimes
+  row shift) on the first back/forward cycle. Subsequent cycles were stable because
+  departure snapshots captured the correctly-aligned restore view.
+- Diagnostic proof (1720×1280, 6 cols, image globalIdx=661903, natural col=1):
+  initial seek `bufferOffset=661795` → `localIdx=108` → col 0 (wrong);
+  popstate restore `bufferOffset=661806` → `localIdx=97` → col 1 (correct).
+- Fix: column-alignment trim in `seek()` before cursor computation — same logic as
+  `_loadBufferAroundImage`. Trims 0–(cols-1) items from results so
+  `actualOffset % cols === 0`. Also adjusts `backwardItemCount` for
+  `computeScrollTarget` headroom detection.
+- Affects all seek paths (deep-seek >65k, position-map 1k–65k, shallow <10k).
+  Manual verification on TEST: swimming, scrubber drag, End key, null-zone sort,
+  history round-trip, two-tier mode, small result sets — all clean.
+
+**Final test counts:** 396 unit, 183 e2e, 0 failures.
+
 ### 25 April 2026 — Bug fix: debounced typing didn't create back-navigable entries
 
 **Bug:** Type "cats" → wait → type "dogs" → press back → lands on the referring site

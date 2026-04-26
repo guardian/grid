@@ -36,13 +36,41 @@ include newly uploaded images.
 | **Scroll back up (extend backward)** | ❌ No — `until` cap | ⚠️ **Maybe** — same PIT gap                    | ❌ **No — `frozenUntil` cap** | **🔧 Fixed.** |
 | **Scroll-mode fill (≤1k results)** | N/A | ⚠️ **Maybe** — same PIT gap                    | ❌ **No — `frozenUntil` cap** | **🔧 Fixed.** |
 | **Return from image detail** | ✅ Yes — controller re-init | ❌ No — buffer restored                         | ❌ No — same, buffer still frozen | Kupua is faster; frozen buffer is correct |
-| **Navigate back (browser back)** | ✅ Yes — controller re-init | ❌ No — SPA restores store                      | ❌ No — same | Kupua is faster; frozen buffer is correct |
+| **Back (same search context)** | ✅ Yes — controller re-init | ❌ No — SPA restores store                      | ❌ No — same | Kupua is faster; frozen buffer is correct |
+| **Back (different search context)** | ✅ Yes — controller re-init | ⚠️ **Yes** — fresh `search()`, `newCountSince` reset | ❌ **No — snapshot restores `newCountSince`** | **🔧 Fixed.** Ticker + results stay frozen to original time |
+| **Forward (different search context)** | ✅ Yes — controller re-init | ⚠️ **Yes** — fresh `search()`, `newCountSince` reset | ❌ **No — snapshot restores `newCountSince`** | **🔧 Fixed.** Same mechanism as back |
 | **Idle 5+ min, then scroll** | ❌ No — `until` holds | ⚠️ **Yes** — PIT expired, live index           | ❌ **No — `frozenUntil` cap** | **🔧 Fixed.** Key scenario |
 | **8-hour session, never click ticker** | ❌ No — `until` holds forever | ⚠️ **Yes (intermittent)** — PIT gaps           | ❌ **No — `frozenUntil` holds forever** | **🔧 Fixed.** Motivated this investigation |
 | **Facet filter agg counts** | ❌ No — `until` cap on API | ⚠️ **Yes** — agg query hit live index          | ❌ **No — `frozenUntil` cap** | **🔧 Fixed.** Counts match frozen results |
 | **Expanded agg ("Show more")** | ❌ No — `until` cap on API | ⚠️ **Yes** — same live-index query             | ❌ **No — `frozenUntil` cap** | **🔧 Fixed.** Same fix as above |
 
 **Legend:** ✅ = new images included (fresh search). ❌ = new images excluded (frozen). ⚠️ = inconsistent/leaky.
+
+### Monotonic ratchet rule
+
+The `frozenUntil` timestamp on history back/forward is computed as
+`max(snapshot.newCountSince, currentStore.newCountSince)` — whichever is
+later. This satisfies two rules that initially seem contradictory:
+
+1. **History should not in itself load new images.** Both timestamps are
+   in the past, so the boundary never advances to `now`. Images uploaded
+   after the later of the two timestamps stay hidden until the user
+   explicitly clicks the ticker.
+
+2. **History should never reduce the number of results below what the user
+   has already accepted.** If the user clicked the ticker on *any* entry
+   (advancing `newCountSince` to T2), going back to an older entry (frozen
+   at T1) still uses T2 — the images absorbed via ticker remain visible.
+
+Example:
+- H1: "cats", 1000 results, frozen at T1
+- Change sort → push H2 (snapshot for H1 captures `newCountSince=T1`)
+- On H2: ticker says "50 new" → click → 1050 results, frozen at T2
+- Press Back → `max(T1, T2) = T2` → "cats" shows 1050 results ✅
+- The ticker correctly counts from T2, not T1
+
+Without the max rule, Back would roll `newCountSince` back to T1, hiding
+the 50 images the user already saw and resurrecting the ticker — confusing.
 
 ## 🐛 Ticker-consistency bug (current Kupua)
 
