@@ -42,6 +42,32 @@ import {
   IS_LOCAL_ES,
 } from "./es-config";
 
+// ---------------------------------------------------------------------------
+// Sentinel sanitiser — ES Long.MAX/MIN_VALUE → null
+// ---------------------------------------------------------------------------
+// ES uses Long.MAX_VALUE / Long.MIN_VALUE as internal sort sentinels for
+// missing fields.  These can't survive a round-trip through search_after:
+//   • Long.MAX_VALUE → JS float64 rounds to 9223372036854776000
+//     (exceeds Long range → 400 "failed to parse date field")
+//   • Long.MIN_VALUE → ES strips sign, tries Long.MAX_VALUE+1 → overflow → 400
+//   • null → NPE in ES 8.x search_after (500)
+// Sanitising to null at the adapter boundary lets the store's
+// detectNullZoneCursor handle null-zone cursors correctly.
+const ES_SENTINEL_ABS = 9.2e18; // well above any real epoch-millis (~4e12)
+function sanitizeSortValues(sv: SortValues): SortValues {
+  let changed = false;
+  for (const v of sv) {
+    if (typeof v === "number" && Math.abs(v) >= ES_SENTINEL_ABS) {
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) return sv;
+  return sv.map((v) =>
+    typeof v === "number" && Math.abs(v) >= ES_SENTINEL_ABS ? null : v,
+  ) as SortValues;
+}
+
 
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
@@ -319,7 +345,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
         hits: result.hits.hits.map((hit) => hit._source),
         total: result.hits.total.value,
         took: result.took,
-        sortValues: result.hits.hits.map((hit) => hit.sort ?? []),
+        sortValues: result.hits.hits.map((hit) =>
+          sanitizeSortValues(hit.sort ?? []),
+        ),
       };
     } catch (e) {
       // Don't treat aborted requests as errors — they're intentional
@@ -558,7 +586,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
         total: result.hits.total.value,
         took: result.took,
         sortValues: orderedHits.map((hit) =>
-          hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
+          sanitizeSortValues(
+            hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
+          ),
         ),
         pitId: result.pit_id,
       };
@@ -598,12 +628,14 @@ export class ElasticsearchDataSource implements ImageDataSource {
             total: fallbackResult.hits.total.value,
             took: fallbackResult.took,
             sortValues: orderedHits.map((hit) =>
-              // Belt-and-braces: match the main return path's slice so stored
-              // cursors never grow to length-(N+1) if this path ever evolves
-              // to retain PIT. Currently a no-op (non-PIT ES returns length-N).
-              hit.sort.length > effectiveSort.length
-                ? hit.sort.slice(0, effectiveSort.length)
-                : hit.sort,
+              sanitizeSortValues(
+                // Belt-and-braces: match the main return path's slice so stored
+                // cursors never grow to length-(N+1) if this path ever evolves
+                // to retain PIT. Currently a no-op (non-PIT ES returns length-N).
+                hit.sort.length > effectiveSort.length
+                  ? hit.sort.slice(0, effectiveSort.length)
+                  : hit.sort,
+              ),
             ),
             // No pitId — caller should open a new one if needed
           };
@@ -1171,12 +1203,30 @@ export class ElasticsearchDataSource implements ImageDataSource {
   ): Promise<PositionMap | null> {
     const startTime = Date.now();
     const bareSortClause = buildSortClause(params.orderBy);
-    // Make `missing` explicit on every sort field. buildSortClause produces
-    // bare clauses like {field: "asc"} — ES defaults nulls to _last for asc,
-    // _first for desc. Making this explicit is required for search_after
-    // cursors that contain null values (null-zone tail): without explicit
-    // `missing`, ES 8.x rejects null in the search_after array with a 400.
-    const sortClause = bareSortClause.map((clause) => {
+    const sortLen = bareSortClause.length;
+    const baseQuery = buildQuery(params);
+
+    // --- Null-zone–safe two-phase fetch ---
+    //
+    // ES uses Long.MAX/MIN_VALUE as internal sort sentinels for missing
+    // fields.  These can't survive a round-trip through search_after:
+    //   • Long.MAX_VALUE → JS float64 rounds to 9223372036854776000
+    //     (exceeds Long range → 400 "failed to parse date field")
+    //   • Long.MIN_VALUE → ES strips the sign, tries to parse
+    //     9223372036854775808 as Long → overflow → 400
+    //   • null → NPE in ES 8.x search_after (500)
+    //
+    // The only safe strategy is to never encounter a sentinel in the cursor.
+    // We split the fetch into two phases — docs WITH the primary field,
+    // then docs WITHOUT it — so each phase has clean cursor values.
+    // See: https://github.com/opensearch-project/OpenSearch/issues/XXXXX
+
+    const { field: primaryField, direction: primaryDir } =
+      parseSortField(bareSortClause[0]);
+
+    // Phase 1 sort: explicit `missing` (matches ES defaults, required so
+    // ES doesn't reject null cursors if the field is unexpectedly absent).
+    const phase1Sort = bareSortClause.map((clause) => {
       const { field, direction } = parseSortField(clause);
       if (!field) return clause;
       return {
@@ -1186,8 +1236,58 @@ export class ElasticsearchDataSource implements ImageDataSource {
         },
       };
     });
-    const sortLen = bareSortClause.length;
-    const query = buildQuery(params);
+
+    // Phase 2 sort: only the non-primary fields (uploadTime, id).
+    // Null-zone docs have no primary value, so we sort by the fallback.
+    const phase2BareSort = primaryField
+      ? bareSortClause.filter(
+          (c) => parseSortField(c).field !== primaryField,
+        )
+      : [];
+    const phase2Sort = phase2BareSort.map((clause) => {
+      const { field, direction } = parseSortField(clause);
+      if (!field) return clause;
+      return { [field]: { order: direction } };
+    });
+    const phase2SortLen = phase2BareSort.length;
+
+    // Inject null at the primary-field position in stored sortValues for
+    // null-zone docs, so `detectNullZoneCursor` handles seeks correctly.
+    // E.g. [uploadTimeVal, idVal] → [null, uploadTimeVal, idVal].
+    const injectNullPrimary = (sv: SortValues): SortValues => {
+      const out: SortValues = [];
+      let si = 0;
+      for (const clause of bareSortClause) {
+        const { field } = parseSortField(clause);
+        if (field === primaryField) {
+          out.push(null);
+        } else if (si < sv.length) {
+          out.push(sv[si++]);
+        }
+      }
+      return out;
+    };
+
+    // Phase 1 query: base + exists filter (non-null docs only).
+    // Phase 2 query: base + must_not-exists filter (null-zone docs only).
+    const phase1Query = primaryField
+      ? {
+          bool: {
+            must: [baseQuery],
+            filter: [{ exists: { field: primaryField } }],
+          },
+        }
+      : baseQuery;
+    const phase2Query = primaryField
+      ? {
+          bool: {
+            must: [baseQuery],
+            filter: [
+              { bool: { must_not: [{ exists: { field: primaryField } }] } },
+            ],
+          },
+        }
+      : null;
 
     // Open a dedicated PIT for this fetch — fully decoupled from main search.
     let pitId: string;
@@ -1206,16 +1306,22 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     const ids: string[] = [];
     const sortValues: SortValues[] = [];
-    let cursor: SortValues | null = null;
 
-    try {
+    // Reusable chunk-fetch loop shared by both phases.
+    const fetchChunks = async (
+      chunkQuery: Record<string, unknown>,
+      chunkSort: Record<string, unknown>[],
+      chunkSortLen: number,
+      mapSv?: (sv: SortValues) => SortValues,
+    ) => {
+      let cursor: SortValues | null = null;
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        if (signal.aborted) return null;
+        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
 
         const body: Record<string, unknown> = {
-          query,
-          sort: sortClause,
+          query: chunkQuery,
+          sort: chunkSort,
           // size must respect max_result_window on all pages —
           // search_after does NOT bypass the limit in ES 8.x.
           size: Math.min(POSITION_MAP_CHUNK_SIZE, MAX_RESULT_WINDOW),
@@ -1238,7 +1344,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           };
         };
 
-        if (signal.aborted) return null;
+        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
 
         // Update PIT ID if ES refreshed it
         if (result.pit_id) {
@@ -1251,20 +1357,17 @@ export class ElasticsearchDataSource implements ImageDataSource {
         for (const hit of hits) {
           ids.push(hit._id);
           // Strip PIT's implicit _shard_doc tiebreaker from sort values.
-          // PIT adds an extra element; trim to match the sort clause length.
-          sortValues.push(
-            hit.sort.length > sortLen
-              ? hit.sort.slice(0, sortLen)
-              : hit.sort,
-          );
+          const raw =
+            hit.sort.length > chunkSortLen
+              ? hit.sort.slice(0, chunkSortLen)
+              : hit.sort;
+          sortValues.push(mapSv ? mapSv(raw) : raw);
         }
 
-        // Update cursor for next chunk — use the FULL sort values (including
-        // _shard_doc) so PIT-based search_after works correctly.
         cursor = hits[hits.length - 1].sort;
 
         devLog(
-          `[ES] fetchPositionIndex: chunk ${Math.ceil(ids.length / POSITION_MAP_CHUNK_SIZE)} — ` +
+          `[ES] fetchPositionIndex: ` +
           `${ids.length} entries so far (${Date.now() - startTime}ms)`,
         );
 
@@ -1273,6 +1376,18 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         // Yield to main thread between chunks to avoid long-task jank
         await (scheduler?.yield?.() ?? new Promise<void>((r) => setTimeout(r, 0)));
+      }
+    };
+
+    try {
+      // Non-null docs first, null-zone docs last — matching ES default
+      // `missing: "_last"` used by the main search (which omits explicit
+      // `missing`, relying on the ES default for all directions).
+      await fetchChunks(phase1Query, phase1Sort, sortLen);
+      if (phase2Query) {
+        await fetchChunks(
+          phase2Query, phase2Sort, phase2SortLen, injectNullPrimary,
+        );
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;

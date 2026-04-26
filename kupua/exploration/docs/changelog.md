@@ -14,6 +14,69 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 26 April 2026 — Fix: LAN access broken on Chrome Android (insecure context)
+
+`crypto.randomUUID()` is secure-context-only. Over LAN HTTP
+(`http://192.168.x.x:3000`), Chrome treats the page as insecure →
+`randomUUID` is `undefined` → `TypeError` at module top-level in
+`main.tsx` → React never mounts → grey page. Firefox is more lenient.
+Fix: feature-detect `randomUUID`, fall back to manual UUID-v4 via
+`crypto.getRandomValues` in `history-key.ts`.
+
+### 26 April 2026 — Fix: null-zone position map crash + sentinel sanitisation
+
+**Bug:** "Null zone scrolling in positionMap mode doesn't extend" (Bug 1 in
+`preexisting-bugs-found-during-history-work.md`). When scrolling through images
+sorted by Last Modified in the 1k–65k two-tier range, the buffer stopped growing
+and the user scrolled into permanent skeletons.
+
+**Root cause — ES Long.MAX/MIN_VALUE sentinels in sort values:**
+Elasticsearch uses Java `Long.MAX_VALUE` / `Long.MIN_VALUE` as internal sort
+sentinels for documents with missing fields (the "null zone"). These sentinels
+leak into the `sort` array of search hits. Three failure modes make them
+unusable in `search_after` cursors:
+
+1. `Long.MAX_VALUE` → JS float64 rounds to `9223372036854776000` (exceeds Long
+   range) → ES 400 "failed to parse date field"
+2. `Long.MIN_VALUE` → ES strips sign, tries `Long.MAX_VALUE+1` → overflow → 400
+   (OpenSearch issue [#17120](https://github.com/opensearch-project/OpenSearch/issues/17120),
+   gap in the fix from [PR #12676](https://github.com/opensearch-project/OpenSearch/pull/12676))
+3. `null` → NPE in ES 8.x `search_after` → 500
+
+**Fix — two parts (`es-adapter.ts`):**
+
+1. **Two-phase position map fetch** (`fetchPositionIndex`): Instead of walking all
+   results in one pass (which hits sentinels at the null-zone boundary), the fetch
+   splits into two phases: docs WITH the primary sort field first, then docs
+   WITHOUT it. Each phase uses a clean sort with no sentinels. Null-zone docs get
+   `[null, uploadTime, id]` sort values injected via `injectNullPrimary()`, matching
+   the format `detectNullZoneCursor` expects.
+
+2. **Sentinel sanitiser on all search return paths** (`sanitizeSortValues`): A
+   module-level function converts sort values where `|v| >= 9.2e18` to `null`.
+   Applied in `_doSearch()`, `searchAfter()` (both main and PIT-expired fallback
+   paths). This ensures `endCursor`/`startCursor` stored in the search store
+   contain `[null, ...]` instead of sentinel numbers, so `detectNullZoneCursor`
+   triggers correctly for extends, seeks, and sort-around-focus.
+
+**Bonus fix — search cooldown shortening** (`search-store.ts` ~L1880): After a
+no-focus search lands, overwrite the 2s `SEARCH_FETCH_COOLDOWN` with 100ms
+`SEEK_COOLDOWN_MS`. Without this, extends are blocked for ~1.5s after search
+completes and fast scrolling outruns the buffer.
+
+**Diagnostic approach:** Built throwaway `nullzone-diag.spec.ts` against TEST
+cluster (read-only). First used `mouse.wheel` events (triggered seeks, not
+extends — wrong scroll pattern). Switched to rAF-based `scrollTop += 50`
+smooth scroll (from perf.spec.ts P2), which properly exercises extends.
+
+**Files changed:**
+- `kupua/src/dal/es-adapter.ts` — `sanitizeSortValues()`, two-phase
+  `fetchPositionIndex()`, sanitiser on `_doSearch` + `searchAfter` return paths
+- `kupua/src/stores/search-store.ts` — cooldown overwrite after no-focus search
+
+**Verified:** Position map loads (14,388 entries), buffer extends from 200→1000
+via smooth scroll in null zone. Unit tests: 398 passed.
+
 ### 26 April 2026 — History back/forward: new-images leak fix + monotonic ratchet
 
 **Problem:** Browser back/forward across different search contexts called `search()`,

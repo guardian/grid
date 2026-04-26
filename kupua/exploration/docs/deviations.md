@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-04-02
+Last updated: 2026-04-26
 
 ---
 
@@ -367,6 +367,31 @@ internals via the public `editorView` field on the custom element —
 brittle if CQL changes its API, but `editorView` is part of the public
 surface. See "Should this be upstreamed?" discussion in the
 23 April 2026 changelog entry.
+
+### 20. Two-phase position map fetch to avoid ES sort sentinels
+
+**What:** `fetchPositionIndex` in `es-adapter.ts` fetches the position map
+in two phases — docs WITH the primary sort field, then docs WITHOUT it —
+instead of one contiguous `search_after` walk. Null-zone docs get synthetic
+`[null, uploadTime, id]` sort values injected at storage time.
+
+**Why:** ES uses `Long.MAX_VALUE` / `Long.MIN_VALUE` internally for missing
+sort fields. These sentinels cannot survive a round-trip through `search_after`:
+float64 rounding makes MAX exceed Long range (400), MIN triggers a sign-strip
+overflow (400), and `null` causes an NPE (500). This is an unpatched ES/OpenSearch
+bug — see [#17120](https://github.com/opensearch-project/OpenSearch/issues/17120).
+Splitting into two phases means each phase only sees clean sort values with no
+sentinels, and the injected `null` lets `detectNullZoneCursor` handle seeks correctly.
+
+Additionally, `sanitizeSortValues()` converts sentinel-magnitude values to `null`
+on ALL search return paths (`_doSearch`, `searchAfter`, PIT fallback), not just the
+position map. This ensures `endCursor`/`startCursor` in the store never contain
+sentinels, so extends and seeks through the null zone work correctly.
+
+**Trade-off:** Two queries instead of one for position map fetch. The second query
+(null-zone docs) is typically fast — most images have the primary field populated.
+Total fetch time increases by one round-trip (~200ms) but the fetch is already
+background and non-blocking.
 
 ---
 

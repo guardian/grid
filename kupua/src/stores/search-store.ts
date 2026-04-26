@@ -1872,6 +1872,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             ? { _phantomFocusImageId: sortAroundFocusId! }
             : {}),
         });
+
+        // Replace the 2s SEARCH_FETCH_COOLDOWN with the short post-seek
+        // cooldown now that fresh data has landed. Without this, extends
+        // are blocked for ~1.5s after search completes, and fast scrolling
+        // outruns the 200-item buffer into permanent skeletons.
+        _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
         startNewImagesPoll(get, set);
 
         // -----------------------------------------------------------

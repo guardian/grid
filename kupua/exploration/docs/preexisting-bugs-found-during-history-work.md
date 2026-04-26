@@ -4,17 +4,6 @@ Bugs discovered during Phases 1–3 of snapshot-based position restoration.
 None caused by our work; all reproducible on commits before Phase 1.
 
 ---
-
-## Bug 1: Null zone scrolling in positionMap mode doesn't extend
-
-**Repro (simplest):**
-1. Open kupua, search +city:Dublin (to be in <1k twotier positionMap mode)
-2. Switch to Last modified sort (it has a massive nullzone without Last modified recorded items)
-3. Scroll to 50%
-4. Scroll up or down beyond [page size? buffer? I don't know I'm not an engineer]
-
-**Actual:** after a while user scrolls into nothingness, results never fill in
-
 ## Bug 2: Flash of intermediate results (systemic — sort, popstate, any no-focus search)
 
 **Repro (simplest):**

@@ -98,6 +98,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ### Known Issues
 
 - **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
+- ~~**Null-zone position map crash:**~~ Fixed. ES Long.MAX/MIN_VALUE sentinels in sort values broke `search_after`. Two-phase `fetchPositionIndex` + universal `sanitizeSortValues` in `es-adapter.ts`. See 26 Apr changelog.
 - ~~**P4b focusDrift:**~~ Fixed. Phantom drift (Bug A coordinate mismatch + Bug B anchor-walk), seek column-alignment.
 - ~~**Scrubber thumb flash-to-top:**~~ Fixed. DOM guard in Scrubber.tsx.
 
