@@ -10,36 +10,19 @@ import java.nio.file.{Files, Path}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-sealed trait CohereCompatibleMimeType
-case object CohereJpeg extends CohereCompatibleMimeType
-case object CoherePng extends CohereCompatibleMimeType
-
-case class ImageIds(ids: List[String])
-
 case class EmbedderMessage(imageId: String, fileType: String, s3Bucket: String, s3Key: String)
 
 object EmbedderMessage {
   implicit val format: OFormat[EmbedderMessage] = Json.format[EmbedderMessage]
 }
 
-class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
-  def mapCohereResponseToImageIds(response: QueryVectorsResponse): ImageIds = {
-    val results: java.util.List[QueryOutputVector] = response.vectors()
-    ImageIds(results.asScala.map(_.key()).toList)
-  }
+class Embedder(bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
 
-  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[ImageIds] = {
+  def createQueryEmbedding(query: String)(implicit logMarker: LogMarker): Future[List[Float]] = {
     logger.info(logMarker, s"Searching for image embedding for query: $query")
     for {
-      embedding <- bedrock.createEmbedding(InputType.SearchDocument, query)
-      result <- Future.fromTry(s3vectors.searchByText(embedding, query))
-    } yield mapCohereResponseToImageIds(result)
-  }
-
-  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageIds] = {
-    val outputVector = s3vectors.getVectorByImageId(imageId)
-    val vector: VectorData = outputVector.data()
-    Future.fromTry(s3vectors.searchByImage(vector)).map(mapCohereResponseToImageIds)
+      embedding <- bedrock.createTextEmbedding(query)
+    } yield embedding
   }
 
   def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker) = {

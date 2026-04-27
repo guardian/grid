@@ -18,6 +18,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -171,6 +172,43 @@ class ElasticSearch(
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
         SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
       }
+  }
+
+  def knnSearch(queryEmbedding: List[Float], k: Int, offset: Int, length: Int, countAll: Boolean, numCandidates: Int)
+               (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    if (length <= 0 || k <= 0) {
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
+      val knn = Knn("embedding.cohereEmbedV4.image")
+        .queryVector(queryEmbedding.map(_.toDouble))
+        .k(k)
+        .numCandidates(numCandidates)
+
+      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+        .trackTotalHits(countAll)
+        .knn(knn)
+        .from(offset)
+        .size(length)
+
+      executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        // In semantic search we expose a capped/approximate total based on the
+        // configured retrieval window (`k`) rather than an exact global corpus size.
+        // This aligns pagination semantics with the bounded nearest-neighbour set.
+        // Note: when trackTotalHits(false), ES may not populate totalHits.
+        val total = if (countAll) {
+          val totalHits = Option(r.result.totalHits).getOrElse(0L)
+          Math.min(totalHits, k.toLong)
+        } else {
+          0L
+        }
+        SearchResults(
+          hits = imageHits,
+          total = total,
+          extraCounts = None
+        )
+      }
+    }
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
