@@ -16,15 +16,33 @@ import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
 
+const SB_TOTAL_KEY = "kupua-sb-total";
+const SB_NEW_KEY = "kupua-sb-new";
+
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const newCount = useSearchStore((s) => s.newCount);
+
+  // Seed display from sessionStorage so counters survive a tab reload.
+  // Once the first search completes (total > 0), store values are
+  // authoritative and the cache is just kept in sync for next reload.
+  const [cached] = useState(() => ({
+    total: parseInt(sessionStorage.getItem(SB_TOTAL_KEY) ?? "0", 10) || 0,
+    newCount: parseInt(sessionStorage.getItem(SB_NEW_KEY) ?? "0", 10) || 0,
+  }));
+  useEffect(() => { if (total > 0) sessionStorage.setItem(SB_TOTAL_KEY, String(total)); }, [total]);
+  useEffect(() => { sessionStorage.setItem(SB_NEW_KEY, String(newCount)); }, [newCount]);
+
+  // total > 0 means the store has real data from a completed search.
+  const storeReady = total > 0;
+  const displayTotal = storeReady ? total : cached.total;
+  const displayNewCount = storeReady ? newCount : cached.newCount;
   const newCountSince = useSearchStore((s) => s.newCountSince);
   const sortAroundFocusStatus = useSearchStore((s) => s.sortAroundFocusStatus);
   const reSearch = useSearchStore((s) => s.search);
@@ -99,24 +117,20 @@ export function StatusBar() {
 
       <div className="w-px bg-grid-separator shrink-0" />
 
-      {/* Result count — "matches" appears at @[500px], before panel labels (@[600px]) */}
-      <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap">
-        {total.toLocaleString()}<span className="hidden @[500px]:inline">&nbsp;matches</span>
-      </span>
-
-      {/* Sort-around-focus indicator — brief, non-blocking */}
-      {sortAroundFocusStatus && (
-        <span className="flex items-center text-grid-accent text-xs animate-pulse">
-          {sortAroundFocusStatus}
+      {/* Result count — seeded from sessionStorage across reload.
+           select-text so users can copy the number. */}
+      {displayTotal > 0 && (
+        <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text">
+          {displayTotal.toLocaleString()}<span className="hidden @[500px]:inline">&nbsp;matches</span>
         </span>
       )}
 
-      {/* New images ticker */}
-      {newCount > 0 && (
+      {/* New images ticker — seeded from sessionStorage across reload */}
+      {displayNewCount > 0 && (
         <button
           onClick={() => { resetScrollAndFocusSearch(); reSearch(); }}
           className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap"
-          title={`${newCount.toLocaleString()} new images since ${
+          title={`${displayNewCount.toLocaleString()} new images since ${
             newCountSince
               ? formatDistanceToNow(new Date(newCountSince), {
                   addSuffix: true,
@@ -124,8 +138,15 @@ export function StatusBar() {
               : "last search"
           }`}
         >
-          {newCount.toLocaleString()} new
+          {displayNewCount.toLocaleString()} new
         </button>
+      )}
+
+      {/* Sort-around-focus indicator — brief, non-blocking */}
+      {sortAroundFocusStatus && (
+        <span className="flex items-center text-grid-accent text-xs animate-pulse ml-1">
+          {sortAroundFocusStatus}
+        </span>
       )}
 
       {/* Spacer */}

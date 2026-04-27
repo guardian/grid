@@ -17,6 +17,8 @@
 
 import { useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
+import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 
 interface ReturnFromDetailConfig {
   /** Current `image` URL search param (undefined when detail is closed). */
@@ -69,6 +71,13 @@ export function useReturnFromDetail({
     if (previousFocus === null) return;
 
     setFocusedImageId(wasViewing);
+
+    // In phantom mode the focus ring is invisible — pulse the image so
+    // the user understands why they're looking at this scroll position.
+    if (getEffectiveFocusMode() === "phantom") {
+      useSearchStore.setState({ _phantomPulseImageId: wasViewing });
+      setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+    }
 
     // If the user navigated to a different image (prev/next in detail),
     // the focused row changed — center it in the viewport. "center" not

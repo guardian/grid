@@ -56,6 +56,46 @@
 }
 
 /*
+ * ── Animation prototypes (throwaway exploration) ──────────────────────────
+ * Two subtle animations for communicating state to the user:
+ *
+ *  .anim-arriving  — new images sliding into view at the top.
+ *                    Gentle slide-down + fade-in over 0.8s.
+ *
+ *  .anim-focus-here — "you're looking here because of focus".
+ *                     Soft ring pulse that plays twice then stops.
+ */
+
+@keyframes kupua-arrive {
+  0% {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+  100% {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Unfocused cell: one pulse from nothing, back to nothing. */
+@keyframes kupua-focus-pulse-unfocused {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 173, 238, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(0, 173, 238, 0.35);
+  }
+}
+
+.anim-arriving {
+  animation: kupua-arrive 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-focus-here-unfocused {
+  animation: kupua-focus-pulse-unfocused 1.2s ease-in-out;
+}
+
+/*
  * Dark scrollbars — Firefox respects color-scheme natively; Chrome (121+)
  * additionally needs scrollbar-color for explicit thumb/track colours.
  */

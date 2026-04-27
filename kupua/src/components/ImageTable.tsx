@@ -22,6 +22,7 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useColumnStore } from "@/stores/column-store";
+import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
@@ -258,6 +259,9 @@ const TableBody = memo(function TableBody({
   visibleColumnCount: _,
   getImage,
 }: TableBodyProps) {
+  // Animation state
+  const arrivingImageIds = useSearchStore((s) => s._arrivingImageIds);
+  const phantomPulseImageId = useSearchStore((s) => s._phantomPulseImageId);
   // Build a lookup map: imageId → TanStack Row for O(1) access.
   // TanStack Table only has loaded rows; we match by image ID rather
   // than by index (which would require offset translation).
@@ -323,6 +327,14 @@ const TableBody = memo(function TableBody({
         }
 
         const isFocused = image.id === focusedImageId && getEffectiveFocusMode() === "explicit";
+
+        // ── Animation: arriving images + phantom focus pulse ──
+        const animClass = arrivingImageIds.has(image.id)
+          ? "anim-arriving"
+          : (phantomPulseImageId && image.id === phantomPulseImageId)
+            ? "anim-focus-here-unfocused"
+            : "";
+
         return (
           <div
             key={row.id}
@@ -334,7 +346,7 @@ const TableBody = memo(function TableBody({
               isFocused
                 ? "bg-grid-hover/40 ring-2 ring-inset ring-grid-accent"
                 : "hover:bg-grid-hover/15"
-            }`}
+            } ${animClass}`}
             style={{
               height: `${virtualRow.size}px`,
               transform: `translateY(${virtualRow.start}px)`,

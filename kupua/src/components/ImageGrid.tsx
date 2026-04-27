@@ -103,6 +103,7 @@ interface GridCellProps {
   isFocused: boolean;
   cellWidth: number;
   dateLine?: string;
+  animationClass?: string;
   onCellClick: (imageId: string, e: React.MouseEvent) => void;
   onCellDoubleClick: (imageId: string) => void;
 }
@@ -112,6 +113,7 @@ const GridCell = memo(function GridCell({
   isFocused,
   cellWidth,
   dateLine,
+  animationClass,
   onCellClick,
   onCellDoubleClick,
 }: GridCellProps) {
@@ -138,7 +140,7 @@ const GridCell = memo(function GridCell({
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
           : "hover:bg-grid-hover/15"
-      }`}
+      } ${animationClass ?? ""}`}
       style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
       onClick={(e) => onCellClick(image.id, e)}
       onDoubleClick={() => onCellDoubleClick(image.id)}
@@ -151,6 +153,7 @@ const GridCell = memo(function GridCell({
       >
         {thumbUrl ? (
           <img
+            key={animationClass ? image.id : undefined}
             src={thumbUrl}
             alt=""
             loading="lazy"
@@ -469,6 +472,13 @@ export function ImageGrid() {
   });
 
   // -------------------------------------------------------------------------
+  // Animation state: arriving images + phantom focus pulse
+  // -------------------------------------------------------------------------
+
+  const arrivingImageIds = useSearchStore((s) => s._arrivingImageIds);
+  const phantomPulseImageId = useSearchStore((s) => s._phantomPulseImageId);
+
+  // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
 
@@ -519,6 +529,15 @@ export function ImageGrid() {
                 // keys match the virtualizer's model. (A.4 tried content
                 // keys for -14% domChurn on extends, but the visual
                 // reordering on seeks was a worse regression — reverted.)
+                // ── Animation: arriving images + phantom focus pulse ──
+                const animClass = image
+                  ? arrivingImageIds.has(image.id)
+                    ? "anim-arriving"
+                    : (phantomPulseImageId && image.id === phantomPulseImageId)
+                      ? "anim-focus-here-unfocused"
+                      : undefined
+                  : undefined;
+
                 return (
                   <GridCell
                     key={imageIdx}
@@ -526,6 +545,7 @@ export function ImageGrid() {
                     isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit"}
                     cellWidth={cellWidth}
                     dateLine={image ? getCellDateLine(image, searchParams.orderBy) : undefined}
+                    animationClass={animClass}
                     onCellClick={handleCellClick}
                     onCellDoubleClick={handleCellDoubleClick}
                   />

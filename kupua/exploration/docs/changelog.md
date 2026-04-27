@@ -14,6 +14,40 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 27 April 2026 — Animations for new/phantom images; count/ticker survival
+
+**Arriving animation** (`kupua-arrive`): Images that appear at the top of results
+(via `extendBackward` or clicking the "N new" ticker) now slide+fade in over 0.8s.
+Store field `_arrivingImageIds: ReadonlySet<string>` is populated atomically in the
+same `set()` call that lands new results — the CSS class (`anim-arriving`) applies
+`opacity: 0` from the first frame via `fill-mode: both`, preventing any flash of
+stale decoded pixels. Cleared by `setTimeout` after 1500ms. Uses the `translate`
+CSS property (not `transform`) to avoid conflict with the virtualizer's
+`transform: translateY()`. The `<img>` element gets a temporary `key={image.id}`
+only for animated cells, forcing a fresh DOM element — without this, positional
+`key={imageIdx}` reuses the `<img>` node and old decoded pixels persist until the
+new URL loads.
+
+**Phantom focus pulse** (`kupua-focus-pulse-unfocused`): In phantom/"Click to open"
+mode, the image targeted by sort-around-focus or return-from-detail now glows briefly
+(box-shadow pulse, 1.2s). Store field `_phantomPulseImageId` set in
+`_findAndFocusImage` (2 sites), `search()` first-page phantom branch, and
+`useReturnFromDetail`. Cleared by `setTimeout` after 2500ms.
+
+**`_isInitialLoad` flag:** Suppresses phantom pulse on cold page load — the pulse is
+only meaningful after a user action. Flag starts `true`, flips `false` when first
+search results land. Gated at all three store-level pulse emission sites. The
+`useScrollEffects` pulse site (Effect #9) was removed entirely — it was a redundant
+fallback that only activated on initial load (exactly when we don't want it).
+
+**StatusBar total/ticker survival across reload:** Both counters now seed from
+`sessionStorage` on mount (`kupua-sb-total`, `kupua-sb-new`). On update, values are
+written to sessionStorage. Display uses cached value until `total > 0` (store has
+real data from a completed search), then switches to live store values. This prevents
+the "0 matches" / empty ticker flash on page reload — the previous values stay
+visible until fresh data arrives. Sort-around-focus indicator moved after the ticker.
+`select-text` added to total count so users can copy the number.
+
 ### 27 April 2026 — Fix: flash of intermediate results on no-focus search (Bug 2)
 
 **Bug:** Changing sort (or query, filter, popstate) without a focused image while

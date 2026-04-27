@@ -246,6 +246,14 @@ interface SearchState {
   _lastPrependCount: number;
   /** Generation counter — bumped on every backward extend for change detection. */
   _prependGeneration: number;
+  /** IDs of images that arrived via the most recent backward extend. Cleared after animation timeout. */
+  _arrivingImageIds: ReadonlySet<string>;
+  /** Image ID to show the phantom-focus pulse animation. Set alongside
+   *  _phantomFocusImageId but NOT cleared by Effect #9 — cleared by a timeout. */
+  _phantomPulseImageId: string | null;
+  /** True until the first search completes. Suppresses phantom pulse on
+   *  cold load — the pulse is only meaningful after a user action. */
+  _isInitialLoad: boolean;
 
   /**
    * Number of items evicted from the start by the most recent forward extend.
@@ -1426,16 +1434,21 @@ async function _findAndFocusImage(
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
         trace("sort-around-focus", "t_settled");
+        const suppressPulse = get()._isInitialLoad;
         set({
           _phantomFocusImageId: imageId,
+          ...(!suppressPulse && { _phantomPulseImageId: imageId }),
+          _isInitialLoad: false,
           sortAroundFocusStatus: null,
           loading: false,
           sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
         });
+        if (!suppressPulse) setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
       } else {
         trace("sort-around-focus", "t_settled");
         set({
           focusedImageId: imageId,
+          _isInitialLoad: false,
           _focusedImageKnownOffset: offset,
           sortAroundFocusStatus: null,
           loading: false,
@@ -1502,6 +1515,7 @@ async function _findAndFocusImage(
           ? {
               // Phantom: scroll to image via Effect #9, no focus ring
               _phantomFocusImageId: imageId,
+              ...(!get()._isInitialLoad && { _phantomPulseImageId: imageId }),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
             }
           : {
@@ -1511,6 +1525,11 @@ async function _findAndFocusImage(
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
             }),
       });
+
+      if (phantomOnly && !get()._isInitialLoad) {
+        setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+      }
+      set({ _isInitialLoad: false });
 
       // Async offset correction: if we used an estimated offset, fire
       // countBefore in the background and correct bufferOffset +
@@ -1621,6 +1640,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _extendBackwardInFlight: false,
   _lastPrependCount: 0,
   _prependGeneration: 0,
+  _arrivingImageIds: new Set(),
+  _phantomPulseImageId: null,
+  _isInitialLoad: true,
   _lastForwardEvictCount: 0,
   _forwardEvictGeneration: 0,
   _seekGeneration: 0,
@@ -1714,6 +1736,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // search completes and overwrite newCount: 0, causing the ticker to
     // reappear despite the user having just clicked it to refresh.
     stopNewImagesPoll();
+
+    // Capture the frozen-until boundary so we can identify new arrivals
+    // after the search completes (images with uploadTime > this timestamp).
+    const prevNewCountSince = get().newCountSince;
 
     trace("search", "t_ack");
     // When restoring via frozenUntil (history back/forward), keep the
@@ -1864,6 +1890,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       } else {
         trace("search", "t_first_useful_pixel", { total: result.total });
         trace("search", "t_settled");
+
+        const suppressPulse = get()._isInitialLoad;
+
+        // Identify images that arrived after the frozen-until boundary
+        // (the user clicked "N new" to refresh — these are the new arrivals).
+        const arrivingIds: Set<string> = prevNewCountSince && !sortAroundFocusId
+          ? new Set(result.hits
+              .filter((h) => h.uploadTime && h.uploadTime > prevNewCountSince)
+              .map((h) => h.id))
+          : new Set();
+
         set({
           results: result.hits,
           bufferOffset: 0,
@@ -1879,6 +1916,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           focusedImageId: (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
+          // Set arriving IDs atomically with results so the animation
+          // class (opacity: 0 via fill-mode: both) is applied in the same
+          // React render — no one-frame flash of old content.
+          _arrivingImageIds: arrivingIds,
           _extendForwardInFlight: false,
           _extendBackwardInFlight: false,
           // Clear stale seek targets — a search landing at offset 0 has no
@@ -1897,10 +1938,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           ...(focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
             : { _scrollResetGeneration: get()._scrollResetGeneration + 1 }),
-          ...(focusedInFirstPage && options?.phantomOnly
-            ? { _phantomFocusImageId: sortAroundFocusId! }
-            : {}),
+          ...(focusedInFirstPage && options?.phantomOnly && !suppressPulse
+            ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
+            : focusedInFirstPage && options?.phantomOnly
+              ? { _phantomFocusImageId: sortAroundFocusId! }
+              : {}),
+          _isInitialLoad: false,
         });
+
+        if (focusedInFirstPage && options?.phantomOnly && !suppressPulse) {
+          setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+        }
+
+        if (arrivingIds.size > 0) {
+          setTimeout(() => set({ _arrivingImageIds: new Set() }), 1500);
+        }
 
         // Replace the 2s SEARCH_FETCH_COOLDOWN with the short post-seek
         // cooldown now that fresh data has landed. Without this, extends
@@ -2223,8 +2275,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _extendBackwardInFlight: false,
           _lastPrependCount: result.hits.length,
           _prependGeneration: state._prependGeneration + 1,
+          // Atomic with results — no one-frame flash (fill-mode: both
+          // applies opacity: 0 from the same render).
+          _arrivingImageIds: new Set(result.hits.map((h) => h.id)),
         };
       });
+
+      setTimeout(() => set({ _arrivingImageIds: new Set() }), 1500);
 
       // APPROACH #4 (Agent 10): After each backward extend completes, set a
       // short cooldown so the next extend can't fire immediately. Without this,
