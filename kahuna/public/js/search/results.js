@@ -239,37 +239,33 @@ results.controller('SearchResultsCtrl', [
         // backing array (`imagesAll`) and the reactive `results` list.
         // `start` is the offset of the returned page in the overall result set.
         function applyLoadedImages(images, start = 0) {
-          // Walk each returned image and place it at its absolute position.
           images.data.forEach((image, index) => {
             // Convert the page-relative index into the full result-set index.
             const position = index + start;
             // Use the image id as the stable key when detecting duplicates.
             const imageId = image.data.id;
 
-            // If we have already seen this image at another position, remove
-            // the old slot so we do not render the same image twice.
+            // If image already present in results at a
+            // different position (result set shifted due to
+            // items being spliced in or deleted?), get rid of
+            // item at its previous position to avoid
+            // duplicates
             const existingPosition = imagesPositions.get(imageId);
             if (angular.isDefined(existingPosition) &&
               existingPosition !== position) {
               $log.info(`Detected duplicate image ${imageId}, ` +
                     `old ${existingPosition}, new ${position}`);
-              // Clear the stale entry in the sparse array.
               delete ctrl.imagesAll[existingPosition];
 
-              // Keep the reactive results list in sync with that removal.
               results.set(existingPosition, undefined);
             }
 
-            // Store the image in the sparse array at its absolute position.
             ctrl.imagesAll[position] = image;
-            // Remember where this image now lives for future duplicate checks.
             imagesPositions.set(imageId, position);
 
-            // Publish the image into the observable-backed results list.
             results.set(position, image);
           });
 
-          // Build the dense array used for rendering by stripping sparse holes.
           ctrl.images = compact(ctrl.imagesAll);
         }
 
