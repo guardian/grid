@@ -195,6 +195,12 @@ Snapshots are captured at two points:
 2. **On popstate departure** — at the start of the `useUrlSearchSync` popstate
    branch, a snapshot is captured for the entry being LEFT (`_lastKupuaKey`) before
    restoring the destination. This enables forward-after-back to find a snapshot.
+   **Phantom guard:** if a phantom snapshot already exists, it is only overwritten
+   when the current viewport-centre anchor is a *different image* from the stored
+   one. Same-image sub-pixel drift (< 1 row height) is harmless and must not
+   update the snapshot — that would cause `viewportRatio` to walk on repeated
+   back/forward cycles. A different anchor means the user scrolled significantly
+   and the new position must be captured.
 
 3. **On pagehide** — a `pagehide` event handler in `main.tsx` captures a snapshot
    for the current entry's `kupuaKey`. This is the reload-survival mechanism: the

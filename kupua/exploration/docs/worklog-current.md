@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(none)
+(none — ready for next task)
 
 ## Session Log
 
-(empty)
+(moved to changelog.md)

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import {
@@ -121,7 +122,16 @@ export function useUrlSearchSync() {
       )
     );
     const serialized = JSON.stringify(searchOnly);
-    if (serialized === _prevParamsSerialized) return;
+    if (serialized === _prevParamsSerialized) {
+      // Consume the user-initiated flag even on dedup bail to prevent it
+      // leaking into a future effect run. Display-only navigations (image
+      // detail open/close, density toggle) trigger pushNavigate → markUser
+      // InitiatedNavigation, but the effect deduplicates them. Without
+      // this, the stale flag is consumed by the NEXT real param change
+      // (e.g. browser Back), making it look user-initiated when it's not.
+      consumeUserInitiatedFlag();
+      return;
+    }
 
     // Read and clear the user-initiated flag. True means this param change
     // was caused by user interaction (via useUpdateSearchParams → navigate()),
@@ -177,19 +187,26 @@ export function useUrlSearchSync() {
       // search haven't fired yet). This enables forward navigation to
       // restore the entry we just backed away from.
       //
-      // Guard: only overwrite an existing snapshot when explicit focus
-      // provides a stable anchor. In phantom mode the push-time snapshot
-      // (from markPushSnapshot before navigate) has the most accurate
-      // anchor — it was taken while the phantomFocusImageId was still
-      // alive. By departure time that one-shot ID is consumed and
-      // getViewportAnchorId() may return a slightly different image due
-      // to sub-pixel scroll differences, causing an anchor-walk cascade
-      // on repeated back/forward cycles.
+      // Guard: in phantom mode, only overwrite the departing snapshot
+      // when the user has scrolled to a genuinely different anchor image.
+      // Same-image sub-pixel drift (restore lands 1–2px off → viewport
+      // centre resolves to the same image at a slightly different ratio)
+      // is harmless and must NOT update the snapshot — that would cause
+      // viewportRatio to drift on every back/forward cycle. A different
+      // anchor image means the user scrolled significantly; that's a
+      // legitimate position change and must be captured.
       if (_lastKupuaKey) {
         const existing = snapshotStore.get(_lastKupuaKey);
         if (!existing || !existing.anchorIsPhantom) {
           const departingSnap = buildHistorySnapshot();
           snapshotStore.set(_lastKupuaKey, departingSnap);
+        } else {
+          // Phantom snapshot exists — update only if anchor image changed.
+          const currentAnchor = getViewportAnchorId();
+          if (currentAnchor && currentAnchor !== existing.anchorImageId) {
+            const departingSnap = buildHistorySnapshot();
+            snapshotStore.set(_lastKupuaKey, departingSnap);
+          }
         }
       }
 
@@ -245,8 +262,12 @@ export function useUrlSearchSync() {
       }
     } else {
       const explicitFocus = useSearchStore.getState().focusedImageId;
+      // Sort-only relaxation: in phantom mode, sort changes reset to top
+      // even if focusedImageId is set (e.g. after return-from-detail).
+      // In explicit mode, focusedImageId always takes priority.
+      const isExplicitMode = getEffectiveFocusMode() === "explicit";
       phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
-      focusPreserveId = explicitFocus ?? phantomAnchor;
+      focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor);
     }
 
     setPrevParamsSerialized(serialized);
@@ -266,13 +287,13 @@ export function useUrlSearchSync() {
     );
     setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
     const searchOptions = phantomAnchor && snapshotHints
-      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil } as const
+      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
       : phantomAnchor
-        ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), frozenUntil } as const
+        ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined } as const
         : snapshotHints
-          ? { snapshotHints, frozenUntil } as const
-          : frozenUntil
-            ? { frozenUntil } as const
+          ? { snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
+          : frozenUntil || isSortOnly
+            ? { frozenUntil, sortOnly: isSortOnly || undefined } as const
             : undefined;
     search(focusPreserveId, searchOptions);
 

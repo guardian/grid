@@ -14,6 +14,92 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 27–28 April 2026 — Phantom-mode position restoration (4 bugs) + Bug 2 coupling refactor
+
+**Context:** In phantom/"Click to open" mode, `focusedImageId` is set transiently
+by `useReturnFromDetail` when the user closes image detail. This is correct — it
+serves position preservation for filter/query/reload. But it was leaking into three
+code paths that assumed `focusedImageId` implies an explicit user choice.
+
+**Bug 1 — Viewport anchor not updating after return-from-detail:**
+`useDataWindow.ts` `onItemsRendered` had a guard: `if (!focusedImageIdRef.current)`
+that skipped anchor updates when `focusedImageId` was set. In phantom mode after
+closing detail, this froze `_viewportAnchorId` at the exited image — all subsequent
+scroll didn't update the anchor, breaking history snapshots, density-switch, and
+phantom sort-around-focus.
+
+Fix: guard now checks `getEffectiveFocusMode() === "phantom"` — in phantom mode the
+anchor always updates regardless of `focusedImageId`. In explicit mode, the focused
+image wins as anchor (unchanged).
+
+**Bug 2 — Sort-only relaxation broken in phantom mode:**
+`useUrlSearchSync.ts` computed `focusPreserveId = explicitFocus ?? phantomAnchor`.
+After return-from-detail, `explicitFocus` was non-null → sort changes preserved
+position around the detail image instead of resetting to top (the intended phantom
+sort behaviour).
+
+Fix: `focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ??
+phantomAnchor)`. Phantom-mode sort always resets to top. Explicit mode unchanged.
+Non-sort changes (filter, query) still preserve position around `focusedImageId`.
+
+**Bug 3 — Departure snapshot guard refusing to overwrite phantom snapshots:**
+The popstate departure path had `if (!existing || !existing.anchorIsPhantom)` — when
+a phantom snapshot existed (captured by `markPushSnapshot` at detail-open time), it
+refused to overwrite. User scroll after return-from-detail was never captured; Back/
+Forward restored the stale markPushSnapshot position.
+
+Fix: added `else` branch that checks `getViewportAnchorId() !== existing.anchorImageId`.
+Same image = skip (prevents sub-pixel drift cascade). Different image = overwrite
+(legitimate scroll).
+
+**Bug 4 — Stale `userInitiatedFlag` leaking across display-only navigations:**
+`consumeUserInitiatedFlag()` was placed AFTER the dedup guard in `useUrlSearchSync`.
+Display-only navigations (image detail open/close, density toggle) call
+`markUserInitiatedNavigation()` via `pushNavigate`, but the effect deduplicates them
+(same serialised search params) and returns WITHOUT consuming the flag. The stale
+flag leaked to the next real param change — e.g. browser Back — making it look
+user-initiated. This skipped the departure snapshot guard entirely.
+
+Repro: phantom mode → seek → sort → detail → back → seek to 75% → Back → Forward →
+restores at detail image instead of seeked position.
+
+Fix: consume the flag on dedup bail too (before `return`). The flag's only purpose is
+to distinguish user-initiated from popstate; consuming it on dedup is safe because
+display-only navigations don't need the distinction.
+
+**Refactor — Bug 2 (flash fix) cross-effect coupling:**
+The `_scrollResetGeneration` counter from the 27 Apr flash fix used a `pendingSortOnlyRef`
+to bridge `sortOnly` context from Effect #7 (which detects sort-only changes) to
+Effect #7b (which resets scroll). This ref coupling had a stale-value risk: if Effect #7
+wrote the ref for a `searchParams` change whose `search()` later aborted, the next
+`_scrollResetGeneration` bump would read stale `sortOnly`.
+
+Fix: replaced `_scrollResetGeneration: number` with `_scrollReset: { gen: number;
+sortOnly: boolean }`. `sortOnly` is piped from `useUrlSearchSync` → `search()` options
+→ store `set()`, and Effect #7b reads it directly from the store value. Eliminated
+`pendingSortOnlyRef` entirely. Effect #7's no-anchor branch simplified to a no-op
+comment (~8 lines removed).
+
+`drift-flash-matrix.spec.ts` test #3 ("sort change without focus: detect F1 flash
+pattern"): converted from diagnostic-only to regression assertion — now asserts
+`scrollFlashDetected === false` and `contentFlashDetected === false`.
+
+**Tests added:**
+- `browser-history.spec.ts` #34: "departing snapshot updates when phantom anchor
+  changes" — A→B, back(A), scroll within buffer, forward(B), back(A): verify
+  A's snapshot anchor changed.
+- `browser-history.spec.ts` #35: "detail open/close then seek — departure snapshot
+  captures seeked position" — full repro of Bug 4: seek→sort→detail→back→seek→
+  back→forward: verify forward restores seeked position, not detail image.
+
+**Tests:** unit 398/398, e2e 189/189 (35 browser-history, up from 33).
+
+**Doc updates:**
+- `position-preservation-reference.md`: critical sites #1–#4 marked fixed, flash-site
+  inventory #8 date corrected from 27 Apr to 1 Apr 2026, summary updated.
+- `04-browser-history-architecture.md`: popstate departure description updated to
+  explain phantom guard behaviour.
+
 ### 27 April 2026 — Animations for new/phantom images; count/ticker survival
 
 **Arriving animation** (`kupua-arrive`): Images that appear at the top of results

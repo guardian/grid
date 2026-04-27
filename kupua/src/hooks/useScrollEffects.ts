@@ -602,14 +602,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     // [Bug 2 fix] Don't reset scroll eagerly — the old buffer is still
     // visible and resetting scrollTop here causes a flash of old data at
-    // the top. The _scrollResetGeneration effect (below) resets scroll
-    // atomically with the data swap when search() completes.
+    // the top. The _scrollReset effect (below) resets scroll atomically
+    // with the data swap when search() completes.
     // For deep→shallow transitions, effect #8 (bufferOffset→0 guard)
     // also fires and resets scroll.
-    //
-    // Save sort-only context so Effect #7b can preserve scrollLeft in table
-    // view (where horizontal scroll position survives sort changes).
-    pendingSortOnlyRef.current = sortOnly;
   }, [searchParams, virtualizer, focusedImageId, parentRef]);
 
   // -------------------------------------------------------------------------
@@ -618,31 +614,30 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   //
   // When search() lands fresh results without focus preservation (sort change,
   // query change, filter change — all with no focusedImageId), the store bumps
-  // _scrollResetGeneration in the same set() call that swaps the buffer. This
+  // _scrollReset.gen in the same set() call that swaps the buffer. This
   // effect resets scrollTop in the same useLayoutEffect frame as that render,
   // so the user never sees old buffer content at scrollTop=0.
+  //
+  // _scrollReset.sortOnly (piped from search() options) tells us whether to
+  // preserve scrollLeft in table view — table users scroll right to see
+  // columns, losing that on sort change is jarring.
 
-  const scrollResetGeneration = useSearchStore(
-    (s) => s._scrollResetGeneration,
+  const scrollReset = useSearchStore(
+    (s) => s._scrollReset,
   );
-  // Carries sort-only context from Effect #7 so we can preserve scrollLeft
-  // in table view on sort-only changes (table users scroll right to see
-  // columns — losing that on sort change is jarring).
-  const pendingSortOnlyRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (scrollResetGeneration === 0) return;
+    if (scrollReset.gen === 0) return;
     const el = parentRef.current;
     if (!el) return;
     el.scrollTop = 0;
     const geo = geometryRef.current;
-    if (!geo.preserveScrollLeftOnSort || !pendingSortOnlyRef.current) {
+    if (!geo.preserveScrollLeftOnSort || !scrollReset.sortOnly) {
       el.scrollLeft = 0;
     }
-    pendingSortOnlyRef.current = false;
     virtualizer.scrollToOffset(0);
     queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
-  }, [scrollResetGeneration, parentRef, virtualizer]);
+  }, [scrollReset, parentRef, virtualizer]);
 
   // 8. BufferOffset→0 guard — primary scroll-reset for "go home" transitions
   // -------------------------------------------------------------------------

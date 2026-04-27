@@ -340,9 +340,20 @@ test.describe("Drift & Flash matrix", () => {
     );
     console.log(`    Total frames sampled: ${flash.totalFrames}`);
 
-    // We don't assert pass/fail on flash here — this is a diagnostic.
-    // The point is to MEASURE the F1 pattern across tiers.
-    // If Bug-2 Option B is implemented, re-run to verify the flash is gone.
+    // Bug 2 is fixed: the F1 flash pattern (old buffer visible at scrollTop=0)
+    // should no longer occur. Assert both scroll flash and content flash are gone.
+    if (pre.scrollTop > 1000) {
+      expect(
+        flash.scrollFlashDetected,
+        `Scroll flash detected: scrollTop dropped to ${flash.scrollTopMin.toFixed(0)} ` +
+          `from ${pre.scrollTop.toFixed(0)} during sort change`,
+      ).toBe(false);
+    }
+    expect(
+      flash.contentFlashDetected,
+      `Content flash detected: ${flash.contentFlashFrames} frames showed ` +
+        `content from a different region of the dataset`,
+    ).toBe(false);
 
     // But we DO assert basic sanity: search completed, results loaded
     expect(post.resultsLength).toBeGreaterThan(0);

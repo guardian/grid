@@ -39,6 +39,7 @@
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import {
   PAGE_SIZE,
@@ -453,9 +454,12 @@ export function useDataWindow(): DataWindow {
       }
 
       // Update the viewport anchor — nearest image to the viewport centre.
-      // Only when there's no explicit focus (focus always wins as anchor).
+      // In explicit mode, focus always wins as anchor so skip the update.
+      // In phantom mode, always update — focusedImageId may be set (e.g.
+      // after return-from-detail) but it's invisible and the user may have
+      // scrolled far away from it.
       const currentResults = resultsRef.current;
-      if (currentResults.length > 0 && !focusedImageIdRef.current) {
+      if (currentResults.length > 0 && (getEffectiveFocusMode() === "phantom" || !focusedImageIdRef.current)) {
         const midPoint = (startIndex + endIndex) / 2;
         // In two-tier mode, convert global midpoint to buffer-local
         const localMid = isTwoTier

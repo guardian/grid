@@ -279,12 +279,13 @@ interface SearchState {
   _seekTargetLocalIndex: number;
 
   /**
-   * Generation counter — bumped when search() lands fresh results without
-   * focus preservation (the no-focus path). The scroll-reset effect in
-   * useScrollEffects watches this to reset scrollTop=0 atomically with the
-   * data swap, avoiding the flash of old buffer at scrollTop=0 (Bug 2).
+   * Bumped when search() lands fresh results without focus preservation
+   * (the no-focus path). The scroll-reset effect in useScrollEffects watches
+   * `gen` to reset scrollTop=0 atomically with the data swap, avoiding the
+   * flash of old buffer at scrollTop=0 (Bug 2). `sortOnly` tells the effect
+   * whether to preserve scrollLeft (table horizontal scroll survives sort).
    */
-  _scrollResetGeneration: number;
+  _scrollReset: { gen: number; sortOnly: boolean };
 
   /**
    * Global index the seek targeted, for two-tier mode. When twoTier is active,
@@ -1648,7 +1649,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
   _seekTargetGlobalIndex: -1,
-  _scrollResetGeneration: 0,
+  _scrollReset: { gen: 0, sortOnly: false },
   _seekSubRowOffset: 0,
   _pendingFocusAfterSeek: null,
   _pendingFocusDelta: null,
@@ -1712,7 +1713,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean }) => {
     trace("search", "t_0");
     const { dataSource, params, pitId: oldPitId } = get();
 
@@ -1937,7 +1938,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // focusedImageId means the sort-around-focus effect would no-op.
           ...(focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
-            : { _scrollResetGeneration: get()._scrollResetGeneration + 1 }),
+            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: !!options?.sortOnly } }),
           ...(focusedInFirstPage && options?.phantomOnly && !suppressPulse
             ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
             : focusedInFirstPage && options?.phantomOnly

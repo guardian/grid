@@ -1248,3 +1248,156 @@ test.describe("Reload survival — position restoration on reload", () => {
     expect(scrollFinal).toBeGreaterThan(scrollAfterRestore + 3000);
   });
 });
+
+// ===========================================================================
+// Phantom mode — departing snapshot update after scroll
+// ===========================================================================
+
+test.describe("Snapshot restore — phantom mode departure update", () => {
+  // Override: these tests need phantom (click-to-open) mode.
+  test.beforeEach(async ({ kupua }) => {
+    await kupua.ensurePhantomMode();
+  });
+
+  test("departing snapshot updates when phantom anchor changes", async ({ kupua }) => {
+    // Entry A: default sort.
+    await kupua.goto();
+    await waitForSearchSettled(kupua.page);
+    const keyA = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+
+    // Push a sort change (entry B) — this captures A's snapshot via
+    // markPushSnapshot. In phantom mode, A's anchor is the viewport centre
+    // (anchorIsPhantom: true).
+    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await waitForSearchSettled(kupua.page);
+
+    // Verify A's snapshot is phantom.
+    const snapA = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyA!);
+    expect(snapA).not.toBeNull();
+    expect(snapA.anchorIsPhantom).toBe(true);
+    const originalAnchor = snapA.anchorImageId;
+
+    // Back to A — this triggers a departing snapshot for B (no phantom
+    // issue — B has no snapshot yet). Also restores A from its phantom
+    // snapshot. After restore, scroll far within the buffer.
+    await kupua.page.goBack();
+    await waitForSearchSettled(kupua.page);
+
+    // Scroll within the buffer so the viewport centre changes from
+    // the restored anchor.
+    const grid = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await grid.boundingBox();
+    if (gridBox) {
+      await kupua.page.mouse.move(gridBox.x + gridBox.width / 2, gridBox.y + gridBox.height / 2);
+    }
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, 400);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForTimeout(500);
+    expect(await kupua.getScrollTop()).toBeGreaterThan(200);
+
+    // Forward to B — this is the popstate that should update A's
+    // departing snapshot. A has anchorIsPhantom: true, and we scrolled
+    // to a different image.
+    await kupua.page.goForward();
+    await waitForSearchSettled(kupua.page);
+
+    // Back to A again — should restore at the SCROLLED position,
+    // not the original anchor.
+    await kupua.page.goBack();
+    await waitForSearchSettled(kupua.page);
+
+    // Inspect A's snapshot — should have been updated on the forward
+    // departure with the new viewport anchor.
+    const snapAAfter = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyA!);
+
+    // KEY ASSERTION: A's snapshot anchor should have changed from the
+    // original (restored) anchor to the scroll-away anchor.
+    expect(snapAAfter).not.toBeNull();
+    expect(snapAAfter.anchorImageId).not.toBe(originalAnchor);
+  });
+
+  test("detail open/close then seek — departure snapshot captures seeked position", async ({ kupua }) => {
+    // Repro: phantom mode → seek → sort → detail → back → seek → back → forward
+    // Bug: stale user-initiated flag from detail open leaked into the Back
+    // popstate, making it skip the departure snapshot. Forward restored the
+    // markPushSnapshot anchor (top-of-results) instead of the seeked position.
+
+    await kupua.goto();
+    await waitForSearchSettled(kupua.page);
+
+    // Seek to ~50%
+    await kupua.seekTo(0.5);
+    await kupua.page.waitForTimeout(1000);
+
+    // Change sort (creates history entry)
+    await spaNavigate(kupua.page, "/search?orderBy=oldest");
+    await waitForSearchSettled(kupua.page);
+    const keySorted = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+
+    // Open detail on image B (click-to-open mode)
+    const imageB = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().results[3]?.id ?? null;
+    });
+    expect(imageB).not.toBeNull();
+    const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+    await cells.nth(3).click();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10_000 },
+    );
+
+    // Back from detail
+    await kupua.page.goBack();
+    await kupua.waitForDetailClosed();
+    await kupua.page.waitForTimeout(500);
+
+    // Seek to ~75%
+    await kupua.seekTo(0.75);
+    await kupua.page.waitForTimeout(1000);
+
+    // Capture the anchor at 75%
+    const anchorAtSeek = await kupua.page.evaluate(() => {
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      return getAnchor ? getAnchor() : null;
+    });
+    expect(anchorAtSeek).not.toBeNull();
+
+    // Back (sorted → initial) — departure should capture the seeked anchor
+    await kupua.page.goBack();
+    await waitForSearchSettled(kupua.page);
+
+    // Inspect the snapshot — should have the seeked anchor, not markPushSnapshot's
+    const snapAfterBack = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keySorted!);
+    expect(snapAfterBack).not.toBeNull();
+    expect(snapAfterBack.anchorImageId).toBe(anchorAtSeek);
+    expect(snapAfterBack.anchorImageId).not.toBe(imageB);
+
+    // Forward (initial → sorted) — should restore at seeked position
+    await kupua.page.goForward();
+    await waitForSearchSettled(kupua.page);
+
+    const restoredAnchor = await kupua.page.evaluate(() => {
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      return getAnchor ? getAnchor() : null;
+    });
+    expect(restoredAnchor).not.toBe(imageB);
+  });
+});
