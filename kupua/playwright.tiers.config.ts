@@ -29,7 +29,7 @@ const sharedUse = {
 
 export default defineConfig({
   testDir: "./e2e/local",
-  testMatch: "tier-matrix.spec.ts",
+  testMatch: ["tier-matrix.spec.ts", "drift-flash-matrix.spec.ts"],
   globalSetup: "./e2e/global-setup.ts",
   timeout: 60_000,
   globalTimeout: 30 * 60_000, // 30min — 3 tiers × ~10min

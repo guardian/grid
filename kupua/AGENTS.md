@@ -44,7 +44,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
-| **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-rearchitecture-handoff.md` |
+| **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-reference.md` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
 | **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
@@ -113,7 +113,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 - [x] ~~Phantom focus mode (click-to-open, settings menu, coarse pointer)~~ → `ui-prefs-store.ts`, `SettingsMenu.tsx`
 - [x] ~~Browser history Phases 1–4~~ → kupuaKey, snapshot capture, popstate restore, reload survival
 - [x] ~~Browser history Phase 5 — experimental flag retirement~~ → focus-as-anchor promoted, lenient match removed (dead code)
-- [x] ~~Phantom anchor drift on history back/forward~~ — Bug A (coordinate mismatch), Bug B (anchor-walk cascade), seek column-alignment fix. Rearchitecture handoff: `position-preservation-rearchitecture-handoff.md`
+- [x] ~~Phantom anchor drift on history back/forward~~ — Bug A (coordinate mismatch), Bug B (anchor-walk cascade), seek column-alignment fix. Reference: `position-preservation-reference.md`
 
 ### Deferred to Later Phases
 

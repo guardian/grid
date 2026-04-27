@@ -14,6 +14,104 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 27 April 2026 — Fix: flash of intermediate results on no-focus search (Bug 2)
+
+**Bug:** Changing sort (or query, filter, popstate) without a focused image while
+scrolled deep caused 20+ frames of old buffer content visible at scrollTop=0 before
+new results arrived. The old Effect #7 reset `scrollTop=0` eagerly (before paint),
+but `search()` didn't fire until after paint — the user saw stale first-page images.
+
+**Root cause:** Timing mismatch between `useLayoutEffect` (Effect #7, fires before
+paint, resets scroll) and `useEffect` (`useUrlSearchSync`, fires after paint, calls
+`search()`). Between these two, the browser paints old buffer data at scrollTop=0.
+
+**Fix (`_scrollResetGeneration` — deferred scroll reset):**
+1. `search-store.ts`: Added `_scrollResetGeneration` counter. Bumped atomically in
+   the `search()` else-branch (no-focus path) alongside `bufferOffset: 0` and new
+   results. When focus IS in first page, `sortAroundFocusGeneration` bumps instead.
+2. `useScrollEffects.ts` Effect #7: No longer eagerly resets scroll for no-preserveId
+   changes. Old scroll position stays harmlessly until data arrives.
+3. `useScrollEffects.ts` new Effect #7b: Watches `_scrollResetGeneration`. Resets
+   scroll in the same `useLayoutEffect` frame as the data swap render — zero flash.
+   Preserves `scrollLeft` on sort-only changes (table view horizontal scroll).
+
+**Note — coupling:** Effect #7 now saves `sortOnly` into a ref that Effect #7b reads.
+These two effects are coupled: #7 runs on searchParams change (before data), #7b runs
+on `_scrollResetGeneration` change (with data). The ref bridges the gap. If either
+effect is refactored independently, the other must be checked.
+
+**Results:** Content flash 23→0 frames, scroll flash 22→0 frames. All 4 cited-scenario
+tests pass (focus, phantom, no-focus, Dublin two-tier). 398 unit tests pass.
+
+**Rejected alternatives:**
+- Always use viewport anchor for sort-without-focus: forces "stay at anchor" UX,
+  removes ability to control scroll-reset UX independently
+- Show skeleton while loading: worse UX, complex implementation
+
+### 26 April 2026 — Fix: content flash during sort-around-focus
+
+**Bug:** When changing sort with a focused image, 30-35 frames (~500ms) of
+wrong content flashed on screen. The thumbnails briefly showed images from
+global position 0 before snapping to the correct position.
+
+**Root cause:** `search()` nullifies `positionMap` (line 1722) before
+`_findAndFocusImage` reads it (line 1365). Two race conditions:
+
+1. **Two-tier mode** (1k–65k results): positionMap is temporarily null while
+   `_fetchPositionMap` fetches the new sort's map in the background.
+   `_findAndFocusImage` falls into the deep-seek estimate path, sets
+   `offset = hintOffset ?? 0`. With `hintOffset = null` (user-initiated sort
+   change has no snapshot hints), `bufferOffset = 0`. The correct images are
+   loaded around the focused one, but placed at global position 0. Effect #9
+   scrolls to position ~100 instead of ~7098. scrollTop jumps from 445343 to
+   5690 for ~350ms until async countBefore correction.
+
+2. **Deep-seek mode** (>65k): Same estimated `offset = 0` path. The scroll
+   container is buffer-relative so thumbnails appear correct, but the scrubber
+   thumb jumps to 0% and the position counter shows wrong numbers.
+
+**Fix (two changes in `search-store.ts`):**
+
+1. `_findAndFocusImage` step 2: when positionMap is null but total is in
+   two-tier range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`),
+   use `countBefore` (~10ms for ≤65k) instead of estimated offset=0. This
+   gives the exact global offset with negligible latency.
+
+2. `search()` → `_findAndFocusImage` call: pass `_focusedImageKnownOffset`
+   as hintOffset fallback (was always `null` for non-popstate sort changes).
+   Deep-seek mode gets ~correct initial buffer position (~672k instead of 0),
+   and the async correction only adjusts by ~17k instead of ~655k.
+
+**Results:** All 4 cited-scenario tests: content flash 0 frames (was 30-35).
+Dublin two-tier scrollTop range 429587–445343 (was 5690–445343). 1.3M seek
+scrollTop range 5454–6060 (was 0–6060). 398 unit tests pass.
+
+### 26 April 2026 — Flash measurement infrastructure and cited-scenario probes
+
+Built systematic infrastructure for measuring visual drift and flash during
+state transitions, using rAF-based sampling inside the browser.
+
+**New files:**
+- `e2e/shared/drift-flash-probes.ts`: Shared measurement module. `captureProbe()`,
+  `captureVisibleCells()`, `waitForSettle()`, `startTransitionSampling()` /
+  `stopTransitionSampling()` (rAF loop capturing scrollTop, bufferOffset,
+  resultsLength, safStatus, visible cell positions, tracked image state),
+  `measureDrift()`, `analyzeFlash()` (content + scroll flash detection),
+  `analyzePositionFlash()` (col×row trajectory analysis).
+- `e2e/smoke/cited-scenario.spec.ts`: 4 tests against real TEST cluster (1.3M images),
+  covering seek+focus+sort-field-change, seek+focus+direction-toggle,
+  seek+no-focus+sort-change, and city:Dublin two-tier variant.
+- `e2e/smoke/flash-measurement.spec.ts`: 3 sites × 3 scroll modes = 9 tests
+  measuring drift and flash at the 3 most impactful audit sites.
+- Updated `e2e/README.md` with comprehensive Drift & Flash documentation section.
+
+**Key findings from measurements:**
+- Site #1 (sort, no focus): Reset to top is expected behavior, not a bug.
+- Site #8 (density toggle): ~5px drift, negligible.
+- Site #9 (popstate no snapshot): Position lost entirely. Future investigation needed.
+- Cited scenario (sort-around-focus with focus): 30-35 frames content flash.
+  Fixed in separate changelog entry above.
+
 ### 26 April 2026 — Fix: LAN access broken on Chrome Android (insecure context)
 
 `crypto.randomUUID()` is secure-context-only. Over LAN HTTP

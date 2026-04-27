@@ -17,9 +17,15 @@ e2e/
   smoke/                          ← node scripts/run-smoke.mjs (TEST)
     manual-smoke-test.spec.ts
     smoke-scroll-stability.spec.ts
+    cited-scenario.spec.ts        ← drift+flash probes on real data
+    phantom-drift-diag.spec.ts    ← back/forward drift diagnostics
+    focus-preservation-smoke.spec.ts
+    history-diag.spec.ts
+    home-logo-diag.spec.ts
     smoke-report.ts
   shared/                         ← imported by local, smoke, perf, and diag
     helpers.ts
+    drift-flash-probes.ts         ← drift & flash measurement probes
   scrubber-debug.spec.ts          ← diagnostic (own config)
   global-setup.ts                 ← local E2E infra (Docker ES health check)
   tsconfig.json                   ← covers all subdirectories
@@ -150,6 +156,8 @@ you should have a specific reason to run it.
 | `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
 | `local/tier-matrix.spec.ts` | 18 | Cross-tier tests (seek, Home/End, density switch, sort-around-focus) — runs via `playwright.tiers.config.ts` only |
+| `local/drift-flash-matrix.spec.ts` | 4 | Cross-tier drift + flash probes on local Docker ES. Same probe infrastructure as smoke `cited-scenario`. |
+| `local/focus-preservation.spec.ts` | ~30 | Focus preservation across sort/filter/scrubber/density in explicit and phantom mode |
 
 ### Smoke (`npm run test:smoke` — `playwright.smoke.config.ts` → `e2e/smoke/`)
 
@@ -157,12 +165,18 @@ you should have a specific reason to run it.
 |------|-------|----------------|
 | `smoke/manual-smoke-test.spec.ts` | S1–S11 | Date/keyword/null-zone seek accuracy, End key, Home key, sort-around-focus, density switch at scale |
 | `smoke/smoke-scroll-stability.spec.ts` | S12–S27 | Seek accuracy sweep, flash prevention, swimming detection, settle-window rAF trace + CLS, headroom-zone stability, cold-start seek, sustained scroll-up swimming, FOCC DOM-level detection |
+| `smoke/cited-scenario.spec.ts` | 4 | Drift + flash probes during sort change, direction toggle, no-focus phantom mode, and two-tier (Dublin). Uses rAF sampling, position flash analysis, content flash analysis. |
+| `smoke/phantom-drift-diag.spec.ts` | D1–D3 | Phantom and explicit anchor back/forward drift over multiple cycles. Full coordinate-system capture. |
+| `smoke/focus-preservation-smoke.spec.ts` | T1–T5 | Focus preservation across sort/filter at real scale |
+| `smoke/history-diag.spec.ts` | — | Browser-history snapshot diagnostic |
+| `smoke/home-logo-diag.spec.ts` | — | Logo-click reset-to-home diagnostic |
 
 ### Shared (`e2e/shared/` — imported by all modes)
 
 | File | What it provides |
 |------|------------------|
 | `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()` |
+| `shared/drift-flash-probes.ts` | Position probes, visible-cell snapshots, rAF transition sampling, drift/flash/position-flash analysis and logging |
 
 ### Infrastructure (`e2e/` root)
 
@@ -200,4 +214,239 @@ try hard to backport learnings into the local test suite:
 that would have caught (or would in the future catch) the same bug class locally. If
 a particular failure truly cannot be reproduced locally (e.g. requires 1M+ docs),
 document why in the test comments and ensure the smoke test itself covers it permanently.
+
+---
+
+## Drift & Flash — Concepts, Probes, and Tests
+
+This section explains what "drift" and "flash" mean in kupua, what the probes
+measure, which tests use them, and how to interact with focused images in tests
+without introducing Playwright artifacts.
+
+### What is drift?
+
+**Drift** = a tracked image ends up at a different viewport position after an
+operation than it was before. You trigger a sort change, and the image that was
+at screen-centre is now 200px higher. That's drift.
+
+Measured as the change in **viewport ratio** (0.0 = top of scrollable container,
+1.0 = bottom) between a settled pre-state and a settled post-state. Drift of
+0.0000 is perfect. Drift > 0.01 is visible to the eye.
+
+The probe captures both **DOM coordinates** (`getBoundingClientRect`) and
+**geometry coordinates** (row × ROW_HEIGHT). DOM coordinates are preferred
+because they account for virtualizer positioning (paddingTop, transforms).
+Geometry is the fallback when the DOM element isn't rendered.
+
+### What is flash?
+
+Flash is an umbrella for "wrong stuff on screen during a transition." There are
+three distinct types:
+
+**Content flash** — the visible thumbnails briefly change to completely different
+images, then snap to the correct ones. Root cause: the store delivers an
+intermediate buffer (first page, offset=0) before the sort-around-focus seek
+arrives with the correct buffer. For ~100–700ms every thumbnail on screen is from
+the wrong part of the dataset.
+
+Measured by `analyzeFlash()`: counts frames where `firstVisibleGlobalIdx` is
+>30% of total away from both the pre and post expected regions.
+
+**Scroll flash** — `scrollTop` drops to near-zero while content is still from a
+deep region. The viewport jumps to the top of the grid then back. Root cause:
+Effect #7 eagerly resets `scrollTop = 0` before the new search results arrive.
+
+Measured by `analyzeFlash()`: counts frames where `scrollTop < 10% of pre-action
+scrollTop` while first-visible content is still from the pre-action region.
+
+**Position flash** — a tracked image visits >2 distinct (column, row) grid
+positions during a single transition. Position A (initial) → B (unwanted
+intermediate) → C (final). Even if B is brief, it looks like the image jumped.
+
+Measured by `analyzePositionFlash()`: builds a trajectory of (col, row) positions
+from rAF samples. >2 distinct positions = flash detected.
+
+All three probes are in `e2e/shared/drift-flash-probes.ts`.
+
+### The probe module: `drift-flash-probes.ts`
+
+Exports:
+
+| Function | Purpose |
+|----------|--------|
+| `captureProbe(page, label, testStartMs, trackId)` | Settled-state snapshot: store state, scroll position, tracked image coordinates (DOM + geometry), viewport anchor, grid geometry |
+| `captureVisibleCells(page)` | All visible `[data-image-id]` elements with their globalIdx, (col, row), and DOM-vs-geometry delta |
+| `waitForSettle(page, timeout?)` | Wait for `!loading && !sortAroundFocusStatus && results.length > 0` + 2s extra |
+| `startTransitionSampling(page, trackId)` | Inject an rAF loop that captures one `TransitionSample` per animation frame |
+| `stopTransitionSampling(page)` | Stop the rAF loop and return all samples |
+| `measureDrift(pre, post)` | Compare two `PositionProbe` snapshots → drift ratio, drift px |
+| `analyzeFlash(samples, preScrollTop, preFirstIdx, postFirstIdx, total)` | Detect content flash and scroll flash from transition samples |
+| `analyzePositionFlash(samples)` | Detect position flash from (col, row) trajectory |
+| `logProbe()`, `logDrift()`, `logFlash()`, `logPositionFlash()` | Pretty-print results to console |
+
+The **rAF sampling loop** (`startTransitionSampling`) runs inside the browser
+page. It reads store state and DOM every animation frame (~60fps), recording:
+- `scrollTop`, `loading`, `bufferOffset`, `resultsLength`, `sortAroundFocusStatus`
+- First and last visible image IDs and global indices
+- Tracked image: whether it's in the DOM, its viewport ratio, its (col, row)
+
+This is how we see *intermediate* frames — not just before/after.
+
+### How to interact with images in tests
+
+**Never click images with Playwright in headed mode.** Playwright's click
+mechanism causes visible zoom-in/zoom-out artifacts (actionability checks trigger
+scrollIntoView and layout shifts). These are Playwright artifacts, not app bugs,
+but they corrupt probe measurements.
+
+**Never use `deviceScaleFactor` in smoke tests.** Explicit DPR values (1.25, 2)
+cause the headed browser to visibly resize/zoom. The smoke config omits it
+entirely so the browser uses its native DPR.
+
+**Never use `page.screenshot()` in headed smoke tests.** Screenshots trigger
+a brief viewport zoom artifact that corrupts visual measurements.
+
+Instead:
+
+```typescript
+// Find a visible image by checking which cells are actually in the viewport
+const visibleImageId = await page.evaluate(() => {
+  const grid = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+  if (!grid) return null;
+  const gridRect = grid.getBoundingClientRect();
+  const cells = grid.querySelectorAll('[data-image-id]');
+  const visible: string[] = [];
+  for (let i = 0; i < cells.length; i++) {
+    const r = cells[i].getBoundingClientRect();
+    const centerY = r.top + r.height / 2;
+    // Margin of 100px avoids overscan cells outside the visible area
+    if (centerY > gridRect.top + 100 && centerY < gridRect.bottom - 100) {
+      const id = cells[i].getAttribute('data-image-id');
+      if (id) visible.push(id);
+    }
+  }
+  if (visible.length === 0) return null;
+  return visible[Math.floor(visible.length / 2)]; // middle of visible set
+});
+
+// Focus via store — no viewport side-effects
+await page.evaluate((id) => {
+  const store = (window as any).__kupua_store__;
+  store?.getState().setFocusedImageId(id);
+}, visibleImageId);
+```
+
+The `__kupua_store__` is exposed on `window` in dev mode. It provides:
+- `getState().setFocusedImageId(id)` — set explicit focus
+- `getState()._phantomFocusImageId` — read the phantom focus (one-shot, may be null)
+- `getState().focusedImageId` — current explicit focus
+- All store state for inspection
+
+### Overscan trap
+
+The virtualizer renders extra rows above and below the viewport (overscan).
+These cells exist in the DOM with valid `data-image-id` attributes but are
+**not visible on screen**. If you pick the Nth `[data-image-id]` element
+blindly, you may select an overscan cell. Playwright's click will then
+trigger `scrollIntoView`, causing a large scroll jump that looks like drift.
+
+The `getBoundingClientRect` margin check in the pattern above avoids this.
+The 100px margin is conservative — overscan rows are typically 1–3 rows
+(200–600px) above/below the viewport.
+
+### Where tests live
+
+| Test file | Data source | What it measures |
+|-----------|-------------|------------------|
+| `smoke/cited-scenario.spec.ts` | Real TEST (1.3M images), city:Dublin (14k) | Drift + content flash + position flash during sort change, direction toggle, no-focus mode. 4 tests covering seek and two-tier modes. |
+| `smoke/phantom-drift-diag.spec.ts` | Real TEST (1.3M images) | Back/forward cycle drift (phantom and explicit anchor). D1–D3 covering 4-cycle phantom, 3-cycle explicit, DOM-vs-geometry coordinate delta at multiple seek positions. |
+| `local/drift-flash-matrix.spec.ts` | Local Docker ES (10k) | Same probe infrastructure as cited-scenario, but on local data. Cross-tier via `playwright.tiers.config.ts`. |
+| `local/focus-preservation.spec.ts` | Local Docker ES (10k) | Focus preservation (focusedImageId survives sort/filter/scrubber/density). Not probe-based but covers the same domain. |
+
+### Running the tests
+
+**Smoke tests (real data, headed):**
+
+Requires `start.sh --use-TEST` running on :3000. Stop any other server first.
+
+```bash
+# All cited-scenario tests (4 tests, ~50s)
+npm --prefix kupua run test:smoke -- cited-scenario
+
+# Phantom drift diagnostics (D1–D3, ~40s)
+npm --prefix kupua run test:smoke -- phantom-drift-diag
+
+# Direct Playwright invocation (same thing)
+cd /path/to/grid/kupua && npx playwright test \
+  --config playwright.smoke.config.ts \
+  e2e/smoke/cited-scenario.spec.ts 2>&1 | tee /tmp/kupua-test-output.txt
+```
+
+**Local tests (Docker ES):**
+
+```bash
+# All local E2E including drift-flash-matrix
+npm --prefix kupua run test:e2e
+
+# Just drift-flash-matrix on all tiers
+npm --prefix kupua run test:e2e:tiers
+```
+
+### Reading the output
+
+Each test prints a results block:
+
+```
+  ════════════════════════════════════════════
+  RESULTS — Last Modified → Uploaded
+  ════════════════════════════════════════════
+  Drift: 0.0000 (0.0px)
+  Column shift: 2 → 0 (-2)
+  Position flash: no (2 positions)
+  Focus preserved: true
+  Content flash: true (35 frames)
+  Total frames sampled: 333 (5420ms)
+  ════════════════════════════════════════════
+```
+
+- **Drift 0.0px**: image didn't move vertically. Good.
+- **Column shift -2**: image moved from column 2 to column 0. Expected — re-sort
+  changes the image's global index, so `globalIdx % columns` changes. Not a bug.
+- **Position flash: no (2 positions)**: the tracked image visited 2 grid positions
+  (initial and final). 2 is the expected minimum after a sort that changes the
+  column. 1 = no movement at all. 3+ = something intermediate appeared. Bad.
+- **Content flash: true (35 frames)**: for 35 animation frames (~580ms), the
+  viewport showed images from a completely different part of the dataset. This IS
+  the bug — the intermediate first-page buffer rendered before the correct seek
+  buffer arrived.
+- **Total frames sampled**: how many rAF frames the sampling loop captured.
+
+### The flash inventory
+
+A comprehensive audit of all 17 sites where flash can occur lives in
+`exploration/docs/position-preservation-audit-findings.md` § Section 7.
+The three reproducible flash sites are:
+
+| # | Trigger | Severity | Family |
+|---|---------|----------|--------|
+| 1 | Sort change, no focus, deep scroll | 3 (high) | F1 — eager scroll reset before data |
+| 8 | Density toggle at deep scroll | 2 (medium) | F3 — rAF chain timing |
+| 9 | Popstate without snapshot | 2 (medium) | F1 — same as #1 but via back button |
+
+The remaining 14 sites are theoretical or already guarded against.
+
+### Stable test corpora
+
+Smoke tests pin their corpus with `STABLE_UNTIL = "2026-03-04T00:00:00"` to
+prevent total-count drift from new images. Three queries exercise all three
+scroll modes:
+
+| Mode | Total | Query |
+|------|-------|-------|
+| Buffer (<1k) | 958 | `nonFree=true&query=keyword:"mid length half celebration"` |
+| Two-tier (1k–65k) | 14,399 | `nonFree=true&query=city:Dublin` |
+| Seek (>65k) | 1,304,298 | `nonFree=true` (unfiltered) |
+
+These require the TEST cluster via SSH tunnel. Results are frozen by the `until`
+param — they won't change unless images are deleted from the index.
 

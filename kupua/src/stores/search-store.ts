@@ -271,6 +271,14 @@ interface SearchState {
   _seekTargetLocalIndex: number;
 
   /**
+   * Generation counter — bumped when search() lands fresh results without
+   * focus preservation (the no-focus path). The scroll-reset effect in
+   * useScrollEffects watches this to reset scrollTop=0 atomically with the
+   * data swap, avoiding the flash of old buffer at scrollTop=0 (Bug 2).
+   */
+  _scrollResetGeneration: number;
+
+  /**
    * Global index the seek targeted, for two-tier mode. When twoTier is active,
    * effect #6 uses this instead of _seekTargetLocalIndex because the virtualizer's
    * coordinate space is global (row 0 = global position 0).
@@ -1364,6 +1372,26 @@ async function _findAndFocusImage(
           `[sort-around-focus] position map miss: id=${imageId}, countBefore=${offset}`,
         );
       }
+    } else if (
+      POSITION_MAP_THRESHOLD > 0 &&
+      get().total > SCROLL_MODE_THRESHOLD &&
+      get().total <= POSITION_MAP_THRESHOLD
+    ) {
+      // Two-tier range but positionMap is temporarily null — the new map is
+      // still fetching in the background (search() nullifies the old sort's
+      // map before _findAndFocusImage runs). countBefore is fast (~10ms for
+      // ≤65k results) and gives an exact offset, avoiding the flash of wrong
+      // scroll position that happens when we use offset=0 as a placeholder.
+      offset = await dataSource.countBefore(
+        fp,
+        imageSortValues,
+        sortClause,
+        combinedSignal,
+      );
+      devLog(
+        `[sort-around-focus] position map null (two-tier fetch in progress): ` +
+        `countBefore=${offset}`,
+      );
     } else {
       // No position map → >65k results (deep-seek mode). countBefore would
       // take 2-5s. Use hintOffset if available (e.g. saved from when the user
@@ -1598,6 +1626,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _seekGeneration: 0,
   _seekTargetLocalIndex: -1,
   _seekTargetGlobalIndex: -1,
+  _scrollResetGeneration: 0,
   _seekSubRowOffset: 0,
   _pendingFocusAfterSeek: null,
   _pendingFocusDelta: null,
@@ -1812,7 +1841,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? null, options?.phantomOnly)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly)
           .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
@@ -1867,7 +1896,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // focusedImageId means the sort-around-focus effect would no-op.
           ...(focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
-            : {}),
+            : { _scrollResetGeneration: get()._scrollResetGeneration + 1 }),
           ...(focusedInFirstPage && options?.phantomOnly
             ? { _phantomFocusImageId: sortAroundFocusId! }
             : {}),

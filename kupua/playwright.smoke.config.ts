@@ -41,10 +41,10 @@ export default defineConfig({
     trace: "retain-on-failure",
     /* MacBook Pro Retina — measured from the developer's actual browser:
        window.innerWidth=1987, innerHeight=1110, devicePixelRatio=1.25.
-       The Desktop Chrome device preset is NOT used because it overrides
-       viewport and DPR with its own defaults (1280×720). */
+       Omit deviceScaleFactor so the headed browser uses its native DPR.
+       Explicit DPR values (1.25, 2) cause visible zoom-in/out artifacts
+       in headed Playwright that don't occur in real browsers. */
     viewport: { width: 1987, height: 1110 },
-    deviceScaleFactor: 1.25,
   },
 
   projects: [
