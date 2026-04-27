@@ -240,9 +240,7 @@ results.controller('SearchResultsCtrl', [
         // `start` is the offset of the returned page in the overall result set.
         function applyLoadedImages(images, start = 0) {
           images.data.forEach((image, index) => {
-            // Convert the page-relative index into the full result-set index.
             const position = index + start;
-            // Use the image id as the stable key when detecting duplicates.
             const imageId = image.data.id;
 
             // If image already present in results at a
@@ -265,7 +263,7 @@ results.controller('SearchResultsCtrl', [
 
             results.set(position, image);
           });
-
+          // images should not contain any 'holes'
           ctrl.images = compact(ctrl.imagesAll);
         }
 
