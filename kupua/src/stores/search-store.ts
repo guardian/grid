@@ -1260,6 +1260,7 @@ async function _findAndFocusImage(
         sortAroundFocusStatus: null,
         _seekTargetLocalIndex: -1,
         _seekTargetGlobalIndex: -1,
+        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
       });
     } else {
       trace("sort-around-focus", "t_settled");
@@ -1338,6 +1339,11 @@ async function _findAndFocusImage(
           sortAroundFocusStatus: null,
           _seekTargetLocalIndex: -1,
           _seekTargetGlobalIndex: -1,
+          // Bump _scrollReset.gen so Effect #7b resets scroll to top.
+          // Effect #8 only fires when bufferOffset transitions >0→0; if the
+          // old buffer was already at offset 0 (image in first page), that
+          // transition never happens and scroll would stay stale-deep.
+          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
         });
       } else {
         trace("sort-around-focus", "t_settled");
@@ -1595,6 +1601,7 @@ async function _findAndFocusImage(
         focusedImageId: null,
         _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
+        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
       });
     } else {
       trace("sort-around-focus", "t_settled");

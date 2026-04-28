@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Bug-hunt Batch B: `fallbackFirstPage` doesn't reset scroll (audit #12)
+
+**Bug:** When `_findAndFocusImage` falls back to first-page results — image not found in
+new query AND no neighbours survive — it `set()`s `bufferOffset: 0` and the new buffer
+but never bumps `_scrollReset.gen`. Effect #7b (the deferred scroll reset in
+`useScrollEffects.ts`) only fires when `_scrollReset.gen` changes. Effect #8 only fires
+when `bufferOffset` transitions from `> 0` to `0`. If the focused image was in the
+first page (old `bufferOffset` already 0), neither effect fired — scroll stayed stale-deep
+while fresh first-page results were rendered.
+
+**Fix:** Added `_scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false }` to all
+three `fallbackFirstPage` `set()` calls inside `_findAndFocusImage` in `search-store.ts`:
+- 8 s timeout path (inside `setTimeout` callback)
+- image-not-found / no-neighbours path (after the neighbour batch-check loop)
+- catch / unexpected-error path
+
+**Tests:** 1 new unit test in `search-store.test.ts` `neighbour fallback` describe block:
+`bumps _scrollReset.gen when no neighbour survives (audit #12)` — set up a 1000-image
+dataset, focus img-50 (bufferOffset=0), remove img-50 and all neighbours (±20), trigger
+`search("img-50")`, assert `_scrollReset.gen` is greater than before. Test failed on
+pre-fix code (`expected 64 to be greater than 64`) and passes after.
+Full suite: 412/412 green.
+
 ### 28 April 2026 — Bug-hunt Batch B: `restoreAroundCursor` doesn't focus image (audit #16)
 
 **Bug:** On page reload while viewing a deep image detail, `ImageDetail.tsx` calls

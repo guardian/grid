@@ -1323,6 +1323,48 @@ describe("neighbour fallback", () => {
     // Removed image must NOT be in the buffer.
     expect(state().results.every((r) => r?.id !== "img-8000")).toBe(true);
   });
+
+  it("bumps _scrollReset.gen when no neighbour survives (audit #12)", async () => {
+    // Scenario: focused image is in the first page (bufferOffset=0). User
+    // scrolls down within that page. User then searches with a query that
+    // excludes the focused image AND all its neighbours. fallbackFirstPage is
+    // used but neither Effect #8 (bufferOffset 0→0, no transition) nor
+    // Effect #7b (gen unchanged) would fire without an explicit gen bump.
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock });
+
+    // First search — lands at bufferOffset=0.
+    await actions().search();
+    expect(state().bufferOffset).toBe(0);
+
+    // Focus img-50 (in the first page).
+    actions().setFocusedImageId("img-50");
+    expect(state().focusedImageId).toBe("img-50");
+
+    // Remove img-50 AND all its neighbours (±20 range) so nothing survives.
+    for (let i = 30; i <= 70; i++) {
+      mock.removedIds.add(`img-${i}`);
+    }
+
+    // Capture gen after the initial search (it was bumped by that search).
+    const genBefore = state()._scrollReset.gen;
+
+    // Trigger sort-around-focus — image and neighbours are all gone.
+    await actions().search("img-50");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "fallback completes — audit #12",
+    );
+
+    // Sanity: fallback path was taken (no focus, first-page results).
+    expect(state().focusedImageId).toBeNull();
+    expect(state().bufferOffset).toBe(0);
+    expect(state().loading).toBe(false);
+
+    // The fix: _scrollReset.gen must be bumped so Effect #7b resets scrollTop.
+    expect(state()._scrollReset.gen).toBeGreaterThan(genBefore);
+  });
 });
 
 // ---------------------------------------------------------------------------
