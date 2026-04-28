@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Fix PIT-expiry cascade (audit #21)
+
+**Bug:** When the PIT's 1-minute keep-alive expired during an idle session, the
+`searchAfter` fallback path in `es-adapter.ts` returned no `pitId` field (undefined).
+The store did `result.pitId ?? state.pitId` — preserving the stale expired PIT.
+Every subsequent extend re-sent it → 404 → fallback → cascade. Each extend cost
+two round-trips (fail + retry) until the next `search()` opened a fresh PIT.
+
+**Fix (Option A from design proposal):** Adapter fallback now returns `pitId: null`
+explicitly. Store consumers changed from `??` to `!== undefined` check — explicit
+`null` clears the stale PIT, `undefined` (abort early-return) preserves state.
+
+**Files changed:**
+- `es-adapter.ts` — fallback return adds `pitId: null`
+- `types.ts` — `SearchAfterResult.pitId` widened to `string | null`
+- `search-store.ts` — 3 sites: `extendForward`, `seek()`, `_loadBufferAroundImage`
+  changed from `result.pitId ?? x` to `result.pitId !== undefined ? result.pitId : x`
+- `es-adapter.test.ts` — new test asserting fallback returns `pitId: null`
+
+**Perf impact:** Strictly positive — removes one wasted 404 round-trip per
+extend/seek after PIT expiry.
+
 ### 28 April 2026 — Fix 4 deterministic e2e failures (Strict Mode double-mount race)
 
 **Root cause:** Commit `101b2ddb5` (audit #4) added `_viewportAnchorId = null` in

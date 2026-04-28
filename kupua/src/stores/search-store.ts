@@ -1163,7 +1163,9 @@ async function _loadBufferAroundImage(
     startCursor,
     endCursor,
     total: forwardResult.total,
-    pitId: forwardResult.pitId ?? pitId,
+    // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+    // clears the stale PIT instead of preserving it via ??.
+    pitId: forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
     /** Buffer-local index of the target image. */
     targetLocalIndex: bwHits.length,
   };
@@ -2131,7 +2133,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           total: nz ? state.total : result.total,
           endCursor: newEndCursor,
           startCursor: newStartCursor,
-          pitId: result.pitId ?? state.pitId,
+          // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+          // clears the stale PIT instead of preserving it via ??.
+          pitId: result.pitId !== undefined ? result.pitId : state.pitId,
           imagePositions: newPositions,
           _extendForwardInFlight: false,
           // Signal views to compensate scrollTop for evicted items (Bug #16)
@@ -3359,7 +3363,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         imagePositions: buildPositions(result.hits, actualOffset),
         startCursor,
         endCursor,
-        pitId: result.pitId ?? effectivePitId,
+        // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+        // clears the stale PIT instead of preserving it via ??.
+        pitId: result.pitId !== undefined ? result.pitId : effectivePitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,

@@ -100,3 +100,17 @@ Next: #12, #14, or #18 (user to direct).
   `build-history-snapshot.test.ts` (mock scroll-geometry-ref instead of getAttribute),
   `search-store-eviction-cursor.test.ts`, `search-store-extended.test.ts` (isTable field).
 - 426/426 green. Zero aria-label geometry discrimination remaining.
+
+### 28 April 2026 — Bug #21 fixed (PIT cascade on expiry)
+
+- Confirmed bug: `es-adapter.ts` fallback path (L626-640) returns no `pitId` →
+  store does `result.pitId ?? state.pitId` → preserves stale expired PIT → every
+  subsequent extend re-sends expired PIT → 404 → fallback → cascade.
+- Design: Option A (simplest). Adapter returns `pitId: null` explicitly. Store
+  consumers changed from `??` to `!== undefined` — explicit null clears stale PIT.
+- Fix: `es-adapter.ts` fallback return adds `pitId: null`. `types.ts` widened to
+  `string | null`. `search-store.ts` — 3 sites changed (extendForward, seek,
+  _loadBufferAroundImage).
+- New test in `es-adapter.test.ts` — asserts fallback returns `pitId: null`.
+  Failed before fix (was undefined), passes after.
+- 427/427 unit tests green. E2e running.

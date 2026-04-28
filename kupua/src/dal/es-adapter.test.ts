@@ -135,6 +135,43 @@ describe("searchAfter PIT expiry retry (audit #19)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Bug #21 — PIT-expiry fallback returns no pitId, causing cascade of retries
+//
+// When the PIT expires mid-session, the fallback path retries without PIT but
+// does not return a pitId. The store keeps the stale expired PIT and every
+// subsequent extend re-sends it → 404 → fallback → cascade. Fix: the fallback
+// must return `pitId: null` explicitly so the store clears the stale PIT.
+// ---------------------------------------------------------------------------
+
+describe("searchAfter PIT-expiry fallback returns pitId: null (audit #21)", () => {
+  it("returns pitId: null (not undefined) on PIT-expiry fallback", async () => {
+    // The fallback response intentionally omits pit_id (non-PIT search)
+    const fallbackHits = {
+      took: 1,
+      hits: {
+        total: { value: 1 },
+        hits: [{ _id: "img-3", _source: { id: "img-3" }, sort: [1000, "img-3"] }],
+      },
+    };
+
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(errorResponse(404, "PIT closed"))   // PIT call → 404
+      .mockResolvedValueOnce(okResponse(fallbackHits));           // retry without PIT → 200
+
+    const result = await ds.searchAfter(
+      { orderBy: "-uploadTime" },
+      null,
+      "expired-pit-id",
+    );
+
+    expect(result.hits).toHaveLength(1);
+    // Critical assertion: pitId must be explicitly null, NOT undefined
+    // so the store can distinguish "PIT expired — clear it" from "no info"
+    expect(result.pitId).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bug #20 — findKeywordSortValue returns null on mid-walk error, discarding
 //           the best-known approximation (lastKeywordValue).
 //

@@ -105,8 +105,9 @@ export interface SearchAfterResult {
   took?: number;
   /** Per-hit sort values — always present. */
   sortValues: SortValues[];
-  /** The PIT ID returned by ES (may differ from the one sent if ES refreshed it). */
-  pitId?: string;
+  /** The PIT ID returned by ES (may differ from the one sent if ES refreshed it).
+   *  Explicit `null` means the PIT expired and was not renewed (audit #21). */
+  pitId?: string | null;
 }
 
 export interface AggregationBucket {

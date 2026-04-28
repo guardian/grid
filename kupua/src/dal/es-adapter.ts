@@ -637,7 +637,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
                   : hit.sort,
               ),
             ),
-            // No pitId — caller should open a new one if needed
+            // Explicit null signals the store to clear its stale PIT (audit #21).
+            // Without this, `result.pitId ?? state.pitId` preserves the expired
+            // PIT, causing every subsequent extend to 404 and retry — a cascade.
+            pitId: null,
           };
         } catch (fallbackErr) {
           if (fallbackErr instanceof DOMException && fallbackErr.name === "AbortError") {
