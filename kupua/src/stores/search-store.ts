@@ -1746,7 +1746,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // When restoring via frozenUntil (history back/forward), keep the
     // current newCount so the ticker doesn't flash off and back on.
     // The immediate poll tick will correct the count within milliseconds.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _phantomFocusImageId: null });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -2332,7 +2332,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // before the seek's async fetch can set the cooldown.
     _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, _pendingFocusDelta: null });
     trace(traceAction, "t_ack");
 
     const seekStartTime = Date.now();

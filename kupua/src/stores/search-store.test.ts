@@ -1611,3 +1611,33 @@ describe("fetchAggregations", () => {
     expect(state().aggLoading).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: pending-intent cleanup (audit #1, #2)
+// ---------------------------------------------------------------------------
+
+describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
+  it("search() clears _pendingFocusAfterSeek (audit #1)", async () => {
+    // Set the stale intent — simulates Home/End seek in flight when a new
+    // query fires before the seek resolves.
+    useSearchStore.setState({ _pendingFocusAfterSeek: "first" });
+
+    await actions().search();
+
+    expect(state()._pendingFocusAfterSeek).toBeNull();
+  });
+
+  it("seek() clears _pendingFocusDelta (audit #2)", async () => {
+    // Prime the store with a valid buffer so seek() can execute.
+    await actions().search(); // loads 200 items, total=10_000
+    await waitPastCooldown();
+
+    // Set the stale delta — simulates an arrow-key snap-back intent that
+    // should not survive a concurrent scrubber seek.
+    useSearchStore.setState({ _pendingFocusDelta: 2 });
+
+    await actions().seek(100);
+
+    expect(state()._pendingFocusDelta).toBeNull();
+  });
+});
