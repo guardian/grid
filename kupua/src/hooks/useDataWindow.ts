@@ -426,8 +426,9 @@ export function useDataWindow(): DataWindow {
             _scrollSeekTimer = null;
             seekRef.current(globalStart);
           }, SCROLL_SEEK_DEBOUNCE_MS);
-          // Skip viewport anchor update — viewport is showing skeletons,
-          // no valid anchor available.
+          // Viewport is showing skeletons — clear the anchor so consumers
+          // don't use a stale value from the previous buffer position.
+          _viewportAnchorId = null;
           return;
         }
       } else {

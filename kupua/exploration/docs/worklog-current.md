@@ -12,7 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Bug-hunt Batch B from `bug-hunt-audit-findings.md`. Bugs #9, #8, and #16 done.
+Bug-hunt Batch C — Cluster #6 (skeleton-zone viewport math). Bug #4 fixed.
+Bug #15 confirmed not a bug. Bug #22 accepted as status quo.
 Next: #12, #14, or #18 (user to direct).
 
 ## Session Log

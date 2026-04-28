@@ -14,6 +14,30 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Audit Cluster #6: skeleton-zone viewport math
+
+**Cluster #6 (#4, #15, #22)** — three bugs sharing the root cause of viewport
+indices being valid globally but useless once the buffer slides away.
+
+**Bug #4 — FIXED.** `_viewportAnchorId` stayed stale when viewport moved entirely
+into the skeleton zone. The early-return in `reportVisibleRange` (skeleton-zone
+branch) skipped the anchor update, leaving consumers (`buildHistorySnapshot`,
+density-focus, sort-around-focus) using a stale anchor from the previous buffer
+position. Fix: set `_viewportAnchorId = null` before the early return. One line
+in `useDataWindow.ts`. Test: `useDataWindow-anchor.test.ts` (jsdom, renderHook).
+
+**Bug #15 — NOT A BUG.** The debounce is a standard trailing debounce: each
+`reportVisibleRange` call in the skeleton branch does `clearTimeout` +
+`setTimeout`. Only the last timer fires, with the last scroll event's
+`globalStart`. TanStack Virtual's `onScroll` fires synchronously on every
+browser scroll event; momentum events all reset the debounce.
+
+**Bug #22 — STATUS QUO ACCEPTED.** Empty `getVisibleImageIds` in skeleton zone
+causes one extra ES agg round-trip during a transient ~500ms window, only if the
+user changes query while in the skeleton zone in phantom mode. Returning
+buffer-edge images as approximation would give wrong neighbour hints — worse
+than no hints.
+
 ### 28 April 2026 — Audit #18 confirmed not a real bug: sort-only detection
 
 **Claim:** The `every()` check in `useUrlSearchSync.ts:155–157` treats "key absent from
