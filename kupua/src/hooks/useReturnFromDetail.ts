@@ -67,8 +67,13 @@ export function useReturnFromDetail({
     // something intentionally reset focus (e.g. resetToHome). Don't undo
     // that by re-setting focus to the old image — it causes flashes when
     // the Home logo navigates away from a deep detail view.
+    //
+    // In phantom mode, focusedImageId is always null (phantom never sets an
+    // explicit focus), so the "intentional clear" signal is meaningless there.
+    // Skip the guard in phantom mode so we still trigger centring and the
+    // phantom pulse on close.
     const previousFocus = focusedImageIdRef.current;
-    if (previousFocus === null) return;
+    if (previousFocus === null && getEffectiveFocusMode() !== "phantom") return;
 
     setFocusedImageId(wasViewing);
 

@@ -14,6 +14,45 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Bug-hunt Batch B: `useReturnFromDetail` phantom early-return (audit #8)
+
+**Bug:** In phantom focus mode, `focusedImageId` is always `null` — phantom mode never
+sets an explicit focus when the user clicks/opens an image. When the user closed the
+detail overlay, `useReturnFromDetail` read `previousFocus = focusedImageIdRef.current`
+(null) and the guard `if (previousFocus === null) return` fired immediately. This meant
+`setFocusedImageId(wasViewing)` was never called, so: (a) the list never scrolled to
+centre the image just viewed; (b) the phantom pulse never fired; (c) `useReturnFromDetail`
+was entirely a no-op in phantom mode.
+
+The guard was designed for the **explicit-mode resetToHome case**: when something
+intentionally clears `focusedImageId` before the detail closes (e.g. logo click), the
+hook must not re-set it. That intent is correct — but in phantom mode `focusedImageId`
+was never set, so "null" does not mean "intentionally cleared", it means "never set".
+The guard conflated the two cases.
+
+**Root cause confirmed via:** `position-preservation-reference.md` site #3 note, which
+states the guard at `useReturnFromDetail.ts:63` is "No longer needed" now that the
+sort-leakage fix at site #2 is in place, but the guard was never actually removed.
+
+**Fix:** `src/hooks/useReturnFromDetail.ts` — refine the guard:
+
+```
+- if (previousFocus === null) return;
++ if (previousFocus === null && getEffectiveFocusMode() !== "phantom") return;
+```
+
+Explicit-mode resetToHome protection is preserved. Phantom mode now proceeds to call
+`setFocusedImageId(wasViewing)` and emit the phantom pulse.
+
+**Tests:** New `src/hooks/useReturnFromDetail.test.ts` (5 tests, `@vitest-environment jsdom`):
+- phantom mode: `setFocusedImageId` called with `wasViewing` ← was failing before fix
+- phantom mode: phantom pulse emitted ← was failing before fix
+- explicit mode: guard still fires when `focusedImageId === null` (resetToHome case)
+- explicit mode: `setFocusedImageId` called when `focusedImageId !== null`
+- explicit mode: scroll-centering fires when user navigated prev/next in detail
+
+All 409 unit tests pass after fix.
+
 ### 28 April 2026 — Bug-hunt Batch B: `extendBackward` column-trim discards final items (audit #9)
 
 **Bug:** In `extendBackward` (`search-store.ts`), items fetched near the absolute start
