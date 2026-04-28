@@ -414,6 +414,10 @@ interface SearchState {
     imageId: string,
     cursor: SortValues | null,
     cachedOffset: number,
+    /** When true, sets focusedImageId on success (explicit mode). Must be
+     *  false / omitted in phantom mode — phantom's invariant is that
+     *  focusedImageId is always null. */
+    setFocus?: boolean,
   ) => Promise<void>;
 
   // Thin wrapper over extendForward — the canonical public API for views.
@@ -3450,6 +3454,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     imageId: string,
     cursor: SortValues | null,
     cachedOffset: number,
+    setFocus = false,
   ) => {
     // Suppress flag set by resetToHome — prevents the race where
     // ImageDetail fires restoreAroundCursor after search() replaces the
@@ -3551,6 +3556,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _seekTargetLocalIndex: buf.targetLocalIndex,
         _seekTargetGlobalIndex: seekTargetGlobalIndex,
         _seekSubRowOffset: 0,
+        // Explicit mode only — phantom mode must never set focusedImageId
+        // (phantom invariant: focusedImageId is always null). Without this,
+        // useReturnFromDetail's `previousFocus === null` guard fires and
+        // detail-close skips centring on the restored image (audit #16).
+        ...(setFocus && { focusedImageId: imageId, _focusedImageKnownOffset: exactOffset }),
       });
 
       devLog(

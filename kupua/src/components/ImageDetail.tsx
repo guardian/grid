@@ -61,7 +61,7 @@ import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-k
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
-import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 
@@ -211,7 +211,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     if (cached == null) return; // no cached position — standalone mode
     offsetRestoreAttempted.current = true;
     restoreAttemptedForRef.current = imageId;
-    restoreAroundCursor(imageId, cached.cursor, cached.offset);
+    restoreAroundCursor(imageId, cached.cursor, cached.offset, getEffectiveFocusMode() !== "phantom");
   }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);
 
   // Standalone fetch — when the imageId isn't in the search results

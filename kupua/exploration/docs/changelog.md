@@ -14,6 +14,31 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Bug-hunt Batch B: `restoreAroundCursor` doesn't focus image (audit #16)
+
+**Bug:** On page reload while viewing a deep image detail, `ImageDetail.tsx` calls
+`restoreAroundCursor` which loads the correct buffer around the image. But `restoreAroundCursor`
+never set `focusedImageId`. When the user closed detail, `useReturnFromDetail`'s guard
+`if (previousFocus === null) return` fired → `setFocusedImageId(wasViewing)` was never
+called → no scroll centring. User left at a random scroll position.
+
+**Decision — explicit mode only:** Setting `focusedImageId` is wrong in phantom mode;
+phantom's invariant is that `focusedImageId` is always null (no focus ring). `search-store.ts`
+cannot call `getEffectiveFocusMode()` without a circular dep (ui-prefs-store already imports
+search-store), so the decision was pushed to the caller.
+
+**Fix:** Added `setFocus?: boolean` (default `false`) to `restoreAroundCursor` type signature
+and implementation. On success, spreads
+`{ focusedImageId: imageId, _focusedImageKnownOffset: exactOffset }` only when `setFocus === true`.
+`ImageDetail.tsx` already imported `useUiPrefsStore`; added `getEffectiveFocusMode` to that
+import and passes `getEffectiveFocusMode() !== 'phantom'` at the call site.
+
+**Tests:** 2 new unit tests in `search-store.test.ts` `restoreAroundCursor` describe block:
+- `sets focusedImageId when setFocus=true (explicit mode)` — failed before fix
+- `does NOT set focusedImageId when setFocus=false (phantom mode)` — passed before fix
+  (confirming phantom invariant was already upheld by the default `false`).
+Full suite: 411/411 green.
+
 ### 28 April 2026 — Bug-hunt Batch B: `useReturnFromDetail` phantom early-return (audit #8)
 
 **Bug:** In phantom focus mode, `focusedImageId` is always `null` — phantom mode never

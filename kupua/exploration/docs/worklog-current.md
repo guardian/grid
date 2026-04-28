@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Bug-hunt Batch B from `bug-hunt-audit-findings.md`. Bugs #9 and #8 done.
-Next: #16, #12, #14, or #18 (user to direct).
+Bug-hunt Batch B from `bug-hunt-audit-findings.md`. Bugs #9, #8, and #16 done.
+Next: #12, #14, or #18 (user to direct).
 
 ## Session Log
 
@@ -41,3 +41,22 @@ Next: #16, #12, #14, or #18 (user to direct).
   the guard. Explicit-mode resetToHome protection unchanged.
 - New test file `src/hooks/useReturnFromDetail.test.ts` (5 tests, jsdom). Two phantom
   tests failed before fix, all 5 pass after. Full suite 409/409 green.
+
+### 28 April 2026 — Bug #16 fixed
+
+- Read `restoreAroundCursor` in `search-store.ts:~3450-3580`,
+  `ImageDetail.tsx:130-220`, and `useReturnFromDetail.ts`.
+- Confirmed bug: `restoreAroundCursor` never sets `focusedImageId`. On detail close,
+  `useReturnFromDetail`'s guard `previousFocus === null` fires → `setFocusedImageId`
+  never called → no scroll centring. Affects explicit mode only; phantom mode already
+  worked after bug #8 fix (different guard path).
+- Decision: only explicit mode should set `focusedImageId`. Phantom mode's invariant
+  is that `focusedImageId` is always null — setting it would break the phantom UX.
+  `search-store.ts` cannot call `getEffectiveFocusMode()` without a circular dep
+  (`ui-prefs-store.ts` already imports `search-store.ts`), so the caller decides.
+- Fix: added `setFocus?: boolean` param to `restoreAroundCursor` type + impl.
+  On success, spreads `{ focusedImageId: imageId, _focusedImageKnownOffset: exactOffset }`
+  only when `setFocus === true`. `ImageDetail.tsx` passes
+  `getEffectiveFocusMode() !== 'phantom'` (static import, already had `useUiPrefsStore`).
+- 2 new tests in existing `restoreAroundCursor` describe block. First failed before fix,
+  second passed before fix (confirming phantom invariant). 411/411 green after.

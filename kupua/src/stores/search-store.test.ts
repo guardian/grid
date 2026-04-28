@@ -1566,6 +1566,52 @@ describe("restoreAroundCursor", () => {
     expect(state()._seekGeneration).toBeGreaterThan(seekGenBefore);
     assertPositionsConsistent("restoreAroundCursor null cursor");
   });
+
+  // Bug #16: restoreAroundCursor should set focusedImageId in explicit mode
+  // so that useReturnFromDetail's guard (previousFocus === null → early return)
+  // does not fire when the user closes detail after a deep-link reload.
+  it("sets focusedImageId when setFocus=true (explicit mode)", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock, focusedImageId: null });
+
+    await actions().search();
+
+    const targetId = "img-500";
+    await actions().seek(500);
+    await waitPastCooldown();
+
+    const targetIdx = state().results.findIndex((img) => img?.id === targetId);
+    const targetImg = state().results[targetIdx]!;
+    const cursor = [new Date(targetImg.uploadTime).getTime(), targetImg.id];
+    const cachedOffset = state().bufferOffset + targetIdx;
+
+    await actions().restoreAroundCursor(targetId, cursor, cachedOffset, true);
+
+    // In explicit mode, focusedImageId must be set so useReturnFromDetail
+    // can centre the image when detail is closed.
+    expect(state().focusedImageId).toBe(targetId);
+  });
+
+  it("does NOT set focusedImageId when setFocus=false (phantom mode)", async () => {
+    mock = new MockDataSource(1000);
+    useSearchStore.setState({ dataSource: mock, focusedImageId: null });
+
+    await actions().search();
+
+    const targetId = "img-500";
+    await actions().seek(500);
+    await waitPastCooldown();
+
+    const targetIdx = state().results.findIndex((img) => img?.id === targetId);
+    const targetImg = state().results[targetIdx]!;
+    const cursor = [new Date(targetImg.uploadTime).getTime(), targetImg.id];
+    const cachedOffset = state().bufferOffset + targetIdx;
+
+    await actions().restoreAroundCursor(targetId, cursor, cachedOffset, false);
+
+    // Phantom mode invariant: focusedImageId must stay null.
+    expect(state().focusedImageId).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
