@@ -1,7 +1,7 @@
 # Kupua Bug-Hunt Audit Findings
 
 **Date:** 28 April 2026
-**Status:** Batch A complete (28 April 2026). Bugs #1, #2, #19, #20 fixed. Bug #13 confirmed not a real bug — see note.
+**Status:** Batch A complete (28 April 2026). Bugs #1, #2, #19, #20 fixed. Bug #13 confirmed not a real bug — see note. Batch B in progress: Bug #9 fixed (28 April 2026).
 
 ---
 
@@ -51,7 +51,7 @@
 | 6 | Density-switch rAF chain not cancelled when `saved == null` | `useScrollEffects.ts:~983` | S2 | F-Common | Table→grid density switch with no saved density-focus state, followed by rapid unmount | `useLayoutEffect` returns a cleanup that cancels rAF1/rAF2 only in the `saved != null` branch. The `else` branch schedules rAFs without a cleanup, so they may fire on a dead virtualizer | all | Medium | Rapidly toggle table↔grid; observe console errors from virtualizer calls after unmount |
 | 7 | `restoreAroundCursor` reset by image traversal mid-restore | `ImageDetail.tsx:200-204` | S2 | F-Edge | Detail view on reload: `restoreAroundCursor` in flight + user presses arrow key before it completes | `offsetRestoreAttempted.current` resets when `restoreAttemptedForRef.current !== imageId`. Arrow key changes `imageId` → flag resets → after the async restore completes and `currentIndex` briefly goes -1, another `restoreAroundCursor` fires for the new imageId with potentially-stale cursor. Double ES request; may land at the wrong position | all | Medium | Deep-link image detail → during loading, quickly press arrow key → observe duplicate `restoreAroundCursor` calls |
 | 8 | `useReturnFromDetail` early-returns in phantom mode | `useReturnFromDetail.ts:76-80` | S2 | F-Common | Phantom mode + user opens detail without an explicit focus + closes detail | `previousFocus = focusedImageIdRef.current` is null in phantom mode (the click does not set focus). The guard `if (previousFocus === null) return` (line 79) fires → `setFocusedImageId(wasViewing)` never called → list never scrolls to centre the image just viewed | all (phantom) | High | Phantom mode → click image (opens detail) → close detail → observe scroll position NOT centred on the viewed image |
-| 9 | `extendBackward` column-trim may produce empty result | `search-store.ts:2231-2239` | S2 | F-Edge | Backward fetch returns fewer than `PAGE_SIZE` items AND the count is not a multiple of `geo.columns` | Example: `bufferOffset=2`, `columns=3`, server returns 2 items → `excess = 2 % 3 = 2` → `result.hits.slice(2)` = `[]` → guard returns early. The first 2 items are permanently inaccessible via backward extend (only Home seek can reach them) | scroll, two-tier | High | 3-column grid + small result set near start with `bufferOffset=2` → trigger `extendBackward` → observe items 0-1 never appearing |
+| 9 ✅ FIXED | `extendBackward` column-trim may produce empty result | `search-store.ts:2231-2239` | S2 | F-Edge | Backward fetch returns fewer than `PAGE_SIZE` items AND the count is not a multiple of `geo.columns` | Example: `bufferOffset=2`, `columns=3`, server returns 2 items → `excess = 2 % 3 = 2` → `result.hits.slice(2)` = `[]` → guard returns early. The first 2 items are permanently inaccessible via backward extend (only Home seek can reach them) | scroll, two-tier | High | 3-column grid + small result set near start with `bufferOffset=2` → trigger `extendBackward` → observe items 0-1 never appearing |
 | 10 | `aria-label` string used as table/grid geometry discriminator | `search-store.ts:3271, 3291`, `build-history-snapshot.ts:98` | S3 | F-Common | The `aria-label` `"Image results table"` ever changes (i18n, accessibility refactor) | `seek()` and `buildHistorySnapshot()` detect table mode via `scrollEl.getAttribute("aria-label")?.includes("table")`. A label change silently degrades to grid heuristics; row height computed as 303 px instead of 32 px → `scrollTargetIndex` orders of magnitude off → permanent skeletons or jump to wrong position | all | High | Foot-gun, not current breakage. Trigger by renaming the aria-label |
 | 11 | `seek()` `_seekTargetGlobalIndex` may overflow with large null-zone drift | `search-store.ts:3360-3376` | S2 | F-Edge | Inexact deep seek (percentile estimation) + two-tier mode + null-zone filter active + large drift | When `usedNullZoneFilter = true`, `effectiveTotal = get().total` is used for the `inTwoTier` check (line 3364). Large drift between estimated and actual offset places `_seekTargetGlobalIndex` far from the window's scrollTop. Effect #6 sets a clamped scrollTop → skeletons | two-tier | Medium | Null-zone seek in two-tier mode (rare) + large estimated/actual drift → observe Effect #6 setting scroll to wrong position |
 | 12 | `fallbackFirstPage` does not reset scroll position | `search-store.ts:1894-1900` (sort-around-focus path) | S2 | F-Edge | Sort-around-focus search + image not found AND no neighbours found → falls back to first page | When `_findAndFocusImage` falls back to `fallbackFirstPage`, it sets new buffer + `loading: false` without bumping `_scrollReset`. Scroll stays at the old deep position while new first-page results are shown | all | Medium | Focus image → change query to a completely different one (image and neighbours both filtered out) → observe scroll position stays deep while new first-page results show at the top |
@@ -204,39 +204,61 @@ Either touches architecture or has real UX trade-offs:
 >
 > Follow `kupua/AGENTS.md` directives throughout (especially: never commit without asking; warn before any Playwright run).
 
-**Batch B (one prompt per bug — example shown for bug #8):**
+**Batch B — shared template (then per-bug specifics below):**
 
-> Read `kupua/exploration/docs/bug-hunt-audit-findings.md`, then focus only on **bug #8** (`useReturnFromDetail` phantom early-return). Also read cluster #1 in Section 3 for shared context.
+> Read `kupua/exploration/docs/bug-hunt-audit-findings.md`, then focus **only on the bug named below**.
 >
-> Before writing any code:
-> 1. Read `useReturnFromDetail.ts` end-to-end and `ImageDetail.tsx` mount/unmount path.
-> 2. Read `02-focus-and-position-preservation.md` to confirm intended phantom-mode behaviour.
-> 3. State your understanding of the intended behaviour and the actual behaviour. If they don't diverge as the audit claims, stop and say so.
+> Before any code:
+> 1. Read the cited file:line and surrounding ~100-200 lines.
+> 2. Read any cross-referenced files listed in the per-bug block.
+> 3. State your understanding of intended vs actual behaviour. If they don't diverge as the audit claims, stop and say so.
 >
 > Then:
-> 1. Write a failing test (Vitest if pure logic, Playwright if it needs the real DOM). The test must fail on current code.
-> 2. Implement the minimal fix.
-> 3. Run the relevant unit suite + the e2e spec covering return-from-detail.
-> 4. One commit, message: `fix(detail): centre on viewed image when closing in phantom mode (audit #8)`.
+> 1. Write a failing test first (Vitest for pure logic, Playwright if it needs real DOM). Test must fail on current code for the right reason.
+> 2. Minimal fix.
+> 3. Run the relevant unit suite + any e2e spec covering the affected area.
+> 4. One commit. Message: `fix(<area>): <one-line summary> (audit #N)`.
 >
-> Do **not**: touch other audit bugs, refactor `useReturnFromDetail`, or change focus-mode semantics outside the cited symptom.
->
-> If the fix turns out to require touching cluster-related code (#1, #2), stop and report back — don't expand scope unilaterally.
+> Do **not**: touch other audit bugs, refactor adjacent code, expand scope. If a fix turns out to require touching another audit bug, stop and report back.
 >
 > Follow `AGENTS.md` directives. Warn before any Playwright run.
 
-**Batch C (one prompt per bug — example for bugs #4/#15/#22, cluster #6):**
+**Per-bug specifics for Batch B:**
 
-> Read `kupua/exploration/docs/bug-hunt-audit-findings.md` end-to-end. You are tackling **cluster #6** (bugs #4, #15, #22) — three skeleton-zone viewport-math symptoms with one suspected shared root cause.
+> **#9 — `extendBackward` column-trim empty result.** Read `extendBackward` in `search-store.ts:2200-2280`, plus the `geo.columns` reference in `useDataWindow.ts`. Verify the trim is intended for `>= PAGE_SIZE` returns only. Test: mock backward fetch returning 2 items in a 3-column grid with `bufferOffset=2`; assert items appear in results. Beware: trim logic may exist for a real reason in normal-size returns — preserve that.
+
+> **#8 — `useReturnFromDetail` phantom early-return.** Read `useReturnFromDetail.ts` end-to-end and `ImageDetail.tsx` mount/unmount path. Read `02-focus-and-position-preservation.md` to confirm intended phantom-mode behaviour. Test: phantom mode → open detail → close → assert `setFocusedImageId(wasViewing)` was called and centring fired. Mode-semantics-sensitive; do not change explicit-mode behaviour.
+
+> **#16 — `restoreAroundCursor` doesn't focus image.** Read `restoreAroundCursor` in `search-store.ts:~3540` and the deep-link reload path through `ImageDetail.tsx:130-220`. Decide explicitly: should restore set `focusedImageId` always, or only in explicit mode? Document the choice in the commit message. Test: deep-link an image deep in results → close detail → assert scroll centred on it.
+
+> **#12 — `fallbackFirstPage` doesn't reset scroll.** Read `_findAndFocusImage` fallback path and `_scrollReset` consumers in `useScrollEffects.ts` Effect #7b. The fix is to bump `_scrollReset.gen` when falling back. Test: focus image → search for query that excludes both image and neighbours → assert scroll position is at top, not stale-deep.
+
+> **#14 — `extractSortValues` null cursor blocks extends.** Read `extractSortValues` in (find via grep), plus `extendForward:2139-2148` and `extendBackward:2279-2284`. Symmetric pair — apply the same fix to both. Decide: skip cursor update when null (preserve last good cursor), or fall back to a different field. Test: simulate eviction with a boundary image whose primary sort field is undefined; assert opposite-direction extend is not blocked.
+
+> **#18 — Sort-only misclassification on key-removal.** Read `_prevSearchOnly` in `orchestration/search.ts:215` and the comparator at `useUrlSearchSync.ts:181`. The fix is making the `every()` check distinguish "key absent" from "key equal." Test: simulate `prev = {orderBy: "date", filter: "X"}` and `next = {orderBy: "credit"}` (filter cleared) → assert NOT classified as sort-only. Phantom-mode behaviour is the user-facing symptom — verify with a Playwright test if practical.
+
+**Batch C — shared template:**
+
+> Read `kupua/exploration/docs/bug-hunt-audit-findings.md` end-to-end. You are tackling the bug(s) named below. This is a **design session, not a fix session**.
 >
-> This is a **design session, not a fix session**. Deliverable for the first turn is a short proposal (≤1 page) covering:
-> 1. Confirm or refute the audit's claim that the three symptoms share a root cause. Cite file:line.
-> 2. Propose 2-3 candidate fixes with trade-offs (e.g. clamping `_visibleStart/_visibleEnd` to nearest valid global index vs. making downstream consumers skeleton-zone-aware vs. accepting status quo as intended).
-> 3. For your recommended option: which existing tests would break? what new tests are needed? what's the perf risk?
-> 4. Argue against the change — is there a case for leaving it as-is?
+> First turn deliverable: a short proposal (≤1 page) covering:
+> 1. Confirm or refute the audit's claim. Cite file:line.
+> 2. Propose 2-3 candidate fixes with trade-offs.
+> 3. For your recommended option: which tests would break? what new tests are needed? what's the perf risk?
+> 4. Argue against the change — is there a case for status quo?
 >
-> Wait for user approval before writing any code. Once approved: failing tests first, then implementation, one commit per bug if they're separable, otherwise one commit referencing all three audit numbers.
+> Wait for user approval before writing any code. Once approved: failing tests first, minimal implementation, one commit per bug if separable.
 >
-> Do **not**: start coding before the proposal is approved; expand scope to other audit bugs; do refactors not strictly required by the fix.
+> Do **not**: start coding before approval; expand scope to other audit bugs; bundle refactors with the fix.
 >
 > Follow `AGENTS.md` directives. This area is performance-sensitive — flag any change likely to affect frame budget.
+
+**Per-bug specifics for Batch C:**
+
+> **Cluster #6 (#4, #15, #22) — Skeleton-zone viewport math.** Three symptoms (stale `_viewportAnchorId`, stale debounced seek, empty `getVisibleImageIds`) all stem from `_visibleStart/_visibleEnd` being valid global indices but useless once the buffer slides away from them. Candidate fixes: (a) clamp `_visibleStart/_visibleEnd` to nearest valid global index in skeleton zone; (b) make each consumer skeleton-zone-aware with its own fallback; (c) accept status quo if the symptoms are by-design degraded modes. Read `useDataWindow.ts:170-465` end-to-end before proposing.
+
+> **#10 — `aria-label` as geometry discriminator.** This is a **refactor**, not a bug fix — the audit places it in Batch C deliberately. Proposal must include: how to plumb `densityMode` (or a `geometry` object) from `ImageGrid`/`ImageTable` down to `seek()` and `buildHistorySnapshot()`. Decide whether to pass via store, via a context, or via direct argument. The store route is consistent with current code but adds state; the argument route is cleanest but changes function signatures across the call sites. Read both call sites and `search-store.ts:3271, 3291` and `build-history-snapshot.ts:98`.
+
+> **#21 — PIT cascade on expiry.** The store needs to know to reopen the PIT when the adapter falls back to no-PIT mode. Read `es-adapter.ts:600-640` (PIT retry path) and the `pitId` consumers in `search-store.ts` (extends, seek). Proposal must answer: where does the "PIT was force-closed" signal live? Options: (a) adapter returns `{ pitId: null, pitExpired: true }` and store opens a new one before next extend; (b) adapter transparently opens a new PIT mid-call; (c) store catches a sentinel error type. Each has different snapshot-isolation implications — discuss.
+
+> **#7 + #17 — Race conditions (`restoreAroundCursor` mid-traversal; `search()` vs `seekToFocused()` buffer write).** These are two separate races; consider whether to do them in one session or split. Proposal must define: what does "winning" mean for each race? (Newer wins? Most-specific wins? User-initiated wins over auto?) Read `_rangeAbortController` lifecycle in `search-store.ts:1201, 1425, 1788` and `offsetRestoreAttempted` in `ImageDetail.tsx:193-216`. Likely fix is a generation counter à la `sortAroundFocusGeneration`. Beware: adding a third race-coordination primitive without consolidating the existing two (see Appendix A point #11) increases entropy — flag in proposal.

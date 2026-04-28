@@ -10,12 +10,13 @@
  * - Search → seek → extend → seek chains
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
-import { TABLE_ROW_HEIGHT } from "@/constants/layout";
+import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { interpolateSortLabel, getSortContextLabel } from "@/lib/sort-context";
 import { buildSortClause, reverseSortClause } from "@/dal/adapters/elasticsearch/sort-builders";
+import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 
 // ---------------------------------------------------------------------------
 // Helpers (shared with search-store.test.ts)
@@ -960,5 +961,51 @@ describe("null-zone seek (sparse lastModified)", () => {
     await actions().extendForward();
     await flush();
     expect(state().total, "total after extendForward").toBe(originalTotal);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extendBackward column-trim guard (audit #9)
+// ---------------------------------------------------------------------------
+
+describe("extendBackward column-trim guard (audit #9)", () => {
+  afterEach(() => {
+    // Restore default 1-column geometry so other tests are not affected.
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
+  });
+
+  it("does not discard all items when hits.length < columns", async () => {
+    // Scenario: bufferOffset=2, 3-column grid, backward fetch returns 2 items.
+    // excess = 2 % 3 = 2 → result.hits.slice(2) = [] → early return (bug).
+    // After fix: trim is skipped when it would produce an empty result.
+
+    // seek(102) → fetchStart = max(0, 102-100) = 2 → bufferOffset=2 (shallow
+    // from/size path, columns=1 at time of seek so no column alignment trim).
+    await actions().search();
+    await actions().seek(102);
+    await waitPastCooldown();
+
+    expect(
+      state().bufferOffset,
+      "setup: seek(102) should produce bufferOffset=2",
+    ).toBe(2);
+    const bufferLengthBefore = state().results.length;
+
+    // Switch to 3-column grid before the extend fires.
+    registerScrollGeometry({ columns: 3, rowHeight: GRID_ROW_HEIGHT });
+
+    await actions().extendBackward();
+    await flush();
+
+    // Items at global indices 0 and 1 must now be in the buffer.
+    expect(
+      state().bufferOffset,
+      "bufferOffset should drop to 0 after prepending items 0-1",
+    ).toBe(0);
+    expect(
+      state().results.length,
+      "buffer should have grown by 2 (items 0 and 1 prepended)",
+    ).toBe(bufferLengthBefore + 2);
+    assertPositionsConsistent("after extendBackward with 3-column guard");
   });
 });

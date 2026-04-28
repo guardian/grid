@@ -14,6 +14,36 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Bug-hunt Batch B: `extendBackward` column-trim discards final items (audit #9)
+
+**Bug:** In `extendBackward` (`search-store.ts`), items fetched near the absolute start
+of the result set were silently discarded by the column-trim logic. The trim exists to
+keep prepended counts as a multiple of `geo.columns`, preventing existing grid items from
+shifting columns. But when `result.hits.length < geo.columns` (e.g. 2 items returned in
+a 3-column grid), `excess = result.hits.length`, and `result.hits.slice(excess) = []`.
+The function returned early without advancing `startCursor`, so every subsequent
+`extendBackward` call fetched the same 2 items and discarded them — a permanent block.
+Items 0 and 1 could only be reached by a full Home-key seek.
+
+**Trigger path:** `bufferOffset=2`, 3-column grid, backward fetch returns exactly 2 items
+(the last 2 before the start of results). `fetchCount = min(PAGE_SIZE=200, bufferOffset=2) = 2`.
+This also fires for `bufferOffset=N < geo.columns` with any column count.
+
+**Fix:** Added `if (result.hits.length > excess)` guard before the trim. When
+`result.hits.length ≤ excess` (i.e. the trim would produce empty results), the trim is
+skipped entirely. The tiny batch is always prepended as-is — there are no earlier items
+to cause column misalignment anyway.
+
+**Trim correctness preserved:** For normal full-page backward extends
+(`result.hits.length > excess`), the trim fires exactly as before. For the next backward
+extend after a skipped-trim (rare case `bufferOffset < geo.columns`), `bufferOffset` drops
+to 0 and the guard `if (bufferOffset <= 0) return` prevents any further extend. No cascade.
+
+**Test:** `search-store-extended.test.ts` — new describe block "extendBackward column-trim
+guard (audit #9)": sets `bufferOffset=2` via `seek(102)` with 1-column geometry, then
+switches to 3-column geometry, calls `extendBackward()`, asserts `bufferOffset=0` and
+buffer grew by 2. Failed before fix, passes after. Full suite: 404/404.
+
 ### 27–28 April 2026 — Phantom-mode position restoration (4 bugs) + Bug 2 coupling refactor
 
 **Context:** In phantom/"Click to open" mode, `focusedImageId` is set transiently

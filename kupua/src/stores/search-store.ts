@@ -2221,9 +2221,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       const geo = getScrollGeometry();
       if (geo.columns > 1 && result.hits.length % geo.columns !== 0) {
         const excess = result.hits.length % geo.columns;
-        result.hits = result.hits.slice(excess);
-        result.sortValues = result.sortValues.slice(excess);
-        devLog(`[extendBackward] trimmed ${excess} items to align with ${geo.columns} columns (${result.hits.length + excess} → ${result.hits.length})`);
+        // Guard: only trim when the result stays non-empty after trimming.
+        // When result.hits.length < geo.columns (e.g. the 2 remaining items
+        // before the start of results in a 3-column grid), excess equals
+        // result.hits.length and the slice produces []. That leaves startCursor
+        // unadvanced, so every subsequent extendBackward fetches the same
+        // items and discards them — a permanent block (audit #9).
+        if (result.hits.length > excess) {
+          result.hits = result.hits.slice(excess);
+          result.sortValues = result.sortValues.slice(excess);
+          devLog(`[extendBackward] trimmed ${excess} items to align with ${geo.columns} columns (${result.hits.length + excess} → ${result.hits.length})`);
+        }
       }
 
       if (result.hits.length === 0) {
