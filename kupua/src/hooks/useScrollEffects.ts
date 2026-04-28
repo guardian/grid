@@ -833,25 +833,22 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // (the image nearest the viewport centre, tracked by useDataWindow).
     // This ensures density switches preserve scroll position even when the
     // user hasn't explicitly clicked an image.
-    const id = focusedImageId ?? getViewportAnchorId();
-    if (!id) return;
-
+    // Check for saved density-focus state FIRST — it carries everything
+    // needed (globalIndex, ratio, scroll extrema) and doesn't depend on
+    // the viewport anchor being valid. This is critical in React Strict
+    // Mode (dev), where the double-mount sequence (mount → cleanup →
+    // mount) allows reportVisibleRange to clear _viewportAnchorId between
+    // the first cleanup and the second mount (the skeleton-zone path sets
+    // it to null when scrollTop is 0 and the buffer is deep). Without
+    // this, the second mount sees id=null and bails, losing the restore.
     const saved = peekDensityFocusRatio();
-    // For initial idx: convert saved globalIndex to local, or use findImageIndex.
-    // In two-tier mode, virtualizer uses global indices — no subtraction needed.
-    const store = useSearchStore.getState();
-    const idx = saved != null
-      ? toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total))
-      : findImageIndex(id);
-    if (idx < 0) return;
-
-    // Bug #17 fix: compute real columns from the DOM element's width, not
-    // geo.columns which may still be the useState default (4) before the
-    // ResizeObserver fires. For table (no minCellWidth), geo.columns is
-    // always 1 and correct. Both branches recompute inside rAF2 with
-    // current geometry, so we don't need mountGeo here.
 
     if (saved != null) {
+      // saved branch: globalIndex is the anchor, no id/idx needed
+      const store = useSearchStore.getState();
+      const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
+      if (idx < 0) return;
+
       // Abort in-flight extends and set a 2-second cooldown BEFORE the
       // rAF restore chain. This prevents extends (and their subsequent
       // prepend/evict compensation) from firing during the density-switch
@@ -960,35 +957,41 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         });
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
-    } else {
-      // No saved density-focus state — scroll the anchor into view.
-      // Capture the anchor's global index NOW (mount time), before the
-      // new component's scroll events can overwrite the viewport anchor.
-      const store = useSearchStore.getState();
-      const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
-
-      // scrollToIndex also may not work on mount — defer similarly
-      let raf2 = 0;
-      const raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => {
-          // Re-derive local index from the stable global index.
-          // In two-tier mode, the virtualizer uses global indices.
-          const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
-          const isTT = isTwoTierFromTotal(totalNow);
-          const idxNow = isTT
-            ? (anchorGlobalIdx >= 0 ? anchorGlobalIdx : idx)
-            : (anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx);
-          const geoNow = geometryRef.current;
-          const colsNow = geoNow.minCellWidth
-            ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
-            : geoNow.columns;
-          const rowIdxNow = localIndexToRowIndex(idxNow, { ...geoNow, columns: colsNow });
-          virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
-          clearDensityFocusRatio();
-        });
-      });
-      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
+
+    // No saved density-focus state — scroll the viewport anchor into view.
+    // Requires a valid anchor ID (focusedImageId or viewport anchor).
+    const id = focusedImageId ?? getViewportAnchorId();
+    if (!id) return;
+    const idx = findImageIndex(id);
+    if (idx < 0) return;
+
+    // Capture the anchor's global index NOW (mount time), before the
+    // new component's scroll events can overwrite the viewport anchor.
+    const store = useSearchStore.getState();
+    const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
+
+    // scrollToIndex also may not work on mount — defer similarly
+    let raf2b = 0;
+    const raf1b = requestAnimationFrame(() => {
+      raf2b = requestAnimationFrame(() => {
+        // Re-derive local index from the stable global index.
+        // In two-tier mode, the virtualizer uses global indices.
+        const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
+        const isTT = isTwoTierFromTotal(totalNow);
+        const idxNow = isTT
+          ? (anchorGlobalIdx >= 0 ? anchorGlobalIdx : idx)
+          : (anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx);
+        const geoNow = geometryRef.current;
+        const colsNow = geoNow.minCellWidth
+          ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
+          : geoNow.columns;
+        const rowIdxNow = localIndexToRowIndex(idxNow, { ...geoNow, columns: colsNow });
+        virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
+        clearDensityFocusRatio();
+      });
+    });
+    return () => { cancelAnimationFrame(raf1b); cancelAnimationFrame(raf2b); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 

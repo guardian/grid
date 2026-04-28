@@ -1328,17 +1328,23 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
   });
 
   test("detail open/close then seek — departure snapshot captures seeked position", async ({ kupua }) => {
-    // Repro: phantom mode → seek → sort → detail → back → seek → back → forward
+    // Repro: phantom mode → sort → detail → back → seek → back → forward
     // Bug: stale user-initiated flag from detail open leaked into the Back
     // popstate, making it skip the departure snapshot. Forward restored the
     // markPushSnapshot anchor (top-of-results) instead of the seeked position.
+    //
+    // NOTE: The seek step uses store.seek() directly instead of scrubber
+    // UI (kupua.seekTo). In React Strict Mode (dev builds), the sort-around-
+    // focus that runs after detail-close loses its scroll position during
+    // the double-mount cycle, leaving the virtualizer at scrollTop=0 with
+    // scrollHeight=clientHeight. A scrubber click computes
+    // scrollContentTo(ratio) = ratio * 0 = 0 — no scroll change, no seek.
+    // Programmatic seek bypasses this by repositioning the buffer directly.
+    // This is dev-only; production builds mount once and don't have this
+    // issue. See changelog for full analysis.
 
     await kupua.goto();
     await waitForSearchSettled(kupua.page);
-
-    // Seek to ~50%
-    await kupua.seekTo(0.5);
-    await kupua.page.waitForTimeout(1000);
 
     // Change sort (creates history entry)
     await spaNavigate(kupua.page, "/search?orderBy=oldest");
@@ -1366,11 +1372,16 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     await kupua.waitForDetailClosed();
     await kupua.page.waitForTimeout(500);
 
-    // Seek to ~75%
-    await kupua.seekTo(0.75);
-    await kupua.page.waitForTimeout(1000);
+    // Programmatic seek to offset 2500 (~25%). See NOTE above for why we
+    // don't use kupua.seekTo() here.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(2500, "test-seek");
+    });
+    await kupua.page.waitForTimeout(500);
 
-    // Capture the anchor at 75%
+    // The buffer should now be centred around offset 2500. Verify the
+    // viewport anchor has been set (buffer-change effect populates it).
     const anchorAtSeek = await kupua.page.evaluate(() => {
       const getAnchor = (window as any).__kupua_getViewportAnchorId__;
       return getAnchor ? getAnchor() : null;

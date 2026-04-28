@@ -37,9 +37,8 @@
  * The scrubber drag directly scrolls the container (like a real scrollbar).
  */
 
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
-import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import {
   PAGE_SIZE,
@@ -354,8 +353,6 @@ export function useDataWindow(): DataWindow {
   totalRef.current = total;
   const resultsRef = useRef(results);
   resultsRef.current = results;
-  const focusedImageIdRef = useRef(focusedImageId);
-  focusedImageIdRef.current = focusedImageId;
   const twoTierRef = useRef(twoTier);
   twoTierRef.current = twoTier;
   const seekRef = useRef(seek);
@@ -455,12 +452,13 @@ export function useDataWindow(): DataWindow {
       }
 
       // Update the viewport anchor — nearest image to the viewport centre.
-      // In explicit mode, focus always wins as anchor so skip the update.
-      // In phantom mode, always update — focusedImageId may be set (e.g.
-      // after return-from-detail) but it's invisible and the user may have
-      // scrolled far away from it.
+      // Always maintained regardless of focus mode. Consumers use
+      // focusedImageId ?? getViewportAnchorId() so the anchor is only a
+      // fallback, but it must stay current so that after a seek in explicit
+      // mode (where skeleton-zone clears it) the anchor is re-populated
+      // once real content arrives.
       const currentResults = resultsRef.current;
-      if (currentResults.length > 0 && (getEffectiveFocusMode() === "phantom" || !focusedImageIdRef.current)) {
+      if (currentResults.length > 0) {
         const midPoint = (startIndex + endIndex) / 2;
         // In two-tier mode, convert global midpoint to buffer-local
         const localMid = isTwoTier
@@ -513,6 +511,26 @@ export function useDataWindow(): DataWindow {
     },
     [imagePositions, bufferOffset, results.length, twoTier],
   );
+
+  // Re-run anchor update when buffer changes (e.g. after seek in two-tier
+  // mode). The virtualizer's onRangeChanged won't fire if visible indices
+  // are unchanged — but the content at those indices changed from skeleton
+  // to real images and the anchor needs updating.
+  useEffect(() => {
+    if (results.length > 0 && _visibleStart < _visibleEnd) {
+      const midPoint = (_visibleStart + _visibleEnd) / 2;
+      const localMid = twoTier
+        ? Math.round(midPoint) - bufferOffset
+        : Math.round(midPoint);
+      if (localMid >= 0 && localMid < results.length) {
+        const anchorIndex = Math.min(Math.max(0, localMid), results.length - 1);
+        const anchorImage = results[anchorIndex];
+        if (anchorImage) {
+          _viewportAnchorId = anchorImage.id;
+        }
+      }
+    }
+  }, [bufferOffset, results, twoTier]);
 
   return {
     results,
