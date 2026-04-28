@@ -14,6 +14,56 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Bug-hunt Batch B: `extractSortValues` null cursor blocks extends (audit #14)
+
+**Bug:** Both `extendForward` and `extendBackward` recompute the opposite-direction cursor
+after eviction via `extractSortValues`. The previous code was:
+
+```ts
+newStartCursor = firstItem ? extractSortValues(firstItem, params.orderBy) ?? null : null;
+```
+
+If `extractSortValues` returned `null` (triggered when `parseSortField` finds an empty
+clause key — e.g. a sort clause object with no keys), the cursor was overwritten with
+`null`. The opposite-direction extend's first guard `if (!startCursor) return` / `if
+(!endCursor) return` then permanently blocked all further extends in that direction,
+until a `seek()` or `search()` re-established a fresh cursor.
+
+**Trigger note:** The audit described the trigger as "boundary image with undefined
+primary sort field." On closer reading, `extractSortValues` only returns `null` when
+`parseSortField` finds no key in the clause object — not when the field *value* is
+undefined (missing values push `null` into the array and the function continues,
+returning a valid `SortValues`). The bug is still real and the fix is correct for
+defensive correctness; the exact trigger condition was refined during investigation.
+
+**Fix:** Symmetric on both eviction paths — fall back to the previous cursor rather
+than overwriting with null:
+
+```ts
+// extendForward eviction:
+const evictedStart = firstItem ? extractSortValues(firstItem, params.orderBy) : null;
+newStartCursor = evictedStart ?? state.startCursor;
+
+// extendBackward eviction:
+const evictedEnd = lastItem ? extractSortValues(lastItem, params.orderBy) : null;
+newEndCursor = evictedEnd ?? state.endCursor;
+```
+
+**Tests:** New test file `src/stores/search-store-eviction-cursor.test.ts`. Uses
+`vi.mock` on `@/lib/image-offset-cache` to inject a one-shot null return from
+`extractSortValues` at the exact eviction moment. Two tests:
+
+1. Forward eviction: search → waitPastCooldown → 4× extendForward (1000 items) →
+   inject null → 5th extendForward triggers eviction → assert `startCursor` non-null
+   → assert `mock.requestCount` increases (extendBackward was not blocked).
+2. Backward eviction: search → waitPastCooldown → seek(5000) → 4× extendBackward
+   (1000 items) → inject null → 5th extendBackward triggers eviction → assert
+   `endCursor` non-null → assert extendForward advances buffer end.
+
+Both failed before fix, both pass after. Also updated a misleading comment in
+`search-store-extended.test.ts` line 641 that previously accepted `null` as valid
+post-eviction state — strengthened to assert non-null. Full suite: 414/414 green.
+
 ### 28 April 2026 — Bug-hunt Batch B: `fallbackFirstPage` doesn't reset scroll (audit #12)
 
 **Bug:** When `_findAndFocusImage` falls back to first-page results — image not found in

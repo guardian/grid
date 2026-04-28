@@ -2112,9 +2112,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // fields (pure field read, no ES call). Without this,
           // extendBackward has no cursor and the user can't scroll up.
           const firstItem = newBuffer[0];
-          newStartCursor = firstItem
-            ? extractSortValues(firstItem, params.orderBy) ?? null
+          const evictedStart = firstItem
+            ? extractSortValues(firstItem, params.orderBy)
             : null;
+          // Preserve last good cursor if extraction fails — overwriting with
+          // null would permanently block extendBackward (audit #14).
+          newStartCursor = evictedStart ?? state.startCursor;
         }
 
         const newEndCursor = result.sortValues.length > 0
@@ -2273,9 +2276,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // Recompute endCursor from the new last buffer item (symmetric
           // with the startCursor recomputation in extendForward eviction).
           const lastItem = newBuffer[newBuffer.length - 1];
-          newEndCursor = lastItem
-            ? extractSortValues(lastItem, params.orderBy) ?? null
+          const evictedEnd = lastItem
+            ? extractSortValues(lastItem, params.orderBy)
             : null;
+          // Preserve last good cursor if extraction fails — overwriting with
+          // null would permanently block extendForward (audit #14).
+          newEndCursor = evictedEnd ?? state.endCursor;
         }
 
         // Start cursor from the first result (earliest in sort order)

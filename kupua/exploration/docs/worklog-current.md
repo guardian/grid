@@ -60,3 +60,22 @@ Next: #12, #14, or #18 (user to direct).
   `getEffectiveFocusMode() !== 'phantom'` (static import, already had `useUiPrefsStore`).
 - 2 new tests in existing `restoreAroundCursor` describe block. First failed before fix,
   second passed before fix (confirming phantom invariant). 411/411 green after.
+
+### 28 April 2026 — Bug #14 fixed
+
+- Read `extractSortValues` in `image-offset-cache.ts`, `extendForward` eviction path
+  (`search-store.ts:~2114-2118`), and `extendBackward` eviction path (`~2274-2279`).
+- Confirmed bug: both paths do `extractSortValues(...) ?? null` and assign the result
+  to `newStartCursor` / `newEndCursor`. If extraction returns null (e.g. empty sort
+  clause key), the cursor is overwritten with null. Next call to the opposite-direction
+  extend is permanently blocked by `if (!startCursor) return` / `if (!endCursor) return`.
+- Trigger note: the audit says "sort field path undefined on the boundary image" but
+  `extractSortValues` only returns null when `parseSortField` finds an empty clause key.
+  Missing field VALUES push null into the array and return a valid SortValues. Fix is
+  still correct and necessary for defensive correctness.
+- Fix: symmetric on both paths — `newStartCursor = evictedStart ?? state.startCursor`
+  and `newEndCursor = evictedEnd ?? state.endCursor`. Preserve last good cursor.
+- Test: new file `search-store-eviction-cursor.test.ts` with `vi.mock` on
+  `@/lib/image-offset-cache` to inject null returns. Both tests failed before fix, both
+  pass after. Updated existing misleading comment in `search-store-extended.test.ts`.
+- 414/414 green after fix.

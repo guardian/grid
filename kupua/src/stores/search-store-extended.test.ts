@@ -638,7 +638,7 @@ describe("cursor integrity", () => {
     expect(startCursor![startCursor!.length - 1]).toBe(firstImg.id);
   });
 
-  it("startCursor is null-safe after forward eviction invalidation", async () => {
+  it("startCursor is non-null after forward eviction (audit #14 regression guard)", async () => {
     await actions().search();
     await waitPastCooldown();
 
@@ -648,15 +648,14 @@ describe("cursor integrity", () => {
       await flush();
     }
 
-    // After eviction from start, startCursor may be invalidated (set to null)
-    // This is acceptable — extendBackward guards against null cursor
-    // The important thing is that it doesn't crash
+    // After eviction from start, startCursor must be preserved (not null).
+    // Bug #14 fix: if extractSortValues returns null during eviction, we fall
+    // back to the previous cursor rather than overwriting with null, which
+    // would permanently block extendBackward via its !startCursor guard.
     const { startCursor } = state();
-    // startCursor can be null or valid — both are fine
-    if (startCursor) {
-      // If set, it should contain an image ID
-      expect(typeof startCursor[startCursor.length - 1]).toBe("string");
-    }
+    expect(startCursor).not.toBeNull();
+    // Cursor must be a valid sort-values array ending with an image ID string
+    expect(typeof startCursor![startCursor!.length - 1]).toBe("string");
   });
 });
 
