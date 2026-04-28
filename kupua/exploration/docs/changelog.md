@@ -14,6 +14,31 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Fix restore-around-cursor race on image traversal (audit #7); refute audit #17
+
+**Bug #7:** In `ImageDetail.tsx`, the `restoreAroundCursor` effect's `currentIndex >= 0`
+branch reset `offsetRestoreAttempted` to false when the imageId changed (arrow key
+during an in-flight restore). Sequence: restore for "abc" completes → adjacent "def"
+appears in buffer → effect resets flag → two-tier scroll-seek moves buffer → "def"
+falls out → effect fires a spurious second `restoreAroundCursor("def")` with a
+potentially-stale cursor. One unnecessary ES round-trip + sub-second flash.
+
+**Fix:** Changed the `currentIndex >= 0` branch from conditionally resetting the flag
+to unconditionally marking the image as handled: `offsetRestoreAttempted.current = true`
+and `restoreAttemptedForRef.current = imageId`. Once an image is visible in the buffer,
+it's considered restored — no re-restore if the buffer later shifts underneath.
+
+**Bug #17 refuted:** The audit claimed `search()` and `seekToFocused()` could both
+write the buffer via `_rangeAbortController`. Analysis shows `_findFocusAbortController`
+(line 484) fully isolates `seekToFocused` — `search()` aborts it at line 1771, killing
+all stages of `_findAndFocusImage` including the step-3 buffer load (which uses
+`combinedSignal`, not `_rangeAbortController`). JS single-threading prevents
+post-await/pre-`set()` interleaving. Marked as not-a-bug in audit findings.
+
+**Files changed:**
+- `ImageDetail.tsx` — restore effect `currentIndex >= 0` branch (2-line change)
+- `bug-hunt-audit-findings.md` — #7 marked FIXED, #17 marked NOT A BUG
+
 ### 28 April 2026 — Fix PIT-expiry cascade (audit #21)
 
 **Bug:** When the PIT's 1-minute keep-alive expired during an idle session, the

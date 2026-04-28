@@ -184,23 +184,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // the image. With a cursor this is exact at any depth. Without one
   // (old cache format) falls back to approximate seek.
   const offsetRestoreAttempted = useRef(false);
-  // Track which imageId the restore was attempted for — only reset the
-  // flag when navigating to a DIFFERENT image. Without this, the flag
-  // resets when the image briefly appears in the buffer (currentIndex >= 0)
-  // and a subsequent buffer change (e.g. wrong scrollTop in two-tier mode
-  // triggering a scroll-seek) pushes it back out — causing an infinite
-  // restoreAroundCursor loop.
+  // Track which imageId the restore was attempted for — guards against
+  // re-triggering restore for the same image when the buffer briefly
+  // contains it then loses it (e.g. scroll-seek in two-tier mode).
   const restoreAttemptedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (currentIndex >= 0) {
-      // Image is already in results — no restore needed.
-      // Only reset the flag if this is a different image from the one
-      // we already restored — allows re-restore after user navigates
-      // to a new image, but prevents re-triggering for the same image
-      // when the buffer briefly contains it then loses it.
-      if (restoreAttemptedForRef.current !== imageId) {
-        offsetRestoreAttempted.current = false;
-      }
+      // Image visible in buffer — mark as handled. Prevents a spurious
+      // re-restore if the image later falls out due to a background
+      // scroll-seek in two-tier mode. Without this, navigating to an
+      // adjacent image during an in-flight restore resets the flag, and
+      // a subsequent buffer shift triggers a wasteful second
+      // restoreAroundCursor call with a potentially-stale cursor.
+      // (Audit bug #7)
+      offsetRestoreAttempted.current = true;
+      restoreAttemptedForRef.current = imageId;
       return;
     }
     // Don't attempt restore until the initial search has returned —

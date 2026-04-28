@@ -12,10 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Bug-hunt Batch C — Bug #10 (aria-label geometry discriminator) refactored.
-Cluster #6 done earlier (Bug #4 fixed, #15 not a bug, #22 status quo).
-Bug #15 confirmed not a bug. Bug #22 accepted as status quo.
-Next: #12, #14, or #18 (user to direct).
+Bug-hunt Batch C — Bug #7 fixed. Bug #17 confirmed not a bug.
+Ready for commit (pending user approval).
 
 ## Session Log
 
@@ -114,3 +112,27 @@ Next: #12, #14, or #18 (user to direct).
 - New test in `es-adapter.test.ts` — asserts fallback returns `pitId: null`.
   Failed before fix (was undefined), passes after.
 - 427/427 unit tests green. E2e running.
+
+### 28 April 2026 — Bug #7 fixed + Bug #17 refuted
+
+- Read `_rangeAbortController` lifecycle in `search-store.ts` (lines 470-484, 1478-1481,
+  1769-1772, 3494-3496), `_findFocusAbortController` isolation (line 484, 1231-1235,
+  1771-1772), `restoreAroundCursor` (lines 3470-3596), and `ImageDetail.tsx` restore
+  effect (lines 193-216).
+- **Bug #17 refuted:** `_findFocusAbortController` fully isolates `seekToFocused` from
+  `search()`. `search()` aborts both controllers (lines 1769-1772). `_findAndFocusImage`
+  uses `combinedSignal` (from `_findFocusAbortController`) for ALL stages including
+  step 3 buffer load (line 1485). JS single-threading prevents post-await/pre-set()
+  interleaving. The "detached controller" scenario the audit describes cannot happen.
+- **Bug #7 confirmed (downgraded to S3):** The race is real but low-impact. Symptom:
+  one extra ES round-trip + sub-second flash. No data loss, no incorrect persistent state.
+  Trigger requires: reload + arrow during 200-500ms restore window + two-tier scroll-seek.
+- Fix: changed the `currentIndex >= 0` branch in the restore effect from "reset flag if
+  different imageId" to "mark as handled." `offsetRestoreAttempted.current = true` and
+  `restoreAttemptedForRef.current = imageId` when image is visible. Prevents spurious
+  re-restore if the image later falls out due to background buffer shift.
+- Trade-off: if an image is visible and then falls out (extremely unlikely in detail view),
+  it won't be re-restored. Acceptable because: (a) extends don't evict visible items,
+  (b) scroll-seeks shouldn't fire on hidden list, (c) standalone fetch covers the fallback.
+- 427/427 unit tests green. No test file added — testing this effect would require mocking
+  the full ImageDetail environment (router, store, data window) for a 2-line change.
