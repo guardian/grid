@@ -144,6 +144,9 @@ export interface ScrollGeometry {
    */
   columns: number;
 
+  /** Whether this is a table view (true) or grid view (false). */
+  isTable: boolean;
+
   /**
    * Pixel offset of the sticky header inside the scroll container (table: ~45px, grid: 0).
    * Used in density-focus ratio save/restore to account for the table header.
@@ -319,7 +322,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   twoTierRef.current = twoTier;
 
   // Register geometry for external consumers (e.g. Scrubber, diagnostics)
-  registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns });
+  registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns, isTable: geometry.isTable });
 
   const handleScroll = useCallback(() => {
     const el = parentRef.current;

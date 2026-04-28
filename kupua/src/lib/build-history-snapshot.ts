@@ -16,12 +16,8 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import { buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
-import {
-  GRID_ROW_HEIGHT,
-  GRID_MIN_CELL_WIDTH,
-  TABLE_ROW_HEIGHT,
-} from "@/constants/layout";
 
 /**
  * Build a snapshot of the current scroll/focus position.
@@ -92,15 +88,10 @@ export function buildHistorySnapshot(): HistorySnapshot {
     const isTwoTier = isTwoTierFromTotal(total);
     const virtualizerIdx = isTwoTier ? anchorOffset : anchorOffset - bufferOffset;
 
-    // Derive geometry from the scroll container — same logic as the
-    // ImageGrid/ImageTable mount that feeds geometryRef.
-    const isTable = scrollContainer
-      .getAttribute("aria-label")
-      ?.includes("table") ?? false;
-    const rowHeight = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
-    const columns = isTable
-      ? 1
-      : Math.max(1, Math.floor(scrollContainer.clientWidth / GRID_MIN_CELL_WIDTH));
+    // Read geometry from the shared ref (registered by useScrollEffects on
+    // mount and whenever columns change). Replaces the previous approach of
+    // sniffing the scroll container's aria-label to determine table vs grid.
+    const { rowHeight, columns } = getScrollGeometry();
 
     const rowTop = Math.floor(virtualizerIdx / columns) * rowHeight;
     viewportRatio =

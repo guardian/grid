@@ -535,6 +535,7 @@ export function ImageTable() {
       () => ({
         rowHeight: ROW_HEIGHT,
         columns: 1,
+        isTable: true,
         headerOffset: HEADER_HEIGHT,
         preserveScrollLeftOnSort: true,
       }),

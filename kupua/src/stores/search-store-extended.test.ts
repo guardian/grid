@@ -970,7 +970,7 @@ describe("null-zone seek (sparse lastModified)", () => {
 describe("extendBackward column-trim guard (audit #9)", () => {
   afterEach(() => {
     // Restore default 1-column geometry so other tests are not affected.
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
   });
 
   it("does not discard all items when hits.length < columns", async () => {
@@ -991,7 +991,7 @@ describe("extendBackward column-trim guard (audit #9)", () => {
     const bufferLengthBefore = state().results.length;
 
     // Switch to 3-column grid before the extend fires.
-    registerScrollGeometry({ columns: 3, rowHeight: GRID_ROW_HEIGHT });
+    registerScrollGeometry({ columns: 3, rowHeight: GRID_ROW_HEIGHT, isTable: false });
 
     await actions().extendBackward();
     await flush();

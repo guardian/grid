@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Audit #10: replace aria-label geometry discriminator
+
+**Bug #10 — REFACTORED.** Three sites in `seek()` and `buildHistorySnapshot()`
+derived `isTable` by sniffing `scrollEl.getAttribute("aria-label")?.includes("table")`,
+then re-derived `rowHeight` and `columns` from scratch. An aria-label rename (i18n,
+a11y refactor) would silently degrade seek and snapshot to grid heuristics — row
+height 303 px instead of 32 px, scrollTargetIndex off by orders of magnitude.
+
+Fix: added `isTable: boolean` to `ScrollGeometrySnapshot` (in `scroll-geometry-ref.ts`)
+and `ScrollGeometry` (in `useScrollEffects.ts`). `ImageGrid` declares `isTable: false`,
+`ImageTable` declares `isTable: true`. All three aria-label sites replaced with
+`getScrollGeometry()`.
+
+Also refactored `computeScrollTarget` interface: replaced `{ isTable, clientWidth }`
+with `{ columns, rowHeight }`, eliminating redundant geometry derivation at every
+deep seek. Removed unused `GRID_ROW_HEIGHT`/`GRID_MIN_CELL_WIDTH`/`TABLE_ROW_HEIGHT`
+imports from `search-store.ts` and `build-history-snapshot.ts`.
+
+10 files changed. 426/426 unit tests pass. Zero aria-label geometry discrimination
+remaining in the codebase.
+
 ### 28 April 2026 — Audit Cluster #6: skeleton-zone viewport math
 
 **Cluster #6 (#4, #15, #22)** — three bugs sharing the root cause of viewport

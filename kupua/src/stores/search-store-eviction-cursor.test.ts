@@ -65,7 +65,7 @@ beforeEach(() => {
   _simulateNullCursor = false; // safety reset between tests
   mock = new MockDataSource(10_000);
   // Single column so eviction count is rawEvict (no column rounding)
-  registerScrollGeometry({ rowHeight: 303, columns: 1 });
+  registerScrollGeometry({ rowHeight: 303, columns: 1, isTable: false });
 
   useSearchStore.setState({
     dataSource: mock,

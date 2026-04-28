@@ -12,7 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Bug-hunt Batch C — Cluster #6 (skeleton-zone viewport math). Bug #4 fixed.
+Bug-hunt Batch C — Bug #10 (aria-label geometry discriminator) refactored.
+Cluster #6 done earlier (Bug #4 fixed, #15 not a bug, #22 status quo).
 Bug #15 confirmed not a bug. Bug #22 accepted as status quo.
 Next: #12, #14, or #18 (user to direct).
 
@@ -80,3 +81,22 @@ Next: #12, #14, or #18 (user to direct).
   `@/lib/image-offset-cache` to inject null returns. Both tests failed before fix, both
   pass after. Updated existing misleading comment in `search-store-extended.test.ts`.
 - 414/414 green after fix.
+
+### 28 April 2026 — Bug #10 refactored (aria-label geometry discriminator)
+
+- Confirmed: 3 sites derived `isTable` from `scrollEl.getAttribute("aria-label")?.includes("table")`:
+  `search-store.ts:3296` (seek inexact), `search-store.ts:3316` (diagnostics),
+  `build-history-snapshot.ts:98` (viewportRatio). Each then re-derived rowHeight/columns
+  from isTable + clientWidth, duplicating math already published via `scroll-geometry-ref.ts`.
+- Approach: Option A — add `isTable` to `ScrollGeometrySnapshot` + `ScrollGeometry`.
+  Also changed `computeScrollTarget` interface: `{isTable, clientWidth}` → `{columns, rowHeight}`,
+  eliminating redundant geometry derivation entirely. One commit, clean refactor.
+- Files changed: `scroll-geometry-ref.ts` (interface + default), `useScrollEffects.ts`
+  (interface + registerScrollGeometry call), `ImageGrid.tsx` + `ImageTable.tsx`
+  (explicit `isTable` in geometry), `search-store.ts` (computeScrollTarget interface +
+  seek() + diagnostics + removed layout import), `build-history-snapshot.ts`
+  (getScrollGeometry() replaces aria-label + layout constants).
+- Tests updated: `reverse-compute.test.ts` (helpers + Case 10 raw call),
+  `build-history-snapshot.test.ts` (mock scroll-geometry-ref instead of getAttribute),
+  `search-store-eviction-cursor.test.ts`, `search-store-extended.test.ts` (isTable field).
+- 426/426 green. Zero aria-label geometry discrimination remaining.

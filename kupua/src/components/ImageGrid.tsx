@@ -333,6 +333,7 @@ export function ImageGrid() {
       () => ({
         rowHeight: ROW_HEIGHT,
         columns,
+        isTable: false,
         headerOffset: 0,
         preserveScrollLeftOnSort: false,
         minCellWidth: MIN_CELL_WIDTH,

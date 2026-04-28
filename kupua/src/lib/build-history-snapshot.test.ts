@@ -35,11 +35,13 @@ vi.mock("@/hooks/useDataWindow", () => ({
 
 vi.mock("@/lib/scroll-container-ref", () => ({
   getScrollContainer: () => ({
-    getAttribute: () => "Image results grid",
-    clientWidth: 1400,
     clientHeight: 1038,
     scrollTop: 0,
   }),
+}));
+
+vi.mock("@/lib/scroll-geometry-ref", () => ({
+  getScrollGeometry: () => ({ rowHeight: 303, columns: 5, isTable: false }),
 }));
 
 // buildSearchKey and extractSortValues — use real implementations

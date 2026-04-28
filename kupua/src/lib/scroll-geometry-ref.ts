@@ -15,9 +15,10 @@ import { GRID_ROW_HEIGHT } from "@/constants/layout";
 export interface ScrollGeometrySnapshot {
   rowHeight: number;
   columns: number;
+  isTable: boolean;
 }
 
-let _geo: ScrollGeometrySnapshot = { rowHeight: GRID_ROW_HEIGHT, columns: 1 };
+let _geo: ScrollGeometrySnapshot = { rowHeight: GRID_ROW_HEIGHT, columns: 1, isTable: false };
 
 /** Register the current scroll geometry. Call on mount and when columns change. */
 export function registerScrollGeometry(geo: ScrollGeometrySnapshot): void {

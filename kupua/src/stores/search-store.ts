@@ -39,7 +39,6 @@ import { extractSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
-import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
@@ -80,10 +79,10 @@ const AGG_FIELDS = FIELD_REGISTRY
 export interface ComputeScrollTargetInput {
   /** User's current scrollTop in the scroll container (px). */
   currentScrollTop: number;
-  /** Whether the active view is table (1 col, 32px rows) or grid (N cols, 303px rows). */
-  isTable: boolean;
-  /** Scroll container's clientWidth — used to compute grid column count. */
-  clientWidth: number;
+  /** Row height in pixels (303 for grid, 32 for table). */
+  rowHeight: number;
+  /** Number of columns per row (grid: dynamic, table: 1). */
+  columns: number;
   /** Scroll container's clientHeight — used for maxScroll computation. */
   clientHeight: number;
   /** Number of backward items prepended by bidirectional seek (0 if none). */
@@ -108,8 +107,8 @@ export interface ComputeScrollTargetResult {
 export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScrollTargetResult {
   const {
     currentScrollTop,
-    isTable,
-    clientWidth,
+    rowHeight,
+    columns,
     clientHeight,
     backwardItemCount,
     bufferLength,
@@ -118,8 +117,8 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
     clampedOffset,
   } = input;
 
-  const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
-  const cols = isTable ? 1 : Math.max(1, Math.floor(clientWidth / GRID_MIN_CELL_WIDTH));
+  const rowH = rowHeight;
+  const cols = columns;
 
   // Math.floor, not Math.round: you're "on" a row until you've fully scrolled
   // past it. Math.round snaps to the NEXT row at 50%, which (a) causes the
@@ -3293,13 +3292,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // Reverse-compute a local index from the user's current scrollTop.
           // This prevents flash — the virtualizer renders new content at the
           // user's current scroll position, not the (drifted) target position.
-          const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
+          const geo = getScrollGeometry();
           const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
 
           const computed = computeScrollTarget({
             currentScrollTop: scrollEl.scrollTop,
-            isTable,
-            clientWidth: scrollEl.clientWidth,
+            rowHeight: geo.rowHeight,
+            columns: geo.columns,
             clientHeight: scrollEl.clientHeight,
             backwardItemCount,
             bufferLength: result.hits.length,
@@ -3313,13 +3312,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
 
         // Populate diagnostics for the devLog
-        const isTable = !!scrollEl.getAttribute("aria-label")?.includes("table");
-        const rowH = isTable ? TABLE_ROW_HEIGHT : GRID_ROW_HEIGHT;
-        const cols = isTable ? 1 : Math.max(1, Math.floor(scrollEl.clientWidth / GRID_MIN_CELL_WIDTH));
+        const geo = getScrollGeometry();
         _diagOrigScrollTop = scrollEl.scrollTop;
-        _diagCurrentRow = Math.floor(scrollEl.scrollTop / rowH);
-        _diagCols = cols;
-        let reverseIndex = _diagCurrentRow * cols;
+        _diagCurrentRow = Math.floor(scrollEl.scrollTop / geo.rowHeight);
+        _diagCols = geo.columns;
+        let reverseIndex = _diagCurrentRow * geo.columns;
         if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
           _diagHeadroomFired = true;
           reverseIndex += backwardItemCount;

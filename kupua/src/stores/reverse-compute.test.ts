@@ -18,23 +18,24 @@ import {
   computeScrollTarget,
   type ComputeScrollTargetInput,
 } from "./search-store";
+import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT, GRID_MIN_CELL_WIDTH } from "@/constants/layout";
 
 // ---------------------------------------------------------------------------
 // Helpers — common input shapes
 // ---------------------------------------------------------------------------
 
 /** Standard grid viewport: 1280px wide → floor(1280/280) = 4 cols. */
-const GRID_COLS_4 = 1280;
+const GRID_COLS_4 = Math.max(1, Math.floor(1280 / GRID_MIN_CELL_WIDTH));
 /** Wide grid viewport: 1680px wide → floor(1680/280) = 6 cols. */
-const GRID_COLS_6 = 1680;
+const GRID_COLS_6 = Math.max(1, Math.floor(1680 / GRID_MIN_CELL_WIDTH));
 /** Standard viewport height. */
 const VIEWPORT_HEIGHT = 800;
 
 function gridInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeScrollTargetInput {
   return {
     currentScrollTop: 0,
-    isTable: false,
-    clientWidth: GRID_COLS_4,
+    rowHeight: GRID_ROW_HEIGHT,
+    columns: GRID_COLS_4,
     clientHeight: VIEWPORT_HEIGHT,
     backwardItemCount: 100,
     bufferLength: 300,
@@ -48,8 +49,8 @@ function gridInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeSc
 function tableInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeScrollTargetInput {
   return {
     currentScrollTop: 0,
-    isTable: true,
-    clientWidth: 1280,
+    rowHeight: TABLE_ROW_HEIGHT,
+    columns: 1,
     clientHeight: VIEWPORT_HEIGHT,
     backwardItemCount: 100,
     bufferLength: 300,
@@ -139,7 +140,7 @@ describe("computeScrollTarget", () => {
   it("scrollTop=3030 (10 rows deep, 6 cols) → index 160", () => {
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 3030,
-      clientWidth: GRID_COLS_6,
+      columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
@@ -235,7 +236,7 @@ describe("computeScrollTarget", () => {
     // scrollTop for row 16 = 16 * 303 = 4848
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 4848,
-      clientWidth: GRID_COLS_6,
+      columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
@@ -249,7 +250,7 @@ describe("computeScrollTarget", () => {
     // scrollTop for row 17 = 17 * 303 = 5151
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 5151,
-      clientWidth: GRID_COLS_6,
+      columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
@@ -266,7 +267,7 @@ describe("computeScrollTarget", () => {
     // subRow = 4948 - 16*303 = 4948 - 4848 = 100.
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 4948,
-      clientWidth: GRID_COLS_6,
+      columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
@@ -392,8 +393,8 @@ describe("computeScrollTarget", () => {
   it("headroom boundary: past 50% of last headroom row → headroom still fires", () => {
     const result = computeScrollTarget({
       currentScrollTop: 5000, // row 16 + 152px (past 50% of 303px row)
-      isTable: false,
-      clientWidth: GRID_COLS_6,
+      rowHeight: GRID_ROW_HEIGHT,
+      columns: GRID_COLS_6,
       clientHeight: VIEWPORT_HEIGHT,
       backwardItemCount: 100,
       bufferLength: 300,
