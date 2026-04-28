@@ -14,6 +14,30 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 April 2026 — Audit #18 confirmed not a real bug: sort-only detection
+
+**Claim:** The `every()` check in `useUrlSearchSync.ts:155–157` treats "key absent from
+`searchOnly`" as equal to "key present in `prev`" via `undefined === undefined`. A
+combined "sort change + filter clear" would be misclassified as sort-only, causing
+phantom mode to reset instead of preserving the anchor.
+
+**Investigation:** Built an isolated pure-function test
+(`src/lib/orchestration/sort-only.test.ts`, 11 cases) replicating the exact
+computation. Key finding: `Object.keys({...prev, ...searchOnly})` includes all keys
+from *both* objects. When `prev.query = "cats"` and `searchOnly` has no `query` key,
+the check evaluates `searchOnly["query"] === prev["query"]` → `undefined === "cats"` →
+**false** → correctly not sort-only. The `undefined === undefined` equality only arises
+when both objects have `undefined` for the key — meaning the filter was absent in both
+contexts, which *is* a genuine sort-only change.
+
+The mechanism the audit described would require `prev["query"]` to be `undefined` even
+though the filter was previously set. That can't happen: `_prevSearchOnly` is always
+written from the same `searchOnly` object used for the comparison (line 274), so both
+reflect the identical filter state.
+
+**Outcome:** No code change. Test file kept for regression coverage. Audit doc updated
+to ❌ NOT A BUG.
+
 ### 28 April 2026 — Bug-hunt Batch B: `extractSortValues` null cursor blocks extends (audit #14)
 
 **Bug:** Both `extendForward` and `extendBackward` recompute the opposite-direction cursor
