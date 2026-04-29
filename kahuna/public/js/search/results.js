@@ -350,11 +350,11 @@ results.controller('SearchResultsCtrl', [
         onNextEvent($scope, 'gu-lazy-table:height-changed').
             // Attempt to resume the top position ASAP, so as to limit
             // visible jump
-            then(() => scrollPosition.resume($stateParams)).
+            then(() => scrollPosition.resume($state.href('search.results', $stateParams))).
             // When navigating back, resuming the position immediately
             // doesn't work, so we try again after a little while
             then(() => delay(30)).
-            then(() => scrollPosition.resume($stateParams)).
+            then(() => scrollPosition.resume($state.href('search.results', $stateParams))).
             then(scrollPosition.clear);
 
         const pollingPeriod = 15 * 1000; // ms
@@ -898,7 +898,7 @@ results.controller('SearchResultsCtrl', [
         $scope.$on('$destroy', () => {
             // only save scroll position if we're destroying grid scope (avoids issue regarding ng-if triggering scope refresh)
             if (0 < $scope.ctrl.images.length) {
-              scrollPosition.save($stateParams);
+              scrollPosition.save($state.href('search.results', $stateParams));
             }
             freeUpdatesListener();
             freeImageDeleteListener();
