@@ -86,7 +86,7 @@ class Bedrock(config: CommonConfig)
       val embedding = (json \ "embeddings" \ "float")(0).as[List[Float]]
       logger.info(
         logMarker,
-        s"Successfully extracted image embedding. Vector size: ${embedding.size}"
+        s"Successfully extracted text embedding. Vector size: ${embedding.size}"
       )
       embedding
     }

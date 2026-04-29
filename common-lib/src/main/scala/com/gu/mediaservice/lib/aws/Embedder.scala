@@ -19,7 +19,7 @@ object EmbedderMessage {
 class Embedder(bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
 
   def createQueryEmbedding(query: String)(implicit logMarker: LogMarker): Future[List[Float]] = {
-    logger.info(logMarker, s"Searching for image embedding for query: $query")
+    logger.info(logMarker, s"Creating text embedding for query: $query")
     for {
       embedding <- bedrock.createTextEmbedding(query)
     } yield embedding
