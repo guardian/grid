@@ -1,14 +1,13 @@
 package controllers
 
-import org.apache.pekko.stream.scaladsl.StreamConverters
+import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import com.google.common.net.HttpHeaders
-import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, S3, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -16,9 +15,11 @@ import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
+import com.gu.mediaservice.{GridClient, JsonDiff}
 import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
+import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.http.HttpEntity
@@ -26,14 +27,11 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
 
-import scala.jdk.CollectionConverters._
 import java.net.URI
-import java.util.concurrent.{Callable, TimeUnit}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import com.google.common.cache.{Cache, CacheBuilder}
 
 class MediaApi(
                 auth: Authentication,
@@ -56,11 +54,12 @@ class MediaApi(
   // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
   // concurrent requests for the same query share a single in-flight Bedrock call, and
   // subsequent requests within the TTL window skip Bedrock entirely.
-  private val embeddingCache: Cache[String, Future[List[Float]]] =
-    CacheBuilder.newBuilder()
-      .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
-      .expireAfterWrite(config.aiSearchEmbeddingCacheTtlSeconds, TimeUnit.SECONDS)
-      .build[String, Future[List[Float]]]()
+  private val embeddingCache: AsyncLoadingCache[String, List[Float]] = Scaffeine()
+    .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
+    .expireAfterWrite(config.aiSearchEmbeddingCacheTtlSeconds.seconds)
+    .buildAsyncFuture((normQuery: String) =>
+      embedder.createQueryEmbedding(normQuery)(MarkerMap())
+    )
 
   private val searchParamList = List(
     "q",
@@ -642,27 +641,19 @@ class MediaApi(
       val countAll = searchParams.countAll.getOrElse(true)
       // Normalise key so that "Dogs" and "dogs " share a cache entry.
       val cacheKey = query.trim.toLowerCase
-      val queryHash = Integer.toHexString(cacheKey.hashCode)
-      val cachedEmbeddingFuture = Option(embeddingCache.getIfPresent(cacheKey))
 
-      cachedEmbeddingFuture.foreach { _ =>
-        logger.info(
-          logMarker,
-          s"AI search embedding cache hit queryHash=$queryHash queryLength=${query.length} cacheSize=${embeddingCache.size()}"
-        )
+      val markers = logMarker ++ Map("query" -> query)
+
+      if (embeddingCache.getIfPresent(cacheKey).isDefined) {
+        logger.info(markers, s"AI search embedding cache hit query=$query")
+      } else {
+        logger.info(markers, s"AI search embedding cache miss query=$query")
       }
 
-      // cache.get(key, callable) is atomic: if two requests race on the same key, only one
-      // Callable fires and both callers receive the same Future.
-      val embeddingFuture = embeddingCache.get(cacheKey, new Callable[Future[List[Float]]] {
-        def call(): Future[List[Float]] = {
-          logger.info(
-            logMarker,
-            s"AI search embedding cache miss queryHash=$queryHash queryLength=${query.length} cacheSize=${embeddingCache.size()}"
-          )
-          embedder.createQueryEmbedding(query)
-        }
-      })
+      // cache.get(key) is atomic: if two requests race on the same key, only one
+      // load fires and both callers receive the same Future.
+      val embeddingFuture = embeddingCache.get(cacheKey)
+
       for {
         embedding <- embeddingFuture
         searchResults <- elasticSearch.knnSearch(
