@@ -338,7 +338,8 @@ results.controller('SearchResultsCtrl', [
           // the page size expected by the API.
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
-            // Reuse the same merge logic for all subsequent paged fetches.
+            // Merge the fetched page into the results array at the correct offset,
+            // deduplicating any images that may have shifted position since the initial load.
             applyLoadedImages(images, start);
             });
         };
