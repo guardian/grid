@@ -14,6 +14,70 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 April 2026 — Fix back/forward/back/forward leaks focused image instead of restoring deep seek position
+
+**Bug:** Focus image A → switch sort (sort-around-focus keeps A focused) → clear
+focus → seek deep via scrubber → back → forward (CORRECT: deep position) → back →
+forward (BUG: shows A focused at top, not the deep position). Regression exposed
+by commit `1462bfaec` (Strict-Mode anchor-update fix), but the underlying defect
+was latent in the phantom-mode restore path since Phase 3.
+
+**Root cause (two combined defects):**
+
+1. *Latent:* `phantomOnly` restore never cleared a leaked `focusedImageId` from
+   the previous explicit context, violating the documented phantom-mode invariant
+   ("phantom never sets `focusedImageId`"). Three call sites were affected: the
+   initial `set()` at the top of `search()`, and both branches of
+   `_findAndFocusImage` (in-buffer and outside-buffer).
+2. *Exposing (1462bfaec):* removing the focus-mode guard on viewport-anchor
+   updates means the anchor now faithfully tracks the viewport regardless of
+   `focusedImageId`. On the second back, departure-capture for E1 detects a
+   "different" anchor, overwrites E1's phantom snapshot via `buildHistorySnapshot()`,
+   which prefers the leaked `focusedImageId` in explicit mode → E1 corrupted to
+   `{anchor: A, anchorIsPhantom: false}`. The second forward then takes the
+   explicit-restore path and centres on A.
+
+**Fix (production):** `kupua/src/stores/search-store.ts` — clear
+`focusedImageId: null, _focusedImageKnownOffset: null` on all three `phantomOnly`
+write paths. The initial reset in `search()` is the load-bearing one; the two
+`_findAndFocusImage` branches are belt-and-braces.
+
+**Tests:**
+- 3 new unit tests in `search-store.test.ts` (`phantomOnly clears leaked
+  focusedImageId (audit: back/forward bug)`) covering all three code paths.
+- 1 new e2e test in `e2e/local/browser-history.spec.ts` reproducing the full
+  user-visible repro (`Snapshot restore — phantomOnly must not leak focusedImageId
+  (audit)`). Asserts `focusedImageId === null` and `bufferOffset > 500` after the
+  second forward, plus that E1's snapshot remains phantom across the second back.
+
+**E2E test stabilisation (test-only — production fix had no test impact):**
+The new e2e test went through several wrong turns before landing. Notes for future
+agents writing similar tests:
+- *Don't use `?orderBy=oldest`*: it looks like a valid alias but isn't (see
+  `sort-builders.ts` — only `taken`, `credit`, `source`, `imageType`, `category`,
+  `mimeType`, `width`, `height`, plus alias-config fields). ES rejects sorts on
+  literal field `oldest` with 400 → seek lands on empty buffer → `bufferOffset`
+  stays at 0 → `waitForFunction(bufferOffset > 0)` times out. Sibling tests that
+  use `?orderBy=oldest` get away with it because they never deep-seek with that
+  sort. **Use `?orderBy=uploadTime` for ascending date sort** — A focused at
+  index 3 (newest first by default) shifts to deep in the result set, sort-
+  around-focus keeps A focused, uploadTime is universally populated (no null-zone
+  degradation), and `seek(800)` works.
+- *Preserve the searchKey*: the test starts at `?nonFree=true`; the sort-change
+  push must include `nonFree=true&orderBy=uploadTime` so the snapshot's stored
+  `searchKey` matches the destination on restore.
+- *Drain hacks were not needed* once the sort field was correct. Earlier attempts
+  added `waitForSearchSettled` + 500 ms pause to drain sort-around-focus's
+  in-flight `countBefore` correction; reverted once the real cause was found.
+
+**Files changed:**
+- `kupua/src/stores/search-store.ts` (3 sites)
+- `kupua/src/stores/search-store.test.ts` (3 new tests)
+- `kupua/e2e/local/browser-history.spec.ts` (1 new test)
+- Audit doc + 2 stale bug-hunt docs moved to `zz Archive/`.
+
+**Validation:** Unit suite 430/430 green; full e2e suite **190/190 green** (~7 min).
+
 ### 28 April 2026 — Fix restore-around-cursor race on image traversal (audit #7); refute audit #17
 
 **Bug #7:** In `ImageDetail.tsx`, the `restoreAroundCursor` effect's `currentIndex >= 0`

@@ -159,6 +159,9 @@ Highest value-per-minute in the doc.
 
 Need thought but scoped to one symptom. No cross-contamination if a fix regresses:
 
+- **#3** — Scrubber `pendingSeekPosRef` not cleared on aborted seek. Needs careful look at the abort signalling so the second drag clears the first.
+- **#5** — `_scrollSeekTimer` not cleared on unmount. Move ownership into the hook lifecycle or add an effect cleanup.
+- **#6** — Density-switch rAF chain not cancelled when `saved == null`. Symmetric extension of the existing cleanup to the else branch.
 - **#9** — `extendBackward` column-trim empty result. Probably: skip trim when `total < PAGE_SIZE`.
 - **#16** — `restoreAroundCursor` should set focus. Touches explicit/phantom mode question — verify intended behaviour in both modes first.
 - **#8** — `useReturnFromDetail` phantom early-return. Same — verify mode semantics first.
@@ -224,6 +227,12 @@ Either touches architecture or has real UX trade-offs:
 > Follow `AGENTS.md` directives. Warn before any Playwright run.
 
 **Per-bug specifics for Batch B:**
+
+> **#3 — Scrubber `pendingSeekPosRef` not cleared on aborted seek.** Read `Scrubber.tsx:340-400` (the seek-handler + ref management) and `seek()` abort path in `search-store.ts:3420-3429`. The current clear condition is `positionChanged || loadingFinished`; on abort, neither fires. Decide where to clear: in the scrubber on `loading` transitioning back via the next seek, or by having the aborted seek's caller signal cancellation. Test: simulate two rapid scrubber drags where the first is aborted by the second; assert thumb tracks the second drag immediately. Beware: don't clear too eagerly — the ref is what keeps the thumb visible during the in-flight target.
+
+> **#5 — `_scrollSeekTimer` not cleared on unmount.** Read `useDataWindow.ts:197, ~350` (module-level `let _scrollSeekTimer`) and how `seekRef` is wired. Move the timer into the hook so React's effect cleanup cancels it, or add a ref + cleanup that calls `clearTimeout`. Test (Vitest): mount/unmount sequence with a pending timer; assert the seek does not fire after unmount. Beware: the timer is module-scoped because `reportVisibleRange` is called from outside React render; preserve that calling pattern.
+
+> **#6 — Density-switch rAF cleanup missing in else branch.** Read `useScrollEffects.ts:~960-1000` (Effect #10). The `if (saved != null)` branch returns a cleanup that cancels rAF1/rAF2. The `else` branch schedules the same rAF chain but returns nothing. Fix: hoist the rAF handles + cleanup so both branches share it. Test (Vitest): mount component, trigger density switch with no saved state, immediately unmount; assert no rAF callbacks fire (use a fake timer or spy on `cancelAnimationFrame`). Tiny diff; main risk is making the cleanup conditional in a way that misses one branch — prefer one cleanup that covers both.
 
 > **#9 — `extendBackward` column-trim empty result.** Read `extendBackward` in `search-store.ts:2200-2280`, plus the `geo.columns` reference in `useDataWindow.ts`. Verify the trim is intended for `>= PAGE_SIZE` returns only. Test: mock backward fetch returning 2 items in a 3-column grid with `bufferOffset=2`; assert items appear in results. Beware: trim logic may exist for a real reason in normal-size returns — preserve that.
 

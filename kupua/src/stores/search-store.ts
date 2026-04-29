@@ -1448,6 +1448,10 @@ async function _findAndFocusImage(
         trace("sort-around-focus", "t_settled");
         const suppressPulse = get()._isInitialLoad;
         set({
+          // Phantom invariant: never leave focusedImageId set. See search()
+          // header comment for rationale.
+          focusedImageId: null,
+          _focusedImageKnownOffset: null,
           _phantomFocusImageId: imageId,
           ...(!suppressPulse && { _phantomPulseImageId: imageId }),
           _isInitialLoad: false,
@@ -1525,7 +1529,10 @@ async function _findAndFocusImage(
         sortAroundFocusStatus: null,
         ...(phantomOnly
           ? {
-              // Phantom: scroll to image via Effect #9, no focus ring
+              // Phantom: scroll to image via Effect #9, no focus ring.
+              // Phantom invariant: never leave focusedImageId set.
+              focusedImageId: null,
+              _focusedImageKnownOffset: null,
               _phantomFocusImageId: imageId,
               ...(!get()._isInitialLoad && { _phantomPulseImageId: imageId }),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
@@ -1758,7 +1765,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // When restoring via frozenUntil (history back/forward), keep the
     // current newCount so the ticker doesn't flash off and back on.
     // The immediate poll tick will correct the count within milliseconds.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null });
+    //
+    // phantomOnly invariant: phantom-mode search/restore must NEVER leave
+    // focusedImageId set. Without this, a leaked focusedImageId from a
+    // previous explicit-focus context survives across phantom restores
+    // (e.g. popstate forward into a phantom snapshot) and corrupts
+    // downstream consumers — most notably buildHistorySnapshot, which
+    // prefers focusedImageId over the viewport anchor in explicit mode
+    // and would clobber the phantom snapshot with the leaked focus on
+    // the next departure-capture. See
+    // exploration/docs/audit-history-back-forward-back-forward-bug.md.
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && { focusedImageId: null, _focusedImageKnownOffset: null }) });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset

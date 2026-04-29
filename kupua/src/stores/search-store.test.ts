@@ -674,6 +674,69 @@ describe("phantom focus promotion", () => {
     expect(state().focusedImageId).toBe("img-50");
     expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
   });
+
+  // Regression — see audit-history-back-forward-back-forward-bug.md.
+  // A leaked focusedImageId across phantomOnly restores corrupted phantom
+  // history snapshots on the next departure-capture (build-history-snapshot
+  // prefers focusedImageId over the viewport anchor in explicit mode).
+  // Phantom invariant: phantomOnly search/restore must clear focusedImageId.
+  describe("phantomOnly clears leaked focusedImageId (audit: back/forward bug)", () => {
+    it("clears focusedImageId when phantom target is in first page", async () => {
+      await actions().search();
+      // Simulate a leaked explicit focus from a previous context
+      actions().setFocusedImageId("img-100");
+      expect(state().focusedImageId).toBe("img-100");
+
+      // Phantom restore (e.g. popstate forward into a phantom snapshot)
+      await actions().search("img-50", { phantomOnly: true });
+      await flush();
+
+      expect(state().focusedImageId).toBeNull();
+      expect(state()._focusedImageKnownOffset).toBeNull();
+    });
+
+    it("clears focusedImageId when phantom target requires seek (out-of-buffer)", async () => {
+      mock = new MockDataSource(1000);
+      useSearchStore.setState({ dataSource: mock });
+      await actions().search();
+      actions().setFocusedImageId("img-100");
+      expect(state().focusedImageId).toBe("img-100");
+
+      // Phantom anchor outside the first page → _findAndFocusImage
+      // outside-buffer branch.
+      await actions().search("img-500", { phantomOnly: true });
+      await waitFor(
+        () => state().sortAroundFocusStatus === null,
+        3000,
+        "phantom promotion completes",
+      );
+
+      expect(state().focusedImageId).toBeNull();
+      expect(state()._focusedImageKnownOffset).toBeNull();
+    });
+
+    it("clears focusedImageId when phantom target is in current buffer", async () => {
+      mock = new MockDataSource(1000);
+      useSearchStore.setState({ dataSource: mock });
+      await actions().search();
+      // Force a buffer where img-100 is in-buffer for the phantom call:
+      // first search loads 0..199, so img-100 is in buffer. Set leaked focus.
+      actions().setFocusedImageId("img-150");
+      expect(state().focusedImageId).toBe("img-150");
+
+      // Phantom call for an in-buffer image — exercises the in-buffer
+      // phantom branch in _findAndFocusImage.
+      await actions().search("img-100", { phantomOnly: true });
+      await waitFor(
+        () => state().sortAroundFocusStatus === null,
+        3000,
+        "in-buffer phantom completes",
+      );
+
+      expect(state().focusedImageId).toBeNull();
+      expect(state()._focusedImageKnownOffset).toBeNull();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

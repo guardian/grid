@@ -1412,3 +1412,150 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     expect(restoredAnchor).not.toBe(imageB);
   });
 });
+
+// ===========================================================================
+// Audit regression — phantom focusedImageId leak across phantomOnly restore
+// ===========================================================================
+
+test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (audit)", () => {
+  test("focus → sort → clear focus → seek → back/forward/back/forward stays at deep position", async ({ kupua }) => {
+    // Regression for `audit-history-back-forward-back-forward-bug.md`.
+    //
+    // Repro (explicit / Click-to-focus mode — uses file-level beforeEach):
+    //   1. Focus image A
+    //   2. Switch sort (sort-around-focus keeps A focused)
+    //   3. Clear focus
+    //   4. Seek deep
+    //   5. Back, Forward → CORRECT: deep position visible
+    //   6. Back, Forward → BUG (pre-fix): shows A focused at top
+    //
+    // Mechanism:
+    //   - Step 5 forward restores E1 with phantomOnly=true. Pre-fix,
+    //     `focusedImageId` from the previous explicit context (= A) leaked
+    //     across the phantom restore, violating the phantom-mode invariant.
+    //   - Step 6 back triggers departure-capture for E1. Post-commit
+    //     1462bfaec, the viewport anchor faithfully tracks the deep buffer
+    //     (no longer guarded off by focusedImageId). The anchor differs from
+    //     E1's stored phantom anchor → guard overwrites E1.
+    //   - The overwrite calls buildHistorySnapshot, which prefers leaked
+    //     focusedImageId=A in explicit mode → E1's snapshot becomes
+    //     {anchor: A, anchorIsPhantom: false}.
+    //   - Step 6 forward reads the corrupted snapshot, takes the explicit
+    //     restore path, and centres on A.
+
+    await kupua.goto();
+    await waitForSearchSettled(kupua.page);
+
+    // Step 1: focus image A.
+    await kupua.focusNthItem(3);
+    const imageA = await kupua.getFocusedImageId();
+    expect(imageA).not.toBeNull();
+
+    // Step 2: switch sort. sort-around-focus should keep A focused.
+    // Use `uploadTime` (asc — oldest first). The default page sort is
+    // `-uploadTime` (desc, newest first), so A (focused at idx 3) sits
+    // near the very end in asc order; sort-around-focus seeks deep to
+    // find it. uploadTime is universally populated → A stays focused
+    // (no null-zone degradation). Importantly this is a REAL alias
+    // (see sort-builders.ts) — `?orderBy=oldest` looks like the obvious
+    // choice but `oldest` is NOT a valid alias; ES rejects sorts on a
+    // literal field called "oldest" and seek(800) below ends up empty.
+    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    await waitForSearchSettled(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(imageA);
+
+    const keySorted = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+    expect(keySorted).toBeTruthy();
+
+    // Step 3: clear focus directly (clicking the gap is fragile across grid
+    // layouts; setFocusedImageId(null) exercises the same store path and
+    // the rest of the repro is independent of how focus was cleared).
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store.getState().setFocusedImageId(null);
+    });
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Step 4: deep seek. Use programmatic store.seek() — same reason as the
+    // sibling test "detail open/close then seek" (Strict Mode dev double-
+    // mount can collapse the virtualizer scroll). seek(800) matches the
+    // sibling "back restores deep position (~800)" test which is known
+    // to push bufferOffset > 0 against the e2e sample dataset.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "test-seek");
+    });
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.loading && s.bufferOffset > 0 && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+
+    const deepAnchor = await kupua.page.evaluate(() => {
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      return getAnchor ? getAnchor() : null;
+    });
+    expect(deepAnchor).not.toBeNull();
+    expect(deepAnchor).not.toBe(imageA);
+    const deepBufferOffset = (await kupua.getStoreState()).bufferOffset;
+    expect(deepBufferOffset).toBeGreaterThan(500);
+
+    // Step 5: back, forward — should restore the deep position.
+    await kupua.page.goBack();
+    await waitForSearchSettled(kupua.page);
+    await kupua.page.goForward();
+    await waitForSearchSettled(kupua.page);
+    await kupua.page.waitForTimeout(300); // let restore + buffer-change effect populate anchor
+
+    // After the first forward we're back on E1 with the phantom restore.
+    // Phantom invariant: focusedImageId must be null.
+    const focusAfterFirstForward = await kupua.getFocusedImageId();
+    expect(focusAfterFirstForward, "phantomOnly restore must not leak focusedImageId").toBeNull();
+
+    const offsetAfterFirstForward = (await kupua.getStoreState()).bufferOffset;
+    expect(offsetAfterFirstForward).toBeGreaterThan(500);
+
+    // Step 6: back, forward — the cycle that previously corrupted E1.
+    await kupua.page.goBack();
+    await waitForSearchSettled(kupua.page);
+
+    // Inspect E1's snapshot AFTER the back. Pre-fix this was clobbered to
+    // {anchor: A, anchorIsPhantom: false}. Post-fix it must remain phantom.
+    const snapAfterSecondBack = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keySorted!);
+    expect(snapAfterSecondBack, "E1 snapshot must exist after second back").not.toBeNull();
+    expect(
+      snapAfterSecondBack.anchorImageId,
+      "E1 snapshot anchor must NOT be the previously-focused A",
+    ).not.toBe(imageA);
+    expect(
+      snapAfterSecondBack.anchorIsPhantom,
+      "E1 snapshot must remain phantom after departure-capture",
+    ).toBe(true);
+
+    await kupua.page.goForward();
+    await waitForSearchSettled(kupua.page);
+    await kupua.page.waitForTimeout(300);
+
+    // The actual user-visible assertions: focus must still be null, and
+    // the buffer must still be at the deep offset (not reset to top).
+    const focusAfterSecondForward = await kupua.getFocusedImageId();
+    expect(
+      focusAfterSecondForward,
+      "second forward must not re-introduce leaked focus on A",
+    ).toBeNull();
+
+    const offsetAfterSecondForward = (await kupua.getStoreState()).bufferOffset;
+    expect(
+      offsetAfterSecondForward,
+      "second forward must restore deep position, not top",
+    ).toBeGreaterThan(500);
+  });
+});
