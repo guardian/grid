@@ -1,41 +1,17 @@
-import { S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import {
 	MAX_IMAGE_SIZE_BYTES,
 	MAX_PIXELS_COHERE_V4,
-} from '../../../src/embedder/constants';
+} from '../../src/embedder/constants.ts';
 import {
 	ensureDirectoriesExist,
-	getTestImage,
 	writeOutputImage,
-} from './localTestFiles';
-import {downscaleImageIfNeeded} from "../../../src/embedder/resizeImage";
+} from './integration/localTestFiles.ts';
+import { downscaleImageIfNeeded } from '../../src/embedder/resizeImage.ts';
+import path from 'path';
 
-/**
- * Integration tests for image downscaling.
- * Currently only intended to be manually trigged locally.
- *
- * The *only* reason that this is an "integration" test rather than a unit test
- * is because we fetch our test images from AWS (bucket: image-embedding-test).
- *
- * Other than this, everything happens locally.
- *
- * This could be made into a pure unit test by replacing the test images
- * with ones which have the right characteristics, but could be generated on-the-fly in the test.
- *
- * Requires:
- *   - Valid AWS credentials with S3 read permissions
- *   - Test images uploaded to image-embedding-test
- *
- * Downloaded images are cached locally in __tests__/integration/test-data/input/,
- * and output is stored in __tests__/integration/test-data/output/.
- * This is mainly so you can eyeball the before/after of the downscaling process.
- * The caching of the input images also speeds up repeated test runs.
- *
- * Run with: npm run test:integration
- */
-
-const TEST_BUCKET = 'image-embedding-test';
+const TEST_IMAGE = path.join(__dirname, 'test-data', 'input', 'image.jpg');
+const OUTPUT_DIR = path.join(__dirname, 'test-data', 'output');
 
 interface ImageDimensions {
 	width: number;
@@ -51,7 +27,6 @@ async function getImageDimensions(
 }
 
 interface DownscaleTestCase {
-	s3Key: string;
 	mimeType: 'image/jpeg' | 'image/png';
 	inputWidth: number;
 	inputHeight: number;
@@ -63,72 +38,84 @@ interface DownscaleTestCase {
 	shouldDownscale: boolean;
 }
 
-// These values would need to be adjusted if the downscaling logic changes,
-// but the test will still assert that they are within the limits required by Cohere via Bedrock.
-// This acts a sanity check that we're not excessively reducing the size by mistake.
-// It also allows us to see at a glance in the test names precisely what resizing takes places.
 const TEST_CASES: DownscaleTestCase[] = [
 	{
-		s3Key: 'large-images/aaf514e9530271ab5639bb5f496eef97cdce9b7a.jpeg',
 		mimeType: 'image/jpeg',
 		inputWidth: 6976,
 		inputHeight: 4634,
-		inputBytes: 5_242_808,
-		expectedOutputWidth: 1923,
-		expectedOutputHeight: 1277,
-		expectedOutputPixels: 2_455_671,
-		expectedOutputBytes: 797_314,
+		inputBytes: 1_187_262,
+		expectedOutputWidth: 212,
+		expectedOutputHeight: 141,
+		expectedOutputPixels: 29_892,
+		expectedOutputBytes: 14964,
 		shouldDownscale: true,
 	},
 	{
-		s3Key: 'large-images/5f8871b3686d06dadf3e7556cca2601c3b276288.jpeg',
 		mimeType: 'image/jpeg',
 		inputWidth: 3454,
 		inputHeight: 2303,
-		inputBytes: 5_242_970,
-		expectedOutputWidth: 1920,
-		expectedOutputHeight: 1280,
-		expectedOutputPixels: 2_457_600,
-		expectedOutputBytes: 643_568,
+		inputBytes: 448_734,
+		expectedOutputWidth: 212,
+		expectedOutputHeight: 141,
+		expectedOutputPixels: 29892,
+		expectedOutputBytes: 15003,
 		shouldDownscale: true,
 	},
 	{
-		s3Key: 'large-images/fed92369dbbc961708ab883da815fc4c7f52597e.jpeg',
 		mimeType: 'image/jpeg',
 		inputWidth: 5024,
 		inputHeight: 3395,
-		inputBytes: 10_360_979,
-		expectedOutputWidth: 1907,
-		expectedOutputHeight: 1289,
-		expectedOutputPixels: 2_458_123,
-		expectedOutputBytes: 494_080,
+		inputBytes: 761_420,
+		expectedOutputWidth: 210,
+		expectedOutputHeight: 142,
+		expectedOutputPixels: 29820,
+		expectedOutputBytes: 14858,
 		shouldDownscale: true,
 	},
 	{
-		s3Key: 'pngs/339d129c0b0f47507f7d299bf28046d40c12d368.png',
 		mimeType: 'image/png',
-		inputWidth: 725,
-		inputHeight: 725,
-		inputBytes: 131_137,
-		expectedOutputWidth: 725,
-		expectedOutputHeight: 725,
-		expectedOutputPixels: 525_625,
-		expectedOutputBytes: 131_137,
+		inputWidth: 173,
+		inputHeight: 173,
+		inputBytes: 74233,
+		expectedOutputWidth: 173,
+		expectedOutputHeight: 173,
+		expectedOutputPixels: 29929,
+		expectedOutputBytes: 74233,
 		shouldDownscale: false,
 	},
 	{
-		s3Key: 'pngs/c2039d7b0ba13910d7f8147128b86199784465ae.png',
 		mimeType: 'image/png',
 		inputWidth: 3340,
 		inputHeight: 5380,
-		inputBytes: 16_368_332,
-		expectedOutputWidth: 1235,
-		expectedOutputHeight: 1989,
-		expectedOutputPixels: 2_456_415,
-		expectedOutputBytes: 3_898_056,
+		inputBytes: 20_410_019,
+		expectedOutputWidth: 136,
+		expectedOutputHeight: 219,
+		expectedOutputPixels: 29784,
+		expectedOutputBytes: 64211,
 		shouldDownscale: true,
 	},
 ];
+
+function resizeImageToFitTestCase(
+	testCase: DownscaleTestCase,
+	testCaseIndex: number,
+): Promise<Uint8Array> {
+	const sharpImage = sharp(TEST_IMAGE);
+	sharpImage.resize(testCase.inputWidth, testCase.inputHeight);
+
+	let outputPath = '';
+	switch (testCase.mimeType) {
+		case 'image/jpeg':
+			sharpImage.jpeg({ quality: 95 });
+			outputPath = path.join(OUTPUT_DIR, `${testCaseIndex}.jpg`);
+			break;
+		case 'image/png':
+			sharpImage.png({ compressionLevel: 9 });
+			outputPath = path.join(OUTPUT_DIR, `${testCaseIndex}.png`);
+			break;
+	}
+	return sharpImage.toFile(outputPath).then(() => sharp(outputPath).toBuffer());
+}
 
 // Give test names like this,
 // so we can see at a glance how much downscaling actually happened:
@@ -143,15 +130,13 @@ function formatTestName(tc: DownscaleTestCase): string {
 }
 
 describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString()} bytes and ${MAX_PIXELS_COHERE_V4.toLocaleString()} pixels`, () => {
-	const s3Client = new S3Client({ region: 'eu-west-1' });
-
 	beforeAll(async () => {
 		await ensureDirectoriesExist();
 	});
 
-	for (const tc of TEST_CASES) {
+	TEST_CASES.map((tc, index) => {
 		it(formatTestName(tc), async () => {
-			const inputImage = await getTestImage(TEST_BUCKET, tc.s3Key, s3Client);
+			const inputImage = await resizeImageToFitTestCase(tc, index);
 
 			const inputDimensions = await getImageDimensions(inputImage);
 			expect(inputDimensions.width).toBe(tc.inputWidth);
@@ -166,7 +151,7 @@ describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString
 			);
 
 			if (tc.shouldDownscale) {
-				await writeOutputImage(outputImage, tc.s3Key, '_downscaled');
+				await writeOutputImage(outputImage, `${index}`, '_downscaled');
 			}
 
 			const outputDimensions = await getImageDimensions(outputImage);
@@ -187,5 +172,5 @@ describe(`Downscaling images to not exceed ${MAX_IMAGE_SIZE_BYTES.toLocaleString
 
 			expect(outputImage.length).toBeLessThanOrEqual(MAX_IMAGE_SIZE_BYTES);
 		});
-	}
+	});
 });
