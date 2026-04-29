@@ -22,6 +22,63 @@ const ES_SEED_FILE = path.resolve(
 
 const context = { awsRequestId: 'test' } as Context;
 
+async function createIndexWithMapping(elasticSearchUrl: string): Promise<void> {
+	// We need keyword mappings for the fields used in term/terms queries (usageRights.category,
+	// usageRights.supplier). Without this, dynamic mapping would create text fields and
+	// term queries would fail to match. This is a minimalist version of Mappings.scala
+	const mapping = {
+		mappings: {
+			dynamic: false,
+			properties: {
+				usageRights: {
+					type: 'object',
+					properties: {
+						category: { type: 'keyword' },
+						supplier: { type: 'keyword' },
+						suppliersCollection: { type: 'keyword' },
+					},
+				},
+				softDeletedMetadata: {
+					type: 'object',
+					properties: {
+						deleteTime: { type: 'date' },
+						deletedBy: { type: 'keyword' },
+					},
+				},
+				embedding: {
+					type: 'object',
+					properties: {
+						cohereEmbedV4: {
+							type: 'object',
+							properties: {
+								image: { type: 'dense_vector', dims: 256 },
+							},
+						},
+					},
+				},
+				source: {
+					type: 'object',
+					properties: {
+						file: { type: 'keyword', index: false },
+						mimeType: { type: 'keyword' },
+					},
+				},
+			},
+		},
+	};
+
+	const response = await fetch(`${elasticSearchUrl}/${TEST_INDEX_NAME}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(mapping),
+	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Failed to create ES index: ${body}`);
+	}
+}
+
 async function seedElasticSearch(elasticSearchUrl: string): Promise<void> {
 	const lines = fs
 		.readFileSync(ES_SEED_FILE, 'utf-8')
@@ -86,6 +143,7 @@ describe('Backfiller integration tests', () => {
 		);
 		queueUrl = createResult.QueueUrl!;
 
+		await createIndexWithMapping(ELASTIC_SEARCH_URL);
 		await seedElasticSearch(ELASTIC_SEARCH_URL);
 	});
 
