@@ -77,7 +77,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val awsSdkV2Version = "2.32.33"
+val awsSdkV2Version = "2.42.25"
 val elastic4sVersion = "8.18.2"
 val okHttpVersion = "3.12.1"
 
@@ -95,7 +95,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,

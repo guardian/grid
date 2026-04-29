@@ -118,5 +118,4 @@ class Bedrock(config: CommonConfig)
       embedding
     }
   }
-
 }

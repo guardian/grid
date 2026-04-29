@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ImageIds, S3, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -27,8 +27,8 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
-import scala.jdk.CollectionConverters._
 
+import scala.jdk.CollectionConverters._
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -41,7 +41,7 @@ class MediaApi(
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
+                s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation,
@@ -566,19 +566,22 @@ class MediaApi(
 
     if (_searchParams.useAISearch.contains(true)) {
 
-      val imageIds: Future[List[String]] = _searchParams.query match {
+      val imageIdsFuture: Future[ImageIds] = _searchParams.query match {
         case Some(q) if !q.isBlank =>
-          embedder.createEmbeddingAndSearch(q).map { result =>
-            val results: java.util.List[QueryOutputVector] = result.vectors()
-            results.asScala.map(_.key()).toList
+          // Check if it's an image-to-image similarity search
+          q.split(" ").find(_.startsWith("similar:")) match {
+            case Some(similarQuery) =>
+              val extractedImageId = similarQuery.split(":")(1)
+              embedder.imageToImageSearch(extractedImageId)
+            case None => embedder.createEmbeddingAndSearch(q)
           }
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
-        case _ => Future(Nil)
+        case _ => Future(ImageIds(Nil))
       }
 
-      imageIds.flatMap { ids =>
+      imageIdsFuture.flatMap { case ImageIds(ids) =>
         SearchParams(
           query = _searchParams.query,
           ids = Some(ids),
@@ -593,7 +596,6 @@ class MediaApi(
           respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
         }
       }
-
     } else {
 
       val searchParams = if(canViewDeletedImages) {
@@ -611,8 +613,6 @@ class MediaApi(
         params => performSearchAndRespond(params)
       )
     }
-
-
   }
 
   private def getImageResponseFromES(

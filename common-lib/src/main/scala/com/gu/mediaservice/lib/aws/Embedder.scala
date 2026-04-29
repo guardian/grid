@@ -4,13 +4,17 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import play.api.libs.json.{Json, OFormat}
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
+import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse, VectorData}
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 sealed trait CohereCompatibleMimeType
 case object CohereJpeg extends CohereCompatibleMimeType
 case object CoherePng extends CohereCompatibleMimeType
+
+case class ImageIds(ids: List[String])
 
 case class EmbedderMessage(imageId: String, fileType: String, s3Bucket: String, s3Key: String)
 
@@ -19,13 +23,23 @@ object EmbedderMessage {
 }
 
 class Embedder(s3vectors: S3Vectors, bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
+  def mapCohereResponseToImageIds(response: QueryVectorsResponse): ImageIds = {
+    val results: java.util.List[QueryOutputVector] = response.vectors()
+    ImageIds(results.asScala.map(_.key()).toList)
+  }
 
-  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = {
+  def createEmbeddingAndSearch(query: String)(implicit logMarker: LogMarker): Future[ImageIds] = {
     logger.info(logMarker, s"Searching for image embedding for query: $query")
-    val embeddingFuture = bedrock.createEmbedding(InputType.SearchDocument, query)
-    embeddingFuture.flatMap { embedding =>
-      s3vectors.searchVectorStore(embedding, query)
-    }
+    for {
+      embedding <- bedrock.createEmbedding(InputType.SearchDocument, query)
+      result <- Future.fromTry(s3vectors.searchByText(embedding, query))
+    } yield mapCohereResponseToImageIds(result)
+  }
+
+  def imageToImageSearch(imageId: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageIds] = {
+    val outputVector = s3vectors.getVectorByImageId(imageId)
+    val vector: VectorData = outputVector.data()
+    Future.fromTry(s3vectors.searchByImage(vector)).map(mapCohereResponseToImageIds)
   }
 
   def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker) = {
