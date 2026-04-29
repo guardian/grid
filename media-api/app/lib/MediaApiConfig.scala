@@ -79,11 +79,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // Semantic search retrieves from a bounded nearest-neighbour window.
   // This keeps KNN query cost predictable and makes result totals explicitly capped.
   val aiSearchSemanticRetrievalWindow: Int = intOpt("ai.search.semanticRetrievalWindow").getOrElse(1000)
-
-  // Embedding cache: avoids repeated Bedrock calls for the same text query within the TTL window.
-  // In-flight requests for the same key are also deduplicated (only one Bedrock call fires).
   val aiSearchEmbeddingCacheMaxSize: Int = intOpt("ai.search.embeddingCache.maxSize").getOrElse(500)
-  val aiSearchEmbeddingCacheTtlSeconds: Int = intOpt("ai.search.embeddingCache.ttlSeconds").getOrElse(600)
 
   val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
     filters.or(

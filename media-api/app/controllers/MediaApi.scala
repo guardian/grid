@@ -56,7 +56,6 @@ class MediaApi(
   // subsequent requests within the TTL window skip Bedrock entirely.
   private val embeddingCache: AsyncLoadingCache[String, List[Float]] = Scaffeine()
     .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
-    .expireAfterWrite(config.aiSearchEmbeddingCacheTtlSeconds.seconds)
     .buildAsyncFuture((normQuery: String) =>
       embedder.createQueryEmbedding(normQuery)(MarkerMap())
     )
@@ -684,7 +683,6 @@ class MediaApi(
     }
 
     SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
       errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
         errors.map(_.message).mkString(", "))
       ),
