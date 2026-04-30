@@ -230,7 +230,7 @@ export function resetVisibleRange(): void {
   }
 }
 
-export interface DataWindow {
+interface DataWindow {
   /** Windowed buffer of loaded images (may have undefined gaps during loading). */
   results: (Image | undefined)[];
   /** Global offset of buffer[0] in the full result set. */

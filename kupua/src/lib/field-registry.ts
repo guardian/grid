@@ -36,10 +36,10 @@ import { gridConfig } from "./grid-config";
 // ---------------------------------------------------------------------------
 
 /** The kind of ES mapping for this field — drives what operations are possible. */
-export type FieldType = "keyword" | "text" | "date" | "integer" | "composite" | "list";
+type FieldType = "keyword" | "text" | "date" | "integer" | "composite" | "list";
 
 /** Where in the UI this field appears by default. */
-export type FieldGroup =
+type FieldGroup =
   | "core"           // always-relevant fields (credit, byline, description)
   | "dates"          // date/time fields
   | "technical"      // dimensions, file type, colour model, filename

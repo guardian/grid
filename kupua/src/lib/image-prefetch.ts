@@ -220,7 +220,7 @@ function getPrefetchLog(): readonly PrefetchLogEntry[] {
 
 /** Observable stats for the prefetch pipeline — used by tests and
  *  future debug UI. */
-export interface PrefetchStats {
+interface PrefetchStats {
   inFlightCount: number;
   sessionOpen: boolean;
   cadenceMs: number | null;

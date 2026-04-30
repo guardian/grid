@@ -3,12 +3,12 @@
  * See kupua/exploration/mock/mapping.json for the full schema.
  */
 
-export interface ImageDimensions {
+interface ImageDimensions {
   width: number;
   height: number;
 }
 
-export interface ImageAsset {
+interface ImageAsset {
   file?: string;
   secureUrl?: string;
   mimeType: string;
@@ -21,7 +21,7 @@ export interface ImageAsset {
   };
 }
 
-export interface ImageMetadata {
+interface ImageMetadata {
   title?: string;
   description?: string;
   byline?: string;
@@ -43,7 +43,7 @@ export interface ImageMetadata {
   imageType?: string;
 }
 
-export interface UsageRights {
+interface UsageRights {
   category?: string;
   photographer?: string;
   supplier?: string;
@@ -56,7 +56,7 @@ export interface UsageRights {
   restrictions?: string;
 }
 
-export interface Lease {
+interface Lease {
   id: string;
   access: string;
   leasedBy?: string;
@@ -68,7 +68,7 @@ export interface Lease {
   createdAt?: string;
 }
 
-export interface Collection {
+interface Collection {
   path?: string;
   pathId?: string;
   description?: string;
@@ -78,13 +78,13 @@ export interface Collection {
   };
 }
 
-export interface UsageReference {
+interface UsageReference {
   type: string;
   uri?: string;
   name?: string;
 }
 
-export interface Usage {
+interface Usage {
   id: string;
   platform: string;
   status: string;
@@ -111,7 +111,7 @@ export interface Usage {
   };
 }
 
-export interface Export {
+interface Export {
   id?: string;
   type?: string;
   author?: string;
@@ -121,11 +121,11 @@ export interface Export {
   specification?: Record<string, unknown>;
 }
 
-export interface UploadInfo {
+interface UploadInfo {
   filename?: string;
 }
 
-export interface SoftDeletedMetadata {
+interface SoftDeletedMetadata {
   deleteTime?: string;
   deletedBy?: string;
 }

@@ -425,7 +425,7 @@ function isMultiMatchCrossFields(q: EsQuery): boolean {
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface CqlParseResult {
+interface CqlParseResult {
   /** The ES query object to use in the bool query */
   must: EsQuery[];
   /** Negated queries to put in must_not */

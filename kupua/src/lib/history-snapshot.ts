@@ -65,7 +65,7 @@ export const PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD = true;
 // SnapshotStore interface
 // ---------------------------------------------------------------------------
 
-export interface SnapshotStore {
+interface SnapshotStore {
   get(key: string): HistorySnapshot | undefined;
   set(key: string, snap: HistorySnapshot): void;
   delete(key: string): void;

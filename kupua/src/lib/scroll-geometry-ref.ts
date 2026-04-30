@@ -12,7 +12,7 @@
 
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 
-export interface ScrollGeometrySnapshot {
+interface ScrollGeometrySnapshot {
   rowHeight: number;
   columns: number;
   isTable: boolean;

@@ -150,9 +150,9 @@ import type { TrackTick } from "@/lib/sort-context";
  * - `'seek'`: neither buffer nor position map. Status-quo deep seek
  *   (percentile estimation, composite walk, countBefore).
  */
-export type ScrubberMode = "buffer" | "indexed" | "seek";
+type ScrubberMode = "buffer" | "indexed" | "seek";
 
-export interface ScrubberProps {
+interface ScrubberProps {
   /** Total number of matching results in the full result set. */
   total: number;
   /** Current global position (bufferOffset + first visible index within buffer). */

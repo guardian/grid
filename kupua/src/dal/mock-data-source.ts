@@ -45,7 +45,7 @@ const END_DATE = new Date("2026-01-01T00:00:00Z").getTime();
  * Configuration for a sparse field — the field will only be present on
  * `ratio` fraction of generated images (e.g. 0.2 = 20% have the field).
  */
-export interface SparseFieldConfig {
+interface SparseFieldConfig {
   /** Dot-path of the field (e.g. "lastModified"). */
   field: string;
   /** Fraction of images that have this field (0–1). Default: 0.2. */

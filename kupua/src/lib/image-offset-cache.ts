@@ -102,7 +102,7 @@ export function extractSortValues(
 // Store / retrieve
 // ---------------------------------------------------------------------------
 
-export interface CachedImagePosition {
+interface CachedImagePosition {
   offset: number;
   cursor: SortValues | null;
 }

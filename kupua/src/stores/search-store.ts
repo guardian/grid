@@ -97,7 +97,7 @@ export interface ComputeScrollTargetInput {
   clampedOffset: number;
 }
 
-export interface ComputeScrollTargetResult {
+interface ComputeScrollTargetResult {
   /** Buffer-local index for the virtualizer to scroll to. */
   scrollTargetIndex: number;
   /** Sub-row pixel offset for effect #6 to apply after render. */
