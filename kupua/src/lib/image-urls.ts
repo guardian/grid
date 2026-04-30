@@ -259,6 +259,6 @@ export function getFullImageUrl(
 export const thumbnailsEnabled = S3_PROXY_ENABLED;
 
 /** Whether full-size image viewing is available (imgproxy running). */
-export const fullImagesEnabled = IMGPROXY_ENABLED && !!IMAGE_BUCKET;
+const fullImagesEnabled = IMGPROXY_ENABLED && !!IMAGE_BUCKET;
 
 

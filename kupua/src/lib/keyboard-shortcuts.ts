@@ -79,7 +79,7 @@ export function unregisterShortcut(shortcut: Shortcut): void {
 // Editable field detection
 // ---------------------------------------------------------------------------
 
-export function isEditableTarget(e: KeyboardEvent): boolean {
+function isEditableTarget(e: KeyboardEvent): boolean {
   const target = e.target as HTMLElement | null;
   if (!target) return false;
 
@@ -170,7 +170,7 @@ document.addEventListener("keydown", handleKeyDown, { capture: true });
 // ---------------------------------------------------------------------------
 
 /** Platform-aware modifier key symbol for display in tooltips. */
-export const ALT_SYMBOL = navigator.platform.includes("Mac") ? "⌥" : "Alt+";
+const ALT_SYMBOL = navigator.platform.includes("Mac") ? "⌥" : "Alt+";
 
 /** Platform-aware "Alt+click" label for tooltips (e.g. "⌥click" / "Alt+click"). */
 export const ALT_CLICK = `${ALT_SYMBOL}click`;

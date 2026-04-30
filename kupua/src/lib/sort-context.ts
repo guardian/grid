@@ -332,7 +332,7 @@ export function resolveDateSortInfo(
  * O(log n) where n = number of buckets. Returns the bucket key (keyword
  * value or ISO date string), or null if position is outside the covered range.
  */
-export function lookupSortDistribution(
+function lookupSortDistribution(
   dist: SortDistribution,
   globalPosition: number,
 ): string | null {
@@ -640,7 +640,7 @@ export interface TrackTick {
  * Returns an empty array for keyword sorts, script sorts, or when no
  * usable date data is available.
  */
-export function computeTrackTicks(
+function computeTrackTicks(
   orderBy: string | undefined,
   total: number,
   bufferOffset: number,

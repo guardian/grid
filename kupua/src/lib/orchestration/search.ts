@@ -308,7 +308,7 @@ type NavigateFn = (opts: any) => any;
  */
 let _detailEnteredViaSpa = false;
 
-export function markDetailEnteredViaSpa(): void {
+function markDetailEnteredViaSpa(): void {
   _detailEnteredViaSpa = true;
 }
 

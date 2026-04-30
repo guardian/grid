@@ -141,7 +141,7 @@ function tunable(key: string, fallback: number): number {
 }
 
 /** Read a prefetch tuning constant with localStorage override. */
-export function getTunable(key: string): number {
+function getTunable(key: string): number {
   switch (key) {
     case "fastCadenceMs":    return tunable(key, PREFETCH_FAST_CADENCE_MS);
     case "burstEndMs":       return tunable(key, PREFETCH_BURST_END_MS);
@@ -203,7 +203,7 @@ const PREFETCH_LOG_CAP = 200;
 const _prefetchLog: PrefetchLogEntry[] = [];
 
 /** Append to the dev-only prefetch log ring buffer. No-op in prod. */
-export function prefetchLog(tag: string, payload?: unknown): void {
+function prefetchLog(tag: string, payload?: unknown): void {
   if (!import.meta.env.DEV) return;
   _prefetchLog.push({ ts: performance.now(), tag, payload });
   if (_prefetchLog.length > PREFETCH_LOG_CAP) {
@@ -214,7 +214,7 @@ export function prefetchLog(tag: string, payload?: unknown): void {
 }
 
 /** Read the dev-only prefetch log (last 200 entries). */
-export function getPrefetchLog(): readonly PrefetchLogEntry[] {
+function getPrefetchLog(): readonly PrefetchLogEntry[] {
   return _prefetchLog;
 }
 

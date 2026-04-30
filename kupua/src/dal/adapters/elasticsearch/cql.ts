@@ -470,7 +470,7 @@ export function parseCql(queryStr: string): CqlParseResult {
  * Render a CQL query string from the parser (for round-trip display).
  * Uses the @guardian/cql parser's own queryStr output.
  */
-export function normalizeCql(queryStr: string): string {
+function normalizeCql(queryStr: string): string {
   const result = parser(queryStr);
   return result.queryStr ?? queryStr;
 }
