@@ -180,7 +180,7 @@ lazy val thrall = playProject("thrall", 9002)
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.2",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
