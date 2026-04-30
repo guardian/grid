@@ -210,18 +210,6 @@ export function setPrevSearchOnly(obj: Record<string, unknown>) {
   _prevSearchOnly = obj;
 }
 
-/**
- * Reset the search sync dedup state so the next render cycle of
- * useUrlSearchSync will treat the current params as "new" and trigger
- * a fresh search. Call this from logo onClick handlers (both SearchBar
- * and ImageDetail) to ensure "reset everything" always works, even
- * when the URL search params haven't actually changed.
- */
-export function resetSearchSync() {
-  devLog("[resetSearchSync] clearing (was", _prevParamsSerialized, ")");
-  _prevParamsSerialized = "";
-  _prevSearchOnly = {};
-}
 
 // ===========================================================================
 // User-initiated navigation detection

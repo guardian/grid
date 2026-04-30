@@ -31,9 +31,6 @@ import {
   CqlExpr,
 } from "@guardian/cql";
 
-// Re-export so callers don't need to change their imports
-export { TypeaheadField, TextSuggestionOption };
-
 // ---------------------------------------------------------------------------
 // Inlined from @guardian/cql's lang/utils.ts — the package doesn't expose
 // subpath imports, so Vite can't resolve deep imports like

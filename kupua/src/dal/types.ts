@@ -23,16 +23,6 @@ import type { PositionMap } from "./position-map";
  */
 export type SortValues = (string | number | null)[];
 
-/**
- * A single image together with its ES sort values.
- * Used for cursor management — the first and last entries in a buffer
- * provide the cursors for backward and forward pagination.
- */
-export interface BufferEntry {
-  image: Image;
-  sort: SortValues;
-}
-
 export interface SearchParams {
   // --- Params that appear in kahuna's URL (search.results state) ---
 

@@ -67,7 +67,7 @@ export function registerShortcut(shortcut: Shortcut): () => void {
  * Unregister a shortcut by reference. Prefer the returned function from
  * `registerShortcut()` — this is a convenience for imperative cleanup.
  */
-export function unregisterShortcut(shortcut: Shortcut): void {
+function unregisterShortcut(shortcut: Shortcut): void {
   const stack = registry.get(shortcut.key);
   if (!stack) return;
   const idx = stack.indexOf(shortcut);

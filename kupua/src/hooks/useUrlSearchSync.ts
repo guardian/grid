@@ -41,10 +41,6 @@ import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 // predecessor to capture a departure snapshot for.
 let _lastKupuaKey: string | undefined;
 
-// Re-export so existing consumers don't need to change their imports yet.
-// New code should import directly from "@/lib/home-defaults".
-export { DEFAULT_SEARCH };
-
 /**
  * Strips undefined values from search params so they don't appear in the URL
  * as `?query=&since=` etc.
