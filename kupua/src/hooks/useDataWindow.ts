@@ -127,14 +127,6 @@ const SCROLL_SEEK_DEBOUNCE_MS = 200;
 let _scrollSeekTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------------------
-// Post-seek backward extend suppression — REMOVED (Agent 10)
-//
-// A module-level flag previously blocked extendBackward after seek to prevent
-// swimming. Removed because it also prevented scrolling UP. Now relying on
-// SEEK_COOLDOWN_MS + POST_EXTEND_COOLDOWN_MS only. See changelog 5 Apr 2026.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Viewport anchor — always the image nearest the viewport centre.
 //
 // Used by density-focus and sort-around-focus as a fallback when
@@ -436,16 +428,6 @@ export function useDataWindow(): DataWindow {
         }
 
         // Near the start of the buffer → extend backward
-        //
-        // APPROACH #4 (Agent 10): Removed _postSeekBackwardSuppress flag.
-        // Previously, a flag blocked extendBackward after seek until the user
-        // scrolled past EXTEND_THRESHOLD (~7 rows). This prevented swimming
-        // but also prevented scrolling UP after seek. With the 100ms cooldown
-        // (SEEK_COOLDOWN_MS) blocking ALL extends post-seek, and the deferred
-        // scroll firing at 150ms (after the virtualizer has settled), the
-        // first extendBackward should happen in a stable state where
-        // useLayoutEffect compensation is invisible. If swimming returns,
-        // increase SEEK_COOLDOWN_MS — don't re-add the flag.
         if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
           extendBackward();
         }

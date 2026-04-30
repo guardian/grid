@@ -3255,9 +3255,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // See tuning.ts for the timing relationship with SEEK_DEFERRED_SCROLL_MS.
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-      // NOTE: _postSeekBackwardSuppress flag was removed (Agent 10). Swimming
-      // prevention now handled by SEEK_COOLDOWN_MS + POST_EXTEND_COOLDOWN_MS.
-
       // Compute the buffer-local target index so views can scroll there.
       // Clamp to buffer bounds — the percentile estimate may drift, landing
       // the buffer offset far enough from the target that the target falls
