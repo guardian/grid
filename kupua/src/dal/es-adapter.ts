@@ -1224,7 +1224,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // then docs WITHOUT it — so each phase has clean cursor values.
     // See: https://github.com/opensearch-project/OpenSearch/issues/XXXXX
 
-    const { field: primaryField, direction: primaryDir } =
+    const { field: primaryField } =
       parseSortField(bareSortClause[0]);
 
     // Phase 1 sort: explicit `missing` (matches ES defaults, required so

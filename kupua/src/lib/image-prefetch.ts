@@ -439,7 +439,7 @@ function _issueMissing(
 
   // 1. Thumbnails first (mobile only) — i±1 get high priority, rest low
   if (isTouchDevice) {
-    for (const [, { idx, priority }] of entries) {
+    for (const [, { idx }] of entries) {
       const image = results[idx];
       if (!image) continue;
       const thumb = getThumbnailUrl(image);
