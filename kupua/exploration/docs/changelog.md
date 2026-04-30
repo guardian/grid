@@ -14,6 +14,44 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 30 April 2026 — Integrated Grid API contract audit follow-up patches into findings doc
+
+**Task:** Four follow-up patch files produced by previous audit sessions (live verification,
+reconciliation rules, server-computed fields, write-side footguns, annotated real response
+samples) were integrated into `grid-api-contract-audit-findings.md`. The findings doc is now
+the single authoritative Grid API surface contract.
+
+**Changes applied to `grid-api-contract-audit-findings.md`:**
+- §3.2.1 (new): reconciliation rules — how `metadata`, `usageRights`, `cost`, `valid`,
+  `persisted` are derived from ES source fields via Scala logic
+- §3.2: `embedding` field documented; various "always present" table corrections (C1–C13)
+- §4–§5: series of field-type corrections (Embedding, FileMetadata concrete shape,
+  EmptyUsageRights, SyndicationRights fully typed)
+- §5.5, §5.10, §5.11, §5.14, §5.16: fire-and-forget / async consistency table;
+  bare-body footgun warnings (crop response, lease request)
+- §6.4: EditMetadata gate corrected (uploaders bypass it)
+- §6.5: `errorKey` list corrected (`invalidJson` for bad requests)
+- §6.6 (new): verified live values — cookie name confirmed (`gutoolsAuth-assym`),
+  CORS 403 confirmed, permissions endpoint 404 confirmed (use `/session`), `restrictDownload`
+  not set in dev
+- §6.7 (new): server-computed fields — full list of fields set by thrall on ingest
+- §7: all unknowns marked RESOLVED
+- §8: corrections 9–17 added (write-side footguns, permission gates, async consistency)
+- §10 (new): annotated real response samples from TEST (three images) — S3 bucket names
+  and signed URL parameters redacted before writing to disk
+- §9: type appendix updated (Embedding, EmptyUsageRights, SyndicationRights, FileMetadata,
+  ImageData, ImageResponse)
+
+**Changes applied to `integration-workplan-bread-and-butter.md`:**
+- Added step 0.0 (unknowns pre-resolved by audit — no re-verification needed)
+- Added contract cross-references throughout (§2, §3, §4, §5, §6.4, §6.5, §9)
+- Phase C write ordering updated with per-feature contract refs and footgun flags
+- Agent guardrails: added "read contract before coding" directive
+- Stop condition 3 (Argo nightmare) softened — structure is now fully documented in §6.1 + §3.2.1
+
+**Files deleted:** 4 patch files, `audit-followups/` directory, 4 handoff followup docs,
+memory-note file (`grid-api-contract-audit-memory-note.md`) and `grid-api-contract-audit-handoff.md`.
+
 ### 29 April 2026 — Fix back/forward/back/forward leaks focused image instead of restoring deep seek position
 
 **Bug:** Focus image A → switch sort (sort-around-focus keeps A focused) → clear

@@ -327,13 +327,12 @@ tunnel can flake. Touches the shared TEST cluster — but read-only by
 default ([kupua's safeguards](kupua/exploration/docs/infra-safeguards.md)
 prevent writes).
 
-**Auth oddity to verify in Phase 0:** Grid in `--use-TEST` mode sets
-`domain.root-override=test.dev-gutools.co.uk` ([dev/script/start.sh](dev/script/start.sh)
-around line 137). This may affect cookie domain attributes. The cookie
-might end up scoped to `.test.dev-gutools.co.uk` rather than
-`.local.dev-gutools.co.uk`, which would break auth for kupua at
-`kupua.media.local.dev-gutools.co.uk`. **This is a Phase 0 unknown to
-investigate.** If it breaks, Setup A becomes the fallback for early work.
+**Verified Phase 0 facts (live, see contract §6.6):**
+
+- **Auth works across both domain roots.** The pan-domain `gutoolsAuth-assym` cookie reaches services at both `*.local.dev-gutools.co.uk` and `*.test.dev-gutools.co.uk` because it's scoped at the parent `dev-gutools.co.uk` level. The original "this might break auth" concern is resolved — it doesn't.
+- **`PLAY_SESSION` cookie is misleadingly scoped to `api.media.test.dev-gutools.co.uk`** (because `--use-TEST` sets `domainRoot=test.dev-gutools.co.uk`). This is cosmetic — `PLAY_SESSION` is not the auth cookie; the panda cookie is what matters.
+- **HATEOAS root returns mixed-origin URLs.** Media-api itself responds at `api.media.local.dev-gutools.co.uk`, but cropper, metadata-editor, leases, collections, usage, loader, and imgops URLs in the same response point at `*.test.dev-gutools.co.uk`. Kupua's adapter must accept that one image response contains URLs at two domain roots — **never derive a base URI for sub-resources**, always use the per-link host. See contract §6.6 "Mixed-origin service URLs in `--use-TEST` mode" for full kupua-side implications.
+- **CORS allowlist additions needed in two places** (vs Setup A's one): the local media-api S3 config bucket *and* each TEST satellite service config bucket (metadata-editor, cropper, leases, collections, usage). The Vite-proxy workaround (Phase 0 step 0.5) handles media-api but not the satellites — so for Setup B, **either** add multiple Vite proxy rules (one per Grid service host), **or** request real CORS allowlist updates across all the satellite configs.
 
 ---
 
@@ -393,7 +392,7 @@ solve before continuing — not a project-killer.
   already handle tunnel reuse correctly. Setup A *may* need a wrapper that
   exports `KUPUA_ES_URL=http://localhost:9200` and passes `--skip-es` —
   document this in worklog if you end up adding one.
-
+- **In Setup B, the Vite proxy workaround needs multiple rules** (one per Grid service host — media-api, cropper, metadata-editor, leases, collections, usage), not just one for media-api. Setup A is single-origin so one rule suffices. See contract §6.6 for the full host list.
 ### What might need modification (don't pre-emptively change)
 
 These are *possible* future changes to the start scripts. **Don't make
@@ -424,6 +423,17 @@ HATEOAS root endpoint returns links to all Grid services. Validate CORS.
 a single mapping line.
 
 ### Concrete steps
+
+#### 0.0 Unknowns pre-resolved by the Grid API contract audit
+
+The following questions that were open when this workplan was written have been answered via live curl verification. See `grid-api-contract-audit-findings.md` §6.6 for the full details. No Phase 0 re-verification needed on these items:
+
+| Question | Answer |
+|---|---|
+| Panda cookie name | `gutoolsAuth-assym` (asymmetric-key variant) |
+| Kupua's origin in CORS allowlist? | **No** — 403 confirmed. Must add to both local media-api and TEST satellite configs. See §6.6 CORS workplan note. |
+| `config.restrictDownload` in dev | Not restricted. `download` and `downloadOptimised` links both present. |
+| mk's permissions | `showPaid: false`, `canUpload: true`, `canDelete: true`. Read from `GET /session` on auth service — **not** `GET /permissions` (that endpoint is a dead link; returns 404). |
 
 #### 0.1 Add kupua to dev-nginx mappings
 
@@ -465,8 +475,8 @@ server: {
 
 With kahuna logged in (`media.local.dev-gutools.co.uk` cookie set), open
 `kupua.media.local.dev-gutools.co.uk`. Open devtools → Application →
-Cookies. Confirm the `gutoolsAuth-assym` cookie (or whatever Guardian uses)
-is visible to kupua's origin.
+Cookies. Confirm the `gutoolsAuth-assym` cookie is visible to kupua's origin.
+(Cookie name confirmed via live verification — see step 0.0 / §6.6.)
 
 If it isn't: the cookie is scoped too narrowly. Check the `Domain` attribute.
 If it's `media.local.dev-gutools.co.uk`, it won't reach `kupua.media.local...`.
@@ -476,21 +486,19 @@ auth. (Likely it's already `.local.dev-gutools.co.uk` and works fine.)
 #### 0.4 Fetch the HATEOAS root
 
 From kupua, `fetch('https://api.media.local.dev-gutools.co.uk/', { credentials: 'include' })`.
-Expect a JSON response with a `links` array (see [media-api/app/controllers/MediaApi.scala](media-api/app/controllers/MediaApi.scala#L90)
-for the link list — image, search, cropper, edits, collections, leases,
-usage, etc., plus permission-gated `loader` and `archive` links).
+Expect a JSON response with a `links` array. See contract §2 for the full root
+links table (14 links, including `image`, `search`, `cropper`, `edits`, `collections`,
+`leases`, `usage`, `session`, etc.). **No `actions` array at root level** (§8 correction 4).
+All links are `Link` objects (`rel`, `href`); methods are not specified at root level.
 
 #### 0.5 Validate CORS
 
-This is the riskiest part of Phase 0. media-api may not currently send CORS
-headers permitting kupua's origin. Test in the browser — if the fetch above
-succeeds with credentials, CORS is fine. If it fails with a CORS error,
-options:
+This is the riskiest part of Phase 0. **Confirmed by live testing: kupua's origin is NOT in the allowlist** (§6.6, §8 correction 5). Both local media-api and TEST satellite services return 403 on preflight. Two resolution options:
 
 - **Option A:** Make all media-api calls from kupua go through a Vite proxy
   rule (same-origin, no CORS needed). Simpler, no Grid changes.
 - **Option B:** Add kupua's origin to media-api's `corsAllowedOrigins`
-  config. Small Grid change, single line in the dev environment config.
+  config (§6.3). Requires adding to both the local media-api S3 config bucket and each TEST satellite service config. See §6.6 CORS workplan note for the exact list.
 
 Recommendation: **start with option A**. Add a Vite proxy rule:
 
@@ -569,33 +577,20 @@ from search results. Display all the enriched fields the API returns.
 
 #### A.1 Look at what `GET /images/{id}` returns
 
-Run against TEST (via curl, devtools, or Cerebro):
+The full response shape is documented in contract **§3** (Phase A endpoints — image detail). Key reference points:
+- §3.2 always-present and conditionally-present field tables
+- §3.2.1 reconciliation rules (how `metadata`, `usageRights`, `cost` are derived)
+- §3.3 the `actions` array — full enumeration with conditions
+- §3.4 the `links` array — full enumeration
+- §10 annotated real response samples from TEST (three images)
 
-```
-GET https://api.media.local.dev-gutools.co.uk/images/<some-id>
-```
-
-Document the response shape in a comment or scratch file. Key things to look
-for:
-
-- `cost` — "free", "conditional", "pay" (from `CostCalculator`)
-- `valid`, `invalidReasons` — validity check results
-- `persisted` — boolean, plus `persistedReasons` array
-- `secureUrl`, `thumbnail.secureUrl` — signed S3/CloudFront URLs (these
-  replace kupua's S3 proxy hack)
-- `links` — to `/usages`, `/leases`, `/crops`, `/edits` for this image
-- `actions` — permission-gated: `delete`, `add-lease`, `reindex`, etc.
-- `metadata`, `usageRights`, `userMetadata`, `fileMetadata` — same fields
-  kupua already reads from ES, just enriched
+**Read §3 before writing any parsing code.**
 
 #### A.2 Define the API-side image type
 
-Create `kupua/src/dal/grid-api/types.ts`. Define a TypeScript type matching
-the API response. Don't try to reuse the ES-derived `Image` type — they're
-different shapes (the API wraps things in Argo's `EmbeddedEntity` envelope).
+Create `kupua/src/dal/grid-api/types.ts`. The TypeScript types are already drafted in contract **§9** (`ImageResponse`, `ImageData`, `EmbeddedEntity`, `UsageRights`, `Embedding`, `SyndicationRights`, `FileMetadata`, etc.) — use §9 as the starting point rather than deriving from the wire format from scratch.
 
-Keep this type close to the wire format. Translation happens at the
-adapter boundary.
+Don't try to reuse the ES-derived `Image` type — they're different shapes (the API wraps things in Argo's `EmbeddedEntity` envelope). Translation happens at the adapter boundary.
 
 #### A.3 Build a minimal `GridApiDataSource.getImageDetail(id)` method
 
@@ -632,6 +627,17 @@ useEffect(() => {
 Render cost/validity/persistence badges from `detail`. Use the signed
 URLs from `detail.thumbnail.secureUrl` and `detail.secureUrl` for image
 display.
+
+**Permissions and actions:** Trust the `actions` array in the image response
+(§3.3) for what the user can do — show/hide UI controls based on action presence.
+Trust the `links` array (§3.4) for what's navigable (crops link absent = no
+`valid==true` or no write permission). Do NOT replicate permission logic in
+TypeScript.
+
+**Two specific traps to avoid in detail-view rendering:**
+
+1. **`valid==true` with non-empty `invalidReasons` is normal, not a bug.** See contract §6.7.1: `valid` is recomputed after lease overrides; `invalidReasons` retains the underlying reason a lease was needed. If both are populated, treat `invalidReasons` as informational ("this is fine because of an active lease"), not as a warning. Don't render red "invalid" badges next to a green "valid" badge.
+2. **Don't show the `reindex` action.** It's emitted in the `actions` array for any user with write permission, but the endpoint doesn't exist (§8 item 9, §3.3). Filter it out of any "available actions" UI. The contract's §3.3 row is now strikethrough'd / ⚠️-flagged for the same reason.
 
 The buffer-entry data remains the *initial* render (no loading flash) —
 the API-fetched detail enriches it once arrived.
@@ -679,13 +685,14 @@ For each of the following, the pattern is identical:
 1. Image detail response includes a `links` entry pointing to the resource
 2. kupua follows the link, parses the response, displays it
 
-| Feature | Link to follow | Service |
-|---|---|---|
-| Image usages | `usages` link | usage |
-| Lease history | `leases` link | leases |
-| Crop history | `crops` link | cropper |
-| Edit history (labels, archived state) | `edits` link | metadata-editor |
-| Collection membership | `collections` link | collections (already in image response) |
+| Feature | Link to follow | Service | Contract ref |
+|---|---|---|---|
+| Image usages | `usages` link | usage | §4.1 |
+| Lease history | `leases` link | leases | §4.2 |
+| Crop history | `crops` link | cropper | §4.3 |
+| Edit history (labels, archived state) | `edits` link | metadata-editor | §4.4 |
+| Collection membership | `collections` link | collections (already in image response) | §4.5 |
+| Collection tree | `collections` link in HATEOAS root | collections | §4.6 |
 
 ### Concrete steps
 
@@ -748,15 +755,20 @@ confirmation flows, error handling, optimistic UI.
 
 ### Order of features
 
-1. **Add/remove labels** (simplest write, low blast radius if wrong)
-2. **Archive / unarchive** (boolean toggle)
-3. **Edit metadata fields** (free-text, more complex form)
-4. **Add/remove lease** (date pickers, lease type dropdown)
-5. **Create crop** (most complex — UI for crop rectangle, format selection)
-6. **Delete image** (most dangerous — confirmation flow, undo where
-   possible)
-7. **Add to / remove from collection** (collection picker)
-8. **Syndication actions** (low priority unless explicitly needed)
+1. **Add/remove labels** (simplest write, low blast radius) — §5.1 (no permission gate, `auth.async` only)
+2. **Archive / unarchive** (boolean toggle) — §5.2 (`ArchiveImages` always true = no gate)
+3. **Edit metadata fields** (free-text, more complex form) — §5.3 (requires `EditMetadata` or be uploader)
+4. **Add/remove lease** (date pickers, lease type dropdown) — §5.5/5.6/5.7/5.9 (no permission gate)
+   - **Important:** `POST /leases` body is a **bare `MediaLease` JSON** — not wrapped in `{data:...}` (§8 correction 7, §5.5)
+   - **Important:** `PUT /leases/media/{id}` (replace-all) is fire-and-forget at the DynamoDB level — read back to confirm (§5.16, §8 item 10)
+5. **Create crop** (most complex — UI for crop rectangle, format selection) — §5.10
+   - **Important:** `POST /crops` response is a **bare `Crop` JSON**, NOT wrapped in `EntityResponse` (§8 correction 2, §5.10.3)
+   - **Important:** crop creation is `POST /crops` on the cropper base URI, not on the per-image crops URL (§8 correction 1, §5.10.1)
+6. **Delete image** (most dangerous — confirmation flow) — §5.11
+   - **Important:** `DELETE /images/{id}` is fire-and-forget at the DynamoDB level (§8 item 12). Read back to confirm.
+   - Condition: presence of `delete` action in the response (not `persisted.value` — these are independent; see §6.7.2)
+7. **Add to / remove from collection** (collection picker) — §5.12/5.13
+8. **Syndication actions** (low priority) — §5.14 (usage recording is fire-and-forget inside handler)
 
 ### Out of scope for Phase C
 
@@ -786,12 +798,11 @@ so fresh agents follow it without re-deriving it:
 | **Upload, delete** | API adapter | Same |
 | **Auth, permissions** | Inferred from API responses | Don't replicate; trust the server |
 
-**Inverse rule:** if a feature could be built either way, **prefer the API
-adapter unless it's a search-shape operation kupua has already optimised.**
+The full permissions catalogue is in contract §6.4. Error response shapes are in §6.5. Always handle `401` (re-auth), `419` (expired cookie, distinct from 401), `403` (authorised but not permitted), and Argo error responses (`{ errorKey, errorMessage }`). See §6.5 for the full `errorKey` list.
 
----
+**For each API call in Phase B or C, read the corresponding contract §4 or §5 subsection before writing adapter code.**
 
-## Agent guardrails
+> **Directive: read the contract before coding.** Before writing any adapter code for a Phase B or C feature, read the corresponding section of `grid-api-contract-audit-findings.md`. Key cross-cutting sections: §6.1 (Argo/EmbeddedEntity rules), §6.4 (permissions), §6.5 (error keys), §5.16 (async consistency table). Quick checklist: does the response body need unwrapping? What permission gates apply? Is the endpoint fire-and-forget (check §5.16)? Is the request body wrapped in `{data:...}` or bare?
 
 Sessions on this workplan need explicit constraints. Add to AGENTS.md:
 
@@ -854,10 +865,11 @@ This workplan should stop or pause if any of the following occurs:
    foundation before more features.
 2. **Auth doesn't carry across origins.** Pan-domain cookie issue.
    Escalate; don't work around.
-3. **Argo response parsing turns out to be a nightmare.** If Phase A reveals
+3. **Argo response parsing turns out to be a nightmare.** ~~If Phase A reveals
    the HATEOAS envelope is much more complex than expected (Argo's
    `EmbeddedEntity` wrapping is recursive), pause and decide whether to
-   build a proper Argo client or revert to direct-ES for those reads.
+   build a proper Argo client or revert to direct-ES for those reads.~~
+   **Softened:** The Argo `EmbeddedEntity` structure is now fully documented in contract §6.1, and the reconciliation rules for merged fields are in §3.2.1. The envelope is non-trivial but tractable — the nesting pattern is consistent and documented. If implementation reveals a genuinely unparseable edge case, stop and ask; but do not treat the complexity as a blocker without first consulting §6.1.
 4. **Permission gating doesn't match expectations.** If actions appear/disappear
    in unexpected ways, the model is wrong. Investigate before building more
    on it.

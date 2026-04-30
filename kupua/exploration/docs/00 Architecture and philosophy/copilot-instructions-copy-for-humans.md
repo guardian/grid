@@ -5,6 +5,19 @@
 > Copilot must always follow so they are loaded automatically regardless of
 > which file is open.
 
+**Directive: PUBLIC REPO — NEVER COMMIT SECRETS.** The `grid` repository is public on
+GitHub. Anything written to disk under `kupua/` (code, docs, audit outputs, sample
+responses, even commented-out examples) may be pushed and become permanent public
+history. **Never** write the following to any file: panda cookie values, AWS access
+keys / session tokens, signed S3 or CloudFront URL query strings (they contain
+`AWSAccessKeyId`, `Signature`, `x-amz-security-token`), real user email addresses,
+internal Guardian hostnames not already public in the repo, any `Authorization`
+header, JWT tokens, panda private keys. When inspecting live infra (TEST/CODE/PROD)
+and producing outputs (samples, audit notes, debugging logs), **redact aggressively
+before writing to disk** — over-redaction is cheap, leakage is permanent and may
+require credential rotation. If unsure whether a value is sensitive, redact. If a
+secret has already been written, stop, alert the user, and do not commit.
+
 **Directive: AGENTS.md is a living snapshot, not a history log.** After completing any
 task that adds, removes, or changes features, architecture, files, or key decisions:
 (1) Update `kupua/AGENTS.md` — keep it lean (~130 lines). Update the Component Summary
