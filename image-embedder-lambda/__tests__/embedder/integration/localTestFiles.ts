@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { S3Client } from '@aws-sdk/client-s3';
-import {S3Fetcher} from "../../../src/embedder/s3Fetcher";
+import { S3Fetcher } from '../../../src/embedder/s3Fetcher';
 
 const CACHE_DIR = path.join(__dirname, 'test-data', 'input');
 const OUTPUT_DIR = path.join(__dirname, 'test-data', 'output');
@@ -28,7 +28,7 @@ export async function getTestImage(
 	s3Client: S3Client,
 ): Promise<Uint8Array> {
 	const cachePath = getCachePath(s3Key);
-  const s3Fetcher = new S3Fetcher(s3Client);
+	const s3Fetcher = new S3Fetcher(s3Client);
 
 	try {
 		const cached = await fs.readFile(cachePath);
