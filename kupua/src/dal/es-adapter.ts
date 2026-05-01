@@ -39,6 +39,7 @@ import {
   SOURCE_EXCLUDES,
   SOURCE_INCLUDES,
   ALLOWED_ES_PATHS,
+  ALLOWED_ES_METHODS,
   IS_LOCAL_ES,
 } from "./es-config";
 
@@ -208,14 +209,34 @@ export class ElasticsearchDataSource implements ImageDataSource {
    */
   private searchAbortController: AbortController | null = null;
 
-  private assertReadOnly(path: string): void {
+  private assertReadOnly(path: string, method: string = "POST"): void {
     if (IS_LOCAL_ES) return; // no restrictions on local docker ES
-    const allowed = ALLOWED_ES_PATHS.some((p) => path.startsWith(p));
-    if (!allowed) {
+
+    // Strict path matching: path must equal an allowed prefix exactly,
+    // or continue with ? or / — prevents accidental prefix collisions
+    // (e.g. a hypothetical "_search_shards" matching "_search").
+    const pathAllowed = ALLOWED_ES_PATHS.some(
+      (p) => path === p || path.startsWith(p + "?") || path.startsWith(p + "/"),
+    );
+    if (!pathAllowed) {
       throw new Error(
         `[Safeguard] Blocked ES request to "${path}" — only read operations ` +
           `(${ALLOWED_ES_PATHS.join(", ")}) are allowed on non-local ES. ` +
-          `See kupua/exploration/docs/infra-safeguards.md`
+          `See kupua/exploration/docs/infra-safeguards.md`,
+      );
+    }
+
+    // Method allowlist: only GET, POST, DELETE permitted.
+    // DELETE is further restricted to _pit paths (closing a PIT snapshot).
+    const upperMethod = method.toUpperCase();
+    if (!ALLOWED_ES_METHODS.has(upperMethod)) {
+      throw new Error(
+        `[Safeguard] Blocked ES method "${method}" — only ${[...ALLOWED_ES_METHODS].join(", ")} are allowed.`,
+      );
+    }
+    if (upperMethod === "DELETE" && !path.startsWith("_pit")) {
+      throw new Error(
+        `[Safeguard] DELETE is only allowed on _pit paths, not "${path}".`,
       );
     }
   }
@@ -225,11 +246,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
     body?: Record<string, unknown>,
     signal?: AbortSignal
   ): Promise<unknown> {
-    this.assertReadOnly(path);
+    const method = body ? "POST" : "GET";
+    this.assertReadOnly(path, method);
 
     const url = `${ES_BASE}/${ES_INDEX}/${path}`;
     const response = await fetch(url, {
-      method: body ? "POST" : "GET",
+      method,
       headers: body ? { "Content-Type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
       signal,
@@ -265,10 +287,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
     signal?: AbortSignal,
     method?: string,
   ): Promise<unknown> {
-    this.assertReadOnly(path);
+    const resolvedMethod = method ?? (body ? "POST" : "GET");
+    this.assertReadOnly(path, resolvedMethod);
 
     const url = `${ES_BASE}/${path}`;
-    const resolvedMethod = method ?? (body ? "POST" : "GET");
     const response = await fetch(url, {
       method: resolvedMethod,
       headers: body ? { "Content-Type": "application/json" } : undefined,

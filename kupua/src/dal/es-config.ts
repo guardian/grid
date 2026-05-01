@@ -116,6 +116,14 @@ export const SOURCE_INCLUDES = [
 export const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit"];
 
 /**
+ * Allowed HTTP methods for ES requests.
+ *
+ * DELETE is further restricted to _pit paths only (closing a PIT snapshot).
+ * No other ES endpoint should ever receive a DELETE, PUT, or PATCH.
+ */
+export const ALLOWED_ES_METHODS = new Set(["GET", "POST", "DELETE"]);
+
+/**
  * Whether the current ES target is "local" (kupua's own docker instance).
  *
  * When local, write protection is disabled (load-sample-data.sh needs to

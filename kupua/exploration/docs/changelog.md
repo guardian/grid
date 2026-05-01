@@ -14,6 +14,43 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 May 2026 — ES guardrails tightened (three layers of write protection)
+
+**Task:** Audit and tighten ES safety guardrails to be as restrictive as
+possible without limiting existing functionality.
+
+**Context:** Kupua uses POST for all ES requests (`_search`, `_count`,
+`_pit`) because the browser Fetch API forbids request bodies on GET —
+and every query requires a JSON body (query DSL, sort clauses, aggregations,
+`search_after` cursors, `_source` filters, PIT references). ES supports
+GET+body but browsers don't. DELETE is used only for closing PITs.
+
+**Changes (three independent layers):**
+
+1. **Stricter path matching** (`es-adapter.ts` → `assertReadOnly`): Changed
+   from `path.startsWith(p)` to `path === p || path.startsWith(p + "?") ||
+   path.startsWith(p + "/")`. Prevents prefix collisions — e.g. a
+   hypothetical `_search_shards` endpoint no longer matches the `_search`
+   allowlist entry.
+
+2. **HTTP method allowlist** (`es-config.ts` + `es-adapter.ts`): New
+   `ALLOWED_ES_METHODS` set (`GET`, `POST`, `DELETE`). `assertReadOnly`
+   now validates the method on every request. `DELETE` is further restricted
+   to `_pit` paths only. `PUT`/`PATCH` are blocked. Previously
+   `esRequestRaw` accepted any method string with no enforcement.
+
+3. **Proxy-level guard** (`vite.config.ts`): New `esProxyGuard()` Vite
+   middleware plugin validates paths at the proxy boundary before they
+   reach ES. Catches any request that bypasses the adapter (DevTools
+   `fetch()`, bugs in non-adapter code). Uses the same strict path
+   matching as the adapter. Path allowlist duplicated (Vite config runs
+   in Node, can't import from `src/`).
+
+**Docs updated:** `infra-safeguards.md` — Safeguard #3 rewritten to
+document all three layers. Overview table updated. Stale "future
+considerations" removed (`search_after` and `_source` includes are both
+already implemented).
+
 ### 1 May 2026 — Selections feature: full design + workplan (no code yet)
 
 **Task:** Design multi-image selection for Kupua: persistent across sort/search/reload,

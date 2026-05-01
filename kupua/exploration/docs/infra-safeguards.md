@@ -9,9 +9,9 @@
 
 | # | Safeguard | Where | Status |
 |---|---|---|---|
-| 1 | `_source` excludes | `es-config.ts` → `es-adapter.ts` | ✅ Active |
+| 1 | `_source` includes (allowlist) | `es-config.ts` → `es-adapter.ts` | ✅ Active |
 | 2 | Request coalescing (AbortController) | `es-adapter.ts` | ✅ Active |
-| 3 | Write protection | `es-adapter.ts` + `load-sample-data.sh` | ✅ Active |
+| 3 | Write protection (path + method + proxy) | `es-adapter.ts` + `es-config.ts` + `vite.config.ts` + `load-sample-data.sh` | ✅ Active |
 | 4 | S3 proxy — read-only | `scripts/s3-proxy.mjs` | ✅ Active |
 | 5 | imgproxy — read-only | docker compose + Vite proxy | ✅ Active |
 | 6 | Aggregation load control | `search-store.ts` + `FacetFilters.tsx` | ✅ Active |
@@ -77,15 +77,35 @@ path and shouldn't be cancelled by a new search.
 command, a script run against the wrong port, or a code bug could create,
 modify, or delete indices on the shared cluster.
 
-**Safeguard (adapter level):** `assertReadOnly()` in `es-adapter.ts`
+Three independent layers enforce read-only access on non-local ES:
+
+**Layer 1 — Adapter path allowlist:** `assertReadOnly()` in `es-adapter.ts`
 checks every request path against `ALLOWED_ES_PATHS`. Only `_search`,
 `_count`, `_cat/aliases`, and `_pit` are permitted. Any other path (e.g.
-`_bulk`, `_doc`, `_delete_by_query`) throws an error. `_pit` was added
+`_bulk`, `_doc`, `_delete_by_query`) throws an error. `_pit` is needed
 for Point In Time lifecycle operations (open/close) — these are read-only
 snapshot operations, not data mutations.
 
-This check is **bypassed on local ES** (`IS_LOCAL_ES === true`) because
-`load-sample-data.sh` needs to create indices and bulk-load data.
+Path matching is strict: `path === p || path.startsWith(p + "?") ||
+path.startsWith(p + "/")` — prevents prefix collisions (e.g. a
+hypothetical `_search_shards` won't match `_search`).
+
+**Layer 2 — Adapter HTTP method allowlist:** `ALLOWED_ES_METHODS` in
+`es-config.ts` restricts methods to `GET`, `POST`, and `DELETE`.
+`DELETE` is further restricted to `_pit` paths only (closing a PIT
+snapshot). All `_search` and `_count` requests use POST because the
+browser Fetch API does not allow request bodies on GET, and every ES
+query requires a JSON body. `PUT` and `PATCH` are blocked.
+
+**Layer 3 — Vite proxy guard:** The `esProxyGuard()` middleware plugin
+in `vite.config.ts` validates paths at the proxy boundary *before*
+requests reach ES. This catches any request that bypasses the adapter
+(e.g. a raw `fetch('/es/_bulk')` from DevTools or a bug in non-adapter
+code). Uses the same strict path matching as Layer 1.
+
+All three layers are **bypassed on local ES** (`IS_LOCAL_ES === true` /
+dev mode on port 9220) because `load-sample-data.sh` needs to create
+indices and bulk-load data.
 
 **Safeguard (script level):** `load-sample-data.sh` refuses to run if
 the target ES URL is not on port 9220 (kupua's local docker port).
@@ -93,12 +113,15 @@ This prevents accidentally bulk-loading sample data into a TEST/PROD
 cluster.
 
 **Config:**
-- `ALLOWED_ES_PATHS` in `src/dal/es-config.ts` — whitelist of read-only paths
+- `ALLOWED_ES_PATHS` in `src/dal/es-config.ts` — path allowlist
+- `ALLOWED_ES_METHODS` in `src/dal/es-config.ts` — HTTP method allowlist
 - `IS_LOCAL_ES` in `src/dal/es-config.ts` — derived from `VITE_ES_IS_LOCAL` env var (defaults to `"true"`)
+- `esProxyGuard()` in `vite.config.ts` — proxy-level path guard (mirrors `ALLOWED_ES_PATHS`)
 
-**To relax:** Add paths to `ALLOWED_ES_PATHS` if new read operations
-are needed (e.g. `_analyze`, `_explain`). Do NOT add write paths
-(`_bulk`, `_doc`, `_update`, `_delete`) without explicit discussion.
+**To relax:** Add paths to `ALLOWED_ES_PATHS` (and the duplicated list
+in `vite.config.ts`) if new read operations are needed (e.g. `_analyze`,
+`_explain`). Do NOT add write paths (`_bulk`, `_doc`, `_update`,
+`_delete`) without explicit discussion.
 
 ---
 
@@ -296,15 +319,6 @@ VITE_ES_IS_LOCAL=true
 - **Rate limiting:** If needed, add a minimum interval between searches
   (e.g. 500ms). Currently the CQL debounce (~300ms) + AbortController
   provide sufficient protection.
-
-- **`search_after` pagination:** Phase 2 should replace `from/size` with
-  `search_after` for deep pagination. This is more efficient for ES and
-  avoids the 10,000-result default window limit.
-
-- **`_source` includes (allowlist):** Currently we use excludes (blocklist).
-  If response sizes are still too large, switch to explicit includes —
-  only fetch the exact fields displayed in columns. This is more
-  restrictive but guarantees minimal payloads.
 
 - **Query complexity limits:** Could add a max clause count or query
   depth check to prevent accidentally complex CQL from generating
