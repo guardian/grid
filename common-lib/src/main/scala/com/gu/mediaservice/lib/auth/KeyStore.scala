@@ -11,8 +11,6 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
 
   def lookupIdentity(key: String): Option[ApiAccessor] = store.get().get(key)
 
-  def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
-
   def update(): Unit = {
     store.set(fetchAll)
   }

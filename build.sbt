@@ -94,6 +94,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "pan-domain-auth-play_3-0" % "9.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
+    "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
