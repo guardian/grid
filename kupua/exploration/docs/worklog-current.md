@@ -12,8 +12,10 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-No active task.
+_None in progress._ Selections design phase complete (1 May 2026, see changelog).
+Next planned work: **Phase S0 — DAL additions** (`getByIds` + `getIdRange` with
+Vitest tests). See [`selections-workplan.md`](selections-workplan.md).
 
 ## Session Log
 
-(empty — ready for next session)
+_(empty — start here when picking up new work)_

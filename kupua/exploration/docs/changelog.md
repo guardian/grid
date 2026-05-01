@@ -14,6 +14,102 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 May 2026 — Selections feature: full design + workplan (no code yet)
+
+**Task:** Design multi-image selection for Kupua: persistent across sort/search/reload,
+comfortable to 5,000 items (10× kahuna), modal Selection Mode (Kahuna-style with door
+open to Lightroom-style later), reconciled metadata in Details panel, mobile/touch via
+long-press + drag-extend, fixes the silent shift-click drop bug Kahuna has. Pure design
+session — no source code modified.
+
+**Process:**
+- **Kahuna audit** via Sonnet 4.6 subagent (handoff brief written first per audit-handoff
+  template in user memory). Two follow-up sections (range-select bug, status bar) added
+  inline. Output: `01 Research/selections-kahuna-findings.md` (~600 lines).
+- **Targeted Kupua deep-dive** to confirm the model: `dal/types.ts`, `search-store.ts`
+  focus parts, `useDataWindow.ts`, `ImageMetadata.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`
+  click handlers, `history-snapshot.ts`, `build-history-snapshot.ts`.
+- **Field classification audit** (Sonnet 4.6 subagent, pre-S4): 33 fields classified
+  as `reconcile` / `always-suppress` / `show-if-all-same` plus `showWhenEmpty` flag.
+  Output: `selections-field-classification.md`.
+- **S3a implementation rehearsal** (Sonnet 4.6 High subagent): pretend-to-implement
+  exercise that surfaced 15 gotchas — most importantly that the `add-range` effect
+  shape couldn't represent "anchor evicted from buffer". Findings folded into design
+  + workplan; rehearsal doc deleted post-fold.
+- **Two rounds of pushback from user** caught design contradictions and over-engineering:
+  (a) soft-cap confirm dialog contradicted earlier "no confirms in v1" decision —
+  switched to informational toast, demoted S2.5 to toast-only, deferred `useConfirm` to
+  Phase 3+; (b) performance review surfaced four real traps (persist write thrash,
+  synchronous reconciliation blocking the main thread on range adds, mode-flip re-render
+  cascade, sequential mget chunks) — all fixed in design before code lands.
+
+**Final doc set (4 docs, down from 7 mid-session):**
+- `00 Architecture and philosophy/05-selections.md` — permanent architecture (§§1–15)
+  covering goals, modal selection mode, state shape, persistence, click semantics
+  (one pure function), range selection, lazy reconciliation, what gets reconciled,
+  drift handling, touch, status bar, details panel, Phase 3+ extension points,
+  deviations log, Selections-vs-Operations boundary.
+- `selections-workplan.md` — 10 phases (S0, S0.5, S1, S2, S2.5, S3a, S3b, S4, S5, S6)
+  with per-phase implementation notes that absorb every rehearsal-surfaced gotcha.
+- `01 Research/selections-kahuna-findings.md` — Kahuna audit reference.
+- `selections-field-classification.md` — per-field reconciliation table.
+
+**Key architecture decisions:**
+- Selection state in new `selection-store.ts` (Zustand), separate from search-store.
+  Persistence via `persist` middleware to sessionStorage (matches column-store /
+  panel-store / ui-prefs-store pattern). Survives reload, not cross-tab.
+- State shape: `Set<string>` of IDs + sticky `anchorId` + LRU `metadataCache` (cap 5000)
+  + memoised `reconciledView` keyed by monotonic generation counter.
+- DAL gains two methods: `getByIds(ids, signal?)` (mget, 1k batches in PARALLEL) and
+  `getIdRange(params, fromCursor, toCursor, signal?)` (`search_after` walk with
+  `_source: false`, hard cap 5k IDs, soft cap 2k = info toast only).
+- All click semantics behind one pure function `interpretClick(ctx) → ClickEffect[]`.
+  Six-row rule table is the contract. Refining the rules later = edit table + edit
+  function + update tests; UI components untouched.
+- `add-range` effect carries IDs + nullable global indices + optional sort cursors —
+  not raw indices — so "anchor evicted from buffer" is representable. The `viaServer`
+  flag is dropped; the range hook decides itself.
+- Anchor sticky across shift-clicks (fixes Kahuna's "anchor = last added URI" bug).
+- Range select **never silently drops items**. In-buffer fast path, server-walk via
+  `getIdRange` when out of buffer. Hard truncation message at 5k IDs; soft cap at 2k
+  = informational toast only (not a confirm — adding items is non-destructive).
+- Reconciliation is **lazy**: `add(ids[])` flips fields to `"pending"` and schedules
+  chunked recompute via `requestIdleCallback`. Per-field placeholder (subtle dash) in
+  the value slot for pending fields — NO panel-wide loading overlay (jarring on every
+  range add). Chunks ~500 items each; bumps generation counter on each chunk.
+- Selection Mode is modal (entered when count>0, exited on Clear). **Focus visually
+  suppressed but kept in memory** (phantom-style) so sort-around-focus still works.
+  Door kept closed on Lightroom-style non-modal in v1, easily reopened later.
+- Mode entry/exit is **CSS-driven** via `[data-selection-mode="true"]` on the grid
+  container — cells never subscribe to `inSelectionMode` (avoids 1,000+ React renders
+  on first tick). Only `useIsSelected(id)` is per-cell.
+- Persistence writes are **debounced** (~250ms trailing); `add(ids[])` is atomic
+  (one write per call, not one per ID).
+- Touch: long-press (500ms, coarse-pointer-gated) to enter, drag-extend during
+  long-press. Coarse pointer never shows tickbox until in Selection Mode.
+- `SELECTIONS_SURVIVE_SEARCH` boolean escape hatch in `tuning.ts` — easy to switch off
+  if user testing rejects the model.
+- New Phase **S0.5 — Perf measurement scaffold** lands before S1 so every later phase
+  has something concrete to assert against (toggle latency, range-add wall-clock,
+  persist write cost, reconciliation chunk render time, mode-enter render count).
+- **Out of scope, kept separate:** bulk operations on whole search results (would be
+  Update By Query, server-side). Architecture §15 codifies the boundary; selection
+  store must not grow operations features. `useConfirm()` deferred to Phase 3+ when
+  destructive operations actually exist.
+
+**Files added:** `kupua/exploration/docs/00 Architecture and philosophy/05-selections.md`,
+`kupua/exploration/docs/selections-workplan.md`,
+`kupua/exploration/docs/01 Research/selections-kahuna-findings.md` (moved from top-level
+mid-session), `kupua/exploration/docs/selections-field-classification.md`.
+
+**Files deleted:** `selections-design.md` (split into architecture + workplan),
+`selections-kahuna-audit-handoff.md`, `selections-field-classification-handoff.md`,
+`selections-s3a-dryrun-handoff.md`, `selections-s3a-rehearsal.md` (handoff briefs and
+rehearsal output — content folded into design; handoff template lives in user memory).
+
+**No source code modified.** Next session: Phase S0 (DAL additions — `getByIds` +
+`getIdRange` with Vitest tests against the ES mock harness).
+
 ### 30 April 2026 — Integrated Grid API contract audit follow-up patches into findings doc
 
 **Task:** Four follow-up patch files produced by previous audit sessions (live verification,

@@ -46,6 +46,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-reference.md` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
+| **Selections (multi-image, design phase)** | `00 Architecture and philosophy/05-selections.md` (architecture), `selections-workplan.md` (phases S0–S6), `selections-field-classification.md`, `01 Research/selections-kahuna-findings.md` |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
 | **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}`, `exploration/docs/perceived-perf-audit.md` |
@@ -145,6 +146,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Two-tier virtualisation | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
 | Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
 | Prefetch cadence workplan | `exploration/docs/zz Archive/prefetch-cadence-workplan.md` | Traversal session model, cadence EMA, 7-session plan (1–4+6 done, 5 skipped) |
+| Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, drift handling, Selections-vs-Operations boundary |
+| Selections workplan | `exploration/docs/selections-workplan.md` | 10 phases (S0–S6 incl. S0.5 perf scaffold) with per-phase impl notes |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 ## Stable Test Corpora (TEST cluster, pinned via `until`)

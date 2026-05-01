@@ -132,7 +132,7 @@ Code that looked dead but is actually alive. Included to prove real checking hap
 
 Restructured into 6 passes, each = 1 commit. Mark commit boundaries with `--- COMMIT BOUNDARY ---`. Each pass has an executor prompt at the bottom (drop into a fresh agent session).
 
-### Pass 1a — Delete `prepend-transform.ts` (1 commit)
+### Pass 1a — Delete `prepend-transform.ts` (1 commit) ✅ DONE
 
 Single real deletion, has documentation impact and needs verification that no dynamic imports reference it.
 
@@ -169,7 +169,7 @@ Follow AGENTS.md directives throughout (especially: never commit without asking;
 
 --- COMMIT BOUNDARY ---
 
-### Pass 1b — Delete tombstone comments (1 commit)
+### Pass 1b — Delete tombstone comments (1 commit) ✅ DONE
 
 Three tiny comment-only edits. Zero behaviour change.
 
@@ -203,7 +203,7 @@ Follow AGENTS.md directives.
 
 --- COMMIT BOUNDARY ---
 
-### Pass 1c — Remove unnecessary `export` keywords on functions (1 commit)
+### Pass 1c — Remove unnecessary `export` keywords on functions (1 commit) ✅ DONE
 
 Ten mechanical edits. Function bodies stay; only the `export` keyword goes. Zero behaviour change.
 
@@ -250,7 +250,7 @@ Follow AGENTS.md directives.
 
 --- COMMIT BOUNDARY ---
 
-### Pass 2 — Unused destructured locals (1 commit)
+### Pass 2 — Unused destructured locals (1 commit) ✅ DONE
 
 Two intra-function dead variables caught by `tsc --noEmit`.
 
@@ -278,7 +278,7 @@ Follow AGENTS.md directives.
 
 --- COMMIT BOUNDARY ---
 
-### Pass 3 — Barrel/re-export cleanup + delete `resetSearchSync` (1 commit)
+### Pass 3 — Barrel/re-export cleanup + delete `resetSearchSync` (1 commit) ✅ DONE
 
 Mix of barrel removals and one full function deletion (corrected from audit's original).
 
@@ -317,7 +317,7 @@ Follow AGENTS.md directives.
 
 --- COMMIT BOUNDARY ---
 
-### Pass 4 — Type-only export cleanup (1 commit)
+### Pass 4 — Type-only export cleanup (1 commit) ✅ DONE
 
 13 cosmetic Medium-confidence type/interface export removals across ~6 files. Single commit per user preference.
 
