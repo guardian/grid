@@ -229,55 +229,11 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        // Detect whether this results page is using semantic search.
-        // We branch the initial loading behaviour because AI search should
-        // bootstrap with a real first page of results rather than the
-        // normal `length: 1` probe used by lexical search.
-        const isAiSearch = !!$stateParams.useAISearch;
-
-        // Shared helper for writing returned images into both the sparse
-        // backing array (`imagesAll`) and the reactive `results` list.
-        // `start` is the offset of the returned page in the overall result set.
-        function applyLoadedImages(images, start = 0) {
-          images.data.forEach((image, index) => {
-            const position = index + start;
-            const imageId = image.data.id;
-
-            // If image already present in results at a
-            // different position (result set shifted due to
-            // items being spliced in or deleted?), get rid of
-            // item at its previous position to avoid
-            // duplicates
-            const existingPosition = imagesPositions.get(imageId);
-            if (angular.isDefined(existingPosition) &&
-              existingPosition !== position) {
-              $log.info(`Detected duplicate image ${imageId}, ` +
-                    `old ${existingPosition}, new ${position}`);
-              delete ctrl.imagesAll[existingPosition];
-
-              results.set(existingPosition, undefined);
-            }
-
-            ctrl.imagesAll[position] = image;
-            imagesPositions.set(imageId, position);
-
-            results.set(position, image);
-          });
-          // images should not contain any 'holes'
-          ctrl.images = compact(ctrl.imagesAll);
-        }
-
         // Initial search to find upper `until` boundary of result set
         // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
-        // For lexical search we keep the old lightweight probe (`length: 1`) so
-        // we can establish totals cheaply before lazy-loading visible ranges.
-        // For AI search that probe is harmful because it makes the backend ask
-        // KNN for only one neighbour, which in turn poisons the displayed total.
-        // So AI search performs a normal first-page request here instead.
-        const initialSearch = isAiSearch ? search() : search({length: 1, orderBy: 'newest'});
-        ctrl.searched = initialSearch.then(function(images) {
+        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
             // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
             ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
@@ -301,15 +257,7 @@ results.controller('SearchResultsCtrl', [
 
             notificationMessages(ctrl.extendedSortProps, images.total);
 
-            // Initialise the map before we merge in either the initial AI page or
-            // any later lazy-loaded ranges.
             imagesPositions = new Map();
-
-            if (isAiSearch) {
-              // Seed the sparse result arrays with the first AI page immediately.
-              // This keeps the match count and initially rendered images aligned.
-              applyLoadedImages(images);
-            }
 
             checkForNewImages();
 
@@ -334,13 +282,35 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
-          // Lazy-table gives us an inclusive start/end pair, so convert it to
-          // the page size expected by the API.
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
-            // Merge the fetched page into the results array at the correct offset,
-            // deduplicating any images that may have shifted position since the initial load.
-            applyLoadedImages(images, start);
+            // Update imagesAll with newly loaded images
+                images.data.forEach((image, index) => {
+                    const position = index + start;
+                    const imageId = image.data.id;
+
+                    // If image already present in results at a
+                    // different position (result set shifted due to
+                    // items being spliced in or deleted?), get rid of
+                    // item at its previous position to avoid
+                    // duplicates
+                    const existingPosition = imagesPositions.get(imageId);
+                    if (angular.isDefined(existingPosition) &&
+                        existingPosition !== position) {
+                        $log.info(`Detected duplicate image ${imageId}, ` +
+                                  `old ${existingPosition}, new ${position}`);
+                        delete ctrl.imagesAll[existingPosition];
+
+                        results.set(existingPosition, undefined);
+                    }
+
+                    ctrl.imagesAll[position] = image;
+                    imagesPositions.set(imageId, position);
+
+                    results.set(position, image);
+                });
+                // images should not contain any 'holes'
+                ctrl.images = compact(ctrl.imagesAll);
             });
         };
 

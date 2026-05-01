@@ -586,31 +586,21 @@ class MediaApi(
         .getOrElse(TextSearch(query))
     }
 
-    def emptyAiSearchResponse(searchParams: SearchParams) =
-      Future.successful(
-        respondCollection(
-          List.empty[EmbeddedEntity[JsValue]],
-          Some(searchParams.offset),
-          Some(0),
-          None,
-          List()
-        )
-      )
+    def emptyAiSearchResponse =
+      Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
-    def aiSearchResponseFromResults(searchParams: SearchParams, searchResults: SearchResults): Result = {
+    def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
       val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
       respondCollection(
         data = imageEntities,
-        offset = Some(searchParams.offset),
+        offset = Some(0),
         total = Some(searchResults.total),
         maybeExtraCounts = None,
         links = Nil
       )
     }
 
-    def semanticSearchByImage(searchParams: SearchParams, imageId: String): Future[SearchResults] = {
-      val semanticRetrievalWindow = Math.max(config.aiSearchSemanticRetrievalWindow, searchParams.length)
-      val countAll = searchParams.countAll.getOrElse(true)
+    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
         maybeEmbedding = maybeImage
@@ -621,23 +611,14 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(
-              embedding,
-              k = semanticRetrievalWindow,
-              offset = searchParams.offset,
-              length = searchParams.length,
-              countAll = countAll,
-              numCandidates = Math.max(semanticRetrievalWindow * 2, 100)
-            )
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
       } yield searchResults
     }
 
-    def semanticSearchByText(searchParams: SearchParams, query: String): Future[SearchResults] = {
-      val semanticRetrievalWindow = Math.max(config.aiSearchSemanticRetrievalWindow, searchParams.length)
-      val countAll = searchParams.countAll.getOrElse(true)
+    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
       // Normalise key so that "Dogs" and "dogs " share a cache entry.
       val cacheKey = query.trim.toLowerCase
 
@@ -655,56 +636,47 @@ class MediaApi(
 
       for {
         embedding <- embeddingFuture
-        searchResults <- elasticSearch.knnSearch(
-          embedding,
-          k = semanticRetrievalWindow,
-          offset = searchParams.offset,
-          length = searchParams.length,
-          countAll = countAll,
-          numCandidates = Math.max(semanticRetrievalWindow * 2, 100)
-        )
+        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(searchParams: SearchParams, query: String): Future[Result] = {
+    def performAiSearchAndRespond(query: String): Future[Result] = {
+      val k = 200
       val searchResultsFuture = parseAiSearchMode(query) match {
-        case SimilarSearch(imageId) => semanticSearchByImage(searchParams, imageId)
-        case TextSearch(textQuery) => semanticSearchByText(searchParams, textQuery)
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
       }
 
-      searchResultsFuture.map(aiSearchResponseFromResults(searchParams, _))
+      searchResultsFuture.map(aiSearchResponseFromResults)
     }
 
-    val searchParams = if(canViewDeletedImages) {
-      _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-    }
-    else {
-      _searchParams
-    }
-
-    SearchParams.validate(searchParams).fold(
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        errors.map(_.message).mkString(", "))
-      ),
-      params => {
-        if (params.useAISearch.contains(true)) {
-          params.query match {
-            // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
-            case _ if params.length == 0 =>
-              emptyAiSearchResponse(params)
-            case Some(q) if !q.isBlank =>
-              performAiSearchAndRespond(params, q)
-            // Empty queries do not make sense for AI search as we can
-            // only rank results once we have a meaningful vector to compare with.
-            // So return 0 results if the query was empty.
-            case _ =>
-              emptyAiSearchResponse(params)
-          }
-        } else {
-          performSearchAndRespond(params)
-        }
+    if (_searchParams.useAISearch.contains(true)) {
+      _searchParams.query match {
+        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
+        case _ if _searchParams.length == 0 =>
+          emptyAiSearchResponse
+        case Some(q) if !q.isBlank =>
+          performAiSearchAndRespond(q)
+        // Empty queries do not make sense for AI search as we can
+        // only rank results once we have a meaningful vector to compare with.
+        // So return 0 results if the query was empty.
+        case _ =>
+          emptyAiSearchResponse
       }
-    )
+    } else {
+      val searchParams = if (canViewDeletedImages) {
+        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+      } else {
+        _searchParams
+      }
+      SearchParams.validate(searchParams).fold(
+        // TODO: respondErrorCollection?
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          errors.map(_.message).mkString(", "))
+        ),
+        params => performSearchAndRespond(params)
+      )
+    }
   }
 
   private def getImageResponseFromES(
