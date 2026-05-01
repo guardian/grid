@@ -4,7 +4,7 @@
 > lives in [`00 Architecture and philosophy/05-selections.md`](00%20Architecture%20and%20philosophy/05-selections.md).
 > When v1 ships, this doc archives to `zz Archive/`.
 >
-> **Status (2026-05-01):** Design complete. S0 not yet started.
+> **Status (2026-05-01):** S0 complete. S0.5 next.
 
 ---
 
@@ -23,25 +23,20 @@
 
 ---
 
-## Phase S0 — DAL additions (~1 session)
+## ✅ Phase S0 — DAL additions — DONE (1 May 2026)
 
 **Deliverable:** `getByIds` and `getIdRange` on `ImageDataSource` interface and the ES adapter.
 
-- Add interface methods to `dal/types.ts`.
-- Implement on `ElasticsearchDataSource`:
+- ✅ Add interface methods to `dal/types.ts` (+ `IdRangeResult` type).
+- ✅ Implement on `ElasticsearchDataSource`:
   - `getByIds(ids, signal?)`: `mget` request, internally batched at 1000 IDs per request, returns `Image[]` with missing IDs simply absent (not `null`).
   - `getIdRange(params, fromCursor, toCursor, signal?)`: `search_after` walk with `_source: false`, sorted by current params, hard cap 5,000, returns `{ ids, truncated, walked }`.
-- Tests: Vitest unit tests against the ES mock harness already present in `dal/adapters/elasticsearch/`.
-- No UI changes, no store changes. Pure additive.
+- ✅ Implement on `MockDataSource`.
+- ✅ Tests: 22 Vitest unit tests in `src/dal/selections-dal.test.ts`. All 452 tests pass.
+- ✅ `"_mget"` added to `ALLOWED_ES_PATHS` in `es-config.ts`; `infra-safeguards.md` §3 updated.
+- ✅ `RANGE_HARD_CAP` (5k), `RANGE_SOFT_CAP` (2k), `RANGE_CHUNK_SIZE` (1k) added to `constants/tuning.ts`.
 
-**Test surface:** Vitest only. No Playwright.
-
-**Implementation notes (gotchas surfaced by S3a rehearsal):**
-- *Signal as positional parameter, not options bag.* All existing `dal/types.ts` methods take `signal?: AbortSignal` as the last positional parameter ([`dal/types.ts`](../../src/dal/types.ts)). `getIdRange` and `getByIds` MUST follow that convention. Resist the temptation to introduce an options bag for "future extensibility" — kupua's lean-API discipline.
-- *`getByIds` chunks run in PARALLEL.* `Promise.all(chunks.map(fetch))`, not sequential. Sequential at 5k = 5 round trips × ~100ms = 500ms before reconciliation can start; parallel = single round-trip latency. ES handles concurrent mgets fine.
-- *`getIdRange` cursor-ordering convention.* Required decision before implementation: `fromCursor` MUST sort earlier than `toCursor` in the current `params.orderBy` direction. The DAL does NOT swap or auto-detect. Caller responsibility. In normal/two-tier modes the caller knows ordering from global indices; in seek mode the caller has both cursors but no order — caller must walk forward once and, if `walked === 0`, swap and retry (one extra round trip in the rare seek-mode case is acceptable). Document this contract on the method's TSDoc.
-- *Truncation semantics.* `truncated: true` MUST be set if and only if the walk hit exactly `RANGE_HARD_CAP` results AND there's at least one more match beyond. If the natural range size happens to equal the cap, `truncated` is false. Avoids false alarms on "you got cut off" toast.
-- *Walked counter.* `walked` reports how many docs were examined (= `ids.length` unless the walk errored midway). Useful for telemetry; not used by UI in v1.
+**Decision recorded:** `RANGE_HARD_CAP` is read dynamically inside `getIdRange` via `import.meta.env` (matching `findKeywordSortValue` pattern) so `vi.stubEnv()` works in tests without module re-import.
 
 ---
 
@@ -58,6 +53,7 @@
   5. Per-cell re-render count on mode-enter / mode-exit (target: 0 React renders, CSS-only state change).
 - Reuses existing perf scaffolding from `e2e-perf/` where applicable (jank measurement, perceived-perf trace points).
 - Lands BEFORE S1 so that S1's perf claims have something to assert against.
+- *Scope: two-tier mode only.* Of the five measurements, only #2 (range-add) varies by code path, and what matters is **in-buffer fast walk vs `getIdRange` server walk** — not the scroll mode itself. Drive #2 twice (one small in-buffer range, one large out-of-buffer range) in two-tier; do NOT turn S0.5 into a mode matrix. Seek-mode-specific perf (anchor-evicted cursor swap on `walked === 0`) is better measured as a single datapoint in S3a's spec, not here. To force two-tier deterministically: `&query=city:Dublin` together with `STABLE_DATE` from the test config.
 
 **Test surface:** Playwright with the existing perf config. No assertions in this phase — just instrumentation. Per-phase phases add their own thresholds.
 
@@ -132,6 +128,20 @@
 ## Phase S3a — Range selection (~1 session)
 
 **Deliverable:** Shift-click range works in-buffer and across the buffer via `getIdRange`. Hard-cap truncation toast. Soft-cap announcement toast. No persistence-survives-search work yet (that's S3b).
+
+> **MUST address before S3a is "done" — discovered during S1 sense-check (1 May 2026):**
+>
+> S0's `getIdRange` was implemented for the happy path. It is **incomplete against null-zone sorts** (sorts where the primary field is sparsely populated, e.g. `taken`, `lastModified`). Three bugs to fix in `es-adapter.ts#getIdRange` AND its tests before S3a wiring is trustworthy:
+>
+> 1. **Cursor pass-back must be sanitised.** The walk loop sets `cursor = lastHit.sort` directly. If the hit is at the null-zone boundary, ES returns `Long.MAX/MIN_VALUE` sentinels (`±9.2e18`) which then crash the next `_search` with an NPE 500. Wrap with `sanitizeSortValues()` (already present in `es-adapter.ts:59`). The same pattern is used at `es-adapter.ts:372`, `:612`, `:654`, `:1573` — match it.
+> 2. **`_sortValuesStrictlyAfter` null logic is asc-biased.** It assumes nulls sort last, which is true for asc (`missing: "_last"`) but inverted for desc (`missing: "_first"`). Either branch on direction, or normalise null comparison via the same primitives `buildSortClause` uses. Add a unit test driving a desc sort over a nullable field.
+> 3. **No two-phase null-zone walk.** The search-store's `detectNullZoneCursor` + `must_not: { exists: primaryField }` phase-2 walk (see `search-store.ts:779` and downstream callers `:906`, `:1078`, `:2072`, `:2219`, `:2488`, `:3151`) does NOT exist in `getIdRange`. Any range that bridges the null-zone boundary will silently truncate at the boundary or skip the entire null zone depending on which side the cursor sits. **This is the structural bug** — the other two are tactical fixes within the existing single-phase walk. Decision required: extract a shared two-phase walker, or have `getIdRange` call `detectNullZoneCursor` itself and split into two `_search` chains. Lean toward extraction — `search-store.ts` has six call sites of the same pattern and would benefit from consolidation. Out of scope for S3a's normal time budget; consider a half-session "S3a-prep" before S3a proper.
+
+> **Minor concerns from the same review (less urgent — flag in S3a tests):**
+>
+> - **`add(ids[])` always marks all fields pending, even when items are already cached.** Currently `markPending` runs unconditionally before `ensureMetadata` resolves. If a range overlaps existing selection by even one item, that item's fields flicker pending → reconciled. Mirror `toggle()`'s pattern: split `ids` into cached vs uncached, fold cached ones synchronously via `reconcileAdd`, mark only uncached pending. Bug only becomes user-visible once S2 wires the panel.
+> - **`getByIds` swallows AbortError per chunk → returns `[]`.** Inconsistent with the rest of `es-adapter.ts` which rethrows. Acceptable for selection-store callers (which ignore errors anyway), but worth aligning later.
+> - **Dead import:** `RANGE_HARD_CAP` is imported in `es-adapter.ts` but `getIdRange` reads it dynamically via `import.meta.env.VITE_RANGE_HARD_CAP` (for `vi.stubEnv` testability). Remove the dead import.
 
 - Click interpreter dispatches `add-range` (effect shape per architecture §5).
 - New hook `useRangeSelection.ts` — orchestrates the in-buffer vs server-walk decision, abort on subsequent shift-clicks, post-add toast wording.
