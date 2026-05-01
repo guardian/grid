@@ -14,6 +14,59 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 May 2026 — Fix: getIdRange null-zone walk terminates early at boundary
+
+**Bug:** `ElasticsearchDataSource.getIdRange` — the `search_after` walk that
+collects IDs between two sort cursors — silently dropped documents in the
+null zone when sorted by a sparsely-populated field (e.g. `lastModified`,
+`taken`). Two concrete failure modes:
+
+1. **Walk stops at the null-zone boundary.** After `searchAfter()` sanitises
+   sentinel sort values (Long.MAX_VALUE → `null`), the cursor entering the
+   null zone triggers the "fewer hits than requested → last page" exit
+   heuristic. But the page was short because the populated zone is exhausted,
+   not because no more docs exist — the null zone still has documents. The
+   next loop iteration *would* detect the null-zone cursor (via
+   `detectNullZoneCursor`) and issue a correctly-scoped phase-2 query, but
+   the premature break prevents it from running.
+
+2. **Range entirely in null zone returns nothing.** When `fromCursor` starts
+   with `[null, ...]`, `detectNullZoneCursor` fires on the first iteration
+   and the phase-2 query works. This path was already correct — confirmed by
+   test.
+
+**Root cause:** The "fewer hits than requested" exit was unconditional. It
+didn't account for the two-phase walk pattern where the walk transitions from
+an unfiltered query (all docs) to a filtered null-zone-only query.
+
+**Fix (1 logic check in `es-adapter.ts`):** Before breaking on "fewer hits",
+check if the cursor just crossed into the null zone. If `nz` was null (no
+null-zone filter was active for this page) but the new cursor has a null
+primary field (`detectNullZoneCursor(cursor) != null`), skip the break and
+let the loop continue. The next iteration issues the phase-2 query correctly.
+
+**Not a bug (handoff's suspected bug 2):** The `sortValuesStrictlyAfter`
+helper's null-handling was suspected of being asc-biased. Investigation
+confirmed it's correct: ES uses `missing: "_last"` regardless of sort
+direction (kupua's `buildSortClause` never sets `missing` explicitly), so
+null always sorts last — the direction-independent null branch is correct.
+
+**Architectural approach:** Option C from the design doc — `getIdRange`
+delegates to `this.searchAfter()` (which handles sentinel sanitisation on all
+return paths) and applies `detectNullZoneCursor` / `remapNullZoneSortValues`
+on the running cursor each iteration. The null-zone helpers were moved from
+`search-store.ts` to `src/dal/null-zone.ts` so the DAL can use them without
+an upward dependency on the store layer. The search-store's six call sites
+were updated to import from the new location (mechanical, behaviour-identical).
+
+**Files changed:**
+- `kupua/src/dal/es-adapter.ts` — null-zone boundary check in `getIdRange`
+- `kupua/src/dal/null-zone.ts` — new module (moved from search-store)
+- `kupua/src/stores/search-store.ts` — import path update
+- `kupua/src/dal/selections-dal.test.ts` — 8 null-zone test cases added
+
+**Tests:** 30/30 in `selections-dal.test.ts`, full unit suite green (537 tests).
+
 ### 1 May 2026 — ES guardrails tightened (three layers of write protection)
 
 **Task:** Audit and tighten ES safety guardrails to be as restrictive as

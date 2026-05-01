@@ -22,17 +22,19 @@ import type {
   AggregationsResult,
   SortDistribution,
   SortDistBucket,
+  IdRangeResult,
 } from "./types";
 import { parseCql } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
-import { MAX_RESULT_WINDOW } from "@/constants/tuning";
+import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 import { devLog } from "@/lib/dev-log";
 import {
   buildSortClause,
   reverseSortClause,
   parseSortField,
 } from "./adapters/elasticsearch/sort-builders";
+import { detectNullZoneCursor, remapNullZoneSortValues } from "./null-zone";
 import {
   ES_BASE,
   ES_INDEX,
@@ -67,6 +69,44 @@ function sanitizeSortValues(sv: SortValues): SortValues {
   return sv.map((v) =>
     typeof v === "number" && Math.abs(v) >= ES_SENTINEL_ABS ? null : v,
   ) as SortValues;
+}
+
+// ---------------------------------------------------------------------------
+// Sort-value comparison — used by getIdRange to detect toCursor overshoot
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if `hitSv` sorts STRICTLY AFTER `cursor` given `sortClause`.
+ *
+ * Null handling: ES default is `missing: "_last"` regardless of direction.
+ * buildSortClause never sets `missing` explicitly. So null always sorts last.
+ */
+function sortValuesStrictlyAfter(
+  hitSv: SortValues,
+  cursor: SortValues,
+  sortClause: Record<string, unknown>[],
+): boolean {
+  for (let i = 0; i < sortClause.length && i < hitSv.length && i < cursor.length; i++) {
+    const { direction } = parseSortField(sortClause[i]);
+    const h = hitSv[i];
+    const c = cursor[i];
+
+    if (h === c || (h == null && c == null)) continue;
+
+    // null sorts last (ES missing: "_last" default) — direction-independent
+    if (h == null) return true;
+    if (c == null) return false;
+
+    const cmp =
+      typeof h === "string" && typeof c === "string"
+        ? h.localeCompare(c)
+        : (h as number) - (c as number);
+
+    if (cmp === 0) continue;
+    if (direction === "desc") return cmp < 0;
+    return cmp > 0;
+  }
+  return false;
 }
 
 
@@ -1431,6 +1471,155 @@ export class ElasticsearchDataSource implements ImageDataSource {
     );
 
     return { length: ids.length, ids, sortValues };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Multi-selection methods (Phase S0)
+  // ---------------------------------------------------------------------------
+
+  async getByIds(ids: string[], signal?: AbortSignal): Promise<Image[]> {
+    if (ids.length === 0) return [];
+    if (signal?.aborted) return [];
+
+    // Batch into 1,000-ID chunks and run ALL chunks in parallel.
+    // Sequential at 5k IDs = 5 round trips × ~100ms = 500ms before
+    // any results; parallel = single round-trip latency.
+    const BATCH_SIZE = 1_000;
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      chunks.push(ids.slice(i, i + BATCH_SIZE));
+    }
+
+    const sourceFilter =
+      SOURCE_INCLUDES.length > 0
+        ? { includes: SOURCE_INCLUDES }
+        : undefined;
+
+    const results = await Promise.all(
+      chunks.map(async (chunk) => {
+        const body: Record<string, unknown> = {
+          docs: chunk.map((id) => ({
+            _id: id,
+            ...(sourceFilter ? { _source: sourceFilter } : {}),
+          })),
+        };
+
+        try {
+          const result = (await this.esRequest("_mget", body, signal)) as {
+            docs: Array<{
+              _id: string;
+              found: boolean;
+              _source?: Image;
+            }>;
+          };
+          return result.docs
+            .filter((doc) => doc.found && doc._source != null)
+            .map((doc) => doc._source!);
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return [];
+          throw e;
+        }
+      }),
+    );
+
+    return results.flat();
+  }
+
+  /**
+   * Walk documents between two sort cursors and return their IDs.
+   *
+   * Architecture: Option C — delegates to this.searchAfter() which handles
+   * sentinel sanitisation on all return paths. Detects null-zone crossings
+   * via detectNullZoneCursor and switches to phase-2 automatically.
+   * This eliminates the raw _search loop and _sortValuesStrictlyAfter helper.
+   */
+  async getIdRange(
+    params: SearchParams,
+    fromCursor: SortValues,
+    toCursor: SortValues,
+    signal?: AbortSignal,
+  ): Promise<IdRangeResult> {
+    const sortClause = buildSortClause(params.orderBy);
+    const collectedIds: string[] = [];
+    let cursor: SortValues = fromCursor;
+    let walked = 0;
+    let truncated = false;
+
+    // Read dynamically (same pattern as findKeywordSortValue / BUCKET_SIZE)
+    // so vi.stubEnv() works in tests without module re-import.
+    const hardCap = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
+    const hardCapPlusOne = hardCap + 1;
+
+    // The sort clause always ends with {id: "asc"} — the last sort value
+    // for each hit IS the document ID. This lets us extract IDs from
+    // sortValues without needing _source.
+    const idIdx = sortClause.findIndex((c) => Object.keys(c)[0] === "id");
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      if (signal?.aborted) break;
+
+      // Detect null-zone cursor — if the primary sort field is null in the
+      // cursor, we must narrow the query and sort to the fallback fields.
+      const nz = detectNullZoneCursor(cursor, params.orderBy);
+
+      const result = await this.searchAfter(
+        { ...params, length: RANGE_CHUNK_SIZE },
+        nz ? nz.strippedCursor : cursor,
+        null, // no PIT — getIdRange is a one-shot walk
+        signal,
+        false, // reverse
+        true,  // noSource — only IDs needed
+        false, // missingFirst
+        nz?.sortOverride,
+        nz?.extraFilter,
+      );
+
+      if (signal?.aborted) break;
+      if (result.hits.length === 0) break;
+
+      // Remap sort values from null-zone shape back to full sort clause shape
+      let sortValues = result.sortValues;
+      if (nz && sortValues.length > 0) {
+        sortValues = remapNullZoneSortValues(sortValues, nz.sortClause, nz.primaryField);
+      }
+
+      // Process hits — check each against toCursor and extract ID from sort values
+      for (let i = 0; i < sortValues.length; i++) {
+        walked++;
+        const sv = sortValues[i];
+
+        // Stop as soon as a hit sorts strictly past toCursor
+        if (sortValuesStrictlyAfter(sv, toCursor, sortClause)) {
+          return { ids: collectedIds, truncated: false, walked };
+        }
+
+        const docId = sv[idIdx] as string;
+        collectedIds.push(docId);
+
+        if (collectedIds.length >= hardCapPlusOne) {
+          truncated = true;
+          return { ids: collectedIds.slice(0, hardCap), truncated, walked };
+        }
+      }
+
+      // Update cursor for next page — use the last sort value (already sanitised)
+      const lastSv = sortValues[sortValues.length - 1];
+      if (!lastSv) break;
+      cursor = lastSv;
+
+      // Fewer hits than requested → last page... UNLESS the cursor just
+      // crossed into the null zone. When `nz` was null (no null-zone filter
+      // active) but the new cursor has a null primary field, the populated
+      // zone is exhausted but null-zone docs may still be in range. The next
+      // iteration will detect the null-zone cursor and issue a phase-2 query.
+      if (result.hits.length < RANGE_CHUNK_SIZE) {
+        const crossedIntoNullZone = !nz && detectNullZoneCursor(cursor, params.orderBy) != null;
+        if (!crossedIntoNullZone) break;
+      }
+    }
+
+    return { ids: collectedIds, truncated, walked };
   }
 }
 
