@@ -28,6 +28,7 @@ import type {
   AggregationRequest,
   AggregationsResult,
   SortDistribution,
+  IdRangeResult,
 } from "./types";
 import type { PositionMap } from "./position-map";
 import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
@@ -617,6 +618,84 @@ export class MockDataSource implements ImageDataSource {
     }
 
     return { length: ids.length, ids, sortValues };
+  }
+
+  async getByIds(ids: string[], signal?: AbortSignal): Promise<Image[]> {
+    this.requestCount++;
+    if (signal?.aborted) return [];
+    const results: Image[] = [];
+    for (const id of ids) {
+      const [img] = this.findById(id);
+      if (img) results.push(img);
+    }
+    return results;
+  }
+
+  async getIdRange(
+    params: SearchParams,
+    fromCursor: SortValues,
+    toCursor: SortValues,
+    signal?: AbortSignal,
+  ): Promise<IdRangeResult> {
+    this.requestCount++;
+    if (signal?.aborted) return { ids: [], truncated: false, walked: 0 };
+
+    const HARD_CAP = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
+    const sortClause = buildSortClause(params.orderBy);
+    const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
+    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
+    const sortedIndices = needsCustomSort
+      ? this.getSortedIndices(sortClause)
+      : null;
+    const effectiveTotal = sortedIndices ? sortedIndices.length : this.totalImages;
+
+    // Find the sorted position of fromCursor: find first image strictly after it
+    const fromCursorId = fromCursor[fromCursor.length - 1] as string;
+    const [, fromOrigIdx] = this.findById(fromCursorId);
+
+    let startPos: number;
+    if (fromOrigIdx < 0) {
+      startPos = 0;
+    } else if (sortedIndices) {
+      const fromSortedPos = sortedIndices.indexOf(fromOrigIdx);
+      startPos = fromSortedPos >= 0 ? fromSortedPos + 1 : 0;
+    } else {
+      startPos = fromOrigIdx + 1;
+    }
+
+    // Find the sorted position of toCursor (inclusive end)
+    const toCursorId = toCursor[toCursor.length - 1] as string;
+    const [, toOrigIdx] = this.findById(toCursorId);
+
+    let endPos: number; // inclusive
+    if (toOrigIdx < 0) {
+      return { ids: [], truncated: false, walked: 0 };
+    } else if (sortedIndices) {
+      const toSortedPos = sortedIndices.indexOf(toOrigIdx);
+      endPos = toSortedPos >= 0 ? toSortedPos : -1;
+    } else {
+      endPos = toOrigIdx;
+    }
+
+    if (endPos < startPos) return { ids: [], truncated: false, walked: 0 };
+
+    const collectedIds: string[] = [];
+    let walked = 0;
+    let truncated = false;
+    const hardCapPlusOne = HARD_CAP + 1;
+
+    for (let pos = startPos; pos <= endPos && pos < effectiveTotal; pos++) {
+      walked++;
+      const idx = sortedIndices ? sortedIndices[pos] : pos;
+      const img = this.getImageAt(idx)!;
+      collectedIds.push(img.id);
+      if (collectedIds.length >= hardCapPlusOne) {
+        truncated = true;
+        return { ids: collectedIds.slice(0, HARD_CAP), truncated, walked };
+      }
+    }
+
+    return { ids: collectedIds, truncated, walked };
   }
 }
 

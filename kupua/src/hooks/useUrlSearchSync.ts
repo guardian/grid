@@ -32,6 +32,8 @@ import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { saveSortFocusRatio } from "@/hooks/useScrollEffects";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
+import { useSelectionStore } from "@/stores/selection-store";
 
 // Track the kupuaKey of the entry we're currently "on". Updated at the
 // end of every effect run. On popstate, history.state already reflects
@@ -151,6 +153,21 @@ export function useUrlSearchSync() {
       Object.keys({ ...prev, ...searchOnly }).every(
         (k) => k === "orderBy" || searchOnly[k] === prev[k]
       );
+
+    // S6 — Clear selection on navigation (unless the user has opted into
+    // persistent selections via SELECTIONS_PERSIST_ACROSS_NAVIGATION).
+    // isUrlNavigation = true when this is NOT the first search AND NOT
+    // a sort-only change.  Both user-initiated and popstate (back/forward)
+    // navigate through this code path, so a single check covers both.
+    // Sort-only changes, density toggles, and image-detail open/close are
+    // all correctly excluded (sort-only via isSortOnly; display-only-key
+    // changes deduplicate above and never reach this point).
+    if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
+      const isUrlNavigation = _prevParamsSerialized !== "" && !isSortOnly;
+      if (isUrlNavigation) {
+        useSelectionStore.getState().clear();
+      }
+    }
 
     // Focus-preservation strategy:
     //

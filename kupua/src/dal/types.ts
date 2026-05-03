@@ -150,6 +150,26 @@ export interface SortDistBucket {
   startPosition: number;
 }
 
+/**
+ * Result of a `getIdRange` call — the IDs of all documents that sort
+ * between `fromCursor` (exclusive) and `toCursor` (inclusive), in sort order.
+ */
+export interface IdRangeResult {
+  /** IDs in sort order. Capped at RANGE_HARD_CAP. */
+  ids: string[];
+  /**
+   * True if and only if the walk hit RANGE_HARD_CAP and there is at least
+   * one more in-range document beyond the cap. False when the natural range
+   * size ≤ RANGE_HARD_CAP.
+   */
+  truncated: boolean;
+  /**
+   * Number of documents examined by the walk (= ids.length unless the walk
+   * errored mid-way). Useful for telemetry.
+   */
+  walked: number;
+}
+
 export interface ImageDataSource {
   /** Full-text search with filters, pagination, and sorting. */
   search(params: SearchParams): Promise<SearchResult>;
@@ -355,5 +375,45 @@ export interface ImageDataSource {
     params: SearchParams,
     signal: AbortSignal,
   ): Promise<PositionMap | null>;
+
+  // ---------------------------------------------------------------------------
+  // Multi-selection DAL methods (Phase S0)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch multiple images by ID (multi-get).
+   *
+   * Internally batches into chunks of 1,000 IDs and runs chunks in PARALLEL
+   * (`Promise.all`) — do NOT call sequentially, it's already parallelised.
+   * Missing IDs (deleted or never existed) are silently absent from the
+   * returned array. Result order is not guaranteed to match `ids` order.
+   *
+   * @param ids — image IDs to fetch.
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getByIds(ids: string[], signal?: AbortSignal): Promise<Image[]>;
+
+  /**
+   * Walk documents between two sort cursors and return their IDs.
+   *
+   * Uses `search_after` with `_source: false`, so only IDs are returned
+   * (no image data). Hard-capped at RANGE_HARD_CAP (5,000 IDs).
+   *
+   * **Caller contract:** `fromCursor` MUST sort earlier than `toCursor` in
+   * the direction implied by `params.orderBy`. The DAL does not swap or
+   * auto-detect order. If ordering is unknown (seek mode), call once; if
+   * `walked === 0`, swap cursors and retry.
+   *
+   * @param params — search params (query, filters, orderBy — same as current search).
+   * @param fromCursor — exclusive lower bound (the doc AT this cursor is not included).
+   * @param toCursor — inclusive upper bound (the doc AT this cursor IS included).
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getIdRange(
+    params: SearchParams,
+    fromCursor: SortValues,
+    toCursor: SortValues,
+    signal?: AbortSignal,
+  ): Promise<IdRangeResult>;
 }
 

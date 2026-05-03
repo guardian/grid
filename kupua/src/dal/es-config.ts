@@ -113,7 +113,7 @@ export const SOURCE_INCLUDES = [
  * This is a safeguard against accidentally issuing write operations
  * (index, delete, bulk, etc.) against a shared cluster.
  */
-export const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit"];
+export const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit", "_mget"];
 
 /**
  * Allowed HTTP methods for ES requests.

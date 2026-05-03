@@ -15,5 +15,5 @@ export type {
 } from "./types";
 
 export { ElasticsearchDataSource } from "./es-adapter";
-export { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
+export { buildSortClause, parseSortField, DATE_SORT_FIELDS } from "./adapters/elasticsearch/sort-builders";
 

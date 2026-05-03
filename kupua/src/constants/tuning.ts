@@ -258,3 +258,116 @@ export const PREFETCH_FULL_RADIUS_AHEAD = 4;
  */
 export const PREFETCH_FULL_RADIUS_BEHIND = 1;
 
+// ---------------------------------------------------------------------------
+// Selections — range-walk caps (Phase S0)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hard cap on the number of IDs returned by `getIdRange`.
+ *
+ * If the natural range contains more IDs than this, the walk stops here and
+ * `IdRangeResult.truncated` is set to true. The UI shows an error toast at
+ * this threshold. 5,000 was chosen as ~10× Kahuna's practical maximum.
+ *
+ * Configurable via VITE_RANGE_HARD_CAP env var.
+ */
+export const RANGE_HARD_CAP = Number(
+  import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000,
+);
+
+/**
+ * Soft cap for `getIdRange`. When the returned ID count exceeds this value
+ * the UI shows an informational toast (not an error). The selection still
+ * proceeds — this is non-destructive. No confirm dialog in v1.
+ *
+ * Configurable via VITE_RANGE_SOFT_CAP env var.
+ */
+export const RANGE_SOFT_CAP = Number(
+  import.meta.env.VITE_RANGE_SOFT_CAP ?? 2_000,
+);
+
+/**
+ * Chunk size for `getIdRange` `search_after` walk pages.
+ * 1,000 keeps each page well within ES's `max_result_window` floor.
+ */
+export const RANGE_CHUNK_SIZE = 1_000;
+
+// ---------------------------------------------------------------------------
+// Selections — store & reconciliation (Phase S1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Debounce delay (ms) for sessionStorage writes in the selection-store
+ * persist adapter. Coalesces rapid toggle/shift-click sequences so that
+ * e.g. 20 quick toggles produce one write instead of 20.
+ */
+export const SELECTION_PERSIST_DEBOUNCE_MS = 250;
+
+/**
+ * LRU cap for the selection-store metadata cache (Image objects).
+ * 5,000 entries ≈ 25–50 MB V8 heap on desktop. Acceptable for v1.
+ * Halve on coarse-pointer profiles if memory becomes a real issue.
+ */
+export const SELECTION_METADATA_LRU_CAP = 5_000;
+
+/**
+ * Number of images processed per idle frame during lazy reconciliation.
+ * Lower = smoother but slower; higher = faster but may cause jank on
+ * slow devices. 500 ≈ 5–10 ms per chunk at ~25 fields/image.
+ */
+export const SELECTION_RECONCILE_CHUNK_SIZE = 500;
+
+// ---------------------------------------------------------------------------
+// Selections -- lifecycle (Phase S6)
+// ---------------------------------------------------------------------------
+
+/**
+ * When false (default): selections are cleared whenever the user navigates
+ * to a new search context (query change, filter change, date-range change,
+ * browser back/forward, new-images ticker click). Selections survive
+ * sort-only changes, density toggles, image-detail open/close, and reload.
+ *
+ * When true: selections survive all navigation (today's behaviour prior to
+ * S6). Useful as a developer escape hatch; flip back to false for default
+ * "ephemeral selection" UX.
+ *
+ * When Clipboard (My Places) ships, the persistent-across-navigation model
+ * moves there and this flag can be removed.
+ *
+ * NOT backed by import.meta.env — a plain constant; flip locally to test
+ * the survival path.
+ */
+export const SELECTIONS_PERSIST_ACROSS_NAVIGATION = false;
+
+// ---------------------------------------------------------------------------
+// Selections -- long-press & drag gestures (Phase S5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Time (ms) a pointer must be held without significant movement before a
+ * long-press is committed. Matches Android's default InteractionJam threshold.
+ */
+export const LONG_PRESS_MS = 500;
+
+/**
+ * Movement tolerance (px) before a pointerdown is reclassified as a scroll
+ * gesture and the long-press timer is cancelled.
+ */
+export const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
+// ---------------------------------------------------------------------------
+// Toasts (Phase S2.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum number of toasts visible at once. When the queue exceeds this,
+ * the oldest toast is dropped to make room.
+ */
+export const TOAST_QUEUE_MAX = 5;
+
+/**
+ * Default auto-dismiss duration for 'transient' toasts (ms).
+ * 0 = no auto-dismiss.
+ */
+export const TOAST_DEFAULT_DURATION_MS = 5_000;
+

@@ -24,6 +24,7 @@ import { resetViewportAnchor } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { isMobile } from "@/lib/is-mobile";
+import { useSelectionStore } from "@/stores/selection-store";
 
 /**
  * Reset all search/scroll/sync state, await fresh first-page data,
@@ -75,6 +76,7 @@ export async function resetToHome(navigate: () => void) {
   // prevents stale restores from any prior save. Also clear the viewport
   // anchor so the unmount doesn't fall back to a stale anchor.
   useSearchStore.getState().setFocusedImageId(null);
+  useSelectionStore.getState().clear();
   clearDensityFocusRatio();
   resetViewportAnchor();
 

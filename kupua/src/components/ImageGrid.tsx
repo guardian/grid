@@ -29,11 +29,17 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSearchStore } from "@/stores/search-store";
+import { useSelectionStore } from "@/stores/selection-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { pushNavigate } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
+import { interpretClick, type Modifier } from "@/lib/interpretClick";
+import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { handleLongPressStart } from "@/lib/handleLongPressStart";
+import { useLongPress } from "@/hooks/useLongPress";
+import { Tickbox } from "@/components/Tickbox";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -44,6 +50,21 @@ import {
   SCROLL_MODE_THRESHOLD,
   POSITION_MAP_THRESHOLD,
 } from "@/constants/tuning";
+
+// ---------------------------------------------------------------------------
+// Pointer type detection -- coarse = touch device.
+//
+// Computed once at module load (CSR-only, no SSR). Used to:
+//   1. Gate draggable on desktop only (draggable + long-press conflict on mobile
+//      -- Android Chrome intercepts the long-press as a drag start and fires
+//      pointercancel, killing the selection gesture).
+//   2. Avoid setting the `draggable` attribute on ~50 cells on mobile where it
+//      provides no benefit and has a marginal hit-testing overhead.
+// Deviation documented in exploration/docs/deviations.md.
+// ---------------------------------------------------------------------------
+const IS_COARSE_POINTER =
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse)").matches;
 
 // ---------------------------------------------------------------------------
 // Tooltip helpers
@@ -106,6 +127,11 @@ interface GridCellProps {
   animationClass?: string;
   onCellClick: (imageId: string, e: React.MouseEvent) => void;
   onCellDoubleClick: (imageId: string) => void;
+  onTickClick: (imageId: string, e: React.MouseEvent) => void;
+  /** Desktop only: set by ImageGrid when IS_COARSE_POINTER is false. */
+  draggable?: boolean;
+  /** Desktop only: dragstart handler passed from ImageGrid. */
+  onDragStart?: (imageId: string, e: React.DragEvent) => void;
 }
 
 const GridCell = memo(function GridCell({
@@ -116,9 +142,12 @@ const GridCell = memo(function GridCell({
   animationClass,
   onCellClick,
   onCellDoubleClick,
+  onTickClick,
+  draggable,
+  onDragStart,
 }: GridCellProps) {
   if (!image) {
-    // Placeholder skeleton
+    // Placeholder skeleton — no Tickbox (disabled prop renders null)
     return (
       <div
         className="shrink-0 bg-grid-cell/30 rounded"
@@ -135,16 +164,21 @@ const GridCell = memo(function GridCell({
   return (
     <div
       data-grid-cell
+      data-cell-id={image.id}
       data-image-id={image.id}
-      className={`shrink-0 flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
+      className={`shrink-0 relative flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
           : "hover:bg-grid-hover/15"
       } ${animationClass ?? ""}`}
       style={{ width: cellWidth, height: ROW_HEIGHT - CELL_GAP }}
+      draggable={draggable}
       onClick={(e) => onCellClick(image.id, e)}
       onDoubleClick={() => onCellDoubleClick(image.id)}
+      onDragStart={draggable ? (e) => onDragStart?.(image.id, e) : undefined}
     >
+      {/* Selection tickbox — hidden by CSS, shown on hover or in Selection Mode */}
+      <Tickbox imageId={image.id} onTickClick={(e) => onTickClick(image.id, e)} />
       {/* Thumbnail area — 190px block, image top-aligned, horizontally centred (matches Kahuna) */}
       <div
         className="overflow-hidden"
@@ -157,7 +191,7 @@ const GridCell = memo(function GridCell({
             src={thumbUrl}
             alt=""
             loading="lazy"
-            className="block w-full h-[186px] object-contain"
+            className="block w-full h-[186px] object-contain pointer-events-none"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
@@ -170,7 +204,7 @@ const GridCell = memo(function GridCell({
       </div>
 
       {/* Metadata — same background as cell, no separate strip */}
-      <div className="px-2 py-1 space-y-0.5 shrink-0">
+      <div className="px-2 py-1 space-y-0.5 shrink-0 select-none">
         <p
           className="text-xs text-grid-text truncate"
           title={descTooltip}
@@ -192,7 +226,12 @@ const GridCell = memo(function GridCell({
 // ImageGrid — main component
 // ---------------------------------------------------------------------------
 
-export function ImageGrid() {
+export interface ImageGridProps {
+  /** S3a: range-select handler from useRangeSelection, mounted in search.tsx. */
+  handleRange?: (effect: AddRangeEffect) => void;
+}
+
+export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   const {
     results, total, bufferOffset, virtualizerCount, loadMore, seek,
     focusedImageId, setFocusedImageId,
@@ -200,6 +239,8 @@ export function ImageGrid() {
     twoTier,
   } = useDataWindow();
   const searchParams = useSearch({ from: "/search" });
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -372,6 +413,53 @@ export function ImageGrid() {
   }, [columns, virtualizer]);
 
   // -------------------------------------------------------------------------
+  // Selection mode — subscribe once at container level.
+  // Per-cell components do NOT subscribe to this (would cause 1000+ re-renders
+  // on mode flip). CSS handles tickbox visibility via data-selection-mode.
+  // -------------------------------------------------------------------------
+
+  const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+
+  // -------------------------------------------------------------------------
+  // Long-press gestures (S5 -- coarse pointer / touch selection)
+  //
+  // useLongPress fires onLongPressStart after LONG_PRESS_MS without movement.
+  // Long-press on a new cell commits toggle+anchor (mode entry).
+  // Long-press on a different cell while in selection mode dispatches an
+  // add-range effect (same anchor-intent path as desktop shift-click).
+  // -------------------------------------------------------------------------
+
+  // Desktop drag-to-collection. Only wired on fine-pointer devices (see IS_COARSE_POINTER).
+  // Single-image drag sets minimal payload; multi-image drag (selection mode) packages
+  // all selected IDs. Full Kahuna MIME types (vnd.mediaservice.image+json etc.) are a
+  // TODO -- requires the image's API URI which is not in the ES result yet.
+  const handleDragStart = useCallback((imageId: string, e: React.DragEvent) => {
+    const selState = useSelectionStore.getState();
+    const inMode = selState.selectedIds.size > 0 && selState.selectedIds.has(imageId);
+    const ids = inMode ? Array.from(selState.selectedIds) : [imageId];
+    e.dataTransfer.effectAllowed = "copy";
+    // text/plain: consumed by plain-text drop targets
+    e.dataTransfer.setData("text/plain", ids.join(","));
+    // Minimal Grid image payload -- TODO: extend to full Kahuna MIME types
+    e.dataTransfer.setData(
+      "application/vnd.mediaservice.images+json",
+      JSON.stringify(ids.map((id) => ({ data: { id } }))),
+    );
+  }, []);
+
+  useLongPress({
+    containerRef: parentRef,
+    onLongPressStart: (cellId) =>
+      handleLongPressStart({
+        cellId,
+        handleRange,
+        findImageIndex,
+        getImage,
+        orderBy: searchParamsRef.current.orderBy,
+      }),
+  });
+
+  // -------------------------------------------------------------------------
   // Click handlers (match table: single=focus, double=open detail)
   // -------------------------------------------------------------------------
 
@@ -397,18 +485,72 @@ export function ImageGrid() {
     [navigate, setFocusedImageId, findImageIndex, getImage, searchParams, bufferOffset, twoTier],
   );
 
+  /**
+   * Build an interpretClick context for a given image ID and modifier.
+   * Reads search + selection store imperatively so the callback is stable.
+   */
+  const buildClickContext = useCallback(
+    (imageId: string, modifier: Modifier) => {
+      const selState = useSelectionStore.getState();
+      const searchState = useSearchStore.getState();
+      const idx = findImageIndex(imageId);
+      const image = idx >= 0 ? getImage(idx) : undefined;
+      const anchorId = selState.anchorId;
+      const anchorGlobalIndex = anchorId
+        ? (searchState.imagePositions.get(anchorId) ?? undefined)
+        : undefined;
+      const anchorSortValues = (() => {
+        if (!anchorId) return null;
+        const anchorImg = selState.metadataCache.get(anchorId);
+        return anchorImg
+          ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+          : null;
+      })();
+      return {
+        targetId: imageId,
+        modifier,
+        inSelectionMode: selState.selectedIds.size > 0,
+        anchorId,
+        targetGlobalIndex: searchState.imagePositions.get(imageId),
+        anchorGlobalIndex,
+        targetSortValues: image
+          ? extractSortValues(image, searchParamsRef.current.orderBy)
+          : null,
+        anchorSortValues,
+      };
+    },
+    [findImageIndex, getImage],
+  );
+
   const handleCellClick = useCallback(
     (imageId: string, e: React.MouseEvent) => {
-      // Shift/Alt+click are click-to-search gestures — never enter detail.
-      if (e.shiftKey || e.altKey) return;
-      if (getEffectiveFocusMode() === "phantom") {
-        // Phantom mode: single-click enters detail directly (like Kahuna).
-        enterDetail(imageId);
-        return;
-      }
-      setFocusedImageId(imageId);
+      if (e.altKey) return; // alt-click: no-op in grid
+      const inMode = useSelectionStore.getState().selectedIds.size > 0;
+      if (e.shiftKey && !inMode) return; // shift outside selection mode: no-op in grid
+
+      const modifier: Modifier =
+        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+      const effects = interpretClick({
+        ...buildClickContext(imageId, modifier),
+        kind: "image-body",
+      });
+
+      dispatchClickEffects(effects, { setFocusedImageId, enterDetail, handleRange });
     },
-    [setFocusedImageId, enterDetail],
+    [buildClickContext, setFocusedImageId, enterDetail, handleRange],
+  );
+
+  const handleTickClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      const modifier: Modifier =
+        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+      const effects = interpretClick({
+        ...buildClickContext(imageId, modifier),
+        kind: "tick",
+      });
+      dispatchClickEffects(effects, { setFocusedImageId, enterDetail, handleRange });
+    },
+    [buildClickContext, setFocusedImageId, enterDetail, handleRange],
   );
 
   /** Clear focus when clicking the grid background (gaps between cells). */
@@ -499,6 +641,7 @@ export function ImageGrid() {
       role="region"
       aria-label="Image results grid"
       className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1 overscroll-y-contain"
+      data-selection-mode={inSelectionMode ? "true" : undefined}
       onClick={handleBackgroundClick}
     >
       <div
@@ -543,12 +686,15 @@ export function ImageGrid() {
                   <GridCell
                     key={imageIdx}
                     image={image}
-                    isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit"}
+                    isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
                     cellWidth={cellWidth}
                     dateLine={image ? getCellDateLine(image, searchParams.orderBy) : undefined}
                     animationClass={animClass}
                     onCellClick={handleCellClick}
                     onCellDoubleClick={handleCellDoubleClick}
+                    onTickClick={handleTickClick}
+                    draggable={IS_COARSE_POINTER ? undefined : true}
+                    onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
                   />
                 );
               })}

@@ -195,6 +195,43 @@ export interface FieldDefinition {
    * True for keyword fields, false for text-only fields.
    */
   aggregatable?: boolean;
+
+  // -- Multi-select (S4) ----------------------------------------------------
+
+  /**
+   * How this field behaves in the multi-image selection panel (count >= 2).
+   *
+   * - "reconcile"       scalar: show value if all-same, "Multiple Xs" if mixed.
+   * - "chip-array"      list: show union of chips; full = on all images, partial = on some.
+   * - "always-suppress" never shown in multi-select (IDs, filenames, dates, dimensions).
+   * - "show-if-all-same" only shown when all selected images share the same value.
+   * - "summary-only"    shows a computed summary line; no per-image value display.
+   *
+   * Undefined means the field is not yet classified (not shown in multi-select panel).
+   * Fields absent from RECONCILE_FIELDS are skipped by the reconciliation engine.
+   */
+  multiSelectBehaviour?: "reconcile" | "chip-array" | "always-suppress" | "show-if-all-same" | "summary-only";
+
+  /**
+   * Whether to show the row in the multi-select panel when the field value
+   * is empty across all selected images. Only meaningful for "reconcile" fields.
+   * true = always show (important-empty signal); false = hide when empty.
+   */
+  showWhenEmpty?: boolean;
+
+  /**
+   * Predicate controlling whether this field renders in the multi-select panel.
+   * Used for config-gated fields (e.g. metadata_imageType only renders when
+   * gridConfig.imageTypes is non-empty).
+   */
+  visibleWhen?: () => boolean;
+
+  /**
+   * For "summary-only" fields: computes the display line from all selected images.
+   * Called after metadata is hydrated for the full selection.
+   * (No production caller in S4; leases will use this in the field-parity session.)
+   */
+  summariser?: (images: Image[]) => string;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +281,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 140,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
   },
 
   // -- Core metadata --------------------------------------------------------
@@ -259,6 +298,10 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 100,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+    // S4: only render when gridConfig.imageTypes is configured (Kahuna parity -- decided 2026-05-02)
+    visibleWhen: () => (gridConfig.imageTypes?.length ?? 0) > 0,
   },
   {
     id: "metadata_title",
@@ -268,9 +311,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     cqlKey: "title",
     esSearchPath: "metadata.title",
     detailLayout: "stacked",
-    // Not sortable — text field, no .keyword sub-field
+    // Not sortable -- text field, no .keyword sub-field
     defaultWidth: 250,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "metadata_description",
@@ -283,6 +328,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     detailClickable: false,
     defaultWidth: 300,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "metadata_specialInstructions",
@@ -296,6 +343,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     detailGroup: "specialInstructions",
     defaultWidth: 200,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "metadata_byline",
@@ -304,9 +353,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.metadata?.byline,
     cqlKey: "by",
     esSearchPath: "metadata.byline",
-    // Not sortable — text field
+    // Not sortable -- text field
     defaultWidth: 150,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "metadata_credit",
@@ -319,6 +370,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 120,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "metadata_copyright",
@@ -329,6 +382,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     esSearchPath: "metadata.copyright",
     defaultWidth: 180,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
   },
   {
     id: "metadata_source",
@@ -341,6 +396,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 120,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
   },
 
   // -- Location (composite) -------------------------------------------------
@@ -358,7 +415,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       return parts.length > 0 ? parts.join(", ") : undefined;
     },
     // Click-to-search uses per-sub-field keys, not a single key
-    detailGroup: "core", // No section break — continues from Source
+    detailGroup: "core", // No section break -- continues from Source
     defaultWidth: 200,
     fieldType: "composite",
     isComposite: true,
@@ -368,6 +425,70 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       { cqlKey: "state", accessor: (img) => img.metadata?.state },
       { cqlKey: "country", accessor: (img) => img.metadata?.country },
     ],
+    // Multi-select: suppressed -- the 4 location_* sub-field entries below
+    // handle per-segment reconciliation independently.
+    multiSelectBehaviour: "always-suppress",
+  },
+
+  // -- Location sub-fields (multi-select reconciliation only) ---------------
+  // These are NOT shown in the single-image detail panel (detailHidden: true).
+  // In multi-select, each segment is reconciled independently and grouped
+  // under a "Location" section. Kahuna shows "(Multiple cities)" for mixed.
+  {
+    id: "location_subLocation",
+    label: "Sublocation",
+    group: "location",
+    accessor: (img) => img.metadata?.subLocation,
+    cqlKey: "location",
+    esSearchPath: "metadata.subLocation",
+    defaultWidth: 150,
+    defaultHidden: true,
+    detailHidden: true,
+    fieldType: "keyword",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+  },
+  {
+    id: "location_city",
+    label: "City",
+    group: "location",
+    accessor: (img) => img.metadata?.city,
+    cqlKey: "city",
+    esSearchPath: "metadata.city",
+    defaultWidth: 150,
+    defaultHidden: true,
+    detailHidden: true,
+    fieldType: "keyword",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+  },
+  {
+    id: "location_state",
+    label: "State",
+    group: "location",
+    accessor: (img) => img.metadata?.state,
+    cqlKey: "state",
+    esSearchPath: "metadata.state",
+    defaultWidth: 150,
+    defaultHidden: true,
+    detailHidden: true,
+    fieldType: "keyword",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+  },
+  {
+    id: "location_country",
+    label: "Country",
+    group: "location",
+    accessor: (img) => img.metadata?.country,
+    cqlKey: "country",
+    esSearchPath: "metadata.country",
+    defaultWidth: 150,
+    defaultHidden: true,
+    detailHidden: true,
+    fieldType: "keyword",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
   },
 
   // -- Dates ----------------------------------------------------------------
@@ -379,10 +500,12 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.metadata?.dateTaken,
     formatter: formatDate,
     sortKey: "taken",
-    detailGroup: "core", // No section break — continues from Location
+    detailGroup: "core", // No section break -- continues from Location
     descByDefault: true,
     defaultWidth: 150,
     fieldType: "date",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
   },
   {
     id: "uploadTime",
@@ -392,10 +515,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.uploadTime,
     formatter: formatDate,
     sortKey: "uploadTime",
-    detailGroup: "core", // No section break — continues from Taken on
+    detailGroup: "core", // No section break -- continues from Taken on
     descByDefault: true,
     defaultWidth: 150,
     fieldType: "date",
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "lastModified",
@@ -405,11 +529,12 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     rawValue: (img) => img.lastModified,
     formatter: formatDate,
     sortKey: "lastModified",
-    detailGroup: "core", // No section break — continues from Uploaded
+    detailGroup: "core", // No section break -- continues from Uploaded
     descByDefault: true,
     defaultWidth: 150,
     defaultHidden: true,
     fieldType: "date",
+    multiSelectBehaviour: "always-suppress",
   },
 
   {
@@ -424,6 +549,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 150,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "show-if-all-same",
+    showWhenEmpty: false,
   },
 
   // -- Lists ----------------------------------------------------------------
@@ -439,6 +566,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "list",
     isList: true,
     aggregatable: true,
+    multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
   },
   {
     id: "people",
@@ -451,6 +580,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 200,
     fieldType: "list",
     isList: true,
+    multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
   },
   {
     id: "metadata_suppliersReference",
@@ -463,6 +594,10 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 150,
     defaultHidden: true,
     fieldType: "text",
+    // always-suppress in multi-select: supplier reference is an ID;
+    // coincidental matches across a selection are supplier error, not signal.
+    // (decided 2026-05-02 -- see deviations.md §29)
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "metadata_bylineTitle",
@@ -475,6 +610,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 150,
     defaultHidden: true,
     fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
   },
 
   // -- Keywords -------------------------------------------------------------
@@ -493,6 +630,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "list",
     isList: true,
     aggregatable: true,
+    multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
   },
 
   // -- Technical ------------------------------------------------------------
@@ -506,9 +645,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       if (w === undefined || h === undefined) return undefined;
       return `${w.toLocaleString()} × ${h.toLocaleString()}`;
     },
-    // Display-only — not sortable. Use Width / Height columns instead.
+    // Display-only -- not sortable. Use Width / Height columns instead.
     defaultWidth: 120,
     fieldType: "integer",
+    // always-suppress: W x H composite is not useful across a selection.
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "source_width",
@@ -525,8 +666,9 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     sortKey: "width",
     descByDefault: true,
     defaultWidth: 80,
-    detailHidden: true, // Redundant — Dimensions shown instead
+    detailHidden: true, // Redundant -- Dimensions shown instead
     fieldType: "integer",
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "source_height",
@@ -543,8 +685,9 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     sortKey: "height",
     descByDefault: true,
     defaultWidth: 80,
-    detailHidden: true, // Redundant — Dimensions shown instead
+    detailHidden: true, // Redundant -- Dimensions shown instead
     fieldType: "integer",
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "source_size",
@@ -562,6 +705,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultHidden: true, // Only shown in details panel
     detailHidden: false,
     fieldType: "integer",
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "source_mimeType",
@@ -580,6 +724,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultHidden: true,
     fieldType: "keyword",
     aggregatable: true,
+    multiSelectBehaviour: "show-if-all-same",
+    showWhenEmpty: false,
   },
   {
     id: "uploadInfo_filename",
@@ -591,6 +737,9 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     detailClickable: false,
     defaultWidth: 180,
     fieldType: "keyword",
+    // always-suppress: filenames are de-facto unique per image; coincidental
+    // matches across a selection are not useful signal. (decided 2026-05-02)
+    multiSelectBehaviour: "always-suppress",
   },
   {
     id: "imageId",
@@ -601,6 +750,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultHidden: true, // Only shown in details panel
     detailHidden: false,
     fieldType: "keyword",
+    multiSelectBehaviour: "always-suppress",
   },
 ];
 
@@ -632,12 +782,16 @@ const ALIAS_FIELDS: FieldDefinition[] = gridConfig.fieldAliases
     accessor: (img: Image) => resolveEsPath(img, a.elasticsearchPath),
     cqlKey: a.alias,
     esSearchPath: a.elasticsearchPath,
-    sortKey: a.alias, // alias fields are all keyword → sortable; URL uses short alias
+    sortKey: a.alias, // alias fields are all keyword -- sortable; URL uses short alias
     detailGroup: "extended", // Merge with Byline title's section in detail panel
     defaultWidth: 120,
     defaultHidden: true,
     fieldType: "keyword" as FieldType,
     aggregatable: true,
+    // Alias fields: uniformly reconcile in multi-select (deviation from Kahuna which
+    // suppresses alias fields in multi-select entirely). See deviations.md §28.
+    multiSelectBehaviour: "reconcile" as const,
+    showWhenEmpty: false,
   }));
 
 // ---------------------------------------------------------------------------
@@ -658,10 +812,10 @@ export const FIELD_REGISTRY: readonly FieldDefinition[] = (() => {
 })();
 
 // ---------------------------------------------------------------------------
-// Derived lookup maps — built once from the registry
+// Derived lookup maps -- built once from the registry
 // ---------------------------------------------------------------------------
 
-/** Field by ID — O(1) lookup. */
+/** Field by ID -- O(1) lookup. */
 export const FIELDS_BY_ID: ReadonlyMap<string, FieldDefinition> = new Map(
   FIELD_REGISTRY.map((f) => [f.id, f])
 );
@@ -719,6 +873,19 @@ export const SORT_DROPDOWN_OPTIONS: readonly { label: string; value: string }[] 
  *  Excludes fields with detailHidden: true. Includes alias fields. */
 export const DETAIL_PANEL_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY
   .filter((f) => !f.detailHidden);
+
+/**
+ * Fields that participate in multi-image reconciliation.
+ * Excludes:
+ *   - Fields with multiSelectBehaviour "always-suppress" (IDs, filenames,
+ *     dimensions, upload dates -- not meaningful across a selection).
+ *   - Fields without multiSelectBehaviour (not yet classified).
+ * Used by selection-store.ts (reconciliation engine) and MultiImageMetadata
+ * (renderer). Both must use the same field list for consistency.
+ */
+export const RECONCILE_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY.filter(
+  (f) => f.multiSelectBehaviour !== undefined && f.multiSelectBehaviour !== "always-suppress",
+);
 
 /**
  * Get the raw string value from any field for a given image.

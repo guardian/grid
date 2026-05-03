@@ -8,6 +8,7 @@
 
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ToastContainer } from "@/components/ToastContainer";
 
 export const rootRoute = createRootRoute({
   component: RootLayout,
@@ -19,6 +20,7 @@ function RootLayout() {
       <ErrorBoundary>
         <Outlet />
       </ErrorBoundary>
+      <ToastContainer />
     </div>
   );
 }

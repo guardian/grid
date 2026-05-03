@@ -3,6 +3,19 @@
 - Files surveyed: 14
 - Confidence: High — selection state and reconciliation are clearly structured. Performance root causes are legible from the stream definitions. The action bar is rendered declaratively in one template so it's complete. Only `getAction` required tracing into a third-party library (theseus 0.5.2).
 
+> **See also:** [`../00 Architecture and philosophy/field-catalogue.md`](../00%20Architecture%20and%20philosophy/field-catalogue.md) — the
+> authoritative per-field reference (multi-select behaviour, ES presence,
+> Kupua/Kahuna parity).
+>
+> **Companion document:** [`selections-kahuna-pills-location-leases-findings.md`](selections-kahuna-pills-location-leases-findings.md)
+> covers per-field UI/edit behaviour for chip arrays (keywords / people / labels /
+> subjects), the per-segment Location reconciliation, lease summary behaviour, the
+> usage-rights/cost pills, image type, description's "Add before/after" radio, and
+> photoshoots. This doc covers the architectural arc (state, perf, drag/drop,
+> action toolbar). Section 2 below introduced scalar reconciliation but its
+> "Array-valued fields" subsection is superseded by §1–§5 of the companion doc —
+> the original "no reconciliation, just union" claim was wrong.
+
 ---
 
 ## Section 1: Selection state shape and lifecycle

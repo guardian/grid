@@ -46,7 +46,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-reference.md` |
 | **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
-| **Selections (multi-image, design phase)** | `00 Architecture and philosophy/05-selections.md` (architecture), `selections-workplan.md` (phases S0–S6), `selections-field-classification.md`, `01 Research/selections-kahuna-findings.md` |
+| **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
 | **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}`, `exploration/docs/perceived-perf-audit.md` |
@@ -75,19 +75,24 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Swipe Dismiss | `hooks/useSwipeDismiss.ts` | ~140 | Pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only. |
 | Pinch Zoom | `hooks/usePinchZoom.ts` | ~260 | Two-finger pinch 1x–5x, single-finger pan, double-tap 1x↔2x. Fullscreen-only. Exposes scaleRef. |
 | Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
-| Fields | `lib/field-registry.ts` | 755 | 23 hardcoded + config aliases. Drives all surfaces. |
+| Fields | `lib/field-registry.ts` | ~900 | 37 hardcoded + config aliases. Drives all surfaces. `multiSelectBehaviour`, `visibleWhen`, `summariser`, `showWhenEmpty` added for S4. `RECONCILE_FIELDS` exported. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
 | URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
 | UI Prefs | `stores/ui-prefs-store.ts` | 75 | `focusMode` preference (explicit/phantom), `pointer: coarse` auto-detection, localStorage-persisted |
 | Settings | `components/SettingsMenu.tsx` | 115 | Three-dot menu in SearchBar. Click mode toggle (explicit↔phantom). Coarse pointer disables explicit. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | 478 | `@guardian/cql` Web Component + CQL→ES translator |
+| Selection Store | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts` | ~620 | Multi-image selection: `selectedIds` (Set), LRU metadata cache, debounced sessionStorage persist, lazy idle-frame reconciliation, `hydrate()` called on `/search` mount. `interpretClick` pure function owns click policy. `chip-array` and `summary` reconciliation kinds (S4). `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` flag in `tuning.ts` gates clear-on-navigation (S6). |
+| Selection UI (S2+S3a+S6) | `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts` | ~120 + ~160 + ~80 | Tickbox overlay (grid) + column (table). `useIsSelected(id)` per-id subscription. `dispatchClickEffects` executes `ClickEffect[]`. Count + Clear folded into `StatusBar`. Mode-flip is CSS-driven via `data-selection-mode`. `useRangeSelection` orchestrates in-buffer fast path + server-walk for shift-click. `useUrlSearchSync` clears selection on any new search (gated by flag). |
+| Toast primitive | `stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx` | ~150 | Queue-backed toast notifications. BBC PR #4253 vocabulary. `addToast()` imperative export for non-React callers (selection-store hydration drop). |
+| Touch gestures (S5) | `hooks/useLongPress.ts`, `components/SelectionFab.tsx` | ~140 | `useLongPress`: 500ms long-press threshold, move/scroll/contextmenu cancellation, Android pointercancel fix (committed state guard). Long-press enters selection mode; second long-press dispatches full `add-range` effect (buffer/server walk, same as desktop shift-click). Paint-drag cut -- `touch-action` timing prevents it on mobile (see deviations.md). `SelectionFab`: bottom-right floating button, shows count + X, coarse-pointer only. StatusBar count/clear hidden on coarse pointer. `addGroup`/`removeGroup` in selection-store (latent). Desktop: `IS_COARSE_POINTER` gates `draggable` on GridCell. |
+| Multi-image panel (S4) | `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SearchPill.tsx` (`MultiSearchPill`) | ~200 + ~260 + ~80 | `MultiImageMetadata` renders reconciled field view for 2+ images. `metadata-primitives` shared by single and multi panels. `MultiValue` renders "Multiple X" for mixed scalars. `MultiSearchPill` adds partial/full chip state. |
 
 > Detailed descriptions of each: `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
-- **425 Vitest** unit/integration tests (~37s) — `npm test`
-- **183 Playwright E2E** tests (~6min) — `npx playwright test`
+- **617 Vitest** unit/integration tests (~40s) -- `npm test`
+- **223 Playwright E2E** tests (~7min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
@@ -146,8 +151,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Two-tier virtualisation | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
 | Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
 | Prefetch cadence workplan | `exploration/docs/zz Archive/prefetch-cadence-workplan.md` | Traversal session model, cadence EMA, 7-session plan (1–4+6 done, 5 skipped) |
-| Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, drift handling, Selections-vs-Operations boundary |
-| Selections workplan | `exploration/docs/selections-workplan.md` | 10 phases (S0–S6 incl. S0.5 perf scaffold) with per-phase impl notes |
+| Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix, Selections-vs-Operations boundary |
+| Selections field catalogue | `exploration/docs/00 Architecture and philosophy/field-catalogue.md` | Per-field reference: multi-select behaviour, ES presence, Kupua/Kahuna parity (46 fields) |
+| Selections workplan (archived) | `exploration/docs/zz Archive/selections-workplan.md` | 9-phase implementation log (S0–S6 + S0.5 perf scaffold). Done; kept for historical reference. |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 ## Stable Test Corpora (TEST cluster, pinned via `until`)

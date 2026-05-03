@@ -21,6 +21,7 @@ import { rootRoute } from "./__root";
 import { searchParamsSchema } from "@/lib/search-params-schema";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusBar } from "@/components/StatusBar";
+import { SelectionFab } from "@/components/SelectionFab";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
@@ -28,12 +29,15 @@ import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { Scrubber } from "@/components/Scrubber";
 import { FacetFilters, AggTiming } from "@/components/FacetFilters";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { MultiImageMetadata } from "@/components/MultiImageMetadata";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
+import { useSelectionStore } from "@/stores/selection-store";
 import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
+import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -47,11 +51,23 @@ export const searchRoute = createRoute({
 
 function SearchPage() {
   const { image, density } = useSearch({ from: "/search" });
+  // Mount range-selection handler once at the route level — passed to
+  // ImageGrid and ImageTable so shift-click range works in both views.
+  const handleRange = useRangeSelection();
   const showImageDetail = !!image;
   const isGrid = density !== "table";
 
   // Keep document.title in sync with the search query
   useDocumentTitle();
+
+  // S6 — Hydrate selection metadata on mount.
+  // persist middleware rehydrates selectedIds synchronously; this effect
+  // kicks the metadata fetch on first paint so the multi-image panel
+  // shows reconciled values rather than all-dashes after a reload.
+  useEffect(() => {
+    void useSelectionStore.getState().hydrate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Scrubber data — subscribed at this level so the scrubber re-renders
   // when the buffer moves without re-rendering the views.
@@ -186,6 +202,7 @@ function SearchPage() {
       >
         <SearchBar />
         <StatusBar />
+        <SelectionFab />
         <PanelLayout
           leftPanel={
             <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggTiming />}>
@@ -199,7 +216,7 @@ function SearchPage() {
           }
           scrubber={scrubberElement}
         >
-          {isGrid ? <ImageGrid /> : <ImageTable />}
+          {isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
         </PanelLayout>
       </div>
 
@@ -227,18 +244,47 @@ function FocusedImageMetadata() {
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const results = useSearchStore((s) => s.results);
   const effectiveMode = useEffectiveFocusMode();
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const metadataCache = useSelectionStore((s) => s.metadataCache);
+  const selectedCount = selectedIds.size;
+  // Multi-selection mode: 2+ items selected. Show combined metadata placeholder
+  // until S4 implements MultiImageMetadata.
+  const isMultiSelection = selectedCount > 1;
+  // Single selection: treat the one selected item as if it were focused.
+  const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
 
   const image = (() => {
+    // Multi-selection: combined metadata panel (S4). Return null for now.
+    if (isMultiSelection) return null;
     // In phantom mode, focusedImageId is only a position anchor — don't
     // show metadata for it. The panel should stay empty.
     if (effectiveMode === "phantom") return null;
-    if (!focusedImageId) return null;
-    const globalIdx = imagePositions.get(focusedImageId);
-    if (globalIdx == null) return null;
-    const localIdx = globalIdx - bufferOffset;
-    if (localIdx < 0 || localIdx >= results.length) return null;
-    return results[localIdx] ?? null;
+    // Resolve: single-selected item takes priority over focused item.
+    const resolvedId = singleSelectedId ?? focusedImageId;
+    if (!resolvedId) return null;
+    const globalIdx = imagePositions.get(resolvedId);
+    if (globalIdx != null) {
+      const localIdx = globalIdx - bufferOffset;
+      if (localIdx >= 0 && localIdx < results.length) {
+        return results[localIdx] ?? null;
+      }
+    }
+    // Image has scrolled out of the buffer. If it's the single-selected item,
+    // its metadata is already in metadataCache (populated by ensureMetadata on
+    // selection). Fall back to that so the panel doesn't go blank on scroll.
+    if (resolvedId === singleSelectedId) {
+      return metadataCache.get(resolvedId) ?? null;
+    }
+    return null;
   })();
+
+  if (isMultiSelection) {
+    return (
+      <div className="p-3">
+        <MultiImageMetadata />
+      </div>
+    );
+  }
 
   if (!image) {
     return (

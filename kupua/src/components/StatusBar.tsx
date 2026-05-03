@@ -14,6 +14,8 @@
 
 import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
+import { useSelectionStore } from "@/stores/selection-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
+import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 
 const SB_TOTAL_KEY = "kupua-sb-total";
 const SB_NEW_KEY = "kupua-sb-new";
@@ -28,19 +31,31 @@ const SB_NEW_KEY = "kupua-sb-new";
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const newCount = useSearchStore((s) => s.newCount);
+  const selectedCount = useSelectionStore((s) => s.selectedIds.size);
+  const clearSelection = useSelectionStore((s) => s.clear);
+  const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
+
+  // _isInitialLoad is true from store init until the first search completes.
+  // It's the correct "has a search ever settled?" signal — unlike `total > 0`,
+  // it distinguishes "app just loaded, no results yet" from "search returned 0".
+  const isInitialLoad = useSearchStore((s) => s._isInitialLoad);
 
   // Seed display from sessionStorage so counters survive a tab reload.
-  // Once the first search completes (total > 0), store values are
+  // Once the first search completes (!isInitialLoad), store values are
   // authoritative and the cache is just kept in sync for next reload.
   const [cached] = useState(() => ({
     total: parseInt(sessionStorage.getItem(SB_TOTAL_KEY) ?? "0", 10) || 0,
     newCount: parseInt(sessionStorage.getItem(SB_NEW_KEY) ?? "0", 10) || 0,
   }));
   useEffect(() => { if (total > 0) sessionStorage.setItem(SB_TOTAL_KEY, String(total)); }, [total]);
-  useEffect(() => { sessionStorage.setItem(SB_NEW_KEY, String(newCount)); }, [newCount]);
+  // Gate ticker write on !isInitialLoad — on mount newCount=0 in the fresh
+  // store; writing it unconditionally would wipe the cached value before the
+  // poll has a chance to restore it.
+  useEffect(() => { if (!isInitialLoad) sessionStorage.setItem(SB_NEW_KEY, String(newCount)); }, [newCount, isInitialLoad]);
 
-  // total > 0 means the store has real data from a completed search.
-  const storeReady = total > 0;
+  // storeReady = first search has completed. Use cached sessionStorage values
+  // only during the brief loading window before the first response arrives.
+  const storeReady = !isInitialLoad;
   const displayTotal = storeReady ? total : cached.total;
   const displayNewCount = storeReady ? newCount : cached.newCount;
   const newCountSince = useSearchStore((s) => s.newCountSince);
@@ -94,15 +109,20 @@ export function StatusBar() {
   }, [leftVisible, filtersExpanded, fetchAggregations]);
 
   return (
-    <div className="@container flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative overflow-hidden">
+    <div
+      className="@container flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
+      data-coarse-pointer={isCoarsePointer ? "true" : undefined}
+      data-selection-mode={selectedCount > 0 ? "true" : undefined}
+    >
       {/* Left panel toggle — full-height strip; when active, extends below
           the border to visually merge with the panel beneath */}
       <button
         onClick={() => togglePanel("left")}
+        onMouseDown={(e) => e.preventDefault()}
         onMouseEnter={handleBrowseHover}
-        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap ${
+        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap relative ${
           leftVisible
-            ? "text-grid-accent -mb-px bg-grid-bg z-10"
+            ? "text-grid-accent bg-grid-bg z-10 after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-[-1px] after:h-px after:bg-grid-bg"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
         title={`${leftVisible ? "Hide" : "Show"} Browse panel  ${shortcutTooltip("[")}`}
@@ -118,8 +138,9 @@ export function StatusBar() {
       <div className="w-px bg-grid-separator shrink-0" />
 
       {/* Result count — seeded from sessionStorage across reload.
-           select-text so users can copy the number. */}
-      {displayTotal > 0 && (
+           Show when settled (storeReady) even if 0; show cached during loading
+           only if > 0 (avoids blank-then-number flash on first load). */}
+      {(storeReady || displayTotal > 0) && (
         <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text">
           {displayTotal.toLocaleString()}<span className="hidden @[500px]:inline">&nbsp;matches</span>
         </span>
@@ -128,7 +149,15 @@ export function StatusBar() {
       {/* New images ticker — seeded from sessionStorage across reload */}
       {displayNewCount > 0 && (
         <button
-          onClick={() => { resetScrollAndFocusSearch(); reSearch(); }}
+          onClick={() => {
+            resetScrollAndFocusSearch();
+            // S6: clear selection before reSearch so the multi-panel doesn't
+            // briefly flash old reconciled state against the new results.
+            if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
+              clearSelection();
+            }
+            reSearch();
+          }}
           className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap"
           title={`${displayNewCount.toLocaleString()} new images since ${
             newCountSince
@@ -151,6 +180,31 @@ export function StatusBar() {
 
       {/* Spacer */}
       <span className="flex-1" />
+
+      {/* Selection count + clear -- desktop (fine pointer) only.
+           On coarse pointer (mobile) the SelectionFab handles this. */}
+      {selectedCount > 0 && !isCoarsePointer && (
+        <>
+          <div className="w-px bg-grid-separator shrink-0" />
+          <span role="status" aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
+            {selectedCount.toLocaleString()} selected
+          </span>
+          <div className="w-px bg-grid-separator shrink-0" />
+          <button
+            type="button"
+            className="flex items-center gap-1 px-2 h-full hover:bg-grid-hover transition-colors cursor-pointer text-grid-text-muted hover:text-grid-text shrink-0 text-sm"
+            onClick={clearSelection}
+            title="Clear selection"
+            aria-label="Clear selection"
+          >
+            {/* Material Icons "clear" */}
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            <span>Clear selection</span>
+          </button>
+        </>
+      )}
 
       <div className="w-px bg-grid-separator shrink-0" />
 
@@ -191,9 +245,10 @@ export function StatusBar() {
       {/* Right panel toggle — full-height strip; extends below when active */}
       <button
         onClick={() => togglePanel("right")}
-        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap ${
+        onMouseDown={(e) => e.preventDefault()}
+        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap relative ${
           rightVisible
-            ? "text-grid-accent -mb-px bg-grid-bg z-10"
+            ? "text-grid-accent bg-grid-bg z-10 after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-[-1px] after:h-px after:bg-grid-bg"
             : "text-grid-text-muted hover:bg-grid-hover"
         }`}
         title={`${rightVisible ? "Hide" : "Show"} Details panel  ${shortcutTooltip("]")}`}

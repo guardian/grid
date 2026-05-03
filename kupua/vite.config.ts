@@ -17,7 +17,7 @@ import type { Plugin } from "vite";
  * vite.config.ts runs in Node (not Vite-transformed), so it can't import
  * from src/.
  */
-const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit"];
+const ALLOWED_ES_PATHS = ["_search", "_count", "_cat/aliases", "_pit", "_mget"];
 
 function esProxyGuard(): Plugin {
   return {

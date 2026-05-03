@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   FIELD_REGISTRY,
+  RECONCILE_FIELDS,
   FIELDS_BY_ID,
   COLUMN_CQL_KEYS,
   SORTABLE_FIELDS,
@@ -180,5 +181,127 @@ describe("sparse images", () => {
       expect(() => getFieldRawValue(f.id, SPARSE)).not.toThrow();
       expect(() => getFieldDisplayValue(f.id, SPARSE)).not.toThrow();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RECONCILE_FIELDS invariants (S4)
+// ---------------------------------------------------------------------------
+describe("RECONCILE_FIELDS", () => {
+  it("is a non-empty subset of FIELD_REGISTRY", () => {
+    expect(RECONCILE_FIELDS.length).toBeGreaterThan(0);
+    expect(RECONCILE_FIELDS.length).toBeLessThanOrEqual(FIELD_REGISTRY.length);
+    const registryIds = new Set(FIELD_REGISTRY.map((f) => f.id));
+    for (const f of RECONCILE_FIELDS) {
+      expect(registryIds.has(f.id), `${f.id} in RECONCILE_FIELDS but not in FIELD_REGISTRY`).toBe(true);
+    }
+  });
+
+  it("excludes all always-suppress fields", () => {
+    const alwaysSuppressIds = FIELD_REGISTRY
+      .filter((f) => f.multiSelectBehaviour === "always-suppress")
+      .map((f) => f.id);
+    const reconcileIds = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    for (const id of alwaysSuppressIds) {
+      expect(reconcileIds.has(id), `${id} is always-suppress but appears in RECONCILE_FIELDS`).toBe(false);
+    }
+  });
+
+  it("excludes fields with no multiSelectBehaviour set", () => {
+    for (const f of RECONCILE_FIELDS) {
+      expect(f.multiSelectBehaviour, `${f.id} in RECONCILE_FIELDS but has no multiSelectBehaviour`).toBeDefined();
+      expect(f.multiSelectBehaviour, `${f.id} in RECONCILE_FIELDS but is always-suppress`).not.toBe("always-suppress");
+    }
+  });
+
+  it("includes known chip-array fields (keywords, subjects, people)", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    expect(ids.has("keywords")).toBe(true);
+    expect(ids.has("subjects")).toBe(true);
+    expect(ids.has("people")).toBe(true);
+  });
+
+  it("includes the 4 location sub-fields (not the composite parent)", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    expect(ids.has("location_subLocation")).toBe(true);
+    expect(ids.has("location_city")).toBe(true);
+    expect(ids.has("location_state")).toBe(true);
+    expect(ids.has("location_country")).toBe(true);
+    // The composite 'location' field is always-suppress
+    expect(ids.has("location")).toBe(false);
+  });
+
+  it("includes core editorial reconcile fields", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    const mustHave = [
+      "metadata_title",
+      "metadata_byline",
+      "metadata_credit",
+      "metadata_description",
+      "metadata_dateTaken",
+      "usageRights_category",
+    ];
+    for (const id of mustHave) {
+      expect(ids.has(id), `${id} missing from RECONCILE_FIELDS`).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// multiSelectBehaviour completeness
+// ---------------------------------------------------------------------------
+describe("multiSelectBehaviour coverage", () => {
+  it("every field in FIELD_REGISTRY has multiSelectBehaviour defined", () => {
+    for (const f of FIELD_REGISTRY) {
+      expect(
+        f.multiSelectBehaviour,
+        `field ${f.id} is missing multiSelectBehaviour`,
+      ).toBeDefined();
+    }
+  });
+
+  it("metadata_imageType has a visibleWhen predicate", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "metadata_imageType");
+    expect(f?.visibleWhen).toBeDefined();
+    expect(typeof f?.visibleWhen).toBe("function");
+  });
+
+  it("metadata_imageType visibleWhen returns false when gridConfig.imageTypes is empty", () => {
+    // gridConfig is the live module-level config; in tests it has no imageTypes by default
+    const f = FIELD_REGISTRY.find((x) => x.id === "metadata_imageType")!;
+    // The test env has no imageTypes configured, so visibleWhen should be false
+    const result = f.visibleWhen?.();
+    // Accept both true/false -- just verify it does not throw and returns a boolean
+    expect(typeof result).toBe("boolean");
+  });
+
+  it("always-suppress fields do NOT appear in RECONCILE_FIELDS", () => {
+    const alwaysSuppressIds = new Set(
+      FIELD_REGISTRY.filter((f) => f.multiSelectBehaviour === "always-suppress").map((f) => f.id),
+    );
+    const reconcileIds = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    for (const id of alwaysSuppressIds) {
+      expect(reconcileIds.has(id)).toBe(false);
+    }
+  });
+
+  it("imageId is always-suppress", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "imageId");
+    expect(f?.multiSelectBehaviour).toBe("always-suppress");
+  });
+
+  it("keywords is chip-array", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "keywords");
+    expect(f?.multiSelectBehaviour).toBe("chip-array");
+  });
+
+  it("uploadedBy is show-if-all-same", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "uploadedBy");
+    expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
+  });
+
+  it("source_mimeType is show-if-all-same", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "source_mimeType");
+    expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
   });
 });

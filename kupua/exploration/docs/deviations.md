@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-04-26
+Last updated: 2026-05-02
 
 ---
 
@@ -1029,6 +1029,44 @@ back to phantom (kahuna-like) behaviour. The default was chosen as explicit
 because the focus infrastructure (ring, keyboard nav, sort-around-focus)
 provides significant value on desktop that kahuna lacks.
 
+### 28. Alias and Additional-Metadata fields promoted to main panel; reconciled in multi-select
+
+**What:** Kahuna shows config-driven alias fields (e.g. `alias_colourModel`,
+`alias_digitalSourceType`) and a handful of "Additional Metadata" fields
+(`metadata_source`, `metadata_suppliersReference`, `metadata_bylineTitle`)
+only inside a collapsible Additional Metadata section, single-image-only.
+Kupua promotes all of these to first-class rows in the main panel, and in
+multi-select reconciles them uniformly (`multiSelectBehaviour: "reconcile"`,
+`showWhenEmpty: false`). See `field-catalogue.md` Appendix B and the per-row
+notes for the full list.
+
+**Why:** Reconciling alias values is low-cost and informationally useful —
+"all 12 selected images are CMYK" is a real signal worth surfacing. The
+Kahuna behaviour (suppress in multi-select, hide behind a collapsible)
+is conservative defaulting from the AngularJS template architecture, not
+a deliberate UX call. Promotion is uniform for simplicity; per-alias
+config (via `FieldAlias`) deferred until a concrete need arises.
+
+**Trade-off:** Slightly more visual density in the main panel. Mitigated
+by `showWhenEmpty: false` on alias fields — they only render when at
+least one selected image has a value.
+
+### 29. Selection multi-select diverges from Kahuna for `uploadInfo_filename` and `metadata_suppliersReference`
+
+**What:** Kahuna shows `uploadInfo_filename` in multi-select when all
+selected images share the same filename (`show-if-all-same` semantics).
+Kupua suppresses both `uploadInfo_filename` and `metadata_suppliersReference`
+unconditionally in multi-select (`multiSelectBehaviour: "always-suppress"`).
+
+**Why:** Both are de-facto unique identifiers per image. Coincidental
+matches across a selection are supplier error or noise, not editorially
+useful signal. Showing them invites the user to read meaning into
+matches that aren't meaningful.
+
+**Trade-off:** A power user who deliberately curates a selection of
+identically-named images won't see the filename in the panel. Acceptable
+edge case; reversible if dogfooding asks for it.
+
 ---
 
 ### DPR-aware image sizing uses a two-tier step function, not raw `devicePixelRatio`
@@ -1089,3 +1127,126 @@ at 1.5×).
 **Trade-off:** ~1.8× larger files per image on mobile. Mitigated by prefetch
 pipeline (next 4 images preloaded). On slow connections (3G), initial load
 is noticeably slower; on 4G+, the difference is ~200ms per image.
+
+---
+
+## Selections (Phase S1)
+
+### `all-same` / `all-empty` FieldReconciliation carry a `count` field
+
+**What:** The architecture doc §3 typedef for `FieldReconciliation` does not
+include a `count` field on `all-same` or `all-empty`. The implementation in
+`src/lib/reconcile.ts` adds `count: number` to both variants.
+
+**Why:** Incremental `reconcileAdd` needs to know how many images are in the
+`all-same` bucket to compute the correct `valueCount` when a new distinct
+value transitions the field to `mixed`. Without `count`, the resulting
+`valueCount` would be wrong (off by however many images had the agreed value).
+Removing it would require `mixed` to store a full histogram instead of just
+top-3 samples, which costs more memory and defeats the purpose of incremental
+reconciliation.
+
+**Trade-off:** Marginally larger reconciliation state (~4 bytes per field per
+view). No user-visible impact.
+
+
+
+---
+
+## Selections (Phase S5) -- Touch gestures
+
+### Paint-drag (Google Photos style) cut from S5
+
+**What:** The original S5 plan specced a long-press-then-drag gesture that
+paint-toggles every cell the finger enters, mirroring Google Photos. The
+`usePointerDrag` hook was built and wired but deleted before shipping. Mobile
+selection now relies on long-press + tickbox tap + second-long-press range only.
+
+**Why:** The browser reads `touch-action` at `pointerdown` (~0ms). Our long-press
+commits at 500ms. Setting `touch-action: none` at commit time is too late --
+the browser has already decided the gesture may scroll, and any subsequent
+`pointermove` fires `pointercancel`. The only fix would be setting
+`touch-action: none` permanently on the grid container while in selection mode,
+which disables vertical scrolling entirely while items are selected
+(unacceptable UX -- users would be unable to scroll to find more items to add).
+Google Photos solves this in a native app with OS-level gesture disambiguation.
+Kupua is a web app.
+
+**Trade-off:** Mobile range selection requires two distinct long-press gestures
+(anchor + target) instead of one continuous drag. Slightly slower for adjacent
+ranges; comparable for distant ranges (the long-press range path uses the same
+buffer/server walk as desktop shift-click).
+
+---
+
+## Selections (Phase S6) -- Persistence policy
+
+### Selections clear on most navigation, gated by a flag (default off)
+
+**What:** The original architecture (§1 of `05-selections.md`) framed selection
+as "persists across sort, search, and reload" -- shopping-cart semantics. S6
+flipped the default: selections now clear on any new search (query, filter,
+saved-search, URL paste, ticker click, browser back/forward) and on the Home
+logo. They survive sort, reload, image detail open/close, density toggle, and
+tier-mode change. The full survival matrix is in §4 of the architecture doc.
+
+The behaviour is gated by `SELECTIONS_PERSIST_ACROSS_NAVIGATION` in
+`constants/tuning.ts` (default `false`). Flipping to `true` restores the
+original "survives everything" behaviour as a one-line escape hatch.
+
+**Why:** Dogfooding through S4/S5 with the original "survives everything"
+behaviour clarified two things: (1) the shopping-cart mental model is the
+right fit for a future **Clipboard** component (a durable cart in My Places,
+separate from the active selection), not for the selection set itself; (2)
+the drift UI required to communicate cross-search persistence (`12 selected
+· 8 in view`) is non-trivial UX work that pays off only under the cart model.
+Until Clipboard ships and genuinely needs durable persistence, defaulting to
+clear-on-navigation matches user expectations from every other DAM tool and
+leaves selection ephemeral.
+
+The drift counter, `inViewCount` selector, and "Show only selected" filter
+(§9 of the architecture doc) are deferred until either the flag is flipped
+or Clipboard arrives. The architecture doc retains the design so the
+implementation is straightforward when needed.
+
+**Trade-off:** Users who want long-running selections across multiple searches
+lose that workflow in v1. Mitigation: the flag flip is one line in
+`tuning.ts`; the underlying machinery (persist middleware, hydrate, metadata
+cache, reconciliation across out-of-view items) all still works. When
+Clipboard ships the flag becomes obsolete and is removed.
+
+**What:** Grid cells have `draggable="true"` on fine-pointer (desktop) devices only.
+The `IS_COARSE_POINTER` constant (computed once at module load from
+`window.matchMedia("(pointer: coarse)").matches`) gates the attribute.
+On coarse-pointer (touch) devices the attribute is absent.
+
+**Why:** On Android Chrome, `draggable="true"` causes the browser to intercept a
+long-press as an HTML5 drag gesture, firing `pointercancel` on our `useLongPress`
+hook and killing the selection-mode entry gesture. There is no API to have both
+`draggable` and long-press on the same element on mobile without a native app's
+gesture disambiguation layer. Google Photos solves this in a native app. Kupua
+is a web app.
+
+**Trade-off:** Users on touch devices cannot drag individual cells to collection
+panels (there are no collection drop targets in Kupua's mobile layout yet anyway).
+Desktop drag-to-collection works as expected.
+
+---
+
+### `draggable` is desktop-only (fine pointer); suppressed on coarse pointer
+
+**What:** Grid cells have `draggable="true"` on fine-pointer (desktop) devices only.
+The `IS_COARSE_POINTER` constant (computed once at module load from
+`window.matchMedia("(pointer: coarse)").matches`) gates the attribute.
+On coarse-pointer (touch) devices the attribute is absent.
+
+**Why:** On Android Chrome, `draggable="true"` causes the browser to intercept a
+long-press as an HTML5 drag gesture, firing `pointercancel` on our `useLongPress`
+hook and killing the selection-mode entry gesture. There is no API to have both
+`draggable` and long-press on the same element on mobile without a native app's
+gesture disambiguation layer. Google Photos solves this in a native app. Kupua
+is a web app.
+
+**Trade-off:** Users on touch devices cannot drag individual cells to collection
+panels (there are no collection drop targets in Kupua's mobile layout yet anyway).
+Desktop drag-to-collection works as expected.

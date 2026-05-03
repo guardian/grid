@@ -23,14 +23,20 @@ import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useColumnStore } from "@/stores/column-store";
 import { useSearchStore } from "@/stores/search-store";
+import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
+import { TableTickbox } from "./Tickbox";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { cancelSearchDebounce, pushNavigate } from "@/lib/orchestration/search";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { interpretClick, type Modifier } from "@/lib/interpretClick";
+import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { handleLongPressStart } from "@/lib/handleLongPressStart";
+import { useLongPress } from "@/hooks/useLongPress";
 import { DataSearchPill } from "./SearchPill";
 import {
   FIELD_REGISTRY,
@@ -241,7 +247,9 @@ interface TableBodyProps {
   handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
   handleRowDoubleClick: (imageId: string) => void;
   handleRowClick: (imageId: string, e: React.MouseEvent) => void;
+  handleTickClick: (imageId: string, e: React.MouseEvent) => void;
   focusedImageId: string | null;
+  inSelectionMode: boolean;
   /** Number of visible columns — used to bust memo when column visibility changes. */
   visibleColumnCount: number;
   /** Look up the image at a global index (may be undefined if not loaded). */
@@ -254,7 +262,9 @@ const TableBody = memo(function TableBody({
   handleCellClick,
   handleRowDoubleClick,
   handleRowClick,
+  handleTickClick,
   focusedImageId,
+  inSelectionMode,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
   visibleColumnCount: _,
   getImage,
@@ -293,6 +303,8 @@ const TableBody = memo(function TableBody({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
+              {/* Selection column placeholder */}
+              <div className="flex items-center justify-center shrink-0 border-r border-grid-separator/20" style={{ width: 32, height: "100%" }} />
               <div className="bg-grid-separator/10 h-3 mx-4 rounded flex-1 max-w-xs" />
             </div>
           );
@@ -315,18 +327,20 @@ const TableBody = memo(function TableBody({
               key={`pending-${virtualRow.index}`}
               role="row"
               aria-rowindex={virtualRow.index + 2}
-              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 px-2 text-xs text-grid-text-dim truncate"
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 text-xs text-grid-text-dim truncate"
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {preview}
+              {/* Selection column placeholder */}
+              <div className="flex items-center justify-center shrink-0 border-r border-grid-separator/20" style={{ width: 32, height: "100%" }} />
+              <span className="px-2 truncate">{preview}</span>
             </div>
           );
         }
 
-        const isFocused = image.id === focusedImageId && getEffectiveFocusMode() === "explicit";
+        const isFocused = image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode;
 
         // ── Animation: arriving images + phantom focus pulse ──
         const animClass = arrivingImageIds.has(image.id)
@@ -340,6 +354,7 @@ const TableBody = memo(function TableBody({
             key={row.id}
             role="row"
             data-image-id={image.id}
+            data-cell-id={image.id}
             aria-rowindex={virtualRow.index + 2} // +2: 1-based, header is row 1
             aria-selected={isFocused}
             className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
@@ -354,6 +369,18 @@ const TableBody = memo(function TableBody({
             onClick={(e) => handleRowClick(image.id, e)}
             onDoubleClick={() => handleRowDoubleClick(image.id)}
           >
+            {/* Selection column — always present, fixed 32px, not user-hideable.
+                TableTickbox is hidden by CSS and shown on hover or in selection mode. */}
+            <div
+              role="gridcell"
+              className="flex items-center justify-center shrink-0 border-r border-grid-separator/20"
+              style={{ width: 32, height: "100%" }}
+            >
+              <TableTickbox
+                imageId={image.id}
+                onTickClick={(e) => handleTickClick(image.id, e)}
+              />
+            </div>
             {row.getVisibleCells().map((cell) => {
               const rawValue = getFieldRawValue(
                 cell.column.id,
@@ -369,6 +396,10 @@ const TableBody = memo(function TableBody({
                 <div
                   key={cell.id}
                   role="gridcell"
+                  // data-cql-cell is checked in handleRowClick to distinguish
+                  // "shift+click on a field value" (→ click-to-search) from
+                  // "shift+click on image cell / row whitespace" (→ range-select).
+                  data-cql-cell={isClickable ? "" : undefined}
                   className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
                   style={{ width: `var(--col-${cell.column.id})`, contain: 'layout' }}
                   title={rawValue ?? undefined}
@@ -404,7 +435,12 @@ const TableBody = memo(function TableBody({
   );
 });
 
-export function ImageTable() {
+export interface ImageTableProps {
+  /** S3a: range-select handler from useRangeSelection, mounted in search.tsx. */
+  handleRange?: (effect: AddRangeEffect) => void;
+}
+
+export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const {
     results, total, bufferOffset, virtualizerCount, loading, loadMore, seek,
     focusedImageId, setFocusedImageId,
@@ -458,9 +494,55 @@ export function ImageTable() {
   );
 
   // Single-click a row → set focus (explicit) or enter detail (phantom).
-  // Shift/Alt+click are click-to-search gestures — never enter detail.
+  // In selection mode: toggle the image instead.
+  // Shift/Alt+click are click-to-search gestures (table).
+  // Both are suppressed in selection mode (shift conflicts with range-select;
+  // alt is suppressed for consistency). handleCellClick guards that case.
   const handleRowClick = useCallback(
     (imageId: string, e: React.MouseEvent) => {
+      const selState = useSelectionStore.getState();
+      const inMode = selState.selectedIds.size > 0;
+
+      if (inMode) {
+        const modifier: Modifier =
+          e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+        const searchState = useSearchStore.getState();
+        const idx = findImageIndex(imageId);
+        const image = idx >= 0 ? getImage(idx) : undefined;
+        const anchorId = selState.anchorId;
+        const anchorGlobalIndex = anchorId
+          ? (searchState.imagePositions.get(anchorId) ?? undefined)
+          : undefined;
+        const anchorSortValues = (() => {
+          if (!anchorId) return null;
+          const anchorImg = selState.metadataCache.get(anchorId);
+          return anchorImg
+            ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+            : null;
+        })();
+        const effects = interpretClick({
+          targetId: imageId,
+          kind: "image-body",
+          modifier,
+          inSelectionMode: true,
+          anchorId,
+          targetGlobalIndex: searchState.imagePositions.get(imageId),
+          anchorGlobalIndex,
+          targetSortValues: image
+            ? extractSortValues(image, searchParamsRef.current.orderBy)
+            : null,
+          anchorSortValues,
+        });
+
+        dispatchClickEffects(effects, {
+          setFocusedImageId,
+          enterDetail: handleRowDoubleClick,
+          handleRange,
+        });
+        return;
+      }
+
+      // Not in selection mode: existing behavior.
       if (e.shiftKey || e.altKey) {
         // Let handleCellClick (click-to-search) handle it; don't enter detail or set focus.
         return;
@@ -471,10 +553,54 @@ export function ImageTable() {
       }
       setFocusedImageId(imageId);
     },
-    [setFocusedImageId, handleRowDoubleClick],
+    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange],
   );
 
-  // Column context menu — imperative handle; the component manages its own
+  /**
+   * Handle tick-column clicks — goes through interpretClick like cell clicks.
+   */
+  const handleTickClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      const selState = useSelectionStore.getState();
+      const searchState = useSearchStore.getState();
+      const idx = findImageIndex(imageId);
+      const image = idx >= 0 ? getImage(idx) : undefined;
+      const modifier: Modifier =
+        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+      const anchorId = selState.anchorId;
+      const anchorGlobalIndex = anchorId
+        ? (searchState.imagePositions.get(anchorId) ?? undefined)
+        : undefined;
+      const anchorSortValues = (() => {
+        if (!anchorId) return null;
+        const anchorImg = selState.metadataCache.get(anchorId);
+        return anchorImg
+          ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+          : null;
+      })();
+      const effects = interpretClick({
+        targetId: imageId,
+        kind: "tick",
+        modifier,
+        inSelectionMode: selState.selectedIds.size > 0,
+        anchorId,
+        targetGlobalIndex: searchState.imagePositions.get(imageId),
+        anchorGlobalIndex,
+        targetSortValues: image
+          ? extractSortValues(image, searchParamsRef.current.orderBy)
+          : null,
+        anchorSortValues,
+      });
+      dispatchClickEffects(effects, {
+        setFocusedImageId,
+        enterDetail: handleRowDoubleClick,
+        handleRange,
+      });
+    },
+    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange],
+  );
+
+  // Column context menu -- imperative handle; the component manages its own
   // open/close state, viewport clamping, and dismiss behaviour.
   const columnMenuRef = useRef<ColumnContextMenuHandle>(null);
 
@@ -668,6 +794,28 @@ export function ImageTable() {
     cachedRowsRef.current = rows;
     cachedVirtualItemsRef.current = virtualItems;
   }
+
+  // Selection mode — subscribe once at container level.
+  // Per-cell components do NOT subscribe to this (would cause 1000+ re-renders
+  // on mode flip). CSS handles tickbox visibility via data-selection-mode.
+  const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+
+  // -------------------------------------------------------------------------
+  // Long-press gestures (S5 -- coarse pointer / touch selection)
+  // Same logic as ImageGrid -- shared via handleLongPressStart helper.
+  // -------------------------------------------------------------------------
+
+  useLongPress({
+    containerRef: parentRef,
+    onLongPressStart: (cellId) =>
+      handleLongPressStart({
+        cellId,
+        handleRange,
+        findImageIndex,
+        getImage,
+        orderBy: searchParamsRef.current.orderBy,
+      }),
+  });
 
   // Restore focus and scroll when returning from image detail overlay.
   useReturnFromDetail({
@@ -962,9 +1110,11 @@ export function ImageTable() {
   // Cell click: shift-click adds key:value, alt-click adds -key:value to query.
   // If the same key:value already exists with opposite polarity, flips it in-place.
   // If it already exists with the same polarity, does nothing (no-op).
+  // Both gestures are suppressed in selection mode (shift = range-select; alt suppressed for consistency).
   const handleCellClick = useCallback(
     (columnId: string, image: Image, e: React.MouseEvent) => {
       if (!e.shiftKey && !e.altKey) return;
+      if (useSelectionStore.getState().selectedIds.size > 0) return;
 
       // Check for per-sub-field CQL key on the click target (e.g. Location column)
       const target = e.target as HTMLElement;
@@ -1065,7 +1215,13 @@ export function ImageTable() {
 
   return (
     <div className="flex-1 min-w-0 flex flex-col">
-      <div ref={parentRef} role="region" aria-label="Image results table" className="flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain">
+      <div
+        ref={parentRef}
+        role="region"
+        aria-label="Image results table"
+        className="flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain"
+        data-selection-mode={inSelectionMode ? "true" : undefined}
+      >
       {/* (C) CSS-variable column widths — a single <style> tag sets
           --col-<id> for every visible column.  Header and body cells
           reference these variables, so width changes during resize
@@ -1096,6 +1252,13 @@ export function ImageTable() {
           className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-11"
           onContextMenu={(e) => handleHeaderContextMenu(e)}
         >
+          {/* Selection column header — always present, not sortable, not resizable */}
+          <div
+            role="columnheader"
+            aria-label="Selection"
+            className="relative flex items-center justify-center shrink-0 border-r border-grid-separator"
+            style={{ width: 32 }}
+          />
           {table.getHeaderGroups().map((headerGroup) =>
             headerGroup.headers.map((header) => {
               const sortField = sortableFields[header.column.id];
@@ -1301,7 +1464,9 @@ export function ImageTable() {
           handleCellClick={handleCellClick}
           handleRowDoubleClick={handleRowDoubleClick}
           handleRowClick={handleRowClick}
+          handleTickClick={handleTickClick}
           focusedImageId={focusedImageId}
+          inSelectionMode={inSelectionMode}
           visibleColumnCount={visibleColIds.length}
           getImage={getImage}
         />

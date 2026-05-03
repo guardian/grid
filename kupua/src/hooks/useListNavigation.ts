@@ -38,6 +38,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { useSelectionStore } from "@/stores/selection-store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -393,8 +394,11 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (isNativeInputTarget(e)) return;
 
       const cols = c.columnsPerRow;
+      // In selection mode, treat as if there is no focus: arrows scroll,
+      // never move focus. Read imperatively so no stale closures.
+      const inSelectionMode = useSelectionStore.getState().selectedIds.size > 0;
       // In phantom mode, keyboard never enters focus mode — always scroll.
-      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
+      const hasFocus = !inSelectionMode && c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
 
       switch (e.key) {
         case "ArrowUp":
@@ -413,18 +417,24 @@ export function useListNavigation(config: ListNavigationConfig): void {
             scrollByRows(1);
           }
           break;
-        // ArrowLeft/Right only meaningful in multi-column densities (grid)
-        // and only when focus exists (they're trapped in CQL search box)
+        // ArrowLeft/Right: in multi-column grid with focus, move focus.
+        // In table (cols===1), scroll horizontally — works in and out of selection mode.
         case "ArrowLeft":
           if (hasFocus && cols > 1) {
             e.preventDefault();
             moveFocus(-1);
+          } else if (cols === 1) {
+            e.preventDefault();
+            c.scrollRef.current?.scrollBy({ left: -150, behavior: "smooth" });
           }
           break;
         case "ArrowRight":
           if (hasFocus && cols > 1) {
             e.preventDefault();
             moveFocus(1);
+          } else if (cols === 1) {
+            e.preventDefault();
+            c.scrollRef.current?.scrollBy({ left: 150, behavior: "smooth" });
           }
           break;
         case "PageUp":
@@ -470,7 +480,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (document.fullscreenElement) return;
       if (isNativeInputTarget(e)) return;
 
-      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
+      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit" &&
+        useSelectionStore.getState().selectedIds.size === 0;
 
       switch (e.key) {
         case "Home":

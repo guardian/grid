@@ -10,6 +10,14 @@
 import { gridConfig } from "@/lib/grid-config";
 
 /**
+ * Fields that ES maps to epoch-milliseconds in sort values.
+ * Used by extractSortValues to match the ES-native sort value format.
+ */
+export const DATE_SORT_FIELDS = new Set([
+  "uploadTime", "metadata.dateTaken", "lastModified",
+]);
+
+/**
  * Build the ES sort clause from an orderBy string.
  *
  * Two automatic suffixes are always appended after the user's sort fields:
@@ -109,9 +117,6 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   // last/secondary sort instead, but it adds complexity for a rare edge
   // case (docs missing both primary AND secondary sort fields).
   if (!fieldSet.has("uploadTime")) {
-    const DATE_SORT_FIELDS = new Set([
-      "uploadTime", "metadata.dateTaken", "lastModified",
-    ]);
     const primaryField = clauses[0] ? Object.keys(clauses[0])[0] : null;
     const primaryDir = clauses[0] && primaryField
       ? (clauses[0][primaryField] as string)

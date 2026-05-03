@@ -2,12 +2,14 @@
 
 > Permanent reference for how multi-image selection works in Kupua and why it
 > looks the way it does. Phase 2 work; editing actions deferred to Phase 3+.
-> Implementation tracker (phases, gotchas, test surfaces) lives in
-> [`../selections-workplan.md`](../selections-workplan.md).
+> Implementation history (phases, gotchas, test surfaces) lives in the
+> archived workplan at
+> [`../zz Archive/selections-workplan.md`](../zz%20Archive/selections-workplan.md)
+> and the per-phase narrative in [`../changelog.md`](../changelog.md).
 >
 > Companion docs:
 > - [`../01 Research/selections-kahuna-findings.md`](../01%20Research/selections-kahuna-findings.md) — what Kahuna does and why it breaks above ~500 items.
-> - [`../selections-field-classification.md`](../selections-field-classification.md) — per-field reconciliation table.
+> - [`field-catalogue.md`](field-catalogue.md) — per-field reference (multi-select behaviour, ES presence, Kupua/Kahuna parity).
 
 ---
 
@@ -15,7 +17,7 @@
 
 **Goals**
 
-- Persistent multi-image selection that survives **sort changes** (mandatory) and **search changes** (best-effort, per Kupua's "100% in code, relax as conscious UX decision" philosophy).
+- Multi-image selection that survives **sort/order changes**, **page reload** (within a tab), **image detail open/close**, **density change** (grid ↔ table, column count), and **tier-mode change**. Cleared on **any new search** (query, filter, saved-search, URL paste, ticker click, browser back/forward) and on the **Home logo**. The full survival matrix is in §4. A `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` constant in `constants/tuning.ts` is the one-line escape hatch back to "survives everything" for future Clipboard work.
 - Comfortable interactive performance to **5,000 selected items** (10× Kahuna's ceiling). Larger should degrade gracefully, not crash.
 - Reconciled metadata display in the right-hand Details panel — "all the same" shows the value, "differ" shows a "Multiple values" indicator. Field-by-field, mirroring Kahuna's information architecture but with non-quadratic cost.
 - Designed as a **modal Selection Mode** (Kahuna-style) — but with the option to retire that modality later (Lightroom-style "selection is just a thing the app always knows about") without rewriting the data layer.
@@ -73,7 +75,13 @@ interface ReconciledView {
 type FieldReconciliation =
   | { kind: "all-same"; value: unknown }
   | { kind: "all-empty" }
-  | { kind: "mixed"; sampleValues: unknown[]; emptyCount: number; valueCount: number };
+  | { kind: "mixed"; sampleValues: unknown[]; emptyCount: number; valueCount: number }
+  // Chip-array fields (keywords, people, labels, subjects). `count` per chip
+  // drives the partial/full visual; `total` = selectedIds.size for the gate.
+  | { kind: "chip-array"; chips: Array<{ value: unknown; count: number }>; total: number }
+  // Summary-only fields (leases). Pre-rendered headline string; no per-record
+  // reconciliation. Computed lazily from per-image lease arrays.
+  | { kind: "summary"; line: string };
 ```
 
 **Storage choices and why:**
@@ -86,14 +94,41 @@ type FieldReconciliation =
 - `setAnchor(id)` MUST call `ensureMetadata([id])`. Range-select's server-walk path needs the anchor's sort values; without this, every server-walk eats an extra round trip.
 - `add(ids[])` MUST call `ensureMetadata(ids)`. Reconciliation cannot run on uncached items; we want range-add to surface the metadata fetch as part of the action, not as a downstream surprise.
 
-## 4. Persistence — survives reload, drops missing items silently
+## 4. Persistence — survival matrix and hydration
 
 Wired via `zustand/middleware` `persist`, matching the established pattern (`column-store`, `panel-store`, `ui-prefs-store`).
 
 - `partialize`: persist only `selectedIds` and `anchorId`. The metadata cache is rebuilt on demand; `pendingFetchIds` and `reconciledView` are runtime-only.
 - Storage: `sessionStorage`. Survives reload within a tab. Does not leak across tabs (matches selection mental model — selection is "what I'm working on right now").
-- **Hydration drift handling:** on mount, `selectionCount > 0` triggers a single batched `getByIds(selectedIds)` call. IDs that ES returns nothing for are silently removed from the set. A one-time toast announces `"N selections from your last session were no longer available and have been dropped."` if any drift occurred.
-- **Cap:** if persisted set exceeds 5,000 items on hydration, log a warning and truncate to the most-recently-added 5,000. This is a defensive guard, not an expected path.
+
+### Survival matrix (default behaviour: `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false`)
+
+| Surface | Survives? | Mechanism |
+|---|---|---|
+| Sort change (`orderBy`) | YES | `useUrlSearchSync` detects sort-only via `isSortOnly`; clear hook skips. |
+| Page reload | YES | persist middleware. Hydration repopulates `metadataCache` via `getByIds`. |
+| Image detail open/close | YES | `image` is a `URL_DISPLAY_KEY`; no search fires. |
+| Density toggle (grid↔table, column count) | YES | `density` is a `URL_DISPLAY_KEY`; no search fires. |
+| Tier-mode change (buffer↔two-tier↔seek) | YES | Internal state; no URL change, no search. |
+| Home logo | NO | `resetToHome()` calls `selection.clear()`. |
+| Any new search (query, filter, date range, saved search, URL paste) | NO | `useUrlSearchSync` clear hook (gated on flag). |
+| New-images ticker click | NO | `StatusBar` ticker `onClick` calls `clear()` before `reSearch()`. |
+| Browser back / forward | NO | Same `useUrlSearchSync` clear hook (covers `isPopstate`). |
+| Login/logout / forced session change | NO | sessionStorage is per-tab; new context starts clean. |
+| Bulk-action completion | (deferred) | Phase 3+. GPhotos clears, Kahuna keeps; decide when bulk lands. |
+
+**Items disappearing from results mid-session** (background ingestion deletes a selected image): the ID stays in `selectedIds`. Reconciliation tolerates missing items in the cache. Hydration drop only fires on cold start.
+
+### Flag: `SELECTIONS_PERSIST_ACROSS_NAVIGATION`
+
+Lives in `constants/tuning.ts`. Default `false`. When `true`, the four "NO" rows above flip to YES — selections survive everything (the original v1-design behaviour). Single-line escape hatch; no UI surface. Intended to be revisited when **Clipboard** (My Places) ships and durable persistence becomes the Clipboard's concern rather than the selection set's. At that point this flag becomes obsolete and is removed.
+
+### Hydration on mount
+
+- `useSelectionStore.getState().hydrate()` called once from the `/search` route's mount effect. (The persist middleware repopulates `selectedIds` synchronously before mount; `hydrate()` is what kicks the metadata fetch so the multi-image panel renders reconciled values rather than dashes.)
+- `hydrate()` calls `getByIds(selectedIds)`. IDs ES no longer returns are silently dropped from the set.
+- A one-time **information toast** — *"N items from your previous selection are no longer available."* — fires when drift is detected. Deduped via a module-level flag, reset on `clear()`.
+- **Cap:** if persisted set exceeds 5,000 items on hydration, log a warning and truncate to the most-recently-added 5,000 (defensive guard, not an expected path).
 
 **Why sessionStorage not localStorage:** selections are work-in-progress, not preferences. A second tab on the same Grid should not inherit the first tab's working selection — that's a recipe for confusion when bulk-edit lands in Phase 3+.
 
@@ -151,16 +186,16 @@ function interpretClick(ctx: ClickContext): ClickEffect[];
 | Not in Selection Mode | image body | none | `set-focus(id)` then (in click-to-open mode) `open-detail(id)` — current behaviour, untouched |
 | Not in Selection Mode | tick | any | `set-anchor(id)`, `toggle(id)` — enters Selection Mode |
 | In Selection Mode | image body | none | `toggle(id)` (does NOT open detail, does NOT change focus) |
-| In Selection Mode | image body | shift | If `anchorId` set: `add-range{...}` — anchor unchanged. If not: `set-anchor(id)`, `toggle(id)` |
+| In Selection Mode | image body | shift | If `anchorId` set: `add-range{polarity}` — anchor unchanged, polarity = anchor currently selected ? add : remove. If no anchor: `set-anchor(id)`, `toggle(id)` |
 | In Selection Mode | tick | none | Same as image-body none |
 | In Selection Mode | tick | shift | Same as image-body shift |
 | Any | any | meta/ctrl | Reserved — currently no-op. Future: secondary selection set / paste. |
 
-**Anchor rule (Rule 2 from the UX call):** non-shift selection click sets the anchor. Shift-click expands without moving the anchor. A separate `set-anchor` gesture is not provided in v1 — the user re-anchors by non-shift-clicking elsewhere.
+**Anchor rule:** non-shift selection click sets the anchor. Shift-click operates relative to the anchor without moving it. The user re-anchors by non-shift-clicking elsewhere.
 
-**Why this shape is easy to refine:** the entire interaction policy lives in one pure function with a small fixed input/output contract. Rule changes are: (a) edit the table, (b) edit the function, (c) update tests. UI components stay untouched. Renaming "Selection Mode" away to non-modal is similarly local — it's just one flag in `ClickContext` becoming always-true.
+**Polarity rule:** the anchor's current selection state determines whether the range adds or removes. The anchor is set by a non-shift click which also toggles it — so if the anchor is selected, the user was in an adding gesture → range adds. If the anchor is unselected, the user was in a removing gesture → range removes. Mixed ranges (some items already in the right state) are no-ops on those items.
 
-**On deselect-range:** intentionally not a modifier in v1. Users will not understand `Shift+Cmd-click excludes range`. If repeated requests for it appear, add a "Deselect range" affordance in the toolbar (button activates a one-shot mode where the next shift-click deselects instead of selects). Not designed now.
+**Why this shape is easy to refine:** the entire interaction policy lives in one pure function with a small fixed input/output contract. Rule changes are: (a) edit the table, (b) edit the function, (c) update tests. UI components stay untouched.
 
 ## 6. Range selection — never silently drop
 
@@ -214,23 +249,69 @@ The reconciled view is a `Map<fieldId, FieldReconciliation>`. For each field, th
 - Range add of 2,000 items: chunked across ~4 idle frames at 500 per chunk. Each chunk ~5–10ms. Panel updates incrementally; no main-thread block.
 - Worst case 5,000 items: ~10 chunks, ~50–100ms total wall-clock, zero frames blocked. User sees placeholders briefly on slow devices.
 
+**Buffer images are metadata-complete.** `SOURCE_INCLUDES` in `es-config.ts` covers all three field tiers — Tier 1 (grid density), Tier 2 (table density), Tier 3 (detail panel) — including every field the reconciler reads: keywords, location sub-fields, mimeType, colour model, usageRights.category, and all fileMetadata sub-fields. Images in the search `results[]` buffer therefore carry complete panel metadata. The `ensureMetadata` / `getByIds` path is only *strictly necessary* for:
+- Images rehydrated from sessionStorage (buffer is gone after reload).
+- Images range-selected via server-walk that fell outside the buffer window.
+- Images that have since scrolled out and been evicted from the buffer.
+
+For interactive selection of visible images, `ensureMetadata` re-fetches data the buffer already contains. An optimisation — seeding `metadataCache` from `results[]` at toggle/add time — would eliminate those round-trips and remove pending-field flicker for common interactive selections. Not built in v1; `ensureMetadata` guards against duplicates (`pendingFetchIds` dedup), so the extra fetch is wasted but not wrong.
+
 **Memoisation key:** the `reconciledView` is invalidated by a generation counter bumped on any selectedIds mutation AND on each chunk completion during lazy recompute. No structural diffing.
 
 ## 8. What gets reconciled, what doesn't
 
 Mirroring Kahuna's structural rule — fields that don't make sense across multiple images are simply not rendered in multi-select.
 
-The field registry will gain a new optional flag: `multiSelectBehaviour?: "reconcile" | "always-suppress" | "show-if-all-same"`.
+**Selection-of-one renders the single-image panel.** A selection of exactly one image renders `ImageMetadata` (the single-image detail component) verbatim — no `multiSelectBehaviour` filtering applied. Otherwise ticking one image would silently hide rows like filename, dimensions, lease list, identifiers — jarring and wrong. The multi-select code path (suppression, partial/full chips, summary lines, `Multiple values` placeholders) is gated on `selectionCount >= 2`. The natural panel branch is `count === 0 ? Empty : count === 1 ? Single : Multi`. **Implementation consequence:** `MultiImageMetadata` and `ImageMetadata` must share the row-rendering primitives (extracted to `metadata-primitives.tsx` in S4) so the count=1 case is byte-identical to single-image detail.
+
+The field registry will gain a new optional flag: `multiSelectBehaviour?: "reconcile" | "chip-array" | "always-suppress" | "show-if-all-same" | "summary-only"`.
 
 - `reconcile` (default for editable text fields): runs full reconciliation, shows value or "Multiple values".
-- `always-suppress`: never shown in multi-select (id, fileName, dimensions, uploadedBy, uploadTime, identifiers).
-- `show-if-all-same`: shown only when all selected items agree (e.g. fileType — "12 selected items, all JPEG" is useful; "Multiple file types" is less so). Otherwise hidden.
+- `chip-array`: per-chip partial/full visual via the shared chip component (keywords, people, labels, subjects). Reconciliation groups by chip value across the selection and emits `{ chips: [{ value, count }], total }`.
+- `always-suppress`: never shown in multi-select (id, fileName, suppliersReference, dimensions, uploadTime, identifiers).
+- `show-if-all-same`: shown only when all selected items agree (uploadedBy, source_mimeType — "12 selected items, all JPEG" is useful; "Multiple file types" is less so). Otherwise hidden.
+- `summary-only`: rendered as a count-summary line, no per-record reconciliation. Used for leases (and any future field whose multi-select view is intentionally "just the headline counts").
+
+The authoritative per-field assignment lives in [`field-catalogue.md`](field-catalogue.md).
 
 **"Important empty fields" parity with Kahuna.** Kahuna's behaviour is structural: certain fields (title, description, special instructions, date taken, credit) render even when all selected items are empty, signalling "these matter, here is where you'd add them". Phase 2 has no editing, so this signalling is currently informational only — but the field registry should already mark these fields as `showWhenEmpty: true` so the Phase-3+ edit affordance lands cleanly.
 
-**Array fields (keywords, subjects, people).** Kahuna does no reconciliation — it shows the union of all chips with per-chip remove. We do the same in v1 (no semantic reconciliation), but we **compute and display occurrence counts** as small badges (`Reuters ×12`) so users can tell which keywords are common across the selection. This is a cheap improvement on Kahuna and a useful signal pre-edit.
+**Array fields (keywords, people, labels, subjects).** Per the pills/location/leases findings
+([`../01 Research/selections-kahuna-pills-location-leases-findings.md`](../01%20Research/selections-kahuna-pills-location-leases-findings.md)),
+Kahuna *does* reconcile chip arrays — via a single shared component
+(`ui-list-editor-info-panel`) that computes `getOccurrences` per chip across the selection and
+visually differentiates **partial** chips (chip on some images: hollow / white pill,
+`element--partial` CSS class) from **full** chips (chip on every image: filled / dark pill). No
+count badge, no tooltip, no grouping — just the binary partial/full distinction. Editable
+(keywords / people / labels) chips also gain a `+` "Apply to all" affordance on partial chips
+and an "X" remove on every chip. Subjects is `is-editable="false"` in Kahuna — read-only
+display in multi-select. Kupua mirrors this contract for v1 display: a `partial: boolean` prop
+on the chip component, the same hollow/filled visual, **no count badges**. (An earlier draft
+of this doc proposed `Reuters ×12` badges; dropped because (a) Kahuna doesn't do it and we
+have no UX evidence it helps, (b) it's a perf risk at 5,000 selected with high-cardinality
+keywords that we haven't measured, (c) easy to add later if dogfooding asks for it.)
 
-**Per-field classification — see [`../selections-field-classification.md`](../selections-field-classification.md)** for the full table mapping each of Kupua's 33 fields (26 hardcoded + 7 default config aliases) to `multiSelectBehaviour` + `showWhenEmpty`. Summary: 23 reconcile, 8 always-suppress, 2 show-if-all-same; 6 fields marked `showWhenEmpty: true` (title, description, specialInstructions, byline, credit, dateTaken) per Kahuna's important-empty signal.
+**Composite-scalar fields (location).** Location is rendered as four independent rows —
+`subLocation`, `city`, `state`, `country` — each reconciled independently. A selection can be
+"all-same" on country but "mixed" on city, and the panel shows that. Kupua mirrors this:
+location is registered as four scalar entries (or one synthetic `location-segments` group with
+per-segment `FieldReconciliation`), not as a composite path. Editing in Kahuna saves all four
+in one batch but display is fully per-segment.
+
+**Lease fields (summary-only).** Leases get their own `multiSelectBehaviour: "summary-only"`
+classification. In Kahuna multi-select the per-lease list is hidden entirely
+(`ng-if="ctrl.totalImages === 1"`); only a count summary is shown:
+`"3 current leases + 2 inactive leases"`. No reconciliation across leases (no identity match,
+no intersection). Kupua mirrors this — the panel renders the same kind of summary line and
+nothing else for leases. Reconciling individual lease records across N images is high-stakes
+(legal/rights), out of v1 scope, and Kahuna's "don't try" answer is the safe default.
+
+**Cost pills (`N free / N paid / N restricted` etc. with lease-percentage gradients).** Kahuna
+shows these in `gr-info-panel` above the metadata panel. They depend on a server-derived `cost`
+field that Kupua does not currently index/expose. Out of v1 reach; tracked as a backlog item
+when the cost field becomes available client-side.
+
+**Per-field classification — see [`field-catalogue.md`](field-catalogue.md)** for the full table mapping each of Kupua's 33 fields (26 hardcoded + 7 default config aliases) to `multiSelectBehaviour` + `showWhenEmpty`. Summary: 23 reconcile, 8 always-suppress, 2 show-if-all-same; 6 fields marked `showWhenEmpty: true` (title, description, specialInstructions, byline, credit, dateTaken) per Kahuna's important-empty signal.
 
 **Notable deviations from Kahuna's per-field behaviour** (logged in `../deviations.md`):
 - **All config alias fields reconcile** (Kahuna suppresses them entirely in multi-select). Cheap, more useful, particularly valuable for `digitalSourceType` where mixed human/AI is editorially significant. `FieldAlias` may later gain optional per-field overrides if a Grid operator needs them — not built until concrete need.
@@ -239,15 +320,17 @@ The field registry will gain a new optional flag: `multiSelectBehaviour?: "recon
 
 ## 9. Drift handling — selection vs search results
 
+> **Status (v1, 2026-05-03):** under the default `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false`, drift cannot accumulate — selections clear on any new search, so the selection set always equals (or is a subset of) the current results. The drift UI described below is **deferred** until either the flag is flipped or the future **Clipboard** (My Places) component arrives and a durable cart genuinely diverges from the active search. The design is recorded here so the implementation is straightforward when needed.
+
 A user selects 50 items, then changes the search; only 12 of those 50 match the new query.
 
-**Behaviour:**
+**Behaviour (when the flag is flipped, or once Clipboard ships):**
 - The 50 stay in `selectedIds`. The set is sacred.
 - The status bar shows: `"50 selected · 12 in current view"`. (Format: TBD on review; alternative `"50 (12 here)"`.)
-- The Details panel shows reconciliation across **all 50**, not just the 12. (Argument: selection-as-shopping-cart — what you're working on stays consistent regardless of where you're browsing.)
-- A small "Show only selected" toggle in the toolbar (Phase 2 nice-to-have, can defer to v2) lets the user filter the results to just their selection — implemented as a filter chip `id:(id1 OR id2 OR …)`.
+- The Details panel shows reconciliation across **all 50**, not just the 12 (selection-as-shopping-cart).
+- A small "Show only selected" toggle in the toolbar lets the user filter results to just their selection — implemented as a filter chip `id:(id1 OR id2 OR …)`.
 
-When the user navigates back to a query containing more of the selected items, the selection is still there. Persistence is the *whole point*.
+When the user navigates back to a query containing more of the selected items, the selection is still there. Persistence is the *whole point* under that mode.
 
 **On items deleted from ES:** silent drop on next batch fetch (e.g. on hydration or on first reconciliation). Toast as in §4.
 
@@ -269,13 +352,13 @@ The long-press detection lives in a new `useLongPress.ts` hook, paired with `use
 A new component `SelectionStatusBar.tsx`, rendered in `SearchBar` (or wherever the existing toolbar groups land), visible only when `selectionCount > 0`.
 
 **Content (left to right):**
-1. Count chip: `12 selected` always; `12 selected · 8 in view` only when result-set drift exists (selected items not all in current results). The chip is visually static-width-friendly but no fixed-width reservation in v1 — a small layout shift when drift appears is acceptable.
+1. Count chip: `12 selected`. Drift split (`· 8 in view`) deferred — see §9.
 2. **Clear** button (always visible in Selection Mode — primary exit affordance).
 3. Action slots — empty in v1. Placeholder for Phase 3+ download/share/edit/archive.
 
-**Selections-survive-search escape hatch.** The "survives search" behaviour (§9) is the convoluted bit — reconciling across items not in the current view, showing the drift counter, etc. It must be **easy to switch off** if it proves more confusing than useful. Implementation: a single boolean constant `SELECTIONS_SURVIVE_SEARCH` in `constants/tuning.ts`. When false: `search()` (the orchestration kind, not extends/seeks) calls `selection.clear()` before issuing. The status bar reverts to plain `12 selected` (no drift line ever). The reconciler only ever sees in-view items. No other code paths change. Default: true; flip to false if user testing rejects the survive-search model.
+**Persistence-across-navigation escape hatch.** The "survives everything" behaviour (§9) is gated by `SELECTIONS_PERSIST_ACROSS_NAVIGATION` in `constants/tuning.ts`. Default `false` (selections clear on any non-sort search; survival matrix in §4). Flipping to `true` enables the original drift model; the drift counter and "Show only selected" filter (§9) become reachable UX work at that point.
 
-The bar replaces nothing; it appears in the toolbar area and pushes other items right (or wraps on narrow widths). Mobile: the bar slides up from the bottom (sheet-style) and contains only the count and Clear, plus a hamburger for future actions.
+The bar replaces nothing; it appears in the toolbar area and pushes other items right (or wraps on narrow widths). Mobile: the bar slides up from the bottom (sheet-style) and contains only the count and Clear, plus a hamburger for future actions. (S5 ships this as `SelectionFab` — a floating action button — on coarse-pointer profiles; the StatusBar count is hidden on coarse pointer.)
 
 ## 12. Details panel — branching
 
@@ -288,6 +371,8 @@ When `selectionCount > 0`: show `<MultiImageMetadata />` — a new component tha
   - `all-same` → renders the value with the same `FieldValue` component used in single-image view.
   - `all-empty` → shown only for `showWhenEmpty: true` fields, with subtle "—" placeholder.
   - `mixed` → renders a `MultiValue` component (new): displays "Multiple values" plus, on hover/tap, a small popover with the sample values + counts.
+  - `chip-array` → renders a chip list using `MultiSearchPill` (new — extends `SearchPill` with a `partial: boolean` prop). Partial chips render hollow/white per the Kahuna `element--partial` mechanism. No count badges (deviation deliberately rejected; see §8).
+  - `summary` → renders the `line` string as a plain `<dd>` text node. No further structure. Used by leases.
 
 The focused image, if any, is **suspended** in multi-select mode — its single-image metadata is not shown. Rationale: the panel is one surface; we shouldn't double up. (Alternative considered: split panel with both views. Rejected as visually noisy and confusing.)
 
@@ -319,11 +404,11 @@ Spelled out so nothing in v1 paints us into a corner:
 
 To be appended to `../deviations.md`:
 
-- Selection persists across sort, search, and reload (Kahuna drops on every route change). Trade-off: more state to manage; mitigated by silent drop + toast on missing items.
+- Selection persists across **sort, reload, density change, image-detail open/close, and tier-mode change**, but clears on any new search and on browser back/forward (Kahuna drops on every route change). Trade-off: more state to manage; mitigated by silent drop + toast on missing items at hydration. The `SELECTIONS_PERSIST_ACROSS_NAVIGATION` flag in `constants/tuning.ts` (default `false`) is the one-line escape hatch back to "survives everything" — reserved for future Clipboard work.
 - Shift-click range never silently drops items between anchor and target (Kahuna does, requiring users to scroll-load). Trade-off: server roundtrip in two-tier+; mitigated by hard cap (5k) and informational toast at soft cap (2k).
 - No Cmd/Ctrl-A. Justified by multi-million scale.
 - Anchor is sticky across shift-clicks (Kahuna's anchor is "last added URI", causing repeated shift-clicks to misbehave).
-- Touch support via long-press and drag-extend (Kahuna has none).
+- Touch support via long-press + second-long-press range (Kahuna has none). Paint-drag was attempted and cut — see [`../deviations.md`](../deviations.md).
 - Stale metadata under external edits: acknowledged, deferred to Phase 3+ (Kahuna doesn't handle this either, but Kahuna's selection dies on route change so the window is small).
 - Bulk operations on whole-search-result populations are explicitly NOT a selection-store concern (see §15).
 

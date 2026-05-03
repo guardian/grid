@@ -19,7 +19,7 @@
 
 import type { Image } from "@/types/image";
 import type { SortValues } from "@/dal";
-import { buildSortClause, parseSortField } from "@/dal";
+import { buildSortClause, parseSortField, DATE_SORT_FIELDS } from "@/dal";
 
 const PREFIX = "kupua:imgOffset:";
 
@@ -91,6 +91,12 @@ export function extractSortValues(
       // countBefore may not produce a useful offset. Push null and let the
       // restore path decide whether to use it.
       values.push(null);
+    } else if (typeof val === "string" && DATE_SORT_FIELDS.has(field)) {
+      // ES returns date sort values as epoch-milliseconds (numbers).
+      // _source stores them as ISO strings. Convert so the cursor format
+      // matches what getIdRange sees from searchAfter responses.
+      const ms = Date.parse(val);
+      values.push(isNaN(ms) ? null : ms);
     } else {
       values.push(val);
     }

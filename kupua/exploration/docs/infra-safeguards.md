@@ -81,10 +81,11 @@ Three independent layers enforce read-only access on non-local ES:
 
 **Layer 1 — Adapter path allowlist:** `assertReadOnly()` in `es-adapter.ts`
 checks every request path against `ALLOWED_ES_PATHS`. Only `_search`,
-`_count`, `_cat/aliases`, and `_pit` are permitted. Any other path (e.g.
+`_count`, `_cat/aliases`, `_pit`, and `_mget` are permitted. Any other path (e.g.
 `_bulk`, `_doc`, `_delete_by_query`) throws an error. `_pit` is needed
 for Point In Time lifecycle operations (open/close) — these are read-only
-snapshot operations, not data mutations.
+snapshot operations, not data mutations. `_mget` is a read-only multi-get
+used by the selections feature (Phase S0) to batch-fetch image metadata.
 
 Path matching is strict: `path === p || path.startsWith(p + "?") ||
 path.startsWith(p + "/")` — prevents prefix collisions (e.g. a
@@ -121,7 +122,8 @@ cluster.
 **To relax:** Add paths to `ALLOWED_ES_PATHS` (and the duplicated list
 in `vite.config.ts`) if new read operations are needed (e.g. `_analyze`,
 `_explain`). Do NOT add write paths (`_bulk`, `_doc`, `_update`,
-`_delete`) without explicit discussion.
+`_delete`) without explicit discussion. When adding a path, also update
+this doc's Layer 1 description above.
 
 ---
 

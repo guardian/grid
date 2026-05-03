@@ -23,7 +23,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["**/perf.spec.ts"],
+  testMatch: ["**/perf.spec.ts", "**/selection-stress.spec.ts"],
 
   /* No globalSetup — we don't want the local ES health check.
    * The perf tests themselves check total > 100k and skip if local. */
