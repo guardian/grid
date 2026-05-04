@@ -247,7 +247,7 @@ to diagnose.
 2. **Terminal B — start kupua:**
    ```bash
    cd ~/code/grid
-   KUPUA_ES_URL=http://localhost:9200 npm --prefix kupua run dev -- --skip-es
+   KUPUA_ES_URL=http://localhost:9200 ./kupua/scripts/start.sh --skip-es
    ```
    *(Note: the script flag is parsed by `kupua/scripts/start.sh`. Check the
    actual `package.json` script wrapper — you may need to invoke
@@ -406,6 +406,42 @@ them yet** — only if Phase 0 surfaces a concrete need:
 - **`dev/nginx-mappings.yml.template`:** add the kupua mapping line
   (Phase 0 step 0.1). This is the **one** Grid file change required by
   the entire workplan.
+
+---
+
+## Using the kahuna UI inventory (applies to Phases A, B, C)
+
+Phases A, B, and C all build features that have a kahuna counterpart.
+The kahuna image-detail UI is catalogued in
+[kahuna-image-detail-inventory.md](../01%20Research/kahuna-image-detail-inventory.md)
+(57 elements with file:line citations, permission matrix, conditional
+render rules, joined-component seams). App-wide patterns — destructive
+two-step confirms, semantic colour vocabulary, inline-edit affordance —
+will be in `kahuna-app-wide-ui-constants.md` (pending).
+
+**Rules for any agent implementing a kupua feature with a kahuna analogue:**
+
+1. **Read the inventory row(s) for the feature.** Note the cited
+   `.html` file:line. Open the file. Find the matching `.scss` in the
+   same component folder. Do not infer kahuna's appearance from the
+   inventory text alone — markdown descriptions of visuals are lossier
+   than the source.
+2. **Do NOT default to replicating kahuna's look.** Kahuna is constrained
+   by AngularJS and 2015-era patterns (xeditable inline edits, hidden
+   collapsibles, "Unknown (click ✎ to add)" placeholders, dropdown menus
+   instead of multi-select chips). Past kupua work has produced *better*
+   UX precisely because the agent didn't first see the kahuna version.
+   For each element, **explicitly decide replicate-vs-improve with mk**
+   before implementing — don't assume either default.
+3. **DO replicate app-wide patterns exactly.** Users have muscle memory
+   for: the two-step destructive-action confirm (and the
+   `prompt("type DELETE")` escalation for nuclear actions); the semantic
+   colour vocabulary (red=invalid, amber=warning, green=leased-override,
+   etc.); the ✎ pencil for "edit this field". These cross every kahuna
+   screen, so divergence in kupua is jarring. See the app-wide constants
+   doc.
+4. **When in doubt, ask mk.** Replicate-vs-improve is a UX call, not a
+   technical one.
 
 ---
 
@@ -624,9 +660,9 @@ useEffect(() => {
 }, [imageId]);
 ```
 
-Render cost/validity/persistence badges from `detail`. Use the signed
-URLs from `detail.thumbnail.secureUrl` and `detail.secureUrl` for image
-display.
+Render cost/validity/persistence badges from `detail`. Image rendering
+is unchanged — thumbnail and full-size images continue to use the
+existing ES + S3-proxy + imgproxy paths (see A.5).
 
 **Permissions and actions:** Trust the `actions` array in the image response
 (§3.3) for what the user can do — show/hide UI controls based on action presence.
@@ -642,22 +678,26 @@ TypeScript.
 The buffer-entry data remains the *initial* render (no loading flash) —
 the API-fetched detail enriches it once arrived.
 
-#### A.5 Drop the S3 proxy for detail-view images
+#### A.5 Image rendering is unchanged
 
-`scripts/s3-proxy.mjs` exists because direct-ES results don't include
-signed URLs — they include raw S3 keys, and the browser can't fetch them.
-For the detail view specifically, the API now provides signed URLs. So
-detail-view image rendering no longer needs the proxy.
+The API fetch is for enrichment data only (cost, validity, actions,
+permissions). Image rendering in the detail view uses the same paths as
+search results: thumbnail from the buffer (originally via S3 proxy),
+full-size via kupua's own imgproxy (darthsim). Neither
+`thumbnail.secureUrl` (CloudFront) nor `source.secureUrl` (signed S3)
+nor Grid imgops URLs from the API response are used — our imgproxy is
+superior to Grid's nginx-based imgops.
 
-**Don't remove the proxy yet** — search results still come from ES and
-still need it. Only the detail view bypasses it.
+**Don't remove the S3 proxy.** It serves search-result thumbnails and
+full-size image keys to imgproxy. It will continue to do so until
+kupua's production URL story is resolved.
 
 ### Phase A deliverables
 
 - [ ] `GridApiDataSource` class scaffolded
 - [ ] `getImageDetail(id)` working against TEST
 - [ ] Image detail view shows API-sourced cost/validity badges
-- [ ] Signed thumbnail/source URLs from API used for image display
+- [ ] Image rendering unchanged (S3 proxy + imgproxy, not API URLs)
 - [ ] Documented the Argo envelope parsing (notes for future phases)
 - [ ] `deviations.md` entry: "two parallel data adapters intentionally —
       see integration-workplan-bread-and-butter.md"

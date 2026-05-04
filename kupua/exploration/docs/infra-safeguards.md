@@ -1,4 +1,4 @@
-# Kupua — Elasticsearch Safeguards
+# Kupua — Grid Safeguards
 
 > These safeguards protect shared ES clusters (TEST/CODE) when kupua
 > connects to real infrastructure instead of its local docker ES.
@@ -16,6 +16,7 @@
 | 5 | imgproxy — read-only | docker compose + Vite proxy | ✅ Active |
 | 6 | Aggregation load control | `search-store.ts` + `FacetFilters.tsx` | ✅ Active |
 | 7 | E2E test real-cluster gate | `e2e/global-setup.ts` | ✅ Active |
+| 8 | Grid API write protection (method guard) | `vite.config.ts` | ✅ Active |
 
 ---
 
@@ -266,6 +267,49 @@ through the Vite proxy is the only reliable way to detect the connection target.
 
 ---
 
+## 8. Grid API write protection — method guard at proxy boundary
+
+**Problem:** The `/api` Vite proxy forwards requests to the Grid media-api
+(and in future, satellite proxies like `/grid-leases`, `/grid-usage` will
+reach other Grid services). These services support write operations
+(POST/PUT/DELETE) that could edit image metadata, delete images, or modify
+collections. Until Phase C explicitly enables writes, they must be
+physically impossible.
+
+**Why one layer suffices (unlike ES):** The Grid API uses standard HTTP
+semantics — reads are GET, writes are POST/PUT/DELETE/PATCH. This means a
+simple method check is a perfect discriminator, unlike ES (which uses POST
+for reads like `_search`). Additionally, the Vite proxy is the sole path
+to media-api from browser code — direct cross-origin requests are blocked
+by CORS. There's no "bypass the adapter" scenario to defend against.
+
+**Safeguard:** The `gridApiWriteGuard()` middleware plugin in
+`vite.config.ts` blocks all non-GET HTTP methods on Grid API proxy
+prefixes (currently `/api`, extensible via `GRID_API_PROXY_PREFIXES`
+array). Requests are rejected with 403 and a descriptive message.
+
+**Env-var gate:** Set `VITE_GRID_API_WRITES_ENABLED=true` in the
+environment (NOT in `.env` — only pass it explicitly when running Phase C
+write features) to allow writes through. Without this var, writes are
+blocked unconditionally.
+
+**Config:**
+- `GRID_API_PROXY_PREFIXES` in `vite.config.ts` — list of proxy path
+  prefixes to protect (currently `["/api"]`)
+- `VITE_GRID_API_WRITES_ENABLED` — env var to relax the guard (default:
+  unset = writes blocked)
+
+**To extend:** When adding satellite proxy prefixes (Phase B), add them to
+the `GRID_API_PROXY_PREFIXES` array. They automatically inherit the same
+method guard.
+
+**To relax (Phase C):** Run with `VITE_GRID_API_WRITES_ENABLED=true`. Do
+NOT set this in `.env` or `.env.local` unless actively developing write
+features. When Phase C ships, consider removing the guard entirely or
+converting it to a per-operation allowlist (like the ES path guard).
+
+---
+
 ## Configuration
 
 ### Environment variables
@@ -276,6 +320,7 @@ through the Vite proxy is the only reliable way to detect the connection target.
 | `VITE_ES_BASE` | `/es` | `.env` | Vite proxy path prefix (client-side) |
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
+| `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Set to `true` to allow non-GET requests through Grid API proxy (Phase C) |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |
 | `VITE_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full-size images (for imgproxy URL generation) |

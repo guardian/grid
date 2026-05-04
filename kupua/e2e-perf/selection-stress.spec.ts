@@ -393,6 +393,11 @@ test("SS3 — reconciliation chunk render time (1k / 2k / 5k)", async ({ kupua }
   const rows: Record<string, unknown>[] = [];
 
   for (const count of COUNTS) {
+    // Clear before each round so we measure a fresh add, not cumulative state.
+    await kupua.page.evaluate(() => {
+      (window as any).__kupua_selection_store__?.getState().clear();
+    });
+
     const ids = await kupua.page.evaluate((n: number) => {
       const s = (window as any).__kupua_store__?.getState();
       return (s?.results ?? []).slice(0, n).map((img: any) => img.id);

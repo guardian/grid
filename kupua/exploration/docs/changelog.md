@@ -14,6 +14,20 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 3–4 May 2026 — Media-API read-only integration: groundwork (Phase 0 prep)
+
+**Scope:** No code features yet — this session laid the safety infrastructure, contract cleanup, and UI research needed before any API-first code is written.
+
+**`gridApiWriteGuard()` plugin (`kupua/vite.config.ts`).** New Vite plugin alongside the existing `esProxyGuard()`. Blocks all non-GET methods on any prefix in `GRID_API_PROXY_PREFIXES = ["/api"]` with a 403 JSON response, unless `process.env.VITE_GRID_API_WRITES_ENABLED === "true"`. Ensures kupua can never accidentally issue writes to Grid services via the proxy during development. Documented as §8 in `infra-safeguards.md` (overview table row + env var table entry added).
+
+**9 surgical updates to `grid-api-contract-audit-findings.md`.** The original contract doc was written before Vite-proxy was confirmed as the CORS solution; several sections framed CORS as an open blocker. All stale CORS-blocker framings struck through as "RESOLVED (3 May 2026)". Key additions: new §3.2.x "Kupua image rendering decision" — authoritative statement that kupua does NOT use API-sourced image URLs (`source.secureUrl`, `thumbnail.secureUrl`, imgops links); API fetch is best-effort enrichment only, never a gate; failure is silently caught; ES + S3 proxy + own imgproxy path is unchanged; existing Playwright tests are unaffected.
+
+**Workplan Phase A rewritten (A.4, A.5, deliverable).** A.5 previously conflated signed API URLs with the proxy removal — false premise. Rewritten: image rendering is unchanged; API fetch enriches the detail view (cost/validity badges, actions, permissions) but never gates rendering. Two trap warnings added: `valid==true` with non-empty `invalidReasons` is normal (don't show red + green badges together); filter out the dead `reindex` action that Grid emits but whose route doesn't exist.
+
+**Kahuna image-detail UI audit.** Three-axis research audit of all 57 elements in kahuna's image detail view. Output: `kahuna-image-detail-inventory.md` — file:line citations, three classification axes (RW-tag: RO-pure / RO-degraded / Write-only / Joined; Permission gating with named permissions + appearance changes; Data field dependencies per contract vocabulary), permission matrix, 20 conditional render rules, 9 joined-component seams, OOS appendix. Decision: do NOT add a visual "looks" section — implementing agents should open the cited `.html`/`.scss` directly; kahuna's AngularJS-era patterns are often worth improving, not replicating.
+
+**"Using the kahuna UI inventory" section added to workplan.** Sits before Phase 0 and applies to Phases A, B, C. Four rules: read source not markdown; don't default to replicating; DO replicate app-wide patterns exactly (two-step destructive confirm, semantic colour vocabulary, ✎ pencil affordance); ask mk on replicate-vs-improve calls. App-wide UI constants (colours, confirm tiers) documented in `kahuna-app-wide-ui-constants.md` (delivered).
+
 ### 1–3 May 2026 — Selections feature complete (Phases S0–S6)
 
 **Scope:** 9-phase implementation of multi-image selection — from DAL primitives through desktop tickbox UI, range selection, multi-image metadata panel, mobile touch gestures, and persistence lifecycle. ~70 files added/modified, ~2,100 net lines added. All on branch `mk-next-next-next`, single commit at end. Architecture: [`00 Architecture and philosophy/05-selections.md`](00%20Architecture%20and%20philosophy/05-selections.md). Field reference: [`00 Architecture and philosophy/field-catalogue.md`](00%20Architecture%20and%20philosophy/field-catalogue.md). Workplan archived to [`zz Archive/selections-workplan.md`](zz%20Archive/selections-workplan.md).

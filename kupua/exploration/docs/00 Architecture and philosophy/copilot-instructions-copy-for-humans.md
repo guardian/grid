@@ -119,3 +119,14 @@ mid-task so the next agent can pick up where you left off. When the user says
 the task is done or explicitly starts a new task, or when user asks for a commit, move the
 session log content to `changelog.md` and start `worklog-current.md` fresh.
 Never delete the file.
+
+**Directive: Graceful API absence.** All code that fetches from Grid services —
+whether via the `/api` proxy (media-api) or satellite proxies (`/grid-leases`,
+`/grid-usage`, etc.) — must treat failure as a data-absence condition, not an error
+condition. Network error, timeout, or non-2xx → caller receives `null` → UI renders
+without that data section. No error toasts, no broken layouts, no console warnings in
+normal operation. This ensures kupua works standalone (Setup C, Playwright, existing
+workflow) without any Grid dependency. ES-sourced data is always the baseline; Grid
+API data is optional enrichment. This is a development-phase rule — when kupua ships
+to real users behind real infrastructure, API failure becomes a real error worth
+surfacing, and this directive will be revisited.

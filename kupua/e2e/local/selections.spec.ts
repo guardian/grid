@@ -657,7 +657,8 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     const url = kupua.page.url();
     // Must contain "fileType:jpeg" (or similar short form), NOT "fileType:image"
-    expect(url).toContain("fileType%3A");
+    // The colon may appear encoded (%3A) or unencoded in the query string.
+    expect(url.includes("fileType%3Ajpeg") || url.includes("fileType:jpeg")).toBe(true);
     expect(url).not.toContain("image%2F");
     expect(url).not.toContain("image/");
   });

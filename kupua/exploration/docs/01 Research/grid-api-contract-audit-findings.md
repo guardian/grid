@@ -57,7 +57,7 @@
 
 **Taken as given (not verified against panda source):** The pan-domain cookie name and exact cookie structure — the panda library is an external dependency, its source is not in this repo.
 
-**Originally not derivable from source alone — now resolved by follow-up live verification (see §6.6 and §7):** Cookie name (`gutoolsAuth-assym`), CORS dev allowlist (kupua origin not present), permission bucket contents for mk's account (`showPaid:false`, `canUpload:true`, `canDelete:true`).
+**Originally not derivable from source alone — now resolved by follow-up live verification (see §6.6 and §7):** Cookie name (`gutoolsAuth-assym`), CORS dev allowlist (kupua origin not present — resolved via Vite proxy, no allowlist change needed), permission bucket contents for mk's account (`showPaid:false`, `canUpload:true`, `canDelete:true`).
 
 ---
 
@@ -208,6 +208,16 @@ The response is an `EntityResponse<ImageData>`. TypeScript type: see §9 `ImageR
 | `aliases` | Config-defined field aliases; may be empty object |
 
 Source: `ImageResponse.scala:57-78` (create method), `ImageResponse.scala:302-357` (imageResponseWrites).
+
+#### 3.2.x — Kupua image rendering decision (3 May 2026)
+
+> **Kupua does NOT use API-sourced image URLs for rendering.** The `source.secureUrl` (signed S3, ~15 min expiry), `thumbnail.secureUrl` (CloudFront), and imgops `optimised`/`optimisedPng` links in the API response are **not consumed** by kupua's rendering pipeline.
+>
+> Image display uses: ES data (S3 keys) → kupua's S3 proxy (`s3-proxy.mjs`) → kupua's own imgproxy (darthsim) for full-size resize/format-conversion. This path is superior to Grid's nginx-based imgops.
+>
+> **The API fetch is best-effort enrichment, never a gate.** The detail view renders immediately from the ES buffer entry. `fetch('/api/images/{id}')` fires in the background. If it succeeds, the view is enriched (cost/validity badges, actions, permissions, persistence reasons). If it fails (ECONNREFUSED, timeout, 401, 5xx), the failure is silently caught and the ES-only view remains. No error toasts, no broken layouts, no feature flags, no "is Grid running?" checks. Just a `null` that stays `null` if the API is unavailable. UI shows/hides sections based on whether enrichment data exists, not based on whether a service is configured.
+>
+> This means existing Playwright e2e tests (which run against kupua's own mock ES, no Grid) continue passing unchanged — they never see the API-enriched state, and that's fine.
 
 ### 3.2.1 Reconciliation rules (how merged fields are computed)
 
@@ -1100,9 +1110,11 @@ The `gracePeriodCountsAsAuthenticated = true` in `invokeBlock` means requests du
 
 **Runtime config:** The actual values of `security.cors.allowedOrigins` in dev/TEST/PROD live in the (private) S3 config bucket — not in the repo. The defaults are not set in `application.conf`.
 
-**Is `kupua.media.local.dev-gutools.co.uk` covered?** No. The CORS allowlist is explicit; wildcard subdomain matching is not used. Kupua's origin would need to be added to the dev `security.cors.allowedOrigins` config. This is a Phase 0 blocker. Source: `GridComponents.scala:41-43`.
+**Is `kupua.media.local.dev-gutools.co.uk` covered?** No. The CORS allowlist is explicit; wildcard subdomain matching is not used. Source: `GridComponents.scala:41-43`.
 
-**CORS filter applies to all services** via `GridComponents`. All Grid microservices share the same CORS logic.
+**~~Phase 0 blocker~~ — RESOLVED (3 May 2026).** Kupua resolves cross-origin access via a Vite dev-server proxy rule (`/api → https://api.media.local.dev-gutools.co.uk`), making all API requests same-origin from the browser's perspective. The browser never issues cross-origin requests to Grid services, so CORS headers are irrelevant and no Grid config changes are needed. A `gridApiWriteGuard()` Vite middleware additionally blocks all non-GET methods on `/api` unless `VITE_GRID_API_WRITES_ENABLED=true` (see `infra-safeguards.md` §8).
+
+**CORS filter applies to all services** via `GridComponents`. All Grid microservices share the same CORS logic. (Documented here for reference — kupua never triggers CORS preflight in practice.)
 
 ---
 
@@ -1194,11 +1206,11 @@ The HATEOAS root, when called against a **local** media-api running with `--use-
 
 **Kupua adapter implications (matter even though most users will hit the single-origin cases too):**
 1. **Never derive a base URI from the HATEOAS root and reuse it for non-root endpoints.** The contract previously suggested "strip RFC 6570 template variables to get base URIs for services" — that's safe only in single-origin environments. The robust pattern is: for every image-scoped operation, take the URL from the image response's `links` / `actions` arrays directly. The service-discovery map should hold per-`rel` hosts, not a single derived base.
-2. **CORS allowlist additions are required on both** the local media-api config and on each TEST satellite service config (metadata-editor, cropper, leases, collections, usage). One-stop CORS fixing won't work in `--use-TEST`.
-3. **Cookie scope must cover both domain roots** for `--use-TEST` to work end-to-end — see the `PLAY_SESSION` domain note below.
+2. ~~**CORS allowlist additions are required on both** the local media-api config and on each TEST satellite service config.~~ **MOOT (3 May 2026).** Kupua uses Vite dev-server proxy rules for all Grid service requests (e.g. `/api → media-api`, and future rules `/grid-leases → leases`, etc.). The browser makes same-origin requests only — no CORS preflight is ever issued. No allowlist changes needed on any config bucket.
+3. ~~**Cookie scope must cover both domain roots** for `--use-TEST` to work end-to-end.~~ **MOOT (3 May 2026).** The Vite proxy forwards the `gutoolsAuth-assym` cookie server-side. The browser only sends cookies to kupua's own origin. The panda cookie's `.dev-gutools.co.uk` domain scope is sufficient because Vite's proxy process runs under that domain. Mixed-origin URLs in the response body are consumed by kupua's adapter code (to construct further proxy requests), not by the browser directly.
 
 **`PLAY_SESSION` domain mismatch:**
-Local media-api sets `Domain=api.media.test.dev-gutools.co.uk` on the `PLAY_SESSION` cookie (TEST domain, not local). This is because local media-api uses `domainRoot = test.dev-gutools.co.uk` in `--use-TEST` mode.
+Local media-api sets `Domain=api.media.test.dev-gutools.co.uk` on the `PLAY_SESSION` cookie (TEST domain, not local). This is because local media-api uses `domainRoot = test.dev-gutools.co.uk` in `--use-TEST` mode. **Irrelevant to kupua** — the Vite proxy forwards cookies server-side; the browser never contacts the TEST domain directly. `PLAY_SESSION` is not the auth cookie regardless (the panda cookie `gutoolsAuth-assym` is what matters).
 
 **CORS positive control:**
 `OPTIONS` preflight with `Origin: https://media.local.dev-gutools.co.uk` (kahuna) returned 200 with `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials: true`, `Access-Control-Max-Age: 3600`. CORS enforcement is working; the 403 on kupua's origin is a real allowlist miss.
@@ -1211,11 +1223,15 @@ The HATEOAS root links to `${rootUri}/permissions`, but no matching route exists
 
 ### CORS workplan note
 
-The Phase 0 CORS step remains a **hard blocker**. Required actions:
-1. Add `kupua.media.local.dev-gutools.co.uk` to `security.cors.allowedOrigins` in the **local** media-api S3 config bucket.
-2. Add it to each **TEST** satellite service config bucket (metadata-editor, cropper, leases, collections, usage) — since `--use-TEST` mode routes to `*.test.dev-gutools.co.uk` for those services.
+~~The Phase 0 CORS step remains a **hard blocker**.~~ **RESOLVED (3 May 2026).** Kupua uses a Vite dev-server proxy (`/api → https://api.media.local.dev-gutools.co.uk`), making all API requests same-origin from the browser's perspective. No CORS allowlist changes to either local or TEST configs are required. `Access-Control-Allow-Credentials` behaviour is irrelevant because the browser never issues cross-origin requests.
 
-Once kupua's origin is added, `Access-Control-Allow-Credentials: true` is already handled by the framework (confirmed via kahuna positive control), so cookies will be forwarded correctly.
+~~Required actions:~~
+~~1. Add `kupua.media.local.dev-gutools.co.uk` to `security.cors.allowedOrigins` in the **local** media-api S3 config bucket.~~
+~~2. Add it to each **TEST** satellite service config bucket (metadata-editor, cropper, leases, collections, usage) — since `--use-TEST` mode routes to `*.test.dev-gutools.co.uk` for those services.~~
+
+~~Once kupua's origin is added, `Access-Control-Allow-Credentials: true` is already handled by the framework (confirmed via kahuna positive control), so cookies will be forwarded correctly.~~
+
+The satellite services (Phase B) will each get their own Vite proxy prefix (e.g. `/grid-leases`, `/grid-usage`) — same pattern as `/api`. The `gridApiWriteGuard()` middleware covers all proxy prefixes via its `GRID_API_PROXY_PREFIXES` array.
 
 ---
 
@@ -1293,8 +1309,8 @@ An image with no `syndicationRights` field produces `"unsuitable"`.
 | # | Question | Status | Note |
 |---|---|---|---|
 | ~~7.1~~ | ~~Exact panda cookie name~~ | **RESOLVED** | Cookie name: `gutoolsAuth-assym`. `PLAY_SESSION` attributes also captured (see §6.6). |
-| ~~7.2~~ | ~~Exact value of `security.cors.allowedOrigins` in dev~~ | **RESOLVED** | Kupua's origin is absent from both local media-api and TEST satellite configs (see §6.6). |
-| ~~7.3~~ | ~~Whether kupua's dev origin needs to be added to CORS allowlist~~ | **RESOLVED** | Yes, required. Both local media-api config bucket and TEST satellite configs need updating (see §6.6 CORS workplan note). |
+| ~~7.2~~ | ~~Exact value of `security.cors.allowedOrigins` in dev~~ | **RESOLVED** | Kupua's origin is absent from both local media-api and TEST satellite configs (see §6.6). Irrelevant — resolved via Vite proxy. |
+| ~~7.3~~ | ~~Whether kupua's dev origin needs to be added to CORS allowlist~~ | **RESOLVED** | ~~Yes, required.~~ No longer required. Kupua uses Vite dev-server proxy — all requests are same-origin. No CORS allowlist changes needed. |
 | ~~7.4~~ | ~~Exact permissions granted to mk's account~~ | **RESOLVED** | `showPaid: false`, `canUpload: true`, `canDelete: true`. Retrieved via `GET /session` on auth service — not `GET /permissions` which is a dead link (see §6.6). |
 | 7.5 | Thrall processing lag | Unresolved — requires a write to observe | Monitor ES `lastModified` before/after a write |
 | 7.6 | `Bounds` JSON shape | **RESOLVED from source** | `x`, `y`, `width`, `height` are top-level keys — confirmed by `Json.reads[Bounds]` |
@@ -1315,7 +1331,7 @@ The following are corrections or clarifications against `integration-workplan-br
 
 4. **No `actions` array at HATEOAS root.** The workplan's Section "Phase 0" implies the root response has an `actions` array. It does not — only `links`.
 
-5. **CORS is a hard Phase 0 blocker.** The workplan notes CORS as a concern but doesn't flag it as a blocker. Based on source reading, kupua's origin is **definitely not** in the default allowlist. Adding it requires a config change to the dev S3 config bucket. This needs to happen before any API call from kupua can succeed.
+5. **~~CORS is a hard Phase 0 blocker.~~ RESOLVED (3 May 2026).** Kupua's origin is indeed absent from the CORS allowlist (confirmed live — 403 on OPTIONS preflight). Resolution: Vite dev-server proxy at `/api` makes requests same-origin from the browser. No Grid config changes needed. A `gridApiWriteGuard()` Vite middleware (see `infra-safeguards.md` §8) blocks all non-GET methods on `/api` unless `VITE_GRID_API_WRITES_ENABLED=true`.
 
 6. **Label operations are not permission-gated.** The workplan implies write operations need `EditMetadata`. Label add/remove (`POST/DELETE /metadata/{id}/labels`) use only `auth.async` — no permission check. Any authenticated user can label any image.
 

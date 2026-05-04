@@ -281,3 +281,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 47 | 585 | 326 | 326 | 898 |
 | JB4 | scrubber-scroll | — | — | — | 25 | — |
 | JB5 | fullscreen-exit | — | — | — | 4 | — |
+
+---
+
+## [short] Post selections work (825c42b3b, 2026-05-03)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 308 | 308 | — |
+| PP2 | sort-no-focus | 48 | — | 235 | 235 | — |
+| PP3 | sort-around-focus | 45 | 261 | 624 | 624 | 376 |
+| PP4 | sort-around-focus | 45 | 258 | 631 | 631 | 370 |
+| PP5 | filter-toggle | 49 | 261 | — | 462 | 201 |
+| PP6 | density-swap | — | — | — | 227 | — |
+| PP7 | scrubber-seek | 1 | — | 657 | 657 | — |
+| PP7b | scrubber-seek | 1 | — | 797 | 797 | — |
+| PP7c | scrubber-scroll | — | — | — | 121 | — |
+| PP8 | search | 0 | 210 | 712 | 712 | 504 |
+| PP9 | search | 0 | — | 241 | 241 | — |
+| PP10 | position-map | — | — | — | 2718 | — |
+| PP6b | density-swap | — | — | — | 407 | — |
+| PP6c | density-swap | — | — | — | 376 | — |
+
+---
+
+## [long] Post selections work (825c42b3b, 2026-05-03)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 169 | 169 | — |
+| JA2 | open-detail | — | — | — | 109 | — |
+| JA3 | metadata-click | 47 | 634 | 1060 | 1060 | 426 |
+| JB1 | search | 0 | — | 207 | 207 | — |
+| JB2 | facet-click | 56 | — | 269 | 269 | — |
+| JB3 | facet-click | 47 | 279 | 1149 | 1149 | 869 |
+| JB4 | scrubber-scroll | — | — | — | 27 | — |
+| JB5 | fullscreen-exit | — | — | — | 5 | — |
