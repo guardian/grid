@@ -1250,7 +1250,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
           ref={headerCallbackRef}
           data-table-header
           role="row"
-          className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-11"
+          className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-9"
           onContextMenu={(e) => handleHeaderContextMenu(e)}
         >
           {/* Selection column header — always present, not sortable, not resizable */}

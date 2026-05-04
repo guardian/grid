@@ -13,8 +13,8 @@
 /** Table row height (px). Matches the Tailwind h-8 class on table rows. */
 export const TABLE_ROW_HEIGHT = 32;
 
-/** Table sticky header height including 1px border-b. Matches h-11 + border. */
-export const TABLE_HEADER_HEIGHT = 45;
+/** Table sticky header height including 1px border-b. Matches h-9 + border. */
+export const TABLE_HEADER_HEIGHT = 37;
 
 /** Grid row height (px). Thumbnail (190) + metadata (~105) + cell gap (8). */
 export const GRID_ROW_HEIGHT = 303;

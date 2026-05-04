@@ -256,11 +256,12 @@ function FocusedImageMetadata() {
   const image = (() => {
     // Multi-selection: combined metadata panel (S4). Return null for now.
     if (isMultiSelection) return null;
-    // In phantom mode, focusedImageId is only a position anchor — don't
-    // show metadata for it. The panel should stay empty.
-    if (effectiveMode === "phantom") return null;
     // Resolve: single-selected item takes priority over focused item.
-    const resolvedId = singleSelectedId ?? focusedImageId;
+    // In phantom mode, focusedImageId is only a position anchor — don't
+    // show metadata for it — but a single selection still wins.
+    const resolvedId =
+      singleSelectedId ??
+      (effectiveMode === "phantom" ? null : focusedImageId);
     if (!resolvedId) return null;
     const globalIdx = imagePositions.get(resolvedId);
     if (globalIdx != null) {

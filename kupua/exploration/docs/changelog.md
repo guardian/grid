@@ -14,6 +14,22 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 4 May 2026 — Cosmetic fixes, Detail panel bug, dependency update
+
+**Detail panel in phantom mode:** Fixed bug where selecting a single image in "click to open" (phantom) mode still showed "Focus an image to see its metadata." The `effectiveMode === "phantom"` check was bailing out entirely, preventing `singleSelectedId` from being resolved. Fix: moved phantom guard into the `resolvedId` ternary — phantom suppresses `focusedImageId` fallback but not single-selection display.
+
+**Location section in multi-select:** The 4 `location_*` sub-fields had `group: "location"` but no `detailGroup` override, causing `groupFieldsIntoSections` to place them in their own bordered section in the multi-image metadata panel. Added `detailGroup: "core"` to all four, matching the composite `location` field. Now flows inline with surrounding fields — no extra visual break.
+
+**Header height alignment:** Table header (`h-11` = 45px) was taller than panel section headers (~36px). Changed table header to `h-9` (36px + 1px border = 37px), gave panel `AccordionSection` buttons matching `h-9 border-b border-grid-separator`, removed the conditional parent border. Both now render at identical 37px. Updated `TABLE_HEADER_HEIGHT` constant from 45 → 37.
+
+**Visual baseline snapshots:** Regenerated grid-view, table-view, and search-query baselines to match new header heights.
+
+**tsconfig.json:** Removed deprecated `baseUrl` (deprecated in TS 6, removed in TS 7). Updated `paths` to `"./src/*"` which works without `baseUrl` in modern TS.
+
+**Dependency update:** Bumped all non-TypeScript deps to latest: react 19.2.5, vite 8.0.10, vitest 4.1.5, tailwindcss 4.2.4, @tanstack/react-router 1.169.1, @tanstack/react-virtual 3.13.24, zod 4.4.3, jsdom 29.1.1, @aws-sdk/* 3.1041.0, @types/node 25.6.0. TS stays at 5.9.3 (6.0 upgrade deferred — cleanup release, no features needed).
+
+**Directive update:** Test tee path changed from `/tmp/kupua-test-output.txt` to `"$TMPDIR/kupua-test-output.txt"` in both copilot-instructions files — sandbox blocks `/tmp` writes.
+
 ### 4 May 2026 — Labels
 
 Added labels (`image.userMetadata.labels`) to all Kupua surfaces.

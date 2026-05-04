@@ -58,9 +58,9 @@ export function AccordionSection({ sectionId, title, headerRight, children }: Ac
   const toggleSection = usePanelStore((s) => s.toggleSection);
 
   return (
-    <div className={isOpen ? undefined : "border-b border-grid-separator"}>
+    <div>
       <button
-        className="flex items-center gap-1 w-full px-1.5 py-2 text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
+        className="flex items-center gap-1 w-full px-1.5 h-9 border-b border-grid-separator text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
         onClick={() => toggleSection(sectionId)}
         aria-expanded={isOpen}
         aria-controls={`section-${sectionId}`}

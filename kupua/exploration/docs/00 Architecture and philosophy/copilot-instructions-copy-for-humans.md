@@ -81,7 +81,7 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root — npm scripts set cwd=`kupua/` so configs and artefacts resolve correctly. **Never `cd kupua && ...`** (zsh strips `cd`). **Never `npm --prefix kupua exec`** or bare `npx playwright`/`vitest` — those keep cwd=root and dump `test-results/`/`playwright-report/` there. Tee to absolute `/tmp/kupua-test-output.txt`. Foreground. No `tail`/`head`/`sleep`. Don't re-run a running test — `read_file /tmp/kupua-test-output.txt`. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
+**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root — npm scripts set cwd=`kupua/` so configs and artefacts resolve correctly. **Never `cd kupua && ...`** (zsh strips `cd`). **Never `npm --prefix kupua exec`** or bare `npx playwright`/`vitest` — those keep cwd=root and dump `test-results/`/`playwright-report/` there. Tee to `"$TMPDIR/kupua-test-output.txt"` (the sandbox blocks `/tmp`; `$TMPDIR` is always writable). Foreground. No `tail`/`head`/`sleep`. Don't re-run a running test — `read_file` the tee output file. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
 
 | Surface | Command | Agent runs | Agent suggests |
 |---|---|---|---|
