@@ -119,9 +119,31 @@ Wired via `zustand/middleware` `persist`, matching the established pattern (`col
 
 **Items disappearing from results mid-session** (background ingestion deletes a selected image): the ID stays in `selectedIds`. Reconciliation tolerates missing items in the cache. Hydration drop only fires on cold start.
 
+### Position preservation on sort changes
+
+Selections surviving a sort change is necessary but not sufficient — without position preservation, the user's viewport resets to the top and they lose their place.
+
+**Two cases, one pipeline:**
+
+1. **User had explicit focus before entering Selection Mode.** `focusedImageId` persists in the store (visually suppressed but not cleared — see §12). On sort change, the existing sort-around-focus mechanism picks it up directly and preserves position around that image. No new code involved; this Just Works because focus is retained in memory.
+
+2. **User entered Selection Mode without prior focus** (the common case — first interaction was a tickbox click, which sets the selection anchor but not focus). `focusedImageId === null`. Without intervention, the viewport would reset to top. A dedicated fallback bridges this gap: when a sort change fires and `focusPreserveId` would otherwise be `null`, `useUrlSearchSync` checks if `selectedIds.size > 0 && anchorId != null` and uses `anchorId` as the position-preservation target via the `phantomOnly` search path.
+
+**Case 2 mechanism in detail:** Effect #7 in `useScrollEffects` saves the anchor image's viewport ratio before the search fires. After the search completes, `_findAndFocusImage` locates the anchor in the new sort order, sets `_phantomFocusImageId`, and bumps `sortAroundFocusGeneration`. Effect #9 restores the anchor at its saved viewport ratio.
+
+**Key properties:**
+- Priority chain on sort change: `focusedImageId` (case 1) > `selectionAnchorId` (case 2). If explicit focus exists, it wins; the selection anchor fallback is never reached.
+- Case 2 never sets `focusedImageId` — entering selection mode with no focus, changing sort, and then clearing selection still leaves `focusedImageId` null (no surprise focus ring appears).
+- Both cases use the same phantom-focus pipeline; case 2 just provides a different ID to it.
+- Gated by `isSortOnly` / `sortOnly` — only fires on sort changes, independently of the persistence flag (see below).
+
+**Files:** `useUrlSearchSync.ts` (§ sort-only fallback block), `useScrollEffects.ts` (Effect #7 `preserveId` line).
+
 ### Flag: `SELECTIONS_PERSIST_ACROSS_NAVIGATION`
 
 Lives in `constants/tuning.ts`. Default `false`. When `true`, the four "NO" rows above flip to YES — selections survive everything (the original v1-design behaviour). Single-line escape hatch; no UI surface. Intended to be revisited when **Clipboard** (My Places) ships and durable persistence becomes the Clipboard's concern rather than the selection set's. At that point this flag becomes obsolete and is removed.
+
+**Relationship to position preservation:** The flag controls whether selection *survives* a navigation — it has no effect on position preservation logic. Position preservation via the anchor fires **only on sort-only changes** regardless of flag state. With flag=true and a non-sort change (query, filter), the selection survives but position is handled by the viewport-anchor mechanism (existing phantom-focus path), not by the selection anchor. This is deliberate: on a query change the anchor image may not exist in the new results, making it an unreliable position target. Sort changes merely reorder the same result set, so the anchor is always findable.
 
 ### Hydration on mount
 
@@ -380,10 +402,11 @@ When the user clears selection, the panel reverts to focused-image metadata.
 
 **Focus during Selection Mode — visually gone, retained in memory.** When `selectionCount > 0`:
 - The focus *ring* on cells is suppressed (`isFocused` derived state evaluates to false in Selection Mode for visual purposes).
-- `focusedImageId` in the store is **not cleared** — machinery that needs an anchor (sort-around-focus, position preservation, history snapshots) keeps using it. This mirrors the phantom-focus pattern already used for click-to-open mode.
+- `focusedImageId` in the store is **not cleared** — if it was set before entering selection mode, it persists for history snapshots and will become visible again on exit.
+- **However**, `focusedImageId` is commonly `null` in Selection Mode because selection clicks (`toggle`) do not set focus. The user enters selection mode by ticking (no focus set), selects more items, then changes sort — at that point `focusedImageId` is null and the **selection anchor** provides position preservation instead (see §4, "Position preservation on sort changes").
 - Arrow keys move per-row in Selection Mode (existing keyboard navigation behaviour kicks in when no visible focus exists — this Just Works).
 - Space key (S5+) toggles the cell at the current arrow-keyboard position. Shift+arrow (S5+) extends selection from anchor to the new arrow position.
-- On exit from Selection Mode (count drops to 0), the (still-set) `focusedImageId` becomes visible again — user finds focus exactly where they left it.
+- On exit from Selection Mode (count drops to 0), `focusedImageId` (if still set) becomes visible again — user finds focus exactly where they left it.
 
 This decision deliberately keeps the door closed on Lightroom-style non-modal selections in v1: a non-modal future would need focus and selection both visible simultaneously, which means revisiting this rule. Documented as a deviation from the always-on visual focus convention.
 

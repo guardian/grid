@@ -12,13 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-**No active task.** Selections feature (Phases S0–S6) shipped 3 May 2026; full
-narrative distilled into [`changelog.md`](changelog.md) under the
-"1–3 May 2026 — Selections feature complete" entry. Workplan archived to
-[`zz Archive/selections-workplan.md`](zz%20Archive/selections-workplan.md).
-
-All selections work uncommitted on branch `mk-next-next-next` awaiting one
-big commit.
+**No active task.**
 
 ## Session Log
 

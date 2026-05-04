@@ -14,6 +14,16 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 4 May 2026 — Selection anchor preserves position on sort changes
+
+**Problem:** Sort-around-focus preserves scroll position when the user has an explicit focus and changes sort/order. But when the user enters selection mode without prior explicit focus (the common case -- selection clicks toggle without setting focus), `focusedImageId` is null, the existing mechanism has nothing to preserve around, and sort changes reset to top.
+
+**Fix:** Two surgical additions:
+1. **`useUrlSearchSync.ts`** — After the existing `focusPreserveId` computation, added a fallback: if `focusPreserveId` is still null, `isSortOnly` is true, and selection mode is active with an anchor, use `anchorId` as both `focusPreserveId` and `phantomAnchor`. This routes through the existing `phantomOnly` search path — position is preserved without re-establishing explicit focus.
+2. **`useScrollEffects.ts` Effect #7** — The ratio-saving logic (`preserveId`) now also checks for `selectionAnchorId` between `focusedImageId` and `getViewportAnchorId()`, ensuring the viewport ratio is captured before the async search fires.
+
+No changes needed in `search-store.ts` or Effect #9 — the existing `_phantomFocusImageId` → `sortAroundFocusGeneration` → scroll-restore pipeline handles the anchor image identically to any other phantom positioning target.
+
 ### 3–4 May 2026 — Media-API read-only integration: groundwork (Phase 0 prep)
 
 **Scope:** No code features yet — this session laid the safety infrastructure, contract cleanup, and UI research needed before any API-first code is written.

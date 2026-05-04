@@ -34,6 +34,7 @@ import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
+import { useSelectionStore } from "@/stores/selection-store";
 import { devLog } from "@/lib/dev-log";
 
 /**
@@ -587,7 +588,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     //
     // Explicit focus: save the focused image's viewport ratio for
     // restoration by effect #9 after the buffer swap.
-    const preserveId = focusedImageId ?? (!sortOnly ? getViewportAnchorId() : null);
+    const selState = useSelectionStore.getState();
+    const selectionAnchorId = sortOnly && selState.selectedIds.size > 0 ? selState.anchorId : null;
+    const preserveId = focusedImageId ?? selectionAnchorId ?? (!sortOnly ? getViewportAnchorId() : null);
     if (preserveId) {
       const store = useSearchStore.getState();
       const gIdx = store.imagePositions.get(preserveId);

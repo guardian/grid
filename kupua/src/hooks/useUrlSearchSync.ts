@@ -281,6 +281,17 @@ export function useUrlSearchSync() {
       const isExplicitMode = getEffectiveFocusMode() === "explicit";
       phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
       focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor);
+
+      // Selection anchor fallback: when in selection mode with no explicit
+      // focus, treat the selection anchor as a phantom position-preservation
+      // target so sort changes don't reset to top.
+      if (!focusPreserveId && isSortOnly) {
+        const { anchorId, selectedIds } = useSelectionStore.getState();
+        if (selectedIds.size > 0 && anchorId) {
+          focusPreserveId = anchorId;
+          phantomAnchor = anchorId;
+        }
+      }
     }
 
     setPrevParamsSerialized(serialized);
