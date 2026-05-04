@@ -154,10 +154,10 @@ function formatDateShort(iso: string): string {
   }
 }
 
-/** Convert ISO string to YYYY-MM-DD for <input type="date"> */
+/** Convert ISO (UTC) string to YYYY-MM-DD in local time for <input type="date"> */
 function toDateInputValue(iso?: string): string {
   if (!iso) return "";
-  return iso.slice(0, 10);
+  return format(parseISO(iso), "yyyy-MM-dd");
 }
 
 /** Short field labels for the collapsed button display */
@@ -179,7 +179,7 @@ function buildButtonLabel(
 
   const parts: string[] = [fieldLabel];
   if (since && until) {
-    parts.push(`${formatDateShort(since)} — ${formatDateShort(until)}`);
+    parts.push(`${formatDateShort(since)}\u2013${formatDateShort(until)}`);
   } else if (since) {
     parts.push(`from ${formatDateShort(since)}`);
   } else if (until) {
@@ -327,7 +327,8 @@ export function DateFilter() {
 
   const handleFromChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+      const value = e.target.value; // YYYY-MM-DD (local time from picker)
+      // Interpret as local midnight, then convert to UTC for the URL/query.
       setDraftSince(value ? new Date(value + "T00:00:00").toISOString() : undefined);
     },
     []
@@ -335,7 +336,8 @@ export function DateFilter() {
 
   const handleToChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+      const value = e.target.value; // YYYY-MM-DD (local time from picker)
+      // Interpret as local end-of-day, then convert to UTC for the URL/query.
       setDraftUntil(
         value
           ? new Date(value + "T23:59:59.999").toISOString()

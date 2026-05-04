@@ -14,6 +14,17 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 May 2026 — Date filter timezone fix, em dash → en dash
+
+**Date filter timezone round-trip bug:** The picker is always local time; the URL is always UTC. Writing was correct (`new Date(value + "T00:00:00").toISOString()` creates local midnight → converts to UTC). But *reading* was wrong: `toDateInputValue` did `iso.slice(0, 10)`, which takes the date portion of the UTC string — for any timezone ahead of UTC, this is the previous day. Fix: use `format(parseISO(iso), "yyyy-MM-dd")` (date-fns, already imported) which formats in local time, so the picker always shows what the user originally picked.
+
+Invariants after fix:
+- Picker ↔ local time always (user sees their local date, writes their local date)
+- URL ↔ UTC always (portable across timezones, correct for ES queries)
+- Presets ("Today", "Past 24 hours") still write UTC via `.toISOString()` — display may show different local dates for users in different timezones, which is correct (they share the same absolute time bound)
+
+**Em dash → en dash:** Date range label in the filter button used em dash (`—`) between dates. Changed to en dash (`\u2013`) — typographically correct for ranges.
+
 ### 4 May 2026 — Cosmetic fixes, Detail panel bug, dependency update
 
 **Detail panel in phantom mode:** Fixed bug where selecting a single image in "click to open" (phantom) mode still showed "Focus an image to see its metadata." The `effectiveMode === "phantom"` check was bailing out entirely, preventing `singleSelectedId` from being resolved. Fix: moved phantom guard into the `resolvedId` ternary — phantom suppresses `focusedImageId` fallback but not single-selection display.
