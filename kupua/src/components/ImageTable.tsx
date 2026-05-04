@@ -64,13 +64,14 @@ const columnHelper = createColumnHelper<Image>();
  * data-cql-key/data-cql-value (delegated click handling in the table).
  */
 function listCellRenderer(field: FieldDefinition) {
+  const accent = field.pillVariant === "accent";
   return (image: Image) => {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return "—";
     return (
       <span className="inline-flex flex-nowrap gap-0.5 overflow-hidden" style={{ contain: "layout" }}>
         {values.map((v, i) => (
-          <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} />
+          <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} accent={accent} />
         ))}
       </span>
     );

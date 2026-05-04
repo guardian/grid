@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 4 May 2026 — Labels
+
+Added labels (`image.userMetadata.labels`) to all Kupua surfaces.
+
+**Field registry:** New `labels` field — `group: "editorial"`, `cqlKey: "label"`, `esSearchPath: "userMetadata.labels"`, `isList: true`, `multiSelectBehaviour: "chip-array"`, `pillVariant: "accent"`. Default visible in table. Positioned above keywords in registry order so it appears first in all metadata views. Added `"editorial"` to `FieldGroup` union.
+
+**Pill variant system:** Added `pillVariant?: "default" | "accent"` to `FieldDefinition`. Extracted shared class constants (`PILL_BASE`, `PILL_DEFAULT`, `PILL_ACCENT`, `PILL_PARTIAL`) in `SearchPill.tsx`. All three pill components (`SearchPill`, `DataSearchPill`, `MultiSearchPill`) gained an `accent?: boolean` prop. Accent = `bg-grid-accent text-white` (Guardian blue `#00adee`), matching Kahuna's label colour. Partial pills (multi-select, on some but not all) stay grey/hollow regardless of accent.
+
+**Grid cells:** Label pills rendered between thumbnail and description in a fixed-height (`h-6`) strip — always reserved so descriptions align across cells regardless of labels. `flex-nowrap overflow-hidden` prevents spill. Individual pills get `truncate max-w-full` for long labels. Click triggers search via `useMetadataSearch()` with `stopPropagation` to avoid cell click/focus interference. Same shift/alt modifier pattern as all other click-to-search.
+
+**Table / panels:** `listCellRenderer` threads `pillVariant` to `DataSearchPill`. `FieldValue` (single-image) and `MultiImageMetadata` (multi-select) thread it to `SearchPill` / `MultiSearchPill` respectively. Facet filters work automatically from the registry.
+
+**ES source whitelist:** Added `"userMetadata.labels"` to `SOURCE_INCLUDES` in `es-config.ts` — without this, ES had the data but `_source` filtering stripped it from responses.
+
+**CQL:** `#` shorthand for `label:` was already wired in `cql.ts` and `CqlSearchInput.tsx` — no changes needed.
+
+Files changed: `field-registry.ts`, `SearchPill.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`, `metadata-primitives.tsx`, `MultiImageMetadata.tsx`, `es-config.ts`.
+
 ### 4 May 2026 — Selection anchor preserves position on sort changes
 
 **Problem:** Sort-around-focus preserves scroll position when the user has an explicit focus and changes sort/order. But when the user enters selection mode without prior explicit focus (the common case -- selection clicks toggle without setting focus), `focusedImageId` is null, the existing mechanism has nothing to preserve around, and sort changes reset to top.

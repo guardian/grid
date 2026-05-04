@@ -205,10 +205,11 @@ export function FieldValue({
   if (field.isList) {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return null;
+    const accent = field.pillVariant === "accent";
     return (
       <div className="flex flex-wrap gap-1 pt-0.5">
         {values.map((v) => (
-          <SearchPill key={v} cqlKey={field.cqlKey!} value={v} onSearch={onSearch} />
+          <SearchPill key={v} cqlKey={field.cqlKey!} value={v} onSearch={onSearch} accent={accent} />
         ))}
       </div>
     );

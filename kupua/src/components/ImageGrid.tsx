@@ -40,6 +40,8 @@ import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEf
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Tickbox } from "@/components/Tickbox";
+import { PILL_ACCENT } from "@/components/SearchPill";
+import { useMetadataSearch } from "@/components/metadata-primitives";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -128,6 +130,8 @@ interface GridCellProps {
   onCellClick: (imageId: string, e: React.MouseEvent) => void;
   onCellDoubleClick: (imageId: string) => void;
   onTickClick: (imageId: string, e: React.MouseEvent) => void;
+  /** Label pill click → search. StopPropagation handled inside GridCell. */
+  onLabelSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
   /** Desktop only: set by ImageGrid when IS_COARSE_POINTER is false. */
   draggable?: boolean;
   /** Desktop only: dragstart handler passed from ImageGrid. */
@@ -143,6 +147,7 @@ const GridCell = memo(function GridCell({
   onCellClick,
   onCellDoubleClick,
   onTickClick,
+  onLabelSearch,
   draggable,
   onDragStart,
 }: GridCellProps) {
@@ -160,6 +165,7 @@ const GridCell = memo(function GridCell({
   const descTooltip = buildDescriptionTooltip(image);
   const dateTooltip = buildDateTooltip(image);
   const description = image.metadata?.description || image.metadata?.title || "";
+  const labels = image.userMetadata?.labels;
 
   return (
     <div
@@ -201,6 +207,25 @@ const GridCell = memo(function GridCell({
             <span className="text-grid-text-dim text-sm">No thumbnail</span>
           </div>
         )}
+      </div>
+
+      {/* Labels — accent-blue pills below image, above description (matches Kahuna).
+           Fixed height (h-6) reserved even when empty so descriptions align across cells. */}
+      <div className="flex flex-nowrap gap-1 px-2 pt-1 overflow-hidden h-6 select-none">
+        {labels && labels.length > 0 && labels.map((l) => (
+          <button
+            key={l}
+            type="button"
+            className={PILL_ACCENT + " shrink-0 max-w-full truncate"}
+            title={l}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLabelSearch("label", l, e);
+            }}
+          >
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* Metadata — same background as cell, no separate strip */}
@@ -446,6 +471,9 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       JSON.stringify(ids.map((id) => ({ data: { id } }))),
     );
   }, []);
+
+  // Label pill click → search. Same click/shift/alt pattern as metadata panel.
+  const handleLabelSearch = useMetadataSearch();
 
   useLongPress({
     containerRef: parentRef,
@@ -693,6 +721,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
                     onCellClick={handleCellClick}
                     onCellDoubleClick={handleCellDoubleClick}
                     onTickClick={handleTickClick}
+                    onLabelSearch={handleLabelSearch}
                     draggable={IS_COARSE_POINTER ? undefined : true}
                     onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
                   />

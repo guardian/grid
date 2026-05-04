@@ -208,6 +208,7 @@ function renderField(
                 count={chip.count}
                 total={rec.total}
                 partial={chip.count < rec.total}
+                accent={field.pillVariant === "accent"}
                 onSearch={onSearch}
               />
             ))}

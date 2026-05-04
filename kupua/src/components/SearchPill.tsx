@@ -18,6 +18,21 @@
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 
 // ---------------------------------------------------------------------------
+// Shared Tailwind class strings for pill variants
+// ---------------------------------------------------------------------------
+
+const PILL_BASE = "inline-flex items-center px-1.5 py-0 rounded-sm text-xs cursor-pointer transition-colors leading-snug";
+
+const PILL_DEFAULT = `${PILL_BASE} bg-grid-cell-hover/60 text-grid-text hover:bg-grid-accent/20 hover:text-grid-accent`;
+
+const PILL_ACCENT = `${PILL_BASE} bg-grid-accent text-white hover:bg-grid-accent-light hover:text-white`;
+
+/** Exported for direct use in grid cell label rendering. */
+export { PILL_ACCENT };
+
+const PILL_PARTIAL = `${PILL_BASE} border border-grid-cell-hover text-grid-text-dim bg-transparent hover:border-grid-accent hover:text-grid-accent`;
+
+// ---------------------------------------------------------------------------
 // SearchPill -- for use in ImageMetadata (direct callback)
 // ---------------------------------------------------------------------------
 
@@ -28,16 +43,18 @@ interface SearchPillProps {
   cqlKey: string;
   /** Callback fired on click -- receives cqlKey, value, and the event. */
   onSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
+  /** Accent variant (Guardian blue bg) — used for labels. */
+  accent?: boolean;
 }
 
-export function SearchPill({ value, cqlKey, onSearch }: SearchPillProps) {
+export function SearchPill({ value, cqlKey, onSearch, accent }: SearchPillProps) {
   return (
     <button
       type="button"
-      className="inline-flex items-center px-1.5 py-0 rounded-sm text-xs
-                 bg-grid-cell-hover/60 text-grid-text
-                 hover:bg-grid-accent/20 hover:text-grid-accent
-                 cursor-pointer transition-colors leading-snug"
+      className={accent
+        ? PILL_ACCENT
+        : PILL_DEFAULT
+      }
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${value}\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
@@ -55,6 +72,8 @@ interface DataSearchPillProps {
   cqlKey: string;
   /** Optional: marks chip as partial (on some but not all images). */
   partial?: boolean;
+  /** Accent variant (Guardian blue bg) — used for labels. */
+  accent?: boolean;
 }
 
 /**
@@ -68,16 +87,17 @@ export function DataSearchPill({
   value,
   cqlKey,
   partial,
+  accent,
 }: DataSearchPillProps) {
   return (
     <span
       data-cql-key={cqlKey}
       data-cql-value={value}
       data-partial={partial ? "true" : undefined}
-      className="inline-flex items-center shrink-0 px-1.5 py-0 rounded-sm text-xs
-                 bg-grid-cell-hover/60 text-grid-text
-                 hover:bg-grid-accent/20 hover:text-grid-accent
-                 cursor-pointer transition-colors leading-snug"
+      className={accent
+        ? PILL_ACCENT + " shrink-0"
+        : PILL_DEFAULT + " shrink-0"
+      }
     >
       {value}
     </span>
@@ -97,6 +117,8 @@ interface MultiSearchPillProps {
   total: number;
   /** True when value appears on some but not all selected images. */
   partial: boolean;
+  /** Accent variant (Guardian blue bg) — used for labels. */
+  accent?: boolean;
   onSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
 }
 
@@ -111,17 +133,17 @@ export function MultiSearchPill({
   count,
   total,
   partial,
+  accent,
   onSearch,
 }: MultiSearchPillProps) {
+  const cls = partial
+    ? PILL_PARTIAL  // partial is always grey/hollow regardless of accent
+    : accent ? PILL_ACCENT : PILL_DEFAULT;
   return (
     <button
       type="button"
       data-partial={partial ? "true" : undefined}
-      className={
-        partial
-          ? "inline-flex items-center px-1.5 py-0 rounded-sm text-xs border border-grid-cell-hover text-grid-text-dim bg-transparent cursor-pointer transition-colors leading-snug hover:border-grid-accent hover:text-grid-accent"
-          : "inline-flex items-center px-1.5 py-0 rounded-sm text-xs bg-grid-cell-hover/60 text-grid-text hover:bg-grid-accent/20 hover:text-grid-accent cursor-pointer transition-colors leading-snug"
-      }
+      className={cls}
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${value} (on ${count} of ${total})\nShift+click to add, ${ALT_CLICK} to exclude`}
     >

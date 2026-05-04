@@ -42,6 +42,7 @@ type FieldType = "keyword" | "text" | "date" | "integer" | "composite" | "list";
 type FieldGroup =
   | "core"           // always-relevant fields (credit, byline, description)
   | "dates"          // date/time fields
+  | "editorial"      // user-supplied metadata (labels, photoshoot)
   | "technical"      // dimensions, file type, colour model, filename
   | "rights"         // usage rights, category
   | "location"       // subLocation, city, state, country
@@ -195,6 +196,12 @@ export interface FieldDefinition {
    * True for keyword fields, false for text-only fields.
    */
   aggregatable?: boolean;
+
+  /**
+   * Visual variant for pill rendering. "accent" uses bg-grid-accent
+   * (Guardian blue) instead of the default grey. Used for labels.
+   */
+  pillVariant?: "default" | "accent";
 
   // -- Multi-select (S4) ----------------------------------------------------
 
@@ -612,6 +619,26 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "text",
     multiSelectBehaviour: "reconcile",
     showWhenEmpty: false,
+  },
+
+  // -- Editorial (user-supplied) --------------------------------------------
+  {
+    id: "labels",
+    label: "Labels",
+    group: "editorial",
+    accessor: (img) => img.userMetadata?.labels,
+    rawValue: (img) => img.userMetadata?.labels?.join(", "),
+    cqlKey: "label",
+    esSearchPath: "userMetadata.labels",
+    detailLayout: "stacked",
+    detailGroup: "editorial", // Own section before keywords
+    defaultWidth: 200,
+    fieldType: "list",
+    isList: true,
+    aggregatable: true,
+    multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
+    pillVariant: "accent",
   },
 
   // -- Keywords -------------------------------------------------------------

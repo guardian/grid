@@ -92,6 +92,7 @@ export const SOURCE_INCLUDES = [
   "metadata.suppliersReference",
   "metadata.bylineTitle",
   "metadata.keywords",
+  "userMetadata.labels",
   "source.size",
   "source.mimeType",
   "source.orientationMetadata",
