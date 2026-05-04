@@ -523,19 +523,22 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // If the buffer is windowed and not at the end, seek to the last position
             const bufOff = c.bufferOffset ?? 0;
             if (c.seek && bufOff + c.resultsLength < c.total) {
-              if (hasFocus) {
-                useSearchStore.setState({ _pendingFocusAfterSeek: "last" });
-              }
+              // Always signal "last" so effect #6 scrolls to the end.
+              // Focus is only set if focusedImageId was already set.
+              useSearchStore.setState({ _pendingFocusAfterSeek: "last" });
               c.seek(Math.max(0, c.total - 1));
             } else {
+              // Use virtualizer.scrollToIndex — raw el.scrollHeight includes
+              // the in-flow sticky header height, causing max scroll to
+              // overshoot past the last row.
+              const count = c.virtualizerCount;
+              c.virtualizer.scrollToIndex(count - 1, { align: "end" });
               const el = c.scrollRef.current;
               if (el) {
-                el.scrollTop = el.scrollHeight - el.clientHeight;
                 el.dispatchEvent(new Event("scroll"));
               }
               // Focus last image only if something was already focused
               if (hasFocus) {
-                const count = c.virtualizerCount;
                 const scanFrom = Math.max(0, count - 50);
                 for (let i = count - 1; i >= scanFrom; i--) {
                   const img = c.getImage(i);

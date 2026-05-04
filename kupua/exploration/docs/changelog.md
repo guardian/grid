@@ -14,6 +14,26 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 May 2026 — End key: last row not fully revealed
+
+**Three bugs, two root causes, across all three scroll modes.**
+
+End key was supposed to scroll the last row into view (and focus it if focus was active). In practice the last row was partially or fully hidden behind the bottom of the viewport in all three modes (<1k scroll, two-tier, seek/1.3M), and in Chrome+seek the view would corrupt entirely.
+
+**Root cause 1 (<1k and two-tier):** The End handler used `el.scrollTop = el.scrollHeight - el.clientHeight`. This looks correct but isn't — the in-flow sticky table header adds ~41px to `scrollHeight` beyond `virtualizer.getTotalSize()`, so max scrollTop overshoots past the last row. Fix: use `virtualizer.scrollToIndex(count - 1, { align: "end" })` instead, which uses the virtualizer's internal positioning and accounts for `scrollPaddingEnd`.
+
+**Root cause 2 (seek mode, Chrome only):** After a seek-to-end, a `useEffect` watching `[bufferOffset, resultsLength]` fires `handleScroll()` to sync the scrubber. In Chrome, this effect fires ~170ms after the seek's `set()` — after the 100ms `SEEK_COOLDOWN_MS` has expired. It reads a stale virtualizer range (`startIndex=0` from the old `scrollTop=0`), sees `startIndex <= EXTEND_THRESHOLD && offset > 0`, and triggers `extendBackward`. The prepend shifts scroll by ~6400px, corrupting the position entirely. Firefox's faster render pipeline (~66ms) keeps it within cooldown, so this was Chrome-only.
+
+Fix: added a `seekGeneration` ref to the effect. When `_seekGeneration` has changed since last fire, the effect updates its ref and skips — effect #6's deferred scroll already handles post-seek positioning. On subsequent fires (from normal scrolling), generations match and `handleScroll()` runs normally.
+
+**Additionally:** The seek branch of End previously only set `_pendingFocusAfterSeek: "last"` when focus was active. But effect #6 (which handles `_pendingFocusAfterSeek`) also does the scroll positioning — without the signal, it never ran, leaving the viewport at `scrollTop=0`. Fix: always set `_pendingFocusAfterSeek: "last"` on End-seek, but guard the actual `focusedImageId` write inside effect #6 with `if (store.focusedImageId)`. Same treatment applied to `"first"` (Home) for symmetry, though Home already worked.
+
+**Risk note:** The `seekGeneration` guard suppresses one `handleScroll` fire per seek. This is the right thing to do (the stale-range fire was always wrong, not just for End key), but the scroll machinery is delicate — any timing change in how effects interleave could surface edge cases that 231 e2e tests and 626 unit tests don't cover. The guard is narrowly scoped (one ref, one comparison, one skip) to minimise blast radius.
+
+**Same root cause, different trigger — density switch:** Pressing End in grid mode then switching to table also left the last row hidden. The density-switch restore path used the same `el.scrollTop = el.scrollHeight - el.clientHeight` pattern to snap to the bottom extremum. Fix: replaced with `virtualizer.scrollToIndex(count - 1, { align: "end" })`, same as the End handler fix. E2e assertion tightened from `> maxScroll * 0.5` to `>= maxScroll - 1` to catch the ~40px overshoot.
+
+Files changed: `useListNavigation.ts` (End handler), `useScrollEffects.ts` (seekGen guard + effect #6 focus guards + density-switch extremum snap), `scrubber.spec.ts` (tightened assertion).
+
 ### 5 May 2026 — Date filter timezone fix, em dash → en dash
 
 **Date filter timezone round-trip bug:** The picker is always local time; the URL is always UTC. Writing was correct (`new Date(value + "T00:00:00").toISOString()` creates local midnight → converts to UTC). But *reading* was wrong: `toDateInputValue` did `iso.slice(0, 10)`, which takes the date portion of the UTC string — for any timezone ahead of UTC, this is the previous day. Fix: use `format(parseISO(iso), "yyyy-MM-dd")` (date-fns, already imported) which formats in local time, so the picker always shows what the user originally picked.

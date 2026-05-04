@@ -2406,12 +2406,12 @@ test.describe("Density switch without focus — viewport anchor", () => {
     const gridAfterEnd = await getViewState(kupua.page);
     expect(gridAfterEnd!.scrollTop).toBeGreaterThan(gridAfterEnd!.maxScroll * 0.5);
 
-    // Grid → table: should be near bottom
+    // Grid → table: should be AT the bottom (can't scroll further)
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(800);
 
     const tableAfter = await getViewState(kupua.page);
-    expect(tableAfter!.scrollTop).toBeGreaterThan(tableAfter!.maxScroll * 0.5);
+    expect(tableAfter!.scrollTop).toBeGreaterThanOrEqual(tableAfter!.maxScroll - 1);
   });
 
   test("seek 50% in table → grid → table round-trip is stable", async ({ kupua }) => {

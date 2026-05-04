@@ -366,8 +366,18 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     };
   }, [handleScroll, parentRef]);
 
-  // Re-fire after buffer changes (Scrubber thumb sync)
+  // Re-fire after buffer changes (Scrubber thumb sync).
+  // Guard: skip the first fire after a seek — the stale virtualizer range would
+  // trigger a spurious extendBackward (Chrome-only, render pipeline > cooldown).
+  const seekGenForHandleScrollRef = useRef(
+    useSearchStore.getState()._seekGeneration,
+  );
   useEffect(() => {
+    const gen = useSearchStore.getState()._seekGeneration;
+    if (gen !== seekGenForHandleScrollRef.current) {
+      seekGenForHandleScrollRef.current = gen;
+      return;
+    }
     handleScroll();
   }, [bufferOffset, resultsLength, handleScroll]);
 
@@ -511,17 +521,25 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (pendingFocus) {
       const store = useSearchStore.getState();
       if (pendingFocus === "first") {
-        const firstImg = store.results[0];
-        if (firstImg) useSearchStore.setState({ focusedImageId: firstImg.id });
+        if (store.focusedImageId) {
+          const firstImg = store.results[0];
+          if (firstImg) useSearchStore.setState({ focusedImageId: firstImg.id });
+        }
+        virtualizerRef.current.scrollToIndex(0, { align: "start" });
       } else {
-        // "last" — scan backwards for a non-placeholder image
-        for (let i = store.results.length - 1; i >= Math.max(0, store.results.length - 50); i--) {
-          const img = store.results[i];
-          if (img) {
-            useSearchStore.setState({ focusedImageId: img.id });
-            break;
+        // Focus last image only if something was already focused
+        if (store.focusedImageId) {
+          for (let i = store.results.length - 1; i >= Math.max(0, store.results.length - 50); i--) {
+            const img = store.results[i];
+            if (img) {
+              useSearchStore.setState({ focusedImageId: img.id });
+              break;
+            }
           }
         }
+        // Scroll last row into view via the virtualizer
+        const count = virtualizerRef.current.options.count;
+        virtualizerRef.current.scrollToIndex(count - 1, { align: "end" });
       }
       useSearchStore.setState({ _pendingFocusAfterSeek: null });
     }
@@ -897,7 +915,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           if (saved.sourceMaxScroll > 0 &&
               saved.sourceMaxScroll - saved.sourceScrollTop < GRID_ROW_HEIGHT) {
             devLog(`[density-focus RESTORE] extremum snap → maxScroll=${targetMaxScroll} (source was at bottom: scrollTop=${saved.sourceScrollTop} maxScroll=${saved.sourceMaxScroll} gap=${saved.sourceMaxScroll - saved.sourceScrollTop})`);
-            el.scrollTop = targetMaxScroll;
+            virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
             clearDensityFocusRatio();
             return;
           }
