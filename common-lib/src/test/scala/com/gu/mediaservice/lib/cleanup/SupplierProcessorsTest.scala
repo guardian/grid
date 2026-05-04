@@ -375,6 +375,349 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.source should be(None)
     }
 
+    it("should strip '(Photo by Byline/Credit)' from description when byline and credit match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "description" -> "PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot."))
+    }
+
+    it("should strip '(Photo by Byline / Credit)' when credit uses 'via' separator") {
+      val image = createImageFromMetadata(
+        "credit" -> "AFP/Getty Images",
+        "byline" -> "Dimitar Dilkoff",
+        "description" -> "A dress displayed during the exhibition. (Photo by Dimitar DILKOFF / AFP via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A dress displayed during the exhibition."))
+    }
+
+    it("should strip '(Photo by Byline/Credit)' with punctuation differences in byline") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Jared C Tilton",
+        "description" -> "Pierceson Coody plays a shot. (Photo by Jared C. Tilton/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Pierceson Coody plays a shot."))
+    }
+
+    it("should not strip '(Photo by ...)' when byline does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Someone Else",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
+    it("should not strip '(Photo by ...)' when credit does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Reuters",
+        "byline" -> "David Cannon",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
+    it("should strip '(Photo by ...)' but preserve trailing content like ***BESTPIX***") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Johnnie Izquierdo",
+        "description" -> "Alex Condon fouled by Collin Chandler during the second half. (Photo by Johnnie Izquierdo/Getty Images) ***BESTPIX***"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Alex Condon fouled by Collin Chandler during the second half. ***BESTPIX***"))
+    }
+
+    it("should strip location-date prefix when city and country match and date matches") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Belgrade",
+        "country" -> "Serbia",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
+    }
+
+    it("should strip location-date prefix but preserve leading content like ***BESTPIX***") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "***BESTPIX*** LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("***BESTPIX*** Catherine, Princess of Wales leaves after a visit."))
+    }
+
+    it("should strip location-date prefix when only one location matches (Turkiye vs Turkey)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Istanbul",
+        "country" -> "Turkey",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "ISTANBUL, TURKIYE - MARCH 13: Fenerbahce players react after losing the match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Fenerbahce players react after losing the match."))
+    }
+
+    it("should strip location-date prefix with case-insensitive location matching") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Alkmaar",
+        "country" -> "Netherlands",
+        "dateTaken" -> "2026-03-12T20:26:43.000Z",
+        "description" -> "Alkmaar, Netherlands - March 12: Troy Parrott of AZ Alkmaar celebrates the late second goal."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Troy Parrott of AZ Alkmaar celebrates the late second goal."))
+    }
+
+    it("should strip location-date prefix with ±1 day timezone tolerance within same month") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Austin",
+        "state" -> "Texas",
+        "country" -> "United States",
+        "dateTaken" -> "2026-03-12T20:26:43.000Z",
+        "description" -> "AUSTIN, TX - MARCH 13: (L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("(L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."))
+    }
+
+    // Rare variations: some descriptions include year and/or use abbreviated months or dash terminators
+
+    it("should strip location-date prefix with 'MONTH DAY, YEAR:' format") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Catherine, Princess of Wales leaves after a visit."))
+    }
+
+    it("should strip location-date prefix with abbreviated month and 'MON DAY, YEAR - ' dash terminator") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2024-12-19T12:38:22.000Z",
+        "description" -> "LONDON, UNITED KINGDOM - DEC 19, 2024 - Fears that Soho Parish Primary School may close."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Fears that Soho Parish Primary School may close."))
+    }
+
+    it("should not strip location-date prefix when year in description does not match dateTaken") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-12T14:40:58.070Z",
+        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."))
+    }
+
+    it("should not strip location-date prefix when no location fields match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "London",
+        "country" -> "United Kingdom",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."))
+    }
+
+    it("should not strip location-date prefix when dateTaken does not match") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Belgrade",
+        "country" -> "Serbia",
+        "dateTaken" -> "2026-01-01T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."))
+    }
+
+    it("should apply both Photo by and location-date prefix cleanup together") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "city" -> "Ponte Vedra Beach",
+        "state" -> "Florida",
+        "country" -> "United States",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot on the 15th hole. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Chris Gotterup plays his tee shot on the 15th hole."))
+    }
+
+    it("should fix misplaced byline and clean description when byline is actually a credit component (Anadolu)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Anadolu",
+        "description" -> "Some event. (Photo by Filip Stevanovic/Anadolu via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Filip Stevanovic"))
+      processedImage.metadata.credit should be(Some("Anadolu/Getty Images"))
+      processedImage.metadata.description should be(Some("Some event."))
+    }
+
+    it("should fix misplaced byline and clean description when byline is actually a credit component (VCG)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "VCG",
+        "description" -> "A scene. (Photo by Ye Huan/VCG via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Ye Huan"))
+      processedImage.metadata.credit should be(Some("VCG/Getty Images"))
+      processedImage.metadata.description should be(Some("A scene."))
+    }
+
+    it("should not fix byline when it already matches the description byline") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "David Cannon",
+        "description" -> "A shot. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("David Cannon"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
+      processedImage.metadata.description should be(Some("A shot."))
+    }
+
+    it("should not fix byline when prepending it to credit does not match description credits") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Someone Else",
+        "description" -> "A photo. (Photo by David Cannon/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Someone Else"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
+      processedImage.metadata.description should be(Some("A photo. (Photo by David Cannon/Getty Images)"))
+    }
+
+    it("should clean extracted byline with InitialJoiner (C.P. Scott → CP Scott)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "SomeAgency",
+        "description" -> "A photo. (Photo by C.P. Scott/SomeAgency via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("CP Scott"))
+      processedImage.metadata.credit should be(Some("SomeAgency/Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
+    it("should clean extracted byline with CapitaliseByline (MIKE VAN DIEM → Mike van Diem)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "SomeAgency",
+        "description" -> "A photo. (Photo by MIKE VAN DIEM/SomeAgency via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Mike van Diem"))
+      processedImage.metadata.credit should be(Some("SomeAgency/Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
+    it("should clean extracted byline with PhotographerRenamer and match despite diacritics (Behcet → Behçet)") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Behçet Alkan",
+        "description" -> "A photo. (Photo by Behcet Alkan/Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Behçet Alkan"))
+      processedImage.metadata.credit should be(Some("Getty Images"))
+      processedImage.metadata.description should be(Some("A photo."))
+    }
+
+    it("should handle '(Photo credit should read ...)' variant and apply all cleanup logic") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "byline" -> "Future Publishing",
+        "description" -> "An event. (Photo credit should read Matthew Chattle/Future Publishing via Getty Images)"
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.byline should be(Some("Matthew Chattle"))
+      processedImage.metadata.credit should be(Some("Future Publishing/Getty Images"))
+      processedImage.metadata.description should be(Some("An event."))
+    }
+
   }
 
   describe("PA") {
