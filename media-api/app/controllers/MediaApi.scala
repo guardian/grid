@@ -1,14 +1,13 @@
 package controllers
 
-import org.apache.pekko.stream.scaladsl.StreamConverters
+import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import com.google.common.net.HttpHeaders
-import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
-import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
+import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ImageIds, S3, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -16,9 +15,11 @@ import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
+import com.gu.mediaservice.{GridClient, JsonDiff}
 import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
+import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.http.HttpEntity
@@ -26,10 +27,9 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
 
-import scala.jdk.CollectionConverters._
 import java.net.URI
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -50,6 +50,15 @@ class MediaApi(
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
+
+  // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
+  // concurrent requests for the same query share a single in-flight Bedrock call, and
+  // subsequent requests within the TTL window skip Bedrock entirely.
+  private val embeddingCache: AsyncLoadingCache[String, List[Float]] = Scaffeine()
+    .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
+    .buildAsyncFuture((normQuery: String) =>
+      embedder.createQueryEmbedding(normQuery)(MarkerMap())
+    )
 
   private val searchParamList = List(
     "q",
@@ -564,47 +573,102 @@ class MediaApi(
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
-    if (_searchParams.useAISearch.contains(true)) {
+    sealed trait AiSearchMode
+    case class TextSearch(query: String) extends AiSearchMode
+    case class SimilarSearch(imageId: String) extends AiSearchMode
 
-      val imageIdsFuture: Future[ImageIds] = _searchParams.query match {
+    def parseAiSearchMode(query: String): AiSearchMode = {
+      query
+        .split("\\s+")
+        .find(_.startsWith("similar:"))
+        .flatMap(_.split(":", 2).lift(1).filter(_.nonEmpty))
+        .map(SimilarSearch)
+        .getOrElse(TextSearch(query))
+    }
+
+    def emptyAiSearchResponse =
+      Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+
+    def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
+      val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
+      respondCollection(
+        data = imageEntities,
+        offset = Some(0),
+        total = Some(searchResults.total),
+        maybeExtraCounts = None,
+        links = Nil
+      )
+    }
+
+    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+      for {
+        maybeImage <- elasticSearch.getImageById(imageId)
+        maybeEmbedding = maybeImage
+          .filter(image => isVisibleToAccessor(request.user, image))
+          .flatMap(_.embedding)
+          .flatMap(_.cohereEmbedV4)
+          .map(_.image.map(_.toFloat))
+        searchResults <- maybeEmbedding match {
+          // If we have an embedding, perform the KNN search. If not, return an empty result set.
+          case Some(embedding) =>
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+          case None =>
+            Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+        }
+      } yield searchResults
+    }
+
+    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
+      // Normalise key so that "Dogs" and "dogs " share a cache entry.
+      val cacheKey = query.trim.toLowerCase
+
+      val markers = logMarker ++ Map("query" -> query)
+
+      if (embeddingCache.getIfPresent(cacheKey).isDefined) {
+        logger.info(markers, s"AI search embedding cache hit query=$query")
+      } else {
+        logger.info(markers, s"AI search embedding cache miss query=$query")
+      }
+
+      // cache.get(key) is atomic: if two requests race on the same key, only one
+      // load fires and both callers receive the same Future.
+      val embeddingFuture = embeddingCache.get(cacheKey)
+
+      for {
+        embedding <- embeddingFuture
+        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+      } yield searchResults
+    }
+
+    def performAiSearchAndRespond(query: String): Future[Result] = {
+      val k = 200
+      val searchResultsFuture = parseAiSearchMode(query) match {
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
+      }
+
+      searchResultsFuture.map(aiSearchResponseFromResults)
+    }
+
+    if (_searchParams.useAISearch.contains(true)) {
+      _searchParams.query match {
+        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
+        case _ if _searchParams.length == 0 =>
+          emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          // Check if it's an image-to-image similarity search
-          q.split(" ").find(_.startsWith("similar:")) match {
-            case Some(similarQuery) =>
-              val extractedImageId = similarQuery.split(":")(1)
-              embedder.imageToImageSearch(extractedImageId)
-            case None => embedder.createEmbeddingAndSearch(q)
-          }
+          performAiSearchAndRespond(q)
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
-        case _ => Future(ImageIds(Nil))
-      }
-
-      imageIdsFuture.flatMap { case ImageIds(ids) =>
-        SearchParams(
-          query = _searchParams.query,
-          ids = Some(ids),
-          tier = request.user.accessor.tier,
-        )
-
-        for {
-          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-          imageEntities = hits map (hitToImageEntity _).tupled
-          links = List()
-        } yield {
-          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
-        }
+        case _ =>
+          emptyAiSearchResponse
       }
     } else {
-
-      val searchParams = if(canViewDeletedImages) {
+      val searchParams = if (canViewDeletedImages) {
         _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      }
-      else {
+      } else {
         _searchParams
       }
-
       SearchParams.validate(searchParams).fold(
         // TODO: respondErrorCollection?
         errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,

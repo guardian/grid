@@ -76,6 +76,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
 
+  val aiSearchEmbeddingCacheMaxSize: Int = intOpt("ai.search.embeddingCache.maxSize").getOrElse(500)
+
   val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
     filters.or(
       ingredients.flatMap {
