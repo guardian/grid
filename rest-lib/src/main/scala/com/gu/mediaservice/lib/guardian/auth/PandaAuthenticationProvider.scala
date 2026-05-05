@@ -34,8 +34,6 @@ class PandaAuthenticationProvider(
   override def wsClient: WSClient = resources.wsClient
   override def controllerComponents: ControllerComponents = resources.controllerComponents
 
-  override def apiGracePeriod: Long = Duration(24, HOURS).toMillis
-
   val loginLinks = List(
     Link("login", resources.commonConfig.services.loginUriTemplate)
   )

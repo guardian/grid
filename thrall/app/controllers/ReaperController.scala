@@ -17,6 +17,8 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import scalaz.NonEmptyList
 
+import java.time.format.DateTimeFormatter
+import java.time.{ZoneId, ZonedDateTime}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -66,7 +68,7 @@ class ReaperController(
         interval = INTERVAL,
       ){ () =>
         try {
-          if (store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+          if (store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
             logger.info("Reaper is paused")
             es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
             es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
@@ -102,14 +104,16 @@ class ReaperController(
     }
   }
 
-  private def s3DirNameFromDate(date: DateTime) = date.toString("YYYY-MM-dd")
+  private lazy val dateOnlyFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+  private def s3DirNameFromDate(date: ZonedDateTime) = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    .toString("YYYY-MM-dd")
 
   private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = config.maybeReaperBucket match {
     case None => Future.failed(new Exception("Reaper bucket not configured"))
     case Some(reaperBucket) => doBatchDelete.map { json =>
       val now = DateTime.now(DateTimeZone.UTC)
       val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-      store.client.putObject(reaperBucket, key, json.toString())
+      store.putObject(reaperBucket, key, json.toString())
       json
     }
   }
@@ -181,20 +185,21 @@ class ReaperController(
     }).map(Json.toJson(_))
   }
   def index = withLoginRedirect {
-    val now = DateTime.now(DateTimeZone.UTC)
+    val now = ZonedDateTime.now(ZoneId.of("UTC"))
+
     (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
     case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
     case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
-      val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
+      val isPaused = store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
-        store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
-          store.client.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
+        store.listObjects(reaperBucket, s"soft/$s3DirName/") ++
+          store.listObjects(reaperBucket, s"hard/$s3DirName/")
       }
 
       val recentRecordKeys = recentRecords
-        .filter(_.getLastModified after now.minusHours(48).toDate)
+        .filter(_.lastModified() isAfter now.minusHours(48).toDate)
         .sortBy(_.getLastModified)
         .reverse
         .map(_.getKey)

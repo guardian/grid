@@ -3,7 +3,6 @@ package controllers
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
-import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -32,6 +31,8 @@ import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
 import play.api.mvc._
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, NoSuchKeyException}
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
@@ -159,7 +160,7 @@ class ImageLoaderController(auth: Authentication,
 
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
-        if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
+        if (config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
           val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
@@ -170,8 +171,7 @@ class ImageLoaderController(auth: Authentication,
           }
           metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           Future.unit
-        }
-        else if (approximateReceiveCount > 2) {
+        } else if (approximateReceiveCount > 2) {
           metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
           val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
           logger.warn(logMarker, errorMessage)
@@ -183,10 +183,11 @@ class ImageLoaderController(auth: Authentication,
           }
           Future.unit
         } else {
-          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) map { digestedFile =>
+          attemptToProcessIngestedFile(s3IngestObject, isUiUpload)(logMarker) flatMap { digestedFile =>
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
+            Future.unit
           } recover {
             case _: UnsupportedMimeTypeException =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
@@ -558,7 +559,7 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  lazy val replicaS3: AmazonS3 = S3Ops.buildS3Client(config, maybeRegionOverride = Some("us-west-1"))
+  private lazy val replicaS3 = S3Ops.buildS3Client(config, maybeRegionOverride = Some(Region.US_WEST_1))
 
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
@@ -575,20 +576,28 @@ class ImageLoaderController(auth: Authentication,
       "requestId" -> RequestLoggingFilter.getRequestId(request)
     )
 
+    def doesObjectExist(bucket: String, key: String) =
+      try {
+        replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+        true
+      } catch {
+        case _: NoSuchKeyException => false
+      }
+
     Future {
       config.maybeImageReplicaBucket match {
         case _ if store.doesOriginalExist(imageId) =>
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))
-        case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
+        case Some(replicaBucket) if doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
           val s3Key = fileKeyFromId(imageId)
 
           logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
 
-          val replicaObject = replicaS3.getObject(replicaBucket, s3Key)
-          val metadata = S3FileExtractedMetadata(replicaObject.getObjectMetadata)
-          val stream = replicaObject.getObjectContent
+          val replicaObject = replicaS3.getObject(GetObjectRequest.builder().bucket(replicaBucket).key(s3Key).build())
+          val metadata = S3FileExtractedMetadata(replicaObject.response())
+          val stream = replicaObject
           val tempFile = createTempFile(s"restoringReplica-$imageId")
           val fos = new FileOutputStream(tempFile)
           try {
