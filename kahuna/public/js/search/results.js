@@ -229,11 +229,7 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        // Initial search to find upper `until` boundary of result set
-        // (i.e. the uploadTime of the newest result in the set)
-
-        // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
+        function initialiseResults(images) {
             ctrl.totalResults = images.total;
             // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
             ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
@@ -259,6 +255,15 @@ results.controller('SearchResultsCtrl', [
 
             imagesPositions = new Map();
 
+            if ($stateParams.useAISearch) {
+              images.data.forEach((image, index) => {
+                ctrl.imagesAll[index] = image;
+                imagesPositions.set(image.data.id, index);
+                results.set(index, image);
+              });
+              ctrl.images = images.data.slice(0, totalLength);
+            }
+
             checkForNewImages();
 
             // Keep track of time of the latest result for all
@@ -274,6 +279,18 @@ results.controller('SearchResultsCtrl', [
             }
 
             return images;
+          }
+
+          // Initial search to find upper `until` boundary of result set
+          // (i.e. the uploadTime of the newest result in the set)
+
+          // TODO: avoid this initial search (two API calls to init!)
+          ctrl.searched = search(
+            $stateParams.useAISearch
+              ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
+              : {length: 1, orderBy: 'newest'}
+          ).then(function(images) {
+            return initialiseResults(images);
         }).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
@@ -282,6 +299,10 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
+            if ($stateParams.useAISearch) {
+              return;
+            }
+
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
             // Update imagesAll with newly loaded images
