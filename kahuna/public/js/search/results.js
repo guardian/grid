@@ -75,7 +75,6 @@ function compact(array) {
 // rabbit-hole that doesn't seem to have any end. Hence this slightly
 // horrid global state.
 let lastSearchFirstResultTime;
-const aiSearchResultLimit = 200;
 
 results.controller('SearchResultsCtrl', [
     '$rootScope',
@@ -288,7 +287,7 @@ results.controller('SearchResultsCtrl', [
           // TODO: avoid this initial search (two API calls to init!)
           ctrl.searched = search(
             $stateParams.useAISearch
-              ? {offset: 0, length: aiSearchResultLimit}
+              ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
               : {length: 1, orderBy: 'newest'}
           ).then(function(images) {
             return initialiseResults(images);
