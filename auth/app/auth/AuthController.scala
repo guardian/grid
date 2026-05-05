@@ -8,9 +8,10 @@ import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents, Result}
+import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents, Result}
 
 import java.net.URI
+import java.time.Instant
 import java.util.Date
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -32,12 +33,16 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     respond(indexData, indexLinks)
   }
 
-  def cookieMonster = auth { request =>
+  // This allows us to force a reset on a users panda cookie for debug purposes
+  def cookieMonster: Action[AnyContent] = auth { request =>
     providers.userProvider match {
-      case panda: PandaAuthenticationProvider =>{
-        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = new Date().getTime)))
-        cookieBatter.fold(respond("Me want cookie."))(cookie => respond("Cookies are a sometimes food.").withCookies(cookie))
-      }
+      case panda: PandaAuthenticationProvider =>
+        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = Instant.now())))
+
+        cookieBatter match {
+          case Some(cookie) => respond("Cookies are a sometimes food.").withCookies(cookie)
+          case None => respond("Me want cookie.")
+        }
       case _ => respond("Me want cookie.")
     }
   }

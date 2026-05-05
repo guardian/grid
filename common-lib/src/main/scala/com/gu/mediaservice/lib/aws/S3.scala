@@ -9,7 +9,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsRequest, PutObjectRequest, S3Exception, S3Object => S3ObjectSummary}
+import software.amazon.awssdk.services.s3.model.{S3Object => S3ObjectSummary, _}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
@@ -68,7 +68,7 @@ object S3Metadata {
 
 case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[Instant])
 
-class S3(config: CommonConfig) extends GridLogging with ContentDisposition with RoundedExpiration {
+class S3(config: CommonConfig) extends GridLogging with ContentDisposition with RoundedExpiration with S3Ops {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
@@ -91,7 +91,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def getObject(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse] = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    client.getObject(new GetObjectRequest(bucket, key))
+    client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())
   }
 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
@@ -171,11 +171,63 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build()).metadata().asScala.toMap
 }
 
+trait S3Ops {
+  val client: S3Client
+
+  def doesObjectExist(bucket: String, key: String): Boolean =
+    try {
+      client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+      true
+    } catch {
+      case _: NoSuchKeyException => false
+    }
+
+  def getObject(bucket: String, key: String): ResponseInputStream[GetObjectResponse] = {
+    client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())
+  }
+
+  def copyObject(fromBucket: String, fromKey: String, toBucket: String, toKey: String): CopyObjectResponse = {
+    client.copyObject(CopyObjectRequest.builder()
+      .sourceBucket(fromBucket).sourceKey(fromKey)
+      .destinationBucket(toBucket).destinationKey(toKey)
+      .build()
+    )
+  }
+
+  def listObjects(bucket: String): Seq[S3ObjectSummary] = {
+    client.listObjectsV2(
+      ListObjectsV2Request.builder().bucket(bucket).build()
+    ).contents().asScala.toList
+  }
+
+  def listObjects(bucket: String, prefix: String): Seq[S3ObjectSummary] = {
+    client.listObjectsV2(
+      ListObjectsV2Request.builder().bucket(bucket).prefix(prefix).build()
+    ).contents().asScala.toList
+  }
+
+  def deleteObject(bucket: String, key: String): DeleteObjectResponse = {
+    client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build())
+  }
+
+  def putObject(bucket: String, key: String, contents: String): PutObjectResponse = {
+    client.putObject(
+      PutObjectRequest.builder().bucket(bucket).key(key).build(),
+      RequestBody.fromString(contents)
+    )
+  }
+}
+
 object S3Ops {
   // TODO make this localstack friendly
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
 
+  def apply(_client: S3Client): S3Ops = {
+    new S3Ops {
+      override val client: S3Client = _client
+    }
+  }
   def buildS3Client(
     config: CommonConfig,
     localstackAware: Boolean = true,
